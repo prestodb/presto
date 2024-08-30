@@ -3277,7 +3277,7 @@ TEST_F(TableScanTest, remainingFilterLazyWithMultiReferences) {
   writeToFile(file->getPath(), {vector});
   CursorParameters params;
   params.copyResult = false;
-  params.singleThreaded = true;
+  params.serialExecution = true;
   params.planNode =
       PlanBuilder()
           .tableScan(schema, {}, "NOT (c0 % 2 == 0 AND c2 % 3 == 0)")
@@ -3318,7 +3318,7 @@ TEST_F(
   writeToFile(file->getPath(), {vector});
   CursorParameters params;
   params.copyResult = false;
-  params.singleThreaded = true;
+  params.serialExecution = true;
   params.planNode = PlanBuilder()
                         .tableScan(schema, {}, "c0 % 7 == 0 AND c1 % 2 == 0")
                         .planNode();

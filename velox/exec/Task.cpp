@@ -550,7 +550,7 @@ velox::memory::MemoryPool* Task::addExchangeClientPool(
   return childPools_.back().get();
 }
 
-bool Task::supportsSingleThreadedExecution() const {
+bool Task::supportSerialExecutionMode() const {
   if (consumerSupplier_) {
     return false;
   }
@@ -560,7 +560,7 @@ bool Task::supportsSingleThreadedExecution() const {
       planFragment_, nullptr, &driverFactories, queryCtx_->queryConfig(), 1);
 
   for (const auto& factory : driverFactories) {
-    if (!factory->supportsSingleThreadedExecution()) {
+    if (!factory->supportsSerialExecution()) {
       return false;
     }
   }
@@ -570,18 +570,18 @@ bool Task::supportsSingleThreadedExecution() const {
 
 RowVectorPtr Task::next(ContinueFuture* future) {
   checkExecutionMode(ExecutionMode::kSerial);
-  // NOTE: Task::next() is single-threaded execution so locking is not required
+  // NOTE: Task::next() is serial execution so locking is not required
   // to access Task object.
   VELOX_CHECK_EQ(
       core::ExecutionStrategy::kUngrouped,
       planFragment_.executionStrategy,
-      "Single-threaded execution supports only ungrouped execution");
+      "Serial execution mode supports only ungrouped execution");
 
   if (!splitsStates_.empty()) {
     for (const auto& it : splitsStates_) {
       VELOX_CHECK(
           it.second.noMoreSplits,
-          "Single-threaded execution requires all splits to be added before "
+          "Serial execution mode requires all splits to be added before "
           "calling Task::next().");
     }
   }
@@ -595,7 +595,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
   if (driverFactories_.empty()) {
     VELOX_CHECK_NULL(
         consumerSupplier_,
-        "Single-threaded execution doesn't support delivering results to a "
+        "Serial execution mode doesn't support delivering results to a "
         "callback");
 
     taskStats_.executionStartTimeMs = getCurrentTimeMs();
@@ -605,7 +605,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
 
     // In Task::next() we always assume ungrouped execution.
     for (const auto& factory : driverFactories_) {
-      VELOX_CHECK(factory->supportsSingleThreadedExecution());
+      VELOX_CHECK(factory->supportsSerialExecution());
       numDriversUngrouped_ += factory->numDrivers;
       numTotalDrivers_ += factory->numTotalDrivers;
       taskStats_.pipelineStats.emplace_back(
@@ -943,7 +943,7 @@ void Task::resume(std::shared_ptr<Task> self) {
           // event. The Driver gets enqueued by the promise realization.
           //
           // Do not continue the driver if no executor is supplied,
-          // This usually happens in single-threaded execution.
+          // This usually happens in serial execution mode.
           Driver::enqueue(driver);
         }
       }

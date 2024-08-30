@@ -305,26 +305,26 @@ class SharedArbitrationTestBase : public exec::test::HiveConnectorTestBase {
 };
 
 namespace {
-std::unique_ptr<folly::Executor> newMultiThreadedExecutor() {
+std::unique_ptr<folly::Executor> newParallelExecutor() {
   return std::make_unique<folly::CPUThreadPoolExecutor>(32);
 }
 
 struct TestParam {
-  bool isSingleThreaded{false};
+  bool isSerialExecutionMode{false};
 };
 } // namespace
 
-/// A test fixture that runs cases within multi-threaded execution mode.
+/// A test fixture that runs cases within parallel execution mode.
 class SharedArbitrationTest : public SharedArbitrationTestBase {
  protected:
   void SetUp() override {
     SharedArbitrationTestBase::SetUp();
-    executor_ = newMultiThreadedExecutor();
+    executor_ = newParallelExecutor();
   }
 };
-/// A test fixture that runs cases within both single-threaded and
-/// multi-threaded execution modes.
-class SharedArbitrationTestWithThreadingModes
+/// A test fixture that runs cases within both serial and
+/// parallel execution modes.
+class SharedArbitrationTestWithExecutionModes
     : public testing::WithParamInterface<TestParam>,
       public SharedArbitrationTestBase {
  public:
@@ -335,15 +335,15 @@ class SharedArbitrationTestWithThreadingModes
  protected:
   void SetUp() override {
     SharedArbitrationTestBase::SetUp();
-    isSingleThreaded_ = GetParam().isSingleThreaded;
-    if (isSingleThreaded_) {
+    isSerialExecutionMode_ = GetParam().isSerialExecutionMode;
+    if (isSerialExecutionMode_) {
       executor_ = nullptr;
     } else {
-      executor_ = newMultiThreadedExecutor();
+      executor_ = newParallelExecutor();
     }
   }
 
-  bool isSingleThreaded_{false};
+  bool isSerialExecutionMode_{false};
 };
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, queryArbitrationStateCheck) {
@@ -525,7 +525,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
   ASSERT_EQ(taskPausedCount, 1);
 }
 
-DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, reclaimToOrderBy) {
+DEBUG_ONLY_TEST_P(SharedArbitrationTestWithExecutionModes, reclaimToOrderBy) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
@@ -590,7 +590,7 @@ DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, reclaimToOrderBy) {
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .queryCtx(orderByQueryCtx)
-              .singleThreaded(isSingleThreaded_)
+              .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
                         .values(vectors)
                         .orderBy({"c0 ASC NULLS LAST"}, false)
@@ -607,7 +607,7 @@ DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, reclaimToOrderBy) {
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .queryCtx(fakeMemoryQueryCtx)
-              .singleThreaded(isSingleThreaded_)
+              .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
                         .values(vectors)
                         .addNode([&](std::string id, core::PlanNodePtr input) {
@@ -628,7 +628,7 @@ DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, reclaimToOrderBy) {
 }
 
 DEBUG_ONLY_TEST_P(
-    SharedArbitrationTestWithThreadingModes,
+    SharedArbitrationTestWithExecutionModes,
     reclaimToAggregation) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
@@ -694,7 +694,7 @@ DEBUG_ONLY_TEST_P(
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .queryCtx(aggregationQueryCtx)
-              .singleThreaded(isSingleThreaded_)
+              .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
                         .values(vectors)
                         .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
@@ -712,7 +712,7 @@ DEBUG_ONLY_TEST_P(
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .queryCtx(fakeMemoryQueryCtx)
-              .singleThreaded(isSingleThreaded_)
+              .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
                         .values(vectors)
                         .addNode([&](std::string id, core::PlanNodePtr input) {
@@ -733,7 +733,7 @@ DEBUG_ONLY_TEST_P(
 }
 
 DEBUG_ONLY_TEST_P(
-    SharedArbitrationTestWithThreadingModes,
+    SharedArbitrationTestWithExecutionModes,
     reclaimToJoinBuilder) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
@@ -800,7 +800,7 @@ DEBUG_ONLY_TEST_P(
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .queryCtx(joinQueryCtx)
-              .singleThreaded(isSingleThreaded_)
+              .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder(planNodeIdGenerator)
                         .values(vectors)
                         .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
@@ -828,7 +828,7 @@ DEBUG_ONLY_TEST_P(
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .queryCtx(fakeMemoryQueryCtx)
-              .singleThreaded(isSingleThreaded_)
+              .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
                         .values(vectors)
                         .addNode([&](std::string id, core::PlanNodePtr input) {
@@ -1407,10 +1407,10 @@ TEST_F(SharedArbitrationTest, reserveReleaseCounters) {
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
-    SharedArbitrationTestWithThreadingModes,
-    SharedArbitrationTestWithThreadingModes,
+    SharedArbitrationTestWithExecutionModes,
+    SharedArbitrationTestWithExecutionModes,
     testing::ValuesIn(
-        SharedArbitrationTestWithThreadingModes::getTestParams()));
+        SharedArbitrationTestWithExecutionModes::getTestParams()));
 } // namespace facebook::velox::memory
 
 int main(int argc, char** argv) {

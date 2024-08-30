@@ -462,7 +462,7 @@ class TestBadMemoryTranslator : public exec::Operator::PlanNodeTranslator {
 class TaskTest : public HiveConnectorTestBase {
  protected:
   static std::pair<std::shared_ptr<exec::Task>, std::vector<RowVectorPtr>>
-  executeSingleThreaded(
+  executeSerial(
       core::PlanFragment plan,
       const std::unordered_map<std::string, std::vector<std::string>>&
           filePaths = {}) {
@@ -480,7 +480,7 @@ class TaskTest : public HiveConnectorTestBase {
       task->noMoreSplits(nodeId);
     }
 
-    VELOX_CHECK(task->supportsSingleThreadedExecution());
+    VELOX_CHECK(task->supportSerialExecutionMode());
 
     vector_size_t numRows = 0;
     std::vector<RowVectorPtr> results;
@@ -727,7 +727,7 @@ TEST_F(TaskTest, testTerminateDeadlock) {
       cursor->task()->toString().find("zombie drivers:"), std::string::npos);
 }
 
-TEST_F(TaskTest, singleThreadedExecution) {
+TEST_F(TaskTest, serialExecution) {
   auto data = makeRowVector({
       makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
   });
@@ -746,7 +746,7 @@ TEST_F(TaskTest, singleThreadedExecution) {
   uint64_t numCreatedTasks = Task::numCreatedTasks();
   uint64_t numDeletedTasks = Task::numDeletedTasks();
   {
-    auto [task, results] = executeSingleThreaded(plan);
+    auto [task, results] = executeSerial(plan);
     assertEqualResults(
         std::vector<RowVectorPtr>{expectedResult, expectedResult}, results);
   }
@@ -779,7 +779,7 @@ TEST_F(TaskTest, singleThreadedExecution) {
   ++numCreatedTasks;
   ++numDeletedTasks;
   {
-    auto [task, results] = executeSingleThreaded(plan);
+    auto [task, results] = executeSerial(plan);
     assertEqualResults({expectedResult}, results);
   }
   ASSERT_EQ(numCreatedTasks + 1, Task::numCreatedTasks());
@@ -799,16 +799,16 @@ TEST_F(TaskTest, singleThreadedExecution) {
 
   {
     auto [task, results] =
-        executeSingleThreaded(plan, {{scanId, {filePath->getPath()}}});
+        executeSerial(plan, {{scanId, {filePath->getPath()}}});
     assertEqualResults({expectedResult}, results);
   }
 
   // Query failure.
   plan = PlanBuilder().values({data, data}).project({"c0 / 0"}).planFragment();
-  VELOX_ASSERT_THROW(executeSingleThreaded(plan), "division by zero");
+  VELOX_ASSERT_THROW(executeSerial(plan), "division by zero");
 }
 
-TEST_F(TaskTest, singleThreadedHashJoin) {
+TEST_F(TaskTest, serialHashJoin) {
   auto left = makeRowVector(
       {"t_c0", "t_c1"},
       {
@@ -850,7 +850,7 @@ TEST_F(TaskTest, singleThreadedHashJoin) {
   });
 
   {
-    auto [task, results] = executeSingleThreaded(
+    auto [task, results] = executeSerial(
         plan,
         {{leftScanId, {leftPath->getPath()}},
          {rightScanId, {rightPath->getPath()}}});
@@ -858,7 +858,7 @@ TEST_F(TaskTest, singleThreadedHashJoin) {
   }
 }
 
-TEST_F(TaskTest, singleThreadedCrossJoin) {
+TEST_F(TaskTest, serialCrossJoin) {
   auto left = makeRowVector({"t_c0"}, {makeFlatVector<int64_t>({1, 2, 3})});
   auto leftPath = TempFilePath::create();
   writeToFile(leftPath->getPath(), {left});
@@ -888,7 +888,7 @@ TEST_F(TaskTest, singleThreadedCrossJoin) {
   });
 
   {
-    auto [task, results] = executeSingleThreaded(
+    auto [task, results] = executeSerial(
         plan,
         {{leftScanId, {leftPath->getPath()}},
          {rightScanId, {rightPath->getPath()}}});
@@ -896,7 +896,7 @@ TEST_F(TaskTest, singleThreadedCrossJoin) {
   }
 }
 
-TEST_F(TaskTest, singleThreadedExecutionExternalBlockable) {
+TEST_F(TaskTest, serialExecutionExternalBlockable) {
   exec::Operator::registerOperator(
       std::make_unique<TestExternalBlockableTranslator>());
   auto data = makeRowVector({
@@ -967,7 +967,7 @@ TEST_F(TaskTest, singleThreadedExecutionExternalBlockable) {
   EXPECT_EQ(3, results.size());
 }
 
-TEST_F(TaskTest, supportsSingleThreadedExecution) {
+TEST_F(TaskTest, supportSerialExecutionMode) {
   auto plan = PlanBuilder()
                   .tableScan(ROW({"c0"}, {BIGINT()}))
                   .project({"c0 % 10"})
@@ -980,9 +980,9 @@ TEST_F(TaskTest, supportsSingleThreadedExecution) {
       core::QueryCtx::create(),
       Task::ExecutionMode::kSerial);
 
-  // PartitionedOutput does not support single threaded execution, therefore the
+  // PartitionedOutput does not support serial execution mode, therefore the
   // task doesn't support it either.
-  ASSERT_FALSE(task->supportsSingleThreadedExecution());
+  ASSERT_FALSE(task->supportSerialExecutionMode());
 }
 
 TEST_F(TaskTest, updateBroadCastOutputBuffers) {
@@ -1286,7 +1286,7 @@ DEBUG_ONLY_TEST_F(TaskTest, inconsistentExecutionMode) {
 
   {
     // Scenario 2: Serial execution starts first then kicks in Parallel
-    // execution.
+    // execution mode.
 
     auto data = makeRowVector({
         makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
@@ -1792,9 +1792,7 @@ DEBUG_ONLY_TEST_F(TaskTest, resumeAfterTaskFinish) {
   waitForAllTasksToBeDeleted();
 }
 
-DEBUG_ONLY_TEST_F(
-    TaskTest,
-    singleThreadedLongRunningOperatorInTaskReclaimerAbort) {
+DEBUG_ONLY_TEST_F(TaskTest, serialLongRunningOperatorInTaskReclaimerAbort) {
   auto data = makeRowVector({
       makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
   });

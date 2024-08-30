@@ -65,7 +65,6 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
 
   folly::Executor* executor() const {
     return executor_;
-    ;
   }
 
   bool isExecutorSupplied() const {

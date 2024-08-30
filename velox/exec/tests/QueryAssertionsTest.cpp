@@ -32,15 +32,15 @@ class QueryAssertionsTest : public OperatorTestBase {
   void assertQueryWithThreadingConfigs(
       const core::PlanNodePtr& plan,
       const std::string& duckDbSql) {
-    CursorParameters multiThreadedParams{};
-    multiThreadedParams.planNode = plan;
-    multiThreadedParams.singleThreaded = false;
-    assertQuery(multiThreadedParams, duckDbSql);
+    CursorParameters parallelParams{};
+    parallelParams.planNode = plan;
+    parallelParams.serialExecution = false;
+    assertQuery(parallelParams, duckDbSql);
 
-    CursorParameters singleThreadedParams{};
-    singleThreadedParams.planNode = plan;
-    singleThreadedParams.singleThreaded = true;
-    assertQuery(singleThreadedParams, duckDbSql);
+    CursorParameters serialParams{};
+    serialParams.planNode = plan;
+    serialParams.serialExecution = true;
+    assertQuery(serialParams, duckDbSql);
   }
 };
 

@@ -345,8 +345,8 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   // Invoked to run global arbitration to reclaim free or used memory from the
   // other queries. The global arbitration run is protected by the exclusive
-  // lock of 'arbitrationLock_' for serial execution. The function returns true
-  // on success, false on failure.
+  // lock of 'arbitrationLock_' for serial execution mode. The function returns
+  // true on success, false on failure.
   bool runGlobalArbitration(ArbitrationOperation* op);
 
   // Gets the mim/max memory capacity growth targets for 'op'. The min and max

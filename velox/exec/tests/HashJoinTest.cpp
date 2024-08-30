@@ -6658,7 +6658,7 @@ TEST_F(HashJoinTest, leftJoinPreserveProbeOrder) {
           .planNode();
   auto result = AssertQueryBuilder(plan)
                     .config(core::QueryConfig::kPreferredOutputBatchRows, "1")
-                    .singleThreaded(true)
+                    .serialExecution(true)
                     .copyResults(pool_.get());
   ASSERT_EQ(result->size(), 3);
   auto* v1 =

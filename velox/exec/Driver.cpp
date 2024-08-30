@@ -779,7 +779,7 @@ StopReason Driver::runInternal(
                     result->estimateFlatSize(), result->size());
               }
 
-              // This code path is used only in single-threaded execution.
+              // This code path is used only in serial execution mode.
               blockingReason_ = BlockingReason::kWaitForConsumer;
               guard.notThrown();
               return StopReason::kBlock;

@@ -214,10 +214,10 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
         maxDrivers_{params.maxDrivers},
         numConcurrentSplitGroups_{params.numConcurrentSplitGroups},
         numSplitGroups_{params.numSplitGroups} {
-    VELOX_CHECK(!params.singleThreaded)
+    VELOX_CHECK(!params.serialExecution)
     VELOX_CHECK(
         queryCtx_->isExecutorSupplied(),
-        "Executor should be set in multi-threaded task cursor")
+        "Executor should be set in parallel task cursor")
 
     queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);
     // Captured as a shared_ptr by the consumer callback of task_.
@@ -322,10 +322,10 @@ class SingleThreadedTaskCursor : public TaskCursorBase {
  public:
   explicit SingleThreadedTaskCursor(const CursorParameters& params)
       : TaskCursorBase(params, nullptr) {
-    VELOX_CHECK(params.singleThreaded)
+    VELOX_CHECK(params.serialExecution)
     VELOX_CHECK(
         !queryCtx_->isExecutorSupplied(),
-        "Executor should not be set in single-threaded task cursor")
+        "Executor should not be set in serial task cursor")
 
     task_ = Task::create(
         taskId_,
@@ -339,8 +339,8 @@ class SingleThreadedTaskCursor : public TaskCursorBase {
     }
 
     VELOX_CHECK(
-        task_->supportsSingleThreadedExecution(),
-        "Plan doesn't support single-threaded execution")
+        task_->supportSerialExecutionMode(),
+        "Plan doesn't support serial execution mode")
   }
 
   ~SingleThreadedTaskCursor() override {
@@ -402,7 +402,7 @@ class SingleThreadedTaskCursor : public TaskCursorBase {
 };
 
 std::unique_ptr<TaskCursor> TaskCursor::create(const CursorParameters& params) {
-  if (params.singleThreaded) {
+  if (params.serialExecution) {
     return std::make_unique<SingleThreadedTaskCursor>(params);
   }
   return std::make_unique<MultiThreadedTaskCursor>(params);

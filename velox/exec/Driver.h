@@ -241,7 +241,7 @@ class BlockingState {
   }
 
   /// Moves out the blocking future stored inside. Can be called only once.
-  /// Used in single-threaded execution.
+  /// Used in serial execution mode.
   ContinueFuture future() {
     return std::move(future_);
   }
@@ -616,7 +616,7 @@ struct DriverFactory {
 
   static void registerAdapter(DriverAdapter adapter);
 
-  bool supportsSingleThreadedExecution() const {
+  bool supportsSerialExecution() const {
     return !needsPartitionedOutput() && !needsExchangeClient() &&
         !needsLocalExchange();
   }

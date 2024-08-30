@@ -39,9 +39,9 @@ class AssertQueryBuilder {
   /// Default is 0.
   AssertQueryBuilder& destination(int32_t destination);
 
-  /// Use single-threaded execution to execute the Velox plan.
+  /// Use serial execution mode to execute the Velox plan.
   /// Default is false.
-  AssertQueryBuilder& singleThreaded(bool singleThreaded);
+  AssertQueryBuilder& serialExecution(bool serial);
 
   /// Set configuration property. May be called multiple times to set multiple
   /// properties.

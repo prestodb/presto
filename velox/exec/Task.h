@@ -165,9 +165,9 @@ class Task : public std::enable_shared_from_this<Task> {
   /// splits groups processed concurrently.
   void start(uint32_t maxDrivers, uint32_t concurrentSplitGroups = 1);
 
-  /// If this returns true, this Task supports the single-threaded execution API
+  /// If this returns true, this Task supports the serial execution API
   /// next().
-  bool supportsSingleThreadedExecution() const;
+  bool supportSerialExecutionMode() const;
 
   /// Single-threaded execution API. Runs the query and returns results one
   /// batch at a time. Returns nullptr if query evaluation is finished and no

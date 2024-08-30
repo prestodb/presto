@@ -1117,7 +1117,7 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
 }
 
 // This test verifies local arbitration runs from the same query has to wait for
-// serial execution.
+// serial execution mode.
 DEBUG_ONLY_TEST_F(
     MockSharedArbitrationTest,
     localArbitrationRunsFromSameQuery) {
