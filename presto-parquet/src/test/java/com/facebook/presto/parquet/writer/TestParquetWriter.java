@@ -170,35 +170,19 @@ public class TestParquetWriter
             MessageType parquetSchema = parquetMetadata.getFileMetaData().getSchema();
             List<org.apache.parquet.schema.Type> parquetTypes = parquetSchema.getFields();
 
-            List<String> expectedPrimitiveTypeNames = ImmutableList.of(
-                    "INT32",
-                    "INT32",
-                    "INT64",
-                    "INT32",
-                    "DOUBLE",
-                    "BINARY",
-                    "BOOLEAN",
-                    "INT64",
-                    "FIXED_LEN_BYTE_ARRAY",
-                    "INT32",
-                    "INT64",
-                    "",
-                    "");
-
-            List<Class<?>> expectedLogicalTypeAnnotationTypes = new ArrayList<>();
-            for (int i = 0; i < 7; i++) {
-                expectedLogicalTypeAnnotationTypes.add(null);
-            }
-            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.DecimalLogicalTypeAnnotation.class);
-            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.DecimalLogicalTypeAnnotation.class);
-            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.DateLogicalTypeAnnotation.class);
-            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.TimestampLogicalTypeAnnotation.class);
-            expectedLogicalTypeAnnotationTypes.add(LogicalTypeAnnotation.MapLogicalTypeAnnotation.class);
-            expectedLogicalTypeAnnotationTypes.add(null);
-
-            for (int i = 0; i < parquetTypes.size(); i++) {
-                checkTypes(parquetTypes.get(i), expectedLogicalTypeAnnotationTypes.get(i), expectedPrimitiveTypeNames.get(i));
-            }
+            checkTypes(parquetTypes.get(0), null, "INT32");
+            checkTypes(parquetTypes.get(1), null, "INT32");
+            checkTypes(parquetTypes.get(2), null, "INT64");
+            checkTypes(parquetTypes.get(3), null, "INT32");
+            checkTypes(parquetTypes.get(4), null, "DOUBLE");
+            checkTypes(parquetTypes.get(5), null, "BINARY");
+            checkTypes(parquetTypes.get(6), null, "BOOLEAN");
+            checkTypes(parquetTypes.get(7), LogicalTypeAnnotation.DecimalLogicalTypeAnnotation.class, "INT64");
+            checkTypes(parquetTypes.get(8), LogicalTypeAnnotation.DecimalLogicalTypeAnnotation.class, "FIXED_LEN_BYTE_ARRAY");
+            checkTypes(parquetTypes.get(9), LogicalTypeAnnotation.DateLogicalTypeAnnotation.class, "INT32");
+            checkTypes(parquetTypes.get(10), LogicalTypeAnnotation.TimestampLogicalTypeAnnotation.class, "INT64");
+            checkTypes(parquetTypes.get(11), LogicalTypeAnnotation.MapLogicalTypeAnnotation.class, "");
+            checkTypes(parquetTypes.get(12), null, "");
 
             // check logical type parameters
             org.apache.parquet.schema.Type shortDecimalType = parquetTypes.get(7);
