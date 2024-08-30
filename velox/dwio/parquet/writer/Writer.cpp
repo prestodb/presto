@@ -233,7 +233,18 @@ Writer::Writer(
   validateSchemaRecursive(schema_);
 
   if (options.flushPolicyFactory) {
-    flushPolicy_ = options.flushPolicyFactory();
+    auto* flushPolicy = options.flushPolicyFactory().release();
+    VELOX_CHECK_NOT_NULL(flushPolicy);
+    // TODO: consider to add a utility to handle similar smart pointer
+    // conversion use cases.
+    try {
+      auto* parquetFlushPolicy = dynamic_cast<DefaultFlushPolicy*>(flushPolicy);
+      VELOX_CHECK_NOT_NULL(parquetFlushPolicy);
+      flushPolicy_.reset(parquetFlushPolicy);
+    } catch (const std::exception& e) {
+      delete flushPolicy;
+      throw;
+    }
   } else {
     flushPolicy_ = std::make_unique<DefaultFlushPolicy>();
   }

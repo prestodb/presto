@@ -94,7 +94,18 @@ Writer::Writer(
         context.stripeSizeFlushThreshold(),
         context.dictionarySizeFlushThreshold());
   } else {
-    flushPolicy_ = options.flushPolicyFactory();
+    auto* flushPolicy = options.flushPolicyFactory().release();
+    VELOX_CHECK_NOT_NULL(flushPolicy);
+    // TODO: consider to add a utility to handle similar smart pointer
+    // conversion use cases.
+    try {
+      auto* dwrfFlushPolicy = dynamic_cast<DWRFFlushPolicy*>(flushPolicy);
+      VELOX_CHECK_NOT_NULL(dwrfFlushPolicy);
+      flushPolicy_.reset(dwrfFlushPolicy);
+    } catch (const std::exception& e) {
+      delete flushPolicy;
+      throw;
+    }
   }
 
   if (options.layoutPlannerFactory != nullptr) {
@@ -854,6 +865,7 @@ dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
   dwrfOptions.memoryPool = options.memoryPool;
   dwrfOptions.spillConfig = options.spillConfig;
   dwrfOptions.nonReclaimableSection = options.nonReclaimableSection;
+  dwrfOptions.flushPolicyFactory = options.flushPolicyFactory;
   return dwrfOptions;
 }
 

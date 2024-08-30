@@ -38,9 +38,6 @@ struct WriterOptions : public dwio::common::WriterOptions {
   // If not null, used by memory arbitration to track if a file writer is under
   // memory reclaimable section or not.
   tsan_atomic<bool>* nonReclaimableSection{nullptr};
-  /// The default factory allows the writer to construct the default flush
-  /// policy with the configs in its ctor.
-  std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory;
   /// Changes the interface to stream list and encoding iter.
   std::function<std::unique_ptr<LayoutPlanner>(const dwio::common::TypeWithId&)>
       layoutPlannerFactory;

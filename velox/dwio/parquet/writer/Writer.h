@@ -99,9 +99,6 @@ struct WriterOptions : public dwio::common::WriterOptions {
 
   arrow::Encoding::type encoding = arrow::Encoding::PLAIN;
 
-  // The default factory allows the writer to construct the default flush
-  // policy with the configs in its ctor.
-  std::function<std::unique_ptr<DefaultFlushPolicy>()> flushPolicyFactory;
   std::shared_ptr<CodecOptions> codecOptions;
   std::unordered_map<std::string, common::CompressionKind>
       columnCompressionsMap;
