@@ -48,6 +48,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Files.createTempDir;
@@ -127,6 +128,7 @@ public class TestParquetWriter
                 {DATE, LogicalTypeAnnotation.DateLogicalTypeAnnotation.class, "INT32"},
                 {TIMESTAMP, LogicalTypeAnnotation.TimestampLogicalTypeAnnotation.class, "INT64"},
                 {MAP, LogicalTypeAnnotation.MapLogicalTypeAnnotation.class, null},
+                {UUID, LogicalTypeAnnotation.UUIDLogicalTypeAnnotation.class, "FIXED_LEN_BYTE_ARRAY"},
                 {ROW, null, null}
         };
     }
