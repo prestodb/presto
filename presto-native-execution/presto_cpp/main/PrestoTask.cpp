@@ -593,15 +593,7 @@ void PrestoTask::updateExecutionInfoLocked(
   prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedDrivers;
   prestoTaskStats.totalDrivers = veloxTaskStats.numTotalDrivers;
   prestoTaskStats.runningDrivers = veloxTaskStats.numRunningDrivers;
-  // TODO: Presto Java reports number of drivers to number of splits in Presto
-  //  UI because split and driver are 1 to 1 mapping relationship. This is not
-  //  true in Prestissimo where 1 driver handles many splits. In order to
-  //  quickly unblock developers from viewing the correct number of completed
-  //  splits in Prestissimo's coordinator UI, we put numFinishedSplits in
-  //  protocol::TaskStats::completedDrivers. We should really extend the API
-  //  (protocol::TaskStats and Presto coordinator UI) to have splits information
-  //  as a proper fix.
-  prestoTaskStats.completedDrivers = veloxTaskStats.numFinishedSplits;
+  prestoTaskStats.completedDrivers = veloxTaskStats.numCompletedDrivers;
 
   prestoTaskStats.pipelines.resize(veloxTaskStats.pipelineStats.size());
   for (int i = 0; i < veloxTaskStats.pipelineStats.size(); ++i) {
