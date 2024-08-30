@@ -1814,10 +1814,10 @@ public abstract class IcebergDistributedTestBase
         @Language("SQL") String query = "SELECT * FROM test_filterstats_remaining_predicate WHERE (i = 10 AND j = 11) OR (i = 20 AND j = 21)";
         if (pushdownFilterEnabled) {
             assertPlan(session, query,
-                            output(
-                                    exchange(
-                                            tableScan("test_filterstats_remaining_predicate")
-                                                    .withOutputRowCount(1))));
+                    output(
+                            exchange(
+                                    tableScan("test_filterstats_remaining_predicate")
+                                            .withOutputRowCount(1))));
         }
         else {
             assertPlan(session, query,
@@ -1827,6 +1827,15 @@ public abstract class IcebergDistributedTestBase
                                     .withOutputRowCount(1)));
         }
         assertQuerySucceeds("DROP TABLE test_filterstats_remaining_predicate");
+    }
+
+    @Test
+    private void testUuidRoundTrip()
+    {
+        assertQuerySucceeds("CREATE TABLE uuid_roundtrip(u uuid)");
+        UUID uuid = UUID.randomUUID();
+        assertUpdate(format("INSERT INTO uuid_roundtrip VALUES CAST('%s' as uuid)", uuid), 1);
+        assertQuery("SELECT CAST(u as varchar) FROM uuid_roundtrip", format("VALUES '%s'", uuid));
     }
 
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)

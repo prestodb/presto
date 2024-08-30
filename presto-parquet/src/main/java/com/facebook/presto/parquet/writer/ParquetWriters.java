@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.writer;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.parquet.writer.valuewriter.BigintValueWriter;
@@ -29,6 +30,7 @@ import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.RealValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.TimeValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.TimestampValueWriter;
+import com.facebook.presto.parquet.writer.valuewriter.UuidValuesWriter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -211,6 +213,9 @@ class ParquetWriters
         }
         if (TIME.equals(type)) {
             return new TimeValueWriter(valuesWriter, type, parquetType);
+        }
+        if (UuidType.UUID.equals(type)) {
+            return new UuidValuesWriter(valuesWriter, type, parquetType);
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             return new CharValueWriter(valuesWriter, type, parquetType);

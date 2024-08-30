@@ -373,7 +373,11 @@ public final class MetadataReader
                 }
                 typeBuilder = primitiveBuilder;
             }
-            if (element.isSetConverted_type()) {
+
+            if (element.isSetLogicalType()) {
+                getLogicalTypeAnnotationWithParameters(element.getLogicalType()).ifPresent(typeBuilder::as);
+            }
+            else if (element.isSetConverted_type()) {
                 typeBuilder.as(getOriginalType(element.converted_type));
             }
             if (element.isSetLogicalType()) {
@@ -405,6 +409,9 @@ public final class MetadataReader
         if (type.isSetTIMESTAMP()) {
             TimestampType timestamp = type.getTIMESTAMP();
             return Optional.of(LogicalTypeAnnotation.timestampType(timestamp.isAdjustedToUTC, convertTimeUnit(timestamp.unit)));
+        }
+        if (type.isSetUUID()) {
+            return Optional.of(LogicalTypeAnnotation.uuidType());
         }
         return Optional.empty();
     }

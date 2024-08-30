@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -58,6 +59,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.binaryTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.booleanTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.byteTypeInfo;
@@ -87,6 +89,50 @@ public final class HiveType
     public static final HiveType HIVE_TIMESTAMP = new HiveType(timestampTypeInfo);
     public static final HiveType HIVE_DATE = new HiveType(dateTypeInfo);
     public static final HiveType HIVE_BINARY = new HiveType(binaryTypeInfo);
+    public static final HiveType HIVE_UUID = new HiveType(new TypeInfo()
+    {
+        @Override
+        public Category getCategory()
+        {
+            return PRIMITIVE;
+        }
+
+        @Override
+        public String getTypeName()
+        {
+            return "uuid";
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if (this == other) {
+                return true;
+            }
+            if (other == null || getClass() != other.getClass()) {
+                return false;
+            }
+
+            TypeInfo ti = (TypeInfo) other;
+
+            return StandardTypes.UUID.equals(ti.getTypeName());
+        }
+
+        /**
+         * Generate the hashCode for this TypeInfo.
+         */
+        @Override
+        public int hashCode()
+        {
+            return StandardTypes.UUID.hashCode();
+        }
+
+        @Override
+        public String toString()
+        {
+            return StandardTypes.UUID;
+        }
+    });
 
     private final HiveTypeName hiveTypeName;
     private final TypeInfo typeInfo;
@@ -223,6 +269,9 @@ public final class HiveType
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
                 Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
+                if (primitiveType == null && typeInfo.getTypeName().equals(StandardTypes.UUID)) {
+                    return UuidType.UUID.getTypeSignature();
+                }
                 if (primitiveType == null) {
                     break;
                 }
@@ -291,6 +340,7 @@ public final class HiveType
                 return TIMESTAMP;
             case BINARY:
                 return VARBINARY;
+
             case DECIMAL:
                 DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
                 return createDecimalType(decimalTypeInfo.precision(), decimalTypeInfo.scale());

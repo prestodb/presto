@@ -49,12 +49,14 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.isDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isShortDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.uuidType;
 import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
 import static org.apache.parquet.schema.OriginalType.TIME_MICROS;
 
 public class ColumnReaderFactory
 {
     private static final Logger log = Logger.get(ColumnReaderFactory.class);
+
     private ColumnReaderFactory()
     {
     }
@@ -127,6 +129,9 @@ public class ColumnReaderFactory
             case BINARY:
                 return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
             case FIXED_LEN_BYTE_ARRAY:
+                if (Optional.ofNullable(descriptor.getPrimitiveType().getLogicalTypeAnnotation()).map(type -> type.equals(uuidType())).orElse(false)) {
+                    return new BinaryColumnReader(descriptor);
+                }
                 return createDecimalColumnReader(descriptor)
                         .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
             default:

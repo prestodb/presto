@@ -41,6 +41,11 @@ public class UuidType
         super(parseTypeSignature(StandardTypes.UUID), Slice.class);
     }
 
+    public static boolean isUuidType(Type type)
+    {
+        return type instanceof UuidType;
+    }
+
     @Override
     public int getFixedSize()
     {
