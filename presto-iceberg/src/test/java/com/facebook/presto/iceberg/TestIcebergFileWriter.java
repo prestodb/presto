@@ -121,14 +121,18 @@ public class TestIcebergFileWriter
     public void testWriteParquetFileWithLogicalTypes() throws Exception
     {
         Path path = new Path(createTempDir().getAbsolutePath() + "/test.parquet");
-        Schema icebergSchema = toIcebergSchema(ImmutableList.of(new ColumnMetadata("a", VARCHAR), new ColumnMetadata("b", INTEGER), new ColumnMetadata("c", TIMESTAMP)));
+        Schema icebergSchema = toIcebergSchema(ImmutableList.of(
+                new ColumnMetadata("a", VARCHAR),
+                new ColumnMetadata("b", INTEGER),
+                new ColumnMetadata("c", TIMESTAMP),
+                new ColumnMetadata("d", DATE)));
         IcebergFileWriter icebergFileWriter = this.icebergFileWriterFactory.createFileWriter(path, icebergSchema, new JobConf(), connectorSession,
                 hdfsContext, FileFormat.PARQUET, MetricsConfig.getDefault());
 
-        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, TIMESTAMP)
-                .addSequencePage(100, 0, 0, 123)
-                .addSequencePage(100, 100, 100, 223)
-                .addSequencePage(100, 200, 200, 323)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, TIMESTAMP, DATE)
+                .addSequencePage(100, 0, 0, 123, 100)
+                .addSequencePage(100, 100, 100, 223, 100)
+                .addSequencePage(100, 200, 200, 323, 100)
                 .build();
         for (Page page : input) {
             icebergFileWriter.appendRows(page);
