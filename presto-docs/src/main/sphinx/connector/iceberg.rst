@@ -1737,26 +1737,28 @@ Map of Iceberg types to the relevant PrestoDB types:
     - PrestoDB type
   * - ``BOOLEAN``
     - ``BOOLEAN``
-  * - ``BINARY``, ``FIXED``
-    - ``VARBINARY``
-  * - ``DATE``
-    - ``DATE``
-  * - ``DECIMAL``
-    - ``DECIMAL``
-  * - ``DOUBLE``
-    - ``DOUBLE``
+  * - ``INTEGER``
+    - ``INTEGER``
   * - ``LONG``
     - ``BIGINT``
   * - ``FLOAT``
     - ``REAL``
-  * - ``INTEGER``
-    - ``INTEGER``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL``
+    - ``DECIMAL``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``BINARY``, ``FIXED``
+    - ``VARBINARY``
+  * - ``DATE``
+    - ``DATE``
   * - ``TIME``
     - ``TIME``
   * - ``TIMESTAMP``
     - ``TIMESTAMP``
-  * - ``STRING``
-    - ``VARCHAR``
+  * - ``UUID``
+    - ``UUID``
   * - ``LIST``
     - ``ARRAY``
   * - ``MAP``
@@ -1796,17 +1798,20 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``BINARY``
   * - ``DATE``
     - ``DATE``
-  * - ``ROW``
-    - ``STRUCT``
-  * - ``ARRAY``
-    - ``LIST``
-  * - ``MAP``
-    - ``MAP``
   * - ``TIME``
     - ``TIME``
   * - ``TIMESTAMP``
     - ``TIMESTAMP WITHOUT ZONE``
   * - ``TIMESTAMP WITH TIMEZONE``
     - ``TIMESTAMP WITH ZONE``
+  * - ``UUID``
+    - ``UUID``
+  * - ``ARRAY``
+    - ``LIST``
+  * - ``MAP``
+    - ``MAP``
+  * - ``ROW``
+    - ``STRUCT``
+
 
 No other types are supported.

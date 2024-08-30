@@ -28,6 +28,7 @@ import com.facebook.presto.parquet.batchreader.LongDecimalFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.ShortDecimalFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.TimestampFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.TimestampNestedBatchReader;
+import com.facebook.presto.parquet.batchreader.UuidFlatBatchReader;
 import com.facebook.presto.parquet.reader.AbstractColumnReader;
 import com.facebook.presto.parquet.reader.BinaryColumnReader;
 import com.facebook.presto.parquet.reader.BooleanColumnReader;
@@ -49,11 +50,13 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.isDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isShortDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeMicrosType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isUuidType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class ColumnReaderFactory
 {
     private static final Logger log = Logger.get(ColumnReaderFactory.class);
+
     private ColumnReaderFactory()
     {
     }
@@ -96,6 +99,10 @@ public class ColumnReaderFactory
                     return isNested ? new BinaryNestedBatchReader(descriptor) : new BinaryFlatBatchReader(descriptor);
                 case FIXED_LEN_BYTE_ARRAY:
                     if (!isNested) {
+                        if (isUuidType(descriptor)) {
+                            return new UuidFlatBatchReader(descriptor);
+                        }
+
                         decimalBatchColumnReader = createDecimalBatchColumnReader(descriptor);
                         if (decimalBatchColumnReader.isPresent()) {
                             return decimalBatchColumnReader.get();
@@ -126,10 +133,13 @@ public class ColumnReaderFactory
             case BINARY:
                 return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
             case FIXED_LEN_BYTE_ARRAY:
+                if (isUuidType(descriptor)) {
+                    return new BinaryColumnReader(descriptor);
+                }
                 return createDecimalColumnReader(descriptor)
                         .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
             default:
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getType());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
         }
     }
 

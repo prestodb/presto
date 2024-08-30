@@ -102,5 +102,15 @@ public interface ValuesDecoder
                 throws IOException;
     }
 
+    interface UuidValuesDecoder
+            extends ValuesDecoder
+    {
+        void readNext(long[] values, int offset, int length)
+                throws IOException;
+
+        void skip(int length)
+                throws IOException;
+    }
+
     public long getRetainedSizeInBytes();
 }
