@@ -30,7 +30,7 @@ MergeJoin::MergeJoin(
           operatorId,
           joinNode->id(),
           "MergeJoin"),
-      outputBatchSize_{static_cast<vector_size_t>(outputBatchRows())},
+      outputBatchSize_{outputBatchRows()},
       joinType_{joinNode->joinType()},
       numKeys_{joinNode->leftKeys().size()},
       joinNode_(joinNode) {

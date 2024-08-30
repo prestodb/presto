@@ -145,8 +145,8 @@ class TableScan : public WaveSourceOperator {
   // Count of splits that finished preloading before being read.
   int32_t numReadyPreloadedSplits_{0};
 
-  int32_t readBatchSize_;
-  int32_t maxReadBatchSize_;
+  vector_size_t readBatchSize_;
+  vector_size_t maxReadBatchSize_;
 
   // Exits getOutput() method after this many milliseconds.
   // Zero means 'no limit'.

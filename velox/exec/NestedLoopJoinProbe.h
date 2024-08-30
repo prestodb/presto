@@ -273,7 +273,7 @@ class NestedLoopJoinProbe : public Operator {
   // Output buffer members.
 
   // Maximum number of rows in the output batch.
-  const uint32_t outputBatchSize_;
+  const vector_size_t outputBatchSize_;
 
   // The current output batch being populated.
   RowVectorPtr output_;

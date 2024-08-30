@@ -50,7 +50,7 @@ class SortBuffer {
   void noMoreInput();
 
   /// Returns the sorted output rows in batch.
-  RowVectorPtr getOutput(uint32_t maxOutputRows);
+  RowVectorPtr getOutput(vector_size_t maxOutputRows);
 
   /// Indicates if this sort buffer can spill or not.
   bool canSpill() const {
@@ -71,7 +71,7 @@ class SortBuffer {
   void ensureInputFits(const VectorPtr& input);
   void updateEstimatedOutputRowSize();
   // Invoked to initialize or reset the reusable output buffer to get output.
-  void prepareOutput(uint32_t maxOutputRows);
+  void prepareOutput(vector_size_t maxOutputRows);
   void getOutputWithoutSpill();
   void getOutputWithSpill();
   // Spill during input stage.

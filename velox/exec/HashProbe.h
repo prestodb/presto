@@ -311,7 +311,7 @@ class HashProbe : public Operator {
   void clearBuffers();
 
   // TODO: Define batch size as bytes based on RowContainer row sizes.
-  const uint32_t outputBatchSize_;
+  const vector_size_t outputBatchSize_;
 
   const std::shared_ptr<const core::HashJoinNode> joinNode_;
 
