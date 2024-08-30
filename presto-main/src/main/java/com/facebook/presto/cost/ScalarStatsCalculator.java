@@ -72,10 +72,8 @@ import java.util.OptionalDouble;
 import static com.facebook.presto.common.function.OperatorType.DIVIDE;
 import static com.facebook.presto.common.function.OperatorType.MODULUS;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
-import static com.facebook.presto.spi.function.StatsPropagationBehavior.ROW_COUNT;
 import static com.facebook.presto.spi.function.StatsPropagationBehavior.UNKNOWN;
 import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
-import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_TYPE_WIDTH_VARCHAR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
@@ -313,33 +311,37 @@ public class ScalarStatsCalculator
 
             for (Map.Entry<Integer, ScalarPropagateSourceStats> paramIndexToSourceStatsMap : statsHeader.getArgumentStats().entrySet()) {
                 ScalarPropagateSourceStats scalarPropagateSourceStats = paramIndexToSourceStatsMap.getValue();
-                if (scalarPropagateSourceStats.maxValue() == ROW_COUNT) {
-                    return input.getOutputRowCount();
-                }
-
-                Integer argumentIndex = paramIndexToSourceStatsMap.getKey();
-
-                if (scalarPropagateSourceStats.maxValue() == USE_TYPE_WIDTH_VARCHAR) {
-                    return typeWidthVarchar(call, argumentIndex);
-                }
-                else if (scalarPropagateSourceStats.propagateAllStats() || scalarPropagateSourceStats.maxValue() == USE_SOURCE_STATS) {
-                    return getSourceStats(call, context, argumentIndex).getHighValue();
-                }
                 StatsPropagationBehavior operation = scalarPropagateSourceStats.maxValue();
+                Integer argumentIndex = paramIndexToSourceStatsMap.getKey();
+                switch (operation) {
+                    case ROW_COUNT:
+                        maxValue = input.getOutputRowCount();
+                        break;
+                    case USE_TYPE_WIDTH_VARCHAR:
+                        maxValue = typeWidthVarchar(call, argumentIndex);
+                        break;
+                    case USE_SOURCE_STATS:
+                        maxValue = getSourceStats(call, context, argumentIndex).getHighValue();
+                        break;
+                    case UNKNOWN:
+                        if (scalarPropagateSourceStats.propagateAllStats()) {
+                            maxValue = getSourceStats(call, context, argumentIndex).getHighValue();
+                        }
+                        break;
+                }
                 if (!operation.isSingleArgumentStats()) {
                     for (int i = 0; i < call.getArguments().size(); i++) {
                         VariableStatsEstimate sourceStats = getSourceStats(call, context, i);
-                        if (!sourceStats.isUnknown() && isFinite(sourceStats.getHighValue())) {
-                            switch (operation) {
-                                case USE_MIN_ARGUMENT:
-                                    maxValue = maxExcludingNaNs(maxValue, sourceStats.getHighValue());
-                                    break;
-                                case SUM_ARGUMENTS:
-                                    maxValue = sumExcludingNaNs(maxValue, sourceStats.getHighValue());
-                                    break;
-                                case MAX_TYPE_WIDTH_VARCHAR:
-                                    maxValue = maxExcludingNaNs(maxValue, typeWidthVarchar(call, i));
-                            }
+                        switch (operation) {
+                            case USE_MAX_ARGUMENT:
+                                maxValue = maxExcludingNaNs(maxValue, sourceStats.getHighValue());
+                                break;
+                            case SUM_ARGUMENTS:
+                                maxValue = sumExcludingNaNs(maxValue, sourceStats.getHighValue());
+                                break;
+                            case MAX_TYPE_WIDTH_VARCHAR:
+                                maxValue = maxExcludingNaNs(maxValue, typeWidthVarchar(call, i));
+                                break;
                         }
                     }
                 }
@@ -372,18 +374,20 @@ public class ScalarStatsCalculator
                 if (!operation.isSingleArgumentStats()) {
                     for (int i = 0; i < call.getArguments().size(); i++) {
                         VariableStatsEstimate sourceStats = getSourceStats(call, context, i);
-                        if (!sourceStats.isUnknown() && isFinite(sourceStats.getDistinctValuesCount())) {
-                            switch (operation) {
-                                case MAX_TYPE_WIDTH_VARCHAR:
-                                    distinctValuesCount = maxExcludingNaNs(distinctValuesCount, typeWidthVarchar(call, i));
-                                    break;
-                                case USE_MAX_ARGUMENT:
+                        switch (operation) {
+                            case MAX_TYPE_WIDTH_VARCHAR:
+                                distinctValuesCount = minExcludingNaNs(maxExcludingNaNs(distinctValuesCount,
+                                        typeWidthVarchar(call, i)), input.getOutputRowCount() * (1 - nullFraction));
+                                break;
+                            case USE_MAX_ARGUMENT:
+                                if (!sourceStats.isUnknown() && isFinite(sourceStats.getDistinctValuesCount())) {
                                     statisticRange = statisticRange.addAndMaxDistinctValues(sourceStats.statisticRange());
-                                    break;
-                                case SUM_ARGUMENTS:
-                                    distinctValuesCount = sumExcludingNaNs(distinctValuesCount, sourceStats.getDistinctValuesCount());
-                                    break;
-                            }
+                                }
+                                break;
+                            case SUM_ARGUMENTS:
+                                distinctValuesCount = minExcludingNaNs(sumExcludingNaNs(distinctValuesCount,
+                                        sourceStats.getDistinctValuesCount()), input.getOutputRowCount());
+                                break;
                         }
                     }
                 }
@@ -405,7 +409,8 @@ public class ScalarStatsCalculator
                             statisticRange = new StatisticRange(min, max, input.getOutputRowCount() * (1 - nullFraction));
                             break;
                         case USE_TYPE_WIDTH_VARCHAR:
-                            statisticRange = new StatisticRange(min, max, typeWidthVarchar(call, paramIndexVsStatsMap.getKey()));
+                            statisticRange = new StatisticRange(min, max, minExcludingNaNs(typeWidthVarchar(call,
+                                    paramIndexVsStatsMap.getKey()), input.getOutputRowCount() * (1 - nullFraction)));
                             break;
                     }
                 }

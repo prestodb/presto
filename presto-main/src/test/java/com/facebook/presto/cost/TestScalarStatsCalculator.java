@@ -136,12 +136,45 @@ public class TestScalarStatsCalculator
                         distinctValuesCount = StatsPropagationBehavior.USE_TYPE_WIDTH_VARCHAR,
                         maxValue = StatsPropagationBehavior.USE_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice value)
         {
-            return value.length() + 102938L;
+            return value.length();
+        }
+
+        @ScalarFunction(value = "custom_str_edit_distance")
+        @SqlType(StandardTypes.BIGINT)
+        @LiteralParameters({"x", "y"})
+        @ScalarFunctionConstantStats(minValue = 0)
+        public static long customStrEditDistance(
+                @ScalarPropagateSourceStats(
+                        propagateAllStats = false,
+                        nullFraction = StatsPropagationBehavior.USE_MAX_ARGUMENT,
+                        distinctValuesCount = StatsPropagationBehavior.MAX_TYPE_WIDTH_VARCHAR,
+                        maxValue = StatsPropagationBehavior.MAX_TYPE_WIDTH_VARCHAR) @SqlType("varchar(x)") Slice str1,
+                @SqlType("varchar(y)") Slice str2)
+        {
+            return 100;
+        }
+
+        @ScalarFunction(value = "custom_prng", calledOnNullInput = true)
+        @SqlType(StandardTypes.BIGINT)
+        @LiteralParameters("x")
+        @ScalarFunctionConstantStats(nullFraction = 0)
+        public static long customPrng(
+                @SqlNullable
+                @ScalarPropagateSourceStats(
+                        propagateAllStats = false,
+                        distinctValuesCount = StatsPropagationBehavior.ROW_COUNT,
+                        minValue = StatsPropagationBehavior.USE_SOURCE_STATS) @SqlType(StandardTypes.BIGINT) Long min,
+                @ScalarPropagateSourceStats(
+                        propagateAllStats = false,
+                        maxValue = StatsPropagationBehavior.USE_SOURCE_STATS
+                ) @SqlNullable @SqlType(StandardTypes.BIGINT) Long max)
+        {
+            return (long) ((Math.random() * (max - min)) + min);
         }
     }
 
     @Test
-    public void testFunctionCallStatsPropagation()
+    public void testScalarFunctionStatsPropagationCustomAdd()
     {
         Map<String, String> sessionConfig = Collections.singletonMap(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true");
 
@@ -161,15 +194,6 @@ public class TestScalarStatsCalculator
                 .setOutputRowCount(10)
                 .build();
 
-        PlanNodeStatsEstimate varcharStats = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", createVarcharType(20)), VariableStatsEstimate.builder()
-                        .setDistinctValuesCount(4)
-                        .setNullsFraction(0.1)
-                        .setAverageRowSize(14)
-                        .build())
-                .setOutputRowCount(10)
-                .build();
-
         Map<String, Type> types = new HashMap<>();
         types.put("x", BIGINT);
         types.put("y", BIGINT);
@@ -182,24 +206,30 @@ public class TestScalarStatsCalculator
                 .highValue(15)
                 .nullsFraction(0.3)
                 .averageRowSize(8.0);
-        assertCalculate(sessionConfig,
-                expression("custom_is_null(x)"),
-                relationStats,
-                TypeProvider.viewOf(Collections.singletonMap("x", BIGINT)))
-                .distinctValuesCount(2.0)
-                .lowValue(NaN)
-                .highValue(NaN)
-                .nullsFraction(1.0)
-                .averageRowSize(1.0);
-        assertCalculate(sessionConfig,
-                expression("custom_is_null(x)"),
-                relationStats,
-                TypeProvider.viewOf(Collections.singletonMap("x", createVarcharType(10))))
-                .distinctValuesCount(2.0)
-                .lowValue(NaN)
-                .highValue(NaN)
-                .nullsFraction(1.0)
-                .averageRowSize(1.0);
+    }
+
+    @Test
+    public void testScalarFunctionStatsPropagationCustomStrLen()
+    {
+        Map<String, String> sessionConfig = Collections.singletonMap(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true");
+
+        PlanNodeStatsEstimate varcharStats = PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", createVarcharType(20)), VariableStatsEstimate.builder()
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0.1)
+                        .setAverageRowSize(14)
+                        .build())
+                .setOutputRowCount(100)
+                .build();
+        PlanNodeStatsEstimate varcharStats2 = PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", createVarcharType(20)), VariableStatsEstimate.builder()
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0.1)
+                        .setAverageRowSize(14)
+                        .build())
+                .setOutputRowCount(10)
+                .build();
+
         assertCalculate(sessionConfig,
                 expression("custom_str_len(x)"),
                 varcharStats,
@@ -209,6 +239,137 @@ public class TestScalarStatsCalculator
                 .highValue(20.0)
                 .nullsFraction(0.1)
                 .averageRowSize(8.0);
+        assertCalculate(sessionConfig,
+                expression("custom_str_len(x)"),
+                varcharStats2,
+                TypeProvider.viewOf(Collections.singletonMap("x", createVarcharType(20))))
+                .distinctValuesCount(9.0)
+                .lowValue(0.0)
+                .highValue(20.0)
+                .nullsFraction(0.1)
+                .averageRowSize(8.0);
+    }
+
+    @Test
+    public void testScalarFunctionStatsPropagationCustomPrng()
+    {
+        Map<String, String> sessionConfig = Collections.singletonMap(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true");
+
+        PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), VariableStatsEstimate.builder()
+                        .setLowValue(1)
+                        .setHighValue(5)
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0.1213)
+                        .build())
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), VariableStatsEstimate.builder()
+                        .setLowValue(2)
+                        .setHighValue(10)
+                        .setDistinctValuesCount(6)
+                        .setNullsFraction(0.22)
+                        .build())
+                .setOutputRowCount(10)
+                .build();
+
+        Map<String, Type> types = new HashMap<>();
+        types.put("x", BIGINT);
+        types.put("y", BIGINT);
+        assertCalculate(sessionConfig,
+                expression("custom_prng(x, y)"),
+                relationStats,
+                TypeProvider.viewOf(types))
+                .distinctValuesCount(10)
+                .lowValue(1)
+                .highValue(10)
+                .nullsFraction(0.0)
+                .averageRowSize(8.0);
+    }
+
+    @Test
+    public void testScalarFunctionStatsPropagationCustomStringEditDistance()
+    {
+        Map<String, String> sessionConfig = Collections.singletonMap(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true");
+        PlanNodeStatsEstimate.Builder relationStatsBuilder = PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", createVarcharType(10)),
+                        VariableStatsEstimate.builder()
+                                .setDistinctValuesCount(4)
+                                .setNullsFraction(0.213)
+                                .setAverageRowSize(9.44)
+                                .build())
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", createVarcharType(20)),
+                        VariableStatsEstimate.builder()
+                                .setDistinctValuesCount(6)
+                                .setNullsFraction(0.4)
+                                .setAverageRowSize(19.333)
+                                .build());
+        PlanNodeStatsEstimate relationStats1 = relationStatsBuilder.setOutputRowCount(10).build();
+        PlanNodeStatsEstimate relationStats2 = relationStatsBuilder.setOutputRowCount(100).build();
+        Map<String, Type> types = new HashMap<>();
+        types.put("x", createVarcharType(10));
+        types.put("y", createVarcharType(20));
+        assertCalculate(sessionConfig,
+                expression("custom_str_edit_distance(x, y)"),
+                relationStats1,
+                TypeProvider.viewOf(types))
+                .distinctValuesCount(6) // null fraction adjustment applied.
+                .lowValue(0)
+                .highValue(20)
+                .nullsFraction(0.4)
+                .averageRowSize(8.0);
+        assertCalculate(sessionConfig,
+                expression("custom_str_edit_distance(x, y)"),
+                relationStats2,
+                TypeProvider.viewOf(types))
+                .distinctValuesCount(20) // null fraction adjustment applied.
+                .lowValue(0)
+                .highValue(20)
+                .nullsFraction(0.4)
+                .averageRowSize(8.0);
+    }
+
+    @Test
+    public void testScalarFunctionStatsPropagationCustomIsNull()
+    {
+        Map<String, String> sessionConfig = Collections.singletonMap(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, "true");
+        PlanNodeStatsEstimate bigintStats = PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT),
+                        VariableStatsEstimate.builder()
+                                .setLowValue(-2)
+                                .setHighValue(5)
+                                .setDistinctValuesCount(3)
+                                .setNullsFraction(0.2)
+                                .build())
+                .setOutputRowCount(10)
+                .build();
+        PlanNodeStatsEstimate varcharStats = PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(
+                        new VariableReferenceExpression(Optional.empty(), "x", createVarcharType(20)),
+                        VariableStatsEstimate.builder()
+                                .setDistinctValuesCount(4)
+                                .setNullsFraction(0.1)
+                                .setAverageRowSize(14)
+                                .build())
+                .setOutputRowCount(10)
+                .build();
+
+        assertCalculate(sessionConfig,
+                expression("custom_is_null(x)"),
+                bigintStats,
+                TypeProvider.viewOf(Collections.singletonMap("x", BIGINT)))
+                .distinctValuesCount(2.0)
+                .lowValue(NaN)
+                .highValue(NaN)
+                .nullsFraction(1.0)
+                .averageRowSize(1.0);
+        assertCalculate(sessionConfig,
+                expression("custom_is_null(x)"),
+                varcharStats,
+                TypeProvider.viewOf(Collections.singletonMap("x", createVarcharType(10))))
+                .distinctValuesCount(2.0)
+                .lowValue(NaN)
+                .highValue(NaN)
+                .nullsFraction(1.0)
+                .averageRowSize(1.0);
     }
 
     @Test
@@ -434,7 +595,7 @@ public class TestScalarStatsCalculator
     }
 
     private VariableStatsAssertion assertCalculate(
-            Map<String, String> sessionConfig,
+            Map<String, String> sessionConfigs,
             Expression scalarExpression,
             PlanNodeStatsEstimate inputStatistics,
             TypeProvider types)
@@ -444,7 +605,7 @@ public class TestScalarStatsCalculator
                 .scalars(CustomFunctions.class)
                 .getFunctions();
         Session.SessionBuilder sessionBuilder = testSessionBuilder();
-        for (Map.Entry<String, String> entry : sessionConfig.entrySet()) {
+        for (Map.Entry<String, String> entry : sessionConfigs.entrySet()) {
             sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
         }
         Session session1 = sessionBuilder.build();

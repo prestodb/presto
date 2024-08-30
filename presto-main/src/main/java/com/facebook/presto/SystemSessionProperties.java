@@ -3336,15 +3336,18 @@ public final class SystemSessionProperties
         return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
     }
 
-    public static boolean warnOnCommonNanPatterns(Session session) {
+    public static boolean warnOnCommonNanPatterns(Session session)
+    {
         return session.getSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, Boolean.class);
     }
 
-    public static boolean isInlineProjectionsOnValues(Session session) {
+    public static boolean isInlineProjectionsOnValues(Session session)
+    {
         return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
     }
 
-    public static boolean shouldEnableScalarFunctionStatsPropagation(Session session) {
+    public static boolean shouldEnableScalarFunctionStatsPropagation(Session session)
+    {
         return session.getSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, Boolean.class);
     }
 }
