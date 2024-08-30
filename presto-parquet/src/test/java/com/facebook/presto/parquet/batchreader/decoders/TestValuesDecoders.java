@@ -21,8 +21,10 @@ import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeA
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64ValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.ShortDecimalValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.UuidValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BooleanPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.FixedLenByteArrayUuidPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32ShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
@@ -55,6 +57,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static com.facebook.presto.parquet.batchreader.decoders.TestParquetUtils.generateDictionaryIdPage2048;
 import static com.facebook.presto.parquet.batchreader.decoders.TestParquetUtils.generatePlainValuesPage;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.min;
 import static org.apache.parquet.bytes.BytesUtils.UTF8;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
@@ -140,6 +143,34 @@ public class TestValuesDecoders
     private static ShortDecimalValuesDecoder int64ShortDecimalRLE(byte[] pageBytes, int dictionarySize, LongDictionary dictionary)
     {
         return new Int64RLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
+    }
+
+    private static UuidValuesDecoder uuidPlain(byte[] pageBytes)
+    {
+        return new FixedLenByteArrayUuidPlainValuesDecoder(16, pageBytes, 0, pageBytes.length);
+    }
+
+    private static void uuidBatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, UuidValuesDecoder decoder, List<Object> expectedValues)
+            throws IOException
+    {
+        long[] actualValues = new long[valueCount * 2];
+        int inputOffset = 0;
+        int outputOffset = 0;
+        while (inputOffset < valueCount) {
+            int readBatchSize = min(batchSize, valueCount - inputOffset);
+            decoder.readNext(actualValues, outputOffset, readBatchSize);
+
+            for (int i = 0; i < (readBatchSize * 2); i++) {
+                assertEquals(actualValues[(outputOffset * 2) + i], expectedValues.get((inputOffset * 2) + i));
+            }
+
+            inputOffset += readBatchSize;
+            outputOffset += readBatchSize;
+
+            int skipBatchSize = min(skipSize, valueCount - inputOffset);
+            decoder.skip(skipBatchSize);
+            inputOffset += skipBatchSize;
+        }
     }
 
     private static void int32BatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, Int32ValuesDecoder decoder, List<Object> expectedValues)
@@ -680,5 +711,30 @@ public class TestValuesDecoders
         int64ShortDecimalBatchReadWithSkipHelper(256, 29, valueCount, int64ShortDecimalRLE(dataPage, dictionarySize, longDictionary), expectedValues);
         int64ShortDecimalBatchReadWithSkipHelper(89, 29, valueCount, int64ShortDecimalRLE(dataPage, dictionarySize, longDictionary), expectedValues);
         int64ShortDecimalBatchReadWithSkipHelper(1024, 1024, valueCount, int64ShortDecimalRLE(dataPage, dictionarySize, longDictionary), expectedValues);
+    }
+
+    @Test
+    public void testUuidPlainPlain()
+            throws IOException
+    {
+        int valueCount = 2048;
+        List<Object> expectedValues = new ArrayList<>();
+
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 128, new Random(83), expectedValues);
+        // page is read assuming in big endian, so we need to flip the bytes around when comparing read values
+        expectedValues = expectedValues.stream()
+                .map(Long.class::cast)
+                .mapToLong(Long::longValue)
+                .map(Long::reverseBytes)
+                .boxed()
+                .collect(toImmutableList());
+        uuidBatchReadWithSkipHelper(valueCount, 0, valueCount, uuidPlain(pageBytes), expectedValues);
+        uuidBatchReadWithSkipHelper(29, 0, valueCount, uuidPlain(pageBytes), expectedValues);
+        uuidBatchReadWithSkipHelper(89, 0, valueCount, uuidPlain(pageBytes), expectedValues);
+        uuidBatchReadWithSkipHelper(1024, 0, valueCount, uuidPlain(pageBytes), expectedValues);
+
+        uuidBatchReadWithSkipHelper(256, 29, valueCount, uuidPlain(pageBytes), expectedValues);
+        uuidBatchReadWithSkipHelper(89, 29, valueCount, uuidPlain(pageBytes), expectedValues);
+        uuidBatchReadWithSkipHelper(1024, 1024, valueCount, uuidPlain(pageBytes), expectedValues);
     }
 }

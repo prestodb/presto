@@ -15,16 +15,19 @@ package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import io.airlift.slice.Slice;
 import org.apache.parquet.io.api.Binary;
 
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
+import static com.facebook.presto.common.type.Uuids.rawUuidValuesFromBigEndian;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.slice.Slices.wrappedLongArray;
 
 public class BinaryColumnReader
         extends AbstractColumnReader
@@ -51,6 +54,9 @@ public class BinaryColumnReader
             }
             if (isCharType(type)) {
                 value = truncateToLengthAndTrimSpaces(value, type);
+            }
+            if (type instanceof UuidType) {
+                value = wrappedLongArray(rawUuidValuesFromBigEndian(binary.getBytes()));
             }
             type.writeSlice(blockBuilder, value);
         }
