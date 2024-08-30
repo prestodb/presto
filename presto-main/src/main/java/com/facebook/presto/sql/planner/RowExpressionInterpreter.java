@@ -663,6 +663,10 @@ public class RowExpressionInterpreter
                                 simplifiedWhenClauses.add(new SpecialFormExpression(operand.getSourceLocation(), WHEN, whenClause.getType(), toRowExpression(operandValue, operand), toRowExpression(processWithExceptionHandling(result, context), result)));
                             }
                             else if (operandValue != null) {
+                                //Check to avoid class cast exception
+                                if (!value.getClass().isInstance(operandValue)) {
+                                    break;
+                                }
                                 Boolean isEqual = (Boolean) invokeOperator(
                                         EQUAL,
                                         ImmutableList.of(node.getArguments().get(0).getType(), operand.getType()),
