@@ -373,34 +373,40 @@ public final class MetadataReader
                 }
                 typeBuilder = primitiveBuilder;
             }
-
             if (element.isSetConverted_type()) {
                 typeBuilder.as(getOriginalType(element.converted_type));
             }
             if (element.isSetLogicalType()) {
                 LogicalType type = element.getLogicalType();
-                if (element.getLogicalType().isSetTIME()) {
-                    TimeType time = type.getTIME();
-                    typeBuilder.as(LogicalTypeAnnotation.timeType(time.isAdjustedToUTC, convertTimeUnit(time.unit)));
-                }
-                if (element.getLogicalType().isSetDECIMAL()) {
-                    DecimalType decimal = type.getDECIMAL();
-                    typeBuilder.as(LogicalTypeAnnotation.decimalType(decimal.scale, decimal.precision));
-                }
-                if (element.getLogicalType().isSetINTEGER()) {
-                    IntType integer = type.getINTEGER();
-                    typeBuilder.as(LogicalTypeAnnotation.intType(integer.bitWidth, integer.isSigned));
-                }
-                if (element.getLogicalType().isSetTIMESTAMP()) {
-                    TimestampType timestamp = type.getTIMESTAMP();
-                    typeBuilder.as(LogicalTypeAnnotation.timestampType(timestamp.isAdjustedToUTC, convertTimeUnit(timestamp.unit)));
-                }
+                Optional<LogicalTypeAnnotation> annotationWithParams = getLogicalTypeAnnotationWithParameters(type);
+                annotationWithParams.ifPresent(typeBuilder::as);
             }
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
             }
             typeBuilder.named(element.name.toLowerCase(Locale.ENGLISH));
         }
+    }
+
+    private static Optional<LogicalTypeAnnotation> getLogicalTypeAnnotationWithParameters(LogicalType type)
+    {
+        if (type.isSetTIME()) {
+            TimeType time = type.getTIME();
+            return Optional.of(LogicalTypeAnnotation.timeType(time.isAdjustedToUTC, convertTimeUnit(time.unit)));
+        }
+        if (type.isSetDECIMAL()) {
+            DecimalType decimal = type.getDECIMAL();
+            return Optional.of(LogicalTypeAnnotation.decimalType(decimal.scale, decimal.precision));
+        }
+        if (type.isSetINTEGER()) {
+            IntType integer = type.getINTEGER();
+            return Optional.of(LogicalTypeAnnotation.intType(integer.bitWidth, integer.isSigned));
+        }
+        if (type.isSetTIMESTAMP()) {
+            TimestampType timestamp = type.getTIMESTAMP();
+            return Optional.of(LogicalTypeAnnotation.timestampType(timestamp.isAdjustedToUTC, convertTimeUnit(timestamp.unit)));
+        }
+        return Optional.empty();
     }
 
     private static LogicalTypeAnnotation.TimeUnit convertTimeUnit(TimeUnit unit)
