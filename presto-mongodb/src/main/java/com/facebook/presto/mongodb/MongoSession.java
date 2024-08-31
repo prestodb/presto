@@ -26,6 +26,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -43,7 +44,9 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.slice.Slice;
 import org.bson.Document;
@@ -70,6 +73,7 @@ import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -82,6 +86,7 @@ public class MongoSession
     private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version");
 
     private static final String TABLE_NAME_KEY = "table";
+    private static final String COMMENT_KEY = "comment";
     private static final String FIELDS_KEY = "fields";
     private static final String FIELDS_NAME_KEY = "name";
     private static final String FIELDS_TYPE_KEY = "type";
@@ -563,5 +568,84 @@ public class MongoSession
         }
 
         return Optional.ofNullable(typeSignature);
+    }
+
+    public void addColumn(MongoTableHandle table, ColumnMetadata columnMetadata)
+    {
+        String remoteSchemaName = table.getSchemaTableName().getSchemaName();
+        String remoteTableName = table.getSchemaTableName().getTableName();
+        SchemaTableName schemaTableName = new SchemaTableName(remoteSchemaName, remoteTableName);
+
+        Document metadata = getTableMetadata(schemaTableName);
+
+        List<Document> columns = new ArrayList<>(getColumnMetadata(metadata));
+
+        Document newColumn = new Document()
+                .append(FIELDS_NAME_KEY, columnMetadata.getName())
+                .append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString())
+                .append(COMMENT_KEY, columnMetadata.getComment())
+                .append(FIELDS_HIDDEN_KEY, false);
+        columns.add(newColumn);
+
+        metadata.append(FIELDS_KEY, columns);
+
+        MongoCollection<Document> schema = client.getDatabase(remoteSchemaName)
+                .getCollection(schemaCollection);
+        schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    public void renameColumn(MongoTableHandle table, String source, String target)
+    {
+        String remoteSchemaName = table.getSchemaTableName().getSchemaName();
+        String remoteTableName = table.getSchemaTableName().getTableName();
+        SchemaTableName schemaTableName = new SchemaTableName(remoteSchemaName, remoteTableName);
+
+        Document metadata = getTableMetadata(schemaTableName);
+
+        List<Document> columns = getColumnMetadata(metadata).stream()
+                .map(document -> {
+                    if (document.getString(FIELDS_NAME_KEY).equals(source)) {
+                        document.put(FIELDS_NAME_KEY, target);
+                    }
+                    return document;
+                })
+                .collect(toImmutableList());
+
+        metadata.append(FIELDS_KEY, columns);
+
+        MongoDatabase database = client.getDatabase(remoteSchemaName);
+        MongoCollection<Document> schema = database.getCollection(schemaCollection);
+        schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        database.getCollection(remoteTableName)
+                .updateMany(new Document(), Updates.rename(source, target));
+
+        tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    public void dropColumn(MongoTableHandle table, String columnName)
+    {
+        String remoteSchemaName = table.getSchemaTableName().getSchemaName();
+        String remoteTableName = table.getSchemaTableName().getTableName();
+        SchemaTableName schemaTableName = new SchemaTableName(remoteSchemaName, remoteTableName);
+
+        Document metadata = getTableMetadata(schemaTableName);
+
+        List<Document> columns = getColumnMetadata(metadata).stream()
+                .filter(document -> !document.getString(FIELDS_NAME_KEY).equals(columnName))
+                .collect(toImmutableList());
+
+        metadata.append(FIELDS_KEY, columns);
+
+        MongoDatabase database = client.getDatabase(remoteSchemaName);
+        MongoCollection<Document> schema = database.getCollection(schemaCollection);
+        schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        database.getCollection(remoteTableName)
+                .updateMany(Filters.exists(columnName), Updates.unset(columnName));
+
+        tableCache.invalidate(table.getSchemaTableName());
     }
 }
