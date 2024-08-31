@@ -33,9 +33,8 @@ if(VELOX_MONO_LIBRARY)
                                       ${FLEX_TypeParserScanner_OUTPUTS})
   add_dependencies(velox velox_type_parser_gen_src)
 endif()
-
-include_directories(${PROJECT_BINARY_DIR})
-include_directories(${FLEX_INCLUDE_DIRS})
 velox_add_library(velox_type_parser ${BISON_TypeParser_OUTPUTS}
                   ${FLEX_TypeParserScanner_OUTPUTS} ParserUtil.cpp)
+velox_include_directories(velox_type_parser PRIVATE ${PROJECT_BINARY_DIR}
+                                                    ${FLEX_INCLUDE_DIRS})
 velox_link_libraries(velox_type_parser velox_common_base)

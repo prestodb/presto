@@ -52,6 +52,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CCACHE_DIR: '${{ github.workspace }}/.ccache'
+      # The arm runners have only 7GB RAM
+      BUILD_TYPE: "${{ matrix.os ==  'macos-14' && 'Release' || 'Debug' }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,30 +74,31 @@ jobs:
         uses: assignUser/stash/restore@v1
         with:
           path: '${{ env.CCACHE_DIR }}'
-          key: ccache-macos-${{ matrix.os }}
+          key: ccache-macos-1-${{ matrix.os }}
 
       - name: Configure Build
         env:
-          folly_SOURCE: BUNDLED
+          folly_SOURCE: BUNDLED #brew folly does not have int128
         run: |
             ccache -sz -M 5Gi
             cmake \
-                -B _build/debug \
+                -B _build/$BUILD_TYPE \
                 -GNinja \
                 -DTREAT_WARNINGS_AS_ERRORS=1 \
                 -DENABLE_ALL_WARNINGS=1 \
                 -DVELOX_ENABLE_PARQUET=ON \
-                -DCMAKE_BUILD_TYPE=Debug
+                -DVELOX_MONO_LIBRARY=ON \
+                -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
       - name: Build
         run: |
-            cmake --build _build/debug -j $NJOBS
+            cmake --build _build/$BUILD_TYPE -j $NJOBS
             ccache -s
 
       - uses: assignUser/stash/save@v1
         with:
           path: '${{ env.CCACHE_DIR }}'
-          key: ccache-macos-${{ matrix.os }}
+          key: ccache-macos-1-${{ matrix.os }}
 
       - name: Run Tests
         if: false
