@@ -8020,10 +8020,6 @@ DEBUG_ONLY_TEST_F(HashJoinTest, spillCheckOnLeftSemiFilterWithDynamicFilters) {
                        .values(buildVectors)
                        .project({"c0 AS u_c0", "c1 AS u_c1"})
                        .planNode();
-  auto keyOnlyBuildSide = PlanBuilder(planNodeIdGenerator, pool_.get())
-                              .values(keyOnlyBuildVectors)
-                              .project({"c0 AS u_c0"})
-                              .planNode();
 
   // Left semi join.
   core::PlanNodeId probeScanId;
@@ -8070,7 +8066,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, spillCheckOnLeftSemiFilterWithDynamicFilters) {
         // Verify spill hasn't triggered.
         auto taskStats = exec::toPlanStats(task->taskStats());
         auto& planStats = taskStats.at(joinNodeId);
-        ASSERT_EQ(planStats.spilledBytes, 0);
+        ASSERT_GT(planStats.spilledBytes, 0);
       })
       .run();
 }

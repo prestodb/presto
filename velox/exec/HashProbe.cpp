@@ -1654,9 +1654,7 @@ void HashProbe::ensureOutputFits() {
 }
 
 bool HashProbe::canReclaim() const {
-  // NOTE: we can't spill from a hash probe operator if it has generated dynamic
-  // filters.
-  return spillEnabled() && !hasGeneratedDynamicFilters_;
+  return spillEnabled();
 }
 
 void HashProbe::reclaim(
