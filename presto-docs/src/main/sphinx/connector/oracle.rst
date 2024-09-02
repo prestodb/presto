@@ -28,6 +28,8 @@ connection properties as appropriate for your setup:
     connection-url=jdbc:oracle:thin:@example.net:1521:orcl
     connection-user=root
     connection-password=secret
+    oracle.tls.truststore-path=/path/to/truststore
+    oracle.tls.truststore-password=truststorePassword
 
 The ``connection-url`` defines the connection information and parameters to pass
 to the JDBC driver. The Oracle connector uses the Oracle JDBC Thin driver,
