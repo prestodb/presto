@@ -184,7 +184,7 @@ void PrestoServer::run() {
 
       ciphers = systemConfig->httpsSupportedCiphers();
       if (ciphers.empty()) {
-        VELOX_USER_FAIL("Https is enabled without ciphers")
+        VELOX_USER_FAIL("Https is enabled without ciphers");
       }
 
       auto optionalCertPath = systemConfig->httpsCertPath();
