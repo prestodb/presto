@@ -102,7 +102,7 @@ class SortBuffer {
   // sort buffer object.
   bool noMoreInput_ = false;
   // The number of received input rows.
-  size_t numInputRows_ = 0;
+  uint64_t numInputRows_ = 0;
   // Used to store the input data in row format.
   std::unique_ptr<RowContainer> data_;
   std::vector<char*> sortedRows_;
@@ -123,7 +123,7 @@ class SortBuffer {
   // 'data_->estimateRowSize()' across all accumulated data set.
   std::optional<uint64_t> estimatedOutputRowSize_{};
   // The number of rows that has been returned.
-  size_t numOutputRows_{0};
+  uint64_t numOutputRows_{0};
 };
 
 } // namespace facebook::velox::exec
