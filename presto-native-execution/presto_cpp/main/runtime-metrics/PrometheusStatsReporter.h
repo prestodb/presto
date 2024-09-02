@@ -94,5 +94,5 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   mutable std::unordered_map<std::string, StatsInfo> registeredMetricsMap_;
   VELOX_FRIEND_TEST(PrometheusReporterTest, testCountAndGauge);
   VELOX_FRIEND_TEST(PrometheusReporterTest, testHistogramSummary);
-}; // class PrometheusReporter
-}; // namespace facebook::presto::prometheus
+};
+} // namespace facebook::presto::prometheus
