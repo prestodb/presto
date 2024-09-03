@@ -125,7 +125,6 @@ CODEOWNERS @prestodb/team-tsc
 
 # Iceberg connector
 /presto-iceberg @hantangwangd @ZacBlanco @prestodb/committers
-/presto-docs/src/**/connector/iceberg.rst @hantangwangd @ZacBlanco @prestodb/committers
 
 # Ranger Hive plugin
 /presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
@@ -154,4 +153,5 @@ CODEOWNERS @prestodb/team-tsc
 # Presto documentation
 /presto-docs @steveburnett @elharo @prestodb/committers
 /**/*.md @steveburnett @prestodb/committers
+/presto-docs/src/**/connector/iceberg.rst @steveburnett @elharo @hantangwangd @ZacBlanco @prestodb/committers
 
