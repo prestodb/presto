@@ -66,8 +66,6 @@ void PartitionIdGenerator::run(
   const auto numRows = input->size();
   result.resize(numRows);
 
-  // TODO Check that there are no nulls in the partition keys.
-
   // Compute value IDs using VectorHashers and store these in 'result'.
   computeValueIds(input, result);
 

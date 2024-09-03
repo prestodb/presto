@@ -70,6 +70,7 @@ TEST(HiveConfigTest, defaultConfig) {
   ASSERT_EQ(
       hiveConfig.sortWriterMaxOutputBytes(emptySession.get()), 10UL << 20);
   ASSERT_EQ(hiveConfig.isPartitionPathAsLowerCase(emptySession.get()), true);
+  ASSERT_EQ(hiveConfig.allowNullPartitionKeys(emptySession.get()), true);
   ASSERT_EQ(hiveConfig.orcWriterMinCompressionSize(emptySession.get()), 1024);
   ASSERT_EQ(
       hiveConfig.orcWriterCompressionLevel(emptySession.get()), std::nullopt);
@@ -97,6 +98,7 @@ TEST(HiveConfigTest, overrideConfig) {
       {HiveConfig::kGCSCredentials, "hey"},
       {HiveConfig::kOrcUseColumnNames, "true"},
       {HiveConfig::kFileColumnNamesReadAsLowerCase, "true"},
+      {HiveConfig::kAllowNullPartitionKeys, "false"},
       {HiveConfig::kMaxCoalescedBytes, "100"},
       {HiveConfig::kMaxCoalescedDistanceBytes, "100"},
       {HiveConfig::kNumCacheFileHandles, "100"},
@@ -136,6 +138,7 @@ TEST(HiveConfigTest, overrideConfig) {
   ASSERT_EQ(hiveConfig.isOrcUseColumnNames(emptySession.get()), true);
   ASSERT_EQ(
       hiveConfig.isFileColumnNamesReadAsLowerCase(emptySession.get()), true);
+  ASSERT_EQ(hiveConfig.allowNullPartitionKeys(emptySession.get()), false);
   ASSERT_EQ(hiveConfig.maxCoalescedBytes(), 100);
   ASSERT_EQ(hiveConfig.maxCoalescedDistanceBytes(), 100);
   ASSERT_EQ(hiveConfig.numCacheFileHandles(), 100);
@@ -178,6 +181,7 @@ TEST(HiveConfigTest, overrideSession) {
       {HiveConfig::kSortWriterMaxOutputRowsSession, "20"},
       {HiveConfig::kSortWriterMaxOutputBytesSession, "20MB"},
       {HiveConfig::kPartitionPathAsLowerCaseSession, "false"},
+      {HiveConfig::kAllowNullPartitionKeysSession, "false"},
       {HiveConfig::kIgnoreMissingFilesSession, "true"},
       {HiveConfig::kOrcWriterMinCompressionSizeSession, "512"},
       {HiveConfig::kOrcWriterCompressionLevelSession, "1"},
@@ -224,6 +228,7 @@ TEST(HiveConfigTest, overrideSession) {
   ASSERT_EQ(hiveConfig.sortWriterMaxOutputRows(session.get()), 20);
   ASSERT_EQ(hiveConfig.sortWriterMaxOutputBytes(session.get()), 20UL << 20);
   ASSERT_EQ(hiveConfig.isPartitionPathAsLowerCase(session.get()), false);
+  ASSERT_EQ(hiveConfig.allowNullPartitionKeys(session.get()), false);
   ASSERT_EQ(hiveConfig.ignoreMissingFiles(session.get()), true);
   ASSERT_EQ(
       hiveConfig.orcWriterLinearStripeSizeHeuristics(session.get()), false);

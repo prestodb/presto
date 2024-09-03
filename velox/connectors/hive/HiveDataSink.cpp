@@ -496,6 +496,21 @@ std::string HiveDataSink::stateString(State state) {
 void HiveDataSink::computePartitionAndBucketIds(const RowVectorPtr& input) {
   VELOX_CHECK(isPartitioned() || isBucketed());
   if (isPartitioned()) {
+    if (!hiveConfig_->allowNullPartitionKeys(
+            connectorQueryCtx_->sessionProperties())) {
+      // Check that there are no nulls in the partition keys.
+      for (auto& partitionIdx : partitionChannels_) {
+        auto col = input->childAt(partitionIdx);
+        if (col->mayHaveNulls()) {
+          for (auto i = 0; i < col->size(); ++i) {
+            VELOX_USER_CHECK(
+                !col->isNullAt(i),
+                "Partition key must not be null: {}",
+                input->type()->asRow().nameOf(partitionIdx))
+          }
+        }
+      }
+    }
     partitionIdGenerator_->run(input, partitionIds_);
   }
 

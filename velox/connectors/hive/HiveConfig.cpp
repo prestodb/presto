@@ -173,6 +173,13 @@ bool HiveConfig::isPartitionPathAsLowerCase(
   return session->get<bool>(kPartitionPathAsLowerCaseSession, true);
 }
 
+bool HiveConfig::allowNullPartitionKeys(
+    const config::ConfigBase* session) const {
+  return session->get<bool>(
+      kAllowNullPartitionKeysSession,
+      config_->get<bool>(kAllowNullPartitionKeys, true));
+}
+
 bool HiveConfig::ignoreMissingFiles(const config::ConfigBase* session) const {
   return session->get<bool>(kIgnoreMissingFilesSession, false);
 }
