@@ -10,7 +10,9 @@ dependency-reduced-pom.xml
 test-output/
 test-reports/
 /atlassian-ide-plugin.xml
-.idea
+.idea/*
+*/.idea
+!.idea/icon.png
 .run
 .vscode
 .DS_Store
