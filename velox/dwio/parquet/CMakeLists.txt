@@ -14,6 +14,7 @@
 
 if(VELOX_ENABLE_PARQUET)
   add_subdirectory(thrift)
+  add_subdirectory(common)
   add_subdirectory(reader)
   add_subdirectory(writer)
 
