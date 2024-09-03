@@ -39,6 +39,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestIcebergMetadataListing
         extends AbstractTestQueryFramework
 {
+    private static final int TEST_TIMEOUT = 10_000;
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -61,7 +62,7 @@ public class TestIcebergMetadataListing
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
-                .put("iceberg.hive.table-refresh.max-retry-time", "500ms") // improves test time for testTableDropWithMissingMetadata
+                .put("iceberg.hive.table-refresh.max-retry-time", "20s") // improves test time for testTableDropWithMissingMetadata
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
@@ -120,7 +121,12 @@ public class TestIcebergMetadataListing
         assertQuery("DESCRIBE iceberg.test_schema.iceberg_table1", "VALUES ('_string', 'varchar', '', ''), ('_integer', 'integer', '', '')");
     }
 
-    @Test
+    /*
+     * The property iceberg.hive.table-refresh.max-retry-time is important for controlling the maximum retry duration
+     * when refreshing Iceberg table metadata. If this test fails, check the refreshFromMetadataLocation method
+     * in HiveTableOperations.
+     */
+    @Test (timeOut = TEST_TIMEOUT)
     public void testTableDropWithMissingMetadata()
     {
         assertQuerySucceeds("CREATE SCHEMA hive.test_metadata_schema");

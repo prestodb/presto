@@ -27,6 +27,7 @@ import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.IcebergTableName;
 import com.facebook.presto.iceberg.IcebergTableType;
 import com.facebook.presto.iceberg.IcebergTransactionManager;
+import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
@@ -180,6 +181,7 @@ public class IcebergEqualityDeleteAsJoin
 
             TupleDomain<IcebergColumnHandle> predicate = icebergTableLayoutHandle
                     .map(IcebergTableLayoutHandle::getValidPredicate)
+                    .map(IcebergUtil::getNonMetadataColumnConstraints)
                     .orElse(TupleDomain.all());
 
             // Collect info about each unique delete schema to join by

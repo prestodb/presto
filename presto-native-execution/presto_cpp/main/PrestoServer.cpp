@@ -15,7 +15,6 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/lexical_cast.hpp>
 #include <glog/logging.h>
 #include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
@@ -36,7 +35,6 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
@@ -47,7 +45,16 @@
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/HiveConnector.h"
-#include "velox/core/Config.h"
+#include "velox/connectors/hive/HiveDataSink.h"
+#include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
+#include "velox/connectors/tpch/TpchConnector.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -65,8 +72,6 @@
 #endif
 
 namespace facebook::presto {
-using namespace facebook::velox;
-
 namespace {
 
 constexpr char const* kHttp = "http";
@@ -74,6 +79,7 @@ constexpr char const* kHttps = "https";
 constexpr char const* kTaskUriFormat =
     "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
+constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -231,9 +237,11 @@ void PrestoServer::run() {
 
   registerFileSinks();
   registerFileSystems();
+  registerFileReadersAndWriters();
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
+  registerConnectorFactories();
 
   // Register Velox connector factory for iceberg.
   // The iceberg catalog is handled by the hive connector factory.
@@ -458,6 +466,19 @@ void PrestoServer::run() {
   taskManager_ = std::make_unique<TaskManager>(
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 
+  if (systemConfig->prestoNativeSidecar()) {
+    httpServer_->registerGet(
+        "/v1/properties/session",
+        [this](
+            proxygen::HTTPMessage* /*message*/,
+            const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+            proxygen::ResponseHandler* downstream) {
+          auto sessionProperties =
+              taskManager_->getQueryContextManager()->getSessionProperties();
+          http::sendOkResponse(downstream, sessionProperties.serialize());
+        });
+  }
+
   std::string taskUri;
   if (httpsPort.has_value()) {
     taskUri = fmt::format(kTaskUriFormat, kHttps, address_, httpsPort.value());
@@ -476,8 +497,12 @@ void PrestoServer::run() {
         << "Spilling root directory: " << baseSpillDirectory;
   }
 
+  initVeloxPlanValidator();
   taskResource_ = std::make_unique<TaskResource>(
-      *taskManager_, pool_.get(), httpSrvCpuExecutor_.get());
+      pool_.get(),
+      httpSrvCpuExecutor_.get(),
+      getVeloxPlanValidator(),
+      *taskManager_);
   taskResource_->registerUris(*httpServer_);
   if (systemConfig->enableSerializedPageChecksum()) {
     enableChecksum();
@@ -574,6 +599,8 @@ void PrestoServer::run() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server";
   httpServer_.reset();
 
+  unregisterFileReadersAndWriters();
+  unregisterFileSystems();
   unregisterConnectors();
 
   PRESTO_SHUTDOWN_LOG(INFO)
@@ -785,23 +812,43 @@ void PrestoServer::initializeVeloxMemory() {
         memoryGb,
         "Query memory capacity must not be larger than system memory capacity");
     options.arbitratorCapacity = queryMemoryGb << 30;
-    const uint64_t queryReservedMemoryGb =
-        systemConfig->queryReservedMemoryGb();
+    const uint64_t sharedArbitratorReservedMemoryGb = velox::config::toCapacity(
+        systemConfig->sharedArbitratorReservedCapacity(),
+        velox::config::CapacityUnit::GIGABYTE);
     VELOX_USER_CHECK_LE(
-        queryReservedMemoryGb,
+        sharedArbitratorReservedMemoryGb,
         queryMemoryGb,
-        "Query reserved memory capacity must not be larger than query memory capacity");
-    options.arbitratorReservedCapacity = queryReservedMemoryGb << 30;
-    options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
-    options.memoryPoolReservedCapacity =
-        systemConfig->memoryPoolReservedCapacity();
-    options.memoryPoolTransferCapacity =
-        systemConfig->memoryPoolTransferCapacity();
-    options.memoryReclaimWaitMs = systemConfig->memoryReclaimWaitMs();
-    options.globalArbitrationEnabled =
-        systemConfig->memoryArbitratorGlobalArbitrationEnabled();
+        "Shared arbitrator reserved memory capacity must not be larger than "
+        "query memory capacity");
+
     options.largestSizeClassPages = systemConfig->largestSizeClassPages();
     options.arbitrationStateCheckCb = velox::exec::memoryArbitrationStateCheck;
+
+    using SharedArbitratorConfig = velox::memory::SharedArbitrator::ExtraConfig;
+    options.extraArbitratorConfigs = {
+        {std::string(SharedArbitratorConfig::kReservedCapacity),
+         systemConfig->sharedArbitratorReservedCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolInitialCapacity),
+         systemConfig->sharedArbitratorMemoryPoolInitialCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolReservedCapacity),
+         systemConfig->sharedArbitratorMemoryPoolReservedCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolTransferCapacity),
+         systemConfig->sharedArbitratorMemoryPoolTransferCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryReclaimMaxWaitTime),
+         systemConfig->sharedArbitratorMemoryReclaimWaitTime()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolMinFreeCapacity),
+         systemConfig->sharedArbitratorMemoryPoolMinFreeCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolMinFreeCapacityPct),
+         systemConfig->sharedArbitratorMemoryPoolMinFreeCapacityPct()},
+        {std::string(SharedArbitratorConfig::kGlobalArbitrationEnabled),
+         systemConfig->sharedArbitratorGlobalArbitrationEnabled()},
+        {std::string(
+             SharedArbitratorConfig::kFastExponentialGrowthCapacityLimit),
+         systemConfig->sharedArbitratorFastExponentialGrowthCapacityLimit()},
+        {std::string(SharedArbitratorConfig::kSlowCapacityGrowPct),
+         systemConfig->sharedArbitratorSlowCapacityGrowPct()},
+        {std::string(SharedArbitratorConfig::kCheckUsageLeak),
+         folly::to<std::string>(systemConfig->enableMemoryLeakCheck())}};
   }
   memory::initializeMemoryManager(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
@@ -1049,6 +1096,24 @@ PrestoServer::getAdditionalHttpServerFilters() {
   return filters;
 }
 
+void PrestoServer::registerConnectorFactories() {
+  // These checks for connector factories can be removed after we remove the
+  // registrations from the Velox library.
+  if (!connector::hasConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>(
+            kHiveHadoop2ConnectorName));
+  }
+  if (!connector::hasConnectorFactory(
+          connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::tpch::TpchConnectorFactory>());
+  }
+}
+
 std::vector<std::string> PrestoServer::registerConnectors(
     const fs::path& configDirectoryPath) {
   static const std::string kPropertiesExtension = ".properties";
@@ -1080,8 +1145,8 @@ std::vector<std::string> PrestoServer::registerConnectors(
           << "Registered properties from " << entry.path() << ":\n"
           << stringifyConnectorConfig(connectorConf);
 
-      std::shared_ptr<const velox::Config> properties =
-          std::make_shared<const velox::core::MemConfig>(
+      std::shared_ptr<const velox::config::ConfigBase> properties =
+          std::make_shared<const velox::config::ConfigBase>(
               std::move(connectorConf));
 
       auto connectorName = util::requiredProperty(*properties, kConnectorName);
@@ -1209,12 +1274,38 @@ void PrestoServer::registerVectorSerdes() {
   }
 }
 
+void PrestoServer::registerFileSinks() {
+  velox::dwio::common::registerFileSinks();
+}
+
 void PrestoServer::registerFileSystems() {
   velox::filesystems::registerLocalFileSystem();
+  velox::filesystems::registerS3FileSystem();
+  velox::filesystems::registerHdfsFileSystem();
+  velox::filesystems::registerGCSFileSystem();
+  velox::filesystems::abfs::registerAbfsFileSystem();
+}
+
+void PrestoServer::unregisterFileSystems() {
+  velox::filesystems::finalizeS3FileSystem();
 }
 
 void PrestoServer::registerMemoryArbitrators() {
   velox::memory::SharedArbitrator::registerFactory();
+}
+
+void PrestoServer::registerFileReadersAndWriters() {
+  velox::dwrf::registerDwrfReaderFactory();
+  velox::dwrf::registerDwrfWriterFactory();
+  velox::parquet::registerParquetReaderFactory();
+  velox::parquet::registerParquetWriterFactory();
+}
+
+void PrestoServer::unregisterFileReadersAndWriters() {
+  velox::dwrf::unregisterDwrfReaderFactory();
+  velox::dwrf::unregisterDwrfWriterFactory();
+  velox::parquet::unregisterParquetReaderFactory();
+  velox::parquet::unregisterParquetWriterFactory();
 }
 
 void PrestoServer::registerStatsCounters() {
@@ -1247,6 +1338,15 @@ void PrestoServer::enableWorkerStatsReporting() {
   // This flag must be set to register the counters.
   facebook::velox::BaseStatsReporter::registered = true;
   registerStatsCounters();
+}
+
+void PrestoServer::initVeloxPlanValidator() {
+  VELOX_CHECK_NULL(planValidator_);
+  planValidator_ = std::make_shared<VeloxPlanValidator>();
+}
+
+VeloxPlanValidator* PrestoServer::getVeloxPlanValidator() {
+  return planValidator_.get();
 }
 
 void PrestoServer::populateMemAndCPUInfo() {

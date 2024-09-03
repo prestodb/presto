@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.289-SNAPSHOT</version>
+    <version>0.290-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.209</dep.airlift.version>
+        <dep.airlift.version>0.215</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -78,6 +78,9 @@
         <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.11.0</dep.jackson.version>
         <dep.j2objc.version>2.8</dep.j2objc.version>
+        <dep.avro.version>1.11.3</dep.avro.version>
+        <dep.commons.compress.version>1.23.0</dep.commons.compress.version>
+
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -195,6 +198,7 @@
         <module>redis-hbo-provider</module>
         <module>presto-singlestore</module>
         <module>presto-hana</module>
+        <module>presto-openapi</module>
     </modules>
 
     <dependencyManagement>
@@ -2256,6 +2260,23 @@
                 <version>${dep.j2objc.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro</artifactId>
+                <version>${dep.avro.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${dep.commons.compress.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -2568,7 +2589,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.6</version>
+                        <version>3.2.4</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>

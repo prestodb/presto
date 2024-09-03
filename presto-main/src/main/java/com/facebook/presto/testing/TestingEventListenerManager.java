@@ -18,6 +18,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +58,14 @@ public class TestingEventListenerManager
     {
         if (configuredEventListener.get().isPresent()) {
             configuredEventListener.get().get().queryUpdated(queryUpdatedEvent);
+        }
+    }
+
+    @Override
+    public void publishQueryProgress(QueryProgressEvent queryProgressEvent)
+    {
+        if (configuredEventListener.get().isPresent()) {
+            configuredEventListener.get().get().publishQueryProgress(queryProgressEvent);
         }
     }
 

@@ -177,7 +177,7 @@ public class TestInlineSqlFunctions
     {
         RowExpression inputExpression = new TestingRowExpressionTranslator(tester.getMetadata()).translate(inputExpressionStr, ImmutableMap.of(variable, type));
 
-        tester().assertThat(new InlineSqlFunctions(tester.getMetadata(), tester.getSqlParser()).projectRowExpressionRewriteRule())
+        tester().assertThat(new InlineSqlFunctions(tester.getMetadata()).projectRowExpressionRewriteRule())
                 .on(p -> p.project(assignment(p.variable("var"), inputExpression), p.values(p.variable(variable, type))))
                 .matches(project(ImmutableMap.of("var", expression(expectedExpressionStr)), values(variable)));
     }

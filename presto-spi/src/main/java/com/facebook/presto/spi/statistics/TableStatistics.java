@@ -116,6 +116,15 @@ public final class TableStatistics
         return new Builder();
     }
 
+    public static Builder buildFrom(TableStatistics tableStatistics)
+    {
+        return new Builder()
+                .setRowCount(tableStatistics.getRowCount())
+                .setTotalSize(tableStatistics.getTotalSize())
+                .setConfidenceLevel(tableStatistics.getConfidence())
+                .setColumnStatistics(tableStatistics.getColumnStatistics());
+    }
+
     public static final class Builder
     {
         private Estimate rowCount = Estimate.unknown();
@@ -151,6 +160,13 @@ public final class TableStatistics
             requireNonNull(columnHandle, "columnHandle can not be null");
             requireNonNull(columnStatistics, "columnStatistics can not be null");
             this.columnStatisticsMap.put(columnHandle, columnStatistics);
+            return this;
+        }
+
+        public Builder setColumnStatistics(Map<ColumnHandle, ColumnStatistics> columnStatistics)
+        {
+            requireNonNull(columnStatistics, "columnStatistics can not be null");
+            this.columnStatisticsMap.putAll(columnStatistics);
             return this;
         }
 

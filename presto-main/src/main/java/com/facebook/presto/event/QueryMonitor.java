@@ -46,6 +46,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
@@ -57,6 +58,7 @@ import com.facebook.presto.spi.eventlistener.QueryIOMetadata;
 import com.facebook.presto.spi.eventlistener.QueryInputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
+import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
@@ -171,6 +173,30 @@ public class QueryMonitor
     public void queryUpdatedEvent(QueryInfo queryInfo)
     {
         eventListenerManager.queryUpdated(new QueryUpdatedEvent(createQueryMetadata(queryInfo)));
+    }
+
+    public void publishQueryProgressEvent(long monotonicallyIncreasingEventId, BasicQueryInfo queryInfo)
+    {
+        eventListenerManager.publishQueryProgress(new QueryProgressEvent(
+                monotonicallyIncreasingEventId,
+                new QueryMetadata(
+                        queryInfo.getQueryId().toString(),
+                        queryInfo.getSession().getTransactionId().map(TransactionId::toString),
+                        queryInfo.getQuery(),
+                        queryInfo.getQueryHash(),
+                        queryInfo.getPreparedQuery(),
+                        queryInfo.getState().toString(),
+                        queryInfo.getSelf(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        queryInfo.getSession().getTraceToken()),
+                createQueryStatistics(queryInfo),
+                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                queryInfo.getQueryType(),
+                ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis())));
     }
 
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
@@ -429,6 +455,46 @@ public class QueryMonitor
                 queryStats.getCompletedDrivers(),
                 queryInfo.isFinalQueryInfo(),
                 queryStats.getRuntimeStats());
+    }
+
+    private QueryStatistics createQueryStatistics(BasicQueryInfo basicQueryInfo)
+    {
+        BasicQueryStats queryStats = basicQueryInfo.getQueryStats();
+
+        return new QueryStatistics(
+                ofMillis(queryStats.getTotalCpuTime().toMillis()),
+                ofMillis(0),
+                ofMillis(queryStats.getElapsedTime().toMillis()),
+                ofMillis(queryStats.getWaitingForPrerequisitesTime().toMillis()),
+                ofMillis(queryStats.getQueuedTime().toMillis()),
+                ofMillis(0),
+                ofMillis(0),
+                ofMillis(0),
+                ofMillis(0),
+                ofMillis(0),
+                Optional.of(ofMillis(0)),
+                ofMillis(queryStats.getExecutionTime().toMillis()),
+                queryStats.getPeakRunningTasks(),
+                queryStats.getPeakUserMemoryReservation().toBytes(),
+                queryStats.getPeakTotalMemoryReservation().toBytes(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                queryStats.getRawInputDataSize().toBytes(),
+                queryStats.getRawInputPositions(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                queryStats.getCumulativeUserMemory(),
+                queryStats.getCumulativeTotalMemory(),
+                queryStats.getCompletedDrivers(),
+                false,
+                new RuntimeStats());
     }
 
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)

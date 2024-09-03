@@ -207,6 +207,7 @@ add_subdirectory(velox)
 if(PRESTO_ENABLE_TESTING)
   set(BUILD_TESTING ON) # some third-party dependency could have disabled this.
   include(CTest) # include after project() but before add_subdirectory()
+  find_package(GTest)
   include_directories(${VELOX_GTEST_INCUDE_DIR})
 else()
   add_definitions(-DVELOX_DISABLE_GOOGLETEST)

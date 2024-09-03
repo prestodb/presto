@@ -38,6 +38,7 @@ import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
+import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
 
 public class IcebergConfig
 {
@@ -57,6 +58,7 @@ public class IcebergConfig
     private int rowsForMetadataOptimizationThreshold = 1000;
     private int metadataPreviousVersionsMax = METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
     private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
+    private int metricsMaxInferredColumn = METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
@@ -378,6 +380,19 @@ public class IcebergConfig
     public IcebergConfig setMetadataDeleteAfterCommit(boolean metadataDeleteAfterCommit)
     {
         this.metadataDeleteAfterCommit = metadataDeleteAfterCommit;
+        return this;
+    }
+
+    public int getMetricsMaxInferredColumn()
+    {
+        return metricsMaxInferredColumn;
+    }
+
+    @Config("iceberg.metrics-max-inferred-column")
+    @ConfigDescription("The maximum number of columns for which metrics are collected")
+    public IcebergConfig setMetricsMaxInferredColumn(int metricsMaxInferredColumn)
+    {
+        this.metricsMaxInferredColumn = metricsMaxInferredColumn;
         return this;
     }
 }

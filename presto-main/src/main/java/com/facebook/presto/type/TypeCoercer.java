@@ -27,7 +27,7 @@ import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogType;
 import com.facebook.presto.type.setdigest.SetDigestType;
 import com.google.common.collect.ImmutableList;
@@ -60,12 +60,12 @@ import static java.util.Objects.requireNonNull;
 
 public class TypeCoercer
 {
-    private final FeaturesConfig featuresConfig;
+    private final FunctionsConfig functionsConfig;
     private final FunctionAndTypeManager functionAndTypeManager;
 
-    public TypeCoercer(FeaturesConfig featuresConfig, FunctionAndTypeManager functionAndTypeManager)
+    public TypeCoercer(FunctionsConfig functionsConfig, FunctionAndTypeManager functionAndTypeManager)
     {
-        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
+        this.functionsConfig = requireNonNull(functionsConfig, "functionsConfig is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
     }
 
@@ -280,7 +280,7 @@ public class TypeCoercer
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.CHAR:
-                        if (featuresConfig.isLegacyCharToVarcharCoercion()) {
+                        if (functionsConfig.isLegacyCharToVarcharCoercion()) {
                             return Optional.empty();
                         }
 
@@ -307,7 +307,7 @@ public class TypeCoercer
             case StandardTypes.CHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.VARCHAR:
-                        if (!featuresConfig.isLegacyCharToVarcharCoercion()) {
+                        if (!functionsConfig.isLegacyCharToVarcharCoercion()) {
                             return Optional.empty();
                         }
 
@@ -385,7 +385,7 @@ public class TypeCoercer
                 Type commonSuperType = getCommonSuperTypeForVarchar((VarcharType) standardFromType, (VarcharType) standardToType);
                 return TypeCompatibility.compatible(toSemanticType(toType, commonSuperType), commonSuperType.equals(standardToType));
             }
-            if (fromTypeBaseName.equals(StandardTypes.CHAR) && !featuresConfig.isLegacyCharToVarcharCoercion()) {
+            if (fromTypeBaseName.equals(StandardTypes.CHAR) && !functionsConfig.isLegacyCharToVarcharCoercion()) {
                 Type commonSuperType = getCommonSuperTypeForChar((CharType) standardFromType, (CharType) standardToType);
                 return TypeCompatibility.compatible(toSemanticType(toType, commonSuperType), commonSuperType.equals(standardToType));
             }

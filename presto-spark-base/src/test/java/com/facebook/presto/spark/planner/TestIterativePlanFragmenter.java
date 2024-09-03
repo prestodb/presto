@@ -61,7 +61,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
@@ -143,7 +142,7 @@ public class TestIterativePlanFragmenter
         CatalogManager catalogManager = new CatalogManager();
         catalogManager.registerCatalog(createBogusTestingCatalog("tpch"));
         transactionManager = createTestTransactionManager(catalogManager);
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        metadata = createTestMetadataManager(transactionManager);
 
         finalizerService = new FinalizerService();
         finalizerService.start();
@@ -158,7 +157,7 @@ public class TestIterativePlanFragmenter
                 new SimpleTtlNodeSelectorConfig());
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
-        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());
+        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new FeaturesConfig());
     }
 
     @AfterClass(alwaysRun = true)
@@ -226,7 +225,6 @@ public class TestIterativePlanFragmenter
                 testingFragmentTracker::isFragmentFinished,
                 metadata,
                 new PlanChecker(new FeaturesConfig()),
-                new SqlParser(),
                 new PlanNodeIdAllocator(),
                 nodePartitioningManager,
                 new QueryManagerConfig(),

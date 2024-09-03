@@ -48,6 +48,14 @@ public interface Type
     boolean isOrderable();
 
     /**
+     * True if there can only be one canonical representation of data corresponding to this type.
+     */
+    default boolean equalValuesAreIdentical()
+    {
+        return true;
+    }
+
+    /**
      * Gets the Java class type used to represent this value on the stack during
      * expression execution.
      * <p>

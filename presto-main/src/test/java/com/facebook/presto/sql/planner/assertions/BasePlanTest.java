@@ -27,6 +27,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -111,7 +112,7 @@ public class BasePlanTest
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
+        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),

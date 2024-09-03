@@ -41,6 +41,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryR
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -180,7 +181,8 @@ public class TestIcebergSplitManager
     {
         Session session = sessionWithFilterPushdown(filterPushdown);
         List<TableScanNode> tableScanNodes = getTableScanFromOptimizedPlanOfSql(sql, session);
-        assertTrue(tableScanNodes != null && tableScanNodes.size() == 1);
+        assertNotNull(tableScanNodes);
+        assertEquals(tableScanNodes.size(), 1);
 
         TransactionId transactionId = transactionManager.beginTransaction(false);
         session = session.beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());

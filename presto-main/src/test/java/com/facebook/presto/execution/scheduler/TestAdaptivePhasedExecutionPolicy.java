@@ -40,6 +40,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -97,6 +98,7 @@ public class TestAdaptivePhasedExecutionPolicy
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxStageCountForEagerScheduling(5),
+                new FunctionsConfig(),
                 new NodeMemoryConfig(),
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),

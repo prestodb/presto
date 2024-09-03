@@ -49,6 +49,7 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
@@ -71,9 +72,10 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
+import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.MetricsModes.None;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
@@ -121,6 +123,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_DELETE_AFTER_COMMIT;
 import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
+import static com.facebook.presto.iceberg.IcebergTableProperties.METRICS_MAX_INFERRED_COLUMN;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
@@ -145,12 +148,15 @@ import static com.facebook.presto.iceberg.IcebergUtil.verifyTypeSupported;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
 import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
+import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
+import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromColumnMeta;
 import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
-import static com.facebook.presto.iceberg.util.StatisticsUtil.combineSelectedAndPredicateColumns;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateBaseTableStatistics;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatisticsConsideringLayout;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
@@ -168,28 +174,32 @@ import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
+
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
     protected final NodeVersion nodeVersion;
     protected final RowExpressionService rowExpressionService;
+    protected final FilterStatsCalculatorService filterStatsCalculatorService;
     protected Transaction transaction;
 
     private final StandardFunctionResolution functionResolution;
     private final ConcurrentMap<SchemaTableName, Table> icebergTables = new ConcurrentHashMap<>();
-    private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
 
     public IcebergAbstractMetadata(
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            FilterStatsCalculatorService filterStatsCalculatorService)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
     }
 
     protected final Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
@@ -360,6 +370,8 @@ public abstract class IcebergAbstractMetadata
                 return Optional.of(new FilesTable(systemTableName, table, snapshotId, typeManager));
             case PROPERTIES:
                 return Optional.of(new PropertiesTable(systemTableName, table));
+            case REFS:
+                return Optional.of(new RefsTable(systemTableName, table));
         }
         return Optional.empty();
     }
@@ -441,8 +453,8 @@ public abstract class IcebergAbstractMetadata
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
-                SchemaParser.toJson(icebergTable.schema()),
-                PartitionSpecParser.toJson(icebergTable.spec()),
+                toPrestoSchema(icebergTable.schema(), typeManager),
+                toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
@@ -556,6 +568,7 @@ public abstract class IcebergAbstractMetadata
         properties.put(DELETE_MODE, IcebergUtil.getDeleteMode(icebergTable));
         properties.put(METADATA_PREVIOUS_VERSIONS_MAX, IcebergUtil.getMetadataPreviousVersionsMax(icebergTable));
         properties.put(METADATA_DELETE_AFTER_COMMIT, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
+        properties.put(METRICS_MAX_INFERRED_COLUMN, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
 
         return properties.build();
     }
@@ -588,8 +601,10 @@ public abstract class IcebergAbstractMetadata
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        Table table = getIcebergTable(session, tableMetadata.getTable());
+        MetricsConfig metricsConfig = MetricsConfig.forTable(table);
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
+                .filter(column -> !column.isHidden() && metricsConfig.columnMode(column.getName()) != None.get())
                 .flatMap(meta -> getSupportedColumnStatistics(meta.getName(), meta.getType()).stream())
                 .collect(toImmutableSet());
 
@@ -718,19 +733,8 @@ public abstract class IcebergAbstractMetadata
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-
-        List<IcebergColumnHandle> handles = combineSelectedAndPredicateColumns(
-                columnHandles.stream()
-                        .map(IcebergColumnHandle.class::cast)
-                        .collect(toImmutableList()),
-                tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast));
-        return TableStatisticsMaker.getTableStatistics(session, typeManager,
-                tableLayoutHandle
-                        .map(IcebergTableLayoutHandle.class::cast)
-                        .map(IcebergTableLayoutHandle::getValidPredicate),
-                constraint, handle, icebergTable, handles);
+        TableStatistics baseStatistics = calculateBaseTableStatistics(this, typeManager, session, (IcebergTableHandle) tableHandle, tableLayoutHandle, columnHandles, constraint);
+        return calculateStatisticsConsideringLayout(filterStatsCalculatorService, rowExpressionService, baseStatistics, session, tableLayoutHandle);
     }
 
     @Override

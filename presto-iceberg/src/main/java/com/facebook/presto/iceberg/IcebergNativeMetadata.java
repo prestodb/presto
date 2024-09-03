@@ -27,12 +27,11 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -53,6 +52,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.verifyTypeSupported;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
+import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
+import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -80,9 +81,10 @@ public class IcebergNativeMetadata
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             CatalogType catalogType,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            FilterStatsCalculatorService filterStatsCalculatorService)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
+        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService);
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
@@ -183,8 +185,8 @@ public class IcebergNativeMetadata
         return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
-                SchemaParser.toJson(icebergTable.schema()),
-                PartitionSpecParser.toJson(icebergTable.spec()),
+                toPrestoSchema(icebergTable.schema(), typeManager),
+                toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 fileFormat,

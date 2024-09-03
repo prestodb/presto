@@ -116,4 +116,4 @@ BroadcastExchangeSource::createExchangeSource(
       fileSystemBroadcast.createReader(std::move(broadcastFileInfo), pool),
       pool);
 }
-}; // namespace facebook::presto::operators
+} // namespace facebook::presto::operators

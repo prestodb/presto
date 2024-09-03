@@ -573,11 +573,17 @@ public final class SqlStageExecution
 
     public void recordSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
     {
+        if (planFragment.isLeaf()) {
+            stateMachine.recordLeafStageSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
+        }
         stateMachine.recordSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
     }
 
     public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
     {
+        if (planFragment.isLeaf()) {
+            stateMachine.recordLeafStageSchedulerBlockedTime(reason, nanos);
+        }
         stateMachine.recordSchedulerBlockedTime(reason, nanos);
     }
 

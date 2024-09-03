@@ -16,7 +16,7 @@
 #include <fmt/format.h>
 #include <fstream>
 #include "velox/common/base/Exceptions.h"
-#include "velox/core/Config.h"
+#include "velox/common/config/Config.h"
 
 namespace facebook::presto::util {
 std::unordered_map<std::string, std::string> readConfig(
@@ -62,9 +62,9 @@ std::string requiredProperty(
 }
 
 std::string requiredProperty(
-    const velox::Config& properties,
+    const velox::config::ConfigBase& properties,
     const std::string& name) {
-  auto value = properties.get(name);
+  auto value = properties.get<std::string>(name);
   if (!value.hasValue()) {
     VELOX_USER_FAIL("Missing configuration property {}", name);
   }
@@ -94,10 +94,10 @@ std::string getOptionalProperty(
 }
 
 std::string getOptionalProperty(
-    const velox::Config& properties,
+    const velox::config::ConfigBase& properties,
     const std::string& name,
     const std::string& defaultValue) {
-  auto value = properties.get(name);
+  auto value = properties.get<std::string>(name);
   if (!value.hasValue()) {
     return defaultValue;
   }

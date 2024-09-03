@@ -320,6 +320,9 @@ Property Name                                           Description             
 
 ``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``
                                                         each commit.
+
+``iceberg.metrics-max-inferred-column``                 The maximum number of columns for which metrics               ``100``
+                                                        are collected.
 ======================================================= ============================================================= ============
 
 Table Properties
@@ -367,6 +370,9 @@ Property Name                             Description                           
 
 ``metadata_delete_after_commit``           Set to ``true`` to delete the oldest metadata file after         ``false``
                                            each commit.
+
+``metrics_max_inferred_column``            Optionally specifies the maximum number of columns for which     ``100``
+                                           metrics are collected.
 =======================================   ===============================================================   ============
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
@@ -491,14 +497,16 @@ JMX queries to get the metrics and verify the cache usage::
 
     SELECT * FROM jmx.current."com.facebook.presto.hive:name=iceberg_parquetmetadata,type=cachestatsmbean";
 
-Metastore Versioned Cache
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Metastore Cache
+^^^^^^^^^^^^^^^
 
-Metastore cache only caches schema and table names. Other metadata would be fetched from the filesystem.
+Metastore Cache only caches the schema, table, and table statistics. The table object cached in the `tableCache`
+is only used for reading the table metadata location and table properties and, the rest of the table metadata
+is fetched from the filesystem/object storage metadata location.
 
 .. note::
 
-    Metastore Versioned Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
+    Metastore Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
 
 .. code-block:: none
 
@@ -704,6 +712,23 @@ example uses the earliest snapshot ID: ``2423571386296047175``
      INSERT    |       2 |  677209275408372885 | {orderkey=18016, custkey=403, orderstatus=O, totalprice=174070.99, orderdate=1996-03-19, orderpriority=1-URGENT, clerk=Clerk#000000629, shippriority=0, comment=ly. quickly ironic excuses are furiously. carefully ironic pack}
      INSERT    |       2 |  677209275408372885 | {orderkey=18017, custkey=958, orderstatus=F, totalprice=203091.02, orderdate=1993-03-26, orderpriority=1-URGENT, clerk=Clerk#000000830, shippriority=0, comment=sleep quickly bold requests. slyly pending pinto beans haggle in pla}
 
+``$refs`` Table
+^^^^^^^^^^^^^^^^^^^^
+* ``$refs`` : Details about Iceberg references including branches and tags. For more information see `Branching and Tagging <https://iceberg.apache.org/docs/nightly/branching/>`_.
+
+.. code-block:: sql
+
+    SELECT * FROM "ctas_nation$refs";
+
+.. code-block:: text
+
+        name     |  type  |     snapshot_id     | max_reference_age_in_ms | min_snapshots_to_keep | max_snapshot_age_in_ms
+     ------------+--------+---------------------+-------------------------+-----------------------+------------------------
+      main       | BRANCH | 3074797416068623476 | NULL                    | NULL                  | NULL
+      testBranch | BRANCH | 3374797416068698476 | NULL                    | NULL                  | NULL
+      testTag    | TAG    | 4686954189838128572 | 10                      | NULL                  | NULL
+
+
 Procedures
 ----------
 
@@ -766,14 +791,16 @@ Rollback to Snapshot
 
 Roll back a table to a specific snapshot ID. Iceberg can roll back to a specific snapshot ID by using the ``rollback_to_snapshot`` procedure on Iceberg`s ``system`` schema::
 
-    CALL iceberg.system.rollback_to_snapshot('table_name', 'snapshot_id');
+    CALL iceberg.system.rollback_to_snapshot('schema_name', 'table_name', snapshot_id);
 
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
 Argument Name         required   type            Description
 ===================== ========== =============== =======================================================================
-``table``             ✔️          string          Name of the table to update
+``schema_name``       ✔️          string          Schema of the table to update
+
+``table_name``        ✔️          string          Name of the table to update
 
 ``snapshot_id``       ✔️          long            Snapshot ID to rollback to
 ===================== ========== =============== =======================================================================
@@ -1236,7 +1263,7 @@ Parquet Writer Version
 
 Presto now supports Parquet writer versions V1 and V2 for the Iceberg catalog.
 It can be toggled using the session property ``parquet_writer_version`` and the config property ``hive.parquet.writer.version``.
-Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_2_0``.
+Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_1_0``.
 
 Example Queries
 ^^^^^^^^^^^^^^^
@@ -1327,8 +1354,7 @@ Example Queries
 ^^^^^^^^^^^^^^^
 
 Similar to the example queries in `SCHEMA EVOLUTION`_, create an Iceberg
-table named `ctas_nation` from the TPCH `nation` table::
-
+table named `ctas_nation` from the TPCH `nation` table:
 
 .. code-block:: sql
 

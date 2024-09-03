@@ -109,7 +109,8 @@ public class StatisticsAggregationPlanner
             ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
             VariableReferenceExpression inputVariable = columnToVariableMap.get(columnName);
             verify(inputVariable != null, "inputVariable is null");
-            ColumnStatisticsAggregation aggregation = createColumnAggregation(columnStatisticMetadata, inputVariable);
+            ColumnStatisticsAggregation aggregation = createColumnAggregation(columnStatisticMetadata, inputVariable,
+                    ImmutableMap.of(columnName, inputVariable.getName()));
             additionalVariables.putAll(aggregation.getInputProjections());
             VariableReferenceExpression variable = variableAllocator.newVariable(statisticType + ":" + columnName, aggregation.getOutputType());
             aggregations.put(variable, aggregation.getAggregation());
@@ -120,13 +121,17 @@ public class StatisticsAggregationPlanner
         return new TableStatisticAggregation(aggregation, descriptor.build(), additionalVariables.build());
     }
 
-    private ColumnStatisticsAggregation createColumnAggregationFromSqlFunction(String sqlFunction, VariableReferenceExpression input)
+    private ColumnStatisticsAggregation createColumnAggregationFromSqlFunction(
+            String sqlFunction,
+            VariableReferenceExpression input,
+            Map<String, String> columnNameToInputVariableNameMap)
     {
         RowExpression expression = sqlFunctionToRowExpression(
                 sqlFunction,
                 ImmutableSet.of(input),
                 functionAndTypeManager,
-                session);
+                session,
+                columnNameToInputVariableNameMap);
         verify(expression instanceof CallExpression, "column statistic SQL expressions must represent a function call");
         CallExpression call = (CallExpression) expression;
         FunctionMetadata functionMeta = functionAndTypeResolver.getFunctionMetadata(call.getFunctionHandle());
@@ -186,10 +191,11 @@ public class StatisticsAggregationPlanner
                 ImmutableMap.of());
     }
 
-    private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticMetadata columnStatisticMetadata, VariableReferenceExpression input)
+    private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticMetadata columnStatisticMetadata, VariableReferenceExpression input,
+                                                                Map<String, String> columnNameToInputVariableNameMap)
     {
         if (columnStatisticMetadata.isSqlExpression()) {
-            return createColumnAggregationFromSqlFunction(columnStatisticMetadata.getFunction(), input);
+            return createColumnAggregationFromSqlFunction(columnStatisticMetadata.getFunction(), input, columnNameToInputVariableNameMap);
         }
 
         return createColumnAggregationFromFunctionName(columnStatisticMetadata, input);

@@ -53,6 +53,7 @@ public class VerifierConfig
     private double relativeErrorMargin = 1e-4;
     private double absoluteErrorMargin = 1e-12;
     private boolean useErrorMarginForFloatingPointArrays = true;
+    private boolean validateStringAsDouble;
     private boolean smartTeardown;
     private int verificationResubmissionLimit = 6;
 
@@ -265,6 +266,19 @@ public class VerifierConfig
     public VerifierConfig setUseErrorMarginForFloatingPointArrays(boolean useErrorMarginForFloatingPointArrays)
     {
         this.useErrorMarginForFloatingPointArrays = useErrorMarginForFloatingPointArrays;
+        return this;
+    }
+
+    public boolean isValidateStringAsDouble()
+    {
+        return validateStringAsDouble;
+    }
+
+    @ConfigDescription("When set to true, validate string column as double if the values are all in the floating point format.")
+    @Config("validate-string-as-double")
+    public VerifierConfig setValidateStringAsDouble(boolean validateStringAsDouble)
+    {
+        this.validateStringAsDouble = validateStringAsDouble;
         return this;
     }
 

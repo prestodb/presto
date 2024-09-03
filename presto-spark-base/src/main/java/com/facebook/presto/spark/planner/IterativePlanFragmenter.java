@@ -36,7 +36,6 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.BasePlanFragmenter;
 import com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -87,7 +86,6 @@ public class IterativePlanFragmenter
     private final Plan originalPlan;
     private final Metadata metadata;
     private final PlanChecker planChecker;
-    private final SqlParser sqlParser;
     private final PlanNodeIdAllocator idAllocator;
     private final VariableAllocator variableAllocator;
     private final NodePartitioningManager nodePartitioningManager;
@@ -112,7 +110,6 @@ public class IterativePlanFragmenter
             Function<PlanFragmentId, Boolean> isFragmentFinished,
             Metadata metadata,
             PlanChecker planChecker,
-            SqlParser sqlParser,
             PlanNodeIdAllocator idAllocator,
             NodePartitioningManager nodePartitioningManager,
             QueryManagerConfig queryManagerConfig,
@@ -124,7 +121,6 @@ public class IterativePlanFragmenter
         this.isFragmentFinished = requireNonNull(isFragmentFinished, "isSourceReady is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = new VariableAllocator(originalPlan.getTypes().allVariables());
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -149,7 +145,6 @@ public class IterativePlanFragmenter
                 originalPlan.getStatsAndCosts(),
                 planChecker,
                 warningCollector,
-                sqlParser,
                 idAllocator,
                 variableAllocator,
                 getOutputTableWriterNodeIds(plan));
@@ -244,12 +239,11 @@ public class IterativePlanFragmenter
                 StatsAndCosts statsAndCosts,
                 PlanChecker planChecker,
                 WarningCollector warningCollector,
-                SqlParser sqlParser,
                 PlanNodeIdAllocator idAllocator,
                 VariableAllocator variableAllocator,
                 Set<PlanNodeId> outputTableWriterNodeIds)
         {
-            super(session, metadata, statsAndCosts, planChecker, warningCollector, sqlParser, idAllocator, variableAllocator, outputTableWriterNodeIds);
+            super(session, metadata, statsAndCosts, planChecker, warningCollector, idAllocator, variableAllocator, outputTableWriterNodeIds);
         }
 
         @Override

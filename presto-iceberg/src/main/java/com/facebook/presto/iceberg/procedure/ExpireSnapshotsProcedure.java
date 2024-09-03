@@ -36,6 +36,7 @@ import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.IcebergLibUtils.withIncrementalCleanup;
 
 public class ExpireSnapshotsProcedure
         implements Provider<Procedure>
@@ -85,7 +86,10 @@ public class ExpireSnapshotsProcedure
         SchemaTableName schemaTableName = new SchemaTableName(schema, tableName);
         Table icebergTable = IcebergUtil.getIcebergTable(metadata, clientSession, schemaTableName);
 
-        ExpireSnapshots expireSnapshots = icebergTable.expireSnapshots();
+        // Incremental clean up strategy has a bug when expire specified snapshots.
+        //  So explicitly use reachable file cleanup strategy here.
+        //  Referring to https://github.com/apache/iceberg/issues/10982
+        ExpireSnapshots expireSnapshots = withIncrementalCleanup(icebergTable.expireSnapshots(), false);
 
         if (snapshotIds != null) {
             for (long id : snapshotIds) {

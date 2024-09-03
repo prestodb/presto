@@ -34,7 +34,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
@@ -52,7 +51,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -97,11 +95,8 @@ public abstract class BasePlanFragmenter
     private final StatsAndCosts statsAndCosts;
     private final PlanChecker planChecker;
     private final WarningCollector warningCollector;
-    private final SqlParser sqlParser;
     private final Set<PlanNodeId> outputTableWriterNodeIds;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
-
-    private Map<String, TableScanNode> cteNameToTableScanMap = new HashMap<>();
 
     public BasePlanFragmenter(
             Session session,
@@ -109,7 +104,6 @@ public abstract class BasePlanFragmenter
             StatsAndCosts statsAndCosts,
             PlanChecker planChecker,
             WarningCollector warningCollector,
-            SqlParser sqlParser,
             PlanNodeIdAllocator idAllocator,
             VariableAllocator variableAllocator,
             Set<PlanNodeId> outputTableWriterNodeIds)
@@ -119,7 +113,6 @@ public abstract class BasePlanFragmenter
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.outputTableWriterNodeIds = ImmutableSet.copyOf(requireNonNull(outputTableWriterNodeIds, "outputTableWriterNodeIds is null"));
@@ -143,7 +136,7 @@ public abstract class BasePlanFragmenter
                 properties.getPartitionedSources());
 
         Set<VariableReferenceExpression> fragmentVariableTypes = extractOutputVariables(root);
-        planChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.fromVariables(fragmentVariableTypes), warningCollector);
+        planChecker.validatePlanFragment(root, session, metadata, warningCollector);
 
         Set<PlanNodeId> tableWriterNodeIds = PlanFragmenterUtils.getTableWriterNodeIds(root);
         boolean outputTableWriterFragment = tableWriterNodeIds.stream().anyMatch(outputTableWriterNodeIds::contains);

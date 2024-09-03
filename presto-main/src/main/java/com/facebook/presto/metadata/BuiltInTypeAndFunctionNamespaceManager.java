@@ -235,7 +235,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -556,7 +556,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     public BuiltInTypeAndFunctionNamespaceManager(
             BlockEncodingSerde blockEncodingSerde,
-            FeaturesConfig featuresConfig,
+            FunctionsConfig functionsConfig,
             Set<Type> types,
             FunctionAndTypeManager functionAndTypeManager)
     {
@@ -612,15 +612,15 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(this::instantiateParametricType));
 
-        registerBuiltInFunctions(getBuiltInFunctions(featuresConfig));
-        registerBuiltInTypes(featuresConfig);
+        registerBuiltInFunctions(getBuiltInFunctions(functionsConfig));
+        registerBuiltInTypes(functionsConfig);
 
         for (Type type : requireNonNull(types, "types is null")) {
             addType(type);
         }
     }
 
-    private void registerBuiltInTypes(FeaturesConfig featuresConfig)
+    private void registerBuiltInTypes(FunctionsConfig functionsConfig)
     {
         // always add the built-in types; Presto will not function without these
         addType(UNKNOWN);
@@ -629,7 +629,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(INTEGER);
         addType(SMALLINT);
         addType(TINYINT);
-        if (!featuresConfig.getUseNewNanDefinition()) {
+        if (!functionsConfig.getUseNewNanDefinition()) {
             addType(OLD_NAN_DOUBLE);
             addType(OLD_NAN_REAL);
         }
@@ -678,7 +678,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addParametricType(VARCHAR_ENUM);
     }
 
-    private List<? extends SqlFunction> getBuiltInFunctions(FeaturesConfig featuresConfig)
+    private List<? extends SqlFunction> getBuiltInFunctions(FunctionsConfig functionsConfig)
     {
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window(RowNumberFunction.class)
@@ -807,7 +807,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(DoubleOperators.class)
                 .scalars(RealOperators.class);
 
-        if (featuresConfig.getUseNewNanDefinition()) {
+        if (functionsConfig.getUseNewNanDefinition()) {
             builder.scalars(DoubleComparisonOperators.class)
                     .scalar(DoubleComparisonOperators.DoubleDistinctFromOperator.class)
                     .scalars(RealComparisonOperators.class)
@@ -933,11 +933,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .functions(SET_AGG, SET_UNION)
-                .function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg(), featuresConfig.getArrayAggGroupImplementation()))
-                .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript()))
+                .function(new ArrayAggregationFunction(functionsConfig.isLegacyArrayAgg(), functionsConfig.getArrayAggGroupImplementation()))
+                .functions(new MapSubscriptOperator(functionsConfig.isLegacyMapSubscript()))
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MAP_UNION, MAP_UNION_SUM)
-                .function(new ReduceAggregationFunction(featuresConfig.isReduceAggForComplexTypesEnabled()))
+                .function(new ReduceAggregationFunction(functionsConfig.isReduceAggForComplexTypesEnabled()))
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
@@ -952,7 +952,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(DECIMAL_DISTINCT_FROM_OPERATOR)
-                .function(new Histogram(featuresConfig.getHistogramGroupImplementation()))
+                .function(new Histogram(functionsConfig.getHistogramGroupImplementation()))
                 .function(CHECKSUM_AGGREGATION)
                 .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
@@ -967,8 +967,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST, ROW_INDETERMINATE)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
-                .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
-                .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
+                .function(castVarcharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
+                .function(castCharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
                 .function(DECIMAL_AVERAGE_AGGREGATION)
                 .function(DECIMAL_SUM_AGGREGATION)
                 .function(DECIMAL_MOD_FUNCTION)
@@ -1015,7 +1015,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(KllSketchFunctions.class)
                 .scalars(KllSketchOperators.class);
 
-        switch (featuresConfig.getRegexLibrary()) {
+        switch (functionsConfig.getRegexLibrary()) {
             case JONI:
                 builder.scalars(JoniRegexpFunctions.class);
                 builder.scalar(JoniRegexpReplaceLambdaFunction.class);
@@ -1026,12 +1026,12 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 break;
         }
 
-        if (featuresConfig.isLegacyLogFunction()) {
+        if (functionsConfig.isLegacyLogFunction()) {
             builder.scalar(LegacyLogFunction.class);
         }
 
         // Replace some aggregations for Velox to override intermediate aggregation type.
-        if (featuresConfig.isUseAlternativeFunctionSignatures()) {
+        if (functionsConfig.isUseAlternativeFunctionSignatures()) {
             builder.override(ARBITRARY_AGGREGATION, ALTERNATIVE_ARBITRARY_AGGREGATION);
             builder.override(ANY_VALUE_AGGREGATION, ALTERNATIVE_ANY_VALUE_AGGREGATION);
             builder.override(MAX_AGGREGATION, ALTERNATIVE_MAX);
@@ -1039,7 +1039,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.override(MAX_BY, ALTERNATIVE_MAX_BY);
             builder.override(MIN_BY, ALTERNATIVE_MIN_BY);
             builder.functions(AlternativeApproxPercentile.getFunctions());
-            builder.function(new AlternativeMultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()));
+            builder.function(new AlternativeMultimapAggregationFunction(functionsConfig.getMultimapAggGroupImplementation()));
         }
         else {
             builder.aggregates(ApproximateLongPercentileAggregations.class);
@@ -1048,12 +1048,12 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.aggregates(ApproximateDoublePercentileArrayAggregations.class);
             builder.aggregates(ApproximateRealPercentileAggregations.class);
             builder.aggregates(ApproximateRealPercentileArrayAggregations.class);
-            builder.function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()));
+            builder.function(new MultimapAggregationFunction(functionsConfig.getMultimapAggGroupImplementation()));
         }
 
-        if (featuresConfig.getLimitNumberOfGroupsForKHyperLogLogAggregations()) {
-            builder.function(new MergeKHyperLogLogWithLimitAggregationFunction(featuresConfig.getKHyperLogLogAggregationGroupNumberLimit()));
-            builder.function(new KHyperLogLogWithLimitAggregationFunction(featuresConfig.getKHyperLogLogAggregationGroupNumberLimit()));
+        if (functionsConfig.getLimitNumberOfGroupsForKHyperLogLogAggregations()) {
+            builder.function(new MergeKHyperLogLogWithLimitAggregationFunction(functionsConfig.getKHyperLogLogAggregationGroupNumberLimit()));
+            builder.function(new KHyperLogLogWithLimitAggregationFunction(functionsConfig.getKHyperLogLogAggregationGroupNumberLimit()));
         }
         else {
             builder.aggregates(MergeKHyperLogLogAggregationFunction.class);

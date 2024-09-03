@@ -235,4 +235,4 @@ std::string PrometheusStatsReporter::fetchMetrics() {
   return serializer.Serialize(impl_->registry->Collect());
 }
 
-}; // namespace facebook::presto::prometheus
+} // namespace facebook::presto::prometheus

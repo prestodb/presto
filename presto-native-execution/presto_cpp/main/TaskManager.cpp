@@ -1049,8 +1049,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
     UuidSplit split;
   };
 
-  UuidParse uuid;
-  uuid.uuid = boost::uuids::random_generator()();
+  UuidParse uuid = {boost::uuids::random_generator()()};
 
   prestoTask->info.taskStatus.taskInstanceIdLeastSignificantBits =
       uuid.split.lo;

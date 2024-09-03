@@ -35,6 +35,7 @@ import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
+import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
 
 public class TestIcebergConfig
 {
@@ -64,7 +65,8 @@ public class TestIcebergConfig
                 .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT)
                 .setSplitManagerThreads(Runtime.getRuntime().availableProcessors())
                 .setMetadataPreviousVersionsMax(METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT)
-                .setMetadataDeleteAfterCommit(METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT));
+                .setMetadataDeleteAfterCommit(METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT)
+                .setMetricsMaxInferredColumn(METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT));
     }
 
     @Test
@@ -94,6 +96,7 @@ public class TestIcebergConfig
                 .put("iceberg.split-manager-threads", "42")
                 .put("iceberg.metadata-previous-versions-max", "1")
                 .put("iceberg.metadata-delete-after-commit", "true")
+                .put("iceberg.metrics-max-inferred-column", "16")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -119,7 +122,8 @@ public class TestIcebergConfig
                 .setManifestCacheMaxContentLength(10485760)
                 .setSplitManagerThreads(42)
                 .setMetadataPreviousVersionsMax(1)
-                .setMetadataDeleteAfterCommit(true);
+                .setMetadataDeleteAfterCommit(true)
+                .setMetricsMaxInferredColumn(16);
 
         assertFullMapping(properties, expected);
     }

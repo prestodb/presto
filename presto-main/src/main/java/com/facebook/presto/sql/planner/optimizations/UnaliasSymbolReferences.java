@@ -578,7 +578,7 @@ public class UnaliasSymbolReferences
 
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
-                        .filter(clause -> clause.getLeft().getType().equals(clause.getRight().getType()))
+                        .filter(clause -> clause.getLeft().getType().equals(clause.getRight().getType()) && clause.getLeft().getType().equalValuesAreIdentical())
                         .filter(clause -> node.getOutputVariables().contains(clause.getLeft()))
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }

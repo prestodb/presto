@@ -36,6 +36,7 @@ Configuration Property Name                                   Description       
 ``optimizer.track-history-based-plan-statistics``             Recording the statistics of the current query as history statistics so as to be used by future queries.                     ``False``
 ``optimizer.track-history-stats-from-failed-queries``         Track history based plan statistics from complete plan fragments in failed queries.                                         ``True``
 ``optimizer.history-based-optimizer-timeout``                 Timeout for history based optimizer.                                                                                        ``10 seconds``
+``optimizer.enforce-timeout-for-hbo-query-registration``      Enforce timeout for query registration in HBO optimizer                                                                     ``False``
 ``optimizer.treat-low-confidence-zero-estimation-as-unknown`` Treat ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins.                                                     ``False``
 ``optimizer.confidence-based-broadcast``                      Broadcast based on the confidence of the statistics that are being used, by broadcasting the side of a joinNode which       ``False``
                                                               has the highest confidence statistics. If confidence is the same, then the original behavior will be followed.
@@ -61,6 +62,8 @@ Session property Name                                       Description         
                                                             ``optimizer.track-history-stats-from-failed-queries`` in the current session.
 ``history_based_optimizer_timeout_limit``                   Overrides the behavior of the configuration property                                                 ``optimizer.history-based-optimizer-timeout``
                                                             ``optimizer.history-based-optimizer-timeout`` in the current session.
+``enforce_history_based_optimizer_register_timeout``        Overrides the behavior of the configuration property                                                 ``optimizer.enforce-timeout-for-hbo-query-registration``
+                                                            ``optimizer.enforce-timeout-for-hbo-query-registration`` in the current session.
 ``restrict_history_based_optimization_to_complex_query``    Enable history based optimization only for complex queries, i.e. queries with join and aggregation.  ``True``
 ``history_input_table_statistics_matching_threshold``       Overrides the behavior of the configuration property                                                 ``hbo.history-matching-threshold``
                                                             ``hbo.history-matching-threshold`` in the current session.
