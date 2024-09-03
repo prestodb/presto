@@ -227,7 +227,7 @@ Array Functions
 
 .. function:: array_top_n(array(T), int) -> array(T)
 
-    Returns an array of top n elements from a given ``array``, according to its natural descending order.
+    Returns an array of the top n elements from a given ``array``, sorted according to its natural descending order.
     If n is smaller than the size of the given ``array``, the returned list will be the same size as the input instead of n.::
 
         SELECT array_top_n(ARRAY [1, 100, 2, 5, 3], 3); -- [100, 5, 3]
