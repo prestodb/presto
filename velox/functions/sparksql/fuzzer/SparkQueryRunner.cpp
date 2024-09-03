@@ -123,7 +123,7 @@ std::vector<RowVectorPtr> SparkQueryRunner::executeVector(
   // Write the input to a Parquet file.
   auto tempFile = exec::test::TempFilePath::create();
   const auto& filePath = tempFile->getPath();
-  auto writerPool = rootPool()->addAggregateChild("writer");
+  auto writerPool = aggregatePool()->addAggregateChild("writer");
   writeToFile(filePath, input, writerPool.get());
 
   // Create temporary view 'tmp' in Spark by reading the generated Parquet file.

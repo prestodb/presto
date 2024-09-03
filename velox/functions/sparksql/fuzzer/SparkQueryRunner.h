@@ -33,17 +33,20 @@ class SparkQueryRunner : public velox::exec::test::ReferenceQueryRunner {
  public:
   /// @param coordinatorUri Spark connect server endpoint, e.g. localhost:15002.
   SparkQueryRunner(
-      memory::MemoryPool* aggregatePool,
+      memory::MemoryPool* pool,
       const std::string& coordinatorUri,
       const std::string& userId,
       const std::string& userName)
-      : ReferenceQueryRunner(aggregatePool),
+      : ReferenceQueryRunner(pool),
         userId_(userId),
         userName_(userName),
         sessionId_(generateUUID()),
         stub_(spark::connect::SparkConnectService::NewStub(grpc::CreateChannel(
             coordinatorUri,
-            grpc::InsecureChannelCredentials()))){};
+            grpc::InsecureChannelCredentials()))) {
+    pool_ = aggregatePool()->addLeafChild("leaf");
+    copyPool_ = aggregatePool()->addLeafChild("copy");
+  };
 
   /// Converts Velox query plan to Spark SQL. Supports Values -> Aggregation.
   /// Values node is converted into reading from 'tmp' table.
@@ -90,10 +93,6 @@ class SparkQueryRunner : public velox::exec::test::ReferenceQueryRunner {
     return pool_.get();
   }
 
-  velox::memory::MemoryPool* rootPool() {
-    return rootPool_.get();
-  }
-
   // Reads the arrow IPC-format string data with arrow IPC reader and convert
   // them into Velox RowVectors.
   std::vector<velox::RowVectorPtr> readArrowData(const std::string& data);
@@ -111,11 +110,7 @@ class SparkQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   const std::string sessionId_;
   // Used to make gRPC calls to the SparkConnectService.
   std::unique_ptr<spark::connect::SparkConnectService::Stub> stub_;
-  std::shared_ptr<velox::memory::MemoryPool> rootPool_{
-      velox::memory::memoryManager()->addRootPool()};
-  std::shared_ptr<velox::memory::MemoryPool> pool_{
-      rootPool_->addLeafChild("leaf")};
-  std::shared_ptr<velox::memory::MemoryPool> copyPool_{
-      rootPool_->addLeafChild("copy")};
+  std::shared_ptr<velox::memory::MemoryPool> pool_;
+  std::shared_ptr<velox::memory::MemoryPool> copyPool_;
 };
 } // namespace facebook::velox::functions::sparksql::fuzzer

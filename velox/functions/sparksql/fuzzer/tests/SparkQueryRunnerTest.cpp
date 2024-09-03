@@ -49,8 +49,9 @@ class SparkQueryRunnerTest : public ::testing::Test,
 // This test requires a Spark coordinator running at localhost, so disable it
 // by default.
 TEST_F(SparkQueryRunnerTest, DISABLED_basic) {
+  auto aggregatePool = rootPool_->addAggregateChild("basic");
   auto queryRunner = std::make_unique<fuzzer::SparkQueryRunner>(
-      pool(), "localhost:15002", "test", "basic");
+      aggregatePool.get(), "localhost:15002", "test", "basic");
 
   auto input = makeRowVector({
       makeConstant<int64_t>(1, 25),
@@ -93,8 +94,9 @@ TEST_F(SparkQueryRunnerTest, DISABLED_fuzzer) {
                   .project({"a0", "array_sort(a1)"})
                   .planNode();
 
+  auto aggregatePool = rootPool_->addAggregateChild("fuzzer");
   auto queryRunner = std::make_unique<fuzzer::SparkQueryRunner>(
-      pool(), "localhost:15002", "test", "fuzzer");
+      aggregatePool.get(), "localhost:15002", "test", "fuzzer");
   auto sql = queryRunner->toSql(plan);
   ASSERT_TRUE(sql.has_value());
 
@@ -107,8 +109,9 @@ TEST_F(SparkQueryRunnerTest, DISABLED_fuzzer) {
 }
 
 TEST_F(SparkQueryRunnerTest, toSql) {
+  auto aggregatePool = rootPool_->addAggregateChild("toSql");
   auto queryRunner = std::make_unique<fuzzer::SparkQueryRunner>(
-      pool(), "unused", "unused", "unused");
+      aggregatePool.get(), "unused", "unused", "unused");
 
   auto dataType = ROW({"c0", "c1", "c2"}, {DOUBLE(), DOUBLE(), BOOLEAN()});
   auto plan = exec::test::PlanBuilder()
