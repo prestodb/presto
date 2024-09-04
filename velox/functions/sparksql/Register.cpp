@@ -30,6 +30,7 @@
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/prestosql/URLFunctions.h"
 #include "velox/functions/sparksql/ArrayFlattenFunction.h"
+#include "velox/functions/sparksql/ArrayInsert.h"
 #include "velox/functions/sparksql/ArrayMinMaxFunction.h"
 #include "velox/functions/sparksql/ArraySort.h"
 #include "velox/functions/sparksql/Bitwise.h"
@@ -487,6 +488,14 @@ void registerFunctions(const std::string& prefix) {
       int32_t>({prefix + "levenshtein"});
   registerFunction<LevenshteinDistanceFunction, int32_t, Varchar, Varchar>(
       {prefix + "levenshtein"});
+
+  registerFunction<
+      ArrayInsert,
+      Array<Generic<T1>>,
+      Array<Generic<T1>>,
+      int32_t,
+      Generic<T1>,
+      bool>({prefix + "array_insert"});
 
   registerFunction<Split, Array<Varchar>, Varchar, Varchar>({prefix + "split"});
   registerFunction<Split, Array<Varchar>, Varchar, Varchar, int32_t>(
