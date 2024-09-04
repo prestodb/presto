@@ -384,13 +384,15 @@ public class HiveClientModule
             FileFormatDataSourceStats fileFormatDataSourceStats,
             MBeanExporter exporter)
     {
+        ParquetQuickStatsBuilder parquetQuickStatsBuilder = new ParquetQuickStatsBuilder(fileFormatDataSourceStats, hdfsEnvironment, hiveClientConfig);
         QuickStatsProvider quickStatsProvider = new QuickStatsProvider(hdfsEnvironment,
                 directoryLister,
                 hiveClientConfig,
                 nameNodeStats,
-                // Ordered list of strategies to apply to decipher quick stats
-                ImmutableList.of(new ParquetQuickStatsBuilder(fileFormatDataSourceStats, hdfsEnvironment, hiveClientConfig)));
+                // Ordered list of strategies to apply to build quick stats
+                ImmutableList.of(parquetQuickStatsBuilder));
         exporter.export(generatedNameOf(QuickStatsProvider.class, connectorId + "_QuickStatsProvider"), quickStatsProvider);
+        exporter.export(generatedNameOf(ParquetQuickStatsBuilder.class, connectorId + "_ParquetQuickStatsBuilder"), parquetQuickStatsBuilder);
         return quickStatsProvider;
     }
 }
