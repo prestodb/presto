@@ -4282,7 +4282,8 @@ DEBUG_ONLY_TEST_F(
   std::vector<RowVectorPtr> vectors =
       createVectors(rowType_, memoryCapacity / 8, fuzzerOpts_);
   const auto expectedResult =
-      runWriteTask(vectors, nullptr, 1, pool(), kHiveConnectorId, false).data;
+      runWriteTask(vectors, nullptr, false, 1, pool(), kHiveConnectorId, false)
+          .data;
   auto queryCtx =
       newQueryCtx(memory::memoryManager(), executor_.get(), memoryCapacity);
 
@@ -4307,7 +4308,14 @@ DEBUG_ONLY_TEST_F(
 
   std::thread queryThread([&]() {
     const auto result = runWriteTask(
-        vectors, queryCtx, 1, pool(), kHiveConnectorId, true, expectedResult);
+        vectors,
+        queryCtx,
+        false,
+        1,
+        pool(),
+        kHiveConnectorId,
+        true,
+        expectedResult);
   });
 
   writerCloseWait.await([&]() { return !writerCloseWaitFlag.load(); });

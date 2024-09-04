@@ -114,6 +114,7 @@ core::PlanNodePtr hashJoinPlan(
 QueryTestResult runHashJoinTask(
     const std::vector<RowVectorPtr>& vectors,
     const std::shared_ptr<core::QueryCtx>& queryCtx,
+    bool serialExecution,
     uint32_t numDrivers,
     memory::MemoryPool* pool,
     bool enableSpilling,
@@ -126,6 +127,7 @@ core::PlanNodePtr aggregationPlan(
 QueryTestResult runAggregateTask(
     const std::vector<RowVectorPtr>& vectors,
     const std::shared_ptr<core::QueryCtx>& queryCtx,
+    bool serialExecution,
     bool enableSpilling,
     uint32_t numDrivers,
     memory::MemoryPool* pool,
@@ -138,6 +140,7 @@ core::PlanNodePtr orderByPlan(
 QueryTestResult runOrderByTask(
     const std::vector<RowVectorPtr>& vectors,
     const std::shared_ptr<core::QueryCtx>& queryCtx,
+    bool serialExecution,
     uint32_t numDrivers,
     memory::MemoryPool* pool,
     bool enableSpilling,
@@ -150,6 +153,7 @@ core::PlanNodePtr rowNumberPlan(
 QueryTestResult runRowNumberTask(
     const std::vector<RowVectorPtr>& vectors,
     const std::shared_ptr<core::QueryCtx>& queryCtx,
+    bool serialExecution,
     uint32_t numDrivers,
     memory::MemoryPool* pool,
     bool enableSpilling,
@@ -162,6 +166,7 @@ core::PlanNodePtr topNPlan(
 QueryTestResult runTopNTask(
     const std::vector<RowVectorPtr>& vectors,
     const std::shared_ptr<core::QueryCtx>& queryCtx,
+    bool serialExecution,
     uint32_t numDrivers,
     memory::MemoryPool* pool,
     bool enableSpilling,
@@ -175,6 +180,7 @@ core::PlanNodePtr writePlan(
 QueryTestResult runWriteTask(
     const std::vector<RowVectorPtr>& vectors,
     const std::shared_ptr<core::QueryCtx>& queryCtx,
+    bool serialExecution,
     uint32_t numDrivers,
     memory::MemoryPool* pool,
     const std::string& kHiveConnectorId,

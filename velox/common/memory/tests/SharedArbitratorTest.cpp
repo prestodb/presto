@@ -226,7 +226,19 @@ class FakeMemoryOperatorFactory : public Operator::PlanNodeTranslator {
   uint32_t maxDrivers_{1};
 };
 
-class SharedArbitrationTestBase : public exec::test::HiveConnectorTestBase {
+namespace {
+std::unique_ptr<folly::Executor> newParallelExecutor() {
+  return std::make_unique<folly::CPUThreadPoolExecutor>(32);
+}
+
+struct TestParam {
+  bool isSerialExecutionMode{false};
+};
+} // namespace
+
+class SharedArbitrationTest : public testing::WithParamInterface<TestParam>,
+                              public exec::test::HiveConnectorTestBase {
+ public:
  protected:
   static void SetUpTestCase() {
     exec::test::HiveConnectorTestBase::SetUpTestCase();
@@ -253,6 +265,12 @@ class SharedArbitrationTestBase : public exec::test::HiveConnectorTestBase {
     fuzzerOpts_.allowLazyVector = false;
     vector_ = makeRowVector(rowType_, fuzzerOpts_);
     numAddedPools_ = 0;
+    isSerialExecutionMode_ = GetParam().isSerialExecutionMode;
+    if (isSerialExecutionMode_) {
+      executor_ = nullptr;
+    } else {
+      executor_ = newParallelExecutor();
+    }
   }
 
   void TearDown() override {
@@ -295,6 +313,18 @@ class SharedArbitrationTestBase : public exec::test::HiveConnectorTestBase {
     }
   }
 
+  AssertQueryBuilder newQueryBuilder() {
+    AssertQueryBuilder builder = AssertQueryBuilder(duckDbQueryRunner_);
+    builder.serialExecution(isSerialExecutionMode_);
+    return builder;
+  }
+
+  AssertQueryBuilder newQueryBuilder(const core::PlanNodePtr& plan) {
+    AssertQueryBuilder builder = AssertQueryBuilder(plan);
+    builder.serialExecution(isSerialExecutionMode_);
+    return builder;
+  }
+
   static inline FakeMemoryOperatorFactory* fakeOperatorFactory_;
   std::unique_ptr<memory::MemoryManager> memoryManager_;
   SharedArbitrator* arbitrator_{nullptr};
@@ -302,51 +332,19 @@ class SharedArbitrationTestBase : public exec::test::HiveConnectorTestBase {
   VectorFuzzer::Options fuzzerOpts_;
   RowVectorPtr vector_;
   std::atomic_uint64_t numAddedPools_{0};
-};
-
-namespace {
-std::unique_ptr<folly::Executor> newParallelExecutor() {
-  return std::make_unique<folly::CPUThreadPoolExecutor>(32);
-}
-
-struct TestParam {
-  bool isSerialExecutionMode{false};
-};
-} // namespace
-
-/// A test fixture that runs cases within parallel execution mode.
-class SharedArbitrationTest : public SharedArbitrationTestBase {
- protected:
-  void SetUp() override {
-    SharedArbitrationTestBase::SetUp();
-    executor_ = newParallelExecutor();
-  }
-};
-/// A test fixture that runs cases within both serial and
-/// parallel execution modes.
-class SharedArbitrationTestWithExecutionModes
-    : public testing::WithParamInterface<TestParam>,
-      public SharedArbitrationTestBase {
- public:
-  static std::vector<TestParam> getTestParams() {
-    return std::vector<TestParam>({{false}, {true}});
-  }
-
- protected:
-  void SetUp() override {
-    SharedArbitrationTestBase::SetUp();
-    isSerialExecutionMode_ = GetParam().isSerialExecutionMode;
-    if (isSerialExecutionMode_) {
-      executor_ = nullptr;
-    } else {
-      executor_ = newParallelExecutor();
-    }
-  }
-
   bool isSerialExecutionMode_{false};
 };
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, queryArbitrationStateCheck) {
+/// A test fixture that runs cases within parallel execution mode.
+class SharedArbitrationTestWithParallelExecutionModeOnly
+    : public SharedArbitrationTest {};
+/// A test fixture that runs cases within both serial and
+/// parallel execution modes.
+class SharedArbitrationTestWithThreadingModes : public SharedArbitrationTest {};
+
+DEBUG_ONLY_TEST_P(
+    SharedArbitrationTestWithThreadingModes,
+    queryArbitrationStateCheck) {
   const std::vector<RowVectorPtr> vectors =
       createVectors(rowType_, 32, 32 << 20);
   createDuckDbTable(vectors);
@@ -364,7 +362,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, queryArbitrationStateCheck) {
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   TestScopedSpillInjection scopedSpillInjection(100);
   core::PlanNodeId aggregationNodeId;
-  AssertQueryBuilder(duckDbQueryRunner_)
+  newQueryBuilder()
       .queryCtx(queryCtx)
       .spillDirectory(spillDirectory->getPath())
       .config(core::QueryConfig::kSpillEnabled, "true")
@@ -380,7 +378,9 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, queryArbitrationStateCheck) {
   ASSERT_FALSE(queryCtx->testingUnderArbitration());
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenAbortAndArbitrationLeave) {
+DEBUG_ONLY_TEST_P(
+    SharedArbitrationTestWithThreadingModes,
+    raceBetweenAbortAndArbitrationLeave) {
   const std::vector<RowVectorPtr> vectors =
       createVectors(rowType_, 32, 32 << 20);
   setupMemory(kMemoryCapacity, /*memoryPoolInitCapacity=*/0);
@@ -415,7 +415,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenAbortAndArbitrationLeave) {
                     .capturePlanNodeId(aggregationNodeId)
                     .planNode();
     VELOX_ASSERT_THROW(
-        AssertQueryBuilder(plan)
+        newQueryBuilder(plan)
             .queryCtx(queryCtx)
             .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, "true")
@@ -434,7 +434,9 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenAbortAndArbitrationLeave) {
   waitForAllTasksToBeDeleted();
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
+DEBUG_ONLY_TEST_P(
+    SharedArbitrationTestWithThreadingModes,
+    skipNonReclaimableTaskTest) {
   const std::vector<RowVectorPtr> vectors =
       createVectors(rowType_, 32, 32 << 20);
   std::shared_ptr<core::QueryCtx> queryCtx =
@@ -485,7 +487,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
                              .planNode();
   std::thread spillableThread([&]() {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
-    AssertQueryBuilder(spillPlan)
+    newQueryBuilder(spillPlan)
         .queryCtx(queryCtx)
         .spillDirectory(spillDirectory->getPath())
         .copyResults(pool());
@@ -501,7 +503,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
                                     false)
                                 .planNode();
   std::thread nonSpillableThread([&]() {
-    AssertQueryBuilder(nonSpillPlan).queryCtx(queryCtx).copyResults(pool());
+    newQueryBuilder(nonSpillPlan).queryCtx(queryCtx).copyResults(pool());
   });
 
   while (!blockedPartialAggregation || !blockedAggregation) {
@@ -525,7 +527,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, skipNonReclaimableTaskTest) {
   ASSERT_EQ(taskPausedCount, 1);
 }
 
-DEBUG_ONLY_TEST_P(SharedArbitrationTestWithExecutionModes, reclaimToOrderBy) {
+DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, reclaimToOrderBy) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
@@ -588,7 +590,7 @@ DEBUG_ONLY_TEST_P(SharedArbitrationTestWithExecutionModes, reclaimToOrderBy) {
     std::thread orderByThread([&]() {
       core::PlanNodeId orderByNodeId;
       auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
+          newQueryBuilder()
               .queryCtx(orderByQueryCtx)
               .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
@@ -605,7 +607,7 @@ DEBUG_ONLY_TEST_P(SharedArbitrationTestWithExecutionModes, reclaimToOrderBy) {
 
     std::thread memThread([&]() {
       auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
+          newQueryBuilder()
               .queryCtx(fakeMemoryQueryCtx)
               .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
@@ -628,7 +630,7 @@ DEBUG_ONLY_TEST_P(SharedArbitrationTestWithExecutionModes, reclaimToOrderBy) {
 }
 
 DEBUG_ONLY_TEST_P(
-    SharedArbitrationTestWithExecutionModes,
+    SharedArbitrationTestWithThreadingModes,
     reclaimToAggregation) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
@@ -692,7 +694,7 @@ DEBUG_ONLY_TEST_P(
     std::thread aggregationThread([&]() {
       core::PlanNodeId aggregationNodeId;
       auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
+          newQueryBuilder()
               .queryCtx(aggregationQueryCtx)
               .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
@@ -710,7 +712,7 @@ DEBUG_ONLY_TEST_P(
 
     std::thread memThread([&]() {
       auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
+          newQueryBuilder()
               .queryCtx(fakeMemoryQueryCtx)
               .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
@@ -733,7 +735,7 @@ DEBUG_ONLY_TEST_P(
 }
 
 DEBUG_ONLY_TEST_P(
-    SharedArbitrationTestWithExecutionModes,
+    SharedArbitrationTestWithThreadingModes,
     reclaimToJoinBuilder) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
@@ -798,7 +800,7 @@ DEBUG_ONLY_TEST_P(
       auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
       core::PlanNodeId joinNodeId;
       auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
+          newQueryBuilder()
               .queryCtx(joinQueryCtx)
               .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder(planNodeIdGenerator)
@@ -826,7 +828,7 @@ DEBUG_ONLY_TEST_P(
 
     std::thread memThread([&]() {
       auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
+          newQueryBuilder()
               .queryCtx(fakeMemoryQueryCtx)
               .serialExecution(isSerialExecutionMode_)
               .plan(PlanBuilder()
@@ -848,7 +850,9 @@ DEBUG_ONLY_TEST_P(
   }
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, driverInitTriggeredArbitration) {
+DEBUG_ONLY_TEST_P(
+    SharedArbitrationTestWithThreadingModes,
+    driverInitTriggeredArbitration) {
   const int numVectors = 2;
   std::vector<RowVectorPtr> vectors;
   const int vectorSize = 100;
@@ -872,7 +876,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, driverInitTriggeredArbitration) {
   ASSERT_EQ(queryCtx->pool()->maxCapacity(), kMemoryCapacity);
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  AssertQueryBuilder(duckDbQueryRunner_)
+  newQueryBuilder()
       .config(core::QueryConfig::kSpillEnabled, "false")
       .queryCtx(queryCtx)
       .plan(PlanBuilder(planNodeIdGenerator, pool())
@@ -885,8 +889,8 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, driverInitTriggeredArbitration) {
   waitForAllTasksToBeDeleted();
 }
 
-DEBUG_ONLY_TEST_F(
-    SharedArbitrationTest,
+DEBUG_ONLY_TEST_P(
+    SharedArbitrationTestWithThreadingModes,
     DISABLED_raceBetweenTaskTerminateAndReclaim) {
   setupMemory(kMemoryCapacity, 0);
   const int numVectors = 10;
@@ -949,7 +953,7 @@ DEBUG_ONLY_TEST_F(
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   std::thread queryThread([&]() {
     VELOX_ASSERT_THROW(
-        AssertQueryBuilder(duckDbQueryRunner_)
+        newQueryBuilder()
             .queryCtx(queryCtx)
             .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, "true")
@@ -982,7 +986,9 @@ DEBUG_ONLY_TEST_F(
   waitForAllTasksToBeDeleted();
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
+DEBUG_ONLY_TEST_P(
+    SharedArbitrationTestWithParallelExecutionModeOnly,
+    asyncArbitratonFromNonDriverContext) {
   setupMemory(kMemoryCapacity, 0);
   const int numVectors = 10;
   std::vector<RowVectorPtr> vectors;
@@ -1020,7 +1026,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   std::shared_ptr<Task> task;
   std::thread queryThread([&]() {
-    task = AssertQueryBuilder(duckDbQueryRunner_)
+    task = newQueryBuilder()
                .queryCtx(queryCtx)
                .spillDirectory(spillDirectory->getPath())
                .config(core::QueryConfig::kSpillEnabled, "true")
@@ -1058,7 +1064,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
   waitForAllTasksToBeDeleted();
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, runtimeStats) {
+DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, runtimeStats) {
   const uint64_t memoryCapacity = 128 * MB;
   setupMemory(memoryCapacity);
   fuzzerOpts_.vectorSize = 1000;
@@ -1101,7 +1107,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, runtimeStats) {
           .planNode();
   {
     const std::shared_ptr<Task> task =
-        AssertQueryBuilder(duckDbQueryRunner_)
+        newQueryBuilder()
             .queryCtx(queryCtx)
             .maxDrivers(1)
             .spillDirectory(spillDirectory->getPath())
@@ -1136,7 +1142,9 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, runtimeStats) {
   waitForAllTasksToBeDeleted();
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
+DEBUG_ONLY_TEST_P(
+    SharedArbitrationTestWithParallelExecutionModeOnly,
+    arbitrateMemoryFromOtherOperator) {
   setupMemory(kMemoryCapacity, 0);
   const int numVectors = 10;
   std::vector<RowVectorPtr> vectors;
@@ -1195,7 +1203,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
     core::PlanNodeId aggregationNodeId;
     std::thread queryThread([&]() {
       if (sameDriver) {
-        task = AssertQueryBuilder(duckDbQueryRunner_)
+        task = newQueryBuilder()
                    .queryCtx(queryCtx)
                    .plan(PlanBuilder()
                              .values(vectors)
@@ -1206,7 +1214,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
                    .assertResults(
                        "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
       } else {
-        task = AssertQueryBuilder(duckDbQueryRunner_)
+        task = newQueryBuilder()
                    .queryCtx(queryCtx)
                    .plan(PlanBuilder()
                              .values(vectors)
@@ -1233,7 +1241,9 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
   }
 }
 
-TEST_F(SharedArbitrationTest, concurrentArbitration) {
+TEST_P(
+    SharedArbitrationTestWithParallelExecutionModeOnly,
+    concurrentArbitration) {
   // Tries to replicate an actual workload by concurrently running multiple
   // query shapes that support spilling (and hence can be forced to abort or
   // spill by the arbitrator). Also adds an element of randomness by randomly
@@ -1251,18 +1261,31 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
     vectors.push_back(makeRowVector(rowType_, fuzzerOpts_));
   }
   const int numDrivers = 4;
-  const auto expectedWriteResult =
-      runWriteTask(
-          vectors, nullptr, numDrivers, pool(), kHiveConnectorId, false)
-          .data;
+  const auto expectedWriteResult = runWriteTask(
+                                       vectors,
+                                       nullptr,
+                                       isSerialExecutionMode_,
+                                       numDrivers,
+                                       pool(),
+                                       kHiveConnectorId,
+                                       false)
+                                       .data;
   const auto expectedJoinResult =
-      runHashJoinTask(vectors, nullptr, numDrivers, pool(), false).data;
+      runHashJoinTask(
+          vectors, nullptr, isSerialExecutionMode_, numDrivers, pool(), false)
+          .data;
   const auto expectedOrderResult =
-      runOrderByTask(vectors, nullptr, numDrivers, pool(), false).data;
+      runOrderByTask(
+          vectors, nullptr, isSerialExecutionMode_, numDrivers, pool(), false)
+          .data;
   const auto expectedRowNumberResult =
-      runRowNumberTask(vectors, nullptr, numDrivers, pool(), false).data;
+      runRowNumberTask(
+          vectors, nullptr, isSerialExecutionMode_, numDrivers, pool(), false)
+          .data;
   const auto expectedTopNResult =
-      runTopNTask(vectors, nullptr, numDrivers, pool(), false).data;
+      runTopNTask(
+          vectors, nullptr, isSerialExecutionMode_, numDrivers, pool(), false)
+          .data;
 
   struct {
     uint64_t totalCapacity;
@@ -1305,6 +1328,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
             task = runWriteTask(
                        vectors,
                        queryCtx,
+                       isSerialExecutionMode_,
                        numDrivers,
                        pool(),
                        kHiveConnectorId,
@@ -1315,6 +1339,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
             task = runHashJoinTask(
                        vectors,
                        queryCtx,
+                       isSerialExecutionMode_,
                        numDrivers,
                        pool(),
                        true,
@@ -1324,6 +1349,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
             task = runOrderByTask(
                        vectors,
                        queryCtx,
+                       isSerialExecutionMode_,
                        numDrivers,
                        pool(),
                        true,
@@ -1333,6 +1359,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
             task = runRowNumberTask(
                        vectors,
                        queryCtx,
+                       isSerialExecutionMode_,
                        numDrivers,
                        pool(),
                        true,
@@ -1342,6 +1369,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
             task = runTopNTask(
                        vectors,
                        queryCtx,
+                       isSerialExecutionMode_,
                        numDrivers,
                        pool(),
                        true,
@@ -1376,7 +1404,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
   }
 }
 
-TEST_F(SharedArbitrationTest, reserveReleaseCounters) {
+TEST_P(SharedArbitrationTestWithThreadingModes, reserveReleaseCounters) {
   for (int i = 0; i < 37; ++i) {
     folly::Random::DefaultGenerator rng(i);
     auto numRootPools = folly::Random::rand32(rng) % 11 + 3;
@@ -1407,10 +1435,14 @@ TEST_F(SharedArbitrationTest, reserveReleaseCounters) {
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
-    SharedArbitrationTestWithExecutionModes,
-    SharedArbitrationTestWithExecutionModes,
-    testing::ValuesIn(
-        SharedArbitrationTestWithExecutionModes::getTestParams()));
+    SharedArbitrationTest,
+    SharedArbitrationTestWithParallelExecutionModeOnly,
+    testing::ValuesIn(std::vector<TestParam>{{false}}));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    SharedArbitrationTest,
+    SharedArbitrationTestWithThreadingModes,
+    testing::ValuesIn(std::vector<TestParam>{{false}, {true}}));
 } // namespace facebook::velox::memory
 
 int main(int argc, char** argv) {

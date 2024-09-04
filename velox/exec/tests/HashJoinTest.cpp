@@ -6937,6 +6937,7 @@ TEST_F(HashJoinTest, reclaimFromJoinBuilderWithMultiDrivers) {
           vectors,
           newQueryCtx(
               memoryManagerWithoutArbitrator.get(), executor_.get(), 8L << 30),
+          false,
           numDrivers,
           pool(),
           false)
@@ -6949,6 +6950,7 @@ TEST_F(HashJoinTest, reclaimFromJoinBuilderWithMultiDrivers) {
       vectors,
       newQueryCtx(
           memoryManagerWithArbitrator.get(), executor_.get(), 128 << 20),
+      false,
       numDrivers,
       pool(),
       true,
@@ -6979,7 +6981,7 @@ DEBUG_ONLY_TEST_F(
   std::shared_ptr<core::QueryCtx> queryCtx =
       newQueryCtx(memory::memoryManager(), executor_.get(), 512 << 20);
   const auto expectedResult =
-      runHashJoinTask(vectors, queryCtx, numDrivers, pool(), false).data;
+      runHashJoinTask(vectors, queryCtx, false, numDrivers, pool(), false).data;
 
   std::atomic_bool nonReclaimableSectionWaitFlag{true};
   std::atomic_bool reclaimerInitializationWaitFlag{true};
@@ -7028,7 +7030,7 @@ DEBUG_ONLY_TEST_F(
 
   std::thread joinThread([&]() {
     const auto result = runHashJoinTask(
-        vectors, queryCtx, numDrivers, pool(), true, expectedResult);
+        vectors, queryCtx, false, numDrivers, pool(), true, expectedResult);
     auto taskStats = exec::toPlanStats(result.task->taskStats());
     auto& planStats = taskStats.at(result.planNodeId);
     ASSERT_EQ(planStats.spilledBytes, 0);
@@ -7438,7 +7440,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, taskWaitTimeout) {
       createVectors(rowType, queryMemoryCapacity / 2, fuzzerOpts_);
   const int numDrivers = 4;
   const auto expectedResult =
-      runHashJoinTask(vectors, nullptr, numDrivers, pool(), false).data;
+      runHashJoinTask(vectors, nullptr, false, numDrivers, pool(), false).data;
 
   for (uint64_t timeoutMs : {0, 1'000, 30'000}) {
     SCOPED_TRACE(fmt::format("timeout {}", succinctMillis(timeoutMs)));
@@ -7478,12 +7480,18 @@ DEBUG_ONLY_TEST_F(HashJoinTest, taskWaitTimeout) {
       if (timeoutMs == 1'000) {
         VELOX_ASSERT_THROW(
             runHashJoinTask(
-                vectors, queryCtx, numDrivers, pool(), true, expectedResult),
+                vectors,
+                queryCtx,
+                false,
+                numDrivers,
+                pool(),
+                true,
+                expectedResult),
             "Memory reclaim failed to wait");
       } else {
         // We expect succeed on large time out or no timeout.
         const auto result = runHashJoinTask(
-            vectors, queryCtx, numDrivers, pool(), true, expectedResult);
+            vectors, queryCtx, false, numDrivers, pool(), true, expectedResult);
         auto taskStats = exec::toPlanStats(result.task->taskStats());
         auto& planStats = taskStats.at(result.planNodeId);
         ASSERT_GT(planStats.spilledBytes, 0);
