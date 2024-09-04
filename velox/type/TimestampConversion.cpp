@@ -44,6 +44,7 @@
 #include <folly/Expected.h>
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/type/HugeInt.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::util {
@@ -141,6 +142,53 @@ bool isValidWeekDate(int32_t weekYear, int32_t weekOfYear, int32_t dayOfWeek) {
   if (weekYear < kMinYear || weekYear > kMaxYear) {
     return false;
   }
+  return true;
+}
+
+bool isValidWeekOfMonthDate(
+    int32_t year,
+    int32_t month,
+    int32_t weekOfMonth,
+    int32_t dayOfWeek) {
+  if (year < 1 || year > kMaxYear) {
+    return false;
+  }
+  if (month < 1 || month > 12) {
+    return false;
+  }
+
+  int64_t daysSinceEpochOfFirstDayOfMonth;
+  const Status status =
+      daysSinceEpochFromDate(year, month, 1, daysSinceEpochOfFirstDayOfMonth);
+  if (!status.ok()) {
+    return false;
+  }
+
+  // Calculates the actual number of week of month and validates if it is in the
+  // valid range.
+  const int32_t firstDayOfWeek =
+      extractISODayOfTheWeek(daysSinceEpochOfFirstDayOfMonth);
+  const int32_t firstWeekLength = 7 - firstDayOfWeek + 1;
+  const int32_t monthLength =
+      isLeapYear(year) ? kLeapDays[month] : kNormalDays[month];
+  const int32_t actualWeeks = 1 + ceil((monthLength - firstWeekLength) / 7.0);
+  if (weekOfMonth < 1 || weekOfMonth > actualWeeks) {
+    return false;
+  }
+
+  // Validate day of week.
+  // If dayOfWeek is before the first day of week, it is considered invalid.
+  if (weekOfMonth == 1 && dayOfWeek < firstDayOfWeek) {
+    return false;
+  }
+  const int32_t lastWeekLength = (monthLength - firstWeekLength) % 7;
+  // If dayOfWeek is after the last day of the last week of the month, it is
+  // considered invalid.
+  if (weekOfMonth == actualWeeks && lastWeekLength != 0 &&
+      dayOfWeek > lastWeekLength) {
+    return false;
+  }
+
   return true;
 }
 
@@ -554,7 +602,11 @@ daysSinceEpochFromDate(int32_t year, int32_t month, int32_t day, int64_t& out) {
   int64_t daysSinceEpoch = 0;
 
   if (!isValidDate(year, month, day)) {
-    return Status::UserError("Date out of range: {}-{}-{}", year, month, day);
+    if (threadSkipErrorDetails()) {
+      return Status::UserError();
+    } else {
+      return Status::UserError("Date out of range: {}-{}-{}", year, month, day);
+    }
   }
   while (year < 1970) {
     year += kYearInterval;
@@ -591,6 +643,58 @@ Status daysSinceEpochFromWeekDate(
   out = daysSinceEpochOfJanFourth - (firstDayOfWeekYear - 1) +
       7 * (weekOfYear - 1) + dayOfWeek - 1;
   return Status::OK();
+}
+
+Expected<int64_t> daysSinceEpochFromWeekOfMonthDate(
+    int32_t year,
+    int32_t month,
+    int32_t weekOfMonth,
+    int32_t dayOfWeek,
+    bool lenient) {
+  if (!lenient &&
+      !isValidWeekOfMonthDate(year, month, weekOfMonth, dayOfWeek)) {
+    if (threadSkipErrorDetails()) {
+      return folly::makeUnexpected(Status::UserError());
+    } else {
+      return folly::makeUnexpected(Status::UserError(
+          "Date out of range: {}-{}-{}-{}",
+          year,
+          month,
+          weekOfMonth,
+          dayOfWeek));
+    }
+  }
+
+  // Adjusts the year and month to ensure month is within the range 1-12,
+  // accounting for overflow or underflow.
+  int32_t additionYears = 0;
+  if (month < 1) {
+    additionYears = month / 12 - 1;
+    month = 12 - abs(month) % 12;
+  } else if (month > 12) {
+    additionYears = (month - 1) / 12;
+    month = (month - 1) % 12 + 1;
+  }
+  year += additionYears;
+
+  int64_t daysSinceEpochOfFirstDayOfMonth;
+  const Status status =
+      daysSinceEpochFromDate(year, month, 1, daysSinceEpochOfFirstDayOfMonth);
+  if (!status.ok()) {
+    return folly::makeUnexpected(status);
+  }
+  const int32_t firstDayOfWeek =
+      extractISODayOfTheWeek(daysSinceEpochOfFirstDayOfMonth);
+  int32_t days;
+  if (dayOfWeek < 1) {
+    days = 7 - abs(dayOfWeek - 1) % 7;
+  } else if (dayOfWeek > 7) {
+    days = (dayOfWeek - 1) % 7;
+  } else {
+    days = dayOfWeek % 7;
+  }
+  return daysSinceEpochOfFirstDayOfMonth - (firstDayOfWeek - 1) +
+      7 * (weekOfMonth - 1) + days - 1;
 }
 
 Status
@@ -643,7 +747,7 @@ Expected<int32_t> fromDateString(const char* str, size_t len, ParseMode mode) {
   return daysSinceEpoch;
 }
 
-int32_t extractISODayOfTheWeek(int32_t daysSinceEpoch) {
+int32_t extractISODayOfTheWeek(int64_t daysSinceEpoch) {
   // date of 0 is 1970-01-01, which was a Thursday (4)
   // -7 = 4
   // -6 = 5
@@ -662,10 +766,10 @@ int32_t extractISODayOfTheWeek(int32_t daysSinceEpoch) {
   // 7  = 4
   if (daysSinceEpoch < 0) {
     // negative date: start off at 4 and cycle downwards
-    return (7 - ((-int64_t(daysSinceEpoch) + 3) % 7));
+    return (7 - ((-int128_t(daysSinceEpoch) + 3) % 7));
   } else {
     // positive date: start off at 4 and cycle upwards
-    return ((int64_t(daysSinceEpoch) + 3) % 7) + 1;
+    return ((int128_t(daysSinceEpoch) + 3) % 7) + 1;
   }
 }
 
