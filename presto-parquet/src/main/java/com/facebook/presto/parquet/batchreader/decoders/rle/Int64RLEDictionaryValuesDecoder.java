@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64ValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.ShortDecimalValuesDecoder;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.openjdk.jol.info.ClassLayout;
@@ -27,7 +28,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 
 public class Int64RLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder
-        implements Int64ValuesDecoder
+        implements Int64ValuesDecoder, ShortDecimalValuesDecoder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64RLEDictionaryValuesDecoder.class).instanceSize();
 
