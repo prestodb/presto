@@ -2063,3 +2063,56 @@ TEST_F(RowContainerTest, hugeIntStoreWithNulls) {
   data->extractColumn(rows.data(), kNumRows, kColumnIndex, extracted);
   assertEqualVectors(source, extracted);
 }
+
+TEST_F(RowContainerTest, columnHasNulls) {
+  auto rowContainer =
+      makeRowContainer({BIGINT(), BIGINT()}, {BIGINT(), BIGINT()}, false);
+  for (int i = 0; i < rowContainer->columnTypes().size(); ++i) {
+    ASSERT_TRUE(!rowContainer->columnHasNulls(i));
+  }
+
+  const uint64_t kNumRows = 1000;
+  auto rowVector = makeRowVector(
+      {makeFlatVector<int64_t>(kNumRows, [](auto row) { return row % 5; }),
+       makeFlatVector<int64_t>(
+           kNumRows, [](auto row) { return row % 5; }, nullEvery(3)),
+       makeFlatVector<int64_t>(kNumRows, [](auto row) { return row % 7; }),
+       makeFlatVector<int64_t>(
+           kNumRows, [](auto row) { return row % 7; }, nullEvery(999))});
+
+  std::vector<char*> rows;
+  rows.reserve(kNumRows);
+
+  ASSERT_EQ(rowContainer->numRows(), 0);
+  SelectivityVector allRows(kNumRows);
+  for (size_t i = 0; i < kNumRows; i++) {
+    auto row = rowContainer->newRow();
+    rows.push_back(row);
+  }
+  for (int i = 0; i < rowContainer->columnTypes().size(); ++i) {
+    DecodedVector decoded(*rowVector->childAt(i), allRows);
+    for (int j = 0; j < kNumRows; ++j) {
+      char* row = rows[i];
+      rowContainer->store(decoded, j, row, i);
+    }
+  }
+  for (int i = 0; i < rowContainer->columnTypes().size(); ++i) {
+    if (i % 2 == 0) {
+      ASSERT_TRUE(!rowContainer->columnHasNulls(i));
+    } else {
+      ASSERT_TRUE(rowContainer->columnHasNulls(i));
+    }
+  }
+  // If the column's mayHaveNulls is false, the extracted vector's mayHaveNulls
+  // should be false.
+  for (int i = 0; i < rowContainer->columnTypes().size(); ++i) {
+    auto vector =
+        BaseVector::create(rowVector->childAt(i)->type(), kNumRows, pool());
+    rowContainer->extractColumn(rows.data(), kNumRows, i, vector);
+    if (i % 2 == 0) {
+      ASSERT_TRUE(!vector->mayHaveNulls());
+    } else {
+      ASSERT_TRUE(vector->mayHaveNulls());
+    }
+  }
+}

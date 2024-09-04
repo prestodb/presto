@@ -1212,11 +1212,11 @@ TEST_F(AggregationTest, memoryAllocations) {
 
   task = assertQuery(plan, "SELECT c0, sum(c0 + c1) FROM tmp GROUP BY 1");
 
-  // Verify memory allocations. Aggregation should make 5 allocations: 1 for the
-  // hash table, 1 for the RowContainer holding accumulators, 3 for results (2
-  // for values and nulls buffers of the grouping key column, 1 for sum column).
+  // Verify memory allocations. Aggregation should make 4 allocations: 1 for the
+  // hash table, 1 for the RowContainer holding accumulators, 2 for results (1
+  // for values of the grouping key column, 1 for sum column).
   planStats = toPlanStats(task->taskStats());
-  ASSERT_EQ(5, planStats.at(aggNodeId).numMemoryAllocations);
+  ASSERT_EQ(4, planStats.at(aggNodeId).numMemoryAllocations);
 }
 
 TEST_F(AggregationTest, groupingSets) {
