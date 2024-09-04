@@ -62,6 +62,12 @@ class RoundTest : public functions::test::FunctionBaseTest {
   std::vector<std::tuple<T, int32_t, T>> testRoundWithDecFloatData() {
     return {
         {1.122112, 0, 1},
+        {1.45, 1, 1.5},
+        {-1.45, 1, -1.5},
+        {-0.60265756, 1, -0.6},
+        {-0.60265756, 2, -0.6},
+        {-0.60265756, 3, -0.603},
+        {-0.60265756, 4, -0.6027},
         {1.129, 1, 1.1},
         {1.129, 2, 1.13},
         {1.0 / 3, 0, 0.0},
@@ -121,4 +127,36 @@ TEST_F(RoundTest, roundWithDecimal) {
   runRoundWithDecimalTest<int32_t>(testRoundWithDecIntegralData<int32_t>());
   runRoundWithDecimalTest<int16_t>(testRoundWithDecIntegralData<int16_t>());
   runRoundWithDecimalTest<int8_t>(testRoundWithDecIntegralData<int8_t>());
+}
+
+TEST_F(RoundTest, roundWithDecimalLargeNumbers) {
+  for (int32_t i = 0; i < 64; ++i) {
+    runRoundWithDecimalTest<double>(
+        {{9223372036854775807, i, 9223372036854775807},
+         {1941561021063124736, i, 1941561021063124736},
+         {194156102106312473, i, 194156102106312473},
+         {19415610210631247, i, 19415610210631247}});
+    runRoundWithDecimalTest<float>(
+        {{9223372036854775807, i, 9223372036854775807},
+         {1941561021063124736, i, 1941561021063124736},
+         {194156102106312473, i, 194156102106312473},
+         {19415610210631247, i, 19415610210631247}});
+    runRoundWithDecimalTest<int64_t>(
+        {{9223372036854775807, i, 9223372036854775807},
+         {1941561021063124736, i, 1941561021063124736},
+         {194156102106312473, i, 194156102106312473},
+         {19415610210631247, i, 19415610210631247}});
+  }
+
+  for (int32_t i = 0; i < 64; ++i) {
+    runRoundWithDecimalTest<double>(
+        {{std::numeric_limits<double>::max(),
+          i,
+          std::numeric_limits<double>::max()}});
+  };
+
+  runRoundWithDecimalTest<double>(
+      {{1941561021063124736.458, 1, 1941561021063124736.5},
+       {194156102106312473.314, 2, 194156102106312473.31},
+       {19415610210631247.874, 3, 19415610210631247.874}});
 }

@@ -43,11 +43,30 @@ round(const TNum& number, const TDecimals& decimals = 0) {
     return number;
   }
 
-  double factor = std::pow(10, decimals);
-  if (number < 0) {
-    return (std::round(number * factor * -1) / factor) * -1;
+  // Get rid of all the decimals.
+  if (decimals == 0) {
+    return std::round(number);
   }
-  return std::round(number * factor) / factor;
+
+  // For negative 'decimals', we aren't going to lose any precision - we divide
+  // first (multiply by factor which is < 1.0).
+  if (decimals < 0) {
+    const double factor = std::pow(10, decimals);
+    return std::round(number * factor) / factor;
+  }
+
+  // We implement the algorithm below for positive 'decimals' because on the
+  // large numbers we would have overflow when multiplying number by the factor,
+  // which would lose or gain some [power of 2] whole units.
+
+  // Get the fraction part and return number 'as is' if fraction part is 0.
+  const TNum fraction = number - std::trunc(number);
+  if (fraction == 0.0)
+    return number;
+
+  const double factor = std::pow(10, decimals);
+  const TNum roundedFractions = std::round(fraction * factor) / factor;
+  return std::trunc(number) + roundedFractions;
 }
 
 // This is used by Velox for floating points plus.
