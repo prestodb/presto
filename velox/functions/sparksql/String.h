@@ -782,53 +782,6 @@ struct TranslateFunction {
   // ASCII input always produces ASCII result.
   static constexpr bool is_default_ascii_behavior = true;
 
-  std::optional<folly::F14FastMap<std::string, std::string>> unicodeDictionary_;
-  std::optional<folly::F14FastMap<char, char>> asciiDictionary_;
-
-  bool isConstantDictionary_ = false;
-
-  folly::F14FastMap<std::string, std::string> buildUnicodeDictionary(
-      const arg_type<Varchar>& match,
-      const arg_type<Varchar>& replace) {
-    folly::F14FastMap<std::string, std::string> dictionary;
-    int i = 0;
-    int j = 0;
-    while (i < match.size()) {
-      std::string replaceChar;
-      // If match's character size is larger than replace's, the extra
-      // characters in match will be removed from input string.
-      if (j < replace.size()) {
-        int replaceCharLength = utf8proc_char_length(replace.data() + j);
-        replaceChar = std::string(replace.data() + j, replaceCharLength);
-        j += replaceCharLength;
-      }
-      int matchCharLength = utf8proc_char_length(match.data() + i);
-      std::string matchChar = std::string(match.data() + i, matchCharLength);
-      // Only considers the first occurrence of a character in match.
-      dictionary.emplace(matchChar, replaceChar);
-      i += matchCharLength;
-    }
-    return dictionary;
-  }
-
-  folly::F14FastMap<char, char> buildAsciiDictionary(
-      const arg_type<Varchar>& match,
-      const arg_type<Varchar>& replace) {
-    folly::F14FastMap<char, char> dictionary;
-    int i = 0;
-    for (; i < std::min(match.size(), replace.size()); i++) {
-      char matchChar = *(match.data() + i);
-      char replaceChar = *(replace.data() + i);
-      // Only consider the first occurrence of a character in match.
-      dictionary.emplace(matchChar, replaceChar);
-    }
-    for (; i < match.size(); i++) {
-      char matchChar = *(match.data() + i);
-      dictionary.emplace(matchChar, '\0');
-    }
-    return dictionary;
-  }
-
   FOLLY_ALWAYS_INLINE void initialize(
       const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& /*config*/,
@@ -858,7 +811,7 @@ struct TranslateFunction {
     int i = 0;
     int k = 0;
     while (k < input.size()) {
-      int inputCharLength = utf8proc_char_length(input.data() + k);
+      int inputCharLength = getUtf8CharLength(input, k);
       auto inputChar = std::string(input.data() + k, inputCharLength);
       auto it = unicodeDictionary_->find(inputChar);
       if (it == unicodeDictionary_->end()) {
@@ -908,6 +861,63 @@ struct TranslateFunction {
     }
     result.resize(i);
   }
+
+ private:
+  // Returns the length of a UTF-8 character starting at 'offset'. Returns 1
+  // for invalid UTF-8 character.
+  FOLLY_ALWAYS_INLINE int32_t
+  getUtf8CharLength(const arg_type<Varchar>& input, int32_t offset) {
+    return std::min<int32_t>(
+        std::abs(utf8proc_char_length(input.data() + offset)),
+        input.size() - offset);
+  }
+
+  folly::F14FastMap<std::string, std::string> buildUnicodeDictionary(
+      const arg_type<Varchar>& match,
+      const arg_type<Varchar>& replace) {
+    folly::F14FastMap<std::string, std::string> dictionary;
+    int i = 0;
+    int j = 0;
+    while (i < match.size()) {
+      std::string replaceChar;
+      // If match's character size is larger than replace's, the extra
+      // characters in match will be removed from input string.
+      if (j < replace.size()) {
+        int replaceCharLength = getUtf8CharLength(replace, j);
+        replaceChar = std::string(replace.data() + j, replaceCharLength);
+        j += replaceCharLength;
+      }
+      int matchCharLength = getUtf8CharLength(match, i);
+      std::string matchChar = std::string(match.data() + i, matchCharLength);
+      // Only considers the first occurrence of a character in match.
+      dictionary.emplace(matchChar, replaceChar);
+      i += matchCharLength;
+    }
+    return dictionary;
+  }
+
+  folly::F14FastMap<char, char> buildAsciiDictionary(
+      const arg_type<Varchar>& match,
+      const arg_type<Varchar>& replace) {
+    folly::F14FastMap<char, char> dictionary;
+    int i = 0;
+    for (; i < std::min(match.size(), replace.size()); i++) {
+      char matchChar = *(match.data() + i);
+      char replaceChar = *(replace.data() + i);
+      // Only consider the first occurrence of a character in match.
+      dictionary.emplace(matchChar, replaceChar);
+    }
+    for (; i < match.size(); i++) {
+      char matchChar = *(match.data() + i);
+      dictionary.emplace(matchChar, '\0');
+    }
+    return dictionary;
+  }
+
+  std::optional<folly::F14FastMap<std::string, std::string>> unicodeDictionary_;
+  std::optional<folly::F14FastMap<char, char>> asciiDictionary_;
+
+  bool isConstantDictionary_ = false;
 };
 
 template <typename T>
