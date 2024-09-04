@@ -243,6 +243,7 @@ public class TestingPrestoServer
                 false,
                 false,
                 coordinator,
+                false,
                 properties,
                 environment,
                 discoveryUri,
@@ -259,6 +260,7 @@ public class TestingPrestoServer
             boolean coordinatorSidecar,
             boolean coordinatorSidecarEnabled,
             boolean coordinator,
+            boolean skipLoadingResourceGroupConfigurationManager,
             Map<String, String> properties,
             String environment,
             URI discoveryUri,
@@ -368,7 +370,9 @@ public class TestingPrestoServer
             this.resourceGroupManager = resourceGroupManager instanceof InternalResourceGroupManager
                     ? Optional.of((InternalResourceGroupManager<?>) resourceGroupManager)
                     : Optional.empty();
-            resourceGroupManager.loadConfigurationManager();
+            if (!skipLoadingResourceGroupConfigurationManager) {
+                resourceGroupManager.loadConfigurationManager();
+            }
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             planOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
