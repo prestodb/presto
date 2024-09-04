@@ -49,6 +49,7 @@ public class TestServerInfoResource
 {
     private HttpClient client;
     private DistributedQueryRunner queryRunner;
+    private DistributedQueryRunner queryRunnerWithNoClusterReadyCheck;
     private ThriftCodecManager thriftCodeManager;
 
     @BeforeClass
@@ -72,7 +73,7 @@ public class TestServerInfoResource
         this.client = null;
     }
 
-    @AfterGroups(groups = {"createQueryRunner", "getServerStateWithoutRequiredResourceManagers", "getServerStateWithoutRequiredCoordinators"})
+    @AfterGroups(groups = {"createQueryRunner", "getServerStateWithoutRequiredResourceManagers", "getServerStateWithoutRequiredCoordinators", "getServerStateWithoutRequiredCoordinators", "createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager"})
     public void serverTearDown()
     {
         for (TestingPrestoServer server : queryRunner.getServers()) {
@@ -106,11 +107,11 @@ public class TestServerInfoResource
             throws Exception
     {
         queryRunner = createQueryRunnerWithNoClusterReadyCheck(
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of("cluster.required-resource-managers-active", "2", "cluster.required-coordinators-active", "1"),
-                ImmutableMap.of("query.client.timeout", "10s"), 2);
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        ImmutableMap.of("cluster.required-resource-managers-active", "2", "cluster.required-coordinators-active", "1"),
+                        ImmutableMap.of("query.client.timeout", "10s"), 2, false);
     }
 
     @Test(timeOut = 30_000, groups = {"getServerStateWithoutRequiredResourceManagers"}, dataProvider = "thriftEncodingToggle")
@@ -131,7 +132,7 @@ public class TestServerInfoResource
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of("cluster.required-resource-managers-active", "1", "cluster.required-coordinators-active", "3"),
-                ImmutableMap.of("query.client.timeout", "10s"), 2);
+                ImmutableMap.of("query.client.timeout", "10s"), 2, false);
     }
 
     @Test(timeOut = 30_000, groups = {"getServerStateWithoutRequiredCoordinators"}, dataProvider = "thriftEncodingToggle")
@@ -141,6 +142,28 @@ public class TestServerInfoResource
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/state")).build();
         NodeState state = getNodeState(uri, useThriftEncoding, thriftProtocol);
 
+        assertEquals(state, NodeState.INACTIVE);
+    }
+
+    @BeforeGroups("createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager")
+    public void createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager()
+            throws Exception
+    {
+        queryRunner = createQueryRunnerWithNoClusterReadyCheck(
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of("cluster.required-resource-managers-active", "1", "cluster.required-coordinators-active", "1"),
+                ImmutableMap.of("query.client.timeout", "10s"), 2, true);
+    }
+
+    @Test(groups = {"createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager"})
+    public void testGetServerStateWhenResourceGroupConfigurationManagerNotLoaded()
+            throws Exception
+    {
+        TestingPrestoServer server = queryRunner.getCoordinator(0);
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/state")).build();
+        NodeState state = getNodeState(uri, false, null);
         assertEquals(state, NodeState.INACTIVE);
     }
 
