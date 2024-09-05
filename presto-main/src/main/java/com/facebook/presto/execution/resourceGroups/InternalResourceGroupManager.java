@@ -112,7 +112,7 @@ public final class InternalResourceGroupManager<C>
     private final boolean isResourceManagerEnabled;
     private final QueryManagerConfig queryManagerConfig;
     private final InternalNodeManager nodeManager;
-    private boolean isConfigurationManagerLoaded;
+    private AtomicBoolean isConfigurationManagerLoaded;
 
     @Inject
     public InternalResourceGroupManager(
@@ -137,7 +137,7 @@ public final class InternalResourceGroupManager<C>
         this.isResourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
         this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
         configurationManagerFactories.putIfAbsent(LegacyResourceGroupConfigurationManager.NAME, new LegacyResourceGroupConfigurationManager.Factory());
-        this.isConfigurationManagerLoaded = false;
+        this.isConfigurationManagerLoaded = new AtomicBoolean(false);
     }
 
     @Override
@@ -204,7 +204,7 @@ public final class InternalResourceGroupManager<C>
                     MAX_QUEUED_QUERIES, Integer.toString(queryManagerConfig.getMaxQueuedQueries()));
             setConfigurationManager(LegacyResourceGroupConfigurationManager.NAME, legacyProperties);
         }
-        isConfigurationManagerLoaded = true;
+        isConfigurationManagerLoaded.set(true);
     }
 
     private void setConfigurationManager(String name, Map<String, String> properties)
@@ -290,7 +290,7 @@ public final class InternalResourceGroupManager<C>
     @Override
     public boolean isConfigurationManagerLoaded()
     {
-        return isConfigurationManagerLoaded;
+        return isConfigurationManagerLoaded.get();
     }
 
     private void buildResourceGroupRuntimeInfo(ImmutableList.Builder<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos, InternalResourceGroup resourceGroup)
