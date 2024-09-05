@@ -53,7 +53,7 @@ public final class PlanChecker
                         new TypeValidator(),
                         new VerifyNoFilteredAggregations(),
                         new VerifyNoIntermediateFormExpression(),
-                        new ValidateStreamingJoins())
+                        new ValidateStreamingJoins(featuresConfig))
                 .putAll(
                         Stage.FINAL,
                         new CheckUnsupportedExternalFunctions(),

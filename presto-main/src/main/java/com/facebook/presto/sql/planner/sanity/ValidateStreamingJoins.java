@@ -19,6 +19,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -39,14 +40,22 @@ import static com.facebook.presto.sql.planner.optimizations.StreamPreferredPrope
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class ValidateStreamingJoins
         implements Checker
 {
+    private final boolean nativeExecutionEnabled;
+
+    public ValidateStreamingJoins(FeaturesConfig featuresConfig)
+    {
+        this.nativeExecutionEnabled = requireNonNull(featuresConfig).isNativeExecutionEnabled();
+    }
+
     @Override
     public void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata), null);
+        planNode.accept(new Visitor(session, metadata, nativeExecutionEnabled), null);
     }
 
     private static final class Visitor
@@ -54,11 +63,13 @@ public class ValidateStreamingJoins
     {
         private final Session session;
         private final Metadata metadata;
+        private final boolean nativeExecutionEnabled;
 
-        private Visitor(Session session, Metadata metadata)
+        private Visitor(Session session, Metadata metadata, boolean nativeExecutionEnabled)
         {
             this.session = session;
             this.metadata = metadata;
+            this.nativeExecutionEnabled = nativeExecutionEnabled;
         }
 
         @Override
@@ -87,7 +98,7 @@ public class ValidateStreamingJoins
                 checkArgument(requiredBuildProperty.isSatisfiedBy(buildProperties), "Build side needs an additional local exchange for join: %s", node.getId());
 
                 StreamPreferredProperties requiredProbeProperty;
-                if (isSpillEnabled(session) && isJoinSpillingEnabled(session)) {
+                if (isSpillEnabled(session) && isJoinSpillingEnabled(session) && !nativeExecutionEnabled) {
                     requiredProbeProperty = fixedParallelism();
                 }
                 else {

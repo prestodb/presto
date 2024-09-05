@@ -14,8 +14,17 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
+import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.warnings.WarningCollectorConfig;
+import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
@@ -23,7 +32,10 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -31,6 +43,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tpch.TpchTableLayoutHandle;
+import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -40,7 +53,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -48,7 +60,8 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestValidateStreamingJoins
         extends BasePlanTest
 {
-    private Session testSession;
+    private Session defaultSession;
+    private Session spillSession;
     private Metadata metadata;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
@@ -62,7 +75,26 @@ public class TestValidateStreamingJoins
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny");
-        testSession = sessionBuilder.build();
+        defaultSession = sessionBuilder.build();
+        spillSession = testSessionBuilder(
+                new SessionPropertyManager(new SystemSessionProperties(
+                        new QueryManagerConfig(),
+                        new TaskManagerConfig(),
+                        new MemoryManagerConfig(),
+                        new FeaturesConfig().setSpillerSpillPaths("/path/to/nowhere"),
+                        new FunctionsConfig(),
+                        new NodeMemoryConfig(),
+                        new WarningCollectorConfig(),
+                        new NodeSchedulerConfig(),
+                        new NodeSpillConfig(),
+                        new TracingConfig(),
+                        new CompilerConfig(),
+                        new HistoryBasedOptimizationConfig())))
+                .setCatalog("local")
+                .setSchema("tiny")
+                .setSystemProperty("spill_enabled", "true")
+                .setSystemProperty("join_spill_enabled", "true")
+                .build();
         metadata = getQueryRunner().getMetadata();
 
         TpchTableHandle nationTpchTableHandle = new TpchTableHandle("nation", 1.0);
@@ -85,7 +117,8 @@ public class TestValidateStreamingJoins
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        testSession = null;
+        defaultSession = null;
+        spillSession = null;
         metadata = null;
         idAllocator = null;
         nationTableHandle = null;
@@ -123,14 +156,58 @@ public class TestValidateStreamingJoins
                         Optional.empty()));
     }
 
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Probe side needs an additional local exchange for join: [0-9]*")
+    public void testValidateFailsForJavaSpillEnabled()
+    {
+        validatePlan(
+                p -> p.join(
+                        INNER,
+                        p.tableScan(nationTableHandle, ImmutableList.of(p.variable("nationkeyN", BIGINT)), ImmutableMap.of(p.variable("nationkeyN", BIGINT), nationColumnHandle)),
+                        p.exchange(e -> e
+                                .scope(ExchangeNode.Scope.LOCAL)
+                                .type(ExchangeNode.Type.REPARTITION)
+                                .addSource(p.tableScan(supplierTableHandle, ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableMap.of(p.variable("nationkeyS", BIGINT), nationColumnHandle, p.variable("suppkey", BIGINT), suppColumnHandle)))
+                                .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
+                                .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
+                        ImmutableList.of(new EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
+                        ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
+                        Optional.empty()),
+                false,
+                spillSession);
+    }
+
+    @Test
+    public void testValidateSucceedsForNativeSpillEnabled()
+    {
+        validatePlan(
+                p -> p.join(
+                        INNER,
+                        p.tableScan(nationTableHandle, ImmutableList.of(p.variable("nationkeyN", BIGINT)), ImmutableMap.of(p.variable("nationkeyN", BIGINT), nationColumnHandle)),
+                        p.exchange(e -> e
+                                .scope(ExchangeNode.Scope.LOCAL)
+                                .type(ExchangeNode.Type.REPARTITION)
+                                .addSource(p.tableScan(supplierTableHandle, ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableMap.of(p.variable("nationkeyS", BIGINT), nationColumnHandle, p.variable("suppkey", BIGINT), suppColumnHandle)))
+                                .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
+                                .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
+                        ImmutableList.of(new EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
+                        ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
+                        Optional.empty()),
+                true,
+                spillSession);
+    }
+
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)
     {
-        PlanBuilder builder = new PlanBuilder(TEST_SESSION, idAllocator, metadata);
+        validatePlan(planProvider, false, defaultSession);
+    }
+
+    private void validatePlan(Function<PlanBuilder, PlanNode> planProvider, boolean nativeExecutionEnabled, Session testSession)
+    {
+        PlanBuilder builder = new PlanBuilder(testSession, idAllocator, metadata);
         PlanNode planNode = planProvider.apply(builder);
-        TypeProvider types = builder.getTypes();
         getQueryRunner().inTransaction(testSession, session -> {
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateStreamingJoins().validate(planNode, session, metadata, WarningCollector.NOOP);
+            new ValidateStreamingJoins(new FeaturesConfig().setNativeExecutionEnabled(nativeExecutionEnabled)).validate(planNode, session, metadata, WarningCollector.NOOP);
             return null;
         });
     }
