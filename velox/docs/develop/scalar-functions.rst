@@ -962,15 +962,14 @@ argument in order.
 
 The concat function takes an arbitrary number of varchar inputs and returns a
 varchar. FunctionSignatureBuilder allows specifying that the last augment may
-appear zero or more times by calling variableArity() method.
+appear zero or more times by calling variableArity("varchar") method.
 
 .. code-block:: c++
 
     // varchar... -> varchar
     exec::FunctionSignatureBuilder()
         .returnType("varchar")
-        .argumentType("varchar")
-        .variableArity()
+        .variableArity("varchar")
         .build()
 
 The map_keys function takes any map and returns an array of map keys.

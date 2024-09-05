@@ -586,8 +586,7 @@ TEST(SignatureBinderTest, variableArity) {
   {
     auto signature = exec::FunctionSignatureBuilder()
                          .returnType("varchar")
-                         .argumentType("varchar")
-                         .variableArity()
+                         .variableArity("varchar")
                          .build();
 
     testSignatureBinder(signature, {}, VARCHAR());
@@ -602,8 +601,7 @@ TEST(SignatureBinderTest, variableArity) {
     auto signature = exec::FunctionSignatureBuilder()
                          .returnType("varchar")
                          .argumentType("integer")
-                         .argumentType("double")
-                         .variableArity()
+                         .variableArity("double")
                          .build();
 
     testSignatureBinder(signature, {INTEGER()}, VARCHAR());
@@ -617,8 +615,7 @@ TEST(SignatureBinderTest, variableArity) {
   {
     auto signature = exec::FunctionSignatureBuilder()
                          .returnType("varchar")
-                         .argumentType("any")
-                         .variableArity()
+                         .variableArity("any")
                          .build();
 
     testSignatureBinder(signature, {}, VARCHAR());
@@ -633,8 +630,7 @@ TEST(SignatureBinderTest, variableArity) {
     auto signature = exec::FunctionSignatureBuilder()
                          .returnType("timestamp")
                          .argumentType("integer")
-                         .argumentType("any")
-                         .variableArity()
+                         .variableArity("any")
                          .build();
 
     testSignatureBinder(signature, {INTEGER()}, TIMESTAMP());
@@ -683,8 +679,7 @@ TEST(SignatureBinderTest, unresolvable) {
   {
     auto signature = exec::FunctionSignatureBuilder()
                          .returnType("varchar")
-                         .argumentType("integer")
-                         .variableArity()
+                         .variableArity("integer")
                          .build();
 
     // wrong type

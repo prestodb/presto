@@ -351,8 +351,7 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
       functionSignatures["variadic_func"].at(0)->toString(),
       exec::FunctionSignatureBuilder()
           .returnType("varchar")
-          .argumentType("varchar")
-          .variableArity()
+          .variableArity("varchar")
           .build()
           ->toString());
 

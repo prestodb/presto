@@ -177,8 +177,7 @@ TEST_F(FunctionSignatureBuilderTest, scalarConstantFlags) {
                          .argumentType("double")
                          .constantArgumentType("T")
                          .argumentType("bigint")
-                         .constantArgumentType("boolean")
-                         .variableArity()
+                         .constantVariableArity("boolean")
                          .build();
     EXPECT_FALSE(signature->constantArguments().at(0));
     EXPECT_TRUE(signature->constantArguments().at(1));
@@ -214,8 +213,7 @@ TEST_F(FunctionSignatureBuilderTest, aggregateConstantFlags) {
                             .argumentType("bigint")
                             .constantArgumentType("T")
                             .argumentType("T")
-                            .constantArgumentType("double")
-                            .variableArity()
+                            .constantVariableArity("double")
                             .build();
     EXPECT_FALSE(aggSignature->constantArguments().at(0));
     EXPECT_TRUE(aggSignature->constantArguments().at(1));

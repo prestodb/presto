@@ -182,8 +182,7 @@ TEST_F(ArgumentTypeFuzzerTest, variableArity) {
                          .typeVariable("X")
                          .returnType("X")
                          .argumentType("X")
-                         .argumentType("bigint")
-                         .variableArity()
+                         .variableArity("bigint")
                          .build();
 
     testFuzzingSuccess(signature, VARCHAR(), {VARCHAR(), BIGINT()});
@@ -193,8 +192,7 @@ TEST_F(ArgumentTypeFuzzerTest, variableArity) {
     auto signature = exec::FunctionSignatureBuilder()
                          .knownTypeVariable("K")
                          .returnType("bigint")
-                         .argumentType("K")
-                         .variableArity()
+                         .variableArity("K")
                          .build();
     std::mt19937 seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, BIGINT(), seed};
@@ -434,8 +432,7 @@ TEST_F(ArgumentTypeFuzzerTest, fuzzDecimalArgumentTypes) {
                   .integerVariable("s")
                   .returnType("decimal(p,s)")
                   .argumentType("decimal(p,s)")
-                  .argumentType("decimal(p,s)")
-                  .variableArity()
+                  .variableArity("decimal(p,s)")
                   .build();
   argTypes = fuzzArgumentTypes(*signature, DECIMAL(10, 7));
   ASSERT_LE(1, argTypes.size());
@@ -582,8 +579,7 @@ TEST_F(ArgumentTypeFuzzerTest, fuzzDecimalReturnType) {
                   .integerVariable("s")
                   .returnType("decimal(p,s)")
                   .argumentType("decimal(p,s)")
-                  .argumentType("decimal(p,s)")
-                  .variableArity()
+                  .variableArity("decimal(p,s)")
                   .build();
 
   returnType = fuzzReturnType(*signature);

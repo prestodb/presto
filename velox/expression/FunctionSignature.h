@@ -314,6 +314,24 @@ class FunctionSignatureBuilder {
     return *this;
   }
 
+  /// Variable arity arguments can appear only at the end of the argument list
+  /// and can appear zero or more times.
+  FunctionSignatureBuilder& variableArity(const std::string& type) {
+    argumentTypes_.emplace_back(parseTypeSignature(type));
+    constantArguments_.push_back(false);
+    variableArity_ = true;
+    return *this;
+  }
+
+  /// Variable arity arguments can appear only at the end of the argument list
+  /// and can appear zero or more times.
+  FunctionSignatureBuilder& constantVariableArity(const std::string& type) {
+    argumentTypes_.emplace_back(parseTypeSignature(type));
+    constantArguments_.push_back(true);
+    variableArity_ = true;
+    return *this;
+  }
+
   FunctionSignaturePtr build();
 
  private:
@@ -387,6 +405,25 @@ class AggregateFunctionSignatureBuilder {
   }
 
   AggregateFunctionSignatureBuilder& variableArity() {
+    variableArity_ = true;
+    return *this;
+  }
+
+  /// Variable arity arguments can appear only at the end of the argument list
+  /// and can appear zero or more times.
+  AggregateFunctionSignatureBuilder& variableArity(const std::string& type) {
+    argumentTypes_.emplace_back(parseTypeSignature(type));
+    constantArguments_.push_back(false);
+    variableArity_ = true;
+    return *this;
+  }
+
+  /// Variable arity arguments can appear only at the end of the argument list
+  /// and can appear zero or more times.
+  AggregateFunctionSignatureBuilder& constantVariableArity(
+      const std::string& type) {
+    argumentTypes_.emplace_back(parseTypeSignature(type));
+    constantArguments_.push_back(true);
     variableArity_ = true;
     return *this;
   }

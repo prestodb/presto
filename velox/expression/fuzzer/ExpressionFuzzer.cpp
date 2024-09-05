@@ -185,8 +185,7 @@ static const std::unordered_map<
              // boolean, boolean,.. -> boolean
              facebook::velox::exec::FunctionSignatureBuilder()
                  .argumentType("boolean")
-                 .argumentType("boolean")
-                 .variableArity()
+                 .variableArity("boolean")
                  .returnType("boolean")
                  .build()}},
         {"or",
@@ -195,8 +194,7 @@ static const std::unordered_map<
              // boolean, boolean,.. -> boolean
              facebook::velox::exec::FunctionSignatureBuilder()
                  .argumentType("boolean")
-                 .argumentType("boolean")
-                 .variableArity()
+                 .variableArity("boolean")
                  .returnType("boolean")
                  .build()}},
         {"coalesce",
@@ -206,8 +204,7 @@ static const std::unordered_map<
              facebook::velox::exec::FunctionSignatureBuilder()
                  .typeVariable("T")
                  .argumentType("T")
-                 .argumentType("T")
-                 .variableArity()
+                 .variableArity("T")
                  .returnType("T")
                  .build()}},
         {

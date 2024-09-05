@@ -152,8 +152,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> leastSignatures() {
     signatures.emplace_back(exec::FunctionSignatureBuilder()
                                 .returnType(type)
                                 .argumentType(type)
-                                .argumentType(type)
-                                .variableArity()
+                                .variableArity(type)
                                 .build());
   }
   signatures.emplace_back(exec::FunctionSignatureBuilder()
@@ -161,8 +160,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> leastSignatures() {
                               .integerVariable("s")
                               .returnType("decimal(p,s)")
                               .argumentType("decimal(p,s)")
-                              .argumentType("decimal(p,s)")
-                              .variableArity()
+                              .variableArity("decimal(p,s)")
                               .build());
   return signatures;
 }

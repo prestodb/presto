@@ -161,8 +161,7 @@ class MapConcatFunction : public exec::VectorFunction {
                 .typeVariable("V")
                 .returnType("map(K,V)")
                 .argumentType("map(K,V)")
-                .argumentType("map(K,V)")
-                .variableArity()
+                .variableArity("map(K,V)")
                 .build()};
   }
 };

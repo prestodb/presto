@@ -113,8 +113,7 @@ class ArrayConstructor : public exec::VectorFunction {
         exec::FunctionSignatureBuilder()
             .typeVariable("T")
             .returnType("array(T)")
-            .argumentType("T")
-            .variableArity()
+            .variableArity("T")
             .build(),
     };
   }
