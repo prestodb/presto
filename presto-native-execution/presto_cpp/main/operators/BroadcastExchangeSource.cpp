@@ -17,6 +17,8 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 
+using namespace facebook::velox;
+
 namespace facebook::presto::operators {
 
 namespace {
