@@ -28,6 +28,7 @@ import com.facebook.presto.parquet.batchreader.LongDecimalFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.ShortDecimalFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.TimestampFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.TimestampNestedBatchReader;
+import com.facebook.presto.parquet.batchreader.UuidFlatBatchReader;
 import com.facebook.presto.parquet.reader.AbstractColumnReader;
 import com.facebook.presto.parquet.reader.BinaryColumnReader;
 import com.facebook.presto.parquet.reader.BooleanColumnReader;
@@ -99,6 +100,12 @@ public class ColumnReaderFactory
                     return isNested ? new BinaryNestedBatchReader(descriptor) : new BinaryFlatBatchReader(descriptor);
                 case FIXED_LEN_BYTE_ARRAY:
                     if (!isNested) {
+                        if (Optional.ofNullable(descriptor.getPrimitiveType().getLogicalTypeAnnotation())
+                                .map(type -> type.equals(uuidType()))
+                                .orElse(false)) {
+                            return new UuidFlatBatchReader(descriptor);
+                        }
+
                         decimalBatchColumnReader = createDecimalBatchColumnReader(descriptor);
                         if (decimalBatchColumnReader.isPresent()) {
                             return decimalBatchColumnReader.get();
