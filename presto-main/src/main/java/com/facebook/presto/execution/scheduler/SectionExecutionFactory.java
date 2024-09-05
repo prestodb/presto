@@ -304,7 +304,7 @@ public class SectionExecutionFactory
             Set<ConnectorId> connectorIds = splitSources.values()
                     .stream()
                     .map(SplitSource::getConnectorId)
-                    .filter(ConnectorId::isInternalSystemConnector)
+                    .filter(x -> !isInternalSystemConnector(x))
                     .collect(toImmutableSet());
             checkState(connectorIds.size() <= 1, "table scans that are within one stage should read from same catalog");
 

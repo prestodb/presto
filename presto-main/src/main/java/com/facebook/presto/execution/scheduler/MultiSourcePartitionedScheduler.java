@@ -1,6 +1,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -18,6 +19,7 @@ import java.util.Optional;
 import java.util.Queue;
 
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.util.Objects.requireNonNull;
@@ -53,6 +55,7 @@ public class MultiSourcePartitionedScheduler
                     splitPlacementPolicy,
                     splitBatchSize,
                     groupedExecutionForScanNode);
+            sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
             sourceSchedulers.add(sourceScheduler);
         }
         this.stageExecution = requireNonNull(stageExecution, "stageExecution is null");
@@ -70,6 +73,7 @@ public class MultiSourcePartitionedScheduler
         while (!sourceSchedulers.isEmpty()) {
             SourceScheduler scheduler = sourceSchedulers.peek();
             ScheduleResult scheduleResult = scheduler.schedule();
+            scheduler.drainCompletelyScheduledLifespans();
 
             splitsScheduled += scheduleResult.getSplitsScheduled();
             newScheduledTasks.addAll(scheduleResult.getNewTasks());
