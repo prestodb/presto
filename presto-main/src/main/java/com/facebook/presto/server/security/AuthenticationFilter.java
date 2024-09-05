@@ -109,14 +109,14 @@ public class AuthenticationFilter
 
             for (RequestModifier modifier : requestModifierManager.getRequestModifiers()) {
                 boolean headersPresent = modifier.getHeaderNames().stream()
-                        .allMatch(headerName -> request.getHeaders(headerName) != null);
+                        .allMatch(headerName -> request.getHeader(headerName) != null);
 
                 if (!headersPresent) {
                     Optional<Map<String, String>> extraHeaderValueMap = modifier.getExtraHeaders(principal);
 
                     extraHeaderValueMap.ifPresent(map -> {
                         for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
-                            if (request.getHeaders(extraHeaderEntry.getKey()) == null) {
+                            if (request.getHeader(extraHeaderEntry.getKey()) == null) {
                                 extraHeadersMap.putIfAbsent(extraHeaderEntry.getKey(), extraHeaderEntry.getValue());
                             }
                         }
