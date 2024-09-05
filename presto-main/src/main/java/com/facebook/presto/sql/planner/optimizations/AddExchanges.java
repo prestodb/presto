@@ -1317,7 +1317,7 @@ public class AddExchanges
                     }
                     else if (preferDistributedUnion) {
                         int repartitionedRemoteExchangeNodesCount = distributedChildren.stream().mapToInt(AddExchanges::countRepartitionedRemoteExchangeNodes).sum();
-                        int partitionedConnectorSourceCount = distributedChildren.stream().mapToInt(x-> countPartitionedConnectorSource(x, session, metadata)).sum();
+                        int partitionedConnectorSourceCount = distributedChildren.stream().mapToInt(x -> countPartitionedConnectorSource(x, session, metadata)).sum();
                         long uniqueSourceCatalogCount = distributedChildren.stream().flatMap(AddExchanges::collectSourceCatalogs).distinct().count();
 
                         // MultiSourcePartitionedScheduler does not support node partitioning. Both partitioned remote exchanges and
@@ -1708,8 +1708,7 @@ public class AddExchanges
 
     private static boolean isNotRemoteExchange(PlanNode node)
     {
-        if (node instanceof ExchangeNode)
-        {
+        if (node instanceof ExchangeNode) {
             return ((ExchangeNode) node).getScope() != REMOTE_STREAMING;
         }
 
