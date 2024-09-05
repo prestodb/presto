@@ -273,6 +273,20 @@ std::optional<uint8_t> HiveConfig::orcWriterCompressionLevel(
   return std::nullopt;
 }
 
+uint8_t HiveConfig::orcWriterZLIBCompressionLevel(
+    const config::ConfigBase* session) const {
+  constexpr uint8_t kDefaultZlibCompressionLevel = 4;
+  return orcWriterCompressionLevel(session).value_or(
+      kDefaultZlibCompressionLevel);
+}
+
+uint8_t HiveConfig::orcWriterZSTDCompressionLevel(
+    const config::ConfigBase* session) const {
+  constexpr uint8_t kDefaultZstdCompressionLevel = 3;
+  return orcWriterCompressionLevel(session).value_or(
+      kDefaultZstdCompressionLevel);
+}
+
 std::string HiveConfig::writeFileCreateConfig() const {
   return config_->get<std::string>(kWriteFileCreateConfig, "");
 }

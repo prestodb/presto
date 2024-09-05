@@ -33,10 +33,6 @@ using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::dwrf {
 
-void WriterOptions::processConfigs(
-    const config::ConfigBase& connectorConfig,
-    const config::ConfigBase& session) {};
-
 namespace {
 
 dwio::common::StripeProgress getStripeProgress(const WriterContext& context) {
@@ -810,70 +806,13 @@ uint64_t Writer::MemoryReclaimer::reclaim(
       stats);
 }
 
-dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
-  std::map<std::string, std::string> configs;
-  if (options.compressionKind.has_value()) {
-    configs.emplace(
-        Config::COMPRESSION.key,
-        std::to_string(options.compressionKind.value()));
-  }
-  if (options.orcMinCompressionSize.has_value()) {
-    configs.emplace(
-        Config::COMPRESSION_BLOCK_SIZE_MIN.key,
-        std::to_string(options.orcMinCompressionSize.value()));
-  }
-  if (options.maxStripeSize.has_value()) {
-    configs.emplace(
-        Config::STRIPE_SIZE.key, std::to_string(options.maxStripeSize.value()));
-  }
-  if (options.orcLinearStripeSizeHeuristics.has_value()) {
-    configs.emplace(
-        Config::LINEAR_STRIPE_SIZE_HEURISTICS.key,
-        std::to_string(options.orcLinearStripeSizeHeuristics.value()));
-  }
-  if (options.maxDictionaryMemory.has_value()) {
-    configs.emplace(
-        Config::MAX_DICTIONARY_SIZE.key,
-        std::to_string(options.maxDictionaryMemory.value()));
-  }
-  if (options.orcWriterIntegerDictionaryEncodingEnabled.has_value()) {
-    configs.emplace(
-        Config::INTEGER_DICTIONARY_ENCODING_ENABLED.key,
-        std::to_string(
-            options.orcWriterIntegerDictionaryEncodingEnabled.value()));
-  }
-  if (options.orcWriterStringDictionaryEncodingEnabled.has_value()) {
-    configs.emplace(
-        Config::STRING_DICTIONARY_ENCODING_ENABLED.key,
-        std::to_string(
-            options.orcWriterStringDictionaryEncodingEnabled.value()));
-  }
-  if (options.zlibCompressionLevel.has_value()) {
-    configs.emplace(
-        Config::ZLIB_COMPRESSION_LEVEL.key,
-        std::to_string(options.zlibCompressionLevel.value()));
-  }
-  if (options.zstdCompressionLevel.has_value()) {
-    configs.emplace(
-        Config::ZSTD_COMPRESSION_LEVEL.key,
-        std::to_string(options.zstdCompressionLevel.value()));
-  }
-
-  dwrf::WriterOptions dwrfOptions;
-  dwrfOptions.config = Config::fromMap(configs);
-  dwrfOptions.schema = options.schema;
-  dwrfOptions.memoryPool = options.memoryPool;
-  dwrfOptions.spillConfig = options.spillConfig;
-  dwrfOptions.nonReclaimableSection = options.nonReclaimableSection;
-  dwrfOptions.flushPolicyFactory = options.flushPolicyFactory;
-  return dwrfOptions;
-}
-
 std::unique_ptr<dwio::common::Writer> DwrfWriterFactory::createWriter(
     std::unique_ptr<dwio::common::FileSink> sink,
     const std::shared_ptr<dwio::common::WriterOptions>& options) {
-  auto dwrfOptions = getDwrfOptions(*options);
-  return std::make_unique<Writer>(std::move(sink), dwrfOptions);
+  auto dwrfOptions = std::dynamic_pointer_cast<dwrf::WriterOptions>(options);
+  VELOX_CHECK_NOT_NULL(
+      dwrfOptions, "DWRF writer factory expected a DWRF WriterOptions object.");
+  return std::make_unique<Writer>(std::move(sink), *dwrfOptions);
 }
 
 std::unique_ptr<dwio::common::WriterOptions>

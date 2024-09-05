@@ -21,6 +21,7 @@
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
+#include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/ITypedExpr.h"
@@ -37,10 +38,6 @@ using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::connector::hive {
 
 namespace {
-// Default config values taken from Presto.
-constexpr uint8_t kDefaultZlibCompressionLevel = 4;
-constexpr uint8_t kDefaultZstdCompressionLevel = 3;
-
 // Returns the type of non-partition data columns.
 RowTypePtr getNonPartitionTypes(
     const std::vector<column_index_t>& dataCols,
@@ -705,14 +702,6 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   const auto* connectorSessionProperties =
       connectorQueryCtx_->sessionProperties();
 
-  // Acquire file format specifc configs. The precedence order is:
-  //
-  // 1. First respect any options specified as part of the query plan (accessed
-  //    through insertTableHandle)
-  // 2. Otherwise, acquire user defined session properties.
-  // 3. Lastly, acquire general hive connector configs.
-  options->processConfigs(*hiveConfig_->config(), *connectorSessionProperties);
-
   // Only overwrite options in case they were not already provided.
   if (options->schema == nullptr) {
     options->schema = getNonPartitionTypes(dataChannels_, inputType_);
@@ -735,44 +724,11 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
         writerInfo_.back()->nonReclaimableSectionHolder.get();
   }
 
-  if (options->defaultMemoryReclaimerFactory == nullptr ||
-      options->defaultMemoryReclaimerFactory() == nullptr) {
-    options->defaultMemoryReclaimerFactory = []() {
+  if (options->memoryReclaimerFactory == nullptr ||
+      options->memoryReclaimerFactory() == nullptr) {
+    options->memoryReclaimerFactory = []() {
       return exec::MemoryReclaimer::create();
     };
-  }
-
-  if (!options->maxStripeSize) {
-    options->maxStripeSize = std::optional(
-        hiveConfig_->orcWriterMaxStripeSize(connectorSessionProperties));
-  }
-
-  if (!options->maxDictionaryMemory) {
-    options->maxDictionaryMemory = std::optional(
-        hiveConfig_->orcWriterMaxDictionaryMemory(connectorSessionProperties));
-  }
-
-  if (!options->orcWriterIntegerDictionaryEncodingEnabled) {
-    options->orcWriterIntegerDictionaryEncodingEnabled =
-        hiveConfig_->isOrcWriterIntegerDictionaryEncodingEnabled(
-            connectorSessionProperties);
-  }
-
-  if (!options->orcWriterStringDictionaryEncodingEnabled) {
-    options->orcWriterStringDictionaryEncodingEnabled =
-        hiveConfig_->isOrcWriterStringDictionaryEncodingEnabled(
-            connectorSessionProperties);
-  }
-
-  if (!options->orcMinCompressionSize) {
-    options->orcMinCompressionSize = std::optional(
-        hiveConfig_->orcWriterMinCompressionSize(connectorSessionProperties));
-  }
-
-  if (!options->orcLinearStripeSizeHeuristics) {
-    options->orcLinearStripeSizeHeuristics =
-        std::optional(hiveConfig_->orcWriterLinearStripeSizeHeuristics(
-            connectorSessionProperties));
   }
 
   if (options->serdeParameters.empty()) {
@@ -781,17 +737,11 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
         insertTableHandle_->serdeParameters().end());
   }
 
-  auto compressionLevel =
-      hiveConfig_->orcWriterCompressionLevel(connectorSessionProperties);
-
-  if (!options->zlibCompressionLevel) {
-    options->zlibCompressionLevel =
-        compressionLevel.value_or(kDefaultZlibCompressionLevel);
-  }
-  if (!options->zstdCompressionLevel) {
-    options->zstdCompressionLevel =
-        compressionLevel.value_or(kDefaultZstdCompressionLevel);
-  }
+  updateWriterOptionsFromHiveConfig(
+      insertTableHandle_->tableStorageFormat(),
+      hiveConfig_,
+      connectorSessionProperties,
+      options);
 
   // Prevents the memory allocation during the writer creation.
   WRITER_NON_RECLAIMABLE_SECTION_GUARD(writerInfo_.size() - 1);

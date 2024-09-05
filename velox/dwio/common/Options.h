@@ -605,7 +605,7 @@ struct WriterOptions {
   /// can choose to implement its custom memory reclaimer if needed and not use
   /// this default one.
   std::function<std::unique_ptr<velox::memory::MemoryReclaimer>()>
-      defaultMemoryReclaimerFactory{[]() { return nullptr; }};
+      memoryReclaimerFactory{[]() { return nullptr; }};
 
   std::optional<velox::common::CompressionKind> compressionKind;
   std::optional<uint64_t> orcMinCompressionSize{std::nullopt};
@@ -620,12 +620,6 @@ struct WriterOptions {
 
   std::function<std::unique_ptr<dwio::common::FlushPolicy>()>
       flushPolicyFactory;
-
-  // WriterOption implementations should provide this function to specify how to
-  // process format-specific session and connector configs.
-  virtual void processConfigs(
-      const config::ConfigBase& connectorConfig,
-      const config::ConfigBase& session) = 0;
 
   virtual ~WriterOptions() = default;
 };

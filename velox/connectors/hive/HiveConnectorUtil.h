@@ -108,4 +108,11 @@ core::TypedExprPtr extractFiltersFromRemainingFilter(
     SubfieldFilters& filters,
     double& sampleRate);
 
+/// Updates the file format's WriteOptions based on the HiveConfig.
+void updateWriterOptionsFromHiveConfig(
+    dwio::common::FileFormat fileFormat,
+    const std::shared_ptr<const HiveConfig>& hiveConfig,
+    const config::ConfigBase* sessionProperties,
+    std::shared_ptr<dwio::common::WriterOptions>& writerOptions);
+
 } // namespace facebook::velox::connector::hive

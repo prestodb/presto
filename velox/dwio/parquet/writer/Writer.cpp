@@ -419,52 +419,6 @@ void Writer::setMemoryReclaimers() {
   generalPool_->setReclaimer(exec::MemoryReclaimer::create());
 }
 
-namespace {
-
-std::optional<TimestampUnit> getTimestampUnit(
-    const config::ConfigBase& config,
-    const char* configKey) {
-  if (const auto unit = config.get<uint8_t>(configKey)) {
-    VELOX_CHECK(
-        unit == 0 /*second*/ || unit == 3 /*milli*/ || unit == 6 /*micro*/ ||
-            unit == 9 /*nano*/,
-        "Invalid timestamp unit: {}",
-        unit.value());
-    return std::optional(static_cast<TimestampUnit>(unit.value()));
-  }
-  return std::nullopt;
-}
-
-std::optional<std::string> getTimestampTimeZone(
-    const config::ConfigBase& config,
-    const char* configKey) {
-  if (const auto timezone = config.get<std::string>(configKey)) {
-    return timezone.value();
-  }
-  return std::nullopt;
-}
-
-} // namespace
-
-void WriterOptions::processConfigs(
-    const config::ConfigBase& connectorConfig,
-    const config::ConfigBase& session) {
-  if (!parquetWriteTimestampUnit) {
-    parquetWriteTimestampUnit =
-        getTimestampUnit(session, kParquetSessionWriteTimestampUnit).has_value()
-        ? getTimestampUnit(session, kParquetSessionWriteTimestampUnit)
-        : getTimestampUnit(connectorConfig, kParquetSessionWriteTimestampUnit);
-  }
-  if (!parquetWriteTimestampTimeZone) {
-    parquetWriteTimestampTimeZone =
-        getTimestampTimeZone(session, core::QueryConfig::kSessionTimezone)
-            .has_value()
-        ? getTimestampTimeZone(session, core::QueryConfig::kSessionTimezone)
-        : getTimestampTimeZone(
-              connectorConfig, core::QueryConfig::kSessionTimezone);
-  }
-}
-
 std::unique_ptr<dwio::common::Writer> ParquetWriterFactory::createWriter(
     std::unique_ptr<dwio::common::FileSink> sink,
     const std::shared_ptr<dwio::common::WriterOptions>& options) {

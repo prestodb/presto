@@ -29,6 +29,7 @@ class Writer;
 }
 
 namespace facebook::velox::connector::hive {
+
 class HiveColumnHandle;
 
 class LocationHandle;

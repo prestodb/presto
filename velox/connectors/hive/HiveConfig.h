@@ -334,6 +334,12 @@ class HiveConfig {
   std::optional<uint8_t> orcWriterCompressionLevel(
       const config::ConfigBase* session) const;
 
+  uint8_t orcWriterZLIBCompressionLevel(
+      const config::ConfigBase* session) const;
+
+  uint8_t orcWriterZSTDCompressionLevel(
+      const config::ConfigBase* session) const;
+
   std::string writeFileCreateConfig() const;
 
   uint32_t sortWriterMaxOutputRows(const config::ConfigBase* session) const;

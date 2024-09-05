@@ -24,6 +24,13 @@
 #include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/dwio/common/DirectBufferedInput.h"
 #include "velox/dwio/common/Reader.h"
+#include "velox/dwio/dwrf/common/Config.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
+
+#ifdef VELOX_ENABLE_PARQUET
+#include "velox/dwio/parquet/writer/Writer.h"
+#endif
+
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/type/TimestampConversion.h"
@@ -854,6 +861,145 @@ core::TypedExprPtr extractFiltersFromRemainingFilter(
     }
   }
   return expr;
+}
+
+namespace {
+
+#ifdef VELOX_ENABLE_PARQUET
+std::optional<TimestampUnit> getTimestampUnit(
+    const config::ConfigBase& config,
+    const char* configKey) {
+  if (const auto unit = config.get<uint8_t>(configKey)) {
+    VELOX_CHECK(
+        unit == 0 /*second*/ || unit == 3 /*milli*/ || unit == 6 /*micro*/ ||
+            unit == 9 /*nano*/,
+        "Invalid timestamp unit: {}",
+        unit.value());
+    return std::optional(static_cast<TimestampUnit>(unit.value()));
+  }
+  return std::nullopt;
+}
+
+std::optional<std::string> getTimestampTimeZone(
+    const config::ConfigBase& config,
+    const char* configKey) {
+  if (const auto timezone = config.get<std::string>(configKey)) {
+    return timezone.value();
+  }
+  return std::nullopt;
+}
+
+void updateParquetWriterOptions(
+    const std::shared_ptr<const HiveConfig>& hiveConfig,
+    const config::ConfigBase* sessionProperties,
+    std::shared_ptr<dwio::common::WriterOptions>& writerOptions) {
+  auto parquetWriterOptions =
+      std::dynamic_pointer_cast<parquet::WriterOptions>(writerOptions);
+  VELOX_CHECK_NOT_NULL(
+      parquetWriterOptions,
+      "Parquet writer expected a Parquet WriterOptions object.");
+
+  if (!parquetWriterOptions->parquetWriteTimestampUnit) {
+    parquetWriterOptions->parquetWriteTimestampUnit =
+        getTimestampUnit(
+            *sessionProperties,
+            parquet::WriterOptions::kParquetSessionWriteTimestampUnit)
+            .has_value()
+        ? getTimestampUnit(
+              *sessionProperties,
+              parquet::WriterOptions::kParquetSessionWriteTimestampUnit)
+        : getTimestampUnit(
+              *hiveConfig->config(),
+              parquet::WriterOptions::kParquetSessionWriteTimestampUnit);
+  }
+
+  if (!parquetWriterOptions->parquetWriteTimestampTimeZone) {
+    parquetWriterOptions->parquetWriteTimestampTimeZone =
+        getTimestampTimeZone(
+            *sessionProperties, core::QueryConfig::kSessionTimezone)
+            .has_value()
+        ? getTimestampTimeZone(
+              *sessionProperties, core::QueryConfig::kSessionTimezone)
+        : getTimestampTimeZone(
+              *hiveConfig->config(), core::QueryConfig::kSessionTimezone);
+  }
+
+  writerOptions = std::move(parquetWriterOptions);
+}
+#endif
+
+void updateDWRFWriterOptions(
+    const std::shared_ptr<const HiveConfig>& hiveConfig,
+    const config::ConfigBase* sessionProperties,
+    std::shared_ptr<dwio::common::WriterOptions>& writerOptions) {
+  auto dwrfWriterOptions =
+      std::dynamic_pointer_cast<dwrf::WriterOptions>(writerOptions);
+  VELOX_CHECK_NOT_NULL(
+      dwrfWriterOptions, "DWRF writer expected a DWRF WriterOptions object.");
+  std::map<std::string, std::string> configs;
+
+  if (writerOptions->compressionKind.has_value()) {
+    configs.emplace(
+        dwrf::Config::COMPRESSION.key,
+        std::to_string(writerOptions->compressionKind.value()));
+  }
+
+  configs.emplace(
+      dwrf::Config::STRIPE_SIZE.key,
+      std::to_string(hiveConfig->orcWriterMaxStripeSize(sessionProperties)));
+
+  configs.emplace(
+      dwrf::Config::MAX_DICTIONARY_SIZE.key,
+      std::to_string(
+          hiveConfig->orcWriterMaxDictionaryMemory(sessionProperties)));
+
+  configs.emplace(
+      dwrf::Config::INTEGER_DICTIONARY_ENCODING_ENABLED.key,
+      std::to_string(hiveConfig->isOrcWriterIntegerDictionaryEncodingEnabled(
+          sessionProperties)));
+  configs.emplace(
+      dwrf::Config::STRING_DICTIONARY_ENCODING_ENABLED.key,
+      std::to_string(hiveConfig->isOrcWriterStringDictionaryEncodingEnabled(
+          sessionProperties)));
+
+  configs.emplace(
+      dwrf::Config::COMPRESSION_BLOCK_SIZE_MIN.key,
+      std::to_string(
+          hiveConfig->orcWriterMinCompressionSize(sessionProperties)));
+
+  configs.emplace(
+      dwrf::Config::LINEAR_STRIPE_SIZE_HEURISTICS.key,
+      std::to_string(
+          hiveConfig->orcWriterLinearStripeSizeHeuristics(sessionProperties)));
+
+  configs.emplace(
+      dwrf::Config::ZLIB_COMPRESSION_LEVEL.key,
+      std::to_string(
+          hiveConfig->orcWriterZLIBCompressionLevel(sessionProperties)));
+
+  configs.emplace(
+      dwrf::Config::ZSTD_COMPRESSION_LEVEL.key,
+      std::to_string(
+          hiveConfig->orcWriterZSTDCompressionLevel(sessionProperties)));
+
+  dwrfWriterOptions->config = dwrf::Config::fromMap(configs);
+  writerOptions = std::move(dwrfWriterOptions);
+}
+
+} // namespace
+
+void updateWriterOptionsFromHiveConfig(
+    dwio::common::FileFormat fileFormat,
+    const std::shared_ptr<const HiveConfig>& hiveConfig,
+    const config::ConfigBase* sessionProperties,
+    std::shared_ptr<dwio::common::WriterOptions>& writerOptions) {
+  if (fileFormat == dwio::common::FileFormat::PARQUET) {
+#ifdef VELOX_ENABLE_PARQUET
+    updateParquetWriterOptions(hiveConfig, sessionProperties, writerOptions);
+#endif
+  } else {
+    updateDWRFWriterOptions(hiveConfig, sessionProperties, writerOptions);
+  }
 }
 
 } // namespace facebook::velox::connector::hive

@@ -32,12 +32,6 @@ namespace facebook::velox::dwrf {
 
 struct WriterOptions : public dwio::common::WriterOptions {
   std::shared_ptr<const Config> config = std::make_shared<Config>();
-  std::shared_ptr<const Type> schema;
-  velox::memory::MemoryPool* memoryPool;
-  const velox::common::SpillConfig* spillConfig{nullptr};
-  // If not null, used by memory arbitration to track if a file writer is under
-  // memory reclaimable section or not.
-  tsan_atomic<bool>* nonReclaimableSection{nullptr};
   /// Changes the interface to stream list and encoding iter.
   std::function<std::unique_ptr<LayoutPlanner>(const dwio::common::TypeWithId&)>
       layoutPlannerFactory;
@@ -48,10 +42,6 @@ struct WriterOptions : public dwio::common::WriterOptions {
       WriterContext& context,
       const velox::dwio::common::TypeWithId& type)>
       columnWriterFactory;
-
-  void processConfigs(
-      const config::ConfigBase& connectorConfig,
-      const config::ConfigBase& session) override;
 };
 
 class Writer : public dwio::common::Writer {
