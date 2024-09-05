@@ -523,7 +523,8 @@ public abstract class AbstractTestHiveFileFormats
                         pageBuilder.getBlockBuilder(columnNumber),
                         testColumns.get(columnNumber).getWriteValue(),
                         testColumns.get(columnNumber).getObjectInspector(),
-                        false);
+                        false,
+                        DateTimeZone.getDefault());
             }
         }
         Page page = pageBuilder.build();

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -2778,6 +2779,31 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+    }
+
+    @Test
+    public void testTextfileAmbiguousTimestamp()
+    {
+        try {
+            // set the session time zone to the same as the system timezone to avoid extra time zone conversions outside of what we are trying to test
+            Session timezoneSession = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Bahia_Banderas")).build();
+            @Language("SQL") String createTableSql = format("" +
+                            "CREATE TABLE test_timestamp_textfile \n" +
+                            "WITH (\n" +
+                            "   format = 'TEXTFILE'\n" +
+                            ")\n" +
+                            "AS SELECT TIMESTAMP '2022-10-30 01:16:13.000' ts, ARRAY[TIMESTAMP '2022-10-30 01:16:13.000'] array_ts",
+                    getSession().getCatalog().get(),
+                    getSession().getSchema().get());
+            assertUpdate(timezoneSession, createTableSql, 1);
+            // 2022-10-30 01:16:13.00 is an ambiguous timestamp in America/Bahia_Banderas because
+            // it occurs during a fall DST transition where the hour from 1-2am repeats
+            // Ambiguous timestamps should be interpreted as the earlier of the two possible unixtimes for consistency.
+            assertQuery(timezoneSession, "SELECT to_unixtime(ts), to_unixtime(array_ts[1]) FROM test_timestamp_textfile", "SELECT 1.667110573E9, 1.667110573E9");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_timestamp_textfile");
+        }
     }
 
     @Test
