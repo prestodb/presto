@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.Range;
@@ -31,6 +32,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.VerifyException;
@@ -41,6 +43,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.facebook.presto.common.predicate.Marker.Bound.ABOVE;
 import static com.facebook.presto.common.predicate.Marker.Bound.BELOW;
@@ -218,6 +221,13 @@ public final class ExpressionConverter
             }
             checkArgument(value instanceof Slice, "A long decimal should be represented by a Slice value but was %s", value.getClass().getName());
             return new BigDecimal(Decimals.decodeUnscaledValue((Slice) value), decimalType.getScale());
+        }
+
+        if (type instanceof UuidType) {
+            UuidType uuidType = (UuidType) type;
+            return marker.getValueBlock().map(block -> uuidType.getObjectValue(null, block, 0))
+                    .orElseThrow(() -> new IllegalArgumentException("UUID value block is null"));
+
         }
 
         return marker.getValue();
