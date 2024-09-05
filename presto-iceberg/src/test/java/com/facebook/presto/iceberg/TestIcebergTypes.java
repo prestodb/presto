@@ -13,13 +13,14 @@ import java.util.List;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 
 public class TestIcebergTypes
         extends AbstractTestQueryFramework
 {
     @Override
     protected QueryRunner createQueryRunner() throws Exception {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of());
+        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of());
     }
 
     @Test
