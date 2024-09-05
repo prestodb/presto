@@ -862,12 +862,14 @@ HiveWriterParameters HiveDataSink::getWriterParameters(
 
 std::pair<std::string, std::string> HiveDataSink::getWriterFileNames(
     std::optional<uint32_t> bucketId) const {
-  std::string targetFileName;
+  auto targetFileName = insertTableHandle_->locationHandle()->targetFileName();
+  const bool generateFileName = targetFileName.empty();
   if (bucketId.has_value()) {
+    VELOX_CHECK(generateFileName);
     // TODO: add hive.file_renaming_enabled support.
     targetFileName = computeBucketedFileName(
         connectorQueryCtx_->queryId(), bucketId.value());
-  } else {
+  } else if (generateFileName) {
     // targetFileName includes planNodeId and Uuid. As a result, different
     // table writers run by the same task driver or the same table writer
     // run in different task tries would have different targetFileNames.
@@ -878,11 +880,13 @@ std::pair<std::string, std::string> HiveDataSink::getWriterFileNames(
         connectorQueryCtx_->planNodeId(),
         makeUuid());
   }
+  VELOX_CHECK(!targetFileName.empty());
   const std::string writeFileName = isCommitRequired()
       ? fmt::format(".tmp.velox.{}_{}", targetFileName, makeUuid())
       : targetFileName;
-  if (insertTableHandle_->tableStorageFormat() ==
-      dwio::common::FileFormat::PARQUET) {
+  if (generateFileName &&
+      insertTableHandle_->tableStorageFormat() ==
+          dwio::common::FileFormat::PARQUET) {
     return {
         fmt::format("{}{}", targetFileName, ".parquet"),
         fmt::format("{}{}", writeFileName, ".parquet")};

@@ -341,7 +341,8 @@ PlanBuilder& PlanBuilder::tableWrite(
     const std::string& outputDirectoryPath,
     const dwio::common::FileFormat fileFormat,
     const std::vector<std::string>& aggregates,
-    const std::shared_ptr<dwio::common::WriterOptions>& options) {
+    const std::shared_ptr<dwio::common::WriterOptions>& options,
+    const std::string& outputFileName) {
   return tableWrite(
       outputDirectoryPath,
       {},
@@ -352,7 +353,8 @@ PlanBuilder& PlanBuilder::tableWrite(
       aggregates,
       kHiveDefaultConnectorId,
       {},
-      options);
+      options,
+      outputFileName);
 }
 
 PlanBuilder& PlanBuilder::tableWrite(
@@ -405,7 +407,8 @@ PlanBuilder& PlanBuilder::tableWrite(
     const std::vector<std::string>& aggregates,
     const std::string_view& connectorId,
     const std::unordered_map<std::string, std::string>& serdeParameters,
-    const std::shared_ptr<dwio::common::WriterOptions>& options) {
+    const std::shared_ptr<dwio::common::WriterOptions>& options,
+    const std::string& outputFileName) {
   VELOX_CHECK_NOT_NULL(planNode_, "TableWrite cannot be the source node");
   auto rowType = planNode_->outputType();
 
@@ -428,7 +431,8 @@ PlanBuilder& PlanBuilder::tableWrite(
   auto locationHandle = std::make_shared<connector::hive::LocationHandle>(
       outputDirectoryPath,
       outputDirectoryPath,
-      connector::hive::LocationHandle::TableType::kNew);
+      connector::hive::LocationHandle::TableType::kNew,
+      outputFileName);
   std::shared_ptr<HiveBucketProperty> bucketProperty;
   if (!partitionBy.empty() && bucketCount != 0) {
     bucketProperty =

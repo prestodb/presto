@@ -1104,6 +1104,33 @@ TEST_F(BasicTableWriteTest, roundTrip) {
   assertEqualResults({data}, {copy});
 }
 
+TEST_F(BasicTableWriteTest, targetFileName) {
+  constexpr const char* kFileName = "test.dwrf";
+  auto data = makeRowVector({makeFlatVector<int64_t>(10, folly::identity)});
+  auto directory = TempDirectoryPath::create();
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .tableWrite(
+                      directory->getPath(),
+                      dwio::common::FileFormat::DWRF,
+                      {},
+                      nullptr,
+                      kFileName)
+                  .planNode();
+  auto results = AssertQueryBuilder(plan).copyResults(pool());
+  auto* details = results->childAt(TableWriteTraits::kFragmentChannel)
+                      ->asUnchecked<SimpleVector<StringView>>();
+  auto detail = folly::parseJson(details->valueAt(1));
+  auto fileWriteInfos = detail["fileWriteInfos"];
+  ASSERT_EQ(1, fileWriteInfos.size());
+  ASSERT_EQ(fileWriteInfos[0]["writeFileName"].asString(), kFileName);
+  plan = PlanBuilder().tableScan(asRowType(data->type())).planNode();
+  AssertQueryBuilder(plan)
+      .split(makeHiveConnectorSplit(
+          fmt::format("{}/{}", directory->getPath(), kFileName)))
+      .assertResults(data);
+}
+
 class PartitionedTableWriterTest
     : public TableWriteTest,
       public testing::WithParamInterface<uint64_t> {

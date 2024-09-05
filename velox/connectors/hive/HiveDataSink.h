@@ -48,13 +48,19 @@ class LocationHandle : public ISerializable {
   LocationHandle(
       std::string targetPath,
       std::string writePath,
-      TableType tableType)
+      TableType tableType,
+      std::string targetFileName = "")
       : targetPath_(std::move(targetPath)),
+        targetFileName_(std::move(targetFileName)),
         writePath_(std::move(writePath)),
         tableType_(tableType) {}
 
   const std::string& targetPath() const {
     return targetPath_;
+  }
+
+  const std::string& targetFileName() const {
+    return targetFileName_;
   }
 
   const std::string& writePath() const {
@@ -80,6 +86,8 @@ class LocationHandle : public ISerializable {
  private:
   // Target directory path.
   const std::string targetPath_;
+  // If non-empty, use this name instead of generating our own.
+  const std::string targetFileName_;
   // Staging directory path.
   const std::string writePath_;
   // Whether the table to be written is new, already existing or temporary.

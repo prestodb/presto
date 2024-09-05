@@ -383,6 +383,9 @@ class PlanBuilder {
   /// @param aggregates Aggregations for column statistics collection during
   /// @param polymorphic options object to be passed to the writer.
   /// write, supported aggregation types vary for different column types.
+  /// @param outputFileName Optional file name of the output. If specified
+  /// (non-empty), use it instead of generating the file name in Velox. Should
+  /// only be specified in non-bucketing write.
   /// For example:
   /// Boolean: count, countIf.
   /// NumericType/Date/Timestamp: min, max, approx_distinct, count.
@@ -393,7 +396,8 @@ class PlanBuilder {
       const dwio::common::FileFormat fileFormat =
           dwio::common::FileFormat::DWRF,
       const std::vector<std::string>& aggregates = {},
-      const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr);
+      const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr,
+      const std::string& outputFileName = "");
 
   /// Adds a TableWriteNode to write all input columns into a partitioned Hive
   /// table without compression.
@@ -447,6 +451,9 @@ class PlanBuilder {
   /// @param connectorId Name used to register the connector.
   /// @param serdeParameters Additional parameters passed to the writer.
   /// @param Option objects passed to the writer.
+  /// @param outputFileName Optional file name of the output. If specified
+  /// (non-empty), use it instead of generating the file name in Velox. Should
+  /// only be specified in non-bucketing write.
   PlanBuilder& tableWrite(
       const std::string& outputDirectoryPath,
       const std::vector<std::string>& partitionBy,
@@ -459,7 +466,8 @@ class PlanBuilder {
       const std::vector<std::string>& aggregates = {},
       const std::string_view& connectorId = kHiveDefaultConnectorId,
       const std::unordered_map<std::string, std::string>& serdeParameters = {},
-      const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr);
+      const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr,
+      const std::string& outputFileName = "");
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(
