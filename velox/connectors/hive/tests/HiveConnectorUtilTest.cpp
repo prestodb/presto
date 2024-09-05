@@ -159,6 +159,38 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   performConfigure();
   EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
 
+  // Empty escape delim means default escape char.
+  clearDynamicParameters(FileFormat::TEXT);
+  serdeParameters[SerDeOptions::kEscapeChar] = "";
+  expectedSerDe.escapeChar = '\\';
+  expectedSerDe.isEscaped = true;
+  performConfigure();
+  EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
+
+  // Convertible to byte escape char - use it.
+  clearDynamicParameters(FileFormat::TEXT);
+  serdeParameters[SerDeOptions::kEscapeChar] = "38";
+  expectedSerDe.escapeChar = '&';
+  expectedSerDe.isEscaped = true;
+  performConfigure();
+  EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
+
+  // Overflow byte escape char - fall back to the 1st character of the string.
+  clearDynamicParameters(FileFormat::TEXT);
+  serdeParameters[SerDeOptions::kEscapeChar] = "381";
+  expectedSerDe.escapeChar = '3';
+  expectedSerDe.isEscaped = true;
+  performConfigure();
+  EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
+
+  // Not convertible string - fall back to the 1st character of the string.
+  clearDynamicParameters(FileFormat::TEXT);
+  serdeParameters[SerDeOptions::kEscapeChar] = "7!";
+  expectedSerDe.escapeChar = '7';
+  expectedSerDe.isEscaped = true;
+  performConfigure();
+  EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
+
   // Modify all previous together.
   clearDynamicParameters(FileFormat::TEXT);
   serdeParameters[SerDeOptions::kFieldDelim] = '~';
@@ -167,12 +199,12 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   expectedSerDe.separators[size_t(SerDeSeparator::COLLECTION_DELIM)] = '$';
   serdeParameters[SerDeOptions::kMapKeyDelim] = '*';
   expectedSerDe.separators[size_t(SerDeSeparator::MAP_KEY_DELIM)] = '*';
+  serdeParameters[SerDeOptions::kEscapeChar] = '*';
+  expectedSerDe.escapeChar = '*';
+  expectedSerDe.isEscaped = true;
   tableParameters[TableParameter::kSerializationNullFormat] = "";
   expectedSerDe.nullString = "";
   performConfigure();
-  EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
-  EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
-  EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
   EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
 
   // Tests other custom reader options.

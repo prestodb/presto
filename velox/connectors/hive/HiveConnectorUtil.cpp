@@ -489,11 +489,20 @@ std::unique_ptr<dwio::common::SerDeOptions> parseSerdeParameters(
     mapKeyDelim = parseDelimiter(mapKeyIt->second);
   }
 
-  uint8_t escapeChar;
-  bool hasEscapeChar = false;
-  if (escapeCharIt != serdeParameters.end() && !escapeCharIt->second.empty()) {
-    hasEscapeChar = true;
-    escapeChar = escapeCharIt->second[0];
+  // If escape character is specified then we use it, unless it is empty - in
+  // which case we default to '\\'.
+  // If escape character is not specified (not in the map) we turn escaping off.
+  // Logic is based on apache hive java code:
+  // https://github.com/apache/hive/blob/3f6f940af3f60cc28834268e5d7f5612e3b13c30/serde/src/java/org/apache/hadoop/hive/serde2/lazy/LazySerDeParameters.java#L105-L108
+  uint8_t escapeChar = '\\';
+  const bool hasEscapeChar = (escapeCharIt != serdeParameters.end());
+  if (hasEscapeChar) {
+    if (!escapeCharIt->second.empty()) {
+      // If delim is convertible to uint8_t then we use it as character code,
+      // otherwise we use the 1st character of the string.
+      escapeChar = folly::tryTo<uint8_t>(escapeCharIt->second)
+                       .value_or(escapeCharIt->second[0]);
+    }
   }
 
   auto serDeOptions = hasEscapeChar
