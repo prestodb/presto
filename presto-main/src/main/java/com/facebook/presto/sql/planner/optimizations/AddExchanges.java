@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
@@ -116,6 +117,7 @@ import static com.facebook.presto.SystemSessionProperties.isPrestoSparkAssignBuc
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
+import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
@@ -1314,7 +1316,18 @@ public class AddExchanges
                         return new PlanWithProperties(node.replaceChildren(distributedChildren));
                     }
                     else if (preferDistributedUnion) {
-                        // Presto currently can not execute stage that has multiple table scans, so in that case
+                        int repartitionedRemoteExchangeNodesCount = distributedChildren.stream().mapToInt(AddExchanges::countRepartitionedRemoteExchangeNodes).sum();
+                        int partitionedConnectorSourceCount = distributedChildren.stream().mapToInt(x-> countPartitionedConnectorSource(x, session, metadata)).sum();
+                        long uniqueSourceCatalogCount = distributedChildren.stream().flatMap(AddExchanges::collectSourceCatalogs).distinct().count();
+
+                        // MultiSourcePartitionedScheduler does not support node partitioning. Both partitioned remote exchanges and
+                        // partitioned connector sources require node partitioning.
+                        if (repartitionedRemoteExchangeNodesCount == 0
+                                && partitionedConnectorSourceCount == 0
+                                && uniqueSourceCatalogCount == 1) {
+                            return new PlanWithProperties(node.replaceChildren(distributedChildren));
+                        }
+
                         // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
                         return new PlanWithProperties(
                                 new ExchangeNode(
@@ -1691,6 +1704,62 @@ public class AddExchanges
         ImmutableList.Builder<PartitioningHandle> handles = ImmutableList.builder();
         nodes.forEach(node -> node.accept(new ExchangePartitioningHandleExtractor(), handles));
         return handles.build();
+    }
+
+    private static boolean isNotRemoteExchange(PlanNode node)
+    {
+        if (node instanceof ExchangeNode)
+        {
+            return ((ExchangeNode) node).getScope() != REMOTE_STREAMING;
+        }
+
+        return true;
+    }
+
+    private static int countRepartitionedRemoteExchangeNodes(PlanNode root)
+    {
+        return PlanNodeSearcher
+                .searchFrom(root)
+                .where(node -> {
+                    if (node instanceof ExchangeNode) {
+                        ExchangeNode exchangeNode = (ExchangeNode) node;
+                        return exchangeNode.getScope() == REMOTE_STREAMING && exchangeNode.getType() == REPARTITION;
+                    }
+                    return false;
+                })
+                .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                .findAll()
+                .size();
+    }
+
+    private static int countPartitionedConnectorSource(PlanNode root, Session session, Metadata metadata)
+    {
+        return PlanNodeSearcher
+                .searchFrom(root)
+                .where(node -> {
+                    if (node instanceof TableScanNode) {
+                        TableScanNode tableScanNode = (TableScanNode) node;
+                        TableLayout layout = metadata.getLayout(session, tableScanNode.getTable());
+                        // TODO: Check if this is suffecient to assume that this TableScan will always be read as a partitioned source
+                        return planWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent();
+                    }
+                    return false;
+                })
+                .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                .findAll()
+                .size();
+    }
+
+    private static Stream<ConnectorId> collectSourceCatalogs(PlanNode root)
+    {
+        return PlanNodeSearcher
+                .searchFrom(root)
+                .where(node -> node instanceof TableScanNode)
+                .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                .findAll()
+                .stream()
+                .map(TableScanNode.class::cast)
+                .map(node -> node.getTable().getConnectorId());
     }
 
     private static class ExchangePartitioningHandleExtractor
