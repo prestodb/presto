@@ -64,7 +64,8 @@ jobs:
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "TRUE"
         run: |
           source scripts/setup-macos.sh
-          brew install $MACOS_BUILD_DEPS $MACOS_VELOX_DEPS
+          install_build_prerequisites
+          install_velox_deps_from_brew
 
           echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
           brew unlink protobuf || echo "protobuf not installed"
@@ -79,6 +80,7 @@ jobs:
       - name: Configure Build
         env:
           folly_SOURCE: BUNDLED #brew folly does not have int128
+          fmt_SOURCE: BUNDLED #brew fmt11 is not supported
         run: |
             ccache -sz -M 5Gi
             cmake \

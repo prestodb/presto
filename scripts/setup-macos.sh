@@ -35,8 +35,8 @@ PYTHON_VENV=${PYHTON_VENV:-"${SCRIPTDIR}/../.venv"}
 NPROC=$(getconf _NPROCESSORS_ONLN)
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
-MACOS_VELOX_DEPS="bison boost double-conversion flex fmt gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 simdjson snappy thrift xz xsimd zstd"
-MACOS_BUILD_DEPS="ninja cmake ccache"
+MACOS_VELOX_DEPS="bison boost double-conversion flex gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 simdjson snappy thrift xz xsimd zstd"
+MACOS_BUILD_DEPS="ninja cmake"
 FB_OS_VERSION="v2024.05.20.00"
 FMT_VERSION="10.1.1"
 
@@ -77,6 +77,9 @@ function install_build_prerequisites {
     python3 -m venv ${PYTHON_VENV}
   fi
   source ${PYTHON_VENV}/bin/activate; pip3 install cmake-format regex pyyaml
+  wget -O ccache.tar.gz https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-darwin.tar.gz
+  tar -xf ccache.tar.gz
+  mv ccache-4.10.2-darwin/ccache /usr/local/bin/
 }
 
 function install_velox_deps_from_brew {
