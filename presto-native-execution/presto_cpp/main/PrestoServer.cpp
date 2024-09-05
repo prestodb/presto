@@ -71,6 +71,8 @@
 #include <sched.h>
 #endif
 
+using namespace facebook::velox;
+
 namespace facebook::presto {
 namespace {
 
