@@ -154,9 +154,14 @@ const uint64_t* SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
 void SelectiveColumnReader::setComplexNulls(RowSet rows, VectorPtr& result)
     const {
   if (!nullsInReadRange_) {
-    result->clearNulls(0, rows.size());
+    if (result->isNullsWritable()) {
+      result->clearNulls(0, rows.size());
+    } else {
+      result->resetNulls();
+    }
     return;
   }
+
   const bool dense = 1 + rows.back() == rows.size();
   auto& nulls = result->nulls();
   if (dense &&
@@ -165,6 +170,7 @@ void SelectiveColumnReader::setComplexNulls(RowSet rows, VectorPtr& result)
     result->setNulls(nullsInReadRange_);
     return;
   }
+
   auto* readerNulls = nullsInReadRange_->as<uint64_t>();
   auto* resultNulls = result->mutableNulls(rows.size())->asMutable<uint64_t>();
   if (dense) {

@@ -3303,6 +3303,47 @@ TEST_F(TableScanTest, remainingFilterLazyWithMultiReferences) {
   ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
 }
 
+TEST_F(TableScanTest, sharedNullBufferFromComplexResult) {
+  // Set the map vector to trigger map null buffer writable check.
+  const auto mapVector = makeNullableMapVector<StringView, int64_t>(
+      {{std::nullopt},
+       {{{"0"_sv, 0}, {"1"_sv, std::nullopt}}},
+       {{{"2"_sv, 2}, {"3"_sv, std::nullopt}}},
+       {{{"4"_sv, 4}, {"5"_sv, std::nullopt}}},
+       {{{"6"_sv, 6}, {"7"_sv, std::nullopt}}}});
+  auto file = TempFilePath::create();
+  const auto rowVector = makeRowVector({mapVector});
+  auto schema = asRowType(rowVector->type());
+  writeToFile(file->getPath(), {rowVector});
+
+  CursorParameters params;
+  params.copyResult = false;
+  params.serialExecution = true;
+  params.planNode = PlanBuilder().tableScan(schema, {}).planNode();
+  std::unordered_map<std::string, std::string> config;
+  // Set output buffer row limit to 1 to trigger one batch read at a time.
+  params.queryConfigs.emplace(
+      QueryConfig::kPreferredOutputBatchBytes, folly::to<std::string>(1));
+
+  auto cursor = TaskCursor::create(params);
+  cursor->task()->addSplit(
+      "0", exec::Split(makeHiveConnectorSplit(file->getPath())));
+  cursor->task()->noMoreSplits("0");
+  int i = 0;
+  BufferPtr nullBufferHolder;
+  while (cursor->moveNext()) {
+    auto* result = cursor->current()->asUnchecked<RowVector>();
+    ASSERT_TRUE(isLazyNotLoaded(*result->childAt(0)));
+    result->loadedVector();
+    // The first batch contains null in map child and hold a shared reference to
+    // trigger the case that the null buffer is not writable in second read.
+    if (i++ == 0) {
+      nullBufferHolder = result->childAt(0)->nulls();
+    }
+  }
+  ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
+}
+
 // When the multi-referenced fields are in AND clauses without any other
 // conditionals, they should not be eagerly materialized.
 TEST_F(
