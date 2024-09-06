@@ -40,7 +40,6 @@ import java.util.function.Consumer;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.NO_CPP_SIDECARS;
-import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_SIDECARS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
@@ -183,11 +182,7 @@ public class ClusterSizeMonitor
      */
     public boolean hasRequiredCoordinatorSidecars()
     {
-        if (currentCoordinatorSidecarCount > 1) {
-            throw new PrestoException(TOO_MANY_SIDECARS,
-                    format("Expected a single active coordinator sidecar. Found %s active coordinator sidecars", currentCoordinatorSidecarCount));
-        }
-        return currentCoordinatorSidecarCount == 1;
+        return currentCoordinatorSidecarCount > 0;
     }
 
     /**
@@ -257,7 +252,7 @@ public class ClusterSizeMonitor
 
     public synchronized ListenableFuture<?> waitForMinimumCoordinatorSidecars()
     {
-        if (currentCoordinatorSidecarCount == 1 || !isCoordinatorSidecarEnabled) {
+        if (currentCoordinatorSidecarCount > 0 || !isCoordinatorSidecarEnabled) {
             return immediateFuture(null);
         }
 
@@ -309,7 +304,6 @@ public class ClusterSizeMonitor
             Set<Node> activeNodes = new HashSet<>(allNodes.getActiveNodes());
             activeNodes.removeAll(allNodes.getActiveCoordinators());
             activeNodes.removeAll(allNodes.getActiveResourceManagers());
-            activeNodes.removeAll(allNodes.getActiveCoordinatorSidecars());
             currentWorkerCount = activeNodes.size();
         }
         currentCoordinatorCount = allNodes.getActiveCoordinators().size();
