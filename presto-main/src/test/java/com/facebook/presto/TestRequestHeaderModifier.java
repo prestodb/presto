@@ -14,17 +14,18 @@
 package com.facebook.presto;
 
 import com.facebook.airlift.http.server.Authenticator;
+import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.server.security.AuthenticationFilter;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.RequestModifier;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import javax.servlet.AsyncContext;
-import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterRegistration;
@@ -32,7 +33,6 @@ import javax.servlet.RequestDispatcher;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
-import javax.servlet.ServletInputStream;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.ServletRegistration;
 import javax.servlet.ServletRequest;
@@ -43,11 +43,9 @@ import javax.servlet.descriptor.JspConfigDescriptor;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpUpgradeHandler;
 import javax.servlet.http.Part;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -104,7 +102,7 @@ public class TestRequestHeaderModifier
     {
         mockWebServer.enqueue(new MockResponse().setBody("Mocked Body").setResponseCode(200));
 
-        ConcreteHttpServletRequest request = new ConcreteHttpServletRequest();
+        ConcreteHttpServletRequest request = new ConcreteHttpServletRequest(ImmutableListMultimap.of("X-Custom-Header1", "CustomValue1"), "http://request-modifier.com", Collections.singletonMap("attribute", "attribute1"));
         request.setPathInfo("/oauth2/token-value/");
         request.setSecure(true);
 
@@ -119,326 +117,6 @@ public class TestRequestHeaderModifier
 
         HttpServletRequest wrappedRequest = (HttpServletRequest) filterChain.getCapturedRequest();
         assertEquals("CustomValue", wrappedRequest.getHeader("X-Custom-Header"));
-    }
-
-    abstract static class HttpServletRequestAdapter
-            implements HttpServletRequest
-    {
-        @Override
-        public String getAuthType()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Cookie[] getCookies()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public long getDateHeader(String name)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getHeader(String name)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Enumeration<String> getHeaders(String name)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Enumeration<String> getHeaderNames()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public int getIntHeader(String name)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getMethod()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getPathInfo()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getPathTranslated()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getContextPath()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getQueryString()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getRemoteUser()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public boolean isUserInRole(String role)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Principal getUserPrincipal()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getRequestedSessionId()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getRequestURI()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public StringBuffer getRequestURL()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getServletPath()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public HttpSession getSession(boolean create)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public HttpSession getSession()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String changeSessionId()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public boolean isRequestedSessionIdValid()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public boolean isRequestedSessionIdFromCookie()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public boolean isRequestedSessionIdFromURL()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public boolean isRequestedSessionIdFromUrl()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Object getAttribute(String name)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Enumeration<String> getAttributeNames()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getCharacterEncoding()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public void setCharacterEncoding(String env)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public int getContentLength()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public long getContentLengthLong()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getContentType()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public ServletInputStream getInputStream()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getParameter(String name)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Enumeration<String> getParameterNames()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String[] getParameterValues(String name)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Map<String, String[]> getParameterMap()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getProtocol()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getScheme()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getServerName()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public int getServerPort()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public BufferedReader getReader()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getRemoteAddr()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getRemoteHost()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public void setAttribute(String name, Object o)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public void removeAttribute(String name)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Locale getLocale()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Enumeration<Locale> getLocales()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public boolean isSecure()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public RequestDispatcher getRequestDispatcher(String path)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getRealPath(String path)
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public int getRemotePort()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getLocalName()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public String getLocalAddr()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public int getLocalPort()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public ServletContext getServletContext()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public AsyncContext startAsync() throws IllegalStateException
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public AsyncContext startAsync(ServletRequest servletRequest, ServletResponse servletResponse) throws IllegalStateException
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public boolean isAsyncStarted()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public boolean isAsyncSupported()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public AsyncContext getAsyncContext()
-        {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public DispatcherType getDispatcherType()
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 
     abstract static class HttpServletResponseAdapter
@@ -577,7 +255,7 @@ public class TestRequestHeaderModifier
     }
 
     static class ConcreteHttpServletRequest
-            extends HttpServletRequestAdapter
+            extends MockHttpServletRequest
     {
         private final Map<String, String> headers = new HashMap<>();
         private Principal principal;
@@ -890,6 +568,11 @@ public class TestRequestHeaderModifier
         private boolean secure = true;
         private String pathInfo = "/oauth2/token-value/";
 
+        public ConcreteHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, Map<String, Object> attributes)
+        {
+            super(headers, remoteAddress, attributes);
+        }
+
         @Override
         public String getHeader(String name)
         {
@@ -958,12 +641,6 @@ public class TestRequestHeaderModifier
         public String getRequestURI()
         {
             return "/example";
-        }
-
-        @Override
-        public StringBuffer getRequestURL()
-        {
-            return new StringBuffer("http://example.com");
         }
 
         @Override
