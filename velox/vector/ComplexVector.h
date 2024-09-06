@@ -245,6 +245,17 @@ class RowVector : public BaseVector {
   /// Note : If the child is null, then it will stay null after the resize.
   void resize(vector_size_t newSize, bool setNotNull = true) override;
 
+  /// Push all dictionary encoding to the leave vectors of a RowVector tree
+  /// (i.e. we traverse the tree consists of RowVectors, possibly wrapped in
+  /// DictionaryVector, and no traverse into other complex types like array or
+  /// map children).  If the wrapper introduce nulls on RowVector, we don't push
+  /// the dictionary into that RowVector.  The input vector should not contain
+  /// any unloaded lazy.
+  ///
+  /// This is used for example in writing Nimble ArrayWithOffsets and
+  /// SlidingWindowMap.
+  static VectorPtr pushDictionaryToRowVectorLeaves(const VectorPtr& input);
+
   VectorPtr& rawVectorForBatchReader() {
     return rawVectorForBatchReader_;
   }

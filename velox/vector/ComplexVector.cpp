@@ -681,6 +681,134 @@ void RowVector::resize(vector_size_t newSize, bool setNotNull) {
   }
 }
 
+namespace {
+
+struct Wrapper {
+  const VectorPtr& dictionary;
+
+  // Combined nulls and indices from this dictionary node to the root.
+  BufferPtr nulls;
+  BufferPtr indices;
+};
+
+void combineWrappers(
+    std::vector<Wrapper>& wrappers,
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  std::vector<BufferPtr> wrapInfos(wrappers.size());
+  std::vector<const vector_size_t*> sourceIndices(wrappers.size());
+  uint64_t* rawNulls = nullptr;
+  for (int i = 0; i < wrappers.size(); ++i) {
+    wrapInfos[i] = wrappers[i].dictionary->wrapInfo();
+    VELOX_CHECK_NOT_NULL(wrapInfos[i]);
+    sourceIndices[i] = wrapInfos[i]->as<vector_size_t>();
+    if (!rawNulls && wrappers[i].dictionary->nulls()) {
+      wrappers.back().nulls = allocateNulls(size, pool);
+      rawNulls = wrappers.back().nulls->asMutable<uint64_t>();
+    }
+  }
+  wrappers.back().indices = allocateIndices(size, pool);
+  auto* rawIndices = wrappers.back().indices->asMutable<vector_size_t>();
+  for (vector_size_t j = 0; j < size; ++j) {
+    auto index = j;
+    bool isNull = false;
+    for (int i = 0; i < wrappers.size(); ++i) {
+      if (wrappers[i].dictionary->isNullAt(index)) {
+        isNull = true;
+        break;
+      }
+      index = sourceIndices[i][index];
+    }
+    if (isNull) {
+      bits::setNull(rawNulls, j);
+    } else {
+      rawIndices[j] = index;
+    }
+  }
+}
+
+VectorPtr wrapInDictionary(
+    std::vector<Wrapper>& wrappers,
+    vector_size_t size,
+    const VectorPtr& values,
+    memory::MemoryPool* pool) {
+  if (wrappers.empty()) {
+    VELOX_CHECK_LE(size, values->size());
+    return values;
+  }
+  VELOX_CHECK_LE(size, wrappers.front().dictionary->size());
+  if (wrappers.size() == 1) {
+    if (wrappers.front().dictionary->valueVector() == values) {
+      return wrappers.front().dictionary;
+    }
+    return BaseVector::wrapInDictionary(
+        wrappers.front().dictionary->nulls(),
+        wrappers.front().dictionary->wrapInfo(),
+        size,
+        values);
+  }
+  if (!wrappers.back().indices) {
+    VELOX_CHECK_NULL(wrappers.back().nulls);
+    combineWrappers(wrappers, size, pool);
+  }
+  return BaseVector::wrapInDictionary(
+      wrappers.back().nulls, wrappers.back().indices, size, values);
+}
+
+VectorPtr pushDictionaryToRowVectorLeavesImpl(
+    std::vector<Wrapper>& wrappers,
+    vector_size_t size,
+    const VectorPtr& values,
+    memory::MemoryPool* pool) {
+  switch (values->encoding()) {
+    case VectorEncoding::Simple::LAZY: {
+      auto* lazy = values->asUnchecked<LazyVector>();
+      VELOX_CHECK(lazy->isLoaded());
+      return pushDictionaryToRowVectorLeavesImpl(
+          wrappers, size, lazy->loadedVectorShared(), pool);
+    }
+    case VectorEncoding::Simple::ROW: {
+      VELOX_CHECK_EQ(values->typeKind(), TypeKind::ROW);
+      for (auto& wrapper : wrappers) {
+        if (wrapper.dictionary->nulls()) {
+          return wrapInDictionary(wrappers, size, values, pool);
+        }
+      }
+      auto children = values->asUnchecked<RowVector>()->children();
+      for (auto& child : children) {
+        if (child) {
+          child =
+              pushDictionaryToRowVectorLeavesImpl(wrappers, size, child, pool);
+        }
+      }
+      return std::make_shared<RowVector>(
+          pool,
+          values->type(),
+          values->nulls(),
+          values->size(),
+          std::move(children));
+    }
+    case VectorEncoding::Simple::DICTIONARY: {
+      Wrapper wrapper{values, nullptr, nullptr};
+      wrappers.push_back(wrapper);
+      auto result = pushDictionaryToRowVectorLeavesImpl(
+          wrappers, size, values->valueVector(), pool);
+      wrappers.pop_back();
+      return result;
+    }
+    default:
+      return wrapInDictionary(wrappers, size, values, pool);
+  }
+}
+
+} // namespace
+
+VectorPtr RowVector::pushDictionaryToRowVectorLeaves(const VectorPtr& input) {
+  std::vector<Wrapper> wrappers;
+  return pushDictionaryToRowVectorLeavesImpl(
+      wrappers, input->size(), input, input->pool());
+}
+
 void ArrayVectorBase::checkRanges() const {
   std::unordered_map<vector_size_t, vector_size_t> seenElements;
   seenElements.reserve(size());
