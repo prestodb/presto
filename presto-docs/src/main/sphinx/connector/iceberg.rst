@@ -741,20 +741,41 @@ Register Table
 
 Iceberg tables for which table data and metadata already exist in the
 file system can be registered with the catalog. Use the ``register_table``
-procedure on the catalog's ``system`` schema and supply the target schema,
-desired table name, and the location of the table metadata::
+procedure on the catalog's ``system`` schema to register a table which
+already exists but does not known by the catalog.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to register
+
+``table_name``        ✔️         string          Name of the table to register
+
+``metadata_location`` ✔️         string          The location of the table metadata which is to be registered
+
+``metadata_file``                string          An optionally specified metadata file which is to be registered
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Register a table through supplying the target schema, desired table name, and the location of the table metadata::
 
     CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir')
+
+    CALL iceberg.system.register_table(table_name => 'table_name', schema => 'schema_name', metadata_location => 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir')
 
 .. note::
 
     If multiple metadata files of the same version exist at the specified
     location, the most recently modified one is used.
 
-A metadata file can optionally be included as an argument to ``register_table``
-where a specific metadata file contains the targeted table state::
+* Register a table through additionally supplying a specific metadata file::
 
     CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir', '00000-35a08aed-f4b0-4010-95d2-9d73ef4be01c.metadata.json')
+
+    CALL iceberg.system.register_table(table_name => 'table_name', schema => 'schema_name', metadata_location => 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir', metadata_file => '00000-35a08aed-f4b0-4010-95d2-9d73ef4be01c.metadata.json')
 
 .. note::
 
@@ -777,9 +798,23 @@ Unregister Table
 ^^^^^^^^^^^^^^^^
 
 Iceberg tables can be unregistered from the catalog using the ``unregister_table``
-procedure on the catalog's ``system`` schema::
+procedure on the catalog's ``system`` schema.
+
+The following arguments are available:
+
+===================== ========== =============== ===================================
+Argument Name         required   type            Description
+===================== ========== =============== ===================================
+``schema``            ✔️         string          Schema of the table to unregister
+
+``table_name``        ✔️         string          Name of the table to unregister
+===================== ========== =============== ===================================
+
+Examples::
 
     CALL iceberg.system.unregister_table('schema_name', 'table_name')
+
+    CALL iceberg.system.unregister_table(table_name => 'table_name', schema => 'schema_name')
 
 .. note::
 
