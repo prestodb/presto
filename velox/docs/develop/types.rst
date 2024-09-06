@@ -73,6 +73,33 @@ Examples:
 * Timestamp(-5000*24*60*60 - 1000, 123456) represents 1956-04-24 07:43:20.000123456
   (5000 days 1000 seconds before epoch plus 123456 nanoseconds).
 
+Floating point types (REAL, DOUBLE) have special values negative infinity, positive infinity, and
+not-a-number (NaN).
+
+For NaN the semantics are different than the C++ standard floating point semantics:
+
+* The different types of NaN (+/-, signaling/quiet) are treated as canonical NaN (+, quiet).
+* `NaN = NaN` returns true.
+* NaN is treated as a normal numerical value in join and group-by keys.
+* When sorting, NaN values are considered larger than any other value. When sorting in ascending order, NaN values appear last. When sorting in descending order, NaN values appear first.
+* For a number N: `N > NaN` is false and `NaN > N` is true.
+
+For negative infinity and positive infinity the following C++ standard floating point semantics apply:
+
+Given N is a positive finite number.
+
+* +inf * N = +inf
+* -inf * N = -inf
+* +inf * -N = -inf
+* -inf * -N = +inf
+* +inf * 0 = NaN
+* -inf * 0 = NaN
+* +inf = +inf returns true.
+* -inf = -inf returns true.
+* Positive infinity and negative infinity are treated as normal numerical values in join and group-by keys.
+* Positive infinity sorts lower than NaN and higher than any other value.
+* Negative infinity sorts lower than any other value.
+
 Logical Types
 ~~~~~~~~~~~~~
 Logical types are backed by a physical type and include additional semantics.
