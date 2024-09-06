@@ -657,7 +657,7 @@ public class TypeSignature
             Map<Integer, DistinctTypeParsingData> parsedDistinctTypes)
     {
         String parameterName = signature.substring(begin, end).trim();
-        if (isDigit(signature.charAt(begin))) {
+        if (isDigit(parameterName.charAt(0))) {
             return TypeSignatureParameter.of(Long.parseLong(parameterName));
         }
         else if (literalCalculationParameters.contains(parameterName)) {
