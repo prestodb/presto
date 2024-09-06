@@ -17,11 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,6 +40,13 @@ import java.util.function.Function;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.areCompatiblePartitionings;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.isEffectivelySinglePartition;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.isPartitionedOn;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.isPartitionedOnExactly;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.isRepartitionEffective;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translatePartitioningRowExpression;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateToCoalesce;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -433,7 +440,7 @@ public class ActualProperties
 
         public static Global partitionedOnCoalesce(Partitioning one, Partitioning other, Metadata metadata, Session session)
         {
-            return new Global(one.translateToCoalesce(other, metadata, session), Optional.empty(), false);
+            return new Global(translateToCoalesce(one, other, metadata, session), Optional.empty(), false);
         }
 
         public Global withReplicatedNulls(boolean replicatedNulls)
@@ -469,17 +476,17 @@ public class ActualProperties
 
         private boolean isNodePartitionedOn(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> constants, boolean nullsAndAnyReplicated)
         {
-            return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && isPartitionedOn(nodePartitioning.get(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isNodePartitionedOnExactly(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> constants, boolean nullsAndAnyReplicated)
         {
-            return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOnExactly(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && isPartitionedOnExactly(nodePartitioning.get(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
         {
-            return nodePartitioning.isPresent() && nodePartitioning.get().isCompatibleWith(partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && areCompatiblePartitionings(nodePartitioning.get(), partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isCompatibleTablePartitioningWith(
@@ -492,7 +499,8 @@ public class ActualProperties
         {
             return nodePartitioning.isPresent() &&
                     other.nodePartitioning.isPresent() &&
-                    nodePartitioning.get().isCompatibleWith(
+                    areCompatiblePartitionings(
+                            nodePartitioning.get(),
                             other.nodePartitioning.get(),
                             symbolMappings,
                             leftConstantMapping,
@@ -504,7 +512,7 @@ public class ActualProperties
 
         private boolean isRefinedPartitioningOver(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
         {
-            return nodePartitioning.isPresent() && nodePartitioning.get().isRefinedPartitioningOver(partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && PartitioningUtils.isRefinedPartitioningOver(nodePartitioning.get(), partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isRefinedPartitioningOver(
@@ -517,7 +525,8 @@ public class ActualProperties
         {
             return nodePartitioning.isPresent() &&
                     other.nodePartitioning.isPresent() &&
-                    nodePartitioning.get().isRefinedPartitioningOver(
+                    PartitioningUtils.isRefinedPartitioningOver(
+                            nodePartitioning.get(),
                             other.nodePartitioning.get(),
                             symbolMappings,
                             leftConstantMapping,
@@ -534,12 +543,12 @@ public class ActualProperties
 
         private boolean isStreamPartitionedOn(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> constants, boolean nullsAndAnyReplicated)
         {
-            return streamPartitioning.isPresent() && streamPartitioning.get().isPartitionedOn(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return streamPartitioning.isPresent() && isPartitionedOn(streamPartitioning.get(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isStreamPartitionedOnExactly(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> constants, boolean nullsAndAnyReplicated)
         {
-            return streamPartitioning.isPresent() && streamPartitioning.get().isPartitionedOnExactly(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return streamPartitioning.isPresent() && isPartitionedOnExactly(streamPartitioning.get(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         /**
@@ -547,7 +556,7 @@ public class ActualProperties
          */
         private boolean isEffectivelySingleStream(Set<VariableReferenceExpression> constants)
         {
-            return streamPartitioning.isPresent() && streamPartitioning.get().isEffectivelySinglePartition(constants) && !nullsAndAnyReplicated;
+            return streamPartitioning.isPresent() && isEffectivelySinglePartition(streamPartitioning.get(), constants) && !nullsAndAnyReplicated;
         }
 
         /**
@@ -555,23 +564,23 @@ public class ActualProperties
          */
         private boolean isStreamRepartitionEffective(Collection<VariableReferenceExpression> keys, Set<VariableReferenceExpression> constants)
         {
-            return (!streamPartitioning.isPresent() || streamPartitioning.get().isRepartitionEffective(keys, constants)) && !nullsAndAnyReplicated;
+            return (!streamPartitioning.isPresent() || isRepartitionEffective(streamPartitioning.get(), keys, constants)) && !nullsAndAnyReplicated;
         }
 
         private Global translateVariableToRowExpression(
                 Function<VariableReferenceExpression, Optional<RowExpression>> translator)
         {
             return new Global(
-                    nodePartitioning.flatMap(partitioning -> partitioning.translateVariableToRowExpression(translator)),
-                    streamPartitioning.flatMap(partitioning -> partitioning.translateVariableToRowExpression(translator)),
+                    nodePartitioning.flatMap(partitioning -> PartitioningUtils.translateVariableToRowExpression(partitioning, translator)),
+                    streamPartitioning.flatMap(partitioning -> PartitioningUtils.translateVariableToRowExpression(partitioning, translator)),
                     nullsAndAnyReplicated);
         }
 
         private Global translateRowExpression(Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments)
         {
             return new Global(
-                    nodePartitioning.flatMap(partitioning -> partitioning.translateRowExpression(inputToOutputMappings, assignments)),
-                    streamPartitioning.flatMap(partitioning -> partitioning.translateRowExpression(inputToOutputMappings, assignments)),
+                    nodePartitioning.flatMap(partitioning -> translatePartitioningRowExpression(partitioning, inputToOutputMappings, assignments)),
+                    streamPartitioning.flatMap(partitioning -> translatePartitioningRowExpression(partitioning, inputToOutputMappings, assignments)),
                     nullsAndAnyReplicated);
         }
 

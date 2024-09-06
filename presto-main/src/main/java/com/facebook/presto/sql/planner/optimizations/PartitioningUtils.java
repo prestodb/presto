@@ -11,102 +11,55 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner;
+
+package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
-import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.arePartitionHandlesCompatibleForCoalesce;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public final class Partitioning
+public class PartitioningUtils
 {
-    private final PartitioningHandle handle;
-    private final List<RowExpression> arguments;
-
-    private Partitioning(PartitioningHandle handle, List<RowExpression> arguments)
-    {
-        this.handle = requireNonNull(handle, "handle is null");
-        this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
-    }
-
-    public static <T extends RowExpression> Partitioning create(PartitioningHandle handle, Collection<T> columns)
-    {
-        return new Partitioning(handle, columns.stream()
-                .map(RowExpression.class::cast)
-                .collect(toImmutableList()));
-    }
-
-    // Factory method for JSON serde only!
-    @JsonCreator
-    public static Partitioning jsonCreate(
-            @JsonProperty("handle") PartitioningHandle handle,
-            @JsonProperty("arguments") List<RowExpression> arguments)
-    {
-        return new Partitioning(handle, arguments);
-    }
-
-    @JsonProperty
-    public PartitioningHandle getHandle()
-    {
-        return handle;
-    }
-
-    @JsonProperty
-    public List<RowExpression> getArguments()
-    {
-        return arguments;
-    }
-
-    public Set<VariableReferenceExpression> getVariableReferences()
-    {
-        return arguments.stream()
-                .filter(VariableReferenceExpression.class::isInstance)
-                .map(VariableReferenceExpression.class::cast)
-                .collect(toImmutableSet());
-    }
+    private PartitioningUtils() {}
 
     @Deprecated
-    public boolean isCompatibleWith(
+    public static boolean areCompatiblePartitionings(
+            Partitioning left,
             Partitioning right,
             Metadata metadata,
             Session session)
     {
-        if (!handle.equals(right.handle) && !metadata.getCommonPartitioning(session, handle, right.handle).isPresent()) {
+        if (!left.getHandle().equals(right.getHandle()) && !metadata.getCommonPartitioning(session, left.getHandle(), right.getHandle()).isPresent()) {
             return false;
         }
 
-        return arguments.equals(right.arguments);
+        return left.getArguments().equals(right.getArguments());
     }
 
     @Deprecated
-    public boolean isCompatibleWith(
+    public static boolean areCompatiblePartitionings(
+            Partitioning left,
             Partitioning right,
             Function<VariableReferenceExpression, Set<VariableReferenceExpression>> leftToRightMappings,
             Function<VariableReferenceExpression, Optional<ConstantExpression>> leftConstantMapping,
@@ -114,17 +67,17 @@ public final class Partitioning
             Metadata metadata,
             Session session)
     {
-        if (!handle.equals(right.handle) && !metadata.getCommonPartitioning(session, handle, right.handle).isPresent()) {
+        if (!left.getHandle().equals(right.getHandle()) && !metadata.getCommonPartitioning(session, left.getHandle(), right.getHandle()).isPresent()) {
             return false;
         }
 
-        if (arguments.size() != right.arguments.size()) {
+        if (left.getArguments().size() != right.getArguments().size()) {
             return false;
         }
 
-        for (int i = 0; i < arguments.size(); i++) {
-            RowExpression leftArgument = arguments.get(i);
-            RowExpression rightArgument = right.arguments.get(i);
+        for (int i = 0; i < left.getArguments().size(); i++) {
+            RowExpression leftArgument = left.getArguments().get(i);
+            RowExpression rightArgument = right.getArguments().get(i);
 
             if (!isPartitionedWith(leftArgument, leftConstantMapping, rightArgument, rightConstantMapping, leftToRightMappings)) {
                 return false;
@@ -134,20 +87,22 @@ public final class Partitioning
     }
 
     //  Refined-over relation is reflexive.
-    public boolean isRefinedPartitioningOver(
+    public static boolean isRefinedPartitioningOver(
+            Partitioning left,
             Partitioning right,
             Metadata metadata,
             Session session)
     {
-        if (!handle.equals(right.handle) && !metadata.isRefinedPartitioningOver(session, handle, right.handle)) {
+        if (!left.getHandle().equals(right.getHandle()) && !metadata.isRefinedPartitioningOver(session, left.getHandle(), right.getHandle())) {
             return false;
         }
 
-        return arguments.equals(right.arguments);
+        return left.getArguments().equals(right.getArguments());
     }
 
     //  Refined-over relation is reflexive.
-    public boolean isRefinedPartitioningOver(
+    public static boolean isRefinedPartitioningOver(
+            Partitioning left,
             Partitioning right,
             Function<VariableReferenceExpression, Set<VariableReferenceExpression>> leftToRightMappings,
             Function<VariableReferenceExpression, Optional<ConstantExpression>> leftConstantMapping,
@@ -155,16 +110,18 @@ public final class Partitioning
             Metadata metadata,
             Session session)
     {
-        if (!metadata.isRefinedPartitioningOver(session, handle, right.handle)) {
+        if (!metadata.isRefinedPartitioningOver(session, left.getHandle(), right.getHandle())) {
             return false;
         }
-        if (arguments.size() != right.arguments.size()) {
+        List<RowExpression> leftArguments = left.getArguments();
+        List<RowExpression> rightArguments = right.getArguments();
+        if (leftArguments.size() != rightArguments.size()) {
             return false;
         }
 
-        for (int i = 0; i < arguments.size(); i++) {
-            RowExpression leftArgument = arguments.get(i);
-            RowExpression rightArgument = right.arguments.get(i);
+        for (int i = 0; i < leftArguments.size(); i++) {
+            RowExpression leftArgument = leftArguments.get(i);
+            RowExpression rightArgument = rightArguments.get(i);
 
             if (!isPartitionedWith(leftArgument, leftConstantMapping, rightArgument, rightConstantMapping, leftToRightMappings)) {
                 return false;
@@ -220,9 +177,9 @@ public final class Partitioning
         }
     }
 
-    public boolean isPartitionedOn(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> knownConstants)
+    public static boolean isPartitionedOn(Partitioning partitioning, Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> knownConstants)
     {
-        for (RowExpression argument : arguments) {
+        for (RowExpression argument : partitioning.getArguments()) {
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties
             if (argument instanceof ConstantExpression) {
@@ -238,10 +195,10 @@ public final class Partitioning
         return true;
     }
 
-    public boolean isPartitionedOnExactly(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> knownConstants)
+    public static boolean isPartitionedOnExactly(Partitioning partitioning, Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> knownConstants)
     {
         Set<VariableReferenceExpression> toCheck = new HashSet<>();
-        for (RowExpression argument : arguments) {
+        for (RowExpression argument : partitioning.getArguments()) {
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties
             if (argument instanceof ConstantExpression) {
@@ -258,42 +215,29 @@ public final class Partitioning
         return ImmutableSet.copyOf(columns).equals(toCheck);
     }
 
-    public boolean isEffectivelySinglePartition(Set<VariableReferenceExpression> knownConstants)
+    public static boolean isEffectivelySinglePartition(Partitioning partitioning, Set<VariableReferenceExpression> knownConstants)
     {
-        return isPartitionedOn(ImmutableSet.of(), knownConstants);
+        return isPartitionedOn(partitioning, ImmutableSet.of(), knownConstants);
     }
 
-    public boolean isRepartitionEffective(Collection<VariableReferenceExpression> keys, Set<VariableReferenceExpression> knownConstants)
+    public static boolean isRepartitionEffective(Partitioning partitioning, Collection<VariableReferenceExpression> keys, Set<VariableReferenceExpression> knownConstants)
     {
         Set<VariableReferenceExpression> keysWithoutConstants = keys.stream()
                 .filter(variable -> !knownConstants.contains(variable))
-                .collect(toImmutableSet());
-        Set<VariableReferenceExpression> nonConstantArgs = arguments.stream()
+                .collect(ImmutableSet.toImmutableSet());
+        Set<VariableReferenceExpression> nonConstantArgs = partitioning.getArguments().stream()
                 .filter(VariableReferenceExpression.class::isInstance)
                 .map(VariableReferenceExpression.class::cast)
                 .filter(variable -> !knownConstants.contains(variable))
-                .collect(toImmutableSet());
+                .collect(ImmutableSet.toImmutableSet());
         return !nonConstantArgs.equals(keysWithoutConstants);
     }
 
-    // Translates VariableReferenceExpression in arguments according to translator, keeps other arguments unchanged.
-    public Partitioning translateVariable(Function<VariableReferenceExpression, VariableReferenceExpression> translator)
-    {
-        return new Partitioning(handle, arguments.stream()
-                .map(argument -> {
-                    if (argument instanceof VariableReferenceExpression) {
-                        return translator.apply((VariableReferenceExpression) argument);
-                    }
-                    return argument;
-                })
-                .collect(toImmutableList()));
-    }
-
     // Tries to translate VariableReferenceExpression in arguments according to translator, keeps constant arguments unchanged. If any arguments failed to translate, return empty partitioning.
-    public Optional<Partitioning> translateVariableToRowExpression(Function<VariableReferenceExpression, Optional<RowExpression>> translator)
+    public static Optional<Partitioning> translateVariableToRowExpression(Partitioning partitioning, Function<VariableReferenceExpression, Optional<RowExpression>> translator)
     {
         ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
-        for (RowExpression argument : arguments) {
+        for (RowExpression argument : partitioning.getArguments()) {
             if (argument instanceof ConstantExpression) {
                 newArguments.add(argument);
             }
@@ -309,18 +253,22 @@ public final class Partitioning
             }
         }
 
-        return Optional.of(new Partitioning(handle, newArguments.build()));
+        return Optional.of(new Partitioning(partitioning.getHandle(), newArguments.build()));
     }
 
     // Maps VariableReferenceExpression in both partitions to an COALESCE expression, keeps constant arguments unchanged.
-    public Optional<Partitioning> translateToCoalesce(Partitioning other, Metadata metadata, Session session)
+    public static Optional<Partitioning> translateToCoalesce(Partitioning left, Partitioning right, Metadata metadata, Session session)
     {
-        checkArgument(arePartitionHandlesCompatibleForCoalesce(this.handle, other.handle, metadata, session), "incompatible partitioning handles: cannot coalesce %s and %s", this.handle, other.handle);
-        checkArgument(this.arguments.size() == other.arguments.size(), "incompatible number of partitioning arguments: %s != %s", this.arguments.size(), other.arguments.size());
+        checkArgument(
+                PropertyDerivations.arePartitionHandlesCompatibleForCoalesce(left.getHandle(), right.getHandle(), metadata, session),
+                "incompatible partitioning handles: cannot coalesce %s and %s", left.getHandle(), right.getHandle());
+        List<RowExpression> leftArguments = left.getArguments();
+        List<RowExpression> rightArguments = right.getArguments();
+        checkArgument(left.getArguments().size() == rightArguments.size(), "incompatible number of partitioning arguments: %s != %s", leftArguments.size(), rightArguments.size());
         ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
-        for (int i = 0; i < this.arguments.size(); i++) {
-            RowExpression leftArgument = this.arguments.get(i);
-            RowExpression rightArgument = other.arguments.get(i);
+        for (int i = 0; i < leftArguments.size(); i++) {
+            RowExpression leftArgument = leftArguments.get(i);
+            RowExpression rightArgument = rightArguments.get(i);
             if (leftArgument instanceof ConstantExpression) {
                 arguments.add(leftArgument);
             }
@@ -337,13 +285,13 @@ public final class Partitioning
                 return Optional.empty();
             }
         }
-        return Optional.of(new Partitioning(metadata.isRefinedPartitioningOver(session, other.handle, this.handle) ? this.handle : other.handle, arguments.build()));
+        return Optional.of(new Partitioning(metadata.isRefinedPartitioningOver(session, right.getHandle(), left.getHandle()) ? left.getHandle() : right.getHandle(), arguments.build()));
     }
 
-    public Optional<Partitioning> translateRowExpression(Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments)
+    public static Optional<Partitioning> translatePartitioningRowExpression(Partitioning partitioning, Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments)
     {
         ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
-        for (RowExpression argument : arguments) {
+        for (RowExpression argument : partitioning.getArguments()) {
             if (argument instanceof ConstantExpression) {
                 newArguments.add(argument);
             }
@@ -380,40 +328,35 @@ public final class Partitioning
             }
         }
 
-        return Optional.of(new Partitioning(handle, newArguments.build()));
+        return Optional.of(new Partitioning(partitioning.getHandle(), newArguments.build()));
     }
 
-    public Partitioning withAlternativePartitioningHandle(PartitioningHandle partitioningHandle)
+    public static PartitioningScheme translateOutputLayout(PartitioningScheme partitioningScheme, List<VariableReferenceExpression> newOutputLayout)
     {
-        return new Partitioning(partitioningHandle, this.arguments);
+        requireNonNull(newOutputLayout, "newOutputLayout is null");
+
+        Utils.checkArgument(newOutputLayout.size() == partitioningScheme.getOutputLayout().size());
+
+        List<VariableReferenceExpression> oldOutputLayout = partitioningScheme.getOutputLayout();
+        Partitioning newPartitioning = translateVariable(partitioningScheme.getPartitioning(), variable -> newOutputLayout.get(oldOutputLayout.indexOf(variable)));
+
+        Optional<VariableReferenceExpression> newHashSymbol = partitioningScheme.getHashColumn()
+                .map(oldOutputLayout::indexOf)
+                .map(newOutputLayout::get);
+
+        return new PartitioningScheme(newPartitioning, newOutputLayout, newHashSymbol, partitioningScheme.isReplicateNullsAndAny(), partitioningScheme.getBucketToPartition());
     }
 
-    @Override
-    public int hashCode()
+    // Translates VariableReferenceExpression in arguments according to translator, keeps other arguments unchanged.
+    public static Partitioning translateVariable(Partitioning partitioning, Function<VariableReferenceExpression, VariableReferenceExpression> translator)
     {
-        return Objects.hash(handle, arguments);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        final Partitioning other = (Partitioning) obj;
-        return Objects.equals(this.handle, other.handle) &&
-                Objects.equals(this.arguments, other.arguments);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("handle", handle)
-                .add("arguments", arguments)
-                .toString();
+        return new Partitioning(partitioning.getHandle(), partitioning.getArguments().stream()
+                .map(argument -> {
+                    if (argument instanceof VariableReferenceExpression) {
+                        return translator.apply((VariableReferenceExpression) argument);
+                    }
+                    return argument;
+                })
+                .collect(ImmutableList.toImmutableList()));
     }
 }
