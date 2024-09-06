@@ -24,9 +24,7 @@ import com.google.inject.Inject;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.NO_CPP_SIDECARS;
-import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_SIDECARS;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -83,10 +81,7 @@ public class PluginNodeManager
         if (coordinatorSidecars.isEmpty()) {
             throw new PrestoException(NO_CPP_SIDECARS, "Expected exactly one coordinator sidecar, but found none");
         }
-        if (coordinatorSidecars.size() > 1) {
-            throw new PrestoException(TOO_MANY_SIDECARS, "Expected exactly one coordinator sidecar, but found " + coordinatorSidecars.size());
-        }
-        return getOnlyElement(coordinatorSidecars);
+        return coordinatorSidecars.iterator().next();
     }
 
     @Override
