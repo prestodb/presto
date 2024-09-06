@@ -373,11 +373,11 @@ public class Field
     }
 
     /**
-     * Does it's damnedest job to convert the given object to the given type.
+     * Does its damnedest job to convert the given object to the given type.
      *
      * @param value Object to convert
      * @param type Destination Presto type
-     * @return Null if null, the converted type of it could convert it, or the same value if it is fine just the way it is :D
+     * @return null if null, the converted type if it could convert it, or the same value if it is fine just the way it is :D
      * @throws PrestoException If the given object is not any flavor of the given type
      */
     private static Object cleanObject(Object value, Type type)

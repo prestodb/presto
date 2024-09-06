@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 
 import static java.lang.String.format;
 
+@SuppressWarnings("ALL")
 public class DuplicateMapKeyException
         extends Exception
 {
