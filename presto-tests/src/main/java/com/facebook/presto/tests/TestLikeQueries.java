@@ -23,7 +23,8 @@ public class TestLikeQueries
         extends AbstractTestQueryFramework
 {
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog("test")
@@ -35,8 +36,13 @@ public class TestLikeQueries
     @Test
     public void testLikeQueriesWithEscape()
     {
-        assertQuerySucceeds("SELECT IF('_T' LIKE '#_T' ESCAPE '#', c0, c1) FROM (values (true, false)) t(c0, c1)");
-        assertQuerySucceeds("SELECT IF(c2 LIKE 'T' ESCAPE '#', c0, c1) FROM (values (true, false, 'T')) t(c0, c1, c2)");
+        assertQuery("SELECT IF('xT' LIKE '#_T' ESCAPE '#', c0, c1) FROM (values (true, false)) t(c0, c1)", "SELECT false");
+        assertQuery("SELECT IF(c2 LIKE 'T' ESCAPE '#', c0, c1) FROM (values (true, false, 'T')) t(c0, c1, c2)", "SELECT true");
+    }
+
+    @Test
+    public void testLikeQueriesWithInvalidEscape()
+    {
         assertQueryFails("SELECT IF('T' LIKE '###T' ESCAPE '##', c0, c1) FROM (values (true, false)) t(c0, c1)", ".*Escape string must be a single character$");
         assertQueryFails("SELECT IF(c2 LIKE '' ESCAPE '', c0, c1) FROM (values (true, false, 'T')) t(c0, c1, c2)", ".*Escape string must be a single character$");
     }

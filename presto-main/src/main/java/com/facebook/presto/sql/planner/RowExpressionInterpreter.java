@@ -148,6 +148,7 @@ public class RowExpressionInterpreter
     {
         this(expression, metadata.getFunctionAndTypeManager(), session, optimizationLevel);
     }
+
     public RowExpressionInterpreter(RowExpression expression, FunctionAndTypeManager functionAndTypeManager, ConnectorSession session, Level optimizationLevel)
     {
         this.expression = requireNonNull(expression, "expression is null");
@@ -922,8 +923,7 @@ public class RowExpressionInterpreter
                 // this corresponds to ExpressionInterpreter::getConstantPattern
                 if (hasEscape) {
                     // like_pattern(pattern, escape)
-                    Slice unescapedPattern = unescapeLiteralLikePattern((Slice) nonCompiledPattern, (Slice) escape);
-                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session.getSqlFunctionProperties(), unescapedPattern, escape);
+                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session.getSqlFunctionProperties(), nonCompiledPattern, escape);
                 }
                 else {
                     // like_pattern(pattern)
