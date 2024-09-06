@@ -31,18 +31,6 @@
 
 namespace facebook::velox::dwio::common {
 
-class Timer {
- public:
-  Timer() : startClocks_{folly::hardware_timestamp()} {}
-
-  uint64_t elapsedClocks() const {
-    return folly::hardware_timestamp() - startClocks_;
-  }
-
- private:
-  const uint64_t startClocks_;
-};
-
 template <typename T>
 void SelectiveColumnReader::ensureValuesCapacity(vector_size_t numRows) {
   if (values_ && (isFlatMapValue_ || values_->unique()) &&

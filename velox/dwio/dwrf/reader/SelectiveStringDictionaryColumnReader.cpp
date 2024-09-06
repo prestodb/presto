@@ -329,7 +329,7 @@ void SelectiveStringDictionaryColumnReader::ensureInitialized() {
     return;
   }
 
-  Timer timer;
+  ClockTimer timer{initTimeClocks_};
 
   loadDictionary(*blobStream_, *lengthDecoder_, scanState_.dictionary);
 
@@ -357,7 +357,6 @@ void SelectiveStringDictionaryColumnReader::ensureInitialized() {
   }
   scanState_.updateRawState();
   initialized_ = true;
-  initTimeClocks_ = timer.elapsedClocks();
 }
 
 } // namespace facebook::velox::dwrf
