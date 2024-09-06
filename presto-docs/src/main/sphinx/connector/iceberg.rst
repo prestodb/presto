@@ -732,7 +732,7 @@ example uses the earliest snapshot ID: ``2423571386296047175``
 Procedures
 ----------
 
-Use the CALL statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
+Use the :doc:`/sql/call` statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
 
 Register Table
 ^^^^^^^^^^^^^^
