@@ -60,7 +60,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-public class TestIcebergRegisterProcedure
+public class TestIcebergRegisterAndUnregisterProcedure
         extends AbstractTestQueryFramework
 {
     private Session session;
@@ -124,6 +124,33 @@ public class TestIcebergRegisterProcedure
         }
 
         dropTable(tableName);
+    }
+
+    @Test
+    public void testRegisterWithNamedArguments()
+    {
+        String tableName = "metadata_loc_named_arguments";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+            String metadataLocation = getMetadataLocation(TEST_SCHEMA, tableName);
+            List<String> metadataLocations = Arrays.asList(
+                    metadataLocation,  // without trailing slash
+                    format("%s/", metadataLocation),  // with training slash
+                    format("%s/metadata", metadataLocation),  // with metadata folder specified
+                    format("%s/metadata/", metadataLocation));
+
+            for (String validLocation : metadataLocations) {
+                dropTableFromMetastore(TEST_SCHEMA, tableName);
+
+                assertUpdate("CALL system.register_table(metadata_location => '" + validLocation + "', table_name => '" + tableName + "', schema => '" + TEST_SCHEMA + "')");
+                assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1)");
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
     }
 
     @Test
@@ -256,10 +283,10 @@ public class TestIcebergRegisterProcedure
         @Language("RegExp") String errorMessage = "line 1:1: Required procedure argument 'schema' is missing";
         assertQueryFails("CALL system.register_table()", errorMessage);
 
-        errorMessage = "line 1:1: Required procedure argument 'table' is missing";
+        errorMessage = "line 1:1: Required procedure argument 'table_name' is missing";
         assertQueryFails("CALL system.register_table('" + TEST_SCHEMA + "')", errorMessage);
 
-        errorMessage = "line 1:1: Required procedure argument 'metadataLocation' is missing";
+        errorMessage = "line 1:1: Required procedure argument 'metadata_location' is missing";
         assertQueryFails("CALL system.register_table('" + TEST_SCHEMA + "', '" + TEST_TABLE_NAME + "')", errorMessage);
 
         errorMessage = "schemaName is empty";
@@ -374,6 +401,17 @@ public class TestIcebergRegisterProcedure
     }
 
     @Test
+    public void testUnregisterTableWithNamedArguments()
+    {
+        String tableName = "unregister";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+
+        // Unregister table with procedure
+        assertUpdate("CALL system.unregister_table(table_name => '" + tableName + "', schema => '" + TEST_SCHEMA + "')");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
     public void testRegisterAndUnregisterTable()
     {
         String tableName = "register_unregister";
@@ -426,7 +464,7 @@ public class TestIcebergRegisterProcedure
         @Language("RegExp") String errorMessage = "line 1:1: Required procedure argument 'schema' is missing";
         assertQueryFails("CALL system.register_table()", errorMessage);
 
-        errorMessage = "line 1:1: Required procedure argument 'table' is missing";
+        errorMessage = "line 1:1: Required procedure argument 'table_name' is missing";
         assertQueryFails("CALL system.unregister_table('" + TEST_SCHEMA + "')", errorMessage);
 
         errorMessage = "schemaName is empty";
