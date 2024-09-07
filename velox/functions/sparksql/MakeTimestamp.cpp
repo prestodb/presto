@@ -157,7 +157,8 @@ class MakeTimestampFunction : public exec::VectorFunction {
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     return {
         exec::FunctionSignatureBuilder()
-            .integerVariable("precision")
+            // precision <= 18.
+            .integerVariable("precision", "min(precision, 18)")
             .returnType("timestamp")
             .argumentType("integer")
             .argumentType("integer")
@@ -167,7 +168,8 @@ class MakeTimestampFunction : public exec::VectorFunction {
             .argumentType("decimal(precision, 6)")
             .build(),
         exec::FunctionSignatureBuilder()
-            .integerVariable("precision")
+            // precision <= 18.
+            .integerVariable("precision", "min(precision, 18)")
             .returnType("timestamp")
             .argumentType("integer")
             .argumentType("integer")

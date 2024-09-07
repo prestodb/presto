@@ -33,12 +33,16 @@ class FuzzerRunner {
   static int run(
       size_t seed,
       const std::unordered_set<std::string>& skipFunctions,
-      const std::unordered_map<std::string, std::string>& queryConfigs);
+      const std::unordered_map<std::string, std::string>& queryConfigs,
+      const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
+          argGenerators);
 
   static void runFromGtest(
       size_t seed,
       const std::unordered_set<std::string>& skipFunctions,
-      const std::unordered_map<std::string, std::string>& queryConfigs);
+      const std::unordered_map<std::string, std::string>& queryConfigs,
+      const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
+          argGenerators);
 };
 
 } // namespace facebook::velox::fuzzer

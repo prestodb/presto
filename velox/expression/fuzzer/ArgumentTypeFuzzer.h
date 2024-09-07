@@ -82,6 +82,22 @@ class ArgumentTypeFuzzer {
   /// Generates an orderable random type, including structs, and arrays.
   TypePtr randOrderableType();
 
+  // Bind 'name' variable, if not already bound, using 'constant' constraint
+  // ('name'='123'). Return bound value if 'name' is already bound or was
+  // successfully bound to a constant value. Return std::nullopt otherwise.
+  std::optional<int> tryFixedBinding(const std::string& name);
+
+  // Bind the precision and scale variables in a decimal type signature to
+  // constant values. Return std::nullopt if the variable cannot be bound to a
+  // constant value.
+  std::pair<std::optional<int>, std::optional<int>> tryBindFixedPrecisionScale(
+      const exec::TypeSignature& type);
+
+  // Find all the nested decimal type signatures recursively.
+  void findDecimalTypes(
+      const exec::TypeSignature& type,
+      std::vector<exec::TypeSignature>& decimalTypes) const;
+
   const exec::FunctionSignature& signature_;
 
   TypePtr returnType_;

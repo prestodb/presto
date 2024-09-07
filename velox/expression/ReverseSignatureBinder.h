@@ -54,10 +54,6 @@ class ReverseSignatureBinder : private SignatureBinderBase {
   }
 
  private:
-  // Return whether there is a constraint on an integer variable in type
-  // signature.
-  bool hasConstrainedIntegerVariable(const TypeSignature& type) const;
-
   const TypePtr returnType_;
 
   // True if 'tryBind' has been called and succeeded. False otherwise.

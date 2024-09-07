@@ -51,7 +51,9 @@ class ExpressionFuzzerVerifier {
   ExpressionFuzzerVerifier(
       const FunctionSignatureMap& signatureMap,
       size_t initialSeed,
-      const Options& options);
+      const Options& options,
+      const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
+          argGenerators);
 
   // This function starts the test that is performed by the
   // ExpressionFuzzerVerifier which is generating random expressions and

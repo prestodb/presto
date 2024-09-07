@@ -19,6 +19,7 @@
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/fuzzer/ArgGenerator.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/functions/FunctionRegistry.h"
@@ -47,6 +48,10 @@ class ExpressionFuzzer {
     // Enable testing of function signatures with complex argument or return
     // types.
     bool enableComplexTypes = false;
+
+    // Enable testing of function signatures with decimal argument or return
+    // types.
+    bool enableDecimalType = false;
 
     // Enable generation of expressions where one input column can be used by
     // multiple subexpressions.
@@ -103,7 +108,9 @@ class ExpressionFuzzer {
       FunctionSignatureMap signatureMap,
       size_t initialSeed,
       const std::shared_ptr<VectorFuzzer>& vectorFuzzer,
-      const std::optional<ExpressionFuzzer::Options>& options = std::nullopt);
+      const std::optional<ExpressionFuzzer::Options>& options = std::nullopt,
+      const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
+          argGenerators = {});
 
   template <typename TFunc>
   void registerFuncOverride(TFunc func, const std::string& name);
@@ -416,6 +423,9 @@ class ExpressionFuzzer {
 
   } state;
   friend class ExpressionFuzzerUnitTest;
+
+  // Maps from function name to a specific generator of argument types.
+  std::unordered_map<std::string, std::shared_ptr<ArgGenerator>> argGenerators_;
 };
 
 } // namespace facebook::velox::fuzzer

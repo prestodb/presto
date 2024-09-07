@@ -18,27 +18,7 @@
 
 namespace facebook::velox::exec {
 
-bool ReverseSignatureBinder::hasConstrainedIntegerVariable(
-    const TypeSignature& type) const {
-  if (type.parameters().empty()) {
-    auto it = variables().find(type.baseName());
-    return it != variables().end() && it->second.isIntegerParameter() &&
-        it->second.constraint() != "";
-  }
-
-  const auto& parameters = type.parameters();
-  for (const auto& parameter : parameters) {
-    if (hasConstrainedIntegerVariable(parameter)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 bool ReverseSignatureBinder::tryBind() {
-  if (hasConstrainedIntegerVariable(signature_.returnType())) {
-    return false;
-  }
   tryBindSucceeded_ =
       SignatureBinderBase::tryBind(signature_.returnType(), returnType_);
   return tryBindSucceeded_;

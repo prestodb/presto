@@ -58,70 +58,43 @@ bool isPositiveInteger(const std::string& str) {
 
 void ArgumentTypeFuzzer::determineUnboundedIntegerVariables(
     const exec::TypeSignature& type) {
-  if (!isDecimalBaseName(type.baseName())) {
+  std::vector<exec::TypeSignature> decimalTypes;
+  findDecimalTypes(type, decimalTypes);
+  if (decimalTypes.empty()) {
     return;
   }
+  for (const auto& decimalType : decimalTypes) {
+    auto [p, s] = tryBindFixedPrecisionScale(decimalType);
 
-  VELOX_CHECK_EQ(2, type.parameters().size())
-
-  const auto& precision = type.parameters()[0].baseName();
-  const auto& scale = type.parameters()[1].baseName();
-
-  // Bind 'name' variable, if not already bound, using 'constant' constraint
-  // ('name'='123'). Return bound value if 'name' is already bound or was
-  // successfully bound to a constant value. Return std::nullopt otherwise.
-  auto tryFixedBinding = [&](const auto& name) -> std::optional<int> {
-    auto it = variables().find(name);
-    if (it == variables().end()) {
-      VELOX_CHECK(
-          isPositiveInteger(name),
-          "Precision and scale of a decimal type must refer to a variable "
-          "or specify a position integer constant: {}",
-          name)
-      return std::stoi(name);
+    if (p.has_value() && s.has_value()) {
+      return;
     }
 
-    if (integerBindings_.count(name) > 0) {
-      return integerBindings_[name];
+    const auto& precision = decimalType.parameters()[0].baseName();
+    const auto& scale = decimalType.parameters()[1].baseName();
+
+    if (s.has_value()) {
+      p = std::max<int>(ShortDecimalType::kMinPrecision, s.value());
+      if (p < LongDecimalType::kMaxPrecision) {
+        p = p.value() + rand32(0, LongDecimalType::kMaxPrecision - p.value());
+      }
+
+      integerBindings_[precision] = p.value();
+      return;
     }
 
-    if (isPositiveInteger(it->second.constraint())) {
-      const auto value = std::stoi(it->second.constraint());
-      integerBindings_[name] = value;
-      return value;
+    if (p.has_value()) {
+      s = rand32(0, p.value());
+      integerBindings_[scale] = s.value();
+      return;
     }
 
-    return std::nullopt;
-  };
-
-  std::optional<int> p = tryFixedBinding(precision);
-  std::optional<int> s = tryFixedBinding(scale);
-
-  if (p.has_value() && s.has_value()) {
-    return;
-  }
-
-  if (s.has_value()) {
-    p = std::max<int>(ShortDecimalType::kMinPrecision, s.value());
-    if (p < LongDecimalType::kMaxPrecision) {
-      p = p.value() + rand32(0, LongDecimalType::kMaxPrecision - p.value());
-    }
+    p = rand32(1, LongDecimalType::kMaxPrecision);
+    s = rand32(0, p.value());
 
     integerBindings_[precision] = p.value();
-    return;
-  }
-
-  if (p.has_value()) {
-    s = rand32(0, p.value());
     integerBindings_[scale] = s.value();
-    return;
   }
-
-  p = rand32(1, LongDecimalType::kMaxPrecision);
-  s = rand32(0, p.value());
-
-  integerBindings_[precision] = p.value();
-  integerBindings_[scale] = s.value();
 }
 
 void ArgumentTypeFuzzer::determineUnboundedTypeVariables() {
@@ -154,24 +127,55 @@ TypePtr ArgumentTypeFuzzer::randOrderableType() {
 }
 
 bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
-  const auto& formalArgs = signature_.argumentTypes();
-  auto formalArgsCnt = formalArgs.size();
-
-  if (returnType_) {
+  if (returnType_ == nullptr) {
+    for (const auto& [name, _] : signature_.variables()) {
+      bindings_.insert({name, nullptr});
+    }
+  } else {
     exec::ReverseSignatureBinder binder{signature_, returnType_};
     if (!binder.tryBind()) {
       return false;
     }
+
+    auto types = signature_.argumentTypes();
+    types.emplace_back(signature_.returnType());
+    for (const auto& type : types) {
+      std::vector<exec::TypeSignature> decimalTypes;
+      findDecimalTypes(type, decimalTypes);
+      if (decimalTypes.empty()) {
+        continue;
+      }
+
+      // Verify if the precision and scale variables of argument types and
+      // return type can be bound to constant values. If not and extra
+      // constraint is provided, argument types cannot be generated without
+      // following these constraints.
+      for (const auto& decimalType : decimalTypes) {
+        const auto [p, s] = tryBindFixedPrecisionScale(decimalType);
+
+        const auto& precision = decimalType.parameters()[0].baseName();
+        const auto& scale = decimalType.parameters()[1].baseName();
+
+        const auto hasConstraint = [&](const std::string& name) {
+          return !variables().at(name).constraint().empty();
+        };
+
+        if ((!p.has_value() && hasConstraint(precision)) ||
+            (!s.has_value() && hasConstraint(scale))) {
+          return false;
+        }
+      }
+    }
+
     bindings_ = binder.bindings();
     integerBindings_ = binder.integerBindings();
-  } else {
-    for (const auto& [name, _] : signature_.variables()) {
-      bindings_.insert({name, nullptr});
-    }
   }
 
+  const auto& formalArgs = signature_.argumentTypes();
+  auto formalArgsCnt = formalArgs.size();
+
   determineUnboundedTypeVariables();
-  for (const auto& argType : signature_.argumentTypes()) {
+  for (const auto& argType : formalArgs) {
     determineUnboundedIntegerVariables(argType);
   }
   for (auto i = 0; i < formalArgsCnt; i++) {
@@ -224,6 +228,56 @@ TypePtr ArgumentTypeFuzzer::fuzzReturnType() {
 
 int32_t ArgumentTypeFuzzer::rand32(int32_t min, int32_t max) {
   return boost::random::uniform_int_distribution<uint32_t>(min, max)(rng_);
+}
+
+std::optional<int> ArgumentTypeFuzzer::tryFixedBinding(
+    const std::string& name) {
+  auto it = variables().find(name);
+  if (it == variables().end()) {
+    VELOX_CHECK(
+        isPositiveInteger(name),
+        "Precision and scale of a decimal type must refer to a variable "
+        "or specify a positive integer constant: {}",
+        name)
+    return std::stoi(name);
+  }
+
+  if (integerBindings_.count(name) > 0) {
+    return integerBindings_[name];
+  }
+
+  if (isPositiveInteger(it->second.constraint())) {
+    const auto value = std::stoi(it->second.constraint());
+    integerBindings_[name] = value;
+    return value;
+  }
+
+  return std::nullopt;
+}
+
+std::pair<std::optional<int>, std::optional<int>>
+ArgumentTypeFuzzer::tryBindFixedPrecisionScale(
+    const exec::TypeSignature& type) {
+  VELOX_CHECK(isDecimalBaseName(type.baseName()));
+  VELOX_CHECK_EQ(2, type.parameters().size())
+
+  const auto& precisionName = type.parameters()[0].baseName();
+  const auto& scaleName = type.parameters()[1].baseName();
+
+  std::optional<int> p = tryFixedBinding(precisionName);
+  std::optional<int> s = tryFixedBinding(scaleName);
+  return {p, s};
+}
+
+void ArgumentTypeFuzzer::findDecimalTypes(
+    const exec::TypeSignature& type,
+    std::vector<exec::TypeSignature>& decimalTypes) const {
+  if (isDecimalBaseName(type.baseName())) {
+    decimalTypes.push_back(type);
+  }
+  for (const auto& param : type.parameters()) {
+    findDecimalTypes(param, decimalTypes);
+  }
 }
 
 } // namespace facebook::velox::fuzzer

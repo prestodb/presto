@@ -122,6 +122,11 @@ DEFINE_bool(
     "Enable testing of function signatures with complex argument or return types.");
 
 DEFINE_bool(
+    velox_fuzzer_enable_decimal_type,
+    false,
+    "Enable testing of function signatures with decimal argument or return types.");
+
+DEFINE_bool(
     velox_fuzzer_enable_column_reuse,
     false,
     "Enable generation of expressions where one input column can be "
@@ -168,6 +173,7 @@ ExpressionFuzzer::Options getExpressionFuzzerOptions(
   opts.enableVariadicSignatures = FLAGS_enable_variadic_signatures;
   opts.enableDereference = FLAGS_enable_dereference;
   opts.enableComplexTypes = FLAGS_velox_fuzzer_enable_complex_types;
+  opts.enableDecimalType = FLAGS_velox_fuzzer_enable_decimal_type;
   opts.enableColumnReuse = FLAGS_velox_fuzzer_enable_column_reuse;
   opts.enableExpressionReuse = FLAGS_velox_fuzzer_enable_expression_reuse;
   opts.functionTickets = FLAGS_assign_function_tickets;
@@ -204,8 +210,10 @@ ExpressionFuzzerVerifier::Options getExpressionFuzzerVerifierOptions(
 int FuzzerRunner::run(
     size_t seed,
     const std::unordered_set<std::string>& skipFunctions,
-    const std::unordered_map<std::string, std::string>& queryConfigs) {
-  runFromGtest(seed, skipFunctions, queryConfigs);
+    const std::unordered_map<std::string, std::string>& queryConfigs,
+    const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
+        argGenerators) {
+  runFromGtest(seed, skipFunctions, queryConfigs, argGenerators);
   return RUN_ALL_TESTS();
 }
 
@@ -213,13 +221,16 @@ int FuzzerRunner::run(
 void FuzzerRunner::runFromGtest(
     size_t seed,
     const std::unordered_set<std::string>& skipFunctions,
-    const std::unordered_map<std::string, std::string>& queryConfigs) {
+    const std::unordered_map<std::string, std::string>& queryConfigs,
+    const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
+        argGenerators) {
   memory::MemoryManager::testingSetInstance({});
   auto signatures = facebook::velox::getFunctionSignatures();
   ExpressionFuzzerVerifier(
       signatures,
       seed,
-      getExpressionFuzzerVerifierOptions(skipFunctions, queryConfigs))
+      getExpressionFuzzerVerifierOptions(skipFunctions, queryConfigs),
+      argGenerators)
       .go();
 }
 } // namespace facebook::velox::fuzzer

@@ -80,7 +80,9 @@ RowVectorPtr wrapChildren(
 ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
     const FunctionSignatureMap& signatureMap,
     size_t initialSeed,
-    const ExpressionFuzzerVerifier::Options& options)
+    const ExpressionFuzzerVerifier::Options& options,
+    const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
+        argGenerators)
     : options_(options),
       queryCtx_(core::QueryCtx::create(
           nullptr,
@@ -98,7 +100,8 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
           signatureMap,
           initialSeed,
           vectorFuzzer_,
-          options.expressionFuzzerOptions) {
+          options.expressionFuzzerOptions,
+          argGenerators) {
   seed(initialSeed);
 
   // Init stats and register listener.
