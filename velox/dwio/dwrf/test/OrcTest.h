@@ -108,7 +108,7 @@ class MockStripeStreams : public StripeStreams {
     return *getColumnSelectorProxy();
   }
 
-  const dwio::common::RowReaderOptions& getRowReaderOptions() const override {
+  const dwio::common::RowReaderOptions& rowReaderOptions() const override {
     auto ptr = getRowReaderOptionsProxy();
     return ptr ? *ptr : options_;
   }

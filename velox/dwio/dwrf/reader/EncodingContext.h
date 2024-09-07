@@ -21,8 +21,8 @@
 
 namespace facebook::velox::dwrf {
 
-// Struct containing context for flatmap encoding.
-// Default initialization is non-flatmap context.
+/// Struct containing context for flatmap encoding.
+/// Default initialization is non-flatmap context.
 struct FlatMapContext {
  public:
   uint32_t sequence{0};

@@ -42,21 +42,23 @@ std::unique_ptr<ColumnStatistics> buildColumnStatisticsFromProto(
                                 : std::nullopt,
           intStats.hasSum() ? std::optional(intStats.sum()) : std::nullopt);
     } else if (stats.hasDoubleStatistics()) {
-      const auto& dStats = stats.doubleStatistics();
+      const auto& doubleStats = stats.doubleStatistics();
       // Comparing against NaN doesn't make sense, and to prevent downstream
       // from incorrectly using it, need to make sure min/max/sum doens't have
       // NaN.
-      auto hasNan = (dStats.hasMinimum() && std::isnan(dStats.minimum())) ||
-          (dStats.hasMaximum() && std::isnan(dStats.maximum())) ||
-          (dStats.hasSum() && std::isnan(dStats.sum()));
+      const auto hasNan =
+          (doubleStats.hasMinimum() && std::isnan(doubleStats.minimum())) ||
+          (doubleStats.hasMaximum() && std::isnan(doubleStats.maximum())) ||
+          (doubleStats.hasSum() && std::isnan(doubleStats.sum()));
       if (!hasNan) {
         return std::make_unique<DoubleColumnStatistics>(
             colStats,
-            dStats.hasMinimum() ? std::optional(dStats.minimum())
-                                : std::nullopt,
-            dStats.hasMaximum() ? std::optional(dStats.maximum())
-                                : std::nullopt,
-            dStats.hasSum() ? std::optional(dStats.sum()) : std::nullopt);
+            doubleStats.hasMinimum() ? std::optional(doubleStats.minimum())
+                                     : std::nullopt,
+            doubleStats.hasMaximum() ? std::optional(doubleStats.maximum())
+                                     : std::nullopt,
+            doubleStats.hasSum() ? std::optional(doubleStats.sum())
+                                 : std::nullopt);
       }
     } else if (stats.hasStringStatistics()) {
       // DWRF_5_0 is the first version that string stats are saved as UTF8

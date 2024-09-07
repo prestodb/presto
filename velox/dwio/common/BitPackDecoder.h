@@ -803,7 +803,7 @@ inline uint64_t safeLoadBits(
     return *reinterpret_cast<const uint64_t*>(ptr) >> bitOffset;
   }
   int32_t byteWidth =
-      facebook::velox::bits::roundUp(bitOffset + bitWidth, 8) / 8;
+      facebook::velox::bits::divRoundUp(bitOffset + bitWidth, 8);
   return facebook::velox::bits::loadPartialWord(
              reinterpret_cast<const uint8_t*>(ptr), byteWidth) >>
       bitOffset;

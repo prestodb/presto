@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/encryption/TestProvider.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
@@ -66,7 +67,7 @@ void enqueueReads(
     const ColumnSelector& selector,
     uint64_t stripeStart,
     uint32_t stripeIndex) {
-  auto& metadataCache = readerBase.getMetadataCache();
+  auto& metadataCache = readerBase.metadataCache();
   uint64_t offset = stripeStart;
   uint64_t length = 0;
   for (const auto& stream : footer.streams()) {
@@ -139,7 +140,7 @@ TEST_F(StripeStreamTest, planReads) {
       std::make_unique<PostScript>(proto::PostScript{}),
       footer,
       nullptr);
-  ColumnSelector cs{readerBase->getSchema(), std::vector<uint64_t>{2}, true};
+  ColumnSelector cs{readerBase->schema(), std::vector<uint64_t>{2}, true};
   auto stripeFooter = std::make_unique<proto::StripeFooter>();
   std::vector<std::tuple<uint64_t, StreamKind, uint64_t>> ss{
       std::make_tuple(1, StreamKind::StreamKind_ROW_INDEX, 100),
@@ -157,7 +158,7 @@ TEST_F(StripeStreamTest, planReads) {
   TestDecrypterFactory factory;
   auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
   auto stripeMetadata = std::make_unique<const StripeMetadata>(
-      readerBase->getBufferedInput().clone(),
+      readerBase->bufferedInput().clone(),
       std::move(stripeFooter),
       std::move(handler),
       StripeInformationWrapper(
@@ -194,7 +195,7 @@ TEST_F(StripeStreamTest, filterSequences) {
       nullptr);
 
   // mock a filter that we only need one node and one sequence
-  ColumnSelector cs{readerBase->getSchema(), std::vector<std::string>{"a#[1]"}};
+  ColumnSelector cs{readerBase->schema(), std::vector<std::string>{"a#[1]"}};
   const auto& node = cs.getNode(1);
   auto seqFilter = std::make_shared<std::unordered_set<size_t>>();
   seqFilter->insert(1);
@@ -225,7 +226,7 @@ TEST_F(StripeStreamTest, filterSequences) {
   // filter by sequence 1
   std::vector<Region> expected{{600, 5000000}, {8000600, 1000000}};
   auto stripeMetadata = std::make_unique<const StripeMetadata>(
-      readerBase->getBufferedInput().clone(),
+      readerBase->bufferedInput().clone(),
       std::move(stripeFooter),
       std::move(handler),
       StripeInformationWrapper(
@@ -275,7 +276,7 @@ TEST_F(StripeStreamTest, zeroLength) {
   TestDecrypterFactory factory;
   auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
   auto stripeMetadata = std::make_unique<const StripeMetadata>(
-      readerBase->getBufferedInput().clone(),
+      readerBase->bufferedInput().clone(),
       std::move(stripeFooter),
       std::move(handler),
       StripeInformationWrapper(
@@ -368,7 +369,7 @@ TEST_F(StripeStreamTest, planReadsIndex) {
   TestDecrypterFactory factory;
   auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
   auto stripeMetadata = std::make_unique<const StripeMetadata>(
-      readerBase->getBufferedInput().clone(),
+      readerBase->bufferedInput().clone(),
       std::move(stripeFooter),
       std::move(handler),
       StripeInformationWrapper(
@@ -486,7 +487,7 @@ TEST_F(StripeStreamTest, readEncryptedStreams) {
       nullptr,
       std::move(handler));
   auto stripeMetadata = std::make_unique<const StripeMetadata>(
-      &readerBase->getBufferedInput(),
+      &readerBase->bufferedInput(),
       std::move(stripeFooter),
       DecryptionHandler::create(FooterWrapper(footer), &factory),
       StripeInformationWrapper(
@@ -494,7 +495,7 @@ TEST_F(StripeStreamTest, readEncryptedStreams) {
   auto stripeReadState =
       std::make_shared<StripeReadState>(readerBase, std::move(stripeMetadata));
   StripeReaderBase stripeReader{readerBase};
-  ColumnSelector selector{readerBase->getSchema(), {1, 2, 4}, true};
+  ColumnSelector selector{readerBase->schema(), {1, 2, 4}, true};
   TestProvider provider;
   StripeStreamsImpl streams{
       stripeReadState,
@@ -518,7 +519,7 @@ TEST_F(StripeStreamTest, readEncryptedStreams) {
       ASSERT_EQ(streams.getEncoding(ek).dictionarysize(), node + 1);
       ASSERT_NE(stream, nullptr);
     } else {
-      ASSERT_THROW(streams.getEncoding(ek), exception::LoggedException);
+      VELOX_ASSERT_THROW(streams.getEncoding(ek), "encoding not found");
       ASSERT_EQ(stream, nullptr);
     }
   }
@@ -569,7 +570,7 @@ TEST_F(StripeStreamTest, schemaMismatch) {
       nullptr,
       std::move(handler));
   auto stripeMetadata = std::make_unique<const StripeMetadata>(
-      &readerBase->getBufferedInput(),
+      &readerBase->bufferedInput(),
       std::move(stripeFooter),
       DecryptionHandler::create(FooterWrapper(footer), &factory),
       StripeInformationWrapper(
@@ -634,7 +635,7 @@ class TestStripeStreams : public StripeStreamsBase {
     VELOX_UNSUPPORTED();
   }
 
-  const facebook::velox::dwio::common::RowReaderOptions& getRowReaderOptions()
+  const facebook::velox::dwio::common::RowReaderOptions& rowReaderOptions()
       const override {
     VELOX_UNSUPPORTED();
   }

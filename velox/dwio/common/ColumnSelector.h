@@ -134,8 +134,8 @@ class ColumnSelector {
     checkSelectColNonDuplicate(fileColumnNamesReadAsLowerCase);
   }
 
-  // set a specific node to read state
-  // only means we only enable exact the node only.
+  /// Sets a specific node to read state
+  /// only means we only enable exact the node only.
   void setRead(const FilterTypePtr& node, bool only = false);
 
   /**
@@ -145,7 +145,8 @@ class ColumnSelector {
    * @return the id in the tree
    */
   const FilterTypePtr& getNode(size_t id) const {
-    DWIO_ENSURE(inRange(id), "node is out of range");
+    VELOX_CHECK(
+        inRange(id), "node: {} is out of range of {}", id, nodes_.size());
     return nodes_[id];
   }
 
@@ -252,23 +253,23 @@ class ColumnSelector {
     return FilterType::getInvalid();
   }
 
-  // build selected schema based on current filter
+  /// Builds selected schema based on current filter.
   std::shared_ptr<const TypeWithId> buildSelected() const;
 
-  // build selected schema based on current filter and reorder columns according
-  // to what filter specifies
+  /// Builds selected schema based on current filter and reorder columns
+  /// according to what filter specifies.
   std::shared_ptr<const velox::RowType> buildSelectedReordered() const;
 
-  // build a column filter out of filter tree
-  // This only returns top columns today and can be extended to node level
+  /// Build a column filter out of filter tree.
+  /// This only returns top columns today and can be extended to node level
   const ColumnFilter& getProjection() const;
 
-  // a filter lambda function accept column index for query
+  /// A filter lambda function accept column index for query.
   std::function<bool(uint64_t)> getFilter() const {
     return [this](uint64_t column) { return shouldReadColumn(column); };
   }
 
-  // this is essentially the effective schema when column selector was built
+  /// This is essentially the effective schema when column selector was built.
   bool hasSchema() const {
     return schema_ != nullptr;
   }
@@ -288,7 +289,7 @@ class ColumnSelector {
       const std::vector<std::string>& keys,
       const std::vector<std::string>& values);
 
-  // Create a file selector based on a logic selector and disk schema
+  /// Creates a file selector based on a logic selector and disk schema.
   static ColumnSelector apply(
       const std::shared_ptr<ColumnSelector>& origin,
       const std::shared_ptr<const velox::RowType>& fileSchema);

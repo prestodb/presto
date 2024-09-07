@@ -45,15 +45,17 @@ class FloatingPointColumnReader
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override {
+  void read(
+      vector_size_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls) override {
     using T = FloatingPointColumnReader<TData, TRequested>;
     this->template readCommon<T, true>(offset, rows, incomingNulls);
     this->readOffset_ += rows.back() + 1;
   }
 
   template <typename TVisitor>
-  void readWithVisitor(RowSet rows, TVisitor visitor);
+  void readWithVisitor(const RowSet& rows, TVisitor visitor);
 };
 
 template <typename TData, typename TRequested>
@@ -77,7 +79,7 @@ uint64_t FloatingPointColumnReader<TData, TRequested>::skip(
 template <typename TData, typename TRequested>
 template <typename TVisitor>
 void FloatingPointColumnReader<TData, TRequested>::readWithVisitor(
-    RowSet rows,
+    const RowSet& rows,
     TVisitor visitor) {
   this->formatData_->template as<ParquetData>().readWithVisitor(visitor);
 }

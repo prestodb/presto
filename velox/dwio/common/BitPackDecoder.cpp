@@ -200,7 +200,7 @@ void unpack(
   bitOffset -= rowBias * bitWidth;
   if (bitOffset < 0) {
     // Decrement the pointer by enough bytes to have a non-negative bitOffset.
-    auto bytes = bits::roundUp(-bitOffset, 8) / 8;
+    auto bytes = bits::divRoundUp(-bitOffset, 8);
     bitOffset += bytes * 8;
     bits = reinterpret_cast<const uint64_t*>(
         reinterpret_cast<const char*>(bits) - bytes);
@@ -217,7 +217,7 @@ void unpack(
   bool anyUnsafe = false;
   if (bufferEnd) {
     const char* endByte = reinterpret_cast<const char*>(bits) +
-        bits::roundUp(bitOffset + (rows.back() + 1) * bitWidth, 8) / 8;
+        bits::divRoundUp(bitOffset + (rows.back() + 1) * bitWidth, 8);
     // redzone is the number of bytes at the end of the accessed range that
     // could overflow the buffer if accessed 64 its wide.
     int64_t redZone =

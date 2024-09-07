@@ -39,9 +39,12 @@ std::unique_ptr<SelectiveColumnReader> buildIntegerReader(
     DwrfParams& params,
     uint32_t numBytes,
     common::ScanSpec& scanSpec) {
-  EncodingKey ek{fileType->id(), params.flatMapContext().sequence};
+  const EncodingKey encodingKey{
+      fileType->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
-  switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
+  const auto encodingKind =
+      static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
+  switch (encodingKind) {
     case proto::ColumnEncoding_Kind_DICTIONARY:
     case proto::ColumnEncoding_Kind_DICTIONARY_V2:
       return std::make_unique<SelectiveIntegerDictionaryColumnReader>(
@@ -51,7 +54,7 @@ std::unique_ptr<SelectiveColumnReader> buildIntegerReader(
       return std::make_unique<SelectiveIntegerDirectColumnReader>(
           requestedType, fileType, params, numBytes, scanSpec);
     default:
-      DWIO_RAISE("buildReader unhandled integer encoding");
+      VELOX_FAIL("buildReader unhandled integer encoding: {}", encodingKind);
   }
 }
 
@@ -62,9 +65,10 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     DwrfParams& params,
     common::ScanSpec& scanSpec,
     bool isRoot) {
-  DWIO_ENSURE(
+  VELOX_CHECK(
       !isRoot || fileType->type()->kind() == TypeKind::ROW,
       "The root object can only be a row.");
+
   dwio::common::typeutils::checkTypeCompatibility(
       *fileType->type(), *requestedType);
   EncodingKey ek{fileType->id(), params.flatMapContext().sequence};
@@ -142,7 +146,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
       }
       [[fallthrough]];
     default:
-      DWIO_RAISE(
+      VELOX_FAIL(
           "buildReader unhandled type: " +
           mapTypeKindToName(fileType->type()->kind()));
   }

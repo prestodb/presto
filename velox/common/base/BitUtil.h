@@ -95,6 +95,11 @@ constexpr inline T roundUp(T value, U factor) {
   return (value + (factor - 1)) / factor * factor;
 }
 
+template <typename T, typename U>
+constexpr inline T divRoundUp(T value, U factor) {
+  return (value + (factor - 1)) / factor;
+}
+
 constexpr inline uint64_t lowMask(int32_t bits) {
   return (1UL << bits) - 1;
 }

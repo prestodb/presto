@@ -92,7 +92,7 @@ class SelectiveMapColumnReader : public dwio::common::SelectiveMapColumnReader {
   }
 
  private:
-  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> length_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned=*/false>> length_;
 };
 
 } // namespace facebook::velox::dwrf

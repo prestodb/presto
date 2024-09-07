@@ -32,21 +32,22 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
           params,
           scanSpec,
           std::move(fileType)) {
-  EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
+  const EncodingKey encodingKey{
+      fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
-  auto encoding = stripe.getEncoding(encodingKey);
+  const auto encoding = stripe.getEncoding(encodingKey);
   scanState_.dictionary.numValues = encoding.dictionarysize();
   rleVersion_ = convertRleVersion(encoding.kind());
-  auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
-  bool dataVInts = stripe.getUseVInts(data);
-  dataReader_ = createRleDecoder</* isSigned = */ false>(
-      stripe.getStream(data, params.streamLabels().label(), true),
+  const auto si = encodingKey.forKind(proto::Stream_Kind_DATA);
+  const bool dataVInts = stripe.getUseVInts(si);
+  dataReader_ = createRleDecoder</*isSigned=*/false>(
+      stripe.getStream(si, params.streamLabels().label(), true),
       rleVersion_,
-      memoryPool_,
+      *memoryPool_,
       dataVInts,
       numBytes);
 
-  // make a lazy dictionary initializer
+  // Makes a lazy dictionary initializer
   dictInit_ = stripe.getIntDictionaryInitializerForNode(
       encodingKey, numBytes, params.streamLabels(), numBytes);
 
@@ -72,7 +73,7 @@ uint64_t SelectiveIntegerDictionaryColumnReader::skip(uint64_t numValues) {
 
 void SelectiveIntegerDictionaryColumnReader::read(
     vector_size_t offset,
-    RowSet rows,
+    const RowSet& rows,
     const uint64_t* incomingNulls) {
   VELOX_WIDTH_DISPATCH(
       sizeOfIntKind(fileType_->type()->kind()),
@@ -80,19 +81,19 @@ void SelectiveIntegerDictionaryColumnReader::read(
       offset,
       rows,
       incomingNulls);
-  auto end = rows.back() + 1;
+  const auto end = rows.back() + 1;
   const auto* rawNulls =
       nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
 
-  // read the stream of booleans indicating whether a given data entry
-  // is an offset or a literal value.
+  // Read the stream of booleans indicating whether a given data entry is an
+  // offset or a literal value.
   if (inDictionaryReader_) {
-    bool isBulk = useBulkPath();
-    int32_t numFlags = (isBulk && nullsInReadRange_)
+    const bool isBulk = useBulkPath();
+    const int32_t numFlags = (isBulk && nullsInReadRange_)
         ? bits::countNonNulls(nullsInReadRange_->as<uint64_t>(), 0, end)
         : end;
     dwio::common::ensureCapacity<uint64_t>(
-        scanState_.inDictionary, bits::nwords(numFlags), &memoryPool_);
+        scanState_.inDictionary, bits::nwords(numFlags), memoryPool_);
     // The in dict buffer may have changed. If no change in
     // dictionary, the raw state will not be updated elsewhere.
     scanState_.rawState.inDictionary = scanState_.inDictionary->as<uint64_t>();

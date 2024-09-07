@@ -80,7 +80,7 @@ class StripeMetadataCache {
  private:
   uint64_t getIndex(StripeCacheMode mode, uint64_t stripeIndex) const {
     if (mode_ & mode) {
-      uint64_t index =
+      const uint64_t index =
           (mode_ == mode ? stripeIndex
                          : stripeIndex * 2 + mode - StripeCacheMode::INDEX);
       // offsets has N + 1 items, so length[N] = offset[N+1]- offset[N]

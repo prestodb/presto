@@ -36,7 +36,8 @@ class SelectiveByteRleColumnReader
             std::move(fileType),
             params,
             scanSpec) {
-    EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
+    const EncodingKey encodingKey{
+        fileType_->id(), params.flatMapContext().sequence};
     auto& stripe = params.stripeStreams();
     if (isBool) {
       boolRle_ = createBooleanRleDecoder(
@@ -77,14 +78,16 @@ class SelectiveByteRleColumnReader
     return numValues;
   }
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override {
+  void read(
+      vector_size_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls) override {
     readCommon<SelectiveByteRleColumnReader, true>(offset, rows, incomingNulls);
     readOffset_ += rows.back() + 1;
   }
 
   template <typename ColumnVisitor>
-  void readWithVisitor(RowSet rows, ColumnVisitor visitor);
+  void readWithVisitor(const RowSet& rows, ColumnVisitor visitor);
 
   std::unique_ptr<ByteRleDecoder> byteRle_;
   std::unique_ptr<BooleanRleDecoder> boolRle_;
@@ -92,9 +95,8 @@ class SelectiveByteRleColumnReader
 
 template <typename ColumnVisitor>
 void SelectiveByteRleColumnReader::readWithVisitor(
-    RowSet rows,
+    const RowSet& rows,
     ColumnVisitor visitor) {
-  vector_size_t numRows = rows.back() + 1;
   if (boolRle_) {
     if (nullsInReadRange_) {
       boolRle_->readWithVisitor<true>(

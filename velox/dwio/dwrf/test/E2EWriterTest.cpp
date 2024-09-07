@@ -1146,7 +1146,7 @@ class E2EEncryptionTest : public E2EWriterTest {
 
   const DecryptionHandler& getDecryptionHandler(
       const ::facebook::velox::dwrf::DwrfReader& reader) const {
-    return reader.testingReaderBase()->getDecryptionHandler();
+    return reader.testingReaderBase()->decryptionHandler();
   }
 
   void validateFileContent(

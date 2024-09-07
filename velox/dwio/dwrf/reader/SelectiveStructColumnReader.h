@@ -48,11 +48,11 @@ class SelectiveStructColumnReaderBase
       readOffset_ = index * rowsPerRowGroup_;
       return;
     }
+
     // There may be a nulls stream but no other streams for the struct.
     formatData_->seekToRowGroup(index);
-    // Set the read offset recursively. Do this before seeking the
-    // children because list/map children will reset the offsets for
-    // their children.
+    // Set the read offset recursively. Do this before seeking the children
+    // because list/map children will reset the offsets for their children.
     setReadOffsetRecursive(index * rowsPerRowGroup_);
     for (auto& child : children_) {
       child->seekToRowGroup(index);
@@ -66,8 +66,8 @@ class SelectiveStructColumnReaderBase
     if (!reader->isTopLevel()) {
       return;
     }
-    auto rowGroup = reader->readOffset() / rowsPerRowGroup_;
-    auto nextRowGroup = offset / rowsPerRowGroup_;
+    const auto rowGroup = reader->readOffset() / rowsPerRowGroup_;
+    const auto nextRowGroup = offset / rowsPerRowGroup_;
     if (nextRowGroup > rowGroup) {
       reader->seekToRowGroup(nextRowGroup);
       reader->setReadOffset(nextRowGroup * rowsPerRowGroup_);
@@ -78,7 +78,8 @@ class SelectiveStructColumnReaderBase
   const int32_t rowsPerRowGroup_;
 };
 
-struct SelectiveStructColumnReader : SelectiveStructColumnReaderBase {
+class SelectiveStructColumnReader : public SelectiveStructColumnReaderBase {
+ public:
   SelectiveStructColumnReader(
       const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,

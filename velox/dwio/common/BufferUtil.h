@@ -34,13 +34,12 @@ inline void ensureCapacity(
     oldSize = data->size();
     if (!data->isMutable() ||
         data->capacity() < BaseVector::byteSize<T>(capacity)) {
-      oldSize = data->size();
       auto newData = AlignedBuffer::allocate<T>(capacity, pool);
       if (preserveOldData) {
         std::memcpy(
             newData->template asMutable<uint8_t>(),
             data->as<uint8_t>(),
-            data->size());
+            oldSize);
       }
       data = newData;
     }

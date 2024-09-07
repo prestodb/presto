@@ -219,7 +219,6 @@ class Subfield {
     const std::string index_;
   };
 
- public:
   // Separators: the customized separators to tokenize field name.
   explicit Subfield(
       const std::string& path,

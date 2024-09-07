@@ -74,7 +74,7 @@ class MapColumnReader : public dwio::common::SelectiveMapColumnReader {
 
   void read(
       vector_size_t offset,
-      RowSet rows,
+      const RowSet& rows,
       const uint64_t* /*incomingNulls*/) override;
 
   void setLengths(BufferPtr lengths) {
@@ -130,7 +130,7 @@ class ListColumnReader : public dwio::common::SelectiveListColumnReader {
 
   void read(
       vector_size_t offset,
-      RowSet rows,
+      const RowSet& rows,
       const uint64_t* /*incomingNulls*/) override;
 
   void setLengths(BufferPtr lengths) {

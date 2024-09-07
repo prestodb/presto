@@ -31,13 +31,6 @@ enum class DwrfFormat : uint8_t {
 };
 
 class ProtoWrapperBase {
- protected:
-  ProtoWrapperBase(DwrfFormat format, const void* impl)
-      : format_{format}, impl_{impl} {}
-
-  DwrfFormat format_;
-  const void* impl_;
-
  public:
   DwrfFormat format() const {
     return format_;
@@ -46,6 +39,13 @@ class ProtoWrapperBase {
   inline const void* rawProtoPtr() const {
     return impl_;
   }
+
+ protected:
+  ProtoWrapperBase(DwrfFormat format, const void* impl)
+      : format_{format}, impl_{impl} {}
+
+  const DwrfFormat format_;
+  const void* const impl_;
 };
 
 /***

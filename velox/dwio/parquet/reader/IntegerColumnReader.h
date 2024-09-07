@@ -53,7 +53,7 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
     return numValues;
   }
 
-  void getValues(RowSet rows, VectorPtr* result) override {
+  void getValues(const RowSet& rows, VectorPtr* result) override {
     auto& fileType = static_cast<const ParquetTypeWithId&>(*fileType_);
     auto logicalType = fileType.logicalType_;
     if (logicalType.has_value() && logicalType.value().__isset.INTEGER &&
@@ -66,7 +66,7 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
 
   void read(
       vector_size_t offset,
-      RowSet rows,
+      const RowSet& rows,
       const uint64_t* /*incomingNulls*/) override {
     auto& data = formatData_->as<ParquetData>();
     VELOX_WIDTH_DISPATCH(
@@ -80,7 +80,7 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
   }
 
   template <typename ColumnVisitor>
-  void readWithVisitor(RowSet rows, ColumnVisitor visitor) {
+  void readWithVisitor(const RowSet& rows, ColumnVisitor visitor) {
     formatData_->as<ParquetData>().readWithVisitor(visitor);
   }
 };

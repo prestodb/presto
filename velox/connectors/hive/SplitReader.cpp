@@ -90,7 +90,7 @@ std::unique_ptr<SplitReader> SplitReader::create(
         executor,
         scanSpec);
   } else {
-    return std::make_unique<SplitReader>(
+    return std::unique_ptr<SplitReader>(new SplitReader(
         hiveSplit,
         hiveTableHandle,
         partitionKeys,
@@ -100,7 +100,7 @@ std::unique_ptr<SplitReader> SplitReader::create(
         ioStats,
         fileHandleFactory,
         executor,
-        scanSpec);
+        scanSpec));
   }
 }
 
@@ -267,14 +267,14 @@ void SplitReader::createReader(
     setRowIndexColumn(rowIndexColumn);
   }
   configureRowReaderOptions(
-      baseRowReaderOpts_,
       hiveTableHandle_->tableParameters(),
       scanSpec_,
       std::move(metadataFilter),
       ROW(std::move(columnNames), std::move(columnTypes)),
       hiveSplit_,
       hiveConfig_,
-      connectorQueryCtx_->sessionProperties());
+      connectorQueryCtx_->sessionProperties(),
+      baseRowReaderOpts_);
 }
 
 bool SplitReader::checkIfSplitIsEmpty(

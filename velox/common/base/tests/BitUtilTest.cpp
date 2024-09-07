@@ -870,6 +870,67 @@ TEST_F(BitUtilTest, storeBitsToByte) {
   ASSERT_EQ(bytes[2], 0);
 }
 
+TEST_F(BitUtilTest, roundUp) {
+  struct {
+    uint64_t value;
+    uint64_t factor;
+    uint64_t expected;
+
+    std::string debugString() const {
+      return fmt::format(
+          "value: {}, factor: {}, expected: {}", value, factor, expected);
+    }
+  } testSettings[] = {
+      {10, 1, 10},
+      {10, 3, 12},
+      {10, 4, 12},
+      {10, 10, 10},
+      {10, 11, 11},
+      {10, 20, 20},
+      {11, 1, 11},
+      {11, 3, 12},
+      {11, 4, 12},
+      {11, 11, 11},
+      {11, 12, 12},
+      {11, 23, 23}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    ASSERT_EQ(
+        bits::roundUp(testData.value, testData.factor), testData.expected);
+  }
+}
+
+TEST_F(BitUtilTest, divRoundUp) {
+  struct {
+    uint64_t value;
+    uint64_t factor;
+    uint64_t expected;
+
+    std::string debugString() const {
+      return fmt::format(
+          "value: {}, factor: {}, expected: {}", value, factor, expected);
+    }
+  } testSettings[] = {
+      {10, 1, 10},
+      {10, 3, 4},
+      {10, 4, 3},
+      {10, 10, 1},
+      {10, 11, 1},
+      {10, 20, 1},
+      {11, 1, 11},
+      {11, 3, 4},
+      {11, 4, 3},
+      {11, 11, 1},
+      {11, 12, 1},
+      {11, 23, 1}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    ASSERT_EQ(
+        bits::divRoundUp(testData.value, testData.factor), testData.expected);
+  }
+}
 } // namespace bits
 } // namespace velox
 } // namespace facebook

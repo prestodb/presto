@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <optional>
 #include <vector>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/common/TypeWithId.h"
@@ -153,7 +154,7 @@ class TestStripeStreams : public StripeStreamsBase {
     return selector_;
   }
 
-  const RowReaderOptions& getRowReaderOptions() const override {
+  const RowReaderOptions& rowReaderOptions() const override {
     return options_;
   }
 
@@ -358,9 +359,9 @@ void testDataTypeWriter(
     }
     // Reader API requires the caller to read the Stripe for number of
     // values and iterate only until that number.
-    // It does not support hasNext/next protocol.
+    // It does notd support hasNext/next protocol.
     // Use a bigger number like 50, as some values may be bit packed.
-    EXPECT_THROW({ reader->next(50, out); }, exception::LoggedException);
+    VELOX_ASSERT_THROW(reader->next(50, out), "");
 
     context.nextStripe();
     writer->reset();

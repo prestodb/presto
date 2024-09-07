@@ -85,16 +85,16 @@ std::vector<DwrfStreamIdentifier> BinaryStripeStreams::getStreamIdentifiers(
 BinaryStreamReader::BinaryStreamReader(
     const std::shared_ptr<ReaderBase>& reader,
     const std::vector<uint64_t>& columnIds)
-    : stripeReaderBase_{reader},
-      columnSelector_{reader->getSchema(), columnIds},
-      stripeIndex_{0},
-      numStripes{folly::to<uint32_t>(reader->getFooter().stripesSize())} {
-  DWIO_ENSURE(!reader->getFooter().hasEncryption(), "encryption not supported");
-  DWIO_ENSURE(!columnIds.empty(), "Atleast one column expected to be read");
+    : columnSelector_{reader->schema(), columnIds},
+      numStripes_{folly::to<uint32_t>(reader->footer().stripesSize())},
+      stripeReaderBase_{reader},
+      stripeIndex_{0} {
+  VELOX_CHECK(!reader->footer().hasEncryption(), "encryption not supported");
+  VELOX_CHECK(!columnIds.empty(), "Atleast one column expected to be read");
 }
 
 std::unique_ptr<BinaryStripeStreams> BinaryStreamReader::next() {
-  if (stripeIndex_ >= numStripes) {
+  if (stripeIndex_ >= numStripes_) {
     return nullptr;
   }
   return std::make_unique<BinaryStripeStreams>(
@@ -105,12 +105,12 @@ std::unordered_map<uint32_t, proto::ColumnStatistics>
 BinaryStreamReader::getStatistics() const {
   std::unordered_map<uint32_t, proto::ColumnStatistics> stats;
   auto footerStatsSize =
-      stripeReaderBase_.getReader().getFooter().statisticsSize();
-  auto typesSize = stripeReaderBase_.getReader().getFooter().typesSize();
+      stripeReaderBase_.getReader().footer().statisticsSize();
+  auto typesSize = stripeReaderBase_.getReader().footer().typesSize();
 
   if (footerStatsSize == 0) {
-    DWIO_ENSURE_EQ(
-        numStripes,
+    VELOX_CHECK_EQ(
+        numStripes_,
         0,
         "Corrupted file detected, Footer stats are missing, but stripes are present");
     for (auto node = 0; node < typesSize; node++) {
@@ -119,14 +119,14 @@ BinaryStreamReader::getStatistics() const {
       }
     }
   } else {
-    DWIO_ENSURE_EQ(
+    VELOX_CHECK_EQ(
         footerStatsSize, typesSize, "different number of nodes and statistics");
     // Node 0 is always selected by ColumnSelector, though this can be
     // disabled for the current use cases.
     for (auto node = 0; node < footerStatsSize; node++) {
       if (columnSelector_.shouldReadNode(node)) {
         stats[node] =
-            stripeReaderBase_.getReader().getFooter().dwrfStatistics(node);
+            stripeReaderBase_.getReader().footer().dwrfStatistics(node);
       }
     }
   }
@@ -134,7 +134,7 @@ BinaryStreamReader::getStatistics() const {
 }
 
 uint32_t BinaryStreamReader::getStrideLen() const {
-  return stripeReaderBase_.getReader().getFooter().rowIndexStride();
+  return stripeReaderBase_.getReader().footer().rowIndexStride();
 }
 
 } // namespace facebook::velox::dwrf::detail

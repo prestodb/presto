@@ -260,7 +260,7 @@ void LazyVector::loadVectorInternal() const {
     }
     SelectivityVector allRows(BaseVector::length_);
     loader_->load(allRows, nullptr, size(), &vector_);
-    VELOX_CHECK(vector_);
+    VELOX_CHECK_NOT_NULL(vector_);
     if (vector_->encoding() == VectorEncoding::Simple::LAZY) {
       vector_ = vector_->asUnchecked<LazyVector>()->loadedVectorShared();
     } else {
@@ -274,7 +274,7 @@ void LazyVector::loadVectorInternal() const {
           BaseVector::nulls_->as<uint64_t>();
     }
   } else {
-    VELOX_CHECK(vector_);
+    VELOX_CHECK_NOT_NULL(vector_);
   }
 }
 } // namespace facebook::velox

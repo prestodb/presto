@@ -35,8 +35,8 @@ using memory::MemoryPool;
 FooterStatisticsImpl::FooterStatisticsImpl(
     const ReaderBase& reader,
     const StatsContext& statsContext) {
-  auto& footer = reader.getFooter();
-  auto& handler = reader.getDecryptionHandler();
+  auto& footer = reader.footer();
+  auto& handler = reader.decryptionHandler();
   colStats_.resize(footer.statisticsSize());
   // fill in the encrypted stats
   if (handler.isEncrypted()) {
@@ -213,9 +213,9 @@ ReaderBase::ReaderBase(
     }
   }
   if (!cache_ && input_->shouldPrefetchStripes()) {
-    const auto numStripes = getFooter().stripesSize();
+    const auto numStripes = footer().stripesSize();
     for (auto i = 0; i < numStripes; i++) {
-      const auto stripe = getFooter().stripes(i);
+      const auto stripe = footer().stripes(i);
       input_->enqueue(
           {stripe.offset() + stripe.indexLength() + stripe.dataLength(),
            stripe.footerLength(),
@@ -229,28 +229,28 @@ ReaderBase::ReaderBase(
   handler_ = DecryptionHandler::create(*footer_, decryptorFactory_.get());
 }
 
-std::vector<uint64_t> ReaderBase::getRowsPerStripe() const {
+std::vector<uint64_t> ReaderBase::rowsPerStripe() const {
   std::vector<uint64_t> rowsPerStripe;
-  auto numStripes = getFooter().stripesSize();
+  auto numStripes = footer().stripesSize();
   rowsPerStripe.reserve(numStripes);
   for (auto i = 0; i < numStripes; i++) {
-    rowsPerStripe.push_back(getFooter().stripes(i).numberOfRows());
+    rowsPerStripe.push_back(footer().stripes(i).numberOfRows());
   }
   return rowsPerStripe;
 }
 
-std::unique_ptr<Statistics> ReaderBase::getStatistics() const {
-  StatsContext statsContext(getWriterName(), getWriterVersion());
+std::unique_ptr<Statistics> ReaderBase::statistics() const {
+  StatsContext statsContext(writerName(), writerVersion());
   return std::make_unique<FooterStatisticsImpl>(*this, statsContext);
 }
 
-std::unique_ptr<ColumnStatistics> ReaderBase::getColumnStatistics(
+std::unique_ptr<ColumnStatistics> ReaderBase::columnStatistics(
     uint32_t index) const {
-  DWIO_ENSURE_LT(
+  VELOX_CHECK_LT(
       index,
       static_cast<uint32_t>(footer_->statisticsSize()),
       "column index out of range");
-  StatsContext statsContext(getWriterVersion());
+  StatsContext statsContext(writerVersion());
   if (!handler_->isEncrypted(index)) {
     auto stats = footer_->statistics(index);
     return buildColumnStatisticsFromProto(stats, statsContext);
@@ -333,25 +333,25 @@ std::shared_ptr<const Type> ReaderBase::convertType(
           convertType(
               footer, type.subtypes(1), fileColumnNamesReadAsLowerCase));
     case TypeKind::ROW: {
-      std::vector<std::shared_ptr<const Type>> tl;
-      tl.reserve(type.subtypesSize());
+      std::vector<std::shared_ptr<const Type>> types;
+      types.reserve(type.subtypesSize());
       std::vector<std::string> names;
       names.reserve(type.subtypesSize());
       for (int32_t i = 0; i < type.subtypesSize(); ++i) {
-        auto child = convertType(
+        auto childType = convertType(
             footer, type.subtypes(i), fileColumnNamesReadAsLowerCase);
         auto childName = type.fieldNames(i);
         if (fileColumnNamesReadAsLowerCase) {
           folly::toLowerAscii(childName);
         }
         names.push_back(std::move(childName));
-        tl.push_back(std::move(child));
+        types.push_back(std::move(childType));
       }
 
       // NOTE: There are empty dwrf files in data warehouse that has empty
       // struct as the root type. So the assumption that struct has at least one
       // child doesn't hold.
-      return ROW(std::move(names), std::move(tl));
+      return ROW(std::move(names), std::move(types));
     }
     default:
       DWIO_RAISE("Unknown type kind");

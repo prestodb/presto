@@ -54,7 +54,7 @@ class DwrfData : public dwio::common::FormatData {
       const common::ScanSpec& scanSpec,
       uint64_t rowsPerRowGroup,
       const dwio::common::StatsContext& writerContext,
-      FilterRowGroupsResult&) override;
+      FilterRowGroupsResult& result) override;
 
   bool hasNulls() const override {
     return notNullDecoder_ != nullptr;
@@ -72,8 +72,8 @@ class DwrfData : public dwio::common::FormatData {
     return flatMapContext_.inMapDecoder ? inMap_->as<uint64_t>() : nullptr;
   }
 
-  // seeks possible flat map in map streams and nulls to the row group
-  // and returns a PositionsProvider for the other streams.
+  /// Seeks possible flat map in map streams and nulls to the row group
+  /// and returns a PositionsProvider for the other streams.
   dwio::common::PositionProvider seekToRowGroup(uint32_t index) override;
 
   int64_t stripeRows() const {
@@ -102,7 +102,7 @@ class DwrfData : public dwio::common::FormatData {
   memory::MemoryPool& memoryPool_;
   const std::shared_ptr<const dwio::common::TypeWithId> fileType_;
   FlatMapContext flatMapContext_;
-  std::unique_ptr<ByteRleDecoder> notNullDecoder_;
+  std::unique_ptr<BooleanRleDecoder> notNullDecoder_;
   std::unique_ptr<dwio::common::SeekableInputStream> indexStream_;
   std::unique_ptr<proto::RowIndex> index_;
   int64_t stripeRows_;
@@ -111,13 +111,13 @@ class DwrfData : public dwio::common::FormatData {
 
   // Storage for positions backing a PositionProvider returned from
   // seekToRowGroup().
-  std::vector<uint64_t> tempPositions_;
+  std::vector<uint64_t> positionsHolder_;
 
   // In map bitmap used in flat map encoding.
   BufferPtr inMap_;
 };
 
-// DWRF specific initialization.
+/// DWRF specific initialization.
 class DwrfParams : public dwio::common::FormatParams {
  public:
   explicit DwrfParams(
@@ -126,9 +126,9 @@ class DwrfParams : public dwio::common::FormatParams {
       dwio::common::ColumnReaderStatistics& stats,
       FlatMapContext context = {})
       : FormatParams(stripeStreams.getMemoryPool(), stats),
+        streamLabels_(streamLabels),
         stripeStreams_(stripeStreams),
-        flatMapContext_(context),
-        streamLabels_(streamLabels) {}
+        flatMapContext_(context) {}
 
   std::unique_ptr<dwio::common::FormatData> toFormatData(
       const std::shared_ptr<const dwio::common::TypeWithId>& type,
@@ -150,9 +150,9 @@ class DwrfParams : public dwio::common::FormatParams {
   }
 
  private:
+  const StreamLabels& streamLabels_;
   StripeStreams& stripeStreams_;
   FlatMapContext flatMapContext_;
-  const StreamLabels& streamLabels_;
 };
 
 inline RleVersion convertRleVersion(proto::ColumnEncoding_Kind kind) {
@@ -164,7 +164,9 @@ inline RleVersion convertRleVersion(proto::ColumnEncoding_Kind kind) {
     case proto::ColumnEncoding_Kind_DICTIONARY_V2:
       return RleVersion_2;
     default:
-      DWIO_RAISE("Unknown encoding in convertRleVersion");
+      VELOX_FAIL(
+          "Unknown encoding in convertRleVersion: {}",
+          static_cast<int64_t>(kind));
   }
 }
 

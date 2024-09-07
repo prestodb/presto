@@ -156,12 +156,11 @@ class DirectBufferedInput : public BufferedInput {
   }
 
   virtual std::unique_ptr<BufferedInput> clone() const override {
-    std::unique_ptr<DirectBufferedInput> input(new DirectBufferedInput(
+    return std::unique_ptr<DirectBufferedInput>(new DirectBufferedInput(
         input_, fileNum_, tracker_, groupId_, ioStats_, executor_, options_));
-    return input;
   }
 
-  memory::MemoryPool* pool() {
+  memory::MemoryPool* pool() const {
     return pool_;
   }
 

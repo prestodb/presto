@@ -49,11 +49,11 @@ struct DropValues {
   }
 };
 
-struct ExtractToReader {
+class ExtractToReader {
+ public:
   using HookType = dwio::common::NoHook;
   static constexpr bool kSkipNulls = false;
-  explicit ExtractToReader(SelectiveColumnReader* readerIn)
-      : reader_(readerIn) {}
+  explicit ExtractToReader(SelectiveColumnReader* reader) : reader_(reader) {}
 
   bool acceptsNulls() const {
     return true;
@@ -74,7 +74,7 @@ struct ExtractToReader {
   }
 
  private:
-  SelectiveColumnReader* reader_;
+  SelectiveColumnReader* const reader_;
 };
 
 template <typename THook>
@@ -162,7 +162,7 @@ class ColumnVisitor {
       TFilter& filter,
       SelectiveColumnReader* reader,
       const RowSet& rows,
-      ExtractValues values)
+      const ExtractValues& values)
       : filter_(filter),
         reader_(reader),
         allowNulls_(!TFilter::deterministic || filter.testNull()),
@@ -314,7 +314,7 @@ class ColumnVisitor {
 
   FOLLY_ALWAYS_INLINE vector_size_t process(T value, bool& atEnd) {
     if (!TFilter::deterministic) {
-      auto previous = currentRow();
+      const auto previous = currentRow();
       if (velox::common::applyFilter(filter_, value)) {
         filterPassed(value);
       } else {
@@ -326,6 +326,7 @@ class ColumnVisitor {
       }
       return currentRow() - previous - 1;
     }
+
     // The filter passes or fails and we go to the next row if any.
     if (velox::common::applyFilter(filter_, value)) {
       filterPassed(value);
@@ -501,8 +502,8 @@ class ColumnVisitor {
 template <typename T, typename TFilter, typename ExtractValues, bool isDense>
 FOLLY_ALWAYS_INLINE void
 ColumnVisitor<T, TFilter, ExtractValues, isDense>::filterFailed() {
-  auto preceding = filter_.getPrecedingPositionsToFail();
-  auto succeeding = filter_.getSucceedingPositionsToFail();
+  const auto preceding = filter_.getPrecedingPositionsToFail();
+  const auto succeeding = filter_.getSucceedingPositionsToFail();
   if (preceding) {
     reader_->dropResults(preceding);
   }
@@ -717,18 +718,18 @@ class DictionaryColumnVisitor
   DictionaryColumnVisitor(
       TFilter& filter,
       SelectiveColumnReader* reader,
-      RowSet rows,
-      ExtractValues values)
+      const RowSet& rows,
+      const ExtractValues& values)
       : ColumnVisitor<T, TFilter, ExtractValues, isDense>(
             filter,
             reader,
             rows,
             values),
-        state_(reader->scanState().rawState),
         width_(
             reader->fileType().type()->kind() == TypeKind::BIGINT        ? 8
                 : reader->fileType().type()->kind() == TypeKind::INTEGER ? 4
-                                                                         : 2) {}
+                                                                         : 2),
+        state_(reader->scanState().rawState) {}
 
   FOLLY_ALWAYS_INLINE bool isInDict() {
     if (inDict()) {
@@ -753,9 +754,10 @@ class DictionaryColumnVisitor
       }
       return super::process(signedValue, atEnd);
     }
-    vector_size_t previous =
+
+    const vector_size_t previous =
         isDense && TFilter::deterministic ? 0 : super::currentRow();
-    T valueInDictionary = dict()[value];
+    const T valueInDictionary = dict()[value];
     if constexpr (!hasFilter()) {
       super::filterPassed(valueInDictionary);
     } else {
@@ -781,6 +783,7 @@ class DictionaryColumnVisitor
         }
       }
     }
+
     if (++super::rowIndex_ >= super::numRows_) {
       atEnd = true;
       return (isDense && TFilter::deterministic)
@@ -1108,8 +1111,8 @@ class DictionaryColumnVisitor
         !std::is_same_v<TFilter, velox::common::IsNotNull>;
   }
 
-  RawScanState state_;
   const uint8_t width_;
+  RawScanState state_;
 };
 
 template <typename T, typename TFilter, typename ExtractValues, bool isDense>

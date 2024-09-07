@@ -186,10 +186,8 @@ TEST_P(AllWriterCompressionTest, compression) {
 
   // deserialize and verify
   auto reader = createReader();
-
-  auto& ps = reader->getPostScript();
   ASSERT_EQ(
-      reader->getCompressionKind(),
+      reader->compressionKind(),
       // Verify the compression type is the same as passed-in.
       // If compression is not passed in (CompressionKind::CompressionKind_MAX),
       // verify compressionKind the compression type is the same as config.
@@ -238,16 +236,16 @@ TEST_P(SupportedCompressionTest, WriteFooter) {
   // deserialize and verify
   auto reader = createReader();
 
-  auto& ps = reader->getPostScript();
-  ASSERT_EQ(reader->getWriterVersion(), config->get(Config::WRITER_VERSION));
-  ASSERT_EQ(reader->getCompressionKind(), config->get(Config::COMPRESSION));
+  auto& ps = reader->postScript();
+  ASSERT_EQ(reader->writerVersion(), config->get(Config::WRITER_VERSION));
+  ASSERT_EQ(reader->compressionKind(), config->get(Config::COMPRESSION));
   ASSERT_EQ(
-      reader->getCompressionBlockSize(),
+      reader->compressionBlockSize(),
       config->get(Config::COMPRESSION_BLOCK_SIZE));
   ASSERT_EQ(ps.cacheSize(), (10 + 10) * 3);
   ASSERT_EQ(ps.cacheMode(), config->get(Config::STRIPE_CACHE_MODE));
 
-  auto& footer = reader->getFooter();
+  auto& footer = reader->footer();
   ASSERT_TRUE(footer.hasHeaderLength());
   ASSERT_EQ(footer.headerLength(), ORC_MAGIC_LEN);
   ASSERT_TRUE(footer.hasContentLength());
@@ -265,8 +263,7 @@ TEST_P(SupportedCompressionTest, WriteFooter) {
     if (item.name() == WRITER_NAME_KEY) {
       ASSERT_EQ(item.value(), kDwioWriter);
     } else if (item.name() == WRITER_VERSION_KEY) {
-      ASSERT_EQ(
-          item.value(), folly::to<std::string>(reader->getWriterVersion()));
+      ASSERT_EQ(item.value(), folly::to<std::string>(reader->writerVersion()));
     } else if (item.name() == WRITER_HOSTNAME_KEY) {
       ASSERT_EQ(item.value(), process::getHostName());
     } else {
@@ -285,7 +282,7 @@ TEST_P(SupportedCompressionTest, WriteFooter) {
       footer.checksumAlgorithm(), config->get(Config::CHECKSUM_ALGORITHM));
   ASSERT_THAT(
       footer.stripeCacheOffsets(), ElementsAre(0, 10, 20, 30, 40, 50, 60));
-  auto& cache = reader->getMetadataCache();
+  auto& cache = reader->metadataCache();
   for (size_t i = 0; i < 3; ++i) {
     ASSERT_TRUE(cache->has(StripeCacheMode::INDEX, i));
     ASSERT_TRUE(cache->has(StripeCacheMode::FOOTER, i));
@@ -341,7 +338,7 @@ TEST_P(SupportedCompressionTest, NoChecksum) {
 
   // deserialize and verify
   auto reader = createReader();
-  auto& footer = reader->getFooter();
+  auto& footer = reader->footer();
   ASSERT_TRUE(footer.hasChecksumAlgorithm());
   ASSERT_EQ(footer.checksumAlgorithm(), proto::ChecksumAlgorithm::NULL_);
 }
@@ -376,12 +373,12 @@ TEST_P(SupportedCompressionTest, NoCache) {
 
   // deserialize and verify
   auto reader = createReader();
-  auto& footer = reader->getFooter();
+  auto& footer = reader->footer();
   ASSERT_EQ(footer.stripeCacheOffsetsSize(), 0);
-  auto& ps = reader->getPostScript();
+  auto& ps = reader->postScript();
   ASSERT_EQ(ps.cacheMode(), StripeCacheMode::NA);
   ASSERT_EQ(ps.cacheSize(), 0);
-  ASSERT_EQ(reader->getMetadataCache(), nullptr);
+  ASSERT_EQ(reader->metadataCache(), nullptr);
 }
 
 TEST_P(SupportedCompressionTest, ValidateStreamSizeConfigDisabled) {

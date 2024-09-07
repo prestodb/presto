@@ -67,19 +67,6 @@ class SplitReader {
       folly::Executor* executor,
       const std::shared_ptr<common::ScanSpec>& scanSpec);
 
-  SplitReader(
-      const std::shared_ptr<const hive::HiveConnectorSplit>& hiveSplit,
-      const std::shared_ptr<const HiveTableHandle>& hiveTableHandle,
-      const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>*
-          partitionKeys,
-      const ConnectorQueryCtx* connectorQueryCtx,
-      const std::shared_ptr<const HiveConfig>& hiveConfig,
-      const RowTypePtr& readerOutputType,
-      const std::shared_ptr<io::IoStatistics>& ioStats,
-      FileHandleFactory* fileHandleFactory,
-      folly::Executor* executor,
-      const std::shared_ptr<common::ScanSpec>& scanSpec);
-
   virtual ~SplitReader() = default;
 
   void configureReaderOptions(
@@ -113,6 +100,19 @@ class SplitReader {
   std::string toString() const;
 
  protected:
+  SplitReader(
+      const std::shared_ptr<const hive::HiveConnectorSplit>& hiveSplit,
+      const std::shared_ptr<const HiveTableHandle>& hiveTableHandle,
+      const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>*
+          partitionKeys,
+      const ConnectorQueryCtx* connectorQueryCtx,
+      const std::shared_ptr<const HiveConfig>& hiveConfig,
+      const RowTypePtr& readerOutputType,
+      const std::shared_ptr<io::IoStatistics>& ioStats,
+      FileHandleFactory* fileHandleFactory,
+      folly::Executor* executor,
+      const std::shared_ptr<common::ScanSpec>& scanSpec);
+
   /// Create the dwio::common::Reader object baseReader_, which will be used to
   /// read the data file's metadata and schema
   void createReader(

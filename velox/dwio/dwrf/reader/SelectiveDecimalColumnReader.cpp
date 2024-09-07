@@ -43,7 +43,7 @@ SelectiveDecimalColumnReader<DataT>::SelectiveDecimalColumnReader(
   scaleDecoder_ = createRleDecoder</*isSigned*/ true>(
       stripe.getStream(secondary, params.streamLabels().label(), true),
       version_,
-      memoryPool_,
+      *memoryPool_,
       stripe.getUseVInts(secondary),
       LONG_BYTE_SIZE);
 }
@@ -86,7 +86,7 @@ void SelectiveDecimalColumnReader<DataT>::readHelper(RowSet rows) {
   }
 
   // copy scales into scaleBuffer_
-  ensureCapacity<int64_t>(scaleBuffer_, numValues_, &memoryPool_);
+  ensureCapacity<int64_t>(scaleBuffer_, numValues_, memoryPool_);
   scaleBuffer_->setSize(numValues_ * sizeof(int64_t));
   memcpy(
       scaleBuffer_->asMutable<char>(),
@@ -109,7 +109,7 @@ void SelectiveDecimalColumnReader<DataT>::readHelper(RowSet rows) {
 template <typename DataT>
 void SelectiveDecimalColumnReader<DataT>::read(
     vector_size_t offset,
-    RowSet rows,
+    const RowSet& rows,
     const uint64_t* incomingNulls) {
   VELOX_CHECK(!scanSpec_->filter());
   VELOX_CHECK(!scanSpec_->valueHook());
@@ -124,7 +124,7 @@ void SelectiveDecimalColumnReader<DataT>::read(
 
 template <typename DataT>
 void SelectiveDecimalColumnReader<DataT>::getValues(
-    RowSet rows,
+    const RowSet& rows,
     VectorPtr* result) {
   auto nullsPtr =
       resultNulls() ? resultNulls()->template as<uint64_t>() : nullptr;

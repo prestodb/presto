@@ -59,7 +59,7 @@ class BitConcatenation {
 
   void setSize() {
     if (*buffer_) {
-      (*buffer_)->setSize(bits::roundUp(numBits_, 8) / 8);
+      (*buffer_)->setSize(bits::divRoundUp(numBits_, 8));
     }
   }
 

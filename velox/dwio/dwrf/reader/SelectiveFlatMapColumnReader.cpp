@@ -210,12 +210,14 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
             *this,
             getKeyNodes<T>(requestedType, fileType, params, scanSpec, false)) {}
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override {
+  void read(
+      vector_size_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls) override {
     flatMap_.read(offset, rows, incomingNulls);
   }
 
-  void getValues(RowSet rows, VectorPtr* result) override {
+  void getValues(const RowSet& rows, VectorPtr* result) override {
     flatMap_.getValues(rows, result);
   }
 

@@ -51,23 +51,23 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   virtual void
   readLengths(int32_t* lengths, int32_t numLengths, const uint64_t* nulls) = 0;
 
-  // Create row set for child columns based on the row set of parent column.
-  void makeNestedRowSet(RowSet rows, int32_t maxRow);
+  /// Create row set for child columns based on the row set of parent column.
+  void makeNestedRowSet(const RowSet& rows, int32_t maxRow);
 
-  // Compute the offsets and lengths based on the current filtered rows passed
-  // in.
-  void makeOffsetsAndSizes(RowSet rows, ArrayVectorBase&);
+  /// Compute the offsets and lengths based on the current filtered rows passed
+  /// in.
+  void makeOffsetsAndSizes(const RowSet& rows, ArrayVectorBase&);
 
-  // Creates a struct if '*result' is empty and 'type' is a row.
+  /// Creates a struct if '*result' is empty and 'type' is a row.
   void prepareStructResult(const TypePtr& type, VectorPtr* result) {
     if (!*result && type->kind() == TypeKind::ROW) {
-      *result = BaseVector::create(type, 0, &memoryPool_);
+      *result = BaseVector::create(type, 0, memoryPool_);
     }
   }
 
   // Apply filter on parent level.  Child filtering should be handled separately
   // in subclasses.
-  RowSet applyFilter(RowSet rows);
+  RowSet applyFilter(const RowSet& rows);
 
   BufferPtr allLengthsHolder_;
   vector_size_t* allLengths_;
@@ -96,10 +96,12 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override;
+  void read(
+      vector_size_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls) override;
 
-  void getValues(RowSet rows, VectorPtr* result) override;
+  void getValues(const RowSet& rows, VectorPtr* result) override;
 
  protected:
   std::unique_ptr<SelectiveColumnReader> child_;
@@ -120,11 +122,14 @@ class SelectiveMapColumnReader : public SelectiveRepeatedColumnReader {
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override;
+  void read(
+      vector_size_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls) override;
 
-  void getValues(RowSet rows, VectorPtr* result) override;
+  void getValues(const RowSet& rows, VectorPtr* result) override;
 
+ protected:
   std::unique_ptr<SelectiveColumnReader> keyReader_;
   std::unique_ptr<SelectiveColumnReader> elementReader_;
 };

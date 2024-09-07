@@ -155,21 +155,6 @@ using ColumnFilter = std::vector<velox::dwio::common::FilterNode>;
 class FilterType;
 using FilterTypePtr = std::shared_ptr<FilterType>;
 class FilterType {
- private:
-  const FilterNode node_;
-  const std::weak_ptr<FilterType> parent_;
-  std::vector<FilterTypePtr> children_;
-  // a flat to decide if current node is needed
-  bool read_;
-  // a flag to indicate if current node is in content
-  bool inContent_;
-  // request type in the filter tree node
-  std::shared_ptr<const velox::Type> requestType_;
-  // data type in the filter tree node
-  std::shared_ptr<const velox::Type> fileType_;
-  // sequence filter for given node - empty if no filter
-  SeqFilter seqFilter_;
-
  public:
   // a single value indicating not found (invalid node)
   static const FilterTypePtr& getInvalid() {
@@ -214,7 +199,6 @@ class FilterType {
     return node_;
   }
 
- public:
   inline void setRead() {
     read_ = true;
   }
@@ -256,10 +240,10 @@ class FilterType {
     return requestType_->kind();
   }
 
-  // return node ID in the type tree
+  /// Returns node ID in the type tree
   inline uint64_t getId() const {
     // Cannot get ID for invalid node
-    DWIO_ENSURE_EQ(valid(), true);
+    VELOX_CHECK(valid());
     return node_.node;
   }
 
@@ -287,6 +271,21 @@ class FilterType {
     return seqFilter_->empty() ||
         seqFilter_->find(sequence) != seqFilter_->end();
   }
+
+ private:
+  const FilterNode node_;
+  const std::weak_ptr<FilterType> parent_;
+  std::vector<FilterTypePtr> children_;
+  // a flat to decide if current node is needed
+  bool read_;
+  // a flag to indicate if current node is in content
+  bool inContent_;
+  // request type in the filter tree node
+  std::shared_ptr<const velox::Type> requestType_;
+  // data type in the filter tree node
+  std::shared_ptr<const velox::Type> fileType_;
+  // sequence filter for given node - empty if no filter
+  SeqFilter seqFilter_;
 };
 
 } // namespace facebook::velox::dwio::common

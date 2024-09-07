@@ -1147,7 +1147,7 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
           encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA),
           streamLabels.label(),
           false)),
-      returnFlatVector_(stripe.getRowReaderOptions().getReturnFlatVector()) {
+      returnFlatVector_(stripe.rowReaderOptions().returnFlatVector()) {
   MakeRleDecoderParams params{
       .encodingKey = encodingKey,
       .stripe = stripe,
@@ -1814,7 +1814,7 @@ StructColumnReader::StructColumnReader(
 
   // count the number of selected sub-columns
   const auto& cs = stripe.getColumnSelector();
-  auto project = stripe.getRowReaderOptions().getProjectSelectedType();
+  auto project = stripe.rowReaderOptions().projectSelectedType();
   for (uint64_t i = 0; i < requestedType_->size(); ++i) {
     auto& child = requestedType_->childAt(i);
 

@@ -806,9 +806,7 @@ class BaseVector {
   }
 
   void clearContainingLazyAndWrapped() {
-    if (containsLazyAndIsWrapped_) {
-      containsLazyAndIsWrapped_ = false;
-    }
+    containsLazyAndIsWrapped_ = false;
   }
 
   bool memoDisabled() const {

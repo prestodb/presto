@@ -163,20 +163,17 @@ void ColumnSelector::copy(
   }
 }
 
-/**
- * Copy the selector tree and apply file schema to handle schema mismatch
- */
 ColumnSelector ColumnSelector::apply(
     const std::shared_ptr<ColumnSelector>& origin,
     const std::shared_ptr<const RowType>& fileSchema) {
-  // current instance maybe null
+  // current instance maybe null.
   if (origin == nullptr) {
     return ColumnSelector(fileSchema);
   }
 
   // if selector has no schema, we just build a new tree with file schema
   // selector.getProjection will carry all logic information including nodes
-  auto onlyFilter = !origin->hasSchema();
+  const bool onlyFilter = !origin->hasSchema();
   ColumnSelector cs(
       onlyFilter ? fileSchema : origin->getSchema(),
       origin->getNodeFilter(),
@@ -318,15 +315,15 @@ const FilterTypePtr& ColumnSelector::process(const std::string& column, bool) {
 std::pair<std::string_view, std::string_view> extractColumnName(
     const std::string_view& name) {
   // right now this is the only supported expression for MAP key filter
-  auto pos = name.find('#');
-  if (pos != std::string::npos) {
-    // special map column handling
-    auto colName = name.substr(0, pos);
-    auto expr = name.substr(pos + 1);
-    return std::make_pair(colName, expr);
+  const auto pos = name.find('#');
+  if (pos == std::string::npos) {
+    return std::make_pair(name, "");
   }
 
-  return std::make_pair(name, "");
+  // special map column handling
+  const auto colName = name.substr(0, pos);
+  const auto expr = name.substr(pos + 1);
+  return std::make_pair(colName, expr);
 }
 
 void ColumnSelector::logFilter() const {

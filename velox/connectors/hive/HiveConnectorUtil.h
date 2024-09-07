@@ -76,14 +76,14 @@ void configureReaderOptions(
     const std::unordered_map<std::string, std::string>& tableParameters = {});
 
 void configureRowReaderOptions(
-    dwio::common::RowReaderOptions& rowReaderOptions,
     const std::unordered_map<std::string, std::string>& tableParameters,
     const std::shared_ptr<common::ScanSpec>& scanSpec,
     std::shared_ptr<common::MetadataFilter> metadataFilter,
     const RowTypePtr& rowType,
     const std::shared_ptr<const HiveConnectorSplit>& hiveSplit,
-    const std::shared_ptr<const HiveConfig>& hiveConfig = nullptr,
-    const config::ConfigBase* sessionProperties = nullptr);
+    const std::shared_ptr<const HiveConfig>& hiveConfig,
+    const config::ConfigBase* sessionProperties,
+    dwio::common::RowReaderOptions& rowReaderOptions);
 
 bool testFilters(
     const common::ScanSpec* scanSpec,

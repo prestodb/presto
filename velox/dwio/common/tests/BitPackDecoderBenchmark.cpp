@@ -257,7 +257,7 @@ void naiveDecodeBitsLE(
 template <typename T>
 void legacyUnpackNaive(RowSet rows, uint8_t bitWidth, T* result) {
   auto data = bitPackedData[bitWidth].data();
-  auto numBytes = bits::roundUp((rows.back() + 1) * bitWidth, 8) / 8;
+  auto numBytes = bits::divRoundUp((rows.back() + 1) * bitWidth, 8);
   auto end = reinterpret_cast<const char*>(data) + numBytes;
   naiveDecodeBitsLE(data, 0, rows, 0, bitWidth, end, result32.data());
 }
@@ -265,7 +265,7 @@ void legacyUnpackNaive(RowSet rows, uint8_t bitWidth, T* result) {
 template <typename T>
 void legacyUnpackFast(RowSet rows, uint8_t bitWidth, T* result) {
   auto data = bitPackedData[bitWidth].data();
-  auto numBytes = bits::roundUp((rows.back() + 1) * bitWidth, 8) / 8;
+  auto numBytes = bits::divRoundUp((rows.back() + 1) * bitWidth, 8);
   auto end = reinterpret_cast<const char*>(data) + numBytes;
   facebook::velox::dwio::common::unpack(
       data,
@@ -503,7 +503,7 @@ BENCHMARK_UNPACK_ODDROWS_CASE_32(31)
 void populateBitPacked() {
   bitPackedData.resize(33);
   for (auto bitWidth = 1; bitWidth <= 32; ++bitWidth) {
-    auto numWords = bits::roundUp(randomInts_u32.size() * bitWidth, 64) / 64;
+    auto numWords = bits::divRoundUp(randomInts_u32.size() * bitWidth, 64);
     bitPackedData[bitWidth].resize(numWords);
     auto source = reinterpret_cast<uint64_t*>(randomInts_u32.data());
     auto destination =
@@ -549,8 +549,7 @@ void naiveDecodeBitsLE(
   bool anyUnsafe = false;
   if (bufferEnd) {
     const char* endByte = reinterpret_cast<const char*>(bits) +
-        bits::roundUp(bitOffset + (rows.back() - rowBias + 1) * bitWidth, 8) /
-            8;
+        bits::divRoundUp(bitOffset + (rows.back() - rowBias + 1) * bitWidth, 8);
     // redzone is the number of bytes at the end of the accessed range that
     // could overflow the buffer if accessed 64 its wide.
     int64_t redZone =

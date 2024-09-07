@@ -46,7 +46,7 @@ SelectiveColumnReader::SelectiveColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> fileType,
     dwio::common::FormatParams& params,
     velox::common::ScanSpec& scanSpec)
-    : memoryPool_(params.pool()),
+    : memoryPool_(&params.pool()),
       requestedType_(requestedType),
       fileType_(fileType),
       formatData_(params.toFormatData(fileType, scanSpec)),
@@ -70,13 +70,13 @@ void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
     return;
   }
   if (readOffset_ < offset) {
-    if (numParentNulls_) {
+    if (numParentNulls_ > 0) {
       VELOX_CHECK_LE(
           parentNullsRecordedTo_,
           offset,
           "Must not seek to before parentNullsRecordedTo_");
     }
-    auto distance = offset - readOffset_ - numParentNulls_;
+    const auto distance = offset - readOffset_ - numParentNulls_;
     numParentNulls_ = 0;
     parentNullsRecordedTo_ = 0;
     if (readsNullsOnly) {
@@ -86,14 +86,17 @@ void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
     }
     readOffset_ = offset;
   } else {
-    VELOX_FAIL("Seeking backward on a ColumnReader");
+    VELOX_FAIL(
+        "Seeking backward on a ColumnReader from {} to {}",
+        readOffset_,
+        offset);
   }
 }
 
-void SelectiveColumnReader::initReturnReaderNulls(RowSet rows) {
+void SelectiveColumnReader::initReturnReaderNulls(const RowSet& rows) {
   if (useBulkPath() && !scanSpec_->hasFilter()) {
     anyNulls_ = nullsInReadRange_ != nullptr;
-    bool isDense = rows.back() == rows.size() - 1;
+    const bool isDense = rows.back() == rows.size() - 1;
     returnReaderNulls_ = anyNulls_ && isDense;
   } else {
     returnReaderNulls_ = false;
@@ -101,25 +104,27 @@ void SelectiveColumnReader::initReturnReaderNulls(RowSet rows) {
 }
 
 void SelectiveColumnReader::prepareNulls(
-    RowSet rows,
+    const RowSet& rows,
     bool hasNulls,
     int32_t extraRows) {
   if (!hasNulls) {
     anyNulls_ = false;
     return;
   }
+
   initReturnReaderNulls(rows);
   if (returnReaderNulls_) {
     // No need for null flags if fast path.
     return;
   }
-  auto numRows = rows.size() + extraRows;
+
+  const auto numRows = rows.size() + extraRows;
   if (resultNulls_ && resultNulls_->unique() &&
       resultNulls_->capacity() >= bits::nbytes(numRows) + simd::kPadding) {
     resultNulls_->setSize(bits::nbytes(numRows));
   } else {
     resultNulls_ = AlignedBuffer::allocate<bool>(
-        numRows + (simd::kPadding * 8), &memoryPool_);
+        numRows + (simd::kPadding * 8), memoryPool_);
     rawResultNulls_ = resultNulls_->asMutable<uint64_t>();
   }
   anyNulls_ = false;
@@ -128,7 +133,7 @@ void SelectiveColumnReader::prepareNulls(
   simd::memset(rawResultNulls_, bits::kNotNullByte, resultNulls_->capacity());
 }
 
-const uint64_t* SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
+const uint64_t* SelectiveColumnReader::shouldMoveNulls(const RowSet& rows) {
   if (rows.size() == numValues_ || !anyNulls_) {
     // Nulls will only be moved if there is a selection on values. A cast
     // alone does not move nulls.
@@ -139,7 +144,7 @@ const uint64_t* SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
     if (!(resultNulls_ && resultNulls_->unique() &&
           resultNulls_->capacity() >= rows.size() + simd::kPadding)) {
       resultNulls_ = AlignedBuffer::allocate<bool>(
-          rows.size() + (simd::kPadding * 8), &memoryPool_);
+          rows.size() + (simd::kPadding * 8), memoryPool_);
       rawResultNulls_ = resultNulls_->asMutable<uint64_t>();
     }
     moveFrom = nullsInReadRange_->as<uint64_t>();
@@ -151,8 +156,9 @@ const uint64_t* SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
   return moveFrom;
 }
 
-void SelectiveColumnReader::setComplexNulls(RowSet rows, VectorPtr& result)
-    const {
+void SelectiveColumnReader::setComplexNulls(
+    const RowSet& rows,
+    VectorPtr& result) const {
   if (!nullsInReadRange_) {
     if (result->isNullsWritable()) {
       result->clearNulls(0, rows.size());
@@ -183,7 +189,7 @@ void SelectiveColumnReader::setComplexNulls(RowSet rows, VectorPtr& result)
 }
 
 void SelectiveColumnReader::getIntValues(
-    RowSet rows,
+    const RowSet& rows,
     const TypePtr& requestedType,
     VectorPtr* result) {
   switch (requestedType->kind()) {
@@ -254,7 +260,7 @@ void SelectiveColumnReader::getIntValues(
 }
 
 void SelectiveColumnReader::getUnsignedIntValues(
-    RowSet rows,
+    const RowSet& rows,
     const TypePtr& requestedType,
     VectorPtr* result) {
   switch (requestedType->kind()) {
@@ -324,7 +330,7 @@ void SelectiveColumnReader::getUnsignedIntValues(
 
 template <>
 void SelectiveColumnReader::getFlatValues<int8_t, bool>(
-    RowSet rows,
+    const RowSet& rows,
     VectorPtr* result,
     const TypePtr& type,
     bool isFinal) {
@@ -332,7 +338,7 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
   VELOX_CHECK_EQ(valueSize_, sizeof(int8_t));
   compactScalarValues<int8_t, int8_t>(rows, isFinal);
   auto boolValues =
-      AlignedBuffer::allocate<bool>(numValues_, &memoryPool_, false);
+      AlignedBuffer::allocate<bool>(numValues_, memoryPool_, false);
   auto rawBytes = values_->as<int8_t>();
   auto zero = xsimd::broadcast<int8_t>(0);
   if constexpr (kWidth == 32) {
@@ -350,7 +356,7 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
     }
   }
   *result = std::make_shared<FlatVector<bool>>(
-      &memoryPool_,
+      memoryPool_,
       type,
       resultNulls(),
       numValues_,
@@ -360,7 +366,7 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
 
 template <>
 void SelectiveColumnReader::compactScalarValues<bool, bool>(
-    RowSet rows,
+    const RowSet& rows,
     bool isFinal) {
   if (!values_ || rows.size() == numValues_) {
     if (values_) {
@@ -377,7 +383,7 @@ void SelectiveColumnReader::compactScalarValues<bool, bool>(
       continue;
     }
 
-    VELOX_DCHECK(outputRows_[i] == nextRow);
+    VELOX_DCHECK_EQ(outputRows_[i], nextRow);
 
     bits::setBit(rawBits, rowIndex, bits::isBitSet(rawBits, i));
     if (moveNullsFrom && rowIndex != i) {
@@ -401,7 +407,7 @@ char* SelectiveColumnReader::copyStringValue(folly::StringPiece value) {
   uint64_t size = value.size();
   if (stringBuffers_.empty() || rawStringUsed_ + size > rawStringSize_) {
     auto bytes = std::max(size, kStringBufferSize);
-    BufferPtr buffer = AlignedBuffer::allocate<char>(bytes, &memoryPool_);
+    BufferPtr buffer = AlignedBuffer::allocate<char>(bytes, memoryPool_);
     // Use the preferred size instead of the requested one to improve memory
     // efficiency.
     buffer->setSize(buffer->capacity());
@@ -451,8 +457,8 @@ void SelectiveColumnReader::resetFilterCaches() {
 void SelectiveColumnReader::addParentNulls(
     int32_t firstRowInNulls,
     const uint64_t* nulls,
-    RowSet rows) {
-  int32_t firstNullIndex =
+    const RowSet& rows) {
+  const int32_t firstNullIndex =
       readOffset_ < firstRowInNulls ? 0 : readOffset_ - firstRowInNulls;
   numParentNulls_ +=
       nulls ? bits::countNulls(nulls, firstNullIndex, rows.back() + 1) : 0;

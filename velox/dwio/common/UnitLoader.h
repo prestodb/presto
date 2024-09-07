@@ -26,16 +26,16 @@ class LoadUnit {
  public:
   virtual ~LoadUnit() = default;
 
-  // Perform the IO (read)
+  /// Perform the IO (read)
   virtual void load() = 0;
 
-  // Unload the unit to free memory
+  /// Unload the unit to free memory
   virtual void unload() = 0;
 
-  // Number of rows in the unit
+  /// Number of rows in the unit
   virtual uint64_t getNumRows() = 0;
 
-  // Number of bytes that the IO will read
+  /// Number of bytes that the IO will read
   virtual uint64_t getIoSize() = 0;
 };
 
@@ -43,18 +43,18 @@ class UnitLoader {
  public:
   virtual ~UnitLoader() = default;
 
-  // Must block until the unit is loaded.
-  // This call could unload other units. So the returned LoadUnit& is only
-  // guaranteed to remain loaded until the next call
+  /// Must block until the unit is loaded. This call could unload other units.
+  /// So the returned LoadUnit& is only guaranteed to remain loaded until the
+  /// next call.
   virtual LoadUnit& getLoadedUnit(uint32_t unit) = 0;
 
-  // Reader reports progress calling this method
-  // The call must be done **after** getLoadedUnit for unit
+  /// Reader reports progress calling this method. The call must be done
+  /// **after** getLoadedUnit for unit.
   virtual void
   onRead(uint32_t unit, uint64_t rowOffsetInUnit, uint64_t rowCount) = 0;
 
-  // Reader reports seek calling this method.
-  // The call must be done **before** getLoadedUnit for the new unit
+  /// Reader reports seek calling this method. The call must be done **before**
+  /// getLoadedUnit for the new unit.
   virtual void onSeek(uint32_t unit, uint64_t rowOffsetInUnit) = 0;
 };
 

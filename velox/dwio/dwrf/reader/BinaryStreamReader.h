@@ -67,7 +67,7 @@ class BinaryStripeStreams {
 
 class BinaryStreamReader {
  public:
-  explicit BinaryStreamReader(
+  BinaryStreamReader(
       const std::shared_ptr<ReaderBase>& reader,
       const std::vector<uint64_t>& columnIds);
 
@@ -81,13 +81,15 @@ class BinaryStreamReader {
     return stripeIndex_;
   }
 
- private:
-  StripeReaderBase stripeReaderBase_;
-  const dwio::common::ColumnSelector columnSelector_;
-  uint32_t stripeIndex_;
+  uint32_t numStripes() const {
+    return numStripes_;
+  }
 
- public:
-  const uint32_t numStripes;
+ private:
+  const dwio::common::ColumnSelector columnSelector_;
+  const uint32_t numStripes_;
+  StripeReaderBase stripeReaderBase_;
+  uint32_t stripeIndex_;
 };
 
 } // namespace facebook::velox::dwrf::detail

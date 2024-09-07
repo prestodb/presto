@@ -139,7 +139,7 @@ void checkTypeCompatibility(
   }
 
   if (recurse) {
-    uint64_t childCount = std::min(from.size(), to.size());
+    const uint64_t childCount = std::min(from.size(), to.size());
     for (uint64_t i = 0; i < childCount; ++i) {
       checkTypeCompatibility(
           *from.childAt(i),

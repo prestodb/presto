@@ -35,7 +35,7 @@ class TimestampColumnReader : public IntegerColumnReader {
     return false;
   }
 
-  void getValues(RowSet rows, VectorPtr* result) override {
+  void getValues(const RowSet& rows, VectorPtr* result) override {
     getFlatValues<Timestamp, Timestamp>(rows, result, requestedType_);
     if (allNull_) {
       return;
@@ -67,7 +67,7 @@ class TimestampColumnReader : public IntegerColumnReader {
 
   void read(
       vector_size_t offset,
-      RowSet rows,
+      const RowSet& rows,
       const uint64_t* /*incomingNulls*/) override {
     auto& data = formatData_->as<ParquetData>();
     // Use int128_t as a workaroud. Timestamp in Velox is of 16-byte length.

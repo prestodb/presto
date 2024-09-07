@@ -109,19 +109,19 @@ class ReaderBase {
 
   virtual ~ReaderBase() = default;
 
-  memory::MemoryPool& getMemoryPool() const {
+  memory::MemoryPool& memoryPool() const {
     return pool_;
   }
 
-  const PostScript& getPostScript() const {
+  const PostScript& postScript() const {
     return *postScript_;
   }
 
-  const FooterWrapper& getFooter() const {
+  const FooterWrapper& footer() const {
     return *footer_;
   }
 
-  const RowTypePtr& getSchema() const {
+  const RowTypePtr& schema() const {
     return schema_;
   }
 
@@ -129,8 +129,7 @@ class ReaderBase {
     schema_ = std::move(newSchema);
   }
 
-  const std::shared_ptr<const dwio::common::TypeWithId>& getSchemaWithId()
-      const {
+  const std::shared_ptr<const dwio::common::TypeWithId>& schemaWithId() const {
     if (!schemaWithId_) {
       if (scanSpec_) {
         schemaWithId_ = dwio::common::TypeWithId::create(schema_, *scanSpec_);
@@ -141,45 +140,45 @@ class ReaderBase {
     return schemaWithId_;
   }
 
-  dwio::common::BufferedInput& getBufferedInput() const {
+  dwio::common::BufferedInput& bufferedInput() const {
     return *input_;
   }
 
-  const std::unique_ptr<StripeMetadataCache>& getMetadataCache() const {
+  const std::unique_ptr<StripeMetadataCache>& metadataCache() const {
     return cache_;
   }
 
-  const encryption::DecryptionHandler& getDecryptionHandler() const {
+  const encryption::DecryptionHandler& decryptionHandler() const {
     return *handler_;
   }
 
-  uint64_t getFooterEstimatedSize() const {
+  uint64_t footerEstimatedSize() const {
     return footerEstimatedSize_;
   }
 
-  uint64_t getFileLength() const {
+  uint64_t fileLength() const {
     return fileLength_;
   }
 
-  std::vector<uint64_t> getRowsPerStripe() const;
+  std::vector<uint64_t> rowsPerStripe() const;
 
-  uint64_t getPostScriptLength() const {
+  uint64_t postScriptLength() const {
     return psLength_;
   }
 
-  uint64_t getCompressionBlockSize() const {
+  uint64_t compressionBlockSize() const {
     return postScript_->hasCompressionBlockSize()
         ? postScript_->compressionBlockSize()
         : common::DEFAULT_COMPRESSION_BLOCK_SIZE;
   }
 
-  common::CompressionKind getCompressionKind() const {
+  common::CompressionKind compressionKind() const {
     return postScript_->hasCompressionBlockSize()
         ? postScript_->compression()
         : common::CompressionKind::CompressionKind_NONE;
   }
 
-  WriterVersion getWriterVersion() const {
+  WriterVersion writerVersion() const {
     if (!postScript_->hasWriterVersion()) {
       return WriterVersion::ORIGINAL;
     }
@@ -189,7 +188,7 @@ class ReaderBase {
         : WriterVersion::FUTURE;
   }
 
-  const std::string& getWriterName() const {
+  const std::string& writerName() const {
     for (int32_t index = 0; index < footer_->metadataSize(); ++index) {
       auto entry = footer_->metadata(index);
       if (entry.name() == WRITER_NAME_KEY) {
@@ -201,9 +200,9 @@ class ReaderBase {
     return kEmpty;
   }
 
-  std::unique_ptr<dwio::common::Statistics> getStatistics() const;
+  std::unique_ptr<dwio::common::Statistics> statistics() const;
 
-  std::unique_ptr<dwio::common::ColumnStatistics> getColumnStatistics(
+  std::unique_ptr<dwio::common::ColumnStatistics> columnStatistics(
       uint32_t index) const;
 
   std::unique_ptr<dwio::common::SeekableInputStream> createDecompressedStream(
@@ -211,9 +210,9 @@ class ReaderBase {
       const std::string& streamDebugInfo,
       const dwio::common::encryption::Decrypter* decrypter = nullptr) const {
     return createDecompressor(
-        getCompressionKind(),
+        compressionKind(),
         std::move(compressed),
-        getCompressionBlockSize(),
+        compressionBlockSize(),
         pool_,
         streamDebugInfo,
         decrypter);

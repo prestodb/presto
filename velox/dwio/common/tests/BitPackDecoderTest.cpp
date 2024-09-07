@@ -45,7 +45,7 @@ class BitPackDecoderTest : public testing::Test {
   void populateBitPackedData() {
     bitPackedData_.resize(33);
     for (auto bitWidth = 1; bitWidth <= 32; ++bitWidth) {
-      auto numWords = bits::roundUp(randomInts_.size() * bitWidth, 64) / 64;
+      auto numWords = bits::divRoundUp(randomInts_.size() * bitWidth, 64);
       bitPackedData_[bitWidth].resize(numWords);
       auto source = randomInts_.data();
       auto destination =

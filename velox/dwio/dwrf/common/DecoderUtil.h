@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/common/DirectDecoder.h"
 #include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/dwrf/common/RLEv1.h"
@@ -42,7 +43,7 @@ std::unique_ptr<dwio::common::IntDecoder<isSigned>> createRleDecoder(
     case RleVersion_2:
       return std::make_unique<RleDecoderV2<isSigned>>(std::move(input), pool);
     default:
-      DWIO_ENSURE(false, "not supported");
+      VELOX_UNSUPPORTED("Not supported: {}", static_cast<int64_t>(version));
       return {};
   }
 }

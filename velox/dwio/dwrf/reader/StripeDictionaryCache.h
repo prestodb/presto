@@ -26,9 +26,18 @@
 
 namespace facebook::velox::dwrf {
 class StripeDictionaryCache {
-  // This could be potentially made an interface to be shared for
-  // string dictionaries. However, we will need a union return type
-  // in that case.
+ public:
+  explicit StripeDictionaryCache(velox::memory::MemoryPool* pool);
+
+  void registerIntDictionary(
+      const EncodingKey& encodingKey,
+      folly::Function<BufferPtr(velox::memory::MemoryPool*)>&& dictGen);
+
+  BufferPtr getIntDictionary(const EncodingKey& encodingKey);
+
+ private:
+  // This could be potentially made an interface to be shared for string
+  // dictionaries. However, we will need a union return type in that case.
   class DictionaryEntry {
    public:
     explicit DictionaryEntry(
@@ -42,18 +51,8 @@ class StripeDictionaryCache {
     folly::once_flag onceFlag_;
   };
 
- public:
-  explicit StripeDictionaryCache(velox::memory::MemoryPool* pool);
-
-  void registerIntDictionary(
-      const EncodingKey& ek,
-      folly::Function<BufferPtr(velox::memory::MemoryPool*)>&& dictGen);
-
-  BufferPtr getIntDictionary(const EncodingKey& ek);
-
- private:
   // This is typically the reader's memory pool.
-  memory::MemoryPool* pool_;
+  memory::MemoryPool* const pool_;
   std::unordered_map<
       EncodingKey,
       std::unique_ptr<DictionaryEntry>,

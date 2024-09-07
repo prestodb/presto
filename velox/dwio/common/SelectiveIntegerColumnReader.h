@@ -20,8 +20,8 @@
 
 namespace facebook::velox::dwio::common {
 
-// Abstract class for format and encoding-independent parts of reading ingeger
-// columns.
+/// Abstract class for format and encoding-independent parts of reading ingeger
+/// columns.
 class SelectiveIntegerColumnReader : public SelectiveColumnReader {
  public:
   SelectiveIntegerColumnReader(
@@ -35,7 +35,7 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
             params,
             scanSpec) {}
 
-  void getValues(RowSet rows, VectorPtr* result) override {
+  void getValues(const RowSet& rows, VectorPtr* result) override {
     getIntValues(rows, requestedType_, result);
   }
 
@@ -48,13 +48,13 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
       typename ExtractValues>
   void processFilter(
       velox::common::Filter* filter,
-      ExtractValues extractValues,
-      RowSet rows);
+      const ExtractValues& extractValues,
+      const RowSet& rows);
 
   // Switches based on the type of ValueHook between different readWithVisitor
   // instantiations.
   template <typename Reader, bool isDense>
-  void processValueHook(RowSet rows, ValueHook* hook);
+  void processValueHook(const RowSet& rows, ValueHook* hook);
 
   // Instantiates a Visitor based on type, isDense, value processing.
   template <
@@ -64,14 +64,14 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
       typename ExtractValues>
   void readHelper(
       velox::common::Filter* filter,
-      RowSet rows,
-      ExtractValues extractValues);
+      const RowSet& rows,
+      const ExtractValues& extractValues);
 
   // The common part of integer reading. calls the appropriate
   // instantiation of processValueHook or processFilter based on
   // possible value hook, filter and denseness.
   template <typename Reader, bool kEncodingHasNulls>
-  void readCommon(RowSet rows);
+  void readCommon(const RowSet& rows);
 };
 
 template <
@@ -81,8 +81,8 @@ template <
     typename ExtractValues>
 void SelectiveIntegerColumnReader::readHelper(
     velox::common::Filter* filter,
-    RowSet rows,
-    ExtractValues extractValues) {
+    const RowSet& rows,
+    const ExtractValues& extractValues) {
   switch (valueSize_) {
     case 2:
       reinterpret_cast<Reader*>(this)->Reader::readWithVisitor(
@@ -124,8 +124,8 @@ template <
     typename ExtractValues>
 void SelectiveIntegerColumnReader::processFilter(
     velox::common::Filter* filter,
-    ExtractValues extractValues,
-    RowSet rows) {
+    const ExtractValues& extractValues,
+    const RowSet& rows) {
   if (filter == nullptr) {
     readHelper<Reader, velox::common::AlwaysTrue, isDense>(
         &dwio::common::alwaysTrue(), rows, extractValues);
@@ -193,7 +193,7 @@ void SelectiveIntegerColumnReader::processFilter(
 
 template <typename Reader, bool isDense>
 void SelectiveIntegerColumnReader::processValueHook(
-    RowSet rows,
+    const RowSet& rows,
     ValueHook* hook) {
   switch (hook->kind()) {
     case aggregate::AggregationHook::kBigintSum:
@@ -227,8 +227,8 @@ void SelectiveIntegerColumnReader::processValueHook(
 }
 
 template <typename Reader, bool kEncodingHasNulls>
-void SelectiveIntegerColumnReader::readCommon(RowSet rows) {
-  bool isDense = rows.back() == rows.size() - 1;
+void SelectiveIntegerColumnReader::readCommon(const RowSet& rows) {
+  const bool isDense = rows.back() == rows.size() - 1;
   velox::common::Filter* filter =
       scanSpec_->filter() ? scanSpec_->filter() : &alwaysTrue();
   if (scanSpec_->keepValues()) {

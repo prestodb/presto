@@ -37,8 +37,10 @@ class StructColumnReader : public dwio::common::SelectiveStructColumnReader {
       ParquetParams& params,
       common::ScanSpec& scanSpec);
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override;
+  void read(
+      vector_size_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls) override;
 
   void seekToRowGroup(uint32_t index) override;
 

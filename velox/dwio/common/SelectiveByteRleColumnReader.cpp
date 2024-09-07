@@ -18,7 +18,9 @@
 
 namespace facebook::velox::dwio::common {
 
-void SelectiveByteRleColumnReader::getValues(RowSet rows, VectorPtr* result) {
+void SelectiveByteRleColumnReader::getValues(
+    const RowSet& rows,
+    VectorPtr* result) {
   switch (requestedType_->kind()) {
     case TypeKind::BOOLEAN:
       getFlatValues<int8_t, bool>(rows, result, requestedType_);

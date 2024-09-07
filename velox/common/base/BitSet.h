@@ -22,12 +22,12 @@
 #include "velox/common/base/BitUtil.h"
 
 namespace facebook::velox {
-// Dynamic size dense bit set that Keeps track of maximum set bit.
+/// Dynamic size dense bit set that keeps track of maximum set bit.
 class BitSet {
  public:
-  // Constructs a bitSet. 'min' is the lowest possible member of the
-  // set. Values below this are not present and inserting these is a
-  // no-op. 'min' is used when using this as an IN predicate filter.
+  /// Constructs a bitSet. 'min' is the lowest possible member of the set.
+  /// Values below this are not present and inserting these is a no-op. 'min' is
+  /// used when using this as an IN predicate filter.
   explicit BitSet(int64_t min) : min_(min) {}
 
   void insert(int64_t index) {
@@ -56,7 +56,7 @@ class BitSet {
     return bits::isBitSet(bits_.data(), bit);
   }
 
-  // Returns the largest element of the set or 'min_ - 1' if empty.
+  /// Returns the largest element of the set or 'min_ - 1' if empty.
   int64_t max() const {
     return lastSetBit_ + min_;
   }
@@ -66,8 +66,8 @@ class BitSet {
   }
 
  private:
-  std::vector<uint64_t> bits_;
   const int64_t min_;
+  std::vector<uint64_t> bits_;
   int64_t lastSetBit_ = -1;
 };
 

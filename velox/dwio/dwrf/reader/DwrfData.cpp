@@ -53,23 +53,25 @@ uint64_t DwrfData::skipNulls(uint64_t numValues, bool /*nullsOnly*/) {
   if (!notNullDecoder_ && !flatMapContext_.inMapDecoder) {
     return numValues;
   }
+
   // Page through the values that we want to skip and count how many are
   // non-null.
   constexpr uint64_t kBufferBytes = 1024;
   constexpr auto kBitCount = kBufferBytes * 8;
-  auto countNulls = [](ByteRleDecoder& decoder, size_t size) {
+  const auto countNulls = [](ByteRleDecoder& decoder, size_t size) {
     char buffer[kBufferBytes];
     decoder.next(buffer, size, nullptr);
     return bits::countNulls(reinterpret_cast<const uint64_t*>(buffer), 0, size);
   };
+
   uint64_t remaining = numValues;
   while (remaining > 0) {
-    uint64_t chunkSize = std::min(remaining, kBitCount);
-    uint64_t nullCount;
-    if (flatMapContext_.inMapDecoder) {
+    const uint64_t chunkSize = std::min(remaining, kBitCount);
+    uint64_t nullCount{0};
+    if (flatMapContext_.inMapDecoder != nullptr) {
       nullCount = countNulls(*flatMapContext_.inMapDecoder, chunkSize);
       if (notNullDecoder_) {
-        if (auto inMapSize = chunkSize - nullCount; inMapSize > 0) {
+        if (const auto inMapSize = chunkSize - nullCount; inMapSize > 0) {
           nullCount += countNulls(*notNullDecoder_, inMapSize);
         }
       }
@@ -91,8 +93,9 @@ void DwrfData::ensureRowGroupIndex() {
 
 dwio::common::PositionProvider DwrfData::seekToRowGroup(uint32_t index) {
   ensureRowGroupIndex();
-  tempPositions_ = toPositionsInner(index_->entry(index));
-  dwio::common::PositionProvider positionProvider(tempPositions_);
+
+  positionsHolder_ = toPositionsInner(index_->entry(index));
+  dwio::common::PositionProvider positionProvider(positionsHolder_);
   if (flatMapContext_.inMapDecoder) {
     flatMapContext_.inMapDecoder->seekToRowGroup(positionProvider);
   }
@@ -113,11 +116,13 @@ void DwrfData::readNulls(
     nulls = nullptr;
     return;
   }
-  auto numBytes = bits::nbytes(numValues);
+
+  const auto numBytes = bits::nbytes(numValues);
   if (!nulls || nulls->capacity() < numBytes) {
     nulls = AlignedBuffer::allocate<char>(numBytes, &memoryPool_);
   }
   nulls->setSize(numBytes);
+
   auto* nullsPtr = nulls->asMutable<char>();
   if (flatMapContext_.inMapDecoder) {
     if (notNullDecoder_) {
@@ -132,7 +137,7 @@ void DwrfData::readNulls(
   } else if (notNullDecoder_) {
     notNullDecoder_->next(nullsPtr, numValues, incomingNulls);
   } else {
-    memcpy(nullsPtr, incomingNulls, numBytes);
+    ::memcpy(nullsPtr, incomingNulls, numBytes);
   }
 }
 
@@ -144,22 +149,25 @@ void DwrfData::filterRowGroups(
   if (!index_ && !indexStream_) {
     return;
   }
+
   ensureRowGroupIndex();
-  auto filter = scanSpec.filter();
-  auto dwrfContext = reinterpret_cast<const StatsContext*>(&writerContext);
+  auto* filter = scanSpec.filter();
+  auto* dwrfContext = reinterpret_cast<const StatsContext*>(&writerContext);
   result.totalCount = std::max(result.totalCount, index_->entry_size());
-  auto nwords = bits::nwords(result.totalCount);
+  const auto nwords = bits::nwords(result.totalCount);
   if (result.filterResult.size() < nwords) {
     result.filterResult.resize(nwords);
   }
-  auto metadataFiltersStartIndex = result.metadataFilterResults.size();
+
+  const auto metadataFiltersStartIndex = result.metadataFilterResults.size();
   for (int i = 0; i < scanSpec.numMetadataFilters(); ++i) {
     result.metadataFilterResults.emplace_back(
         scanSpec.metadataFilterNodeAt(i), std::vector<uint64_t>(nwords));
   }
-  for (auto i = 0; i < index_->entry_size(); i++) {
+
+  for (auto i = 0; i < index_->entry_size(); ++i) {
     const auto& entry = index_->entry(i);
-    auto columnStats = buildColumnStatisticsFromProto(
+    const auto columnStats = buildColumnStatisticsFromProto(
         ColumnStatisticsWrapper(&entry.statistics()), *dwrfContext);
     if (filter &&
         !testFilter(
@@ -168,6 +176,7 @@ void DwrfData::filterRowGroups(
       bits::setBit(result.filterResult.data(), i);
       continue;
     }
+
     for (int j = 0; j < scanSpec.numMetadataFilters(); ++j) {
       auto* metadataFilter = scanSpec.metadataFilterAt(j);
       if (!testFilter(

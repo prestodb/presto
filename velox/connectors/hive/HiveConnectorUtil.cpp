@@ -583,14 +583,14 @@ void configureReaderOptions(
 }
 
 void configureRowReaderOptions(
-    dwio::common::RowReaderOptions& rowReaderOptions,
     const std::unordered_map<std::string, std::string>& tableParameters,
     const std::shared_ptr<common::ScanSpec>& scanSpec,
     std::shared_ptr<common::MetadataFilter> metadataFilter,
     const RowTypePtr& rowType,
     const std::shared_ptr<const HiveConnectorSplit>& hiveSplit,
     const std::shared_ptr<const HiveConfig>& hiveConfig,
-    const config::ConfigBase* sessionProperties) {
+    const config::ConfigBase* sessionProperties,
+    dwio::common::RowReaderOptions& rowReaderOptions) {
   auto skipRowsIt =
       tableParameters.find(dwio::common::TableParameter::kSkipHeaderLineCount);
   if (skipRowsIt != tableParameters.end()) {
@@ -649,22 +649,22 @@ bool testFilters(
     const dwio::common::Reader* reader,
     const std::string& filePath,
     const std::unordered_map<std::string, std::optional<std::string>>&
-        partitionKey,
+        partitionKeys,
     const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
         partitionKeysHandle) {
-  auto totalRows = reader->numberOfRows();
+  const auto totalRows = reader->numberOfRows();
   const auto& fileTypeWithId = reader->typeWithId();
   const auto& rowType = reader->rowType();
   for (const auto& child : scanSpec->children()) {
     if (child->filter()) {
       const auto& name = child->fieldName();
-      auto iter = partitionKey.find(name);
+      auto iter = partitionKeys.find(name);
       // By design, the partition key columns for Iceberg tables are included in
       // the data files to facilitate partition transform and partition
       // evolution, so we need to test both cases.
-      if (!rowType->containsChild(name) || iter != partitionKey.end()) {
-        if (iter != partitionKey.end() && iter->second.has_value()) {
-          auto handlesIter = partitionKeysHandle.find(name);
+      if (!rowType->containsChild(name) || iter != partitionKeys.end()) {
+        if (iter != partitionKeys.end() && iter->second.has_value()) {
+          const auto handlesIter = partitionKeysHandle.find(name);
           VELOX_CHECK(handlesIter != partitionKeysHandle.end());
 
           // This is a non-null partition key
@@ -684,7 +684,7 @@ bool testFilters(
         }
       } else {
         const auto& typeWithId = fileTypeWithId->childByName(name);
-        auto columnStats = reader->columnStatistics(typeWithId->id());
+        const auto columnStats = reader->columnStatistics(typeWithId->id());
         if (columnStats != nullptr &&
             !testFilter(
                 child->filter(),

@@ -28,7 +28,7 @@ class RleBpDecoder {
       : bufferStart_(start),
         bufferEnd_(end),
         bitWidth_(bitWidth),
-        byteWidth_(bits::roundUp(bitWidth, 8) / 8),
+        byteWidth_(bits::divRoundUp(bitWidth, 8)),
         bitMask_(bits::lowMask(bitWidth)),
         lastSafeWord_(end - sizeof(uint64_t)) {}
 

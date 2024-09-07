@@ -38,27 +38,28 @@ class SelectiveIntegerDirectColumnReader
             params,
             scanSpec,
             std::move(fileType)) {
-    EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
-    auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
-    auto& stripe = params.stripeStreams();
-    bool dataVInts = stripe.getUseVInts(data);
+    const EncodingKey encodingKey{
+        fileType_->id(), params.flatMapContext().sequence};
+    const auto si = encodingKey.forKind(proto::Stream_Kind_DATA);
+    const auto& stripe = params.stripeStreams();
+    const bool dataVInts = stripe.getUseVInts(si);
 
-    format = stripe.format();
-    if (format == velox::dwrf::DwrfFormat::kDwrf) {
-      ints = createDirectDecoder</*isSigned*/ true>(
-          stripe.getStream(data, params.streamLabels().label(), true),
+    format_ = stripe.format();
+    if (format_ == velox::dwrf::DwrfFormat::kDwrf) {
+      intDecoder_ = createDirectDecoder</*isSigned=*/true>(
+          stripe.getStream(si, params.streamLabels().label(), true),
           dataVInts,
           numBytes);
-    } else if (format == velox::dwrf::DwrfFormat::kOrc) {
-      version = convertRleVersion(stripe.getEncoding(encodingKey).kind());
-      ints = createRleDecoder</*isSigned*/ true>(
-          stripe.getStream(data, params.streamLabels().label(), true),
-          version,
+    } else if (format_ == velox::dwrf::DwrfFormat::kOrc) {
+      version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+      intDecoder_ = createRleDecoder</*isSigned*/ true>(
+          stripe.getStream(si, params.streamLabels().label(), true),
+          version_,
           params.pool(),
           dataVInts,
           numBytes);
     } else {
-      VELOX_FAIL("invalid stripe format");
+      VELOX_FAIL("invalid stripe format: {}", format_);
     }
   }
 
@@ -69,31 +70,34 @@ class SelectiveIntegerDirectColumnReader
   void seekToRowGroup(uint32_t index) override {
     dwio::common::SelectiveIntegerColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
-    ints->seekToRowGroup(positionsProvider);
+    intDecoder_->seekToRowGroup(positionsProvider);
 
     VELOX_CHECK(!positionsProvider.hasNext());
   }
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override;
+  void read(
+      vector_size_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls) override;
 
   template <typename ColumnVisitor>
-  void readWithVisitor(RowSet rows, ColumnVisitor visitor);
+  void readWithVisitor(const RowSet& rows, ColumnVisitor visitor);
 
  private:
-  dwrf::DwrfFormat format;
-  RleVersion version;
-  std::unique_ptr<dwio::common::IntDecoder<true>> ints;
+  dwrf::DwrfFormat format_;
+  RleVersion version_;
+  std::unique_ptr<dwio::common::IntDecoder<true>> intDecoder_;
 };
 
 template <typename ColumnVisitor>
 void SelectiveIntegerDirectColumnReader::readWithVisitor(
-    RowSet rows,
+    const RowSet& rows,
     ColumnVisitor visitor) {
-  if (format == velox::dwrf::DwrfFormat::kDwrf) {
-    decodeWithVisitor<dwio::common::DirectDecoder<true>>(ints.get(), visitor);
+  if (format_ == velox::dwrf::DwrfFormat::kDwrf) {
+    decodeWithVisitor<dwio::common::DirectDecoder<true>>(
+        intDecoder_.get(), visitor);
   } else {
     // orc format does not use int128
     if constexpr (!std::is_same_v<typename ColumnVisitor::DataType, int128_t>) {
@@ -107,13 +111,13 @@ void SelectiveIntegerDirectColumnReader::readWithVisitor(
               &visitor.reader(),
               rows,
               visitor.extractValues());
-      if (version == velox::dwrf::RleVersion_1) {
+      if (version_ == velox::dwrf::RleVersion_1) {
         decodeWithVisitor<velox::dwrf::RleDecoderV1<true>>(
-            ints.get(), drVisitor);
+            intDecoder_.get(), drVisitor);
       } else {
-        VELOX_CHECK(version == velox::dwrf::RleVersion_2);
+        VELOX_CHECK(version_ == velox::dwrf::RleVersion_2);
         decodeWithVisitor<velox::dwrf::RleDecoderV2<true>>(
-            ints.get(), drVisitor);
+            intDecoder_.get(), drVisitor);
       }
     } else {
       VELOX_UNREACHABLE(

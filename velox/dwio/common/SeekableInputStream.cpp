@@ -37,7 +37,7 @@ void printBuffer(std::ostream& out, const char* buffer, uint64_t length) {
 }
 
 uint64_t PositionProvider::next() {
-  uint64_t result = *position_;
+  const uint64_t result = *position_;
   ++position_;
   return result;
 }

@@ -24,13 +24,13 @@ std::string_view StreamLabels::label() const {
 
 StreamLabels StreamLabels::append(std::string_view suffix) const {
   const size_t bufSize = label_.size() + suffix.size() + 1;
-  auto buffer = pool_.allocateFixed(bufSize);
+  auto* buffer = pool_.allocateFixed(bufSize);
   if (!label_.empty()) {
-    memcpy(buffer, label_.data(), label_.size());
+    ::memcpy(buffer, label_.data(), label_.size());
   }
   buffer[label_.size()] = '/';
   if (!suffix.empty()) {
-    memcpy(buffer + label_.size() + 1, suffix.data(), suffix.size());
+    ::memcpy(buffer + label_.size() + 1, suffix.data(), suffix.size());
   }
   return StreamLabels(pool_, {buffer, bufSize});
 }

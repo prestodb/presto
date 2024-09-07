@@ -70,9 +70,9 @@ BaseVector::BaseVector(
 void BaseVector::ensureNullsCapacity(
     vector_size_t minimumSize,
     bool setNotNull) {
-  auto fill = setNotNull ? bits::kNotNull : bits::kNull;
+  const auto fill = setNotNull ? bits::kNotNull : bits::kNull;
   // Ensure the size of nulls_ is always at least as large as length_.
-  auto size = std::max<vector_size_t>(minimumSize, length_);
+  const auto size = std::max<vector_size_t>(minimumSize, length_);
   if (nulls_ && !nulls_->isView() && nulls_->unique()) {
     if (nulls_->capacity() < bits::nbytes(size)) {
       AlignedBuffer::reallocate<bool>(&nulls_, size, fill);
@@ -89,7 +89,7 @@ void BaseVector::ensureNullsCapacity(
   } else {
     auto newNulls = AlignedBuffer::allocate<bool>(size, pool_, fill);
     if (nulls_) {
-      memcpy(
+      ::memcpy(
           newNulls->asMutable<char>(),
           nulls_->as<char>(),
           byteSize<bool>(std::min<vector_size_t>(length_, size)));
@@ -106,7 +106,7 @@ uint64_t BaseVector::byteSize<bool>(vector_size_t count) {
 
 void BaseVector::resize(vector_size_t size, bool setNotNull) {
   if (nulls_) {
-    auto bytes = byteSize<bool>(size);
+    const auto bytes = byteSize<bool>(size);
     if (length_ < size || nulls_->isView()) {
       ensureNullsCapacity(size, setNotNull);
     }
@@ -193,7 +193,7 @@ static VectorPtr addConstant(
     bool copyBase) {
   using T = typename KindToFlatVector<kind>::WrapperType;
 
-  auto pool = vector->pool();
+  auto* pool = vector->pool();
 
   if (vector->isNullAt(index)) {
     if constexpr (std::is_same_v<T, ComplexType>) {
@@ -246,7 +246,7 @@ VectorPtr BaseVector::wrapInConstant(
     vector_size_t index,
     VectorPtr vector,
     bool copyBase) {
-  auto kind = vector->typeKind();
+  const auto kind = vector->typeKind();
   return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       addConstant, kind, length, index, std::move(vector), copyBase);
 }
@@ -311,7 +311,7 @@ VectorPtr BaseVector::createInternal(
     case TypeKind::ARRAY: {
       BufferPtr sizes = allocateSizes(size, pool);
       BufferPtr offsets = allocateOffsets(size, pool);
-      auto elementType = type->as<TypeKind::ARRAY>().elementType();
+      const auto& elementType = type->as<TypeKind::ARRAY>().elementType();
       auto elements = create(elementType, 0, pool);
       return std::make_shared<ArrayVector>(
           pool,
@@ -325,8 +325,8 @@ VectorPtr BaseVector::createInternal(
     case TypeKind::MAP: {
       BufferPtr sizes = allocateSizes(size, pool);
       BufferPtr offsets = allocateOffsets(size, pool);
-      auto keyType = type->as<TypeKind::MAP>().keyType();
-      auto valueType = type->as<TypeKind::MAP>().valueType();
+      const auto& keyType = type->as<TypeKind::MAP>().keyType();
+      const auto& valueType = type->as<TypeKind::MAP>().valueType();
       auto keys = create(keyType, 0, pool);
       auto values = create(valueType, 0, pool);
       return std::make_shared<MapVector>(
@@ -448,8 +448,8 @@ void BaseVector::clearNulls(vector_size_t begin, vector_size_t end) {
     return;
   }
 
-  auto rawNulls = nulls_->asMutable<uint64_t>();
-  bits::fillBits(rawNulls, begin, end, true);
+  auto* rawNulls = nulls_->asMutable<uint64_t>();
+  bits::fillBits(rawNulls, begin, end, bits::kNotNull);
   nullCount_ = std::nullopt;
 }
 
@@ -793,6 +793,7 @@ bool isLazyNotLoaded(const BaseVector& vector) {
       // deeper.
       return isLazyNotLoaded(*vector.asUnchecked<LazyVector>()->loadedVector());
     case VectorEncoding::Simple::DICTIONARY:
+      [[fallthrough]];
     case VectorEncoding::Simple::SEQUENCE:
       return isLazyNotLoaded(*vector.valueVector());
     case VectorEncoding::Simple::CONSTANT:
@@ -890,7 +891,7 @@ void BaseVector::reuseNulls() {
   // there is at least one null bit set. Reset otherwise.
   if (nulls_) {
     if (nulls_->isMutable()) {
-      if (0 == BaseVector::countNulls(nulls_, length_)) {
+      if (BaseVector::countNulls(nulls_, length_) == 0) {
         nulls_ = nullptr;
         rawNulls_ = nullptr;
       }

@@ -164,10 +164,10 @@ void MapColumnReader::setLengthsFromRepDefs(PageReader& pageReader) {
   auto repDefRange = pageReader.repDefRange();
   int32_t numRepDefs = repDefRange.second - repDefRange.first;
   BufferPtr lengths = std::move(lengths_.lengths());
-  dwio::common::ensureCapacity<int32_t>(lengths, numRepDefs, &memoryPool_);
+  dwio::common::ensureCapacity<int32_t>(lengths, numRepDefs, memoryPool_);
   memset(lengths->asMutable<uint64_t>(), 0, lengths->size());
   dwio::common::ensureCapacity<uint64_t>(
-      nullsInReadRange_, bits::nwords(numRepDefs), &memoryPool_);
+      nullsInReadRange_, bits::nwords(numRepDefs), memoryPool_);
   auto numLists = pageReader.getLengthsAndNulls(
       LevelMode::kList,
       levelInfo_,
@@ -184,7 +184,7 @@ void MapColumnReader::setLengthsFromRepDefs(PageReader& pageReader) {
 
 void MapColumnReader::read(
     vector_size_t offset,
-    RowSet rows,
+    const RowSet& rows,
     const uint64_t* incomingNulls) {
   // The topmost list reader reads the repdefs for the left subtree.
   ensureRepDefs(*this, offset + rows.back() + 1 - readOffset_);
@@ -268,10 +268,10 @@ void ListColumnReader::setLengthsFromRepDefs(PageReader& pageReader) {
   auto repDefRange = pageReader.repDefRange();
   int32_t numRepDefs = repDefRange.second - repDefRange.first;
   BufferPtr lengths = std::move(lengths_.lengths());
-  dwio::common::ensureCapacity<int32_t>(lengths, numRepDefs, &memoryPool_);
+  dwio::common::ensureCapacity<int32_t>(lengths, numRepDefs, memoryPool_);
   memset(lengths->asMutable<uint64_t>(), 0, lengths->size());
   dwio::common::ensureCapacity<uint64_t>(
-      nullsInReadRange_, bits::nwords(numRepDefs), &memoryPool_);
+      nullsInReadRange_, bits::nwords(numRepDefs), memoryPool_);
   auto numLists = pageReader.getLengthsAndNulls(
       LevelMode::kList,
       levelInfo_,
@@ -287,7 +287,8 @@ void ListColumnReader::setLengthsFromRepDefs(PageReader& pageReader) {
 }
 void ListColumnReader::read(
     vector_size_t offset,
-    RowSet rows,
+
+    const RowSet& rows,
     const uint64_t* incomingNulls) {
   // The topmost list reader reads the repdefs for the left subtree.
   ensureRepDefs(*this, offset + rows.back() + 1 - readOffset_);

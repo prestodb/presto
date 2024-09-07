@@ -853,9 +853,9 @@ class ParquetRowReader::Impl {
         requestedType_,
         readerBase_->schemaWithId(), // Id is schema id
         params,
-        *options_.getScanSpec());
+        *options_.scanSpec());
     columnReader_->setFillMutatedOutputRows(
-        options_.getRowNumberColumnInfo().has_value());
+        options_.rowNumberColumnInfo().has_value());
 
     filterRowGroups();
     if (!rowGroupIds_.empty()) {
@@ -872,7 +872,7 @@ class ParquetRowReader::Impl {
 
     ParquetData::FilterRowGroupsResult res;
     columnReader_->filterRowGroups(0, ParquetStatsContext(), res);
-    if (auto& metadataFilter = options_.getMetadataFilter()) {
+    if (auto& metadataFilter = options_.metadataFilter()) {
       metadataFilter->eval(res.metadataFilterResults, res.filterResult);
     }
 
@@ -886,8 +886,7 @@ class ParquetRowReader::Impl {
           : rowGroups_[i].columns[0].meta_data.data_page_offset;
       VELOX_CHECK_GT(fileOffset, 0);
       auto rowGroupInRange =
-          (fileOffset >= options_.getOffset() &&
-           fileOffset < options_.getLimit());
+          (fileOffset >= options_.offset() && fileOffset < options_.limit());
 
       auto isExcluded =
           (i < res.totalCount && bits::isBitSet(res.filterResult.data(), i));
@@ -928,7 +927,7 @@ class ParquetRowReader::Impl {
       return 0;
     }
     VELOX_DCHECK_GT(rowsToRead, 0);
-    if (!options_.getRowNumberColumnInfo().has_value()) {
+    if (!options_.rowNumberColumnInfo().has_value()) {
       columnReader_->next(rowsToRead, result, mutation);
     } else {
       readWithRowNumber(

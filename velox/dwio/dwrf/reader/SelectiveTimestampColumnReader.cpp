@@ -28,24 +28,24 @@ SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
     common::ScanSpec& scanSpec)
     : SelectiveColumnReader(fileType->type(), fileType, params, scanSpec),
       precision_(
-          params.stripeStreams().getRowReaderOptions().timestampPrecision()) {
+          params.stripeStreams().rowReaderOptions().timestampPrecision()) {
   EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
-  seconds_ = createRleDecoder</*isSigned*/ true>(
+  seconds_ = createRleDecoder</*isSigned=*/true>(
       stripe.getStream(data, params.streamLabels().label(), true),
       version_,
-      memoryPool_,
+      *memoryPool_,
       vints,
       LONG_BYTE_SIZE);
   auto nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
   bool nanoVInts = stripe.getUseVInts(nanoData);
-  nano_ = createRleDecoder</*isSigned*/ false>(
+  nano_ = createRleDecoder</*isSigned=*/false>(
       stripe.getStream(nanoData, params.streamLabels().label(), true),
       version_,
-      memoryPool_,
+      *memoryPool_,
       nanoVInts,
       LONG_BYTE_SIZE);
 }
@@ -68,7 +68,7 @@ void SelectiveTimestampColumnReader::seekToRowGroup(uint32_t index) {
 
 void SelectiveTimestampColumnReader::read(
     vector_size_t offset,
-    RowSet rows,
+    const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<int64_t>(offset, rows, incomingNulls);
   VELOX_CHECK(
@@ -78,7 +78,7 @@ void SelectiveTimestampColumnReader::read(
       resultNulls_->capacity() * 8 < rows.size()) {
     // Make sure a dedicated resultNulls_ is allocated with enough capacity as
     // RleDecoder always assumes it is available.
-    resultNulls_ = AlignedBuffer::allocate<bool>(rows.size(), &memoryPool_);
+    resultNulls_ = AlignedBuffer::allocate<bool>(rows.size(), memoryPool_);
     rawResultNulls_ = resultNulls_->asMutable<uint64_t>();
   }
   bool isDense = rows.back() == rows.size() - 1;
@@ -93,7 +93,7 @@ void SelectiveTimestampColumnReader::read(
 template <bool isDense>
 void SelectiveTimestampColumnReader::readHelper(
     common::Filter* filter,
-    RowSet rows) {
+    const RowSet& rows) {
   ExtractToReader extractValues(this);
   common::AlwaysTrue alwaysTrue;
   DirectRleColumnVisitor<
@@ -112,7 +112,7 @@ void SelectiveTimestampColumnReader::readHelper(
   // Save the seconds into their own buffer before reading nanos into
   // 'values_'
   dwio::common::ensureCapacity<uint64_t>(
-      secondsValues_, numValues_, &memoryPool_);
+      secondsValues_, numValues_, memoryPool_);
   secondsValues_->setSize(numValues_ * sizeof(int64_t));
   memcpy(
       secondsValues_->asMutable<char>(),
@@ -133,7 +133,7 @@ void SelectiveTimestampColumnReader::readHelper(
   const auto rawNulls = nullsInReadRange_
       ? (isDense ? nullsInReadRange_->as<uint64_t>() : rawResultNulls_)
       : nullptr;
-  auto tsValues = AlignedBuffer::allocate<Timestamp>(numValues_, &memoryPool_);
+  auto tsValues = AlignedBuffer::allocate<Timestamp>(numValues_, memoryPool_);
   auto rawTs = tsValues->asMutable<Timestamp>();
 
   for (vector_size_t i = 0; i < numValues_; i++) {
@@ -196,7 +196,7 @@ void SelectiveTimestampColumnReader::readHelper(
 
 void SelectiveTimestampColumnReader::processNulls(
     const bool isNull,
-    const RowSet rows,
+    const RowSet& rows,
     const uint64_t* rawNulls) {
   if (!rawNulls) {
     return;
@@ -227,7 +227,7 @@ void SelectiveTimestampColumnReader::processNulls(
 
 void SelectiveTimestampColumnReader::processFilter(
     const common::Filter* filter,
-    const RowSet rows,
+    const RowSet& rows,
     const uint64_t* rawNulls) {
   auto rawTs = values_->asMutable<Timestamp>();
 
@@ -257,7 +257,9 @@ void SelectiveTimestampColumnReader::processFilter(
   }
 }
 
-void SelectiveTimestampColumnReader::getValues(RowSet rows, VectorPtr* result) {
+void SelectiveTimestampColumnReader::getValues(
+    const RowSet& rows,
+    VectorPtr* result) {
   getFlatValues<Timestamp, Timestamp>(rows, result, fileType_->type(), true);
 }
 

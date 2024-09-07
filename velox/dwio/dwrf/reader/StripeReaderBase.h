@@ -26,32 +26,32 @@ namespace facebook::velox::dwrf {
 struct StripeMetadata {
   dwio::common::BufferedInput* stripeInput;
   std::shared_ptr<const proto::StripeFooter> footer;
-  std::unique_ptr<encryption::DecryptionHandler> handler;
+  std::unique_ptr<encryption::DecryptionHandler> decryptionHandler;
   StripeInformationWrapper stripeInfo;
 
   StripeMetadata(
-      std::shared_ptr<dwio::common::BufferedInput> stripeInput,
-      std::shared_ptr<const proto::StripeFooter> footer,
-      std::unique_ptr<encryption::DecryptionHandler> handler,
-      StripeInformationWrapper stripeInfo)
-      : stripeInput{stripeInput.get()},
-        footer{std::move(footer)},
-        handler{std::move(handler)},
-        stripeInfo{std::move(stripeInfo)},
-        stripeInputOwned{std::move(stripeInput)} {}
+      std::shared_ptr<dwio::common::BufferedInput> _stripeInput,
+      std::shared_ptr<const proto::StripeFooter> _footer,
+      std::unique_ptr<encryption::DecryptionHandler> _decryptionHandler,
+      StripeInformationWrapper _stripeInfo)
+      : stripeInput{_stripeInput.get()},
+        footer{std::move(_footer)},
+        decryptionHandler{std::move(_decryptionHandler)},
+        stripeInfo{std::move(_stripeInfo)},
+        stripeInputOwned_{std::move(_stripeInput)} {}
 
   StripeMetadata(
-      dwio::common::BufferedInput* stripeInput,
-      std::shared_ptr<const proto::StripeFooter> footer,
-      std::unique_ptr<encryption::DecryptionHandler> handler,
-      StripeInformationWrapper stripeInfo)
-      : stripeInput{stripeInput},
-        footer{std::move(footer)},
-        handler{std::move(handler)},
-        stripeInfo{std::move(stripeInfo)} {}
+      dwio::common::BufferedInput* _stripeInput,
+      std::shared_ptr<const proto::StripeFooter> _footer,
+      std::unique_ptr<encryption::DecryptionHandler> _decryptionHandler,
+      StripeInformationWrapper _stripeInfo)
+      : stripeInput{_stripeInput},
+        footer{std::move(_footer)},
+        decryptionHandler{std::move(_decryptionHandler)},
+        stripeInfo{std::move(_stripeInfo)} {}
 
  private:
-  std::shared_ptr<dwio::common::BufferedInput> stripeInputOwned;
+  const std::shared_ptr<dwio::common::BufferedInput> stripeInputOwned_;
 };
 
 class StripeReaderBase {
@@ -74,14 +74,14 @@ class StripeReaderBase {
       bool& preload) const;
 
  private:
-  const std::shared_ptr<ReaderBase> reader_;
-
   // stripeFooter default null arg should only be used for testing.
   void loadEncryptionKeys(
       uint32_t index,
       const proto::StripeFooter& stripeFooter,
-      encryption::DecryptionHandler& handler,
-      const StripeInformationWrapper& stripeInfo) const;
+      const StripeInformationWrapper& stripeInfo,
+      encryption::DecryptionHandler& handler) const;
+
+  const std::shared_ptr<ReaderBase> reader_;
 
   friend class StripeLoadKeysTest;
 };

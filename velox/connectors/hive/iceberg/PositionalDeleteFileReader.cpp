@@ -121,12 +121,14 @@ PositionalDeleteFileReader::PositionalDeleteFileReader(
 
   dwio::common::RowReaderOptions deleteRowReaderOpts;
   configureRowReaderOptions(
-      deleteRowReaderOpts,
       {},
       scanSpec,
       nullptr,
       deleteFileSchema,
-      deleteSplit_);
+      deleteSplit_,
+      nullptr,
+      nullptr,
+      deleteRowReaderOpts);
 
   deleteRowReader_.reset();
   deleteRowReader_ = deleteReader->createRowReader(deleteRowReaderOpts);

@@ -42,24 +42,24 @@ class SelectiveIntegerDictionaryColumnReader
     }
 
     dataReader_->seekToRowGroup(positionsProvider);
-
     VELOX_CHECK(!positionsProvider.hasNext());
   }
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override;
+  void read(
+      vector_size_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls) override;
 
   template <typename ColumnVisitor>
-  void readWithVisitor(RowSet rows, ColumnVisitor visitor);
+  void readWithVisitor(const RowSet& rows, ColumnVisitor visitor);
 
  private:
   void ensureInitialized();
 
   std::unique_ptr<ByteRleDecoder> inDictionaryReader_;
-  std::unique_ptr<dwio::common::IntDecoder</* isSigned = */ false>> dataReader_;
-  std::unique_ptr<dwio::common::IntDecoder</* isSigned = */ true>> dictReader_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned=*/false>> dataReader_;
   std::function<BufferPtr()> dictInit_;
   RleVersion rleVersion_;
   bool initialized_{false};
@@ -67,7 +67,7 @@ class SelectiveIntegerDictionaryColumnReader
 
 template <typename ColumnVisitor>
 void SelectiveIntegerDictionaryColumnReader::readWithVisitor(
-    RowSet rows,
+    const RowSet& /*rows*/,
     ColumnVisitor visitor) {
   auto dictVisitor = visitor.toDictionaryColumnVisitor();
   if (rleVersion_ == RleVersion_1) {

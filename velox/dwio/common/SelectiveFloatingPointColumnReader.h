@@ -41,10 +41,12 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
   }
 
   template <typename Reader, bool kEncodingHasNulls>
-  void
-  readCommon(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls);
+  void readCommon(
+      vector_size_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls);
 
-  void getValues(RowSet rows, VectorPtr* result) override {
+  void getValues(const RowSet& rows, VectorPtr* result) override {
     getFlatValues<TData, TRequested>(rows, result, requestedType_);
   }
 
@@ -171,7 +173,7 @@ template <typename TData, typename TRequested>
 template <typename Reader, bool kEncodingHasNulls>
 void SelectiveFloatingPointColumnReader<TData, TRequested>::readCommon(
     vector_size_t offset,
-    RowSet rows,
+    const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<TData>(offset, rows, incomingNulls);
   bool isDense = rows.back() == rows.size() - 1;

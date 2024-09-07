@@ -26,25 +26,25 @@ using dwio::common::LogType;
 std::unique_ptr<const StripeMetadata> StripeReaderBase::fetchStripe(
     uint32_t index,
     bool& preload) const {
-  auto& fileFooter = reader_->getFooter();
+  auto& fileFooter = reader_->footer();
   VELOX_CHECK_LT(index, fileFooter.stripesSize(), "invalid stripe index");
   auto stripe = fileFooter.stripes(index);
-  auto& cache = reader_->getMetadataCache();
+  auto& cache = reader_->metadataCache();
 
   uint64_t offset = stripe.offset();
   uint64_t length =
       stripe.indexLength() + stripe.dataLength() + stripe.footerLength();
 
-  std::unique_ptr<dwio::common::BufferedInput> prefetchedStripe;
-  if (reader_->getBufferedInput().isBuffered(offset, length)) {
+  std::unique_ptr<dwio::common::BufferedInput> stripeInput;
+  if (reader_->bufferedInput().isBuffered(offset, length)) {
     preload = true;
-    prefetchedStripe = nullptr;
+    stripeInput = nullptr;
   } else {
-    prefetchedStripe = reader_->getBufferedInput().clone();
+    stripeInput = reader_->bufferedInput().clone();
     if (preload) {
       // If metadata cache exists, adjust read position to avoid re-reading
       // metadata sections
-      if (cache) {
+      if (cache != nullptr) {
         if (cache->has(StripeCacheMode::INDEX, index)) {
           offset += stripe.indexLength();
           length -= stripe.indexLength();
@@ -54,68 +54,68 @@ std::unique_ptr<const StripeMetadata> StripeReaderBase::fetchStripe(
         }
       }
 
-      prefetchedStripe->enqueue({offset, length, "stripe"});
-      prefetchedStripe->load(LogType::STRIPE);
+      stripeInput->enqueue({offset, length, "stripe"});
+      stripeInput->load(LogType::STRIPE);
     }
   }
 
   // load stripe footer
-  std::unique_ptr<dwio::common::SeekableInputStream> stream;
+  std::unique_ptr<dwio::common::SeekableInputStream> footerStream;
   if (cache) {
-    stream = cache->get(StripeCacheMode::FOOTER, index);
+    footerStream = cache->get(StripeCacheMode::FOOTER, index);
   }
 
-  if (!stream) {
-    dwio::common::BufferedInput& bi =
-        prefetchedStripe ? *prefetchedStripe : reader_->getBufferedInput();
-    stream = bi.read(
+  if (!footerStream) {
+    dwio::common::BufferedInput& bufferInput =
+        (stripeInput != nullptr) ? *stripeInput : reader_->bufferedInput();
+    footerStream = bufferInput.read(
         stripe.offset() + stripe.indexLength() + stripe.dataLength(),
         stripe.footerLength(),
         LogType::STRIPE_FOOTER);
   }
 
-  auto streamDebugInfo = fmt::format("Stripe {} Footer ", index);
+  const auto streamDebugInfo = fmt::format("Stripe {} Footer ", index);
 
   auto arena = std::make_shared<google::protobuf::Arena>();
   auto* rawFooter =
       google::protobuf::Arena::CreateMessage<proto::StripeFooter>(arena.get());
   ProtoUtils::readProtoInto(
-      reader_->createDecompressedStream(std::move(stream), streamDebugInfo),
+      reader_->createDecompressedStream(
+          std::move(footerStream), streamDebugInfo),
       rawFooter);
   std::shared_ptr<proto::StripeFooter> stripeFooter(
       rawFooter, [arena = std::move(arena)](auto*) { arena->Reset(); });
 
-  auto handler = std::make_unique<encryption::DecryptionHandler>(
-      reader_->getDecryptionHandler());
+  auto decryptionHandler = std::make_unique<encryption::DecryptionHandler>(
+      reader_->decryptionHandler());
 
   // refresh stripe encryption key if necessary
-  loadEncryptionKeys(index, *stripeFooter, *handler, stripe);
-
-  return prefetchedStripe == nullptr ? std::make_unique<const StripeMetadata>(
-                                           &reader_->getBufferedInput(),
-                                           std::move(stripeFooter),
-                                           std::move(handler),
-                                           std::move(stripe))
-                                     : std::make_unique<const StripeMetadata>(
-                                           std::move(prefetchedStripe),
-                                           std::move(stripeFooter),
-                                           std::move(handler),
-                                           std::move(stripe));
+  loadEncryptionKeys(index, *stripeFooter, stripe, *decryptionHandler);
+  return stripeInput == nullptr ? std::make_unique<const StripeMetadata>(
+                                      &reader_->bufferedInput(),
+                                      std::move(stripeFooter),
+                                      std::move(decryptionHandler),
+                                      std::move(stripe))
+                                : std::make_unique<const StripeMetadata>(
+                                      std::move(stripeInput),
+                                      std::move(stripeFooter),
+                                      std::move(decryptionHandler),
+                                      std::move(stripe));
 }
 
 void StripeReaderBase::loadEncryptionKeys(
     uint32_t index,
     const proto::StripeFooter& stripeFooter,
-    encryption::DecryptionHandler& handler,
-    const StripeInformationWrapper& stripeInfo) const {
+    const StripeInformationWrapper& stripeInfo,
+    encryption::DecryptionHandler& handler) const {
   if (!handler.isEncrypted()) {
     return;
   }
 
-  DWIO_ENSURE_EQ(
+  VELOX_CHECK_EQ(
       stripeFooter.encryptiongroups_size(), handler.getEncryptionGroupCount());
-  auto& fileFooter = reader_->getFooter();
-  DWIO_ENSURE_LT(index, fileFooter.stripesSize(), "invalid stripe index");
+  const auto& fileFooter = reader_->footer();
+  VELOX_CHECK_LT(index, fileFooter.stripesSize(), "invalid stripe index");
 
   // If current stripe has keys, load these keys.
   if (stripeInfo.keyMetadataSize() > 0) {
@@ -131,12 +131,13 @@ void StripeReaderBase::loadEncryptionKeys(
     //
     // But, since we are enabling parallel loads now, let's not rely on
     // sequential order. Let's apply (2).
-    DWIO_ENSURE_GT(index, 0, "first stripe must have key");
+    VELOX_CHECK_GT(index, 0, "first stripe must have key");
+
     uint32_t prevIndex = index - 1;
     while (true) {
-      auto prev = fileFooter.stripes(prevIndex);
-      if (prev.keyMetadataSize() > 0) {
-        handler.setKeys(prev.keyMetadata());
+      const auto prevStripeInfo = fileFooter.stripes(prevIndex);
+      if (prevStripeInfo.keyMetadataSize() > 0) {
+        handler.setKeys(prevStripeInfo.keyMetadata());
         break;
       }
       --prevIndex;

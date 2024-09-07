@@ -282,7 +282,7 @@ class RleBpDataDecoder : public facebook::velox::parquet::RleBpDecoder {
     if (ptr < lastSafeWord) {
       return *reinterpret_cast<const uint64_t*>(ptr) >> bitOffset;
     }
-    int32_t byteWidth = bits::roundUp(bitOffset + bitWidth, 8) / 8;
+    const int32_t byteWidth = bits::divRoundUp(bitOffset + bitWidth, 8);
     return bits::loadPartialWord(
                reinterpret_cast<const uint8_t*>(ptr), byteWidth) >>
         bitOffset;

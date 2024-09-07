@@ -38,8 +38,8 @@ class ColumnLoader : public velox::VectorLoader {
       VectorPtr* result) override;
 
  private:
-  SelectiveStructColumnReaderBase* structReader_;
-  SelectiveColumnReader* fieldReader_;
+  SelectiveStructColumnReaderBase* const structReader_;
+  SelectiveColumnReader* const fieldReader_;
   // This is checked against the version of 'structReader' on load. If
   // these differ, 'structReader' has been advanced since the creation
   // of 'this' and 'this' is no longer loadable.
