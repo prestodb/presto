@@ -32,6 +32,7 @@ import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
+import com.facebook.presto.RequestModifierManager;
 import com.facebook.presto.RequestModifierModule;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
@@ -63,6 +64,7 @@ import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.RequestModifier;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.AccessControl;
@@ -108,6 +110,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -826,5 +829,26 @@ public class TestingPrestoServer
     private static int driftServerPort(DriftServer server)
     {
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
+    }
+
+    public RequestModifierManager getRequestModifierManager()
+    {
+        RequestModifierManager manager = new RequestModifierManager();
+        RequestModifier sampleModifier = new RequestModifier() {
+            @Override
+            public List<String> getHeaderNames()
+            {
+                return Collections.singletonList("Extra-credential");
+            }
+            @Override
+            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
+            {
+                Map<String, String> headers = new HashMap<>();
+                headers.put("X-Custom-Header", "CustomValue");
+                return Optional.of(headers);
+            }
+        };
+        manager.registerRequestModifier(sampleModifier);
+        return manager;
     }
 }
