@@ -94,6 +94,7 @@ import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropTag;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
@@ -1018,6 +1019,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitDropBranch(DropBranch node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropTag(DropTag node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }
