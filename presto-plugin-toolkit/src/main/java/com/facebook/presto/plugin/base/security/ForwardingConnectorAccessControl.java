@@ -279,6 +279,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanDropTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanDropTag(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
     public void checkCanDropConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         delegate().checkCanDropConstraint(transactionHandle, identity, context, tableName);

@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropTag;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Grant;
@@ -135,6 +136,7 @@ public final class StatementUtils
         builder.put(DropColumn.class, QueryType.DATA_DEFINITION);
         builder.put(DropTable.class, QueryType.DATA_DEFINITION);
         builder.put(DropBranch.class, QueryType.DATA_DEFINITION);
+        builder.put(DropTag.class, QueryType.DATA_DEFINITION);
         builder.put(DropConstraint.class, QueryType.DATA_DEFINITION);
         builder.put(AddConstraint.class, QueryType.DATA_DEFINITION);
         builder.put(AlterColumnNotNull.class, QueryType.DATA_DEFINITION);

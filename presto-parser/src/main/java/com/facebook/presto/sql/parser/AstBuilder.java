@@ -67,6 +67,7 @@ import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropTag;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.EmptyTableTreatment;
 import com.facebook.presto.sql.tree.EmptyTableTreatment.Treatment;
@@ -602,6 +603,16 @@ class AstBuilder
                 ((StringLiteral) visit(context.name)).getValue(),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.BRANCH().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.BRANCH().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitDropTag(SqlBaseParser.DropTagContext context)
+    {
+        return new DropTag(getLocation(context),
+                getQualifiedName(context.tableName),
+                ((StringLiteral) visit(context.name)).getValue(),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.TAG().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.TAG().getSymbol().getTokenIndex()));
     }
 
     @Override

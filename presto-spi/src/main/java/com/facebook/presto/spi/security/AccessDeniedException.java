@@ -407,6 +407,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop a branch from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyDropTag(String tableName)
+    {
+        denyDropTag(tableName, null);
+    }
+
+    public static void denyDropTag(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop a tag from table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropConstraint(String tableName)
     {
         denyDropConstraint(tableName, null);
