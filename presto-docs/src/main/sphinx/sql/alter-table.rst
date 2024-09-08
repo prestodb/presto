@@ -15,6 +15,7 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name DROP CONSTRAINT [ IF EXISTS ] constraint_name
     ALTER TABLE [ IF EXISTS ] ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
     ALTER TABLE [ IF EXISTS ] name DROP BRANCH [ IF EXISTS ] branch_name
+    ALTER TABLE [ IF EXISTS ] name DROP TAG [ IF EXISTS ] tag_name
 
 Description
 -----------
@@ -93,6 +94,10 @@ Drop not null constraint from column ``zip`` in the ``users`` table::
 Drop branch ``branch1`` from the ``users`` table::
 
     ALTER TABLE users DROP BRANCH 'branch1';
+
+Drop tag ``tag1`` from the ``users`` table::
+
+    ALTER TABLE users DROP TAG 'tag1';
 
 See Also
 --------
