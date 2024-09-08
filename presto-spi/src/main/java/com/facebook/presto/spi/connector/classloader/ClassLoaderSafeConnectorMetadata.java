@@ -865,6 +865,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean tagExists)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropTag(session, tableHandle, tagName, tagExists);
+        }
+    }
+
+    @Override
     public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

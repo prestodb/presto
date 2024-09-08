@@ -946,6 +946,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop the specified tag
+     */
+    default void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean tagExists)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping table tags");
+    }
+
+    /**
      * Drop the specified constraint
      */
     default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)

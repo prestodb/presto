@@ -42,6 +42,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyDropCon
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -433,6 +434,16 @@ public interface ConnectorAccessControl
     default void checkCanDropBranch(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         denyDropBranch(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop tag from the specified table in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDropTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        denyDropTag(tableName.toString());
     }
 
     /**

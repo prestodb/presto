@@ -209,6 +209,7 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c drop column x");
 
         printStatement("alter table a.b.c drop branch 'x'");
+        printStatement("alter table a.b.c drop tag 'testTag'");
 
         printStatement("create schema test");
         printStatement("create schema if not exists test");

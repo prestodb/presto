@@ -734,6 +734,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         throw new UnsupportedOperationException();

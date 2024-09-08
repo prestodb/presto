@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropTag;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
@@ -1842,6 +1843,23 @@ public final class SqlFormatter
                 builder.append("IF EXISTS ");
             }
             builder.append(formatStringLiteral(node.getBranchName()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropTag(DropTag node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()))
+                    .append(" DROP TAG ");
+            if (node.isTagExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatStringLiteral(node.getTagName()));
 
             return null;
         }

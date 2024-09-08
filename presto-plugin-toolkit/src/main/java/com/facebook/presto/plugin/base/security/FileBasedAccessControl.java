@@ -55,6 +55,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyDropCol
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
@@ -357,6 +358,14 @@ public class FileBasedAccessControl
     {
         if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
             denyDropBranch(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanDropTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+            denyDropTag(tableName.toString());
         }
     }
 

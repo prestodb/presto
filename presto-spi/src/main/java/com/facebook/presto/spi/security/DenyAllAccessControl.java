@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyDropCon
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -334,6 +335,12 @@ public class DenyAllAccessControl
     public void checkCanDropBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         denyDropBranch(tableName.toString());
+    }
+
+    @Override
+    public void checkCanDropTag(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        denyDropTag(tableName.toString());
     }
 
     @Override
