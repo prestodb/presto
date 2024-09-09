@@ -573,12 +573,15 @@ jobs:
           path: |
             /tmp/spark_fuzzer_repro
 
-  join-fuzzer-run:
+  presto-java-join-fuzzer-run:
     name: Join Fuzzer
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos9
+    container: ghcr.io/facebookincubator/velox-dev:presto-java
     needs: compile
     timeout-minutes: 120
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      LINUX_DISTRO: "centos"
     steps:
 
       - name: Download join fuzzer
@@ -586,8 +589,28 @@ jobs:
         with:
           name: join
 
+      - name: "Checkout Repo"
+        uses: actions/checkout@v4
+        with:
+          path: velox
+          submodules: 'recursive'
+          ref: "${{ inputs.ref }}"
+
+      - name: Fix git permissions
+          # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
+
       - name: Run Join Fuzzer
         run: |
+          cd  velox
+          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          ls -lR $PRESTO_HOME/etc
+          $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
+          # Sleep for 60 seconds to allow Presto server to start.
+          sleep 60
+          /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
+          cd -
           mkdir -p /tmp/join_fuzzer_repro/logs/
           chmod -R 777 /tmp/join_fuzzer_repro
           chmod +x velox_join_fuzzer_test
@@ -597,15 +620,18 @@ jobs:
                 --minloglevel=0 \
                 --stderrthreshold=2 \
                 --log_dir=/tmp/join_fuzzer_repro/logs \
+                --presto_url=http://127.0.0.1:8080 \
+                --req_timeout_ms=2000 \
             && echo -e "\n\nJoin fuzzer run finished successfully."
 
-      - name: Archive aggregate production artifacts
+      - name: Archive join production artifacts
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: join-fuzzer-failure-artifacts
+          name: presto-sot-join-fuzzer-failure-artifacts
           path: |
             /tmp/join_fuzzer_repro
+            /tmp/server.log
 
   exchange-fuzzer-run:
     name: Exchange Fuzzer
