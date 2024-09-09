@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
@@ -257,6 +258,15 @@ public abstract class BasePlanFragmenter
         }
         if (node.getPreferredShufflePartitioningScheme().isPresent()) {
             context.get().setDistribution(node.getPreferredShufflePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+        }
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
+    public PlanNode visitCallDistributedProcedure(CallDistributedProcedureNode node, RewriteContext<FragmentProperties> context)
+    {
+        if (node.getPartitioningScheme().isPresent()) {
+            context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
         }
         return context.defaultRewrite(node, context.get());
     }

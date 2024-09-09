@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
@@ -969,6 +970,40 @@ public class MetadataManager
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
         metadata.finishDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments);
+    }
+
+    @Override
+    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
+
+        ConnectorTableLayoutHandle layout;
+        if (!tableHandle.getLayout().isPresent()) {
+            TableLayoutResult result = getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+            layout = result.getLayout().getLayoutHandle();
+        }
+        else {
+            layout = tableHandle.getLayout().get();
+        }
+
+        ConnectorDistributedProcedureHandle procedureHandle = catalogMetadata.getMetadata().beginCallDistributedProcedure(
+                session.toConnectorSession(connectorId),
+                procedureName,
+                layout,
+                arguments);
+        return new DistributedProcedureHandle(
+                tableHandle.getConnectorId(),
+                tableHandle.getTransaction(),
+                procedureHandle);
+    }
+
+    @Override
+    public void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments)
+    {
+        ConnectorId connectorId = procedureHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        metadata.finishCallDistributedProcedure(session.toConnectorSession(connectorId), procedureHandle.getConnectorHandle(), procedureName, fragments);
     }
 
     @Override

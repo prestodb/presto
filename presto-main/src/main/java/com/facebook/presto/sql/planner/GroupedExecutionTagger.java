@@ -24,11 +24,13 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.VerifyException;
@@ -224,6 +226,22 @@ class GroupedExecutionTagger
             return new GroupedExecutionTagger.GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans, properties.recoveryEligible);
         }
         return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
+    }
+
+    @Override
+    public GroupedExecutionTagger.GroupedExecutionProperties visitCallDistributedProcedure(CallDistributedProcedureNode node, Void context)
+    {
+        GroupedExecutionTagger.GroupedExecutionProperties properties = node.getSource().accept(this, null);
+        boolean recoveryEligible = properties.isRecoveryEligible();
+        CallDistributedProcedureTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+        recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PAGE_SINK_COMMIT);
+
+        return new GroupedExecutionTagger.GroupedExecutionProperties(
+                properties.isCurrentNodeCapable(),
+                properties.isSubTreeUseful(),
+                properties.getCapableTableScanNodes(),
+                properties.getTotalLifespans(),
+                recoveryEligible);
     }
 
     @Override

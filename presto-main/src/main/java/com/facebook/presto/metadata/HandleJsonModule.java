@@ -32,6 +32,7 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(SplitJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(OutputTableHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(InsertTableHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(DistributedProcedureHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(TransactionHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(PartitioningHandleJacksonModule.class);

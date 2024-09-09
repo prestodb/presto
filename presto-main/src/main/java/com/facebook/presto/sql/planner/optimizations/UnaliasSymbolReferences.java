@@ -50,6 +50,7 @@ import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -668,6 +669,14 @@ public class UnaliasSymbolReferences
                 rewrittenSources.add(context.rewrite(source));
             }
             return rewrittenSources;
+        }
+
+        @Override
+        public PlanNode visitCallDistributedProcedure(CallDistributedProcedureNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+            return mapper.map(node, source);
         }
 
         @Override
