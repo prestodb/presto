@@ -1521,6 +1521,26 @@ void PrestoServer::registerSidecarEndpoints() {
          proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(downstream, getFunctionsMetadata());
       });
+  rowExpressionOptimizer_ =
+      std::make_unique<expression::RowExpressionOptimizer>();
+  httpServer_->registerPost(
+      "/v1/expressions",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        json::array_t inputRowExpressions =
+            json::parse(util::extractMessageBody(body));
+        auto result =
+            rowExpressionOptimizer_->optimize(message, inputRowExpressions);
+        if (result.second) {
+          VELOX_USER_CHECK(
+              result.first.is_array(),
+              "Output json should be an array of row expressions");
+          http::sendOkResponse(downstream, result.first);
+        } else {
+          http::sendErrorResponse(downstream, result.first);
+        }
+      });
   httpServer_->registerPost(
       "/v1/velox/plan",
       [server = this](
