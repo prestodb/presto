@@ -16,29 +16,14 @@
 
 #pragma once
 
-#include <vector>
-
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/InputStream.h"
+#include "velox/dwio/common/PositionProvider.h"
 #include "velox/dwio/common/wrap/zero-copy-stream-wrapper.h"
 
 namespace facebook::velox::dwio::common {
 
 void printBuffer(std::ostream& out, const char* buffer, uint64_t length);
-
-class PositionProvider {
- public:
-  explicit PositionProvider(const std::vector<uint64_t>& positions)
-      : position_{positions.begin()}, end_{positions.end()} {}
-
-  uint64_t next();
-
-  bool hasNext() const;
-
- private:
-  std::vector<uint64_t>::const_iterator position_;
-  std::vector<uint64_t>::const_iterator end_;
-};
 
 /**
  * A subclass of Google's ZeroCopyInputStream that supports seek.

@@ -16,52 +16,22 @@
 
 #pragma once
 
-#include "velox/dwio/common/exception/Exception.h"
+#include <vector>
 
 namespace facebook::velox::dwio::common {
 
-// Base class for closeable object which need to be explicitly closed before
-// being destructed
-class Closeable {
+class PositionProvider {
  public:
-  Closeable() : closed_{false} {}
+  explicit PositionProvider(const std::vector<uint64_t>& positions)
+      : position_{positions.begin()}, end_{positions.end()} {}
 
-  virtual ~Closeable() {
-    destroy();
-  }
+  uint64_t next();
 
-  bool isClosed() const {
-    return closed_;
-  }
-
-  void close() {
-    if (!closed_) {
-      closed_ = true;
-      doClose();
-    }
-  }
-
- protected:
-  void markClosed() {
-    closed_ = true;
-  }
-
-  virtual void doClose() {}
-
-  void destroy() {
-    if (!closed_) {
-      DWIO_WARN_EVERY_N(1000, "close() not called");
-      try {
-        close();
-      } catch (...) {
-        DWIO_WARN("failed to call close()");
-      }
-    }
-    DWIO_ENSURE(closed_);
-  }
+  bool hasNext() const;
 
  private:
-  bool closed_;
+  std::vector<uint64_t>::const_iterator position_;
+  std::vector<uint64_t>::const_iterator end_;
 };
 
 } // namespace facebook::velox::dwio::common
