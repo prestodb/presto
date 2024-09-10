@@ -39,8 +39,6 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.optimizations.WindowNodeUtil;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -88,7 +86,6 @@ import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.I
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -97,14 +94,14 @@ public final class ValidateDependenciesChecker
         implements PlanChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        validate(plan, types);
+        validate(plan);
     }
 
-    public static void validate(PlanNode plan, TypeProvider types)
+    public static void validate(PlanNode plan)
     {
-        plan.accept(new Visitor(types), ImmutableSet.of());
+        plan.accept(new Visitor(), ImmutableSet.of());
     }
 
     public static void checkLeftOutputVariablesBeforeRight(List<VariableReferenceExpression> leftVariables, List<VariableReferenceExpression> outputVariables)
@@ -127,11 +124,8 @@ public final class ValidateDependenciesChecker
     private static class Visitor
             extends InternalPlanVisitor<Void, Set<VariableReferenceExpression>>
     {
-        private final TypeProvider types;
-
-        public Visitor(TypeProvider types)
+        public Visitor()
         {
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -159,7 +153,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key variables (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputVariables());
 
             for (Aggregation aggregation : node.getAggregations().values()) {
-                Set<VariableReferenceExpression> dependencies = extractAggregationUniqueVariables(aggregation, types);
+                Set<VariableReferenceExpression> dependencies = extractAggregationUniqueVariables(aggregation);
                 checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputVariables());
                 aggregation.getMask().ifPresent(mask -> {
                     checkDependencies(inputs, ImmutableSet.of(mask), "Invalid node. Aggregation mask symbol (%s) not in source plan output (%s)", mask, node.getSource().getOutputVariables());
@@ -231,7 +225,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, symbolsForFrameBoundsComparison.build(), "Invalid node. Symbols for frame bound comparison (%s) not in source plan output (%s)", symbolsForFrameBoundsComparison.build(), node.getSource().getOutputVariables());
 
             for (WindowNode.Function function : node.getWindowFunctions().values()) {
-                Set<VariableReferenceExpression> dependencies = WindowNodeUtil.extractWindowFunctionUniqueVariables(function, types);
+                Set<VariableReferenceExpression> dependencies = WindowNodeUtil.extractWindowFunctionUniqueVariables(function);
                 checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputVariables());
             }
 
@@ -562,7 +556,7 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitValues(ValuesNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            Set<VariableReferenceExpression> correlatedDependencies = VariablesExtractor.extractUnique(node, types);
+            Set<VariableReferenceExpression> correlatedDependencies = VariablesExtractor.extractUnique(node);
             checkDependencies(
                     boundVariables,
                     correlatedDependencies,
@@ -730,7 +724,7 @@ public final class ValidateDependenciesChecker
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
             checkDependencies(node.getInput().getOutputVariables(), node.getCorrelation(), "APPLY input must provide all the necessary correlation variables for subquery");
-            checkDependencies(VariablesExtractor.extractUnique(node.getSubquery(), types), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
+            checkDependencies(VariablesExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
             ImmutableSet<VariableReferenceExpression> inputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(createInputs(node.getSubquery(), boundVariables))
@@ -761,7 +755,7 @@ public final class ValidateDependenciesChecker
                     node.getCorrelation(),
                     "LATERAL input must provide all the necessary correlation symbols for subquery");
             checkDependencies(
-                    VariablesExtractor.extractUnique(node.getSubquery(), types),
+                    VariablesExtractor.extractUnique(node.getSubquery()),
                     node.getCorrelation(),
                     "not all LATERAL correlation symbols are used in subquery");
 

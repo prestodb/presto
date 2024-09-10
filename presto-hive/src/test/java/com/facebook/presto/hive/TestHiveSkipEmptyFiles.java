@@ -47,7 +47,7 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createTempFile;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
-import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
 import static org.testng.Assert.assertEquals;
 
@@ -208,7 +208,7 @@ public class TestHiveSkipEmptyFiles
                 new Iterable[] {Collections.singleton(1)},
                 1,
                 GZIP,
-                PARQUET_2_0);
+                PARQUET_1_0);
         createTempFile(tempDirectory, randomUUID().toString(), randomUUID().toString());
     }
 

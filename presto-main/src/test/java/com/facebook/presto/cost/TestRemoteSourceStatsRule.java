@@ -16,7 +16,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

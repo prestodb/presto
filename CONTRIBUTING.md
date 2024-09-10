@@ -49,6 +49,7 @@ Contributions should have an associated GitHub issue.
 * Large changes should have an [RFC](https://github.com/prestodb/rfcs). The [RFC](https://github.com/prestodb/rfcs) should be reviewed before patches are submitted.
 * Medium size changes should have an issue. Work from RFCs can be broken down into smaller issues, and those smaller issues should link to the RFC.
 * Smaller changes, such as minor bug fixes and code formatting, may not need an issue and can submit a PR without one.
+* New SQL functions should follow the [Presto function guidelines](https://github.com/prestodb/presto/blob/master/FUNCTIONS.md). 
 
 ## Minimum Expectations for Contributing to Presto
 To commit code, you should:

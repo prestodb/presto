@@ -139,7 +139,10 @@ TEST_F(ServerOperationTest, taskEndpoint) {
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector("test-hive", std::make_shared<core::MemConfig>());
+          ->newConnector(
+              "test-hive",
+              std::make_shared<config::ConfigBase>(
+                  std::unordered_map<std::string, std::string>()));
   connector::registerConnector(hiveConnector);
 
   const auto driverExecutor = std::make_shared<folly::CPUThreadPoolExecutor>(

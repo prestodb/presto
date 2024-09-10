@@ -84,9 +84,9 @@ public class RegisterTableProcedure
                 "register_table",
                 ImmutableList.of(
                         new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table", VARCHAR),
-                        new Procedure.Argument("metadataLocation", VARCHAR),
-                        new Procedure.Argument("metadataFile", VARCHAR, false, null)),
+                        new Procedure.Argument("table_name", VARCHAR),
+                        new Procedure.Argument("metadata_location", VARCHAR),
+                        new Procedure.Argument("metadata_file", VARCHAR, false, null)),
                 REGISTER_TABLE.bindTo(this));
     }
 

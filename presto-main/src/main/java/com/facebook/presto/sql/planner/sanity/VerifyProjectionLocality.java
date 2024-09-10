@@ -21,9 +21,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ExternalCallExpressionChecker;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -34,7 +32,7 @@ public class VerifyProjectionLocality
         implements PlanChecker.Checker
 {
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         planNode.accept(new Visitor(metadata.getFunctionAndTypeManager()), null);
     }

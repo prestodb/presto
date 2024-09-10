@@ -31,6 +31,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.io.BytesWritable;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Type;
@@ -276,6 +277,17 @@ public class TestSerDeUtils
     }
 
     @Test
+    public void testTimestampWithDifferentStorageZone()
+    {
+        DateTimeZone storageTimeZone = DateTimeZone.forID("Europe/Prague");
+        DateTime dateTimeInJvmZone = new DateTime(2008, 10, 28, 16, 7, 15, 0);
+        DateTime dateTimeInStorageZone = dateTimeInJvmZone.withZoneRetainFields(storageTimeZone);
+        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTimeInStorageZone.getMillis()).closeEntry().build();
+        Block actualTimestamp = getPrimitiveBlock(BIGINT, new Timestamp(dateTimeInJvmZone.getMillis()), getInspector(Timestamp.class), storageTimeZone);
+        assertBlockEquals(actualTimestamp, expectedTimestamp);
+    }
+
+    @Test
     public void testReuse()
     {
         BytesWritable value = new BytesWritable();
@@ -289,7 +301,7 @@ public class TestSerDeUtils
         Type type = new TypeToken<Map<BytesWritable, Long>>() {}.getType();
         ObjectInspector inspector = getInspector(type);
 
-        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector);
+        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector, DateTimeZone.getDefault());
         Block expected = mapBlockOf(createUnboundedVarcharType(), BIGINT, "bye", 0L);
 
         assertBlockEquals(actual, expected);
@@ -310,16 +322,17 @@ public class TestSerDeUtils
 
     private static Block toBinaryBlock(com.facebook.presto.common.type.Type type, Object object, ObjectInspector inspector)
     {
+        DateTimeZone zone = DateTimeZone.getDefault();
         if (inspector.getCategory() == Category.PRIMITIVE) {
-            return getPrimitiveBlock(type, object, inspector);
+            return getPrimitiveBlock(type, object, inspector, zone);
         }
-        return getBlockObject(type, object, inspector);
+        return getBlockObject(type, object, inspector, zone);
     }
 
-    private static Block getPrimitiveBlock(com.facebook.presto.common.type.Type type, Object object, ObjectInspector inspector)
+    private static Block getPrimitiveBlock(com.facebook.presto.common.type.Type type, Object object, ObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         BlockBuilder builder = VARBINARY.createBlockBuilder(null, 1);
-        serializeObject(type, builder, object, inspector);
+        serializeObject(type, builder, object, inspector, hiveStorageTimeZone);
         return builder.build();
     }
 }

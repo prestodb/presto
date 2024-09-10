@@ -23,7 +23,6 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.ImmutableSet;
 
@@ -38,15 +37,14 @@ import static java.util.Objects.requireNonNull;
 public class InlineSqlFunctions
         extends RowExpressionRewriteRuleSet
 {
-    public InlineSqlFunctions(Metadata metadata, SqlParser sqlParser)
+    public InlineSqlFunctions(Metadata metadata)
     {
-        super(createRewrite(metadata, sqlParser));
+        super(createRewrite(metadata));
     }
 
-    private static PlanRowExpressionRewriter createRewrite(Metadata metadata, SqlParser sqlParser)
+    private static PlanRowExpressionRewriter createRewrite(Metadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(sqlParser, "sqlParser is null");
 
         return (expression, context) -> InlineSqlFunctionsRewriter.rewrite(
                 expression,

@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -83,6 +84,11 @@ public interface QueryRunner
     boolean tableExists(Session session, String table);
 
     void installPlugin(Plugin plugin);
+
+    default void installCoordinatorPlugin(CoordinatorPlugin plugin)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 

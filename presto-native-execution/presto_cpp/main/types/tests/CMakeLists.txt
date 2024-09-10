@@ -16,8 +16,8 @@ add_test(presto_velox_split_test presto_velox_split_test)
 
 target_link_libraries(
   presto_velox_split_test
-  gtest
-  gtest_main
+  GTest::gtest
+  GTest::gtest_main
   presto_operators
   presto_protocol
   velox_hive_connector
@@ -42,8 +42,8 @@ add_dependencies(presto_expressions_test presto_operators presto_protocol
 
 target_link_libraries(
   presto_expressions_test
-  gtest
-  gtest_main
+  GTest::gtest
+  GTest::gtest_main
   $<TARGET_OBJECTS:presto_protocol>
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
@@ -87,5 +87,5 @@ target_link_libraries(
   presto_types
   velox_hive_connector
   velox_tpch_connector
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Collection;
 import java.util.NoSuchElementException;
@@ -68,6 +69,9 @@ import static java.util.Objects.requireNonNull;
 public class DisjointRangeDomainHistogram
         implements ConnectorHistogram
 {
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DisjointRangeDomainHistogram.class).instanceSize();
+    private static final long RANGE_SIZE = ClassLayout.parseClass(Range.class).instanceSize();
+
     private final ConnectorHistogram source;
     // use RangeSet as the internal representation of the ranges, but the constructor arguments
     // use StatisticRange to support serialization and deserialization.
@@ -355,5 +359,14 @@ public class DisjointRangeDomainHistogram
     public int hashCode()
     {
         return hash(source, getRanges());
+    }
+
+    @Override
+    public long getEstimatedSize()
+    {
+        // don't count the source histogram as it's just a reference to
+        // another histogram. We don't want to count the retained memory.
+        return INSTANCE_SIZE +
+                (RANGE_SIZE * ranges.size());
     }
 }

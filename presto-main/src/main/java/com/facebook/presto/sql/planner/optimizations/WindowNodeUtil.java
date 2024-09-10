@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
@@ -74,7 +73,7 @@ public final class WindowNodeUtil
 
     // Explicitly limit the following functions for WindowNode.
     // TODO: Once the arguments in CallExpression are pure RowExpressions, move the method to VariablesExtractor
-    public static Set<VariableReferenceExpression> extractWindowFunctionUniqueVariables(WindowNode.Function function, TypeProvider types)
+    public static Set<VariableReferenceExpression> extractWindowFunctionUniqueVariables(WindowNode.Function function)
     {
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
         for (RowExpression argument : function.getFunctionCall().getArguments()) {

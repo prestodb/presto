@@ -38,6 +38,20 @@ Cast to JSON
     than a JSON object. This is because positions are more important than
     names for rows in SQL.
 
+.. note::
+
+    Set the session property ``field_names_in_json_cast_enabled`` to ``true`` to preserve the row field names as JSON field names. With ``field_names_in_json_cast_enabled=false``, the result of::
+
+        SELECT CAST(CAST(ROW(123, 'abc', true) AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)) AS JSON);
+    
+    is::
+    
+        JSON '[123,"abc",true]'
+    
+    With ``field_names_in_json_cast_enabled=true``, the result is::
+
+        JSON '{"v1":123,"v2":"abc","v3":true}'
+
 Cast from JSON
 --------------
 

@@ -304,6 +304,17 @@ public class JdbcTests
         }
     }
 
+    @Test(groups = JDBC)
+    @Requires(ImmutableNationTable.class)
+    public void testMetaDataGetURL()
+            throws SQLException
+    {
+        DatabaseMetaData metaData = metaData();
+        String url = metaData.getURL();
+        assertThat(url).startsWith("jdbc:presto://");
+        assertThat(url).isEqualTo(prestoJdbcURL);
+    }
+
     private QueryResult queryResult(Statement statement, String query)
             throws SQLException
     {

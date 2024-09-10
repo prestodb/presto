@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.delta;
 
-import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMicrosValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesReader;
 import org.openjdk.jol.info.ClassLayout;
@@ -27,14 +27,14 @@ import static java.util.concurrent.TimeUnit.MICROSECONDS;
  * is not a common one, just use the existing one provided by Parquet library and add a wrapper around it that satisfies the
  * {@link Int64ValuesDecoder} interface.
  */
-public class Int64TimestampMicrosDeltaBinaryPackedValuesDecoder
-        implements Int64TimestampMicrosValuesDecoder
+public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
+        implements Int64TimeAndTimestampMicrosValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimestampMicrosDeltaBinaryPackedValuesDecoder.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder.class).instanceSize();
 
     private final DeltaBinaryPackingValuesReader innerReader;
 
-    public Int64TimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
+    public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
             throws IOException
     {
         innerReader = new DeltaBinaryPackingValuesReader();

@@ -25,10 +25,6 @@
 
 namespace fs = boost::filesystem;
 
-using namespace facebook::presto;
-using namespace facebook::velox;
-using namespace facebook::velox::memory;
-
 std::string getCertsPath(const std::string& fileName) {
   std::string currentPath = fs::current_path().c_str();
   if (boost::algorithm::ends_with(currentPath, "fbcode")) {
@@ -65,7 +61,8 @@ inline folly::SSLContextPtr makeSslContext() {
 
 class HttpServerWrapper {
  public:
-  explicit HttpServerWrapper(std::unique_ptr<http::HttpServer> server)
+  explicit HttpServerWrapper(
+      std::unique_ptr<facebook::presto::http::HttpServer> server)
       : server_(std::move(server)) {}
 
   ~HttpServerWrapper() {
@@ -100,7 +97,7 @@ class HttpServerWrapper {
   }
 
  private:
-  std::unique_ptr<http::HttpServer> server_;
+  std::unique_ptr<facebook::presto::http::HttpServer> server_;
   std::unique_ptr<std::thread> serverThread_;
   folly::Promise<folly::SocketAddress> promise_;
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters_ = {};
@@ -136,7 +133,9 @@ void ping(
     proxygen::HTTPMessage* /*message*/,
     std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
     proxygen::ResponseHandler* downstream) {
-  proxygen::ResponseBuilder(downstream).status(http::kHttpOk, "").sendWithEOM();
+  proxygen::ResponseBuilder(downstream)
+      .status(facebook::presto::http::kHttpOk, "")
+      .sendWithEOM();
 }
 
 void blackhole(
@@ -144,7 +143,9 @@ void blackhole(
     std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
     proxygen::ResponseHandler* downstream) {}
 
-std::string bodyAsString(http::HttpResponse& response, MemoryPool* pool) {
+std::string bodyAsString(
+    facebook::presto::http::HttpResponse& response,
+    facebook::velox::memory::MemoryPool* pool) {
   EXPECT_FALSE(response.hasError());
   std::ostringstream oss;
   auto iobufs = response.consumeBody();
@@ -170,7 +171,7 @@ void echo(
     proxygen::ResponseHandler* downstream) {
   if (body.empty()) {
     proxygen::ResponseBuilder(downstream)
-        .status(http::kHttpOk, "")
+        .status(facebook::presto::http::kHttpOk, "")
         .body(folly::IOBuf::wrapBuffer(
             message->getURL().c_str(), message->getURL().size()))
         .sendWithEOM();
@@ -178,7 +179,7 @@ void echo(
   }
 
   proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "")
+      .status(facebook::presto::http::kHttpOk, "")
       .header(proxygen::HTTP_HEADER_CONTENT_TYPE, "text/plain")
       .body(toString(body))
       .sendWithEOM();
@@ -196,14 +197,14 @@ class HttpClientFactory {
     eventBaseThread_->join();
   }
 
-  std::shared_ptr<http::HttpClient> newClient(
+  std::shared_ptr<facebook::presto::http::HttpClient> newClient(
       const folly::SocketAddress& address,
       const std::chrono::milliseconds& transactionTimeout,
       const std::chrono::milliseconds& connectTimeout,
       bool useHttps,
-      std::shared_ptr<MemoryPool> pool,
+      std::shared_ptr<facebook::velox::memory::MemoryPool> pool,
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr) {
-    return std::make_shared<http::HttpClient>(
+    return std::make_shared<facebook::presto::http::HttpClient>(
         eventBase_.get(),
         nullptr,
         proxygen::Endpoint(
@@ -221,32 +222,33 @@ class HttpClientFactory {
   std::unique_ptr<std::thread> eventBaseThread_;
 };
 
-folly::SemiFuture<std::unique_ptr<http::HttpResponse>> sendGet(
-    http::HttpClient* client,
+folly::SemiFuture<std::unique_ptr<facebook::presto::http::HttpResponse>>
+sendGet(
+    facebook::presto::http::HttpClient* client,
     const std::string& url,
     const uint64_t sendDelay = 0,
     const std::string body = "") {
-  return http::RequestBuilder()
+  return facebook::presto::http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(url)
       .send(client, body, sendDelay);
 }
 
-static std::unique_ptr<http::HttpServer> getHttpServer(
+static std::unique_ptr<facebook::presto::http::HttpServer> getHttpServer(
     bool useHttps,
     const std::shared_ptr<folly::IOThreadPoolExecutor>& httpIOExecutor) {
   if (useHttps) {
     const std::string certPath = getCertsPath("test_cert1.pem");
     const std::string keyPath = getCertsPath("test_key1.pem");
     const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
-    auto httpsConfig = std::make_unique<http::HttpsConfig>(
+    auto httpsConfig = std::make_unique<facebook::presto::http::HttpsConfig>(
         folly::SocketAddress("127.0.0.1", 0), certPath, keyPath, ciphers);
-    return std::make_unique<http::HttpServer>(
+    return std::make_unique<facebook::presto::http::HttpServer>(
         httpIOExecutor, nullptr, std::move(httpsConfig));
   } else {
-    return std::make_unique<http::HttpServer>(
+    return std::make_unique<facebook::presto::http::HttpServer>(
         httpIOExecutor,
-        std::make_unique<http::HttpConfig>(
+        std::make_unique<facebook::presto::http::HttpConfig>(
             folly::SocketAddress("127.0.0.1", 0)),
         nullptr);
   }
@@ -268,17 +270,18 @@ struct AsyncMsgRequestState {
   std::function<void()> customFunc;
 };
 
-http::EndpointRequestHandlerFactory asyncMsg(
+facebook::presto::http::EndpointRequestHandlerFactory asyncMsg(
     std::shared_ptr<AsyncMsgRequestState> request) {
   return [request](
              proxygen::HTTPMessage* /* message */,
              const std::vector<std::string>& /* args */) {
-    return new http::CallbackRequestHandler(
+    return new facebook::presto::http::CallbackRequestHandler(
         [request](
             proxygen::HTTPMessage* /*message*/,
             const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
             proxygen::ResponseHandler* downstream,
-            std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
+            std::shared_ptr<facebook::presto::http::CallbackRequestHandlerState>
+                handlerState) {
           auto [promise, future] = folly::makePromiseContract<std::string>();
           auto eventBase = folly::EventBaseManager::get()->getEventBase();
           auto maxWaitMillis = request->maxWaitMillis;
@@ -297,7 +300,7 @@ http::EndpointRequestHandlerFactory asyncMsg(
                 if (!handlerState->requestExpired()) {
                   request->requestStatus = kStatusValid;
                   proxygen::ResponseBuilder(downstream)
-                      .status(http::kHttpOk, "")
+                      .status(facebook::presto::http::kHttpOk, "")
                       .header(proxygen::HTTP_HEADER_CONTENT_TYPE, "text/plain")
                       .body(msg)
                       .sendWithEOM();
@@ -311,7 +314,9 @@ http::EndpointRequestHandlerFactory asyncMsg(
                     if (!handlerState->requestExpired()) {
                       request->requestStatus = kStatusValid;
                       proxygen::ResponseBuilder(downstream)
-                          .status(http::kHttpInternalServerError, "")
+                          .status(
+                              facebook::presto::http::kHttpInternalServerError,
+                              "")
                           .header(
                               proxygen::HTTP_HEADER_CONTENT_TYPE, "text/plain")
                           .body(e.what())

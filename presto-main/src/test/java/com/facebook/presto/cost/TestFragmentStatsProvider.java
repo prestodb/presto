@@ -15,7 +15,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 

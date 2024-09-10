@@ -34,7 +34,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -71,7 +70,7 @@ public class KeyBasedSampler
     private final Metadata metadata;
     private boolean isEnabledForTesting;
 
-    public KeyBasedSampler(Metadata metadata, SqlParser sqlParser)
+    public KeyBasedSampler(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }

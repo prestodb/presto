@@ -81,14 +81,14 @@ public class TestHiveSessionProperties
                         new OrcFileWriterConfig(),
                         new ParquetFileWriterConfig(),
                         new CacheConfig().setCachingEnabled(true)).getSessionProperties());
-        assertEquals(getParquetWriterVersion(connectorSession), PARQUET_2_0);
+        assertEquals(getParquetWriterVersion(connectorSession), PARQUET_1_0);
 
         connectorSession = new TestingConnectorSession(
                 new HiveSessionProperties(
                         new HiveClientConfig(),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig().setWriterVersion(PARQUET_1_0),
+                        new ParquetFileWriterConfig().setWriterVersion(PARQUET_2_0),
                         new CacheConfig().setCachingEnabled(true)).getSessionProperties());
-        assertEquals(getParquetWriterVersion(connectorSession), PARQUET_1_0);
+        assertEquals(getParquetWriterVersion(connectorSession), PARQUET_2_0);
     }
 }

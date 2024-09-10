@@ -11,23 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableSet;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
-import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
-import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.RECOVERABLE_GROUPED_EXECUTION;
-import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.spi.plan.StageExecutionDescriptor.StageExecutionStrategy.DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+import static com.facebook.presto.spi.plan.StageExecutionDescriptor.StageExecutionStrategy.FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+import static com.facebook.presto.spi.plan.StageExecutionDescriptor.StageExecutionStrategy.RECOVERABLE_GROUPED_EXECUTION;
+import static com.facebook.presto.spi.plan.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
+import static java.util.Collections.emptySet;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public class StageExecutionDescriptor
@@ -58,28 +58,28 @@ public class StageExecutionDescriptor
 
     public static StageExecutionDescriptor ungroupedExecution()
     {
-        return new StageExecutionDescriptor(UNGROUPED_EXECUTION, ImmutableSet.of(), 1);
+        return new StageExecutionDescriptor(UNGROUPED_EXECUTION, emptySet(), 1);
     }
 
     public static StageExecutionDescriptor fixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableScanNodes, int totalLifespans)
     {
         requireNonNull(capableScanNodes, "capableScanNodes is null");
         checkArgument(!capableScanNodes.isEmpty(), "capableScanNodes cannot be empty if stage execution strategy is grouped execution");
-        return new StageExecutionDescriptor(FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes), totalLifespans);
+        return new StageExecutionDescriptor(FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, unmodifiableSet(new HashSet<>(capableScanNodes)), totalLifespans);
     }
 
     public static StageExecutionDescriptor dynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableScanNodes, int totalLifespans)
     {
         requireNonNull(capableScanNodes, "capableScanNodes is null");
         checkArgument(!capableScanNodes.isEmpty(), "capableScanNodes cannot be empty if stage execution strategy is grouped execution");
-        return new StageExecutionDescriptor(DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes), totalLifespans);
+        return new StageExecutionDescriptor(DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, unmodifiableSet(new HashSet<>(capableScanNodes)), totalLifespans);
     }
 
     public static StageExecutionDescriptor recoverableGroupedExecution(List<PlanNodeId> capableScanNodes, int totalLifespans)
     {
         requireNonNull(capableScanNodes, "capableScanNodes is null");
         checkArgument(!capableScanNodes.isEmpty(), "capableScanNodes cannot be empty if stage execution strategy is grouped execution");
-        return new StageExecutionDescriptor(RECOVERABLE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes), totalLifespans);
+        return new StageExecutionDescriptor(RECOVERABLE_GROUPED_EXECUTION, unmodifiableSet(new HashSet<>(capableScanNodes)), totalLifespans);
     }
 
     public StageExecutionStrategy getStageExecutionStrategy()
@@ -115,7 +115,7 @@ public class StageExecutionDescriptor
     {
         return new StageExecutionDescriptor(
                 requireNonNull(stageExecutionStrategy, "stageExecutionStrategy is null"),
-                ImmutableSet.copyOf(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionScanNodes is null")),
+                unmodifiableSet(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionScanNodes is null")),
                 totalLifespans);
     }
 
@@ -169,10 +169,10 @@ public class StageExecutionDescriptor
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("stageExecutionStrategy", stageExecutionStrategy)
-                .add("groupedExecutionScanNodes", groupedExecutionScanNodes)
-                .add("totalLifespans", totalLifespans)
-                .toString();
+        String sb = "StageExecutionDescriptor{" + "stageExecutionStrategy=" + stageExecutionStrategy +
+                ", groupedExecutionScanNodes=" + groupedExecutionScanNodes +
+                ", totalLifespans=" + totalLifespans +
+                '}';
+        return sb;
     }
 }

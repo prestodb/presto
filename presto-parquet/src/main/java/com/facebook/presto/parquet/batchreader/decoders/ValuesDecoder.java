@@ -54,7 +54,7 @@ public interface ValuesDecoder
                 throws IOException;
     }
 
-    interface Int64TimestampMicrosValuesDecoder
+    interface Int64TimeAndTimestampMicrosValuesDecoder
             extends ValuesDecoder
     {
         void readNext(long[] values, int offset, int length)

@@ -357,9 +357,15 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneExpiredQueryInfo()
     {
-        stateMachine.pruneQueryInfo();
+        stateMachine.pruneQueryInfoExpired();
+    }
+
+    @Override
+    public void pruneFinishedQueryInfo()
+    {
+        stateMachine.pruneQueryInfoFinished();
     }
 
     @Override

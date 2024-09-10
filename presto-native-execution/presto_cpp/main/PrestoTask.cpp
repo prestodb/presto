@@ -342,7 +342,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
     recordProcessCpuTime();
     return info.taskStatus;
   }
-  VELOX_CHECK_NOT_NULL(task, "task is null when updating status")
+  VELOX_CHECK_NOT_NULL(task, "task is null when updating status");
 
   const auto veloxTaskStats = task->taskStats();
 

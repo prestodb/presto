@@ -158,7 +158,7 @@ LIKE
 ----
 The LIKE operator is used to match a specified character pattern in a string. Patterns can contain
 regular characters as well as wildcards. Wildcard characters can be escaped using the single character
-specified for the ESCAPE parameter. Matching is case sensitive.
+specified for the ESCAPE parameter. Matching is case sensitive, and the pattern must match the whole string.
 
 Syntax:
 
@@ -198,6 +198,9 @@ Examples::
     SELECT * FROM (VALUES ('a%c'), ('%cd'), ('cde')) AS t (name)
     WHERE name LIKE '%#%%' ESCAPE '#'
     --returns 'a%c' and  '%cd'
+
+   SELECT 'ab' || chr(10) || 'c' LIKE 'ab'  --chr(10) is a newline character
+    --returns 'false'
 
 
 Row comparison: IN

@@ -43,6 +43,7 @@ public class IcebergTableProperties
     public static final String DELETE_MODE = "delete_mode";
     public static final String METADATA_PREVIOUS_VERSIONS_MAX = "metadata_previous_versions_max";
     public static final String METADATA_DELETE_AFTER_COMMIT = "metadata_delete_after_commit";
+    public static final String METRICS_MAX_INFERRED_COLUMN = "metrics_max_inferred_column";
     private static final String DEFAULT_FORMAT_VERSION = "2";
 
     private final List<PropertyMetadata<?>> tableProperties;
@@ -106,6 +107,11 @@ public class IcebergTableProperties
                         "Whether enables to delete the oldest metadata file after commit",
                         icebergConfig.isMetadataDeleteAfterCommit(),
                         false))
+                .add(integerProperty(
+                        METRICS_MAX_INFERRED_COLUMN,
+                        "The maximum number of columns for which metrics are collected",
+                        icebergConfig.getMetricsMaxInferredColumn(),
+                        false))
                 .build();
 
         columnProperties = ImmutableList.of(stringProperty(
@@ -165,5 +171,10 @@ public class IcebergTableProperties
     public static Boolean isMetadataDeleteAfterCommit(Map<String, Object> tableProperties)
     {
         return (Boolean) tableProperties.get(METADATA_DELETE_AFTER_COMMIT);
+    }
+
+    public static Integer getMetricsMaxInferredColumn(Map<String, Object> tableProperties)
+    {
+        return (Integer) tableProperties.get(METRICS_MAX_INFERRED_COLUMN);
     }
 }

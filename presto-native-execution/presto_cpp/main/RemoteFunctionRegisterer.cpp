@@ -41,7 +41,8 @@ PageFormat fromSerdeString(const std::string_view& serdeName) {
   } else if (serdeName == "spark_unsafe_row") {
     return PageFormat::SPARK_UNSAFE_ROW;
   } else {
-    VELOX_FAIL("Unknown serde name for remote function server: '{}'", serdeName)
+    VELOX_FAIL(
+        "Unknown serde name for remote function server: '{}'", serdeName);
   }
 }
 

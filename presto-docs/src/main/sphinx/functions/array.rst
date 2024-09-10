@@ -78,10 +78,10 @@ Array Functions
 .. function:: array_has_duplicates(array(T)) -> boolean
 
     Returns a boolean: whether ``array`` has any elements that occur more than once.
-    Throws an exception if any of the elements are rows or arrays that contain nulls. 
+    Throws an exception if any of the elements are rows or arrays that contain nulls. ::
 
-    SELECT array_has_duplicates(ARRAY[1, 2, null, 1, null, 3]) -- true
-    SELECT array_has_duplicates(ARRAY[ROW(1, null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
+        SELECT array_has_duplicates(ARRAY[1, 2, null, 1, null, 3]) -- true
+        SELECT array_has_duplicates(ARRAY[ROW(1, null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
 
 .. function:: array_intersect(x, y) -> array
 
@@ -227,8 +227,8 @@ Array Functions
 
 .. function:: array_top_n(array(T), int) -> array(T)
 
-    Returns an array of top n elements from a given ``array``, according to its natural descending order.
-    If n is smaller than the size of the given ``array``, the returned list will be the same size as the input instead of n.::
+    Returns an array of the top ``n`` elements from a given ``array``, sorted according to its natural descending order.
+    If ``n`` is larger than the size of the given ``array``, the returned list will be the same size as the input instead of ``n``. ::
 
         SELECT array_top_n(ARRAY [1, 100, 2, 5, 3], 3); -- [100, 5, 3]
         SELECT array_top_n(ARRAY [1, 100], 5); -- [100, 1]

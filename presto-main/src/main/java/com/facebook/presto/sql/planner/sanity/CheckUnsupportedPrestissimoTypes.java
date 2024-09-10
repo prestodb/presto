@@ -33,41 +33,52 @@ import com.facebook.presto.spi.relation.IntermediateFormExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
-public class CheckNoTimestampWithTimezoneType
+public class CheckUnsupportedPrestissimoTypes
         implements PlanChecker.Checker
 {
-    private static final String errorMessage = "Timestamp with Timezone type is not supported in Prestissimo";
+    private static final String timestampWithTimeszoneErrorMessage = "Timestamp with Timezone type is not supported in Prestissimo";
+    private static final String ipAddressErrorMessage = "IPAddress type is not supported in Prestissimo";
+    private FeaturesConfig config;
+
+    public CheckUnsupportedPrestissimoTypes(FeaturesConfig config)
+    {
+        this.config = requireNonNull(config);
+    }
 
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         planNode.accept(new Visitor(), null);
     }
 
-    private static class Visitor
+    private class Visitor
             extends SimplePlanVisitor<Void>
     {
-        private final NoTimeStampWithTimeZoneTypeChecker noTimeStampWithTimeZoneTypeChecker;
+        private final UnsupportedTypeChecker unsupportedTypeChecker;
 
         public Visitor()
         {
-            this.noTimeStampWithTimeZoneTypeChecker = new NoTimeStampWithTimeZoneTypeChecker();
+            this.unsupportedTypeChecker = new UnsupportedTypeChecker();
         }
 
         @Override
         public Void visitPlan(PlanNode node, Void context)
         {
-            checkState(node.getOutputVariables().stream().noneMatch(x -> hasTimestampWithTimezoneType(x.getType())), errorMessage);
+            Optional<String> res = node.getOutputVariables().stream().map(x -> getUnsupportedTypeErrorMessage(x.getType())).filter(Objects::nonNull).findFirst().orElse(Optional.empty());
+            res.ifPresent(str -> checkState(false, str));
             return super.visitPlan(node, context);
         }
 
@@ -76,9 +87,9 @@ public class CheckNoTimestampWithTimezoneType
         {
             visitPlan(node, context);
             node.getAggregations().forEach((variable, aggregation) -> {
-                aggregation.getCall().accept(noTimeStampWithTimeZoneTypeChecker, null);
+                aggregation.getCall().accept(unsupportedTypeChecker, null);
                 if (aggregation.getFilter().isPresent()) {
-                    aggregation.getFilter().get().accept(noTimeStampWithTimeZoneTypeChecker, null);
+                    aggregation.getFilter().get().accept(unsupportedTypeChecker, null);
                 }
             });
 
@@ -90,7 +101,7 @@ public class CheckNoTimestampWithTimezoneType
         {
             visitPlan(node, context);
             node.getWindowFunctions().forEach((variable, function) -> {
-                function.getFunctionCall().accept(noTimeStampWithTimeZoneTypeChecker, null);
+                function.getFunctionCall().accept(unsupportedTypeChecker, null);
             });
 
             return null;
@@ -101,7 +112,7 @@ public class CheckNoTimestampWithTimezoneType
         {
             visitPlan(node, context);
             node.getAssignments().getMap().forEach((variable, expression) -> {
-                expression.accept(noTimeStampWithTimeZoneTypeChecker, null);
+                expression.accept(unsupportedTypeChecker, null);
             });
 
             return null;
@@ -112,7 +123,7 @@ public class CheckNoTimestampWithTimezoneType
         {
             visitPlan(node, context);
             for (List<RowExpression> row : node.getRows()) {
-                row.forEach(x -> x.accept(noTimeStampWithTimeZoneTypeChecker, null));
+                row.forEach(x -> x.accept(unsupportedTypeChecker, null));
             }
             return null;
         }
@@ -121,71 +132,76 @@ public class CheckNoTimestampWithTimezoneType
         public Void visitFilter(FilterNode node, Void context)
         {
             visitPlan(node, context);
-            node.getPredicate().accept(noTimeStampWithTimeZoneTypeChecker, null);
+            node.getPredicate().accept(unsupportedTypeChecker, null);
             return null;
         }
     }
 
-    private static class NoTimeStampWithTimeZoneTypeChecker
+    private class UnsupportedTypeChecker
             extends DefaultRowExpressionTraversalVisitor<Void>
     {
         @Override
         public Void visitConstant(ConstantExpression literal, Void context)
         {
-            checkState(!hasTimestampWithTimezoneType(literal.getType()), errorMessage);
+            Optional<String> errorMessage = getUnsupportedTypeErrorMessage(literal.getType());
+            checkState(!errorMessage.isPresent(), errorMessage);
             return null;
         }
 
         @Override
         public Void visitVariableReference(VariableReferenceExpression reference, Void context)
         {
-            checkState(!hasTimestampWithTimezoneType(reference.getType()), errorMessage);
+            getUnsupportedTypeErrorMessage(reference.getType()).ifPresent(str -> checkState(false, str));
             return null;
         }
 
         @Override
         public Void visitInputReference(InputReferenceExpression input, Void context)
         {
-            checkState(!hasTimestampWithTimezoneType(input.getType()), errorMessage);
+            getUnsupportedTypeErrorMessage(input.getType()).ifPresent(str -> checkState(false, str));
             return null;
         }
 
         @Override
         public Void visitCall(CallExpression call, Void context)
         {
-            checkState(!hasTimestampWithTimezoneType(call.getType()), errorMessage);
+            getUnsupportedTypeErrorMessage(call.getType()).ifPresent(str -> checkState(false, str));
             return super.visitCall(call, context);
         }
 
         @Override
         public Void visitSpecialForm(SpecialFormExpression specialForm, Void context)
         {
-            checkState(!hasTimestampWithTimezoneType(specialForm.getType()), errorMessage);
+            getUnsupportedTypeErrorMessage(specialForm.getType()).ifPresent(str -> checkState(false, str));
             return super.visitSpecialForm(specialForm, context);
         }
 
         @Override
         public Void visitIntermediateFormExpression(IntermediateFormExpression expression, Void context)
         {
-            checkState(!hasTimestampWithTimezoneType(expression.getType()), errorMessage);
+            getUnsupportedTypeErrorMessage(expression.getType()).ifPresent(str -> checkState(false, str));
             return super.visitIntermediateFormExpression(expression, context);
         }
     }
 
-    private static boolean hasTimestampWithTimezoneType(Type type)
+    private Optional<String> getUnsupportedTypeErrorMessage(Type type)
     {
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return true;
+        if (type.equals(TIMESTAMP_WITH_TIME_ZONE) && config.isDisableTimeStampWithTimeZoneForNative()) {
+            return Optional.of(timestampWithTimeszoneErrorMessage);
+        }
+        if (type.equals(IPADDRESS) && config.isDisableIPAddressForNative()) {
+            return Optional.of(ipAddressErrorMessage);
         }
         if (type instanceof ArrayType) {
-            return hasTimestampWithTimezoneType(((ArrayType) type).getElementType());
+            return getUnsupportedTypeErrorMessage(((ArrayType) type).getElementType());
         }
         else if (type instanceof MapType) {
-            return hasTimestampWithTimezoneType(((MapType) type).getKeyType()) || hasTimestampWithTimezoneType(((MapType) type).getValueType());
+            Optional<String> key = getUnsupportedTypeErrorMessage(((MapType) type).getKeyType());
+            return key.isPresent() ? key : getUnsupportedTypeErrorMessage(((MapType) type).getValueType());
         }
         else if (type instanceof RowType) {
-            return ((RowType) type).getTypeParameters().stream().anyMatch(CheckNoTimestampWithTimezoneType::hasTimestampWithTimezoneType);
+            return ((RowType) type).getTypeParameters().stream().map(this::getUnsupportedTypeErrorMessage).filter(opt -> opt.isPresent()).findFirst().orElse(Optional.empty());
         }
-        return false;
+        return Optional.empty();
     }
 }

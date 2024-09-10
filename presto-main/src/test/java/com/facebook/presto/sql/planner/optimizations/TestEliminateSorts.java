@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -141,8 +140,8 @@ public class TestEliminateSorts
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser(), new PartitioningProviderManager(), false),
-                new AddLocalExchanges(getMetadata(), new SqlParser(), false),
+                new AddExchanges(getQueryRunner().getMetadata(), new PartitioningProviderManager(), false),
+                new AddLocalExchanges(getMetadata(), false),
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(

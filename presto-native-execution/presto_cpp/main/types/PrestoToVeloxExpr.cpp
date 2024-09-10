@@ -744,7 +744,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
   }
 
   if (pexpr->form == protocol::Form::NULL_IF) {
-    VELOX_UNREACHABLE("NULL_IF not supported in specialForm")
+    VELOX_UNREACHABLE("NULL_IF not supported in specialForm");
   }
 
   auto form = std::string(json(pexpr->form));

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.spi.Plugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.objectweb.asm.ClassReader;
@@ -42,11 +41,10 @@ import static java.nio.file.Files.walkFileTree;
 final class PluginDiscovery
 {
     private static final String CLASS_FILE_SUFFIX = ".class";
-    private static final String SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
 
     private PluginDiscovery() {}
 
-    public static Set<String> discoverPlugins(Artifact artifact, ClassLoader classLoader)
+    public static Set<String> discoverPlugins(Artifact artifact, ClassLoader classLoader, String servicesFile, String targetClassName)
             throws IOException
     {
         if (!artifact.getExtension().equals("presto-plugin")) {
@@ -61,19 +59,19 @@ final class PluginDiscovery
             throw new RuntimeException("Main artifact file is not a directory: " + file);
         }
 
-        if (new File(file, SERVICES_FILE).exists()) {
+        if (new File(file, servicesFile).exists()) {
             return ImmutableSet.of();
         }
 
         return listClasses(file.toPath()).stream()
-                .filter(name -> classInterfaces(name, classLoader).contains(Plugin.class.getName()))
+                .filter(name -> classInterfaces(name, classLoader).contains(targetClassName))
                 .collect(toImmutableSet());
     }
 
-    public static void writePluginServices(Iterable<String> plugins, File root)
+    public static void writePluginServices(Iterable<String> plugins, File root, String servicesFile)
             throws IOException
     {
-        Path path = root.toPath().resolve(SERVICES_FILE);
+        Path path = root.toPath().resolve(servicesFile);
         createDirectories(path.getParent());
         try (Writer out = Files.newBufferedWriter(path, UTF_8)) {
             for (String plugin : plugins) {

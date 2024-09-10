@@ -28,6 +28,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -55,7 +56,8 @@ public abstract class AbstractTestFunctions
     private static final double DELTA = 1e-5;
 
     protected final Session session;
-    private final FeaturesConfig config;
+    private final FeaturesConfig featuresConfig;
+    private final FunctionsConfig functionsConfig;
     protected FunctionAssertions functionAssertions;
 
     protected AbstractTestFunctions()
@@ -65,18 +67,24 @@ public abstract class AbstractTestFunctions
 
     protected AbstractTestFunctions(Session session)
     {
-        this(session, new FeaturesConfig());
+        this(session, new FeaturesConfig(), new FunctionsConfig());
     }
 
-    protected AbstractTestFunctions(FeaturesConfig config)
+    protected AbstractTestFunctions(FeaturesConfig featuresConfig)
     {
-        this(TEST_SESSION, config);
+        this(TEST_SESSION, featuresConfig, new FunctionsConfig());
     }
 
-    protected AbstractTestFunctions(Session session, FeaturesConfig config)
+    protected AbstractTestFunctions(FunctionsConfig functionsConfig)
+    {
+        this(TEST_SESSION, new FeaturesConfig(), functionsConfig);
+    }
+
+    protected AbstractTestFunctions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
     {
         this.session = requireNonNull(session, "session is null");
-        this.config = requireNonNull(config, "config is null")
+        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
+        this.functionsConfig = requireNonNull(functionsConfig, "config is null")
                 .setLegacyLogFunction(true)
                 .setUseNewNanDefinition(true);
     }
@@ -84,7 +92,7 @@ public abstract class AbstractTestFunctions
     @BeforeClass
     public final void initTestFunctions()
     {
-        functionAssertions = new FunctionAssertions(session, config);
+        functionAssertions = new FunctionAssertions(session, featuresConfig, functionsConfig, false);
     }
 
     @AfterClass(alwaysRun = true)

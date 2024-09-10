@@ -28,9 +28,11 @@ import com.facebook.presto.dispatcher.DispatchExecutor;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.DispatchQueryFactory;
 import com.facebook.presto.dispatcher.FailedDispatchQueryFactory;
+import com.facebook.presto.dispatcher.FailedLocalDispatchQueryFactory;
 import com.facebook.presto.dispatcher.LocalDispatchQueryFactory;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
+import com.facebook.presto.event.QueryProgressMonitor;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.ExecutionFactoriesManager;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
@@ -70,7 +72,9 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
+import com.facebook.presto.server.protocol.ExecutingQueryResponseProvider;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
+import com.facebook.presto.server.protocol.LocalExecutingQueryResponseProvider;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
 import com.facebook.presto.server.protocol.QueryBlockingRateLimiter;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
@@ -163,6 +167,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(OperatorInfo.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
+        binder.bind(QueryProgressMonitor.class).in(Scopes.SINGLETON);
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
@@ -184,13 +189,14 @@ public class CoordinatorModule
         newExporter(binder).export(QueryBlockingRateLimiter.class).withGeneratedName();
 
         binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ExecutingQueryResponseProvider.class).to(LocalExecutingQueryResponseProvider.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(TaskInfoResource.class);
 
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DispatchManager.class).withGeneratedName();
-        binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
+        binder.bind(FailedDispatchQueryFactory.class).to(FailedLocalDispatchQueryFactory.class);
         binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DispatchExecutor.class).withGeneratedName();
 

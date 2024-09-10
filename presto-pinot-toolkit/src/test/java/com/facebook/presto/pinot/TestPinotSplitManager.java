@@ -19,7 +19,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.security.ConnectorIdentity;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.base.Splitter;
@@ -237,7 +237,7 @@ public class TestPinotSplitManager
                         numSegmentsPerSplit,
                         PinotSessionProperties.FORBID_SEGMENT_QUERIES,
                         forbidSegmentQueries),
-                new FeaturesConfig().isLegacyTimestamp(),
+                new FunctionsConfig().isLegacyTimestamp(),
                 Optional.empty(),
                 ImmutableSet.of(),
                 Optional.empty(),
@@ -258,7 +258,7 @@ public class TestPinotSplitManager
                 ImmutableMap.of(
                         PinotSessionProperties.LIMIT_LARGE_FOR_SEGMENT,
                         limitLarge),
-                new FeaturesConfig().isLegacyTimestamp(),
+                new FunctionsConfig().isLegacyTimestamp(),
                 Optional.empty(),
                 ImmutableSet.of(),
                 Optional.empty(),
@@ -279,7 +279,7 @@ public class TestPinotSplitManager
                 ImmutableMap.of(
                         PinotSessionProperties.TOPN_LARGE,
                         topNLarge),
-                new FeaturesConfig().isLegacyTimestamp(),
+                new FunctionsConfig().isLegacyTimestamp(),
                 Optional.empty(),
                 ImmutableSet.of(),
                 Optional.empty(),

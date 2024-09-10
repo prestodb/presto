@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import org.apache.iceberg.hadoop.HadoopFileIO;
 
 import javax.validation.constraints.DecimalMax;
@@ -33,11 +34,14 @@ import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.succinctDataSize;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
+import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
 
 public class IcebergConfig
 {
@@ -57,6 +61,7 @@ public class IcebergConfig
     private int rowsForMetadataOptimizationThreshold = 1000;
     private int metadataPreviousVersionsMax = METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
     private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
+    private int metricsMaxInferredColumn = METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
@@ -65,6 +70,7 @@ public class IcebergConfig
     private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
+    private DataSize maxStatisticsFileCacheSize = succinctDataSize(256, MEGABYTE);
 
     @NotNull
     public FileFormat getFileFormat()
@@ -378,6 +384,32 @@ public class IcebergConfig
     public IcebergConfig setMetadataDeleteAfterCommit(boolean metadataDeleteAfterCommit)
     {
         this.metadataDeleteAfterCommit = metadataDeleteAfterCommit;
+        return this;
+    }
+
+    public int getMetricsMaxInferredColumn()
+    {
+        return metricsMaxInferredColumn;
+    }
+
+    @Config("iceberg.metrics-max-inferred-column")
+    @ConfigDescription("The maximum number of columns for which metrics are collected")
+    public IcebergConfig setMetricsMaxInferredColumn(int metricsMaxInferredColumn)
+    {
+        this.metricsMaxInferredColumn = metricsMaxInferredColumn;
+        return this;
+    }
+
+    public DataSize getMaxStatisticsFileCacheSize()
+    {
+        return maxStatisticsFileCacheSize;
+    }
+
+    @Config("iceberg.max-statistics-file-cache-size")
+    @ConfigDescription("The maximum size in bytes the statistics file cache should consume")
+    public IcebergConfig setMaxStatisticsFileCacheSize(DataSize maxStatisticsFileCacheSize)
+    {
+        this.maxStatisticsFileCacheSize = maxStatisticsFileCacheSize;
         return this;
     }
 }

@@ -37,6 +37,7 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.DATE;
@@ -1131,6 +1132,54 @@ public class TestHivePushdownFilterQueries
                 ImmutableSet.of(HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE.toWarningCode()));
     }
 
+    //Test for issue https://github.com/prestodb/presto/issues/22690
+    //Avoid negative index pushdown
+    @Test
+    public void testArraySubscriptPushdown()
+    {
+        Session session = enablePushdownFilterAndSubfield(getQueryRunner().getDefaultSession());
+        getQueryRunner().execute(session,
+                "CREATE TABLE test_neg_array_sub_pushdown AS \n" +
+                        "select ARRAY[10,20,30,40] numbers");
+
+        try {
+            assertQuery("select element_at(numbers,1) as number from test_neg_array_sub_pushdown", "SELECT 10");
+            assertQuery("select element_at(numbers,2) as number from test_neg_array_sub_pushdown", "SELECT 20");
+            assertQuery("select element_at(numbers,3) as number from test_neg_array_sub_pushdown", "SELECT 30");
+            assertQuery("select element_at(numbers,-1) as number from test_neg_array_sub_pushdown", "SELECT 40");
+            assertQuery("select element_at(numbers,-2) as number from test_neg_array_sub_pushdown", "SELECT 30");
+            assertQuery("select element_at(numbers,-3) as number from test_neg_array_sub_pushdown", "SELECT 20");
+            assertQueryFails("select element_at(numbers,0) as number from test_neg_array_sub_pushdown", "SQL array indices start at 1");
+
+            assertQuery("select numbers[1]  as number from test_neg_array_sub_pushdown", "SELECT 10");
+            assertQuery("select numbers[2]  as number from test_neg_array_sub_pushdown", "SELECT 20");
+            assertQuery("select numbers[3 ]  as number from test_neg_array_sub_pushdown", "SELECT 30");
+            assertQueryFails("select numbers[-1]  as number from test_neg_array_sub_pushdown", "Array subscript is negative");
+            assertQueryFails("select numbers[-2]  as number from test_neg_array_sub_pushdown", "Array subscript is negative");
+            assertQueryFails("select numbers[0]  as number from test_neg_array_sub_pushdown", "SQL array indices start at 1");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_neg_array_sub_pushdown");
+        }
+    }
+
+    @Test
+    public void testArraySubscriptPushdownEmptyArray()
+    {
+        Session session = enablePushdownFilterAndSubfield(getQueryRunner().getDefaultSession());
+        getQueryRunner().execute(session,
+                "CREATE TABLE test_neg_array_sub_pushdown ( numbers  array(integer))");
+        assertUpdate("INSERT into test_neg_array_sub_pushdown (numbers) values (ARRAY[])", 1);
+
+        try {
+            assertQuery("select element_at(numbers,1) as number from test_neg_array_sub_pushdown", "SELECT NULL");
+            assertQuery("select element_at(numbers,-2) as number from test_neg_array_sub_pushdown", "SELECT NULL");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_neg_array_sub_pushdown");
+        }
+    }
+
     private Path getPartitionDirectory(String tableName, String partitionClause)
     {
         String filePath = ((String) computeActual(noPushdownFilter(getSession()), format("SELECT \"$path\" FROM %s WHERE %s LIMIT 1", tableName, partitionClause)).getOnlyValue())
@@ -1216,6 +1265,14 @@ public class TestHivePushdownFilterQueries
     {
         return Session.builder(session)
                 .setCatalogSessionProperty(HIVE_CATALOG, PARTIAL_AGGREGATION_PUSHDOWN_ENABLED, "false")
+                .build();
+    }
+
+    private static Session enablePushdownFilterAndSubfield(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
                 .build();
     }
 }

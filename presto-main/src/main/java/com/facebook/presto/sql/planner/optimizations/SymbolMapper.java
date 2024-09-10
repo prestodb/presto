@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
@@ -56,6 +56,7 @@ import java.util.Set;
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateVariable;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -300,8 +301,7 @@ public class SymbolMapper
 
     private PartitioningScheme canonicalize(PartitioningScheme scheme, PlanNode source)
     {
-        return new PartitioningScheme(
-                scheme.getPartitioning().translateVariable(this::map),
+        return new PartitioningScheme(translateVariable(scheme.getPartitioning(), this::map),
                 mapAndDistinctVariable(source.getOutputVariables()),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),

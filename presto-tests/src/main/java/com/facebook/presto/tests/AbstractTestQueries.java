@@ -55,6 +55,7 @@ import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AG
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTERS;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.SystemSessionProperties.INLINE_PROJECTIONS_ON_VALUES;
 import static com.facebook.presto.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_PREFILTER_BUILD_SIDE;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
@@ -120,6 +121,7 @@ import static com.facebook.presto.tests.QueryTemplate.parameter;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.facebook.presto.tests.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -1234,6 +1236,30 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 2) T");
         assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 1) T");
         assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM orders LIMIT 0) T");
+    }
+
+    @Test
+    public void testZeroVarianceSamp()
+    {
+        assertQuery("SELECT VAR_SAMP(6523763181031200) FROM LINEITEM");
+    }
+
+    @Test
+    public void testZeroVariancePop()
+    {
+        assertQuery("SELECT VAR_POP(6523763181031200) FROM LINEITEM");
+    }
+
+    @Test
+    public void testZeroStddevSamp()
+    {
+        assertQuery("SELECT STDDEV_SAMP(6523763181031200) FROM LINEITEM");
+    }
+
+    @Test
+    public void testZeroStddevPop()
+    {
+        assertQuery("SELECT STDDEV_POP(6523763181031200) FROM LINEITEM");
     }
 
     @Test
@@ -6863,6 +6889,49 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testArraySplitIntoChunks()
+    {
+        String sql = "select array_split_into_chunks(array[1, 2, 3, 4, 5, 6], 2)";
+        assertQuery(sql, "values array[array[1, 2], array[3, 4], array[5, 6]]");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3, 4, 5], 3)";
+        assertQuery(sql, "values array[array[1, 2, 3], array[4, 5]]");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3], 5)";
+        assertQuery(sql, "values array[array[1, 2, 3]]");
+
+        sql = "select array_split_into_chunks(null, 2)";
+        assertQuery(sql, "values null");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3], 0)";
+        assertQueryFails(sql, "Invalid slice size: 0. Size must be greater than zero.");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3], -1)";
+        assertQueryFails(sql, "Invalid slice size: -1. Size must be greater than zero.");
+
+        sql = "select array_split_into_chunks(array[1, null, 3, null, 5], 2)";
+        assertQuery(sql, "values array[array[1, null], array[3, null], array[5]]");
+
+        sql = "select array_split_into_chunks(array['a', 'b', 'c', 'd'], 2)";
+        assertQuery(sql, "values array[array['a', 'b'], array['c', 'd']]");
+
+        sql = "select array_split_into_chunks(array[1.1, 2.2, 3.3, 4.4, 5.5], 2)";
+        assertQuery(sql, "values array[array[1.1, 2.2], array[3.3, 4.4], array[5.5]]");
+
+        sql = "select array_split_into_chunks(array[null, null, null], 0)";
+        assertQueryFails(sql, "Invalid slice size: 0. Size must be greater than zero.");
+
+        sql = "select array_split_into_chunks(array[null, null, null], 2)";
+        assertQuery(sql, "values array[array[null, null], array[null]]");
+
+        sql = "select array_split_into_chunks(array[null, 1, 2], 5)";
+        assertQuery(sql, "values array[array[null, 1, 2]]");
+
+        sql = "select array_split_into_chunks(array[], 0)";
+        assertQueryFails(sql, "Invalid slice size: 0. Size must be greater than zero.");
+    }
+
+    @Test
     public void testArrayCumSum()
     {
         // int
@@ -7489,6 +7558,30 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testPreserveAssignmentsInJoin()
+    {
+        // The following two timestamps represent the same point in time but with different time zones
+        String timestampLosAngeles = "2001-08-22 03:04:05.321 America/Los_Angeles";
+        String timestampNewYork = "2001-08-22 06:04:05.321 America/New_York";
+        Set<List<Object>> rows = computeActual("WITH source AS (" +
+                "SELECT * FROM (" +
+                "    VALUES" +
+                "        (TIMESTAMP '" + timestampLosAngeles + "')," +
+                "        (TIMESTAMP '" + timestampNewYork + "')" +
+                ") AS tbl (tstz)" +
+                ")" +
+                "SELECT * FROM source a JOIN source b ON a.tstz = b.tstz").getMaterializedRows().stream()
+                .map(MaterializedRow::getFields)
+                .collect(toImmutableSet());
+        assertEquals(rows,
+                ImmutableSet.of(
+                        ImmutableList.of(zonedDateTime(timestampLosAngeles), zonedDateTime(timestampLosAngeles)),
+                        ImmutableList.of(zonedDateTime(timestampLosAngeles), zonedDateTime(timestampNewYork)),
+                        ImmutableList.of(zonedDateTime(timestampNewYork), zonedDateTime(timestampLosAngeles)),
+                        ImmutableList.of(zonedDateTime(timestampNewYork), zonedDateTime(timestampNewYork))));
+    }
+
+    @Test
     public void testGenerateDomainFilters()
     {
         Session session = Session.builder(getSession())
@@ -7748,5 +7841,37 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, optimizeHashGeneration)
                 .build();
         assertQuery(session, "SELECT DISTINCT x FROM (VALUES (REAL '0.0'), (REAL '-0.0')) t(x)", "SELECT  CAST(0.0 AS REAL)");
+    }
+
+    @Test
+    public void testEvaluateProjectOnValues()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(INLINE_PROJECTIONS_ON_VALUES, "true")
+                .build();
+        assertQuery(session,
+                "SELECT MAP(ARRAY[1,2,3],ARRAY['one','two','three'])[x] from (values 1,2) as t(x)",
+                "SELECT * FROM (VALUES 'one','two')");
+        assertQuery(session,
+                "SELECT CASE WHEN x<y THEN x ELSE y END from (values (1,2),(3,4)) as t(x,y)",
+                "SELECT * FROM (VALUES 1,3)");
+        assertQuery(session,
+                "SELECT MAP(ARRAY[ARRAY[1,1],ARRAY[2,2]],ARRAY[1,2])[x] from (values ARRAY[1,1]) as t(x)",
+                "SELECT * FROM (VALUES 1)");
+        assertQuery(session,
+                "SELECT SUBSTR(Y,1,1) FROM (SELECT SUBSTR(X, 1,2) FROM (VALUES 'abcd', 'efgh') AS T(X)) AS T(Y)",
+                "SELECT * FROM (VALUES 'a','e')");
+        assertQuery(session,
+                "SELECT a * 2, a * 4 from (VALUES 2, 4) t(a)",
+                "SELECT * FROM (VALUES (4,8),(8,16))");
+        assertQuery(session,
+                "SELECT a + 1 FROM (VALUES (1, 2), (3, 4)) t(a, b)",
+                "SELECT * FROM (VALUES 2, 4)");
+        assertQuery(session,
+                "WITH t1 as (SELECT a + 1 as a FROM (VALUES 6) as t(a)) SELECT a * 2, a - 1 FROM t1",
+                "SELECT * FROM (VALUES (14, 6))");
+        assertQuery(session,
+                "SELECT a * 2, a - 1 FROM (SELECT x * 2 as a FROM (VALUES 15) t(x))",
+                "SELECT * FROM (VALUES (60, 29))");
     }
 }

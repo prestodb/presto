@@ -170,9 +170,6 @@ if(BZIP2_FOUND)
 endif()
 include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
 
-# Include third party header files
-find_path(OPT_OPENSSL_DIR NAMES opt/openssl@1.1)
-set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl@1.1")
 find_package(OpenSSL REQUIRED)
 
 find_package(Sodium REQUIRED)
@@ -207,6 +204,7 @@ add_subdirectory(velox)
 if(PRESTO_ENABLE_TESTING)
   set(BUILD_TESTING ON) # some third-party dependency could have disabled this.
   include(CTest) # include after project() but before add_subdirectory()
+  find_package(GTest)
   include_directories(${VELOX_GTEST_INCUDE_DIR})
 else()
   add_definitions(-DVELOX_DISABLE_GOOGLETEST)

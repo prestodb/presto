@@ -24,7 +24,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -65,27 +65,27 @@ public class TestingConnectorSession
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
+        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(ConnectorIdentity identity, List<PropertyMetadata<?>> properties)
     {
-        this(identity.getUser(), identity, Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
+        this(identity.getUser(), identity, Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties, Set<String> clientTags)
     {
-        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), clientTags, Optional.empty(), ImmutableMap.of());
+        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), clientTags, Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties, Map<String, Object> propertyValues)
     {
-        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, propertyValues, new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
+        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, propertyValues, new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties, Optional<String> schema)
     {
-        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), schema, ImmutableMap.of());
+        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), schema, ImmutableMap.of());
     }
 
     public TestingConnectorSession(

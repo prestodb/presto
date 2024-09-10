@@ -16,7 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

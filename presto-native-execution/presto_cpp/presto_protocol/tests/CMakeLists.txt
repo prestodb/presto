@@ -35,8 +35,8 @@ add_dependencies(presto_protocol_test presto_protocol)
 
 target_link_libraries(
   presto_protocol_test
-  gtest
-  gtest_main
+  GTest::gtest
+  GTest::gtest_main
   $<TARGET_OBJECTS:presto_protocol>
   velox_type
   velox_encode

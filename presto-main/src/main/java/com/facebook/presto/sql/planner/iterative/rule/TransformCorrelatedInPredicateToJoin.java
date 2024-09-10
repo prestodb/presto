@@ -390,7 +390,7 @@ public class TransformCorrelatedInPredicateToJoin
 
         private boolean isCorrelatedShallowly(PlanNode node)
         {
-            return VariablesExtractor.extractUniqueNonRecursive(node, types).stream().anyMatch(correlation::contains);
+            return VariablesExtractor.extractUniqueNonRecursive(node).stream().anyMatch(correlation::contains);
         }
     }
 

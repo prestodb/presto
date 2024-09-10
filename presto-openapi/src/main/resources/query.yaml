@@ -1,0 +1,94 @@
+openapi: 3.0.0
+info:
+  title: Presto Query Info
+  description: Optional multiline or single-line description in [CommonMark](http://commonmark.org/help/) or HTML.
+  version: "1"
+servers:
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
+paths:
+  /v1/query/{queryId}:
+    delete:
+      summary: Cancel a specific query
+      description: Cancels the query identified by queryId
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the query to cancel
+      responses:
+        '204':
+          description: Query canceled successfully
+    get:
+      summary: Retrieve information about a specific query
+      description: Retrieves detailed information about the query identified by queryId
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the query to retrieve
+      responses:
+        '200':
+          description: Detailed query information
+          content:
+            application/json:
+              schema:
+                title: 'QueryInfoResponse'
+                type: object
+                oneOf:
+                  - $ref: './schemas.yaml/#/components/schemas/BasicQueryInfo'
+                  - $ref: './schemas.yaml/#/components/schemas/QueryInfo'
+
+        '404':
+          description: Query not found
+  /v1/query/{queryId}/killed:
+    put:
+      summary: Kill a specific query
+      description: Kills the query identified by queryId with a provided message
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the query to kill
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: Message explaining why the query is being killed
+      responses:
+        '200':
+          description: Query killed successfully
+  /v1/query:
+    get:
+      summary: Returns a list of query resource information
+      description: Retrieves information about all queries with the ability to filter and limit the result list using optional parameters
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter queries by state
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Limit the number of queries returned
+      responses:
+        '200':
+          description: A list of queries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: './schemas.yaml/#/components/schemas/BasicQueryInfo'

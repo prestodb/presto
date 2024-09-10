@@ -261,7 +261,7 @@ public class BenchmarkParquetPageSource
                     values,
                     ROWS,
                     compressionCodecName,
-                    ParquetProperties.WriterVersion.PARQUET_2_0);
+                    ParquetProperties.WriterVersion.PARQUET_1_0);
 
             //Set up PageProcessor
             List<RowExpression> projections = getProjections(type);

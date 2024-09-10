@@ -61,7 +61,8 @@ class ConfigTest : public testing::Test {
   void init(
       ConfigBase& config,
       std::unordered_map<std::string, std::string> properties) {
-    config.initialize(std::make_unique<core::MemConfig>(std::move(properties)));
+    config.initialize(
+        std::make_unique<config::ConfigBase>(std::move(properties)));
   }
 
   std::string configFilePath;

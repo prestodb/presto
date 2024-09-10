@@ -14,24 +14,24 @@
 package com.facebook.presto.parquet.batchreader.decoders.plain;
 
 import com.facebook.presto.parquet.batchreader.BytesUtils;
-import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMicrosValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
-public class Int64TimestampMicrosPlainValuesDecoder
-        implements Int64TimestampMicrosValuesDecoder
+public class Int64TimeAndTimestampMicrosPlainValuesDecoder
+        implements Int64TimeAndTimestampMicrosValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimestampMicrosPlainValuesDecoder.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimeAndTimestampMicrosPlainValuesDecoder.class).instanceSize();
 
     private final byte[] byteBuffer;
     private final int bufferEnd;
 
     private int bufferOffset;
 
-    public Int64TimestampMicrosPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length)
+    public Int64TimeAndTimestampMicrosPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length)
     {
         this.byteBuffer = byteBuffer;
         this.bufferOffset = bufferOffset;

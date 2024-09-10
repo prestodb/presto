@@ -101,7 +101,7 @@ public class TestRealHistogramAggregation
         Accumulator accumulator = factory.createAccumulator(UpdateMemory.NOOP);
         Block result = getFinalBlock(accumulator);
 
-        assertTrue(result.getPositionCount() == 1);
+        assertEquals(result.getPositionCount(), 1);
         assertTrue(result.isNull(0));
     }
 

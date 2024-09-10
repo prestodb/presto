@@ -13,35 +13,58 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.execution.MockQueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.TestEventListener.EventsBuilder;
+import com.facebook.presto.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import org.intellij.lang.annotations.Language;
+import org.joda.time.DateTime;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
+import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_POSITIONS_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_SIZE_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT;
@@ -277,5 +300,212 @@ public class TestQueryManager
 
             Thread.sleep(1000);
         }
+    }
+
+    @Test
+    public void testQueryCompletedInfoNotPruned()
+            throws Exception
+    {
+        try (DistributedQueryRunner runner = DistributedQueryRunner.builder(TEST_SESSION)
+                .setNodeCount(0)
+                .build()) {
+            EventsBuilder eventsBuilder = new EventsBuilder();
+            eventsBuilder.initialize(1);
+            TestingEventListenerPlugin testEventListenerPlugin = new TestingEventListenerPlugin(eventsBuilder);
+            runner.installPlugin(testEventListenerPlugin);
+            QueryManager manager = runner.getCoordinator().getQueryManager();
+            QueryId id = runner.getCoordinator().getDispatchManager().createQueryId();
+            @Language("SQL") String sql = "SELECT * FROM lineitem WHERE linenumber = 0 LIMIT 1";
+            QueryInfo mockInfo = mockInfo(sql, id.toString(), FINISHED);
+            MockExecution exec = new MockExecution(eventsBuilder, mockInfo);
+            manager.createQuery(exec);
+
+            // when the listener executes, we will verify that the query completed event exists
+            // when pruneInfo is called
+            exec.finalInfoListeners.forEach(item -> item.stateChanged(mockInfo));
+            // verify we actually called pruneQueryFinished to assert that it was checked
+            assertEquals(exec.pruneFinishedCalls, 1);
+        }
+    }
+
+    private static class MockExecution
+            extends MockQueryExecution
+    {
+        List<StateMachine.StateChangeListener<QueryInfo>> finalInfoListeners = new ArrayList<>();
+        private final EventsBuilder eventsBuilder;
+        int pruneFinishedCalls;
+        int pruneExpiredCalls;
+        private final QueryInfo info;
+
+        private MockExecution(EventsBuilder eventsBuilder, QueryInfo info)
+        {
+            this.eventsBuilder = eventsBuilder;
+            this.info = info;
+        }
+
+        @Override
+        public DateTime getCreateTime()
+        {
+            return info.getQueryStats().getCreateTime();
+        }
+
+        @Override
+        public Duration getTotalCpuTime()
+        {
+            return info.getQueryStats().getTotalCpuTime();
+        }
+
+        @Override
+        public DataSize getRawInputDataSize()
+        {
+            return info.getQueryStats().getRawInputDataSize();
+        }
+
+        @Override
+        public DataSize getOutputDataSize()
+        {
+            return info.getQueryStats().getOutputDataSize();
+        }
+
+        @Override
+        public Session getSession()
+        {
+            return TEST_SESSION;
+        }
+
+        @Override
+        public void addFinalQueryInfoListener(StateMachine.StateChangeListener<QueryInfo> stateChangeListener)
+        {
+            finalInfoListeners.add(stateChangeListener);
+        }
+
+        @Override
+        public void pruneExpiredQueryInfo()
+        {
+            pruneExpiredCalls++;
+            Optional<QueryCompletedEvent> event = eventsBuilder.getQueryCompletedEvents().stream()
+                    .filter(x -> x.getMetadata().getQueryId().equals(info.getQueryId().toString()))
+                    .findFirst();
+            // verify that the event listener was notified before prune was called
+            assertTrue(event.isPresent());
+        }
+
+        @Override
+        public void pruneFinishedQueryInfo()
+        {
+            pruneFinishedCalls++;
+            Optional<QueryCompletedEvent> event = eventsBuilder.getQueryCompletedEvents().stream()
+                    .filter(x -> x.getMetadata().getQueryId().equals(info.getQueryId().toString()))
+                    .findFirst();
+            // verify that the event listener was notified before prune was called
+            assertTrue(event.isPresent());
+        }
+    }
+
+    private static QueryInfo mockInfo(String query, String queryId, QueryState state)
+    {
+        return new QueryInfo(
+                new QueryId(queryId),
+                TEST_SESSION.toSessionRepresentation(),
+                state,
+                new MemoryPoolId("reserved"),
+                true,
+                URI.create("1"),
+                ImmutableList.of("2", "3"),
+                query,
+                Optional.empty(),
+                Optional.empty(),
+                new QueryStats(
+                        DateTime.parse("1991-09-06T05:00-05:30"),
+                        DateTime.parse("1991-09-06T05:01-05:30"),
+                        DateTime.parse("1991-09-06T05:02-05:30"),
+                        DateTime.parse("1991-09-06T06:00-05:30"),
+                        Duration.valueOf("8m"),
+                        Duration.valueOf("5m"),
+                        Duration.valueOf("7m"),
+                        Duration.valueOf("34m"),
+                        Duration.valueOf("5m"),
+                        Duration.valueOf("6m"),
+                        Duration.valueOf("35m"),
+                        Duration.valueOf("44m"),
+                        Duration.valueOf("9m"),
+                        Duration.valueOf("10m"),
+                        Duration.valueOf("11m"),
+                        13,
+                        14,
+                        15,
+                        16,
+                        100,
+                        17,
+                        18,
+                        34,
+                        19,
+                        20.0,
+                        43.0,
+                        DataSize.valueOf("21GB"),
+                        DataSize.valueOf("22GB"),
+                        DataSize.valueOf("23GB"),
+                        DataSize.valueOf("24GB"),
+                        DataSize.valueOf("25GB"),
+                        DataSize.valueOf("26GB"),
+                        DataSize.valueOf("42GB"),
+                        true,
+                        Duration.valueOf("23m"),
+                        Duration.valueOf("24m"),
+                        Duration.valueOf("0m"),
+                        Duration.valueOf("26m"),
+                        true,
+                        ImmutableSet.of(WAITING_FOR_MEMORY),
+                        DataSize.valueOf("123MB"),
+                        DataSize.valueOf("27GB"),
+                        28,
+                        DataSize.valueOf("29GB"),
+                        30,
+                        DataSize.valueOf("32GB"),
+                        40,
+                        DataSize.valueOf("31GB"),
+                        32,
+                        33,
+                        DataSize.valueOf("34GB"),
+                        DataSize.valueOf("35GB"),
+                        DataSize.valueOf("36GB"),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        new RuntimeStats()),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false,
+                "33",
+                Optional.empty(),
+                null,
+                EXCEEDED_GLOBAL_MEMORY_LIMIT.toErrorCode(),
+                ImmutableList.of(
+                        new PrestoWarning(
+                                new WarningCode(123, "WARNING_123"),
+                                "warning message")),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                StatsAndCosts.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                Optional.empty());
     }
 }

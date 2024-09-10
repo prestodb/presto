@@ -39,6 +39,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
@@ -520,6 +521,12 @@ public class TestLocalDispatchQuery
         public void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
         {
             fail("Query update events should not be created in this test");
+        }
+
+        @Override
+        public void publishQueryProgress(QueryProgressEvent queryProgressEvent)
+        {
+            fail("Query Progress events should not be created in this test");
         }
 
         @Override

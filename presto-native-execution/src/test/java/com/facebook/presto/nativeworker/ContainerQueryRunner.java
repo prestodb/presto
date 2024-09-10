@@ -84,9 +84,7 @@ public class ContainerQueryRunner
         this.schema = schema;
         this.numberOfWorkers = numberOfWorkers;
 
-        // TODO: This framework is tested only in Ubuntu x86_64, as there is no support to run the native docker images in ARM based system,
-        // Once this is fixed, the container details can be added as properties in VM options for testing in IntelliJ.
-
+        // The container details can be added as properties in VM options for testing in IntelliJ.
         coordinator = createCoordinator();
         for (int i = 0; i < numberOfWorkers; i++) {
             workers.add(createNativeWorker(7777 + i, "native-worker-" + i));
@@ -128,7 +126,7 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createNativeWorkerVeloxProperties(nodeId);
         return new GenericContainer<>(PRESTO_WORKER_IMAGE)
                 .withExposedPorts(port)
-                .withNetwork(network).withNetworkAliases("presto-worker")
+                .withNetwork(network).withNetworkAliases(nodeId)
                 .withFileSystemBind(BASE_DIR + "/testcontainers/" + nodeId + "/etc", "/opt/presto-server/etc", BindMode.READ_ONLY)
                 .withFileSystemBind(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh", "/opt/entrypoint.sh", BindMode.READ_ONLY)
                 .waitingFor(Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));

@@ -914,7 +914,7 @@ Parquet Writer Version
 
 Presto now supports Parquet writer versions V1 and V2 for the Hive catalog.
 It can be toggled using the session property ``parquet_writer_version`` and the config property ``hive.parquet.writer.version``.
-Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_2_0``.
+Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_1_0``.
 
 Procedures
 ----------

@@ -97,9 +97,29 @@ public class TestLikeFunctions
     }
 
     @Test
+    public void testLikeNewlineNoWildcard()
+    {
+        Regex regex = likePattern(utf8Slice("foo\nbar"));
+        assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
+    }
+
+    @Test
+    public void testLikeNoMatchAfterNewline()
+    {
+        Regex regex = likePattern(utf8Slice("foo"));
+        assertFalse(likeVarchar(utf8Slice("foo\nbar"), regex));
+    }
+
+    @Test
     public void testLikeNewlineInMatch()
     {
         Regex regex = likePattern(utf8Slice("f%b%"));
+        assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
+    }
+    @Test
+    public void testLikeNewlineInSingleWildcardMatch()
+    {
+        Regex regex = likePattern(utf8Slice("foo_bar"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
@@ -146,6 +166,7 @@ public class TestLikeFunctions
         assertThrows(PrestoException.class, () -> likePattern(utf8Slice("#"), utf8Slice("#")));
         assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#abc"), utf8Slice("#")));
         assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#"), utf8Slice("c#")));
     }
 
     @Test
@@ -171,5 +192,11 @@ public class TestLikeFunctions
         assertEquals(unescapeLiteralLikePattern(utf8Slice("abc#_"), utf8Slice("#")), utf8Slice("abc_"));
         assertEquals(unescapeLiteralLikePattern(utf8Slice("a##bc#_"), utf8Slice("#")), utf8Slice("a#bc_"));
         assertEquals(unescapeLiteralLikePattern(utf8Slice("a###_bc"), utf8Slice("#")), utf8Slice("a#_bc"));
+    }
+
+    @Test
+    public void testUnescapeInvalidLikePattern()
+    {
+        assertThrows(PrestoException.class, () -> unescapeLiteralLikePattern(utf8Slice("abc"), utf8Slice("ab")));
     }
 }

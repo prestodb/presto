@@ -147,18 +147,16 @@ public class IntBigArrays
             swap(x, b++, c--);
         }
         // Swap partition elements back to middle
-        long s;
-        long n = to;
-        s = Math.min(a - from, b - a);
+        long s = Math.min(a - from, b - a);
         vecSwap(x, from, b - s, s);
-        s = Math.min(d - c, n - d - 1);
-        vecSwap(x, b, n - s, s);
+        s = Math.min(d - c, to - d - 1);
+        vecSwap(x, b, to - s, s);
         // Recursively sort non-partition-elements
         if ((s = b - a) > 1) {
             quickSort(x, from, from + s, comp);
         }
         if ((s = d - c) > 1) {
-            quickSort(x, n - s, n, comp);
+            quickSort(x, to - s, to, comp);
         }
     }
 

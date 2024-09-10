@@ -49,6 +49,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -99,7 +100,7 @@ public class StoragePartitionLoader
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
     private final Table table;
-    private final Optional<Domain> pathDomain;
+    private final Map<Integer, Domain> infoColumnConstraints;
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -113,7 +114,7 @@ public class StoragePartitionLoader
 
     public StoragePartitionLoader(
             Table table,
-            Optional<Domain> pathDomain,
+            Map<Integer, Domain> infoColumnConstraints,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
@@ -125,7 +126,7 @@ public class StoragePartitionLoader
             boolean partialAggregationsPushedDown)
     {
         this.table = requireNonNull(table, "table is null");
-        this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
+        this.infoColumnConstraints = requireNonNull(infoColumnConstraints, "infoColumnConstraints is null");
         this.tableBucketInfo = requireNonNull(tableBucketInfo, "tableBucketInfo is null");
         this.session = requireNonNull(session, "session is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -232,7 +233,7 @@ public class StoragePartitionLoader
         return new InternalHiveSplitFactory(
                 fs,
                 inputFormat,
-                pathDomain,
+                infoColumnConstraints,
                 getNodeSelectionStrategy(session),
                 getMaxInitialSplitSize(session),
                 s3SelectPushdownEnabled,

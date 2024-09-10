@@ -1802,11 +1802,15 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     // For constant channels create a base vector, add single value to it from
     // our variant and add it to the list of constant expressions.
     if (channel == kConstantChannel) {
-      constValues.emplace_back(
-          velox::BaseVector::create(expr->type(), 1, pool_));
       auto constExpr =
           std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr);
-      setCellFromVariant(constValues.back(), 0, constExpr->value());
+      if (constExpr->hasValueVector()) {
+        constValues.emplace_back(constExpr->valueVector());
+      } else {
+        constValues.emplace_back(
+            velox::BaseVector::create(expr->type(), 1, pool_));
+        setCellFromVariant(constValues.back(), 0, constExpr->value());
+      }
     }
   }
   auto outputType = toRowType(partitioningScheme.outputLayout, typeParser_);

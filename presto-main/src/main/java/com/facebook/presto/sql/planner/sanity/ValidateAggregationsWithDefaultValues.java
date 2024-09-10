@@ -19,8 +19,6 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties;
 import com.facebook.presto.sql.planner.optimizations.PropertyDerivations;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations;
@@ -60,9 +58,9 @@ public class ValidateAggregationsWithDefaultValues
     }
 
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, sqlParser, types), null);
+        planNode.accept(new Visitor(session, metadata), null);
     }
 
     private class Visitor
@@ -70,15 +68,11 @@ public class ValidateAggregationsWithDefaultValues
     {
         final Session session;
         final Metadata metadata;
-        final SqlParser parser;
-        final TypeProvider types;
 
-        Visitor(Session session, Metadata metadata, SqlParser parser, TypeProvider types)
+        Visitor(Session session, Metadata metadata)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.parser = requireNonNull(parser, "parser is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -119,14 +113,14 @@ public class ValidateAggregationsWithDefaultValues
 
             // No remote repartition exchange between final and partial aggregation.
             // Make sure that final aggregation operators are executed on a single node.
-            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, metadata, session, types, parser);
+            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, metadata, session);
             checkArgument(forceSingleNode || globalProperties.isSingleNode(),
                     "Final aggregation with default value not separated from partial aggregation by remote hash exchange");
 
             if (!seenExchanges.localRepartitionExchange) {
                 // No local repartition exchange between final and partial aggregation.
                 // Make sure that final aggregation operators are executed by single thread.
-                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, metadata, session, types, parser);
+                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, metadata, session);
                 checkArgument(localProperties.isSingleStream(),
                         "Final aggregation with default value not separated from partial aggregation by local hash exchange");
             }

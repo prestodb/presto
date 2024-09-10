@@ -21,6 +21,7 @@ import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECT
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 
 @Test(groups = {"parquet"})
 public class TestPrestoNativeCteExecutionParquet
@@ -54,6 +55,7 @@ public class TestPrestoNativeCteExecutionParquet
     {
         return Session.builder(super.getSession())
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "hive")
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
                 .setSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, "true")

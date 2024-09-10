@@ -136,6 +136,7 @@ constexpr folly::StringPiece kCounterOsNumForcedContextSwitches{
     "presto_cpp.os_num_forced_context_switches"};
 
 /// ================== HiveConnector Counters ==================
+
 /// Format template strings use 'constexpr std::string_view' to be 'fmt::format'
 /// compatible.
 constexpr std::string_view kCounterHiveFileHandleCacheNumElementsFormat{
@@ -153,4 +154,14 @@ constexpr std::string_view kCounterHiveFileHandleCacheNumHitsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_hits"};
 constexpr std::string_view kCounterHiveFileHandleCacheNumLookupsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_lookups"};
+
+/// ================== Memory Pushback Counters =================
+
+/// Number of times memory pushback mechanism is triggered.
+constexpr folly::StringPiece kCounterMemoryPushbackCount{
+    "presto_cpp.memory_pushback_count"};
+/// Latency distribution of each memory pushback run in range of [0, 100s] and
+/// reports P50, P90, P99, and P100.
+constexpr folly::StringPiece kCounterMemoryPushbackLatencyMs{
+    "presto_cpp.memory_pushback_latency_ms"};
 } // namespace facebook::presto

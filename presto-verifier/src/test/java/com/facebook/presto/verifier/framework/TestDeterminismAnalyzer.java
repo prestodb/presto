@@ -51,7 +51,7 @@ public class TestDeterminismAnalyzer
 {
     private static final String SUITE = "test-suite";
     private static final String NAME = "test-query";
-    private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
     private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     @Test
@@ -64,7 +64,7 @@ public class TestDeterminismAnalyzer
 
     private static boolean isMutableCatalogReferenced(DeterminismAnalyzer determinismAnalyzer, String query)
     {
-        return determinismAnalyzer.isNonDeterministicCatalogReferenced(sqlParser.createStatement(query, ParsingOptions.builder().build()));
+        return determinismAnalyzer.isNonDeterministicCatalogReferenced(SQL_PARSER.createStatement(query, ParsingOptions.builder().build()));
     }
 
     private static DeterminismAnalyzer createDeterminismAnalyzer(String mutableCatalogPattern)
@@ -87,7 +87,7 @@ public class TestDeterminismAnalyzer
                 retryConfig,
                 new DefaultClientInfoFactory(verifierConfig));
         QueryRewriter queryRewriter = new QueryRewriter(
-                sqlParser,
+                SQL_PARSER,
                 typeManager,
                 blockEncodingSerde,
                 prestoAction,

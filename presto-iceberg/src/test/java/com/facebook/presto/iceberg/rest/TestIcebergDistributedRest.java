@@ -34,6 +34,7 @@ import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test
 public class TestIcebergDistributedRest
@@ -46,12 +47,6 @@ public class TestIcebergDistributedRest
     protected TestIcebergDistributedRest()
     {
         super(REST);
-    }
-
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
     }
 
     @Override
@@ -96,5 +91,14 @@ public class TestIcebergDistributedRest
                 false,
                 OptionalInt.empty(),
                 Optional.of(warehouseLocation.toPath()));
+    }
+
+    @Test
+    public void testDeleteOnV1Table()
+    {
+        // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
+        assertThatThrownBy(super::testDeleteOnV1Table)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Cannot downgrade v2 table to v1");
     }
 }

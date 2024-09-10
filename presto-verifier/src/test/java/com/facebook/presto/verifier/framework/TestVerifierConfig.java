@@ -53,7 +53,8 @@ public class TestVerifierConfig
                 .setRunningMode("control-test")
                 .setExtendedVerification(false)
                 .setSaveSnapshot(false)
-                .setFunctionSubstitutes(null));
+                .setFunctionSubstitutes(null)
+                .setValidateStringAsDouble(false));
     }
 
     @Test
@@ -86,6 +87,7 @@ public class TestVerifierConfig
                 .put("extended-verification", "true")
                 .put("save-snapshot", "true")
                 .put("function-substitutes", "/approx_distinct(c)/count(c)/")
+                .put("validate-string-as-double", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -113,7 +115,8 @@ public class TestVerifierConfig
                 .setRunningMode("query-bank")
                 .setExtendedVerification(true)
                 .setSaveSnapshot(true)
-                .setFunctionSubstitutes("/approx_distinct(c)/count(c)/");
+                .setFunctionSubstitutes("/approx_distinct(c)/count(c)/")
+                .setValidateStringAsDouble(true);
 
         assertFullMapping(properties, expected);
     }

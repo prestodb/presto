@@ -187,10 +187,11 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        boolean wasAutoCommit = this.autoCommit.getAndSet(autoCommit);
+        boolean wasAutoCommit = this.autoCommit.get();
         if (autoCommit && !wasAutoCommit) {
             commit();
         }
+        this.autoCommit.set(autoCommit);
     }
 
     @Override

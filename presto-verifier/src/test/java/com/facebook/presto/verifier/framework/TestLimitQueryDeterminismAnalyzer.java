@@ -83,7 +83,7 @@ public class TestLimitQueryDeterminismAnalyzer
             Optional.of(new QueryStats("id", "", false, false, false, 1, 2, 3, 4, 5, 0, 7, 8, 9, 10, 11, 12, 0, 0, 0, Optional.empty())),
             Optional.empty());
     private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
-    private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private static final String ORDER_BY_LIMIT_QUERY = "INSERT INTO test\n" +
             "SELECT\n" +
@@ -229,7 +229,7 @@ public class TestLimitQueryDeterminismAnalyzer
         LimitQueryDeterminismAnalysis analysis = new LimitQueryDeterminismAnalyzer(
                 prestoAction,
                 true,
-                sqlParser.createStatement(query, PARSING_OPTIONS),
+                SQL_PARSER.createStatement(query, PARSING_OPTIONS),
                 controlRowCount,
                 determinismAnalysisDetailsBuilder).analyze();
         DeterminismAnalysisDetails determinismAnalysisDetails = determinismAnalysisDetailsBuilder.build(NON_DETERMINISTIC_LIMIT_CLAUSE);
@@ -240,7 +240,7 @@ public class TestLimitQueryDeterminismAnalyzer
 
     private static void assertAnalyzerQuery(MockPrestoAction prestoAction, String expectedQuery)
     {
-        Statement expectedStatement = sqlParser.createStatement(expectedQuery, PARSING_OPTIONS);
+        Statement expectedStatement = SQL_PARSER.createStatement(expectedQuery, PARSING_OPTIONS);
         Statement actualStatement = prestoAction.getLastStatement();
         assertEquals(formatSql(actualStatement, Optional.empty()), formatSql(expectedStatement, Optional.empty()));
     }

@@ -27,6 +27,10 @@ public interface EventListener
     {
     }
 
+    default void publishQueryProgress(QueryProgressEvent queryProgressEvent)
+    {
+    }
+
     default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
     }

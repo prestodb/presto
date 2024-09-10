@@ -30,6 +30,7 @@ import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
+import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -41,7 +42,6 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -115,12 +115,8 @@ public class PruneUnreferencedOutputs
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(variableAllocator, "variableAllocator is null");
-        requireNonNull(idAllocator, "idAllocator is null");
 
-        Rewriter rewriter = new Rewriter(variableAllocator);
+        Rewriter rewriter = new Rewriter();
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, ImmutableSet.of());
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -128,13 +124,7 @@ public class PruneUnreferencedOutputs
     private static class Rewriter
             extends SimplePlanRewriter<Set<VariableReferenceExpression>>
     {
-        private final VariableAllocator variableAllocator;
         private boolean planChanged;
-
-        public Rewriter(VariableAllocator variableAllocator)
-        {
-            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-        }
 
         public boolean isPlanChanged()
         {
@@ -389,7 +379,7 @@ public class PruneUnreferencedOutputs
 
                 if (context.get().contains(variable)) {
                     Aggregation aggregation = entry.getValue();
-                    expectedInputs.addAll(extractAggregationUniqueVariables(aggregation, TypeProvider.viewOf(variableAllocator.getVariables())));
+                    expectedInputs.addAll(extractAggregationUniqueVariables(aggregation));
                     aggregation.getMask().ifPresent(expectedInputs::add);
                     aggregations.put(variable, aggregation);
                 }
@@ -446,7 +436,7 @@ public class PruneUnreferencedOutputs
                 VariableReferenceExpression variable = entry.getKey();
                 WindowNode.Function function = entry.getValue();
                 if (context.get().contains(variable)) {
-                    expectedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(function, TypeProvider.viewOf(variableAllocator.getVariables())));
+                    expectedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(function));
                     functionsBuilder.put(variable, entry.getValue());
                 }
             }
@@ -746,7 +736,7 @@ public class PruneUnreferencedOutputs
                 expectedInputs.addAll(aggregations.getGroupingVariables());
                 aggregations.getAggregations()
                         .values()
-                        .forEach(aggregation -> expectedInputs.addAll(extractAggregationUniqueVariables(aggregation, TypeProvider.viewOf(variableAllocator.getVariables()))));
+                        .forEach(aggregation -> expectedInputs.addAll(extractAggregationUniqueVariables(aggregation)));
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new TableWriterNode(
@@ -926,7 +916,7 @@ public class PruneUnreferencedOutputs
             PlanNode subquery = context.rewrite(node.getSubquery(), subqueryAssignmentsVariables);
 
             // prune not used correlation symbols
-            Set<VariableReferenceExpression> subquerySymbols = VariablesExtractor.extractUnique(subquery, TypeProvider.viewOf(variableAllocator.getVariables()));
+            Set<VariableReferenceExpression> subquerySymbols = VariablesExtractor.extractUnique(subquery);
             List<VariableReferenceExpression> newCorrelation = node.getCorrelation().stream()
                     .filter(subquerySymbols::contains)
                     .collect(toImmutableList());
@@ -965,7 +955,7 @@ public class PruneUnreferencedOutputs
             }
 
             // prune not used correlation symbols
-            Set<VariableReferenceExpression> subqueryVariables = VariablesExtractor.extractUnique(subquery, TypeProvider.viewOf(variableAllocator.getVariables()));
+            Set<VariableReferenceExpression> subqueryVariables = VariablesExtractor.extractUnique(subquery);
             List<VariableReferenceExpression> newCorrelation = node.getCorrelation().stream()
                     .filter(subqueryVariables::contains)
                     .collect(toImmutableList());

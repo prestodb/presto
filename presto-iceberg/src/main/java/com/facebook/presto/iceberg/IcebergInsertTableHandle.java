@@ -29,8 +29,8 @@ public class IcebergInsertTableHandle
     public IcebergInsertTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") IcebergTableName tableName,
-            @JsonProperty("schemaAsJson") String schemaAsJson,
-            @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
+            @JsonProperty("schema") PrestoIcebergSchema schema,
+            @JsonProperty("partitionSpec") PrestoIcebergPartitionSpec partitionSpec,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
             @JsonProperty("fileFormat") FileFormat fileFormat,
@@ -40,8 +40,8 @@ public class IcebergInsertTableHandle
         super(
                 schemaName,
                 tableName,
-                schemaAsJson,
-                partitionSpecAsJson,
+                schema,
+                partitionSpec,
                 inputColumns,
                 outputPath,
                 fileFormat,

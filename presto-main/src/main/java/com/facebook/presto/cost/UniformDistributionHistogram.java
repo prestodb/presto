@@ -18,6 +18,7 @@ import com.facebook.presto.spi.statistics.ConnectorHistogram;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -38,6 +39,7 @@ import static java.util.Objects.hash;
 public class UniformDistributionHistogram
         implements ConnectorHistogram
 {
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(UniformDistributionHistogram.class).instanceSize();
     private final double lowValue;
     private final double highValue;
 
@@ -109,6 +111,12 @@ public class UniformDistributionHistogram
         }
 
         return Estimate.of(lowValue + (percentile * (highValue - lowValue)));
+    }
+
+    @Override
+    public long getEstimatedSize()
+    {
+        return INSTANCE_SIZE;
     }
 
     @Override

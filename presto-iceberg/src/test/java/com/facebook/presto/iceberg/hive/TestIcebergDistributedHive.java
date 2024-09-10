@@ -60,6 +60,14 @@ public class TestIcebergDistributedHive
     }
 
     @Override
+    public void testStatisticsFileCache()
+            throws Exception
+    {
+        // hive doesn't write Iceberg statistics files when metastore is in use,
+        // so this test won't complete successfully.
+    }
+
+    @Override
     protected Table loadTable(String tableName)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();

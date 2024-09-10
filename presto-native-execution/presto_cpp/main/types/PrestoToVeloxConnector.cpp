@@ -1354,6 +1354,12 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     deletes.emplace_back(icebergDeleteFile);
   }
 
+  std::unordered_map<std::string, std::string> metadataColumns;
+  metadataColumns.reserve(1);
+  metadataColumns.insert(
+      {"$data_sequence_number",
+       std::to_string(icebergSplit->dataSequenceNumber)});
+
   return std::make_unique<connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
       icebergSplit->path,
@@ -1364,7 +1370,8 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       std::nullopt,
       customSplitInfo,
       nullptr,
-      deletes);
+      deletes,
+      metadataColumns);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>

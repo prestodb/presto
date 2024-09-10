@@ -143,9 +143,8 @@ SQL support
 -----------
 
 The connector provides read and write access to data and metadata in
-a ClickHouse catalog. In addition to the :ref:`globally available
-<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
-statements, the connector supports the following features:
+a ClickHouse catalog. In addition to the globally available and
+read operation statements, the connector supports the following features:
 
 * :doc:`/sql/insert`
 * :doc:`/sql/truncate`
