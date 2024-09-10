@@ -40,6 +40,7 @@
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/types/RowExpressionConverter.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
@@ -54,6 +55,7 @@
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
+#include "velox/core/ExpressionOptimizer.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
 #include "velox/dwio/orc/reader/OrcReader.h"
@@ -87,6 +89,7 @@ constexpr char const* kHttps = "https";
 constexpr char const* kTaskUriFormat =
     "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
+constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -1536,6 +1539,15 @@ void PrestoServer::registerSidecarEndpoints() {
               downstream, json(response), http::kHttpUnprocessableContent);
         }
       });
+
+  core::registerExpressionOptimizations();
+  httpServer_->registerPost(
+      "/v1/expressions",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        optimizeExpressions(message->getHeaders(), body, downstream);
+      });
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {
@@ -1564,6 +1576,51 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nonHeapUsed};
 
   return nodeStatus;
+}
+
+void PrestoServer::optimizeExpressions(
+    const proxygen::HTTPHeaders& httpHeaders,
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    proxygen::ResponseHandler* downstream) {
+  json::array_t inputRowExpressions =
+      json::parse(util::extractMessageBody(body));
+  const auto& timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
+  std::unordered_map<std::string, std::string> config(
+      {{core::QueryConfig::kSessionTimezone, timezone},
+       {core::QueryConfig::kAdjustTimestampToTimezone, "true"}});
+  auto queryCtx =
+      core::QueryCtx::create(nullptr, core::QueryConfig{std::move(config)});
+  TypeParser typeParser;
+  VeloxExprConverter veloxExprConverter(nativeWorkerPool_.get(), &typeParser);
+  expression::RowExpressionConverter rowExpressionConverter(nativeWorkerPool_.get());
+
+  try {
+    json::array_t result;
+    const auto numExpr = inputRowExpressions.size();
+    for (auto i = 0; i < numExpr; i++) {
+      VLOG(2) << "Input RowExpression JSON: " << inputRowExpressions[i].dump();
+      std::shared_ptr<protocol::RowExpression> inputRowExpr = inputRowExpressions[i];
+      auto expr = veloxExprConverter.toVeloxExpr(inputRowExpr);
+      VLOG(2) << "Input TypedExpr: " << expr->toString();
+      auto optimized = core::optimizeExpression(expr, queryCtx, nativeWorkerPool_.get());
+      VLOG(2) << "Optimized TypedExpr: " << optimized->toString();
+      auto resultJson = rowExpressionConverter.veloxToPrestoRowExpression(
+          optimized, inputRowExpr);
+      VLOG(2) << "Optimized RowExpression JSON: " << resultJson.dump();
+      result.push_back(resultJson);
+    }
+
+    http::sendOkResponse(downstream, result);
+  } catch (const VeloxUserError& e) {
+    VLOG(1) << "VeloxUserError during expression evaluation: " << e.what();
+    http::sendErrorResponse(downstream, {e.what()});
+  } catch (const VeloxException& e) {
+    VLOG(1) << "VeloxException during expression evaluation: " << e.what();
+    http::sendErrorResponse(downstream, {e.what()});
+  } catch (const std::exception& e) {
+    VLOG(1) << "std::exception during expression evaluation: " << e.what();
+    http::sendErrorResponse(downstream, {e.what()});
+  }
 }
 
 } // namespace facebook::presto
