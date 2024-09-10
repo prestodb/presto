@@ -596,7 +596,7 @@ public class PrestoNativeQueryRunnerUtils
         Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
         Files.createDirectory(catalogDirectoryPath);
 
-        return new ProcessBuilder(prestoServerPath)
+        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
                 .directory(tempDirectoryPath.toFile())
                 .redirectErrorStream(true)
                 .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("sidecar.out").toFile()))

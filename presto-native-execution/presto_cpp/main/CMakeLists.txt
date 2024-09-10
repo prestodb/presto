@@ -13,6 +13,7 @@ add_subdirectory(operators)
 add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
+add_subdirectory(expression)
 add_subdirectory(thrift)
 
 add_library(
@@ -50,6 +51,7 @@ target_link_libraries(
   presto_function_metadata
   presto_http
   presto_operators
+  presto_expr_eval
   velox_aggregates
   velox_caching
   velox_common_base
