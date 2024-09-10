@@ -105,6 +105,7 @@ public class SqlInvokedFunction
     {
         this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, version, kind, aggregationMetadata);
     }
+
     public SqlInvokedFunction(
             QualifiedObjectName functionName,
             List<Parameter> parameters,
@@ -117,25 +118,25 @@ public class SqlInvokedFunction
             FunctionKind kind,
             Optional<AggregationFunctionMetadata> aggregationMetadata)
     {
-        this.parameters = requireNonNull(parameters, "parameters is null");
-        this.description = requireNonNull(description, "description is null");
-        this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
-        this.body = requireNonNull(body, "body is null");
-
-        List<TypeSignature> argumentTypes = parameters.stream()
-                .map(Parameter::getType)
-                .collect(collectingAndThen(toList(), Collections::unmodifiableList));
-
-        this.signature = new Signature(functionName, kind, typeVariableConstraints, emptyList(), returnType, argumentTypes, false);
-        this.functionId = new SqlFunctionId(functionName, argumentTypes);
-        this.functionVersion = requireNonNull(version, "version is null");
-        this.functionHandle = version.hasVersion() ? Optional.of(new SqlFunctionHandle(this.functionId, version.toString())) : Optional.empty();
-        this.aggregationMetadata = requireNonNull(aggregationMetadata, "aggregationMetadata is null");
-
-        if ((kind == AGGREGATE && !aggregationMetadata.isPresent()) || (kind != AGGREGATE && aggregationMetadata.isPresent())) {
-            throw new IllegalArgumentException("aggregationMetadata must be present for aggregation functions and absent otherwise");
-        }
+        this(
+                functionName,
+                parameters,
+                typeVariableConstraints,
+                returnType,
+                description,
+                routineCharacteristics,
+                body,
+                version,
+                kind,
+                new SqlFunctionId(functionName, getArgumentTypes(parameters)),
+                aggregationMetadata,
+                version.hasVersion() ? Optional.of(new SqlFunctionHandle(
+                        new SqlFunctionId(
+                                functionName,
+                                getArgumentTypes(parameters)),
+                        version.toString())) : Optional.empty());
     }
+
     public SqlInvokedFunction(
             QualifiedObjectName functionName,
             List<Parameter> parameters,
@@ -154,21 +155,29 @@ public class SqlInvokedFunction
         this.description = requireNonNull(description, "description is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
         this.body = requireNonNull(body, "body is null");
-
-        List<TypeSignature> argumentTypes = parameters.stream()
-                .map(Parameter::getType)
-                .collect(collectingAndThen(toList(), Collections::unmodifiableList));
-
-        this.signature = new Signature(functionName, kind, typeVariableConstraints, emptyList(), returnType, argumentTypes, false);
+        this.signature = new Signature(functionName, kind, typeVariableConstraints, emptyList(), returnType, getArgumentTypes(parameters), false);
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.functionVersion = requireNonNull(version, "version is null");
         this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
         this.aggregationMetadata = requireNonNull(aggregationMetadata, "aggregationMetadata is null");
 
+        validateAggregationMetadata(kind, aggregationMetadata);
+    }
+
+    private static List<TypeSignature> getArgumentTypes(List<Parameter> parameters)
+    {
+        return parameters.stream()
+                .map(Parameter::getType)
+                .collect(collectingAndThen(toList(), Collections::unmodifiableList));
+    }
+
+    private static void validateAggregationMetadata(FunctionKind kind, Optional<AggregationFunctionMetadata> aggregationMetadata)
+    {
         if ((kind == AGGREGATE && !aggregationMetadata.isPresent()) || (kind != AGGREGATE && aggregationMetadata.isPresent())) {
             throw new IllegalArgumentException("aggregationMetadata must be present for aggregation functions and absent otherwise");
         }
     }
+
     public SqlInvokedFunction withVersion(String version)
     {
         if (hasVersion()) {

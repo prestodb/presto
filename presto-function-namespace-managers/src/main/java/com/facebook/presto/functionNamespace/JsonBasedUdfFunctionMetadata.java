@@ -92,16 +92,19 @@ public class JsonBasedUdfFunctionMetadata
         this.version = requireNonNull(version, "version is null");
     }
 
+    @JsonProperty
     public String getDocString()
     {
         return docString;
     }
 
+    @JsonProperty
     public FunctionKind getFunctionKind()
     {
         return functionKind;
     }
 
+    @JsonProperty
     public TypeSignature getOutputType()
     {
         return outputType;
@@ -113,31 +116,37 @@ public class JsonBasedUdfFunctionMetadata
         return IntStream.range(0, paramTypes.size()).boxed().map(idx -> "input" + idx).collect(toImmutableList());
     }
 
+    @JsonProperty
     public List<TypeSignature> getParamTypes()
     {
         return paramTypes;
     }
 
+    @JsonProperty
     public String getSchema()
     {
         return schema;
     }
 
+    @JsonProperty
     public RoutineCharacteristics getRoutineCharacteristics()
     {
         return routineCharacteristics;
     }
 
+    @JsonProperty
     public Optional<AggregationFunctionMetadata> getAggregateMetadata()
     {
         return aggregateMetadata;
     }
 
+    @JsonProperty
     public Optional<SqlFunctionId> getFunctionId()
     {
         return functionId;
     }
 
+    @JsonProperty
     public Optional<String> getVersion()
     {
         return version;

@@ -211,6 +211,7 @@
         <module>presto-openapi</module>
         <module>presto-native-sidecar-plugin</module>
         <module>presto-base-arrow-flight</module>
+        <module>presto-function-server</module>
     </modules>
 
     <dependencyManagement>

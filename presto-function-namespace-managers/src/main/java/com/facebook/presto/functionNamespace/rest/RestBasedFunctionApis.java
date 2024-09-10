@@ -23,6 +23,7 @@ import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 
 import java.net.URI;
 import java.util.List;
@@ -31,33 +32,31 @@ import java.util.Map;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static com.facebook.presto.functionNamespace.rest.RestErrorCode.REST_SERVER_FUNCTION_FETCH_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class RestBasedFunctionApis
 {
     public static final String ALL_FUNCTIONS_ENDPOINT = "/v1/functions";
-
     private final HttpClient httpClient;
-
     private final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> functionSignatureMapJsonCodec;
-
-    private final RestBasedFunctionNamespaceManagerConfig managerConfig;
+    private final String restUrl;
 
     @Inject
     public RestBasedFunctionApis(
             JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec,
             @ForRestServer HttpClient httpClient,
-            RestBasedFunctionNamespaceManagerConfig managerConfig)
+            @Named("restUrl") String restUrl)
     {
         this.functionSignatureMapJsonCodec = requireNonNull(nativeFunctionSignatureMapJsonCodec, "nativeFunctionSignatureMapJsonCodec is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.managerConfig = requireNonNull(managerConfig, "httpClient is null");
+        this.restUrl = requireNonNull(restUrl, "restUrl is null");
     }
 
     public String getFunctionsETag()
     {
-        URI uri = uriBuilderFrom(URI.create(managerConfig.getRestUrl()))
+        URI uri = uriBuilderFrom(URI.create(restUrl))
                 .appendPath(ALL_FUNCTIONS_ENDPOINT)
                 .build();
         Request request = Request.builder()
@@ -89,21 +88,11 @@ public class RestBasedFunctionApis
         throw new PrestoException(NOT_SUPPORTED, "Add Function is yet to be added");
     }
 
-    public String updateFunction(String schema, String functionName, String functionId, JsonBasedUdfFunctionMetadata metadata)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "Update Function is yet to be added");
-    }
-
-    public String deleteFunction(String schema, String functionName, String functionId)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "Delete Function is yet to be added");
-    }
-
     private UdfFunctionSignatureMap getFunctionsAt(String endpoint)
             throws IllegalStateException
     {
         try {
-            URI uri = uriBuilderFrom(URI.create(managerConfig.getRestUrl()))
+            URI uri = uriBuilderFrom(URI.create(restUrl))
                     .appendPath(endpoint)
                     .build();
             Request request = Request.builder()
@@ -115,7 +104,7 @@ public class RestBasedFunctionApis
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }
         catch (Exception e) {
-            throw new IllegalStateException("Failed to get function definitions from REST server, " + e.getMessage());
+            throw new PrestoException(REST_SERVER_FUNCTION_FETCH_ERROR, "Failed to fetch function definitions from REST server: " + e.getMessage(), e);
         }
     }
 }

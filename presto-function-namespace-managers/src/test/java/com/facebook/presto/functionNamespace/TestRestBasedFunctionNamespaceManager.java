@@ -140,7 +140,7 @@ public class TestRestBasedFunctionNamespaceManager
                 new TypeSignature("integer"),
                 Collections.singletonList(new TypeSignature("integer")),
                 "default",
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.square"), ImmutableList.of(parseTypeSignature("integer")))),
                 Optional.of("1")));
@@ -150,7 +150,7 @@ public class TestRestBasedFunctionNamespaceManager
                 new TypeSignature("double"),
                 Collections.singletonList(new TypeSignature("double")),
                 "test_schema",
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.square"), ImmutableList.of(parseTypeSignature("double")))),
                 Optional.of("1")));
@@ -164,7 +164,7 @@ public class TestRestBasedFunctionNamespaceManager
                 parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"),
                 Arrays.asList(parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>")),
                 "default",
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.array_function_1"), ImmutableList.of(parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>")))),
                 Optional.of("1")));
@@ -174,7 +174,7 @@ public class TestRestBasedFunctionNamespaceManager
                 parseTypeSignature("ARRAY<ARRAY<BIGINT>>"),
                 Arrays.asList(parseTypeSignature("ARRAY<ARRAY<BIGINT>>"), parseTypeSignature("ARRAY<ARRAY<BIGINT>>")),
                 "test_schema",
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.array_function_1"), ImmutableList.of(parseTypeSignature("ARRAY<ARRAY<BIGINT>>"), parseTypeSignature("ARRAY<ARRAY<BIGINT>>")))),
                 Optional.of("1")));
@@ -184,7 +184,7 @@ public class TestRestBasedFunctionNamespaceManager
                 parseTypeSignature("ARRAY<DOUBLE>"),
                 Arrays.asList(parseTypeSignature("ARRAY<DOUBLE>"), TypeSignature.parseTypeSignature("ARRAY<DOUBLE>")),
                 "test_schema",
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.array_function_1"), ImmutableList.of(parseTypeSignature("ARRAY<DOUBLE>"), parseTypeSignature("ARRAY<DOUBLE>")))),
                 Optional.of("1")));
@@ -198,7 +198,7 @@ public class TestRestBasedFunctionNamespaceManager
                 TypeSignature.parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"),
                 Arrays.asList(TypeSignature.parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), TypeSignature.parseTypeSignature("ARRAY<varchar>")),
                 "default",
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.array_function_2"), ImmutableList.of(parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), parseTypeSignature("ARRAY<varchar>")))),
                 Optional.of("1")));
@@ -208,7 +208,7 @@ public class TestRestBasedFunctionNamespaceManager
                 TypeSignature.parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"),
                 Arrays.asList(TypeSignature.parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), TypeSignature.parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), TypeSignature.parseTypeSignature("ARRAY<varchar>")),
                 "test_schema",
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.array_function_2"), ImmutableList.of(parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), parseTypeSignature("ARRAY<varchar>")))),
                 Optional.of("1")));
@@ -229,7 +229,7 @@ public class TestRestBasedFunctionNamespaceManager
                 new TypeSignature("integer"),
                 Collections.singletonList(new TypeSignature("integer")),
                 "default",
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.square"), ImmutableList.of(parseTypeSignature("integer")))),
                 Optional.of("1")));
@@ -239,7 +239,7 @@ public class TestRestBasedFunctionNamespaceManager
                 new TypeSignature("double"),
                 Collections.singletonList(new TypeSignature("double")),
                 "test_schema",
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.square"), ImmutableList.of(parseTypeSignature("double")))),
                 Optional.of("1")));
