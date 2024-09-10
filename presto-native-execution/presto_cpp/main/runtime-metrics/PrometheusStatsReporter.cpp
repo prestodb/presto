@@ -169,17 +169,23 @@ void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
   auto statsInfo = metricIterator->second;
   switch (statsInfo.statType) {
     case velox::StatType::COUNT: {
-      auto counter =
+      auto* counter =
           reinterpret_cast<::prometheus::Counter*>(statsInfo.metricPtr);
-      counter->Increment(value);
-    } break;
-    case velox::StatType::SUM:
+      counter->Increment(static_cast<double>(value));
+      break;
+    }
+    case velox::StatType::SUM: {
+      auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
+      gauge->Increment(static_cast<double>(value));
+      break;
+    }
     case velox::StatType::AVG:
     case velox::StatType::RATE: {
       // Overrides the existing state.
-      auto gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
-      gauge->Set(value);
-    } break;
+      auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
+      gauge->Set(static_cast<double>(value));
+      break;
+    }
     default:
       VELOX_UNSUPPORTED(
           "Unsupported metric type {}",
