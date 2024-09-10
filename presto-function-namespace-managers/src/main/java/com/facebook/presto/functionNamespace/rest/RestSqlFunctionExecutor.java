@@ -23,9 +23,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.ForRestServer;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
@@ -43,7 +41,10 @@ import io.airlift.slice.SliceInput;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -54,16 +55,15 @@ import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_SERVER_FAILURE;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionImplementationType.REST;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readSerializedPage;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.ACCEPT;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -73,13 +73,12 @@ public class RestSqlFunctionExecutor
     private BlockEncodingSerde blockEncodingSerde;
     private static PagesSerde pageSerde;
     private HttpClient httpClient;
-    private final NodeManager nodeManager;
     private final RestBasedFunctionNamespaceManagerConfig restBasedFunctionNamespaceManagerConfig;
+    public static final String PRESTO_PAGES = "application/X-presto-pages";
 
     @Inject
-    public RestSqlFunctionExecutor(NodeManager nodeManager, RestBasedFunctionNamespaceManagerConfig restBasedFunctionNamespaceManagerConfig, @ForRestServer HttpClient httpClient)
+    public RestSqlFunctionExecutor(RestBasedFunctionNamespaceManagerConfig restBasedFunctionNamespaceManagerConfig, @ForRestServer HttpClient httpClient)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.restBasedFunctionNamespaceManagerConfig = requireNonNull(restBasedFunctionNamespaceManagerConfig, "restBasedFunctionNamespaceManagerConfig is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
@@ -114,10 +113,10 @@ public class RestSqlFunctionExecutor
         writeSerializedPage(sliceOutput, pageSerde.serialize(input));
         try {
             Request request = preparePost()
-                    .setUri(getExecutionEndpoint(functionId, returnType, functionVersion))
+                    .setUri(getExecutionEndpoint(functionId, functionVersion))
                     .setBodyGenerator(createStaticBodyGenerator(sliceOutput.slice().byteArray()))
-                    .setHeader(CONTENT_TYPE, PLAIN_TEXT_UTF_8.toString())
-                    .setHeader(ACCEPT, PLAIN_TEXT_UTF_8.toString())
+                    .setHeader(CONTENT_TYPE, PRESTO_PAGES)
+                    .setHeader(ACCEPT, PRESTO_PAGES)
                     .build();
             HttpClient.HttpResponseFuture<SqlFunctionResult> future = httpClient.executeAsync(request, new SqlFunctionResultResponseHandler());
             Futures.addCallback(future, new SqlResultFutureCallback(), directExecutor());
@@ -128,11 +127,18 @@ public class RestSqlFunctionExecutor
         }
     }
 
-    private URI getExecutionEndpoint(SqlFunctionId functionId, Type returnType, String functionVersion)
+    private URI getExecutionEndpoint(SqlFunctionId functionId, String functionVersion)
     {
-        List<String> functionArgumentTypes = functionId.getArgumentTypes().stream().map(TypeSignature::toString).collect(toImmutableList());
         if (restBasedFunctionNamespaceManagerConfig.getRestUrl() == null) {
             throw new PrestoException(NOT_FOUND, "Failed to find native node !");
+        }
+
+        String encodedFunctionId;
+        try {
+            encodedFunctionId = URLEncoder.encode(functionId.toJsonString(), StandardCharsets.UTF_8.toString());
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new PrestoException(INVALID_ARGUMENTS, "Invalid functionId !");
         }
 
         HttpUriBuilder uri = uriBuilderFrom(URI.create(restBasedFunctionNamespaceManagerConfig.getRestUrl()))
@@ -141,7 +147,7 @@ public class RestSqlFunctionExecutor
                         "/" +
                         functionId.getFunctionName().getObjectName() +
                         "/" +
-                        functionId.getId().replace('(', '[').replace(')', ']') +
+                        encodedFunctionId +
                         "/" +
                         functionVersion);
         return uri.build();

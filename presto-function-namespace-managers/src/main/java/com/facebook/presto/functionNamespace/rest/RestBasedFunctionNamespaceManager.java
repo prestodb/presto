@@ -52,8 +52,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.REST;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -119,7 +117,6 @@ public class RestBasedFunctionNamespaceManager
 
     private SqlInvokedFunction createSqlInvokedFunction(String functionName, JsonBasedUdfFunctionMetadata jsonBasedUdfFunctionMetaData)
     {
-        checkState(jsonBasedUdfFunctionMetaData.getRoutineCharacteristics().getLanguage().equals(REST), "RestBasedFunctionNamespaceManager only supports REST UDF");
         QualifiedObjectName qualifiedFunctionName = QualifiedObjectName.valueOf(new CatalogSchemaName(getCatalogName(), jsonBasedUdfFunctionMetaData.getSchema()), functionName);
         List<String> parameterNameList = jsonBasedUdfFunctionMetaData.getParamNames();
         List<TypeSignature> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
