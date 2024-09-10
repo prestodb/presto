@@ -993,12 +993,20 @@ void updateWriterOptionsFromHiveConfig(
     const std::shared_ptr<const HiveConfig>& hiveConfig,
     const config::ConfigBase* sessionProperties,
     std::shared_ptr<dwio::common::WriterOptions>& writerOptions) {
-  if (fileFormat == dwio::common::FileFormat::PARQUET) {
+  switch (fileFormat) {
+    case dwio::common::FileFormat::DWRF:
+      updateDWRFWriterOptions(hiveConfig, sessionProperties, writerOptions);
+      break;
+    case dwio::common::FileFormat::PARQUET:
 #ifdef VELOX_ENABLE_PARQUET
-    updateParquetWriterOptions(hiveConfig, sessionProperties, writerOptions);
+      updateParquetWriterOptions(hiveConfig, sessionProperties, writerOptions);
 #endif
-  } else {
-    updateDWRFWriterOptions(hiveConfig, sessionProperties, writerOptions);
+      break;
+    case dwio::common::FileFormat::NIMBLE:
+      // No-op for now.
+      break;
+    default:
+      VELOX_UNSUPPORTED("{}", fileFormat);
   }
 }
 
