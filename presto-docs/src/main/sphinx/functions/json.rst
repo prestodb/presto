@@ -5,25 +5,25 @@ JSON Functions and Operators
 Cast to JSON
 ------------
 
-    Casting from ``BOOLEAN``, ``TINYINT``, ``SMALLINT``, ``INTEGER``,
-    ``BIGINT``, ``REAL``, ``DOUBLE`` or ``VARCHAR`` is supported.
-    Casting from ``ARRAY``, ``MAP`` or ``ROW`` is supported when the element type of
-    the array is one of the supported types, or when the key type of the map
-    is ``VARCHAR`` and value type of the map is one of the supported types,
-    or when every field type of the row is one of the supported types.
-    Behaviors of the casts are shown with the examples below::
+Casting from ``BOOLEAN``, ``TINYINT``, ``SMALLINT``, ``INTEGER``,
+``BIGINT``, ``REAL``, ``DOUBLE`` or ``VARCHAR`` is supported.
+Casting from ``ARRAY``, ``MAP`` or ``ROW`` is supported when the element type of
+the array is one of the supported types, or when the key type of the map
+is ``VARCHAR`` and value type of the map is one of the supported types,
+or when every field type of the row is one of the supported types.
+Behaviors of the casts are shown with the examples below::
 
-        SELECT CAST(NULL AS JSON); -- NULL
-        SELECT CAST(1 AS JSON); -- JSON '1'
-        SELECT CAST(9223372036854775807 AS JSON); -- JSON '9223372036854775807'
-        SELECT CAST('abc' AS JSON); -- JSON '"abc"'
-        SELECT CAST(true AS JSON); -- JSON 'true'
-        SELECT CAST(1.234 AS JSON); -- JSON '1.234'
-        SELECT CAST(ARRAY[1, 23, 456] AS JSON); -- JSON '[1,23,456]'
-        SELECT CAST(ARRAY[1, NULL, 456] AS JSON); -- JSON '[1,null,456]'
-        SELECT CAST(ARRAY[ARRAY[1, 23], ARRAY[456]] AS JSON); -- JSON '[[1,23],[456]]'
-        SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('k1', 1), ('k2', 23), ('k3', 456)]) AS JSON); -- JSON '{"k1":1,"k2":23,"k3":456}'
-        SELECT CAST(CAST(ROW(123, 'abc', true) AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)) AS JSON); -- JSON '[123,"abc",true]'
+    SELECT CAST(NULL AS JSON); -- NULL
+    SELECT CAST(1 AS JSON); -- JSON '1'
+    SELECT CAST(9223372036854775807 AS JSON); -- JSON '9223372036854775807'
+    SELECT CAST('abc' AS JSON); -- JSON '"abc"'
+    SELECT CAST(true AS JSON); -- JSON 'true'
+    SELECT CAST(1.234 AS JSON); -- JSON '1.234'
+    SELECT CAST(ARRAY[1, 23, 456] AS JSON); -- JSON '[1,23,456]'
+    SELECT CAST(ARRAY[1, NULL, 456] AS JSON); -- JSON '[1,null,456]'
+    SELECT CAST(ARRAY[ARRAY[1, 23], ARRAY[456]] AS JSON); -- JSON '[[1,23],[456]]'
+    SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('k1', 1), ('k2', 23), ('k3', 456)]) AS JSON); -- JSON '{"k1":1,"k2":23,"k3":456}'
+    SELECT CAST(CAST(ROW(123, 'abc', true) AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)) AS JSON); -- JSON '[123,"abc",true]'
 
 .. note::
 
@@ -55,25 +55,25 @@ Cast to JSON
 Cast from JSON
 --------------
 
-    Casting to ``BOOLEAN``, ``TINYINT``, ``SMALLINT``, ``INTEGER``,
-    ``BIGINT``, ``REAL``, ``DOUBLE`` or ``VARCHAR`` is supported.
-    Casting to ``ARRAY`` and ``MAP`` is supported when the element type of
-    the array is one of the supported types, or when the key type of the map
-    is ``VARCHAR`` and value type of the map is one of the supported types.
-    Behaviors of the casts are shown with the examples below::
+Casting to ``BOOLEAN``, ``TINYINT``, ``SMALLINT``, ``INTEGER``,
+``BIGINT``, ``REAL``, ``DOUBLE`` or ``VARCHAR`` is supported.
+Casting to ``ARRAY`` and ``MAP`` is supported when the element type of
+the array is one of the supported types, or when the key type of the map
+is ``VARCHAR`` and value type of the map is one of the supported types.
+Behaviors of the casts are shown with the examples below::
 
-        SELECT CAST(JSON 'null' AS VARCHAR); -- NULL
-        SELECT CAST(JSON '1' AS INTEGER); -- 1
-        SELECT CAST(JSON '9223372036854775807' AS BIGINT); -- 9223372036854775807
-        SELECT CAST(JSON '"abc"' AS VARCHAR); -- abc
-        SELECT CAST(JSON 'true' AS BOOLEAN); -- true
-        SELECT CAST(JSON '1.234' AS DOUBLE); -- 1.234
-        SELECT CAST(JSON '[1,23,456]' AS ARRAY(INTEGER)); -- [1, 23, 456]
-        SELECT CAST(JSON '[1,null,456]' AS ARRAY(INTEGER)); -- [1, NULL, 456]
-        SELECT CAST(JSON '[[1,23],[456]]' AS ARRAY(ARRAY(INTEGER))); -- [[1, 23], [456]]
-        SELECT CAST(JSON '{"k1":1,"k2":23,"k3":456}' AS MAP(VARCHAR, INTEGER)); -- {k1=1, k2=23, k3=456}
-        SELECT CAST(JSON '{"v1":123,"v2":"abc","v3":true}' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
-        SELECT CAST(JSON '[123,"abc",true]' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {value1=123, value2=abc, value3=true}
+    SELECT CAST(JSON 'null' AS VARCHAR); -- NULL
+    SELECT CAST(JSON '1' AS INTEGER); -- 1
+    SELECT CAST(JSON '9223372036854775807' AS BIGINT); -- 9223372036854775807
+    SELECT CAST(JSON '"abc"' AS VARCHAR); -- abc
+    SELECT CAST(JSON 'true' AS BOOLEAN); -- true
+    SELECT CAST(JSON '1.234' AS DOUBLE); -- 1.234
+    SELECT CAST(JSON '[1,23,456]' AS ARRAY(INTEGER)); -- [1, 23, 456]
+    SELECT CAST(JSON '[1,null,456]' AS ARRAY(INTEGER)); -- [1, NULL, 456]
+    SELECT CAST(JSON '[[1,23],[456]]' AS ARRAY(ARRAY(INTEGER))); -- [[1, 23], [456]]
+    SELECT CAST(JSON '{"k1":1,"k2":23,"k3":456}' AS MAP(VARCHAR, INTEGER)); -- {k1=1, k2=23, k3=456}
+    SELECT CAST(JSON '{"v1":123,"v2":"abc","v3":true}' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
+    SELECT CAST(JSON '[123,"abc",true]' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
 
 .. note::
 
