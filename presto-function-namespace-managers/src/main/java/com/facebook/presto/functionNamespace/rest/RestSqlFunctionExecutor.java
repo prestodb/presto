@@ -25,7 +25,6 @@ import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.ForRestServer;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
@@ -73,13 +72,11 @@ public class RestSqlFunctionExecutor
     private BlockEncodingSerde blockEncodingSerde;
     private static PagesSerde pageSerde;
     private HttpClient httpClient;
-    private final NodeManager nodeManager;
     private final RestBasedFunctionNamespaceManagerConfig restBasedFunctionNamespaceManagerConfig;
 
     @Inject
-    public RestSqlFunctionExecutor(NodeManager nodeManager, RestBasedFunctionNamespaceManagerConfig restBasedFunctionNamespaceManagerConfig, @ForRestServer HttpClient httpClient)
+    public RestSqlFunctionExecutor(RestBasedFunctionNamespaceManagerConfig restBasedFunctionNamespaceManagerConfig, @ForRestServer HttpClient httpClient)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.restBasedFunctionNamespaceManagerConfig = requireNonNull(restBasedFunctionNamespaceManagerConfig, "restBasedFunctionNamespaceManagerConfig is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
