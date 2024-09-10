@@ -50,7 +50,6 @@ public class TestRollbackToTimestampProcedure
 {
     public static final String ICEBERG_CATALOG = "iceberg";
     public static final String TEST_SCHEMA = "tpch";
-    public static final String TEST_TABLE = "test_rollback_to_timestamp_table";
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -69,28 +68,29 @@ public class TestRollbackToTimestampProcedure
                 {"UTC", false}};
     }
 
-    private void createTable()
+    private void createTable(String tableName)
     {
-        assertUpdate("CREATE TABLE " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE + " (id integer, value varchar)");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName + " (id integer, value varchar)");
     }
 
     @Test(dataProvider = "timezones")
     public void testRollbackToTimestampUsingPositionalArgs(String zoneId, boolean legacyTimestamp)
     {
-        createTable();
+        String tableName = "test_rollback_to_timestamp_table";
+        createTable(tableName);
         Session session = sessionForTimezone(zoneId, legacyTimestamp);
 
         try {
-            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE + " VALUES(1, 'a')", 1);
+            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName + " VALUES(1, 'a')", 1);
 
-            Table table = loadTable();
+            Table table = loadTable(tableName);
             Snapshot firstSnapshot = table.currentSnapshot();
             String firstSnapshotTimestampString = getTimestampString(System.currentTimeMillis(), zoneId);
 
             waitUntilAfter(firstSnapshot.timestampMillis());
 
-            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE + " VALUES(2, 'b')", 1);
-            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE, "values(1, 'a'), (2, 'b')");
+            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName + " VALUES(2, 'b')", 1);
+            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName, "values(1, 'a'), (2, 'b')");
 
             table.refresh();
 
@@ -98,36 +98,37 @@ public class TestRollbackToTimestampProcedure
             @Language("SQL") String callProcedureString = format(
                     "CALL " + ICEBERG_CATALOG + ".system.rollback_to_timestamp('%s', '%s', TIMESTAMP '%s')",
                     TEST_SCHEMA,
-                    TEST_TABLE,
+                    tableName,
                     firstSnapshotTimestampString);
 
             assertUpdate(session, callProcedureString);
 
             // Rollback should be successful
-            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE, "values(1, 'a')");
+            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName, "values(1, 'a')");
         }
         finally {
-            dropTable();
+            dropTable(tableName);
         }
     }
 
     @Test(dataProvider = "timezones")
     public void testRollbackToTimestampUsingNamedArgs(String zoneId, boolean legacyTimestamp)
     {
-        createTable();
+        String tableName = "test_rollback_to_timestamp_args_table";
+        createTable(tableName);
         Session session = sessionForTimezone(zoneId, legacyTimestamp);
 
         try {
-            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE + " VALUES(1, 'a')", 1);
+            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName + " VALUES(1, 'a')", 1);
 
-            Table table = loadTable();
+            Table table = loadTable(tableName);
             Snapshot firstSnapshot = table.currentSnapshot();
             String firstSnapshotTimestampString = getTimestampString(System.currentTimeMillis(), zoneId);
 
             waitUntilAfter(firstSnapshot.timestampMillis());
 
-            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE + " VALUES(2, 'b')", 1);
-            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE, "values(1, 'a'), (2, 'b')");
+            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName + " VALUES(2, 'b')", 1);
+            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName, "values(1, 'a'), (2, 'b')");
 
             table.refresh();
 
@@ -135,35 +136,36 @@ public class TestRollbackToTimestampProcedure
             @Language("SQL") String callProcedureString = format(
                     "CALL " + ICEBERG_CATALOG + ".system.rollback_to_timestamp(timestamp => TIMESTAMP '%s', table_name => '%s', schema => '%s')",
                     firstSnapshotTimestampString,
-                    TEST_TABLE,
+                    tableName,
                     TEST_SCHEMA);
 
             assertUpdate(session, callProcedureString);
 
             // Rollback should be successful
-            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE, "values(1, 'a')");
+            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName, "values(1, 'a')");
         }
         finally {
-            dropTable();
+            dropTable(tableName);
         }
     }
 
     @Test
     public void testNoValidSnapshotFound()
     {
-        createTable();
+        String tableName = "test_no_valid_snapshot";
+        createTable(tableName);
         Session session = sessionForTimezone("UTC", false);
 
         try {
-            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE + " VALUES(1, 'a')", 1);
+            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName + " VALUES(1, 'a')", 1);
 
-            Table table = loadTable();
+            Table table = loadTable(tableName);
             Snapshot firstSnapshot = table.currentSnapshot();
 
             waitUntilAfter(firstSnapshot.timestampMillis());
 
-            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE + " VALUES(2, 'b')", 1);
-            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE, "values(1, 'a'), (2, 'b')");
+            assertUpdate(session, "INSERT INTO " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName + " VALUES(2, 'b')", 1);
+            assertQuery(session, "select * from " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName, "values(1, 'a'), (2, 'b')");
 
             table.refresh();
 
@@ -173,13 +175,13 @@ public class TestRollbackToTimestampProcedure
             @Language("SQL") String callProcedureString = format(
                     "CALL " + ICEBERG_CATALOG + ".system.rollback_to_timestamp(timestamp => %s, table_name => '%s', schema => '%s')",
                     olderThamfirstSnapshotTimestampString,
-                    TEST_TABLE,
+                    tableName,
                     TEST_SCHEMA);
 
             assertQueryFails(callProcedureString, ".*Cannot roll back, no valid snapshot older than.*");
         }
         finally {
-            dropTable();
+            dropTable(tableName);
         }
     }
 
@@ -221,9 +223,9 @@ public class TestRollbackToTimestampProcedure
                 "tableName is empty");
     }
 
-    private void dropTable()
+    private void dropTable(String tableName)
     {
-        assertQuerySucceeds("DROP TABLE IF EXISTS " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + TEST_TABLE);
+        assertQuerySucceeds("DROP TABLE IF EXISTS " + ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName);
     }
 
     private Session sessionForTimezone(String zoneId, boolean legacyTimestamp)
@@ -247,10 +249,10 @@ public class TestRollbackToTimestampProcedure
         return localDateTime.format(formatter);
     }
 
-    private Table loadTable()
+    private Table loadTable(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(HADOOP.getCatalogImpl(), ICEBERG_CATALOG, getProperties(), new Configuration());
-        return catalog.loadTable(TableIdentifier.of(TEST_SCHEMA, TEST_TABLE));
+        return catalog.loadTable(TableIdentifier.of(TEST_SCHEMA, tableName));
     }
 
     private Map<String, String> getProperties()
