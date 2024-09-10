@@ -34,6 +34,12 @@ add_library(presto_velox_conversion OBJECT VeloxPlanConversion.cpp)
 
 target_link_libraries(presto_velox_conversion velox_type)
 
+add_library(presto_expression_optimizer RowExpressionConverter.cpp
+        RowExpressionOptimizer.cpp)
+
+target_link_libraries(presto_expression_optimizer presto_type_converter
+        presto_types presto_protocol)
+
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
