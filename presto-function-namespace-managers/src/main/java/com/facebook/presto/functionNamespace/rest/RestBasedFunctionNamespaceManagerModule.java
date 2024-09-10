@@ -20,7 +20,9 @@ import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionLanguageConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.TypeLiteral;
+import com.google.inject.name.Named;
 
 import java.util.List;
 import java.util.Map;
@@ -51,5 +53,12 @@ public class RestBasedFunctionNamespaceManagerModule
         binder.bind(RestBasedFunctionNamespaceManager.class).in(SINGLETON);
         binder.bind(new TypeLiteral<JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>>>() {})
                 .toInstance(new JsonCodecFactory().mapJsonCodec(String.class, listJsonCodec(JsonBasedUdfFunctionMetadata.class)));
+    }
+
+    @Provides
+    @Named("restUrl")
+    public String provideRestUrl(RestBasedFunctionNamespaceManagerConfig config)
+    {
+        return config.getRestUrl();
     }
 }
