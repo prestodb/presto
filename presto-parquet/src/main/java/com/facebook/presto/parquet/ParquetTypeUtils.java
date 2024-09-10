@@ -42,6 +42,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.joining;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
+import static org.apache.parquet.schema.OriginalType.TIME_MICROS;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 public final class ParquetTypeUtils
@@ -334,6 +335,11 @@ public final class ParquetTypeUtils
     public static boolean isTimeStampMicrosType(ColumnDescriptor descriptor)
     {
         return TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
+    }
+
+    public static boolean isTimeMicrosType(ColumnDescriptor descriptor)
+    {
+        return TIME_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
     }
 
     public static boolean isShortDecimalType(ColumnDescriptor descriptor)

@@ -79,6 +79,7 @@ import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.TableScanUtil;
+import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -135,6 +136,8 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -1838,10 +1841,10 @@ public abstract class IcebergDistributedTestBase
         @Language("SQL") String query = "SELECT * FROM test_filterstats_remaining_predicate WHERE (i = 10 AND j = 11) OR (i = 20 AND j = 21)";
         if (pushdownFilterEnabled) {
             assertPlan(session, query,
-                            output(
-                                    exchange(
-                                            tableScan("test_filterstats_remaining_predicate")
-                                                    .withOutputRowCount(1))));
+                    output(
+                            exchange(
+                                    tableScan("test_filterstats_remaining_predicate")
+                                            .withOutputRowCount(1))));
         }
         else {
             assertPlan(session, query,
@@ -1881,6 +1884,36 @@ public abstract class IcebergDistributedTestBase
         assertEquals(metadata.statisticsFileCache.stats().minus(initial).missCount(), 1);
         assertEquals(metadata.statisticsFileCache.stats().minus(initial).hitCount(), 1);
         getQueryRunner().execute("DROP TABLE test_statistics_file_cache");
+    }
+
+    @DataProvider(name = "parquetVersions")
+    public Object[][] parquetVersionsDataProvider()
+    {
+        return new Object[][] {
+                {PARQUET_1_0},
+                {PARQUET_2_0},
+        };
+    }
+
+    @Test(dataProvider = "parquetVersions")
+    public void testBatchReadOnTimeType(WriterVersion writerVersion)
+    {
+        Session parquetVersionSession = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                .build();
+        assertQuerySucceeds(parquetVersionSession, "CREATE TABLE time_batch_read(i int, t time)");
+        assertUpdate(parquetVersionSession, "INSERT INTO time_batch_read VALUES (0, time '1:00:00.000'), (1, time '1:00:00.000'), (2, time '1:00:00.000')", 3);
+        Session disabledBatchRead = Session.builder(parquetVersionSession)
+                .setCatalogSessionProperty("iceberg", PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, "false")
+                .build();
+        Session enabledBatchRead = Session.builder(parquetVersionSession)
+                .setCatalogSessionProperty("iceberg", PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, "true")
+                .build();
+        @Language("SQL") String query = "SELECT t FROM time_batch_read ORDER BY i LIMIT 1";
+        MaterializedResult disabledResult = getQueryRunner().execute(disabledBatchRead, query);
+        MaterializedResult enabledResult = getQueryRunner().execute(enabledBatchRead, query);
+        assertEquals(disabledResult, enabledResult);
+        assertQuerySucceeds("DROP TABLE time_batch_read");
     }
 
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
