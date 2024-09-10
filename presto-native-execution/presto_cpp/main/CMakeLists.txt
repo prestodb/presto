@@ -52,6 +52,7 @@ target_link_libraries(
   presto_http
   presto_operators
   presto_velox_plan_conversion
+  presto_expression_converter
   velox_abfs
   velox_aggregates
   velox_caching
@@ -65,6 +66,7 @@ target_link_libraries(
   velox_dwio_parquet_writer
   velox_encode
   velox_exec
+  velox_expression_optimizer
   velox_file
   velox_functions_lib
   velox_functions_prestosql
