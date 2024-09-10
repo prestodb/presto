@@ -44,7 +44,7 @@ public class Dictionaries
                 case BINARY:
                     return new BinaryBatchDictionary(dictionaryPage);
                 case FIXED_LEN_BYTE_ARRAY:
-                    return new BinaryBatchDictionary(dictionaryPage, columnDescriptor.getTypeLength());
+                    return new BinaryBatchDictionary(dictionaryPage, columnDescriptor.getPrimitiveType().getTypeLength());
                 case BOOLEAN:
                 default:
                     break;
