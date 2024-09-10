@@ -45,7 +45,7 @@ public final class SchemaConverter
                 schema.getColumns().stream()
                         .map(nestedField -> toIcebergNestedField(nestedField, schema.getColumnNameToIdMapping()))
                         .collect(toImmutableList()),
-                schema.getAliases(),
+                schema.getAliases().isEmpty() ? null : schema.getAliases(),
                 schema.getIdentifierFieldIds());
     }
 }
