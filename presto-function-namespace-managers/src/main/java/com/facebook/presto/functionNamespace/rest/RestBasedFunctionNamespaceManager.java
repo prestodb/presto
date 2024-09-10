@@ -45,15 +45,12 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.REST;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -99,7 +96,8 @@ public class RestBasedFunctionNamespaceManager
             return ImmutableList.of();
         }
 
-        createSqlInvokedFunctions(udfFunctionSignatureMap, latestFunctions);
+        List<SqlInvokedFunction> newFunctions = createSqlInvokedFunctions(udfFunctionSignatureMap);
+        latestFunctions.addAll(newFunctions);
 
         if (newETag != null) {
             cachedETag.set(Optional.of(newETag));
@@ -108,18 +106,17 @@ public class RestBasedFunctionNamespaceManager
         return latestFunctions;
     }
 
-    private void createSqlInvokedFunctions(UdfFunctionSignatureMap udfFunctionSignatureMap, List<SqlInvokedFunction> functionList)
+    private List<SqlInvokedFunction> createSqlInvokedFunctions(UdfFunctionSignatureMap udfFunctionSignatureMap)
     {
         Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap = udfFunctionSignatureMap.getUDFSignatureMap();
-        udfSignatureMap.forEach((name, metaInfoList) -> {
-            List<SqlInvokedFunction> functions = metaInfoList.stream().map(metaInfo -> createSqlInvokedFunction(name, metaInfo)).collect(toImmutableList());
-            functionList.addAll(functions);
-        });
+        return udfSignatureMap.entrySet().stream()
+                .flatMap(entry -> entry.getValue().stream()
+                        .map(metaInfo -> createSqlInvokedFunction(entry.getKey(), metaInfo)))
+                .collect(toImmutableList());
     }
 
     private SqlInvokedFunction createSqlInvokedFunction(String functionName, JsonBasedUdfFunctionMetadata jsonBasedUdfFunctionMetaData)
     {
-        checkState(jsonBasedUdfFunctionMetaData.getRoutineCharacteristics().getLanguage().equals(REST), "RestBasedFunctionNamespaceManager only supports REST UDF");
         QualifiedObjectName qualifiedFunctionName = QualifiedObjectName.valueOf(new CatalogSchemaName(getCatalogName(), jsonBasedUdfFunctionMetaData.getSchema()), functionName);
         List<String> parameterNameList = jsonBasedUdfFunctionMetaData.getParamNames();
         List<TypeSignature> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
@@ -130,7 +127,14 @@ public class RestBasedFunctionNamespaceManager
         }
 
         FunctionVersion functionVersion = new FunctionVersion(jsonBasedUdfFunctionMetaData.getVersion());
-        SqlFunctionId functionId = jsonBasedUdfFunctionMetaData.getFunctionId().isPresent() ? jsonBasedUdfFunctionMetaData.getFunctionId().get() : null;
+        SqlFunctionId functionId = jsonBasedUdfFunctionMetaData.getFunctionId().orElse(null);
+        // The function server may return a functionId with a different catalog name.  We need to update the catalog name to the current catalog name.
+        functionId = new SqlFunctionId(
+                new QualifiedObjectName(
+                        getCatalogName(),
+                        functionId.getFunctionName().getSchemaName(),
+                        functionId.getFunctionName().getObjectName()),
+                functionId.getArgumentTypes());
         return new SqlInvokedFunction(
                 qualifiedFunctionName,
                 parameterBuilder.build(),
@@ -158,11 +162,10 @@ public class RestBasedFunctionNamespaceManager
     {
         UdfFunctionSignatureMap udfFunctionSignatureMap = restApis.getFunctions(functionName.getSchemaName(), functionName.getObjectName());
         if (udfFunctionSignatureMap == null || udfFunctionSignatureMap.isEmpty()) {
-            return Collections.emptyList();
+            return ImmutableList.of();
         }
 
-        List<SqlInvokedFunction> functions = new ArrayList<>();
-        createSqlInvokedFunctions(udfFunctionSignatureMap, functions);
+        List<SqlInvokedFunction> functions = createSqlInvokedFunctions(udfFunctionSignatureMap);
         return functions;
     }
 
