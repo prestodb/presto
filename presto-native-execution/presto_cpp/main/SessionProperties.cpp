@@ -204,6 +204,46 @@ SessionProperties::SessionProperties() {
       QueryConfig::kValidateOutputFromOperators,
       boolToString(c.validateOutputFromOperators()));
 
+  addSessionProperty(
+      kDebugDisableExpressionWithPeeling,
+      "If set to true, disables optimization in expression evaluation to peel "
+      "common dictionary layer from inputs. Should only be used for debugging.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kDebugDisableExpressionWithPeeling,
+      boolToString(c.debugDisableExpressionsWithPeeling()));
+
+  addSessionProperty(
+      kDebugDisableCommonSubExpressions,
+      "If set to true, disables optimization in expression evaluation to "
+      "re-use cached results for common sub-expressions. Should only be "
+      "used for debugging.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kDebugDisableCommonSubExpressions,
+      boolToString(c.debugDisableCommonSubExpressions()));
+
+  addSessionProperty(
+      kDebugDisableExpressionWithMemoization,
+      "If set to true, disables optimization in expression evaluation to "
+      "re-use cached results between subsequent input batches that are "
+      "dictionary encoded and have the same alphabet(underlying flat vector). "
+      "Should only be used for debugging.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kDebugDisableExpressionWithMemoization,
+      boolToString(c.debugDisableExpressionsWithMemoization()));
+
+  addSessionProperty(
+      kDebugDisableExpressionWithLazyInputs,
+      "If set to true, disables optimization in expression evaluation to delay "
+      "loading of lazy inputs unless required. Should only be used for "
+      "debugging.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kDebugDisableExpressionWithLazyInputs,
+      boolToString(c.debugDisableExpressionsWithLazyInputs()));
+
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's
   // session_timezone.
