@@ -2116,3 +2116,57 @@ TEST_F(RowContainerTest, columnHasNulls) {
     }
   }
 }
+
+TEST_F(RowContainerTest, store) {
+  const uint64_t kNumRows = 1000;
+  auto rowVectorWithNulls = makeRowVector({
+      makeFlatVector<int64_t>(
+          kNumRows, [](auto row) { return row % 5; }, nullEvery(6)),
+      makeFlatVector<std::string>(
+          kNumRows,
+          [](auto row) { return fmt::format("abcdefg123_{}", row); },
+          nullEvery(7)),
+      makeFlatVector<int64_t>(
+          kNumRows, [](auto row) { return row; }, nullEvery(8)),
+      makeArrayVector<int32_t>(
+          kNumRows,
+          [](auto i) { return i % 5; },
+          [](auto i) { return i % 10; },
+          nullEvery(10)),
+  });
+
+  auto rowVectorNoNulls = makeRowVector({
+      makeFlatVector<int64_t>(kNumRows, [](auto row) { return row % 5; }),
+      makeFlatVector<std::string>(
+          kNumRows, [](auto row) { return fmt::format("abcdefg12_{}", row); }),
+      makeFlatVector<int64_t>(kNumRows, [](auto row) { return row; }),
+      makeArrayVector<int64_t>(
+          kNumRows,
+          [](auto i) { return i % 3; },
+          [](auto i) { return i % 10; }),
+  });
+  for (auto& rowVector : {rowVectorWithNulls, rowVectorNoNulls}) {
+    auto rowContainer = makeRowContainer(
+        {BIGINT(), VARCHAR()}, {BIGINT(), ARRAY(BIGINT())}, false);
+    std::vector<char*> rows;
+    rows.reserve(kNumRows);
+
+    ASSERT_EQ(rowContainer->numRows(), 0);
+    SelectivityVector allRows(kNumRows);
+    for (size_t i = 0; i < kNumRows; i++) {
+      auto row = rowContainer->newRow();
+      rows.push_back(row);
+    }
+    for (int i = 0; i < rowContainer->columnTypes().size(); ++i) {
+      DecodedVector decoded(*rowVector->childAt(i), allRows);
+      rowContainer->store(decoded, folly::Range(rows.data(), kNumRows), i);
+    }
+    ASSERT_EQ(rowContainer->numRows(), kNumRows);
+    for (int i = 0; i < rowContainer->columnTypes().size(); ++i) {
+      auto vector =
+          BaseVector::create(rowVector->childAt(i)->type(), kNumRows, pool());
+      rowContainer->extractColumn(rows.data(), kNumRows, i, vector);
+      assertEqualVectors(rowVector->childAt(i), vector);
+    }
+  }
+}

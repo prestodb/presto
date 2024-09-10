@@ -302,6 +302,13 @@ class RowContainer {
       char* row,
       int32_t columnIndex);
 
+  /// Stores the first 'rows.size' values from the 'decoded' vector into the
+  /// 'columnIndex' column of 'rows'.
+  void store(
+      const DecodedVector& decoded,
+      folly::Range<char**> rows,
+      int32_t columnIndex);
+
   HashStringAllocator& stringAllocator() {
     return *stringAllocator_;
   }
@@ -962,6 +969,32 @@ class RowContainer {
       stringAllocator_->copyMultipart(decoded.valueAt<T>(index), group, offset);
     } else {
       *reinterpret_cast<T*>(group + offset) = decoded.valueAt<T>(index);
+    }
+  }
+
+  template <TypeKind Kind>
+  inline void storeWithNullsBatch(
+      const DecodedVector& decoded,
+      folly::Range<char**> rows,
+      bool isKey,
+      int32_t offset,
+      int32_t nullByte,
+      uint8_t nullMask,
+      int32_t column) {
+    for (int32_t i = 0; i < rows.size(); ++i) {
+      storeWithNulls<Kind>(
+          decoded, i, isKey, rows[i], offset, nullByte, nullMask, column);
+    }
+  }
+
+  template <TypeKind Kind>
+  inline void storeNoNullsBatch(
+      const DecodedVector& decoded,
+      folly::Range<char**> rows,
+      bool isKey,
+      int32_t offset) {
+    for (int32_t i = 0; i < rows.size(); ++i) {
+      storeNoNulls<Kind>(decoded, i, isKey, rows[i], offset);
     }
   }
 

@@ -541,6 +541,35 @@ void RowContainer::store(
   }
 }
 
+void RowContainer::store(
+    const DecodedVector& decoded,
+    folly::Range<char**> rows,
+    int32_t column) {
+  VELOX_CHECK_GE(decoded.size(), rows.size());
+  const bool isKey = column < keyTypes_.size();
+  if ((isKey && !nullableKeys_) || !decoded.mayHaveNulls()) {
+    VELOX_DYNAMIC_TYPE_DISPATCH(
+        storeNoNullsBatch,
+        typeKinds_[column],
+        decoded,
+        rows,
+        isKey,
+        offsets_[column]);
+  } else {
+    const auto rowColumn = rowColumns_[column];
+    VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
+        storeWithNullsBatch,
+        typeKinds_[column],
+        decoded,
+        rows,
+        isKey,
+        rowColumn.offset(),
+        rowColumn.nullByte(),
+        rowColumn.nullMask(),
+        column);
+  }
+}
+
 std::unique_ptr<ByteInputStream> RowContainer::prepareRead(
     const char* row,
     int32_t offset) {
