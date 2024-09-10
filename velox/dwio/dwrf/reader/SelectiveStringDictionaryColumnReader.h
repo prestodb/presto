@@ -68,16 +68,14 @@ class SelectiveStringDictionaryColumnReader
   void readWithVisitor(const RowSet& rows, TVisitor visitor);
 
   template <typename TFilter, bool isDense, typename ExtractValues>
-  void readHelper(
-      common::Filter* filter,
-      const RowSet& rows,
-      const ExtractValues& values);
+  void
+  readHelper(common::Filter* filter, const RowSet& rows, ExtractValues values);
 
   template <bool isDense, typename ExtractValues>
   void processFilter(
       common::Filter* filter,
       const RowSet& rows,
-      const ExtractValues& extractValues);
+      ExtractValues extractValues);
 
   // Fills 'values' from 'data' and 'lengthDecoder'. The count of
   // values is in 'values.numValues'.
@@ -129,7 +127,7 @@ template <typename TFilter, bool isDense, typename ExtractValues>
 void SelectiveStringDictionaryColumnReader::readHelper(
     common::Filter* filter,
     const RowSet& rows,
-    const ExtractValues& values) {
+    ExtractValues values) {
   readWithVisitor(
       rows,
       dwio::common::
@@ -141,7 +139,7 @@ template <bool isDense, typename ExtractValues>
 void SelectiveStringDictionaryColumnReader::processFilter(
     common::Filter* filter,
     const RowSet& rows,
-    const ExtractValues& extractValues) {
+    ExtractValues extractValues) {
   if (filter == nullptr) {
     readHelper<common::AlwaysTrue, isDense>(
         &dwio::common::alwaysTrue(), rows, extractValues);

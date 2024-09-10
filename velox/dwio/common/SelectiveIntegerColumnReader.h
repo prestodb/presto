@@ -48,7 +48,7 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
       typename ExtractValues>
   void processFilter(
       velox::common::Filter* filter,
-      const ExtractValues& extractValues,
+      ExtractValues extractValues,
       const RowSet& rows);
 
   // Switches based on the type of ValueHook between different readWithVisitor
@@ -65,7 +65,7 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
   void readHelper(
       velox::common::Filter* filter,
       const RowSet& rows,
-      const ExtractValues& extractValues);
+      ExtractValues extractValues);
 
   // The common part of integer reading. calls the appropriate
   // instantiation of processValueHook or processFilter based on
@@ -82,7 +82,7 @@ template <
 void SelectiveIntegerColumnReader::readHelper(
     velox::common::Filter* filter,
     const RowSet& rows,
-    const ExtractValues& extractValues) {
+    ExtractValues extractValues) {
   switch (valueSize_) {
     case 2:
       reinterpret_cast<Reader*>(this)->Reader::readWithVisitor(
@@ -124,7 +124,7 @@ template <
     typename ExtractValues>
 void SelectiveIntegerColumnReader::processFilter(
     velox::common::Filter* filter,
-    const ExtractValues& extractValues,
+    ExtractValues extractValues,
     const RowSet& rows) {
   if (filter == nullptr) {
     readHelper<Reader, velox::common::AlwaysTrue, isDense>(

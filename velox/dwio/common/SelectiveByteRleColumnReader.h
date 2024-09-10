@@ -60,7 +60,7 @@ class SelectiveByteRleColumnReader : public SelectiveColumnReader {
   void readHelper(
       velox::common::Filter* filter,
       const RowSet& rows,
-      const ExtractValues& extractValues);
+      ExtractValues extractValues);
 
   template <typename Reader, bool kEncodingHasNulls>
   void readCommon(
@@ -77,7 +77,7 @@ template <
 void SelectiveByteRleColumnReader::readHelper(
     velox::common::Filter* filter,
     const RowSet& rows,
-    const ExtractValues& extractValues) {
+    ExtractValues extractValues) {
   reinterpret_cast<Reader*>(this)->readWithVisitor(
       rows,
       ColumnVisitor<int8_t, TFilter, ExtractValues, isDense>(

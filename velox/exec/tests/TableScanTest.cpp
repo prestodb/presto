@@ -3153,6 +3153,49 @@ TEST_F(TableScanTest, mapIsNullFilter) {
       "SELECT * FROM tmp WHERE c0 is null");
 }
 
+TEST_F(TableScanTest, stringIsNullFilter) {
+  constexpr int kSize = 1000;
+  const char* baseStrings[] = {
+      "qwertyuiopasdfghjklzxcvbnm",
+      "qazwsxedcrfvtgbyhnujmikolp",
+  };
+  auto indices = allocateIndices(kSize, pool_.get());
+  for (int i = 0; i < kSize; ++i) {
+    indices->asMutable<vector_size_t>()[i] = i % 2;
+  }
+  auto nullBuffer =
+      AlignedBuffer::allocate<bool>(kSize, pool_.get(), bits::kNotNull);
+  auto* rawNullBuffer = nullBuffer->asMutable<uint64_t>();
+  for (int i = 0; i < kSize; i += 100) {
+    bits::setNull(rawNullBuffer, i);
+  }
+  auto dict = BaseVector::wrapInDictionary(
+      nullBuffer,
+      indices,
+      kSize,
+      makeFlatVector<std::string>({baseStrings[0], baseStrings[1]}));
+
+  auto rows = makeRowVector({"c0", "c1"}, {dict, dict});
+  auto tableType = asRowType(rows->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {rows});
+  createDuckDbTable({rows});
+
+  const auto outputType = ROW({"c1"}, {VARCHAR()});
+  auto makePlan = [&](const std::vector<std::string>& filters) {
+    return PlanBuilder()
+        .tableScan(outputType, filters, "", tableType)
+        .planNode();
+  };
+
+  assertQuery(
+      makePlan({"c0 is not null"}),
+      {file},
+      "SELECT c1 FROM tmp WHERE c0 is not null");
+  assertQuery(
+      makePlan({"c0 is null"}), {file}, "SELECT c1 FROM tmp WHERE c0 is null");
+}
+
 TEST_F(TableScanTest, compactComplexNulls) {
   constexpr int kSize = 10;
   auto iota = makeFlatVector<int64_t>(kSize, folly::identity);

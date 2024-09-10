@@ -162,7 +162,7 @@ class ColumnVisitor {
       TFilter& filter,
       SelectiveColumnReader* reader,
       const RowSet& rows,
-      const ExtractValues& values)
+      ExtractValues values)
       : filter_(filter),
         reader_(reader),
         allowNulls_(!TFilter::deterministic || filter.testNull()),
@@ -719,7 +719,7 @@ class DictionaryColumnVisitor
       TFilter& filter,
       SelectiveColumnReader* reader,
       const RowSet& rows,
-      const ExtractValues& values)
+      ExtractValues values)
       : ColumnVisitor<T, TFilter, ExtractValues, isDense>(
             filter,
             reader,
