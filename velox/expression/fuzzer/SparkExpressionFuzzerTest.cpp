@@ -62,7 +62,14 @@ int main(int argc, char** argv) {
       "chr",
       "replace",
       "might_contain",
-      "unix_timestamp"};
+      "unix_timestamp",
+      // from_unixtime throws VeloxRuntimeError when the timestamp is out of the
+      // supported range.
+      "from_unixtime",
+      // timestamp_millis(bigint) can generate timestamps out of the supported
+      // range that make other functions throw VeloxRuntimeErrors.
+      "timestamp_millis(bigint) -> timestamp",
+  };
 
   // Required by spark_partition_id function.
   std::unordered_map<std::string, std::string> queryConfigs = {

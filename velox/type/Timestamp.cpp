@@ -56,6 +56,11 @@ void Timestamp::toGMT(const tz::TimeZone& zone) {
   } catch (const date::nonexistent_local_time& error) {
     // If the time does not exist, fail the conversion.
     VELOX_USER_FAIL(error.what());
+  } catch (const std::invalid_argument& e) {
+    // Invalid argument means we hit a conversion not supported by
+    // external/date. Need to throw a RuntimeError so that try() statements do
+    // not suppress it.
+    VELOX_FAIL(e.what());
   }
   seconds_ = sysSeconds.count();
 }

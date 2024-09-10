@@ -118,18 +118,42 @@ int128_t rand(FuzzerGenerator& rng) {
   return HugeInt::build(rand<int64_t>(rng), rand<uint64_t>(rng));
 }
 
+template <typename T, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
+T rand(FuzzerGenerator& rng, T min, T max) {
+  return boost::random::uniform_int_distribution<T>(min, max)(rng);
+}
+
 Timestamp randTimestamp(FuzzerGenerator& rng, VectorFuzzer::Options opts) {
+  // Generate timestamps only in the valid range to avoid datetime functions,
+  // such as try_cast(varchar as timestamp), throwing VeloxRuntimeError in
+  // fuzzers.
+  constexpr int64_t min = -2'140'671'600;
+  constexpr int64_t max = 2'140'671'600;
+  constexpr int64_t microInSecond = 1'000'000;
+  constexpr int64_t millisInSecond = 1'000;
+
   switch (opts.timestampPrecision) {
     case VectorFuzzer::Options::TimestampPrecision::kNanoSeconds:
-      return Timestamp(rand<int32_t>(rng), (rand<int64_t>(rng) % MAX_NANOS));
+      return Timestamp(
+          rand<int64_t>(rng, min, max), (rand<int64_t>(rng) % MAX_NANOS));
     case VectorFuzzer::Options::TimestampPrecision::kMicroSeconds:
-      return Timestamp::fromMicros(rand<int64_t>(rng));
+      return Timestamp::fromMicros(
+          rand<int64_t>(rng, min, max) * microInSecond +
+          rand<int64_t>(rng, -microInSecond, microInSecond));
     case VectorFuzzer::Options::TimestampPrecision::kMilliSeconds:
-      return Timestamp::fromMillis(rand<int64_t>(rng));
+      return Timestamp::fromMillis(
+          rand<int64_t>(rng, min, max) * millisInSecond +
+          rand<int64_t>(rng, -millisInSecond, millisInSecond));
     case VectorFuzzer::Options::TimestampPrecision::kSeconds:
-      return Timestamp(rand<int32_t>(rng), 0);
+      return Timestamp(rand<int64_t>(rng, min, max), 0);
   }
   return {}; // no-op.
+}
+
+int32_t randDate(FuzzerGenerator& rng) {
+  constexpr int64_t min = -24'450;
+  constexpr int64_t max = 24'450;
+  return rand<int32_t>(rng, min, max);
 }
 
 size_t getElementsVectorLength(
@@ -251,6 +275,9 @@ VectorPtr fuzzConstantPrimitiveImpl(
   if constexpr (std::is_same_v<TCpp, Timestamp>) {
     return std::make_shared<ConstantVector<TCpp>>(
         pool, size, false, type, randTimestamp(rng, opts));
+  } else if (type->isDate()) {
+    return std::make_shared<ConstantVector<int32_t>>(
+        pool, size, false, type, randDate(rng));
   } else if (type->isShortDecimal()) {
     return std::make_shared<ConstantVector<int64_t>>(
         pool, size, false, type, randShortDecimal(type, rng));
@@ -293,6 +320,12 @@ void fuzzFlatPrimitiveImpl(
         flatVector->set(i, rand<int128_t>(rng));
       } else {
         VELOX_NYI();
+      }
+    } else if constexpr (std::is_same_v<TCpp, int32_t>) {
+      if (vector->type()->isDate()) {
+        flatVector->set(i, randDate(rng));
+      } else {
+        flatVector->set(i, rand<TCpp>(rng));
       }
     } else {
       flatVector->set(i, rand<TCpp>(rng));

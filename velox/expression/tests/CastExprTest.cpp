@@ -581,10 +581,27 @@ TEST_F(CastExprTest, stringToTimestamp) {
   };
   testCast<std::string, Timestamp>("timestamp", input, expected);
 
+  // Test invalid inputs.
   VELOX_ASSERT_THROW(
       (evaluateOnce<Timestamp, std::string>(
           "cast(c0 as timestamp)", "1970-01-01T00:00")),
       "Cannot cast VARCHAR '1970-01-01T00:00' to TIMESTAMP. Unable to parse timestamp value");
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "cast(c0 as timestamp)", "201915-04-23 11:46:00.000")),
+      "Timepoint is outside of supported year range");
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "try_cast(c0 as timestamp)", "201915-04-23 11:46:00.000")),
+      "Timepoint is outside of supported year range");
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "cast(c0 as timestamp)", "2045-12-31 18:00:00")),
+      "Unable to convert timezone 'America/Los_Angeles' past 2037-11-01 09:00:00");
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "try_cast(c0 as timestamp)", "2045-12-31 18:00:00")),
+      "Unable to convert timezone 'America/Los_Angeles' past 2037-11-01 09:00:00");
 
   setLegacyCast(true);
   input = {
