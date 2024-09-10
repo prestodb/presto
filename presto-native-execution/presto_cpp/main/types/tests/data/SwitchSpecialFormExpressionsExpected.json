@@ -1,0 +1,32 @@
+[
+  {
+    "@type": "constant",
+    "type": "integer",
+    "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIQAAAA=="
+  },
+  {
+    "@type": "constant",
+    "type": "integer",
+    "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIQAAAA=="
+  },
+  {
+    "@type": "constant",
+    "type": "integer",
+    "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+  },
+  {
+    "@type": "constant",
+    "type": "integer",
+    "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIQAAAA=="
+  },
+  {
+    "@type": "constant",
+    "type": "integer",
+    "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIQAAAA=="
+  },
+  {
+    "@type": "constant",
+    "type": "varchar",
+    "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAcAAAAABwAAAG1hdGNoZWQ="
+  }
+]

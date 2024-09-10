@@ -1,0 +1,83 @@
+[
+  {
+    "@type": "call",
+    "arguments": [
+      {
+        "@type": "variable",
+        "name": "c0",
+        "type": "bigint"
+      }
+    ],
+    "displayName": "presto.default.$operator$cast",
+    "functionHandle": {
+      "@type": "$static",
+      "signature": {
+        "argumentTypes": [
+          "bigint"
+        ],
+        "kind": "SCALAR",
+        "longVariableConstraints": [],
+        "name": "presto.default.$operator$cast",
+        "returnType": "varchar",
+        "typeVariableConstraints": [],
+        "variableArity": false
+      }
+    },
+    "returnType": "varchar"
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "variable",
+        "name": "c1",
+        "type": "boolean"
+      },
+      {
+        "@type": "constant",
+        "type": "boolean",
+        "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+      }
+    ],
+    "form": "OR",
+    "returnType": "boolean"
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "variable",
+            "name": "c2",
+            "type": "integer"
+          }
+        ],
+        "displayName": "presto.default.$operator$cast",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "integer"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "boolean",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "boolean"
+      },
+      {
+        "@type": "variable",
+        "name": "c3",
+        "type": "boolean"
+      }
+    ],
+    "form": "AND",
+    "returnType": "boolean"
+  }
+]

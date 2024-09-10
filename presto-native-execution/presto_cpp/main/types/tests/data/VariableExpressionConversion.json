@@ -1,0 +1,27 @@
+[
+  {
+    "@type": "variable",
+    "name": "c0",
+    "type": "varchar"
+  },
+  {
+    "@type": "variable",
+    "name": "c1",
+    "type": "array(bigint)"
+  },
+  {
+    "@type": "variable",
+    "name": "c2",
+    "type": "map(integer,real)"
+  },
+  {
+    "@type": "variable",
+    "name": "c3",
+    "type": "row(smallint,varchar,double)"
+  },
+  {
+    "@type": "variable",
+    "name": "c4",
+    "type": "map(array(tinyint),boolean)"
+  }
+]
