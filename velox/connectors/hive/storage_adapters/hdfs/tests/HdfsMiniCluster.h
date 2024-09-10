@@ -23,10 +23,10 @@
 
 namespace facebook::velox::filesystems::test {
 static const std::string miniClusterExecutableName{"hadoop"};
-static const std::string hadoopSearchPath{":/usr/local/hadoop-2.10.1/bin"};
+static const std::string hadoopSearchPath{":/usr/local/hadoop/bin"};
 static const std::string jarCommand{"jar"};
 static const std::string miniclusterJar{
-    "/share/hadoop/mapreduce/hadoop-mapreduce-client-jobclient-2.10.1-tests.jar"};
+    "/share/hadoop/mapreduce/hadoop-mapreduce-client-jobclient-3.3.0-tests.jar"};
 static const std::string miniclusterCommand{"minicluster"};
 static const std::string noMapReduceOption{"-nomr"};
 static const std::string formatNameNodeOption{"-format"};
