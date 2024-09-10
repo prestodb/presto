@@ -519,16 +519,33 @@ class EvalCtx {
     return peeledEncoding_.get();
   }
 
-  /// Returns true if caching in expression evaluation is enabled, such as
-  /// Expr::evalWithMemo.
-  bool cacheEnabled() const {
-    return cacheEnabled_;
+  /// Returns true if dictionary memoization optimization is enabled, which
+  /// allows the reuse of results between consecutive input batches if they are
+  /// dictionary encoded and have the same alphabet(undelying flat vector).
+  bool dictionaryMemoizationEnabled() const {
+    return execCtx_->optimizationParams().dictionaryMemoizationEnabled;
   }
 
   /// Returns the maximum number of distinct inputs to cache results for in a
   /// given shared subexpression.
   uint32_t maxSharedSubexprResultsCached() const {
-    return maxSharedSubexprResultsCached_;
+    return execCtx_->optimizationParams().maxSharedSubexprResultsCached;
+  }
+
+  /// Returns true if peeling is enabled.
+  bool peelingEnabled() const {
+    return execCtx_->optimizationParams().peelingEnabled;
+  }
+
+  /// Returns true if shared subexpression reuse is enabled.
+  bool sharedSubExpressionReuseEnabled() const {
+    return execCtx_->optimizationParams().sharedSubExpressionReuseEnabled;
+  }
+
+  /// Returns true if loading lazy inputs are deferred till they need to be
+  /// accessed.
+  bool deferredLazyLoadingEnabled() const {
+    return execCtx_->optimizationParams().deferredLazyLoadingEnabled;
   }
 
  private:
@@ -550,8 +567,6 @@ class EvalCtx {
   core::ExecCtx* const execCtx_;
   ExprSet* const exprSet_;
   const RowVector* row_;
-  const bool cacheEnabled_;
-  const uint32_t maxSharedSubexprResultsCached_;
   bool inputFlatNoNulls_;
 
   // Corresponds 1:1 to children of 'row_'. Set to an inner vector

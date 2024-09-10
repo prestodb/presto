@@ -168,6 +168,22 @@ Expression Evaluation Configuration
      - bool
      - false
      - This flag makes the Row conversion to by applied in a way that the casting row field are matched by name instead of position.
+   * - debug_disable_expression_with_peeling
+     - bool
+     - false
+     - Disable optimization in expression evaluation to peel common dictionary layer from inputs. Should only be used for debugging.
+   * - debug_disable_common_sub_expressions
+     - bool
+     - false
+     - Disable optimization in expression evaluation to re-use cached results for common sub-expressions. Should only be used for debugging.
+   * - debug_disable_expression_with_memoization
+     - bool
+     - false
+     - Disable optimization in expression evaluation to re-use cached results between subsequent input batches that are dictionary encoded and have the same alphabet(underlying flat vector). Should only be used for debugging.
+   * - debug_disable_expression_with_lazy_inputs
+     - bool
+     - false
+     - Disable optimization in expression evaluation to delay loading of lazy inputs unless required. Should only be used for debugging.
 
 Memory Management
 -----------------

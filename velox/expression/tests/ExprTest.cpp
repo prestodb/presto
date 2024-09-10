@@ -166,10 +166,12 @@ class ExprTest : public testing::Test, public VectorTestBase {
   evaluateMultipleWithStats(
       const std::vector<std::string>& texts,
       const RowVectorPtr& input,
-      std::vector<VectorPtr> resultToReuse = {}) {
+      std::vector<VectorPtr> resultToReuse = {},
+      core::ExecCtx* execCtx = nullptr) {
     auto exprSet = compileMultiple(texts, asRowType(input->type()));
 
-    exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
+    exec::EvalCtx context(
+        execCtx ? execCtx : execCtx_.get(), exprSet.get(), input.get());
 
     SelectivityVector rows(input->size());
     if (resultToReuse.empty()) {
@@ -190,11 +192,15 @@ class ExprTest : public testing::Test, public VectorTestBase {
   }
 
   std::pair<VectorPtr, std::unordered_map<std::string, exec::ExprStats>>
-  evaluateWithStats(exec::ExprSet* exprSetPtr, const RowVectorPtr& input) {
+  evaluateWithStats(
+      exec::ExprSet* exprSetPtr,
+      const RowVectorPtr& input,
+      core::ExecCtx* execCtx = nullptr) {
     SelectivityVector rows(input->size());
     std::vector<VectorPtr> results(1);
 
-    exec::EvalCtx context(execCtx_.get(), exprSetPtr, input.get());
+    exec::EvalCtx context(
+        execCtx ? execCtx : execCtx_.get(), exprSetPtr, input.get());
     exprSetPtr->eval(rows, context, results);
 
     return {results[0], exprSetPtr->stats()};
@@ -4794,6 +4800,168 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     ExprTest,
     ParameterizedExprTest,
     testing::ValuesIn({false, true}));
+
+TEST_F(ExprTest, disablePeeling) {
+  // Verify that peeling is disabled when the config is set by checking whether
+  // the number of rows processed is equal to the alphabet size (when enabled)
+  // or the dictionary size (when disabled).
+  // Also, ensure that single arg function recieves a flat vector even when
+  // peeling is disabled.
+
+  // This throws if input is not flat or constant.
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_testing_single_arg_deterministic, "testing_single_arg_deterministic");
+  // This wraps the input in a dictionary.
+  exec::registerVectorFunction(
+      "dict_wrap",
+      WrapInDictionaryFunc::signatures(),
+      std::make_unique<WrapInDictionaryFunc>(),
+      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
+  const std::vector<std::string> expressions = {"c0 + 1"};
+
+  auto flatInput = makeFlatVector<int64_t>({1, 2, 3});
+  auto flatSize = flatInput->size();
+  auto dictInput = wrapInDictionary(
+      makeIndices(2 * flatSize, [&](auto row) { return row % flatSize; }),
+      2 * flatSize,
+      flatInput);
+  auto dictSize = dictInput->size();
+
+  // Peeling Enabled (by default)
+  auto [result, stats] = evaluateMultipleWithStats(
+      expressions, makeRowVector({dictInput}), {}, execCtx_.get());
+
+  ASSERT_TRUE(stats.find("plus") != stats.end());
+  ASSERT_EQ(stats["plus"].numProcessedRows, flatSize);
+
+  // Peeling Disabled
+  std::unordered_map<std::string, std::string> configData(
+      {{core::QueryConfig::kDebugDisableExpressionWithPeeling, "true"}});
+  auto queryCtx = velox::core::QueryCtx::create(
+      nullptr, core::QueryConfig(std::move(configData)));
+  auto execCtx = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx.get());
+
+  std::tie(result, stats) = evaluateMultipleWithStats(
+      expressions, makeRowVector({dictInput}), {}, execCtx.get());
+
+  ASSERT_TRUE(stats.find("plus") != stats.end());
+  ASSERT_EQ(stats["plus"].numProcessedRows, dictSize);
+
+  // Ensure single arg function recieves a flat vector.
+  // When top level column is dictionary wrapped.
+  ASSERT_NO_THROW(evaluateMultiple(
+      {"testing_single_arg_deterministic((c0))"},
+      makeRowVector({dictInput}),
+      {},
+      execCtx.get()));
+  // When intermediate column is dictionary wrapped.
+  // dict_wrap helps generate an intermediate dictionary vector.
+  ASSERT_NO_THROW(evaluateMultiple(
+      {"testing_single_arg_deterministic(dict_wrap(c0))"},
+      makeRowVector({flatInput}),
+      {},
+      execCtx.get()));
+}
+
+TEST_F(ExprTest, disableSharedSubExpressionReuse) {
+  // Verify that shared subexpression reuse is disabled when the config is set
+  // by confirming that the same rows are processed twice by the shared
+  // expression when its disabled.
+  const std::vector<std::string> expressions = {"c0 + 1", "(c0 + 1) = 0"};
+
+  auto flatInput = makeFlatVector<int64_t>({1, 2, 3});
+  auto flatSize = flatInput->size();
+
+  // SharedSubExpressionReuse Enabled (by default)
+  auto [result, stats] = evaluateMultipleWithStats(
+      expressions, makeRowVector({flatInput}), {}, execCtx_.get());
+
+  ASSERT_TRUE(stats.find("plus") != stats.end());
+  ASSERT_EQ(stats["plus"].numProcessedRows, flatSize);
+
+  // SharedSubExpressionReuse Disabled
+  std::unordered_map<std::string, std::string> configData(
+      {{core::QueryConfig::kDebugDisableCommonSubExpressions, "true"}});
+  auto queryCtx = velox::core::QueryCtx::create(
+      nullptr, core::QueryConfig(std::move(configData)));
+  auto execCtx = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx.get());
+
+  std::tie(result, stats) = evaluateMultipleWithStats(
+      expressions, makeRowVector({flatInput}), {}, execCtx.get());
+
+  ASSERT_TRUE(stats.find("plus") != stats.end());
+  ASSERT_EQ(stats["plus"].numProcessedRows, 2 * flatSize);
+}
+
+TEST_F(ExprTest, disableMemoization) {
+  // Verify that memoization is disabled when the config is set by confirming
+  // that the third invocation reuses the results.
+  auto flatInput = makeFlatVector<int64_t>({1, 2, 3});
+  auto flatSize = flatInput->size();
+  auto dictInput = wrapInDictionary(
+      makeIndices(2 * flatSize, [&](auto row) { return row % flatSize; }),
+      2 * flatSize,
+      flatInput);
+  auto dictSize = dictInput->size();
+  auto inputRow = makeRowVector({dictInput});
+
+  auto exprSet = compileExpression("c0 + 1", asRowType(inputRow->type()));
+  // Memoization Enabled (by default). We need to evaluate the expression
+  // atleast twice to enable memoization. The third invocation will use the
+  // memoized result.
+  evaluateWithStats(exprSet.get(), inputRow, execCtx_.get());
+  evaluateWithStats(exprSet.get(), inputRow, execCtx_.get());
+  auto [result, stats] =
+      evaluateWithStats(exprSet.get(), inputRow, execCtx_.get());
+
+  ASSERT_TRUE(stats.find("plus") != stats.end());
+  ASSERT_EQ(stats["plus"].numProcessedRows, 2 * flatSize);
+
+  // Memoization Disabled
+  std::unordered_map<std::string, std::string> configData(
+      {{core::QueryConfig::kDebugDisableExpressionWithMemoization, "true"}});
+  auto queryCtx = velox::core::QueryCtx::create(
+      nullptr, core::QueryConfig(std::move(configData)));
+  auto execCtx = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx.get());
+
+  exprSet = compileExpression("c0 + 1", asRowType(inputRow->type()));
+  evaluateWithStats(exprSet.get(), inputRow, execCtx.get());
+  evaluateWithStats(exprSet.get(), inputRow, execCtx.get());
+  std::tie(result, stats) =
+      evaluateWithStats(exprSet.get(), inputRow, execCtx.get());
+
+  ASSERT_TRUE(stats.find("plus") != stats.end());
+  ASSERT_EQ(stats["plus"].numProcessedRows, 3 * flatSize);
+}
+
+TEST_F(ExprTest, disabledeferredLazyLoading) {
+  // Verify that deferred lazy loading is disabled when the config is set by
+  // confirming that all rows are loaded even when only a subset is required.
+
+  // The following expression only requires 1 row to be loaded on c1.
+  const std::vector<std::string> expressions = {"(c0 < 2) AND (c1 > 0)"};
+  auto c0 = makeFlatVector<int64_t>({1, 2, 3});
+  auto valueAt = [](auto row) { return row; };
+  // Confirm only 1 row is loaded.
+  auto c1 = makeLazyFlatVector<int64_t>(3, valueAt, nullptr, 1);
+
+  // Deferred lazy loading enabled (by default). Confirm that only required rows
+  // are loaded.
+  auto [result, stats] = evaluateMultipleWithStats(
+      expressions, makeRowVector({c0, c1}), {}, execCtx_.get());
+
+  // Deferred lazy loading disabled. Confirm all rows will be loaded.
+  std::unordered_map<std::string, std::string> configData(
+      {{core::QueryConfig::kDebugDisableExpressionWithLazyInputs, "true"}});
+  auto queryCtx = velox::core::QueryCtx::create(
+      nullptr, core::QueryConfig(std::move(configData)));
+  auto execCtx = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx.get());
+
+  // Confirm that all rows are loaded.
+  c1 = makeLazyFlatVector<int64_t>(3, valueAt, nullptr, 3);
+  std::tie(result, stats) = evaluateMultipleWithStats(
+      expressions, makeRowVector({c0, c1}), {}, execCtx.get());
+}
 
 } // namespace
 } // namespace facebook::velox::test

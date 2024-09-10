@@ -486,8 +486,9 @@ class Expr {
   /// Evaluation of such expression is optimized by memoizing and reusing
   /// the results of prior evaluations. That logic is implemented in
   /// 'evaluateSharedSubexpr'.
-  bool shouldEvaluateSharedSubexp() const {
-    return deterministic_ && isMultiplyReferenced_ && !inputs_.empty();
+  bool shouldEvaluateSharedSubexp(EvalCtx& context) const {
+    return deterministic_ && isMultiplyReferenced_ && !inputs_.empty() &&
+        context.sharedSubExpressionReuseEnabled();
   }
 
   /// Evaluate common sub-expression. Check if sharedSubexprValues_ already has

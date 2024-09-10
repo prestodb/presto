@@ -229,12 +229,53 @@ class ExecCtx {
   ExecCtx(memory::MemoryPool* pool, QueryCtx* queryCtx)
       : pool_(pool),
         queryCtx_(queryCtx),
-        exprEvalCacheEnabled_(
-            !queryCtx ||
-            queryCtx->queryConfig().isExpressionEvaluationCacheEnabled()),
+        optimizationParams_(queryCtx),
         vectorPool_(
-            exprEvalCacheEnabled_ ? std::make_unique<VectorPool>(pool)
-                                  : nullptr) {}
+            optimizationParams_.exprEvalCacheEnabled
+                ? std::make_unique<VectorPool>(pool)
+                : nullptr) {}
+
+  struct OptimizationParams {
+    explicit OptimizationParams(QueryCtx* queryCtx) {
+      const core::QueryConfig defaultQueryConfig = core::QueryConfig({});
+
+      const core::QueryConfig& queryConfig =
+          queryCtx ? queryCtx->queryConfig() : defaultQueryConfig;
+
+      exprEvalCacheEnabled = queryConfig.isExpressionEvaluationCacheEnabled();
+      dictionaryMemoizationEnabled =
+          !queryConfig.debugDisableExpressionsWithMemoization() &&
+          exprEvalCacheEnabled;
+      peelingEnabled = !queryConfig.debugDisableExpressionsWithPeeling();
+      sharedSubExpressionReuseEnabled =
+          !queryConfig.debugDisableCommonSubExpressions();
+      deferredLazyLoadingEnabled =
+          !queryConfig.debugDisableExpressionsWithLazyInputs();
+      maxSharedSubexprResultsCached =
+          queryConfig.maxSharedSubexprResultsCached();
+    }
+
+    /// True if caches in expression evaluation used for performance are
+    /// enabled, including VectorPool, DecodedVectorPool, SelectivityVectorPool
+    /// and dictionary memoization.
+    bool exprEvalCacheEnabled;
+    /// True if dictionary memoization optimization is enabled during experssion
+    /// evaluation, whichallows the reuse of results between consecutive input
+    /// batches if they are dictionary encoded and have the same
+    /// alphabet(undelying flat vector).
+    bool dictionaryMemoizationEnabled;
+    /// True if peeling is enabled during experssion evaluation.
+    bool peelingEnabled;
+    /// True if shared subexpression reuse is enabled during experssion
+    /// evaluation.
+    bool sharedSubExpressionReuseEnabled;
+    /// True if loading lazy inputs are deferred till they need to be
+    /// accessed during experssion evaluation.
+    bool deferredLazyLoadingEnabled;
+    /// The maximum number of distinct inputs to cache results in a
+    /// given shared subexpression during experssion evaluation.
+    uint32_t maxSharedSubexprResultsCached;
+  };
 
   velox::memory::MemoryPool* pool() const {
     return pool_;
@@ -251,7 +292,9 @@ class ExecCtx {
   /// Prefer using LocalSelectivityVector which takes care of returning the
   /// vector to the pool on destruction.
   std::unique_ptr<SelectivityVector> getSelectivityVector(int32_t size) {
-    VELOX_CHECK(exprEvalCacheEnabled_ || selectivityVectorPool_.empty());
+    VELOX_CHECK(
+        optimizationParams_.exprEvalCacheEnabled ||
+        selectivityVectorPool_.empty());
     if (selectivityVectorPool_.empty()) {
       return std::make_unique<SelectivityVector>(size);
     }
@@ -265,7 +308,9 @@ class ExecCtx {
   // content. The caller is responsible for setting the size and
   // assigning the contents.
   std::unique_ptr<SelectivityVector> getSelectivityVector() {
-    VELOX_CHECK(exprEvalCacheEnabled_ || selectivityVectorPool_.empty());
+    VELOX_CHECK(
+        optimizationParams_.exprEvalCacheEnabled ||
+        selectivityVectorPool_.empty());
     if (selectivityVectorPool_.empty()) {
       return std::make_unique<SelectivityVector>();
     }
@@ -276,7 +321,7 @@ class ExecCtx {
 
   // Returns true if the vector was moved into the pool.
   bool releaseSelectivityVector(std::unique_ptr<SelectivityVector>&& vector) {
-    if (exprEvalCacheEnabled_) {
+    if (optimizationParams_.exprEvalCacheEnabled) {
       selectivityVectorPool_.push_back(std::move(vector));
       return true;
     }
@@ -284,7 +329,8 @@ class ExecCtx {
   }
 
   std::unique_ptr<DecodedVector> getDecodedVector() {
-    VELOX_CHECK(exprEvalCacheEnabled_ || decodedVectorPool_.empty());
+    VELOX_CHECK(
+        optimizationParams_.exprEvalCacheEnabled || decodedVectorPool_.empty());
     if (decodedVectorPool_.empty()) {
       return std::make_unique<DecodedVector>();
     }
@@ -295,7 +341,7 @@ class ExecCtx {
 
   // Returns true if the vector was moved into the pool.
   bool releaseDecodedVector(std::unique_ptr<DecodedVector>&& vector) {
-    if (exprEvalCacheEnabled_) {
+    if (optimizationParams_.exprEvalCacheEnabled) {
       decodedVectorPool_.push_back(std::move(vector));
       return true;
     }
@@ -334,8 +380,8 @@ class ExecCtx {
     return 0;
   }
 
-  bool exprEvalCacheEnabled() const {
-    return exprEvalCacheEnabled_;
+  const OptimizationParams& optimizationParams() const {
+    return optimizationParams_;
   }
 
  private:
@@ -343,8 +389,9 @@ class ExecCtx {
   memory::MemoryPool* const pool_;
   QueryCtx* const queryCtx_;
 
-  const bool exprEvalCacheEnabled_;
-  // A pool of preallocated DecodedVectors for use by expressions and operators.
+  const OptimizationParams optimizationParams_;
+  // A pool of preallocated DecodedVectors for use by expressions and
+  // operators.
   std::vector<std::unique_ptr<DecodedVector>> decodedVectorPool_;
   // A pool of preallocated SelectivityVectors for use by expressions
   // and operators.

@@ -357,6 +357,43 @@ class QueryConfig {
   /// Empty string if only want to trace the query metadata.
   static constexpr const char* kQueryTraceNodeIds = "query_trace_node_ids";
 
+  /// Disable optimization in expression evaluation to peel common dictionary
+  /// layer from inputs.
+  static constexpr const char* kDebugDisableExpressionWithPeeling =
+      "debug_disable_expression_with_peeling";
+
+  /// Disable optimization in expression evaluation to re-use cached results for
+  /// common sub-expressions.
+  static constexpr const char* kDebugDisableCommonSubExpressions =
+      "debug_disable_common_sub_expressions";
+
+  /// Disable optimization in expression evaluation to re-use cached results
+  /// between subsequent input batches that are dictionary encoded and have the
+  /// same alphabet(underlying flat vector).
+  static constexpr const char* kDebugDisableExpressionWithMemoization =
+      "debug_disable_expression_with_memoization";
+
+  /// Disable optimization in expression evaluation to delay loading of lazy
+  /// inputs unless required.
+  static constexpr const char* kDebugDisableExpressionWithLazyInputs =
+      "debug_disable_expression_with_lazy_inputs";
+
+  bool debugDisableExpressionsWithPeeling() const {
+    return get<bool>(kDebugDisableExpressionWithPeeling, false);
+  }
+
+  bool debugDisableCommonSubExpressions() const {
+    return get<bool>(kDebugDisableCommonSubExpressions, false);
+  }
+
+  bool debugDisableExpressionsWithMemoization() const {
+    return get<bool>(kDebugDisableExpressionWithMemoization, false);
+  }
+
+  bool debugDisableExpressionsWithLazyInputs() const {
+    return get<bool>(kDebugDisableExpressionWithLazyInputs, false);
+  }
+
   uint64_t queryMaxMemoryPerNode() const {
     return config::toCapacity(
         get<std::string>(kQueryMaxMemoryPerNode, "0B"),

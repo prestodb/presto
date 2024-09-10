@@ -118,12 +118,16 @@ TEST_F(QueryConfigTest, enableExpressionEvaluationCacheConfig) {
         enableExpressionEvaluationCache);
 
     auto execCtx = std::make_shared<core::ExecCtx>(pool.get(), queryCtx.get());
-    ASSERT_EQ(execCtx->exprEvalCacheEnabled(), enableExpressionEvaluationCache);
+    ASSERT_EQ(
+        execCtx->optimizationParams().exprEvalCacheEnabled,
+        enableExpressionEvaluationCache);
     ASSERT_EQ(
         execCtx->vectorPool() != nullptr, enableExpressionEvaluationCache);
 
     auto evalCtx = std::make_shared<exec::EvalCtx>(execCtx.get());
-    ASSERT_EQ(evalCtx->cacheEnabled(), enableExpressionEvaluationCache);
+    ASSERT_EQ(
+        evalCtx->dictionaryMemoizationEnabled(),
+        enableExpressionEvaluationCache);
 
     // Test ExecCtx::selectivityVectorPool_.
     auto rows = execCtx->getSelectivityVector(100);
@@ -142,6 +146,60 @@ TEST_F(QueryConfigTest, enableExpressionEvaluationCacheConfig) {
 
   testConfig(true);
   testConfig(false);
+}
+
+TEST_F(QueryConfigTest, expressionEvaluationRelatedConfigs) {
+  // Verify that the expression evaluation related configs are porpogated
+  // correctly to ExprCtx which is used during expression evaluation. Each
+  // config is individually set and verified.
+  std::shared_ptr<memory::MemoryPool> rootPool{
+      memory::memoryManager()->addRootPool()};
+  std::shared_ptr<memory::MemoryPool> pool{rootPool->addLeafChild("leaf")};
+
+  auto testConfig =
+      [&](std::unordered_map<std::string, std::string> configData) {
+        auto queryCtx =
+            core::QueryCtx::create(nullptr, QueryConfig{std::move(configData)});
+        const auto& queryConfig = queryCtx->queryConfig();
+        auto execCtx =
+            std::make_shared<core::ExecCtx>(pool.get(), queryCtx.get());
+        auto evalCtx = std::make_shared<exec::EvalCtx>(execCtx.get());
+
+        ASSERT_EQ(
+            evalCtx->peelingEnabled(),
+            !queryConfig.debugDisableExpressionsWithPeeling());
+        ASSERT_EQ(
+            evalCtx->sharedSubExpressionReuseEnabled(),
+            !queryConfig.debugDisableCommonSubExpressions());
+        ASSERT_EQ(
+            evalCtx->dictionaryMemoizationEnabled(),
+            !queryConfig.debugDisableExpressionsWithMemoization());
+        ASSERT_EQ(
+            evalCtx->deferredLazyLoadingEnabled(),
+            !queryConfig.debugDisableExpressionsWithLazyInputs());
+      };
+
+  auto createConfig = [&](bool debugDisableExpressionsWithPeeling,
+                          bool debugDisableCommonSubExpressions,
+                          bool debugDisableExpressionsWithMemoization,
+                          bool debugDisableExpressionsWithLazyInputs) -> auto {
+    std::unordered_map<std::string, std::string> configData(
+        {{core::QueryConfig::kDebugDisableExpressionWithPeeling,
+          std::to_string(debugDisableExpressionsWithPeeling)},
+         {core::QueryConfig::kDebugDisableCommonSubExpressions,
+          std::to_string(debugDisableCommonSubExpressions)},
+         {core::QueryConfig::kDebugDisableExpressionWithMemoization,
+          std::to_string(debugDisableExpressionsWithMemoization)},
+         {core::QueryConfig::kDebugDisableExpressionWithLazyInputs,
+          std::to_string(debugDisableExpressionsWithLazyInputs)}});
+    return configData;
+  };
+
+  testConfig({}); // Verify default config.
+  testConfig(createConfig(true, false, false, false));
+  testConfig(createConfig(false, true, false, false));
+  testConfig(createConfig(false, false, true, false));
+  testConfig(createConfig(false, false, false, true));
 }
 
 } // namespace facebook::velox::core::test
