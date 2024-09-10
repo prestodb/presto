@@ -11,18 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto;
+package com.facebook.presto.spi;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-public class RequestModifierModule
-        implements Module
+public interface ClientRequestFilter
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        binder.bind(RequestModifierManager.class).in(Scopes.SINGLETON);
-    }
+    List<String> getHeaderNames();
+
+    <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo);
 }

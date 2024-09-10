@@ -15,7 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.RequestModifier;
+import com.facebook.presto.spi.ClientRequestFilter;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import org.testng.annotations.Test;
@@ -24,29 +24,45 @@ import java.security.Principal;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestRequestHeaderModifierPlugin
+public class TestClientRequestFilterPlugin
 {
     @Test
     public void testCustomRequestModifierWithHeaders() throws Exception
     {
         ConcreteHttpServletRequest request = new ConcreteHttpServletRequest(ImmutableListMultimap.of("X-Custom-Header1", "CustomValue1"), "http://request-modifier.com", Collections.singletonMap("attribute", "attribute1"));
-        TestingPrestoServer server = new TestingPrestoServer();
-        RequestModifierManager requestModifierManager = server.getRequestModifierManager();
+        ClientRequestFilter customModifier = new ClientRequestFilter() {
+            @Override
+            public List<String> getHeaderNames()
+            {
+                return Collections.singletonList("Extra-credential");
+            }
+            @Override
+            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
+            {
+                Map<String, String> headers = new HashMap<>();
+                headers.put("X-Custom-Header", "CustomValue");
+                return Optional.of(headers);
+            }
+        };
+
+        ClientRequestFilterManager clientRequestFilterManager = TestingPrestoServer.getClientRequestFilterManager(customModifier);
+
         PrincipalStub testPrincipal = new PrincipalStub();
 
         Map<String, String> extraHeadersMap = new HashMap<>();
 
-        for (RequestModifier modifier : requestModifierManager.getRequestModifiers()) {
-            boolean headersPresent = modifier.getHeaderNames().stream()
+        for (ClientRequestFilter requestFilter : clientRequestFilterManager.getClientRequestFilters()) {
+            boolean headersPresent = requestFilter.getHeaderNames().stream()
                     .allMatch(headerName -> request.getHeader(headerName) != null);
 
             if (!headersPresent) {
-                Optional<Map<String, String>> extraHeaderValueMap = modifier.getExtraHeaders(testPrincipal);
+                Optional<Map<String, String>> extraHeaderValueMap = requestFilter.getExtraHeaders(testPrincipal);
 
                 extraHeaderValueMap.ifPresent(map -> {
                     for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {

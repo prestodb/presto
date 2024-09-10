@@ -15,7 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
-import com.facebook.presto.RequestModifierManager;
+import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ParametricType;
@@ -28,8 +28,8 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
+import com.facebook.presto.spi.ClientRequestFilter;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.RequestModifier;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -127,7 +127,7 @@ public class PluginManager
     private final TracerProviderManager tracerProviderManager;
     private final AnalyzerProviderManager analyzerProviderManager;
     private final NodeStatusNotificationManager nodeStatusNotificationManager;
-    private final RequestModifierManager requestModifierManager;
+    private final ClientRequestFilterManager clientRequestFilterManager;
 
     @Inject
     public PluginManager(
@@ -149,7 +149,7 @@ public class PluginManager
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
             TracerProviderManager tracerProviderManager,
             NodeStatusNotificationManager nodeStatusNotificationManager,
-            RequestModifierManager requestModifierManager)
+            ClientRequestFilterManager clientRequestFilterManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -180,7 +180,7 @@ public class PluginManager
         this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
         this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
         this.nodeStatusNotificationManager = requireNonNull(nodeStatusNotificationManager, "nodeStatusNotificationManager is null");
-        this.requestModifierManager = requireNonNull(requestModifierManager, "requestModifierManager is null");
+        this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
     }
 
     public void loadPlugins()
@@ -332,9 +332,9 @@ public class PluginManager
             nodeStatusNotificationManager.addNodeStatusNotificationProviderFactory(nodeStatusNotificationProviderFactory);
         }
 
-        for (RequestModifier requestModifier : plugin.getRequestModifiers()) {
-            log.info("Registering request modifier");
-            requestModifierManager.registerRequestModifier(requestModifier);
+        for (ClientRequestFilter clientRequestFilter : plugin.getClientRequestFilters()) {
+            log.info("Registering client request filter");
+            clientRequestFilterManager.registerClientRequestFilter(clientRequestFilter);
         }
     }
 

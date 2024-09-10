@@ -15,8 +15,8 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
-import com.facebook.presto.RequestModifierManager;
-import com.facebook.presto.spi.RequestModifier;
+import com.facebook.presto.ClientRequestFilterManager;
+import com.facebook.presto.spi.ClientRequestFilter;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
@@ -58,14 +59,14 @@ public class AuthenticationFilter
     private static final String HTTPS_PROTOCOL = "https";
     private final List<Authenticator> authenticators;
     private final boolean allowForwardedHttps;
-    private final RequestModifierManager requestModifierManager;
+    private final ClientRequestFilterManager clientRequestFilterManager;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig, RequestModifierManager requestModifierManager)
+    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig, ClientRequestFilterManager clientRequestFilterManager)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         this.allowForwardedHttps = requireNonNull(securityConfig, "securityConfig is null").getAllowForwardedHttps();
-        this.requestModifierManager = requireNonNull(requestModifierManager, "requestModifierManager is null");
+        this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
     }
 
     @Override
@@ -104,15 +105,15 @@ public class AuthenticationFilter
                 continue;
             }
             // authentication succeeded
-            CustomHttpServletRequestWrapper wrappedRequest = withPrincipal(request, principal);
+            CustomHttpServletRequestWrapper wrappedRequest = new CustomHttpServletRequestWrapper(request);
             Map<String, String> extraHeadersMap = new HashMap<>();
 
-            for (RequestModifier modifier : requestModifierManager.getRequestModifiers()) {
-                boolean headersPresent = modifier.getHeaderNames().stream()
+            for (ClientRequestFilter requestFilter : clientRequestFilterManager.getClientRequestFilters()) {
+                boolean headersPresent = requestFilter.getHeaderNames().stream()
                         .allMatch(headerName -> request.getHeader(headerName) != null);
 
                 if (!headersPresent) {
-                    Optional<Map<String, String>> extraHeaderValueMap = modifier.getExtraHeaders(principal);
+                    Optional<Map<String, String>> extraHeaderValueMap = requestFilter.getExtraHeaders(principal);
 
                     extraHeaderValueMap.ifPresent(map -> {
                         for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
@@ -124,7 +125,7 @@ public class AuthenticationFilter
                 }
             }
             wrappedRequest.setHeaders(extraHeadersMap);
-            nextFilter.doFilter(wrappedRequest, response);
+            nextFilter.doFilter(withPrincipal(wrappedRequest, principal), response);
             return;
         }
 
@@ -155,10 +156,17 @@ public class AuthenticationFilter
         return false;
     }
 
-    public CustomHttpServletRequestWrapper withPrincipal(HttpServletRequest request, Principal principal)
+    public static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
     {
         requireNonNull(principal, "principal is null");
-        return new CustomHttpServletRequestWrapper(request, principal);
+        return new HttpServletRequestWrapper(request)
+        {
+            @Override
+            public Principal getUserPrincipal()
+            {
+                return principal;
+            }
+        };
     }
 
     private static void skipRequestBody(HttpServletRequest request)
@@ -180,18 +188,10 @@ public class AuthenticationFilter
     {
         private final Map<String, String> customHeaders;
 
-        private final Principal principal;
-
-        public CustomHttpServletRequestWrapper(HttpServletRequest request, Principal principal)
+        public CustomHttpServletRequestWrapper(HttpServletRequest request)
         {
             super(request);
-            this.principal = principal;
-            this.customHeaders = new HashMap<>();
-        }
-
-        public void addHeader(String name, String value)
-        {
-            customHeaders.put(name, value);
+            this.customHeaders = new ConcurrentHashMap<>();
         }
 
         @Override
@@ -222,12 +222,6 @@ public class AuthenticationFilter
                 return Collections.enumeration(Collections.singleton(customHeaders.get(name)));
             }
             return super.getHeaders(name);
-        }
-
-        @Override
-        public Principal getUserPrincipal()
-        {
-            return principal;
         }
 
         public void setHeaders(Map<String, String> headers)
