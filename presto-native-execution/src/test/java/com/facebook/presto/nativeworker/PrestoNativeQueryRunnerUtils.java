@@ -26,6 +26,7 @@ import com.google.common.io.Resources;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -421,6 +422,11 @@ public class PrestoNativeQueryRunnerUtils
 
     public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds, Boolean failOnNestedLoopJoin)
     {
+        return getExternalWorkerLauncher(catalogName, prestoServerPath, OptionalInt.empty(), cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin);
+    }
+
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, OptionalInt port, int cacheMaxSize, Optional<String> remoteFunctionServerUds, Boolean failOnNestedLoopJoin)
+    {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
@@ -428,13 +434,13 @@ public class PrestoNativeQueryRunnerUtils
                         Files.createDirectories(dir);
                         Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
                         log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
-                        int port = 1234 + workerIndex;
 
                         // Write config file
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
                                 "system-memory-gb=4%n" +
-                                "http-server.http.port=%d", discoveryUri, port);
+                                "native-sidecar=true%n" +
+                                "http-server.http.port=%d", discoveryUri, port.orElse(1234 + workerIndex));
 
                         if (remoteFunctionServerUds.isPresent()) {
                             String jsonSignaturesPath = Resources.getResource(REMOTE_FUNCTION_JSON_SIGNATURES).getFile();
@@ -517,5 +523,13 @@ public class PrestoNativeQueryRunnerUtils
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
                         "json-based-function-manager.path-to-function-definition", jsonDefinitionPath));
+    }
+
+    public static int findRandomPortForWorker()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
     }
 }

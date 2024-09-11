@@ -11,14 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.expressions;
+package com.facebook.presto.session.sql.expressions;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.jaxrs.JsonMapper;
-import com.facebook.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.SessionTestUtils;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.block.Block;
@@ -35,19 +33,16 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.nodeManager.PluginNodeManager;
-import com.facebook.presto.session.sql.expressions.ForSidecarInfo;
-import com.facebook.presto.session.sql.expressions.NativeExpressionOptimizerProvider;
-import com.facebook.presto.session.sql.expressions.NativeExpressionsModule;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
-import com.facebook.presto.sql.planner.RowExpressionInterpreter;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableList;
@@ -57,47 +52,53 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.testng.annotations.Test;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.UriBuilder;
-
 import java.net.URI;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.function.BiFunction;
 
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.findRandomPortForWorker;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
-import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
-import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
-public class TestNativeExpressions
+public class TestNativeExpressionOptimization
 {
-    public static final URI SIDECAR_URI = URI.create("http://127.0.0.1:1122");
+    public static final String SIDECAR_URI = "http://127.0.0.1:";
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
     @Test
     public void testLoadPlugin()
+            throws Exception
     {
-        ExpressionOptimizer interpreterService = getExpressionOptimizer(METADATA, null);
+        int port = findRandomPortForWorker();
+        URI sidecarUri = URI.create(SIDECAR_URI + port);
+        Optional<BiFunction<Integer, URI, Process>> launcher = PrestoNativeQueryRunnerUtils.getExternalWorkerLauncher(
+                "hive",
+                "/Users/tdcmeehan/git/presto/presto-native-execution/_build/release/presto_cpp/main/presto_server",
+                OptionalInt.of(port),
+                0,
+                Optional.empty(),
+                false);
+        Process process = launcher.get().apply(0, URI.create("http://test.invalid/"));
 
-        // Test the native row expression interpreter service with some simple expressions
-        RowExpression simpleAddition = compileExpression("1+1");
-        RowExpression unnecessaryCoalesce = compileExpression("coalesce(1, 2)");
+        try {
+            ExpressionOptimizer interpreterService = getExpressionOptimizer(METADATA, null, sidecarUri);
 
-        // Assert simple optimizations are performed
-        assertEquals(interpreterService.optimize(simpleAddition, OPTIMIZED, TEST_SESSION.toConnectorSession()), toRowExpression(2L, simpleAddition.getType()));
-        assertEquals(interpreterService.optimize(unnecessaryCoalesce, OPTIMIZED, TEST_SESSION.toConnectorSession()), toRowExpression(1L, unnecessaryCoalesce.getType()));
+            // Test the native row expression interpreter service with some simple expressions
+            RowExpression simpleAddition = compileExpression("1+1");
+            RowExpression unnecessaryCoalesce = compileExpression("coalesce(1, 2)");
+
+            // Assert simple optimizations are performed
+            assertEquals(interpreterService.optimize(simpleAddition, OPTIMIZED, SessionTestUtils.TEST_SESSION.toConnectorSession()), LiteralEncoder.toRowExpression(2L, simpleAddition.getType()));
+            assertEquals(interpreterService.optimize(unnecessaryCoalesce, OPTIMIZED, SessionTestUtils.TEST_SESSION.toConnectorSession()), LiteralEncoder.toRowExpression(1L, unnecessaryCoalesce.getType()));
+        }
+        finally {
+            process.destroyForcibly();
+        }
     }
 
     private static RowExpression compileExpression(String expression)
@@ -105,28 +106,16 @@ public class TestNativeExpressions
         return TRANSLATOR.translate(expression, ImmutableMap.of());
     }
 
-    protected static ExpressionOptimizer getExpressionOptimizer(Metadata metadata, HandleResolver handleResolver)
+    protected static ExpressionOptimizer getExpressionOptimizer(Metadata metadata, HandleResolver handleResolver, URI sidecarUri)
     {
         // Set up dependencies in main for this module
-        InMemoryNodeManager nodeManager = getNodeManagerWithSidecar(SIDECAR_URI);
+        InMemoryNodeManager nodeManager = getNodeManagerWithSidecar(sidecarUri);
         Injector prestoMainInjector = getPrestoMainInjector(metadata, handleResolver);
-        JsonMapper jsonMapper = prestoMainInjector.getInstance(JsonMapper.class);
         RowExpressionSerde rowExpressionSerde = prestoMainInjector.getInstance(RowExpressionSerde.class);
         FunctionAndTypeManager functionMetadataManager = prestoMainInjector.getInstance(FunctionAndTypeManager.class);
 
-        // Set up the mock HTTP endpoint that delegates to the Java based row expression interpreter
-        TestingExpressionOptimizerResource resource = new TestingExpressionOptimizerResource(
-                metadata.getFunctionAndTypeManager(),
-                testSessionBuilder().build().toConnectorSession(),
-                SERIALIZABLE);
-        JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(
-                UriBuilder.fromUri(SIDECAR_URI).path("/").build(),
-                resource,
-                jsonMapper);
-        TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor);
-
         // Create the native row expression interpreter service
-        return createExpressionOptimizer(nodeManager, rowExpressionSerde, testingHttpClient, functionMetadataManager);
+        return createExpressionOptimizer(nodeManager, rowExpressionSerde, functionMetadataManager);
     }
 
     private static InMemoryNodeManager getNodeManagerWithSidecar(URI sidecarUri)
@@ -136,16 +125,14 @@ public class TestNativeExpressions
         return nodeManager;
     }
 
-    private static ExpressionOptimizer createExpressionOptimizer(InternalNodeManager internalNodeManager, RowExpressionSerde rowExpressionSerde, HttpClient httpClient, FunctionAndTypeManager functionMetadataManager)
+    private static ExpressionOptimizer createExpressionOptimizer(InternalNodeManager internalNodeManager, RowExpressionSerde rowExpressionSerde, FunctionAndTypeManager functionMetadataManager)
     {
         requireNonNull(internalNodeManager, "inMemoryNodeManager is null");
         NodeManager nodeManager = new PluginNodeManager(internalNodeManager);
         FunctionResolution functionResolution = new FunctionResolution(functionMetadataManager.getFunctionAndTypeResolver());
 
         Bootstrap app = new Bootstrap(
-                // Specially use a testing HTTP client instead of a real one
-                binder -> binder.bind(HttpClient.class).annotatedWith(ForSidecarInfo.class).toInstance(httpClient),
-                // Otherwise use the exact same module as the native row expression interpreter service
+                new NativeExpressionsCommunicationModule(),
                 new NativeExpressionsModule(nodeManager, rowExpressionSerde, functionMetadataManager, functionResolution));
 
         Injector injector = app
@@ -191,37 +178,5 @@ public class TestNativeExpressions
                 .quiet()
                 .initialize();
         return injector;
-    }
-
-    @Path("/v1/expressions")
-    public static class TestingExpressionOptimizerResource
-    {
-        private final FunctionAndTypeManager functionAndTypeManager;
-        private final ConnectorSession connectorSession;
-        private final ExpressionOptimizer.Level level;
-
-        public TestingExpressionOptimizerResource(FunctionAndTypeManager functionAndTypeManager, ConnectorSession connectorSession, ExpressionOptimizer.Level level)
-        {
-            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
-            this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
-            this.level = requireNonNull(level, "level is null");
-        }
-
-        @POST
-        @Consumes(MediaType.APPLICATION_JSON)
-        @Produces(MediaType.APPLICATION_JSON)
-        public List<RowExpression> post(List<RowExpression> rowExpressions)
-        {
-            Map<RowExpression, RowExpression> input = rowExpressions.stream().collect(toImmutableMap(i -> i, i -> i));
-            Map<RowExpression, Object> optimizedExpressions = new HashMap<>();
-            input.forEach((key, value) -> optimizedExpressions.put(
-                    key,
-                    new RowExpressionInterpreter(key, functionAndTypeManager, connectorSession, level).optimize()));
-            ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
-            for (RowExpression inputExpression : rowExpressions) {
-                builder.add(toRowExpression(optimizedExpressions.get(inputExpression), inputExpression.getType()));
-            }
-            return builder.build();
-        }
     }
 }

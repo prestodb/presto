@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.expressions;
+package com.facebook.presto.session.sql.expressions;
 
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
@@ -21,17 +22,22 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.relational.DelegatingRowExpressionOptimizer;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.tests.expressions.TestExpressions;
 import com.google.common.collect.ImmutableList;
-import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.function.BiFunction;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.findRandomPortForWorker;
+import static com.facebook.presto.session.sql.expressions.TestNativeExpressionOptimization.getExpressionOptimizer;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.EVALUATED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
@@ -47,14 +53,30 @@ public class TestDelegatingExpressionOptimizer
 {
     public static final FunctionResolution RESOLUTION = new FunctionResolution(METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver());
     private ExpressionOptimizer expressionOptimizer;
+    private Process sidecar;
 
     @BeforeClass
     public void setup()
+            throws Exception
     {
-        METADATA.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
-        setupJsonFunctionNamespaceManager(METADATA.getFunctionAndTypeManager());
+        int port = findRandomPortForWorker();
+        URI sidecarUri = URI.create("http://127.0.0.1:" + port);
+        Optional<BiFunction<Integer, URI, Process>> launcher = PrestoNativeQueryRunnerUtils.getExternalWorkerLauncher(
+                "hive",
+                "/Users/tdcmeehan/git/presto/presto-native-execution/_build/release/presto_cpp/main/presto_server",
+                OptionalInt.of(port),
+                0,
+                Optional.empty(),
+                false);
+        sidecar = launcher.get().apply(0, URI.create("http://test.invalid/"));
 
-        expressionOptimizer = new DelegatingRowExpressionOptimizer(METADATA, () -> TestNativeExpressions.getExpressionOptimizer(METADATA, HANDLE_RESOLVER));
+        expressionOptimizer = new DelegatingRowExpressionOptimizer(METADATA, () -> getExpressionOptimizer(METADATA, HANDLE_RESOLVER, sidecarUri));
+    }
+
+    @AfterClass
+    public void tearDown()
+    {
+        sidecar.destroyForcibly();
     }
 
     @Test
@@ -118,7 +140,7 @@ public class TestDelegatingExpressionOptimizer
     }
 
     @Override
-    protected Object optimize(@Language("SQL") String expression)
+    protected Object optimize(String expression)
     {
         assertRoundTrip(expression);
         RowExpression parsedExpression = sqlToRowExpression(expression);
@@ -154,7 +176,7 @@ public class TestDelegatingExpressionOptimizer
     }
 
     @Override
-    protected void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
+    protected void assertOptimizedEquals(String actual, String expected)
     {
         Object optimizedActual = optimize(actual);
         Object optimizedExpected = optimize(expected);
@@ -162,7 +184,7 @@ public class TestDelegatingExpressionOptimizer
     }
 
     @Override
-    protected void assertOptimizedMatches(@Language("SQL") String actual, @Language("SQL") String expected)
+    protected void assertOptimizedMatches(String actual, String expected)
     {
         Object actualOptimized = optimize(actual);
         Object expectedOptimized = optimize(expected);
@@ -172,7 +194,7 @@ public class TestDelegatingExpressionOptimizer
     }
 
     @Override
-    protected void assertDoNotOptimize(@Language("SQL") String expression, Level optimizationLevel)
+    protected void assertDoNotOptimize(String expression, Level optimizationLevel)
     {
         assertRoundTrip(expression);
         RowExpression rowExpression = sqlToRowExpression(expression);
