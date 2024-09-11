@@ -242,6 +242,12 @@ class SystemConfig : public ConfigBase {
       kDriverCancelTasksWithStuckOperatorsThresholdMs{
           "driver.cancel-tasks-with-stuck-operators-threshold-ms"};
 
+  /// The number of stuck operators (effectively stuck driver threads) when we
+  /// detach the worker from the cluster in an attempt to keep the cluster
+  /// operational.
+  static constexpr std::string_view kDriverNumStuckOperatorsToDetachWorker{
+      "driver.num-stuck-operators-to-detach-worker"};
+
   /// Floating point number used in calculating how many threads we would use
   /// for Spiller CPU executor: hw_concurrency x multiplier.
   /// If 0.0 then spilling is disabled.
@@ -713,6 +719,8 @@ class SystemConfig : public ConfigBase {
   size_t driverStuckOperatorThresholdMs() const;
 
   size_t driverCancelTasksWithStuckOperatorsThresholdMs() const;
+
+  size_t driverNumStuckOperatorsToDetachWorker() const;
 
   double spillerNumCpuThreadsHwMultiplier() const;
 
