@@ -7419,6 +7419,7 @@ public abstract class AbstractTestQueries
         assertQuery("select x, case x when 1 then 1 when 2 then 2 else 3 end from (select x from (values 1, 2, 3, 4) t(x))");
         assertQuery("select x, case when x=1 then 1 when x=2 then 2 else 3 end from (select x from (values 1, 2, 3, 4) t(x))");
         assertQuery("select x, case when x=1 then 1 when x in (2, 3) then 2 else 3 end from (select x from (values 1, 2, 3, 4) t(x))");
+        assertQuery("select case (case true when true then true else coalesce(false = any (values true), true) end) when false then true end limit 1");
 
         // disable the feature and test to make sure it doesn't fire
 
