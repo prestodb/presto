@@ -63,7 +63,6 @@ jobs:
       simdjson_SOURCE: BUNDLED
       xsimd_SOURCE: BUNDLED
       Arrow_SOURCE: AUTO
-      stemmer_SOURCE: AUTO
       CUDA_VERSION: "12.4"
     steps:
       - uses: actions/checkout@v4

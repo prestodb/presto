@@ -569,7 +569,7 @@ endif()
 set_source(xsimd)
 resolve_dependency(xsimd 10.0.0)
 
-set_source(stemmer)
+set(stemmer_SOURCE BUNDLED)
 resolve_dependency(stemmer)
 
 if(VELOX_BUILD_TESTING)
