@@ -159,6 +159,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
           NUM_PROP(
               kDriverCancelTasksWithStuckOperatorsThresholdMs, 40 * 60 * 1000),
+          NUM_PROP(kDriverNumStuckOperatorsToDetachWorker, 8),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
@@ -382,6 +383,11 @@ size_t SystemConfig::driverStuckOperatorThresholdMs() const {
 size_t SystemConfig::driverCancelTasksWithStuckOperatorsThresholdMs() const {
   return optionalProperty<size_t>(
              kDriverCancelTasksWithStuckOperatorsThresholdMs)
+      .value();
+}
+
+size_t SystemConfig::driverNumStuckOperatorsToDetachWorker() const {
+  return optionalProperty<size_t>(kDriverNumStuckOperatorsToDetachWorker)
       .value();
 }
 
