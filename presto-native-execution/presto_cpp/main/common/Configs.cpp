@@ -157,6 +157,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
           BOOL_PROP(kDriverThreadsBatchSchedulingEnabled, false),
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
+          NUM_PROP(
+              kDriverCancelTasksWithStuckOperatorsThresholdMs, 40 * 60 * 1000),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
@@ -375,6 +377,12 @@ bool SystemConfig::driverThreadsBatchSchedulingEnabled() const {
 
 size_t SystemConfig::driverStuckOperatorThresholdMs() const {
   return optionalProperty<size_t>(kDriverStuckOperatorThresholdMs).value();
+}
+
+size_t SystemConfig::driverCancelTasksWithStuckOperatorsThresholdMs() const {
+  return optionalProperty<size_t>(
+             kDriverCancelTasksWithStuckOperatorsThresholdMs)
+      .value();
 }
 
 double SystemConfig::spillerNumCpuThreadsHwMultiplier() const {

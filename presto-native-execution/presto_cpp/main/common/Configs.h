@@ -235,6 +235,13 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDriverStuckOperatorThresholdMs{
       "driver.stuck-operator-threshold-ms"};
 
+  /// Immediately cancels any Task when it is detected that it has at least one
+  /// stuck Operator for at least the time specified by this threshold.
+  /// Use zero to disable canceling.
+  static constexpr std::string_view
+      kDriverCancelTasksWithStuckOperatorsThresholdMs{
+          "driver.cancel-tasks-with-stuck-operators-threshold-ms"};
+
   /// Floating point number used in calculating how many threads we would use
   /// for Spiller CPU executor: hw_concurrency x multiplier.
   /// If 0.0 then spilling is disabled.
@@ -704,6 +711,8 @@ class SystemConfig : public ConfigBase {
   bool driverThreadsBatchSchedulingEnabled() const;
 
   size_t driverStuckOperatorThresholdMs() const;
+
+  size_t driverCancelTasksWithStuckOperatorsThresholdMs() const;
 
   double spillerNumCpuThreadsHwMultiplier() const;
 

@@ -1098,16 +1098,47 @@ bool TaskManager::getStuckOpCalls(
     std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const {
   const auto thresholdDurationMs =
       SystemConfig::instance()->driverStuckOperatorThresholdMs();
+  const auto thresholdCancelMs =
+      SystemConfig::instance()
+          ->driverCancelTasksWithStuckOperatorsThresholdMs();
+  stuckOpCalls.clear();
+
   const std::chrono::milliseconds lockTimeoutMs(thresholdDurationMs);
   auto taskMap = taskMap_.rlock(lockTimeoutMs);
   if (!taskMap) {
     return false;
   }
-  for (const auto& [_, prestoTask] : *taskMap) {
-    if (prestoTask->task != nullptr &&
-        !prestoTask->task->getLongRunningOpCalls(
-            lockTimeoutMs, thresholdDurationMs, stuckOpCalls)) {
-      deadlockTasks.push_back(prestoTask->task->taskId());
+
+  for (const auto& [id, prestoTask] : *taskMap) {
+    if (prestoTask->task != nullptr) {
+      const auto numPrevStuckOps = stuckOpCalls.size();
+      if (!prestoTask->task->getLongRunningOpCalls(
+              lockTimeoutMs, thresholdDurationMs, stuckOpCalls)) {
+        deadlockTasks.push_back(id);
+        continue;
+      }
+      // See if we need to cancel the Task - it should be running, the cancel
+      // threshold should be valid and it should have at least one stuck driver
+      // that was stuck for enough time.
+      if (numPrevStuckOps < stuckOpCalls.size() && thresholdCancelMs != 0 &&
+          prestoTask->task->isRunning()) {
+        for (auto it = stuckOpCalls.begin() + numPrevStuckOps;
+             it != stuckOpCalls.end();
+             ++it) {
+          if (it->durationMs >= thresholdCancelMs) {
+            std::stringstream ss;
+            ss << "Task " << id
+               << " cancelled due to stuck operator: tid=" << it->tid
+               << " opCall=" << it->opCall
+               << " duration= " << velox::succinctMillis(it->durationMs);
+            const std::string msg = ss.str();
+            LOG(ERROR) << msg;
+            prestoTask->task->setError(msg);
+            RECORD_METRIC_VALUE(kCounterNumCancelledTasksByStuckDriver, 1);
+            break;
+          }
+        }
+      }
     }
   }
   return true;
