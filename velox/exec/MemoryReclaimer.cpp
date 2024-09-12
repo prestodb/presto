@@ -122,7 +122,7 @@ uint64_t ParallelMemoryReclaimer::reclaim(
     if (candidate.reclaimableBytes == 0) {
       continue;
     }
-    reclaimTasks.push_back(std::make_shared<AsyncSource<ReclaimResult>>(
+    reclaimTasks.push_back(memory::createAsyncMemoryReclaimTask<ReclaimResult>(
         [&, reclaimPool = candidate.pool]() {
           try {
             Stats reclaimStats;

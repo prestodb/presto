@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/memory/MemoryPool.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
@@ -167,50 +168,64 @@ TEST(ReclaimableSectionGuard, basic) {
   ASSERT_TRUE(nonReclaimableSection);
 }
 
+namespace {
+class MockMemoryReclaimer : public memory::MemoryReclaimer {
+ public:
+  static std::unique_ptr<MemoryReclaimer> create(
+      bool reclaimable,
+      uint64_t memoryBytes,
+      const std::function<void(memory::MemoryPool*)>& reclaimCallback =
+          nullptr) {
+    return std::unique_ptr<MemoryReclaimer>(
+        new MockMemoryReclaimer(reclaimable, memoryBytes, reclaimCallback));
+  }
+
+  bool reclaimableBytes(const MemoryPool& pool, uint64_t& reclaimableBytes)
+      const override {
+    reclaimableBytes = 0;
+    if (!reclaimable_) {
+      return false;
+    }
+    reclaimableBytes = memoryBytes_;
+    return true;
+  }
+
+  uint64_t reclaim(
+      MemoryPool* pool,
+      uint64_t targetBytes,
+      uint64_t maxWaitMs,
+      Stats& stats) override {
+    VELOX_CHECK(underMemoryArbitration());
+    VELOX_CHECK(reclaimable_);
+    if (reclaimCallback_) {
+      reclaimCallback_(pool);
+    }
+    const uint64_t reclaimedBytes = memoryBytes_;
+    memoryBytes_ = 0;
+    return reclaimedBytes;
+  }
+
+  uint64_t memoryBytes() const {
+    return memoryBytes_;
+  }
+
+ private:
+  MockMemoryReclaimer(
+      bool reclaimable,
+      uint64_t memoryBytes,
+      const std::function<void(memory::MemoryPool*)>& reclaimCallback)
+      : reclaimCallback_(reclaimCallback),
+        reclaimable_(reclaimable),
+        memoryBytes_(memoryBytes) {}
+
+  const std::function<void(memory::MemoryPool*)> reclaimCallback_;
+  bool reclaimable_{false};
+  int reclaimCount_{0};
+  uint64_t memoryBytes_{0};
+};
+} // namespace
+
 TEST_F(MemoryReclaimerTest, parallelMemoryReclaimer) {
-  class MockMemoryReclaimer : public memory::MemoryReclaimer {
-   public:
-    static std::unique_ptr<MemoryReclaimer> create(
-        bool reclaimable,
-        uint64_t memoryBytes) {
-      return std::unique_ptr<MemoryReclaimer>(
-          new MockMemoryReclaimer(reclaimable, memoryBytes));
-    }
-
-    bool reclaimableBytes(const MemoryPool& pool, uint64_t& reclaimableBytes)
-        const override {
-      reclaimableBytes = 0;
-      if (!reclaimable_) {
-        return false;
-      }
-      reclaimableBytes = memoryBytes_;
-      return true;
-    }
-
-    uint64_t reclaim(
-        MemoryPool* pool,
-        uint64_t targetBytes,
-        uint64_t maxWaitMs,
-        Stats& stats) override {
-      VELOX_CHECK(reclaimable_);
-      const uint64_t reclaimedBytes = memoryBytes_;
-      memoryBytes_ = 0;
-      return reclaimedBytes;
-    }
-
-    uint64_t memoryBytes() const {
-      return memoryBytes_;
-    }
-
-   private:
-    MockMemoryReclaimer(bool reclaimable, uint64_t memoryBytes)
-        : reclaimable_(reclaimable), memoryBytes_(memoryBytes) {}
-
-    bool reclaimable_{false};
-    int reclaimCount_{0};
-    uint64_t memoryBytes_{0};
-  };
-
   struct TestReclaimer {
     bool reclaimable;
     uint64_t memoryBytes;
@@ -260,4 +275,40 @@ TEST_F(MemoryReclaimerTest, parallelMemoryReclaimer) {
           << i;
     }
   }
+}
+
+// This test is to verify if the parallel memory reclaimer can prevent recursive
+// arbitration.
+TEST_F(MemoryReclaimerTest, recursiveArbitrationWithParallelReclaim) {
+  std::atomic_bool reclaimExecuted{false};
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "recursiveArbitrationWithParallelReclaim",
+      32 << 20,
+      exec::ParallelMemoryReclaimer::create(executor_.get()));
+  const auto reclaimCallback = [&](memory::MemoryPool* pool) {
+    void* buffer = pool->allocate(64 << 20);
+    pool->free(buffer, 64 << 20);
+    reclaimExecuted = true;
+  };
+  const int numLeafPools = 10;
+  const int bufferSize = 1 << 20;
+  std::vector<MockMemoryReclaimer*> memoryReclaimers;
+  std::vector<std::shared_ptr<MemoryPool>> leafPools;
+  std::vector<void*> buffers;
+  for (int i = 0; i < numLeafPools; ++i) {
+    auto reclaimer =
+        MockMemoryReclaimer::create(true, bufferSize, reclaimCallback);
+    leafPools.push_back(
+        rootPool->addLeafChild(std::to_string(i), true, std::move(reclaimer)));
+    buffers.push_back(leafPools.back()->allocate(bufferSize));
+    memoryReclaimers.push_back(
+        static_cast<MockMemoryReclaimer*>(leafPools.back()->reclaimer()));
+  }
+
+  memory::testingRunArbitration();
+
+  for (int i = 0; i < numLeafPools; ++i) {
+    leafPools[i]->free(buffers[i], bufferSize);
+  }
+  ASSERT_TRUE(reclaimExecuted);
 }

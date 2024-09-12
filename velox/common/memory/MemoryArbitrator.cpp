@@ -180,6 +180,7 @@ std::unique_ptr<MemoryReclaimer> MemoryReclaimer::create() {
 uint64_t MemoryReclaimer::run(
     const std::function<int64_t()>& func,
     Stats& stats) {
+  VELOX_CHECK(underMemoryArbitration());
   uint64_t execTimeUs{0};
   int64_t reclaimedBytes{0};
   {

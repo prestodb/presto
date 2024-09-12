@@ -453,11 +453,14 @@ template <typename Item>
 std::shared_ptr<AsyncSource<Item>> createAsyncMemoryReclaimTask(
     std::function<std::unique_ptr<Item>()> task) {
   auto* arbitrationCtx = memory::memoryArbitrationContext();
-  VELOX_CHECK_NOT_NULL(arbitrationCtx);
   return std::make_shared<AsyncSource<Item>>(
       [asyncTask = std::move(task), arbitrationCtx]() -> std::unique_ptr<Item> {
-        VELOX_CHECK_NOT_NULL(arbitrationCtx);
-        memory::ScopedMemoryArbitrationContext ctx(arbitrationCtx->requestor);
+        std::unique_ptr<ScopedMemoryArbitrationContext> restoreArbitrationCtx;
+        if (arbitrationCtx != nullptr) {
+          restoreArbitrationCtx =
+              std::make_unique<ScopedMemoryArbitrationContext>(
+                  arbitrationCtx->requestor);
+        }
         return asyncTask();
       });
 }

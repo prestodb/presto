@@ -2125,10 +2125,13 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
 
     if (testData.expectedReclaimable) {
       const auto usedMemory = op->pool()->usedBytes();
-      op->pool()->reclaim(
-          folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
-          0,
-          reclaimerStats_);
+      {
+        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        op->pool()->reclaim(
+            folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+            0,
+            reclaimerStats_);
+      }
       ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
       ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
       reclaimerStats_.reset();
@@ -2136,11 +2139,14 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
       // uses some memory.
       ASSERT_LT(op->pool()->usedBytes(), usedMemory);
     } else {
-      VELOX_ASSERT_THROW(
-          op->reclaim(
-              folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
-              reclaimerStats_),
-          "");
+      {
+        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        VELOX_ASSERT_THROW(
+            op->reclaim(
+                folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+                reclaimerStats_),
+            "");
+      }
     }
 
     Task::resume(task);
@@ -2249,10 +2255,13 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
   ASSERT_GT(reclaimableBytes, 0);
 
   const auto usedMemory = op->pool()->usedBytes();
-  op->pool()->reclaim(
-      folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
-      0,
-      reclaimerStats_);
+  {
+    memory::ScopedMemoryArbitrationContext ctx(op->pool());
+    op->pool()->reclaim(
+        folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+        0,
+        reclaimerStats_);
+  }
   ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
   ASSERT_GE(reclaimerStats_.reclaimedBytes, 0);
   reclaimerStats_.reset();
@@ -2492,6 +2501,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
       const auto usedMemory = op->pool()->usedBytes();
+      memory::ScopedMemoryArbitrationContext ctx(op->pool());
       op->pool()->reclaim(
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
           0,
@@ -2503,6 +2513,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
       reclaimerStats_.reset();
     } else {
       ASSERT_EQ(reclaimableBytes, 0);
+      memory::ScopedMemoryArbitrationContext ctx(op->pool());
       VELOX_ASSERT_THROW(
           op->reclaim(
               folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
@@ -3123,6 +3134,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
+          memory::ScopedMemoryArbitrationContext ctx(op->pool());
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
           ASSERT_GT(stats.reclaimExecTimeUs, 0);

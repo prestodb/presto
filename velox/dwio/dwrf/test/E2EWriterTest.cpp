@@ -1735,7 +1735,10 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
     const auto oldCapacity = writerPool->capacity();
     const auto oldReservedBytes = writerPool->reservedBytes();
     const auto oldUsedBytes = writerPool->usedBytes();
-    writerPool->reclaim(1L << 30, 0, stats);
+    {
+      memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
+      writerPool->reclaim(1L << 30, 0, stats);
+    }
     ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
     // We don't expect the capacity change by memory reclaim but only the used
     // or reserved memory change.
@@ -1771,8 +1774,11 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
       ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
       writer->testingNonReclaimableSection() = false;
       stats.numNonReclaimableAttempts = 0;
-      const auto reclaimedBytes = writerPool->reclaim(1L << 30, 0, stats);
-      ASSERT_GT(reclaimedBytes, 0);
+      {
+        memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
+        const auto reclaimedBytes = writerPool->reclaim(1L << 30, 0, stats);
+        ASSERT_GT(reclaimedBytes, 0);
+      }
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
       ASSERT_GT(stats.reclaimedBytes, 0);
       ASSERT_GT(stats.reclaimExecTimeUs, 0);
@@ -2046,8 +2052,8 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimThreshold) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::dwrf::Writer::MemoryReclaimer::reclaimableBytes",
       std::function<void(dwrf::Writer*)>([&](dwrf::Writer* writer) {
-        // Release before reclaim to make it not able to reclaim from reserved
-        // memory.
+        // Release before reclaim to make it not able to reclaim from
+        // reserved memory.
         writer->getContext().releaseMemoryReservation();
       }));
   const auto type = ROW(
@@ -2110,14 +2116,20 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimThreshold) {
       ASSERT_TRUE(writerPool->reclaimer()->reclaimableBytes(
           *writerPool, reclaimableBytes));
       ASSERT_GT(reclaimableBytes, 0);
-      ASSERT_GT(writerPool->reclaim(1L << 30, 0, stats), 0);
+      {
+        memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
+        ASSERT_GT(writerPool->reclaim(1L << 30, 0, stats), 0);
+      }
       ASSERT_GT(stats.reclaimExecTimeUs, 0);
       ASSERT_GT(stats.reclaimedBytes, 0);
     } else {
       ASSERT_FALSE(writerPool->reclaimer()->reclaimableBytes(
           *writerPool, reclaimableBytes));
       ASSERT_EQ(reclaimableBytes, 0);
-      ASSERT_EQ(writerPool->reclaim(1L << 30, 0, stats), 0);
+      {
+        memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
+        ASSERT_EQ(writerPool->reclaim(1L << 30, 0, stats), 0);
+      }
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
       ASSERT_EQ(stats.reclaimExecTimeUs, 0);
       ASSERT_EQ(stats.reclaimedBytes, 0);

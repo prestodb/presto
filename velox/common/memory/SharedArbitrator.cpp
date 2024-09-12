@@ -556,6 +556,10 @@ uint64_t SharedArbitrator::getCapacityGrowthTarget(
 }
 
 bool SharedArbitrator::growCapacity(MemoryPool* pool, uint64_t requestBytes) {
+  // NOTE: we shouldn't trigger the recursive memory capacity growth under
+  // memory arbitration context.
+  VELOX_CHECK(!underMemoryArbitration());
+
   ArbitrationOperation op(
       pool, requestBytes, getCapacityGrowthTarget(*pool, requestBytes));
   ScopedArbitration scopedArbitration(this, &op);

@@ -17,6 +17,7 @@
 #include "velox/exec/Spiller.h"
 #include <folly/ScopeGuard.h>
 #include "velox/common/base/AsyncSource.h"
+#include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/HashJoinBridge.h"
@@ -476,7 +477,7 @@ void Spiller::runSpill(bool lastRun) {
     if (spillRuns_[partition].rows.empty()) {
       continue;
     }
-    writes.push_back(std::make_shared<AsyncSource<SpillStatus>>(
+    writes.push_back(memory::createAsyncMemoryReclaimTask<SpillStatus>(
         [partition, this]() { return writeSpill(partition); }));
     if ((writes.size() > 1) && executor_ != nullptr) {
       executor_->add([source = writes.back()]() { source->prepare(); });
