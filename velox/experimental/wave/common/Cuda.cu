@@ -148,6 +148,7 @@ void Stream::hostToDeviceAsync(
       size,
       cudaMemcpyHostToDevice,
       stream_->stream));
+  isTransfer_ = true;
 }
 
 void Stream::deviceToHostAsync(

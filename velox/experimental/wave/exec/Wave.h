@@ -29,6 +29,7 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 
 DECLARE_bool(wave_timing);
+DECLARE_bool(wave_transfer_timing);
 
 namespace facebook::velox::wave {
 
@@ -127,6 +128,9 @@ struct WaveStats {
   /// hostToDeviceAsync.
   WaveTime stagingTime;
 
+  /// Optionally measured host to device transfer latency.
+  WaveTime transferWaitTime;
+
   void clear();
   void add(const WaveStats& other);
 };
@@ -211,10 +215,40 @@ class Program;
 /// Represents a device side operator state, like a join/group by hash table or
 /// repartition output. Can be scoped to a WaveStream or to a Program.
 struct OperatorState {
+  /// Marks that 'stream' will enqueue a program touching 'this'. Blocks until
+  /// 'this' is available. Throws an error if 'this' has entered an error state,
+  /// e.g. out of memory.
+  void enter(WaveStream* stream);
+
+  /// Marks that 'stream' has completed a program touching 'this'.
+  void leave(WaveStream* stream);
+
+  /// Acquires a process-wide exclusive hold on 'this' This is done
+  /// e.g. to rehash a hash table. 'stream' must have called enter()
+  /// on 'this' previously. If successful returns true after waiting
+  /// for the caller to be the only stream holding this. Returns false
+  /// If another stream called this before, returns false after
+  /// waiting for the exclusive owner to finish. If 'this' is in an
+  /// error state, throws the error. In any return except true, the
+  /// caller is not an owner of 'this'. After completing the activity,
+  /// the caller must call leave() when done.
+  bool enterExclusive(WaveStream* stream);
+
+  /// Sets an error. Any thread calling enter() or enterExclusive() will throw
+  /// the error. The caller must have successfully called enterExclusive()
+  /// first.
+  void setError(WaveStream* stream, std::exception_ptr error);
+
   int32_t id;
   /// Owns the device side data. Starting address of first is passed to the
   /// kernel. Layout depends on operator.
   std::vector<WaveBufferPtr> buffers;
+
+  std::mutex mutex_;
+  // Count of streams with programs touching this enqueued.
+  int32_t numStreams_{0};
+  // The stream with exclusive access via enterExclusive().
+  WaveStream* owner{nullptr};
 };
 
 struct AggregateOperatorState : public OperatorState {
@@ -481,6 +515,8 @@ class Program : public std::enable_shared_from_this<Program> {
   /// output vectors,, synced on 'hostReturnEvent_'.
   bool isSink() const;
 
+  void registerStatus(WaveStream& stream);
+
   std::string toString() const;
 
  private:
@@ -563,6 +599,15 @@ class Program : public std::enable_shared_from_this<Program> {
   std::vector<std::unique_ptr<ProgramState>> operatorStates_;
 };
 
+inline int32_t instructionStatusSize(
+    InstructionStatus& status,
+    int32_t numBlocks) {
+  return bits::roundUp(
+      static_cast<uint32_t>(status.gridStateSize) +
+          numBlocks * static_cast<uint32_t>(status.blockState),
+      8);
+}
+
 using ProgramPtr = std::shared_ptr<Program>;
 
 class WaveSplitReader;
@@ -587,11 +632,13 @@ class WaveStream {
       GpuArena& arena,
       GpuArena& deviceArena,
       const std::vector<std::unique_ptr<AbstractOperand>>* operands,
-      OperatorStateMap* stateMap)
+      OperatorStateMap* stateMap,
+      InstructionStatus state)
       : arena_(arena),
         deviceArena_(deviceArena),
         operands_(operands),
-        taskStateMap_(stateMap) {
+        taskStateMap_(stateMap),
+        instructionStatus_(state) {
     operandNullable_.resize(operands_->size(), true);
   }
 
@@ -752,13 +799,7 @@ class WaveStream {
   void setLaunchControl(
       int32_t key,
       int32_t nth,
-      std::unique_ptr<LaunchControl> control) {
-    auto& controls = launchControl_[key];
-    if (controls.size() <= nth) {
-      controls.resize(nth + 1);
-    }
-    controls[nth] = std::move(control);
-  }
+      std::unique_ptr<LaunchControl> control);
 
   const AbstractOperand* operandAt(int32_t id) {
     VELOX_CHECK_LT(id, operands_->size());
@@ -790,6 +831,10 @@ class WaveStream {
   void setState(WaveStream::State state);
 
   const WaveStats& stats() const {
+    return stats_;
+  }
+
+  WaveStats& mutableStats() {
     return stats_;
   }
 
@@ -842,11 +887,21 @@ class WaveStream {
 
   std::string toString() const;
 
+  /// Reads the BlockStatus from device and marks programs that need to be
+  /// continued.
+  bool interpretArrival();
+
+  const InstructionStatus& instructionStatus() const {
+    return instructionStatus_;
+  }
+
  private:
   // true if 'op' is nullable in the context of 'this'.
   bool isNullable(const AbstractOperand& op) const;
 
   Event* newEvent();
+
+  LaunchControl* lastControl() const;
 
   static std::unique_ptr<Event> eventFromReserve();
   static void releaseEvent(std::unique_ptr<Event>&& event);
@@ -879,6 +934,9 @@ class WaveStream {
 
   // Stream level states like small partial aggregates.
   OperatorStateMap streamStateMap_;
+
+  // Space reserved for per-instruction return state above BlockStatus array.
+  InstructionStatus instructionStatus_;
 
   // Number of rows to allocate for top level vectors for the next kernel
   // launch.
@@ -927,8 +985,13 @@ class WaveStream {
   // Host pinned memory to which 'deviceReturnData' is copied.
   WaveBufferPtr hostReturnData_;
 
-  // Pointer to statuses inside 'hostReturnData_'.
-  BlockStatus* hostStatus_{nullptr};
+  // Device/unified pointer to BlockStatus and memory for areas for
+  // instructionStatus_. Allocated before first launch and copied to
+  // 'hostBlockStatus_' after last kernel in pipeline.
+  BlockStatus* deviceBlockStatus_{nullptr};
+
+  // Host side copy of BlockStatus.
+  WaveBufferPtr hostBlockStatus_;
 
   // Time when host side activity last started on 'this'.
   WaveTime start_;

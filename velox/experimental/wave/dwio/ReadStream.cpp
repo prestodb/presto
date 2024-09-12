@@ -54,6 +54,10 @@ ReadStream::ReadStream(
     FileInfo& fileInfo,
     const OperandSet* firstColumns)
     : Executable(), ioStats_(ioStats), fileInfo_(fileInfo) {
+  VELOX_CHECK_EQ(
+      0,
+      FLAGS_wave_reader_rows_per_tb & 1023,
+      "wave_reader_rows_per_tb must be a multiple of 1K");
   waveStream = &_waveStream;
   allOperands(columnReader, outputOperands, &abstractOperands_);
   output.resize(outputOperands.size());
@@ -85,17 +89,23 @@ void ReadStream::prefetchStatus(Stream* stream) {
     return;
   }
   char* data = control_->deviceData->as<char>();
-  auto size = control_->deviceData->size();
-  stream->prefetch(getDevice(), data, size);
+  auto size = control_->deviceData->size() - (statusBytes_ + gridStatusBytes_);
+  stream->prefetch(getDevice(), data + statusBytes_ + gridStatusBytes_, size);
 }
+
+namespace {
+void maybeRecordTransferTime(Stream& stream, WaveStream& waveStream) {
+  if (stream.getAndClearIsTransfer() && FLAGS_wave_transfer_timing) {
+    WaveTimer t(waveStream.mutableStats().transferWaitTime);
+    stream.wait();
+  }
+}
+} // namespace
 
 void ReadStream::makeGrid(Stream* stream) {
   programs_.clear();
   auto total = reader_->formatData()->totalRows();
   auto blockSize = FLAGS_wave_reader_rows_per_tb;
-  if (total < blockSize) {
-    return;
-  }
   auto numBlocks = bits::roundUp(total, blockSize) / blockSize;
   auto& children = reader_->children();
   for (auto i = 0; i < children.size(); ++i) {
@@ -126,6 +136,7 @@ void ReadStream::makeGrid(Stream* stream) {
     LaunchParams params(waveStream->deviceArena());
     WaveBufferPtr extra;
     {
+      maybeRecordTransferTime(*stream, *waveStream);
       PrintTime l("grid");
       launchDecode(programs_, params, stream);
     }
@@ -154,6 +165,7 @@ void ReadStream::makeCompact(bool isSerial) {
         step->numRowsPerThread = blockIdx == numTBs - 1
             ? numBlocks_ - (numTBs - 1) * maxRowsPerThread
             : maxRowsPerThread;
+        step->gridNumRowsPerThread = maxRowsPerThread;
         if (filters_.back().deviceResult) {
           step->data.compact.finalRows =
               filters_.back().deviceResult + blockIdx * rowsPerBlock;
@@ -298,12 +310,15 @@ bool ReadStream::makePrograms(bool& needSync) {
     }
   }
   filtersDone_ = true;
-  if (filters_.empty() && allDone) {
+  if ((filters_.empty() || gridStatusBytes_ > 0) && allDone) {
     auto setCount = std::make_unique<GpuDecode>();
     setCount->step = DecodeStep::kRowCountNoFilter;
     setCount->data.rowCountNoFilter.numRows = rows_.size();
     setCount->data.rowCountNoFilter.status =
         control_->deviceData->as<BlockStatus>();
+    setCount->data.rowCountNoFilter.gridStatusSize = gridStatusBytes_;
+    setCount->data.rowCountNoFilter.gridOnly = !filters_.empty();
+
     programs_.programs.emplace_back();
     programs_.programs.back().push_back(std::move(setCount));
   }
@@ -382,6 +397,7 @@ void ReadStream::launch(
           readStream->syncStaging(*stream);
           LaunchParams params(waveStream->deviceArena());
           {
+            maybeRecordTransferTime(*stream, *readStream->waveStream);
             PrintTime l("decode");
             launchDecode(readStream->programs(), params, stream);
           }
@@ -407,7 +423,7 @@ void ReadStream::launch(
         LaunchParams params(readStream->waveStream->deviceArena());
         readStream->syncStaging(*stream);
         {
-          // stream->wait();
+          maybeRecordTransferTime(*stream, *readStream->waveStream);
           PrintTime l("decode-f");
           launchDecode(readStream->programs(), params, stream);
         }
@@ -425,13 +441,19 @@ void ReadStream::makeControl() {
   waveStream->setNumRows(numRows);
   WaveStream::ExeLaunchInfo info;
   waveStream->exeLaunchInfo(*this, numBlocks_, info);
+  auto instructionStatus = waveStream->instructionStatus();
+  int32_t instructionBytes =
+      instructionStatusSize(instructionStatus, numBlocks_);
   statusBytes_ = bits::roundUp(sizeof(BlockStatus) * numBlocks_, 8);
-  auto deviceBytes = statusBytes_ + info.totalBytes;
+  auto deviceBytes = statusBytes_ + instructionBytes + info.totalBytes;
   auto control = std::make_unique<LaunchControl>(0, numRows);
   control->deviceData = waveStream->arena().allocate<char>(deviceBytes);
   // The operand section must be cleared before written on host. The statuses
   // are cleared on device.
-  memset(control->deviceData->as<char>(), 0, deviceBytes);
+  memset(
+      control->deviceData->as<char>() + statusBytes_ + instructionBytes,
+      0,
+      info.totalBytes);
   control->params.status = control->deviceData->as<BlockStatus>();
   for (auto& reader : reader_->children()) {
     if (!reader->formatData()->hasNulls() || reader->hasNonNullFilter()) {
@@ -442,7 +464,9 @@ void ReadStream::makeControl() {
     }
   }
   operands = waveStream->fillOperands(
-      *this, control->deviceData->as<char>() + statusBytes_, info)[0];
+      *this,
+      control->deviceData->as<char>() + statusBytes_ + instructionBytes,
+      info)[0];
   control_ = control.get();
   waveStream->setLaunchControl(0, 0, std::move(control));
 }

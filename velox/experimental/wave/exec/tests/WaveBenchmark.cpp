@@ -111,7 +111,7 @@ class WaveBenchmark : public QueryBenchmarkBase {
         table->toFile(FLAGS_data_path + "/test.wave");
       }
     } else {
-      std::string temp = FLAGS_data_path + "/data.dwrf";
+      std::string temp = FLAGS_data_path + "/data." + FLAGS_data_format;
       auto config = std::make_shared<dwrf::Config>();
       config->set(dwrf::Config::COMPRESSION, common::CompressionKind_NONE);
       config->set(
@@ -198,6 +198,7 @@ class WaveBenchmark : public QueryBenchmarkBase {
           plan.dataFiles["0"] = {FLAGS_data_path + "/test.wave"};
         } else {
           plan.dataFiles["0"] = {FLAGS_data_path + "/data.dwrf"};
+          plan.dataFileFormat = toFileFormat(FLAGS_data_format);
         }
         int64_t bound = (1'000'000'000LL * FLAGS_filter_pass_pct) / 100;
         std::vector<std::string> scanFilters;

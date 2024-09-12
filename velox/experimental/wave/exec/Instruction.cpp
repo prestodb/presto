@@ -22,6 +22,21 @@ std::string rowTypeString(const Type& type) {
   return "";
 }
 
+void AbstractAggregation::reserveState(InstructionStatus& reservedState) {
+  instructionStatus = reservedState;
+  // A group by produces 8 bytes of grid level state and uses the main main
+  // BlockStatus for lane status.
+  reservedState.gridState += 8;
+}
+
+AdvanceResult AbstractAggregation::canAdvance(
+    WaveStream& stream,
+    LaunchControl* control,
+    OperatorState* state,
+    int32_t programIdx) const {
+  return {};
+}
+
 AdvanceResult AbstractReadAggregation::canAdvance(
     WaveStream& stream,
     LaunchControl* control,

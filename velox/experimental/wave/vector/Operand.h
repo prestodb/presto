@@ -153,6 +153,24 @@ struct BlockStatus {
   ErrorCode errors[kBlockSize];
 };
 
+/// Describes the location of an instruction's return state in the
+/// BlockStatus area. The return states are allocated right above
+/// the BlockStatus array. First are grid level statuses for instructions that
+/// return a status. After this are block level statuses.
+
+struct InstructionStatus {
+  // Offset of containing instruction's grid state from the end of BlockStatus
+  // array.
+  uint16_t gridState{0};
+  // Total size of gridStates. Block level states start after the last grid
+  // state.
+  uint16_t gridStateSize{0};
+  // Start of per-block status. gridStateSize + gridDim.x * blocksPerThread *
+  // blockState' is the  offset of the first per block status from the end of
+  // BlockStatus array.
+  uint16_t blockState{0};
+};
+
 /// Returns the number of active rows in 'status' for 'numBlocks'.
 int32_t statusNumRows(const BlockStatus* status, int32_t numBlocks);
 

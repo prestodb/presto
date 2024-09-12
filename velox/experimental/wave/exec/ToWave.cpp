@@ -521,6 +521,8 @@ void CompileState::makeAggregateAccumulate(const core::AggregationNode* node) {
       sourceList.push_back(s);
     }
   }
+  instruction->reserveState(instructionStatus_);
+  allStatuses_.push_back(instruction->mutableInstructionStatus());
   auto aggInstruction = instruction.get();
   addInstruction(std::move(instruction), nullptr, sourceList);
   if (allPrograms_.size() > numPrograms) {
@@ -534,7 +536,10 @@ void CompileState::makeAggregateAccumulate(const core::AggregationNode* node) {
   makeProject(numPrograms, node->outputType());
   auto project = reinterpret_cast<Project*>(operators_.back().get());
   for (auto i = 0; i < node->groupingKeys().size(); ++i) {
-    VELOX_NYI();
+    std::string name = aggInstruction->keys[i]->label;
+    operators_.back()->defined(
+        Value(toSubfield(name)), aggInstruction->keys[i]);
+    definedIn_[aggInstruction->keys[i]] = reader;
   }
   for (auto i = 0; i < aggInstruction->aggregates.size(); ++i) {
     std::string name = aggInstruction->aggregates[i].result->label;
@@ -694,6 +699,10 @@ bool CompileState::compile() {
   for (auto& op : operators_) {
     op->finalize(*this);
   }
+  instructionStatus_.gridStateSize = instructionStatus_.gridState;
+  for (auto* status : allStatuses_) {
+    status->gridStateSize = instructionStatus_.gridState;
+  }
   auto waveOpUnique = std::make_unique<WaveDriver>(
       driver_.driverCtx(),
       outputType,
@@ -704,7 +713,8 @@ bool CompileState::compile() {
       std::move(resultOrder),
       std::move(subfields_),
       std::move(operands_),
-      std::move(operatorStates_));
+      std::move(operatorStates_),
+      instructionStatus_);
   auto waveOp = waveOpUnique.get();
   waveOp->initialize();
   std::vector<std::unique_ptr<exec::Operator>> added;

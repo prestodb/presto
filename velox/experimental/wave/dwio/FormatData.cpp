@@ -194,6 +194,7 @@ std::unique_ptr<GpuDecode> FormatData::makeStep(
     ColumnOp& op,
     const ColumnOp* previousFilter,
     ResultStaging& deviceStaging,
+    SplitStaging& splitStaging,
     ReadStream& stream,
     WaveTypeKind columnKind,
     int32_t blockIdx) {
@@ -206,15 +207,25 @@ std::unique_ptr<GpuDecode> FormatData::makeStep(
       rowsPerBlock, op.rows.size() - (blockIdx * rowsPerBlock));
 
   auto step = std::make_unique<GpuDecode>();
-  if (grid_.nulls) {
-    step->nonNullBases = grid_.numNonNull;
-    step->nulls = grid_.nulls;
+  bool hasNulls = false;
+  if (nullsBufferId_ != kNoBufferId) {
+    hasNulls = true;
+    if (grid_.nulls) {
+      step->nonNullBases = grid_.numNonNull;
+      step->nulls = grid_.nulls;
+    } else {
+      // The nulls transfer is staged but no pointer yet. Happens when the nulls
+      // decoding is in the same kernel as decode, i.e. single TB per column.
+      splitStaging.registerPointer(nullsBufferId_, &step->nulls, true);
+      step->nonNullBases = nullptr;
+    }
   }
   step->numRowsPerThread = bits::roundUp(rowsInBlock, kBlockSize) / kBlockSize;
+  step->gridNumRowsPerThread = maxRowsPerThread;
   setFilter(step.get(), op.reader, nullptr);
   bool dense = previousFilter == nullptr &&
       simd::isDense(op.rows.data(), op.rows.size());
-  step->nullMode = grid_.nulls
+  step->nullMode = hasNulls
       ? (dense ? NullMode::kDenseNullable : NullMode::kSparseNullable)
       : (dense ? NullMode::kDenseNonNull : NullMode::kSparseNonNull);
   step->nthBlock = blockIdx;

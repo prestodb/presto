@@ -225,6 +225,7 @@ class ReadStream : public Executable {
   // Leading bytes in control_->deviceData used for BlockStatus. Cleared on
   // device. The bytes after that are set on host and then prefetched to device.
   int32_t statusBytes_{0};
+  int32_t gridStatusBytes_{0};
   LaunchControl* control_{nullptr};
 
   // Set to true when after first griddize() and akeOps().

@@ -167,8 +167,13 @@ struct AbstractInstruction {
     return false;
   }
 
-  /// Sets up status return.
-  virtual void setupReturn(WaveStream& stream, LaunchControl& control) const {}
+  virtual void reserveState(InstructionStatus& state) {}
+
+  /// Returns the InstructionStatus if any. Used for patching the grid
+  /// size after all statuses in the operator pipeline are known.
+  virtual InstructionStatus* mutableInstructionStatus() {
+    return nullptr;
+  }
 
   OpCode opCode;
 
@@ -364,6 +369,20 @@ struct AbstractAggregation : public AbstractOperator {
   bool isSink() const override {
     return true;
   }
+
+  void reserveState(InstructionStatus& state) override;
+
+  InstructionStatus* mutableInstructionStatus() override {
+    return &instructionStatus;
+  }
+
+  AdvanceResult canAdvance(
+      WaveStream& stream,
+      LaunchControl* control,
+      OperatorState* state,
+      int32_t programIdx) const override;
+
+  InstructionStatus instructionStatus;
 
   bool intermediateInput{false};
   bool intermediateOutput{false};

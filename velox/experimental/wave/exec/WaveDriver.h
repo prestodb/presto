@@ -35,7 +35,8 @@ class WaveDriver : public exec::SourceOperator {
       std::vector<OperandId> resultOrder_,
       SubfieldMap subfields,
       std::vector<std::unique_ptr<AbstractOperand>> operands,
-      std::vector<std::unique_ptr<AbstractState>> states);
+      std::vector<std::unique_ptr<AbstractState>> states,
+      InstructionStatus instructionStatus);
 
   RowVectorPtr getOutput() override;
 
@@ -189,6 +190,9 @@ class WaveDriver : public exec::SourceOperator {
   // States shared between WaveStreams and WaveDrivers, for example join/group
   // by tables.
   OperatorStateMap stateMap_;
+
+  // Space reserved in BlockStatus array for instruction level return state.
+  InstructionStatus instructionStatus_;
 
   RowVectorPtr result_;
 };

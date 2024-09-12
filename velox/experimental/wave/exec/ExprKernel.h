@@ -140,7 +140,12 @@ struct IUpdateAgg {
 struct IAggregate {
   uint16_t numKeys;
   uint16_t numAggregates;
+  // Serial is used in BlockStatus to identify 'this' for continue.
+  uint8_t serial;
+  /// Index of the state in operator states.
   uint8_t stateIndex;
+  /// Position of status return block in operator status returned to host.
+  InstructionStatus status;
   //  'numAggre gates' Updates followed by key 'numKeys' key operand indices.
   IUpdateAgg* aggregates;
 };
