@@ -20,6 +20,9 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeConstraint;
+import com.facebook.presto.spi.function.TypeConstraints;
+import com.facebook.presto.spi.function.TypeParameterBinding;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,10 +34,12 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -124,17 +129,23 @@ class TranslatorAnnotationParser
     private static Map<FunctionMetadata, MethodHandle> scalarToFunctionMetadata(ScalarHeaderAndMethods scalar)
     {
         ScalarTranslationHeader header = scalar.getHeader();
-
         ImmutableMap.Builder<FunctionMetadata, MethodHandle> metadataBuilder = ImmutableMap.builder();
         for (Method method : scalar.getMethods()) {
-            FunctionMetadata metadata = methodToFunctionMetadata(header, method);
-            metadataBuilder.put(removeTypeParameters(metadata), getMethodHandle(method));
+            List<FunctionMetadata> allMetadata;
+            if (method.getAnnotation(TypeConstraints.class) != null) {
+                allMetadata = methodToFunctionMetadataWithConstraints(header, method);
+            }
+            else {
+                allMetadata = methodToFunctionMetadata(header, method);
+            }
+            for (FunctionMetadata metadata : allMetadata) {
+                metadataBuilder.put(removeTypeParameters(metadata), getMethodHandle(method));
+            }
         }
-
         return metadataBuilder.build();
     }
 
-    private static FunctionMetadata methodToFunctionMetadata(ScalarTranslationHeader header, Method method)
+    private static List<FunctionMetadata> methodToFunctionMetadata(ScalarTranslationHeader header, Method method)
     {
         requireNonNull(header, "header is null");
 
@@ -158,9 +169,89 @@ class TranslatorAnnotationParser
         }
 
         if (header.getOperatorType().isPresent()) {
-            return new FunctionMetadata(header.getOperatorType().get(), argumentTypes.build(), returnType, SCALAR, JAVA, header.isDeterministic(), header.isCalledOnNullInput());
+            return ImmutableList.of(
+                    new FunctionMetadata(
+                            header.getOperatorType().get(),
+                            argumentTypes.build(),
+                            returnType,
+                            SCALAR,
+                            JAVA,
+                            header.isDeterministic(),
+                            header.isCalledOnNullInput()));
         }
-        return new FunctionMetadata(header.getName(), argumentTypes.build(), returnType, SCALAR, JAVA, header.isDeterministic(), header.isCalledOnNullInput());
+        return ImmutableList.of(
+                new FunctionMetadata(
+                        header.getName(),
+                        argumentTypes.build(),
+                        returnType,
+                        SCALAR,
+                        JAVA,
+                        header.isDeterministic(),
+                        header.isCalledOnNullInput()));
+    }
+
+    private static List<FunctionMetadata> methodToFunctionMetadataWithConstraints(ScalarTranslationHeader header, Method method)
+    {
+        requireNonNull(header, "header is null");
+
+        TypeConstraints typeConstraints = method.getAnnotation(TypeConstraints.class);
+        checkArgument(typeConstraints != null, format("Method [%s] is missing @TypeConstraints annotation", method));
+
+        TypeConstraint[] typeConstraintArray = typeConstraints.value();
+        List<String> parameterTypes = getParameterTypes(method);
+
+        ImmutableList.Builder<FunctionMetadata> signaturesMetadataBuilder = new ImmutableList.Builder<>();
+        String returnType = method.getAnnotation(SqlType.class).value();
+
+        for (TypeConstraint constraint : typeConstraintArray) {
+            FunctionMetadata derivedMetadata;
+            List<TypeParameterBinding> bindings = Arrays.asList(constraint.value());
+            Map<String, String> bindingsMap = bindings.stream()
+                    .collect(Collectors.toMap(TypeParameterBinding::parameter, TypeParameterBinding::type));
+            ImmutableList.Builder<TypeSignature> constraintParameterTypeSignatures = new ImmutableList.Builder<>();
+            parameterTypes.forEach(type -> {
+                TypeSignature updatedType = parseTypeSignature(bindingsMap.getOrDefault(type, type));
+                constraintParameterTypeSignatures.add(updatedType);
+            });
+            TypeSignature updatedReturnType = parseTypeSignature(bindingsMap.getOrDefault(returnType, returnType));
+            if (header.getOperatorType().isPresent()) {
+                derivedMetadata = new FunctionMetadata(
+                        header.getOperatorType().get(),
+                        constraintParameterTypeSignatures.build(),
+                        updatedReturnType,
+                        SCALAR,
+                        JAVA,
+                        header.isDeterministic(),
+                        header.isCalledOnNullInput());
+            }
+            else {
+                derivedMetadata = new FunctionMetadata(
+                        header.getName(),
+                        constraintParameterTypeSignatures.build(),
+                        updatedReturnType,
+                        SCALAR,
+                        JAVA,
+                        header.isDeterministic(),
+                        header.isCalledOnNullInput());
+            }
+            signaturesMetadataBuilder.add(derivedMetadata);
+        }
+        return signaturesMetadataBuilder.build();
+    }
+
+    private static List<String> getParameterTypes(Method method)
+    {
+        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+        ImmutableList.Builder<String> parameterTypesBuilder = new ImmutableList.Builder<>();
+
+        for (Annotation[] param : parameterAnnotations) {
+            for (Annotation annotation : param) {
+                if (annotation instanceof SqlType) {
+                    parameterTypesBuilder.add(((SqlType) annotation).value());
+                }
+            }
+        }
+        return parameterTypesBuilder.build();
     }
 
     @SafeVarargs
