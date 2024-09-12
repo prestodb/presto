@@ -87,6 +87,14 @@ Worker Properties
 
 The configuration properties of Presto C++ workers are described here, in alphabetical order. 
 
+``async-cache-persistence-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``string``
+* **Default value:** ``0s``
+
+  The interval for persisting in-memory cache to SSD. Setting this config
+  to a non-zero value will activate periodic cache persistence.
+
 ``async-data-cache-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
