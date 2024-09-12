@@ -285,3 +285,11 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Default value:** ``0.25``
 
   See description for ``shared-arbitrator.memory-pool-min-free-capacity``
+
+``presto.default-namespace``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``presto.default``
+
+  Specifies the namespace prefix for native C++ functions.
