@@ -11,7 +11,7 @@ local exchange (GATHER, SINGLE, [])
                                         partial aggregation over (s_store_id)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    remote exchange (REPARTITION, ROUND_ROBIN, [])
+                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
                                                         scan store_sales
                                                         scan store_returns
                                                     local exchange (GATHER, SINGLE, [])
@@ -26,7 +26,7 @@ local exchange (GATHER, SINGLE, [])
                                         partial aggregation over (cp_catalog_page_id)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    remote exchange (REPARTITION, ROUND_ROBIN, [])
+                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
                                                         scan catalog_sales
                                                         scan catalog_returns
                                                     local exchange (GATHER, SINGLE, [])
