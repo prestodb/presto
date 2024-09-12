@@ -238,3 +238,42 @@ TEST_F(OrcReaderTest, testOrcReadAllType) {
     EXPECT_EQ(structCol->toString(0, 2, ",", false), "{1, 2}");
   }
 }
+
+TEST_F(OrcReaderTest, testOrcRlev2) {
+  google::InstallFailureSignalHandler();
+  const std::string dateOrc(getExamplesFilePath("rlev2.orc"));
+  auto schema =
+      ROW({"id", "price", "name"}, {BIGINT(), DECIMAL(7, 2), VARCHAR()});
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+
+  dwio::common::ReaderOptions readerOpts{pool()};
+  readerOpts.setScanSpec(spec);
+  readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
+
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(dateOrc, readerOpts.memoryPool()), readerOpts);
+
+  RowReaderOptions rowReaderOptions;
+  rowReaderOptions.setScanSpec(spec);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  auto batch = BaseVector::create(schema, 0, &readerOpts.memoryPool());
+  while (rowReader->next(500, batch)) {
+    auto rowVector = batch->as<RowVector>();
+    auto idCol =
+        rowVector->childAt(0)->loadedVector()->as<SimpleVector<int64_t>>();
+    auto priceCol =
+        rowVector->childAt(1)->loadedVector()->as<SimpleVector<int64_t>>();
+    auto nameCol =
+        rowVector->childAt(2)->loadedVector()->as<SimpleVector<StringView>>();
+
+    EXPECT_EQ(5, rowVector->size());
+    EXPECT_EQ(idCol->valueAt(0), 1);
+
+    auto priceColType = rowVector->type()->childAt(1);
+    EXPECT_EQ(
+        DecimalUtil::toString(priceCol->valueAt(0), priceColType), "111.11");
+    EXPECT_EQ(nameCol->valueAt(0), "AAAA");
+  }
+}

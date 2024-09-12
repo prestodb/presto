@@ -45,6 +45,7 @@ class SelectiveIntegerDirectColumnReader
     const bool dataVInts = stripe.getUseVInts(si);
 
     format_ = stripe.format();
+    version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
     if (format_ == velox::dwrf::DwrfFormat::kDwrf) {
       intDecoder_ = createDirectDecoder</*isSigned=*/true>(
           stripe.getStream(si, params.streamLabels().label(), true),
@@ -64,7 +65,10 @@ class SelectiveIntegerDirectColumnReader
   }
 
   bool hasBulkPath() const override {
-    return true;
+    // Only ORC uses RLEv2 encoding. Currently, ORC integer data does not
+    // support fastpath reads. When reading RLEv2-encoded integer data
+    // with null, the query will fail.
+    return version_ != velox::dwrf::RleVersion_2;
   }
 
   void seekToRowGroup(uint32_t index) override {

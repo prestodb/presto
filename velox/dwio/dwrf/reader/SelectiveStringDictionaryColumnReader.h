@@ -32,6 +32,13 @@ class SelectiveStringDictionaryColumnReader
       DwrfParams& params,
       common::ScanSpec& scanSpec);
 
+  bool hasBulkPath() const override {
+    // Only ORC uses RLEv2 encoding. Currently, ORC string data does not
+    // support fastpath reads. When reading RLEv2-encoded string data
+    // with null, the query will fail.
+    return version_ != velox::dwrf::RleVersion_2;
+  }
+
   void seekToRowGroup(uint32_t index) override {
     SelectiveColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->as<DwrfData>().seekToRowGroup(index);

@@ -33,6 +33,13 @@ class SelectiveDecimalColumnReader : public SelectiveColumnReader {
       DwrfParams& params,
       common::ScanSpec& scanSpec);
 
+  bool hasBulkPath() const override {
+    // Only ORC uses RLEv2 encoding. Currently, ORC decimal data does not
+    // support fastpath reads. When reading RLEv2-encoded decimal data
+    // with null, the query will fail.
+    return version_ != velox::dwrf::RleVersion_2;
+  }
+
   void seekToRowGroup(uint32_t index) override;
   uint64_t skip(uint64_t numValues) override;
 
