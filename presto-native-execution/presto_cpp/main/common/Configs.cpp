@@ -178,7 +178,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAsyncCacheMaxSsdWriteRatio, 0.7),
           NUM_PROP(kAsyncCacheSsdSavableRatio, 0.125),
           NUM_PROP(kAsyncCacheMinSsdSavableBytes, 1 << 24 /*16MB*/),
-          STR_PROP(kAsyncCacheFullPersistenceInterval, "0s"),
+          STR_PROP(kAsyncCachePersistenceInterval, "0s"),
           BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
           BOOL_PROP(kSsdCacheChecksumEnabled, false),
           BOOL_PROP(kSsdCacheReadVerificationEnabled, false),
@@ -465,10 +465,10 @@ int32_t SystemConfig::asyncCacheMinSsdSavableBytes() const {
   return optionalProperty<int32_t>(kAsyncCacheMinSsdSavableBytes).value();
 }
 
-std::chrono::duration<double> SystemConfig::asyncCacheFullPersistenceInterval()
+std::chrono::duration<double> SystemConfig::asyncCachePersistenceInterval()
     const {
   return velox::config::toDuration(
-      optionalProperty(kAsyncCacheFullPersistenceInterval).value());
+      optionalProperty(kAsyncCachePersistenceInterval).value());
 }
 
 bool SystemConfig::asyncCacheSsdDisableFileCow() const {
