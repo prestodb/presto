@@ -274,7 +274,7 @@ It can help identify issues where a malformed vector causes failures or crashes,
 Note: This is an expensive check and should only be used for debugging purposes.
 
 ``native_debug_disable_expression_with_peeling``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
@@ -294,7 +294,7 @@ If set to ``true``, disables the optimization in expression evaluation to reuse 
 This should only be used for debugging purposes.
 
 ``native_debug_disable_expression_with_memoization``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
@@ -305,7 +305,7 @@ input batches that are dictionary encoded and have the same alphabet(underlying 
 This should only be used for debugging purposes.
 
 ``native_debug_disable_expression_with_lazy_inputs``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
