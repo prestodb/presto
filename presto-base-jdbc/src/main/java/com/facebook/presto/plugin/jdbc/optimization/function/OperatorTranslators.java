@@ -17,7 +17,8 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.SqlSignature;
+import com.facebook.presto.spi.function.SupportedSignatures;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -33,36 +34,60 @@ public class OperatorTranslators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.BIGINT)
-    public static JdbcExpression add(@SqlType(StandardTypes.BIGINT) JdbcExpression left, @SqlType(StandardTypes.BIGINT) JdbcExpression right)
+    @SupportedSignatures({
+            @SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT),
+            @SqlSignature(argumentType = StandardTypes.INTEGER, returnType = StandardTypes.INTEGER)})
+    public static JdbcExpression add(JdbcExpression left, JdbcExpression right)
     {
         return new JdbcExpression(infixOperation("+", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.BIGINT)
-    public static JdbcExpression subtract(@SqlType(StandardTypes.BIGINT) JdbcExpression left, @SqlType(StandardTypes.BIGINT) JdbcExpression right)
+    @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT))
+    public static JdbcExpression subtract(JdbcExpression left, JdbcExpression right)
     {
         return new JdbcExpression(infixOperation("-", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarOperator(EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static JdbcExpression equal(@SqlType(StandardTypes.BIGINT) JdbcExpression left, @SqlType(StandardTypes.BIGINT) JdbcExpression right)
+    @SupportedSignatures({
+            @SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.INTEGER, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.SMALLINT, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.TINYINT, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.BOOLEAN, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.DATE, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.DECIMAL, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.REAL, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.DOUBLE, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.VARCHAR, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.TIMESTAMP, returnType = StandardTypes.BOOLEAN)})
+    public static JdbcExpression equal(JdbcExpression left, JdbcExpression right)
     {
         return new JdbcExpression(infixOperation("=", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static JdbcExpression notEqual(@SqlType(StandardTypes.BIGINT) JdbcExpression left, @SqlType(StandardTypes.BIGINT) JdbcExpression right)
+    @SupportedSignatures({
+            @SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.INTEGER, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.SMALLINT, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.TINYINT, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.BOOLEAN, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.DATE, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.DECIMAL, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.REAL, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.DOUBLE, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.VARCHAR, returnType = StandardTypes.BOOLEAN),
+            @SqlSignature(argumentType = StandardTypes.TIMESTAMP, returnType = StandardTypes.BOOLEAN)})
+    public static JdbcExpression notEqual(JdbcExpression left, JdbcExpression right)
     {
         return new JdbcExpression(infixOperation("<>", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarFunction("not")
-    @SqlType(StandardTypes.BOOLEAN)
-    public static JdbcExpression not(@SqlType(StandardTypes.BOOLEAN) JdbcExpression expression)
+    @SupportedSignatures({@SqlSignature(argumentType = StandardTypes.BOOLEAN, returnType = StandardTypes.BOOLEAN)})
+    public static JdbcExpression not(JdbcExpression expression)
     {
         return new JdbcExpression(String.format("(NOT(%s))", expression.getExpression()), expression.getBoundConstantValues());
     }
