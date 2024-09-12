@@ -378,6 +378,16 @@ class QueryConfig {
   static constexpr const char* kDebugDisableExpressionWithLazyInputs =
       "debug_disable_expression_with_lazy_inputs";
 
+  /// Temporary flag to control whether selective Nimble reader should be used
+  /// in this query or not.  Will be removed after the selective Nimble reader
+  /// is fully rolled out.
+  static constexpr const char* kSelectiveNimbleReaderEnabled =
+      "selective_nimble_reader_enabled";
+
+  bool selectiveNimbleReaderEnabled() const {
+    return get<bool>(kSelectiveNimbleReaderEnabled, false);
+  }
+
   bool debugDisableExpressionsWithPeeling() const {
     return get<bool>(kDebugDisableExpressionWithPeeling, false);
   }

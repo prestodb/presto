@@ -356,6 +356,14 @@ class ConnectorQueryCtx {
     return cancellationToken_;
   }
 
+  bool selectiveNimbleReaderEnabled() const {
+    return selectiveNimbleReaderEnabled_;
+  }
+
+  void setSelectiveNimbleReaderEnabled(bool value) {
+    selectiveNimbleReaderEnabled_ = value;
+  }
+
  private:
   memory::MemoryPool* const operatorPool_;
   memory::MemoryPool* const connectorPool_;
@@ -371,6 +379,7 @@ class ConnectorQueryCtx {
   const std::string planNodeId_;
   const std::string sessionTimezone_;
   const folly::CancellationToken cancellationToken_;
+  bool selectiveNimbleReaderEnabled_{false};
 };
 
 class Connector {

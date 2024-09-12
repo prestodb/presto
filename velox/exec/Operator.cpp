@@ -54,7 +54,7 @@ OperatorCtx::createConnectorQueryCtx(
     memory::MemoryPool* connectorPool,
     const common::SpillConfig* spillConfig) const {
   const auto& task = driverCtx_->task;
-  return std::make_shared<connector::ConnectorQueryCtx>(
+  auto connectorQueryCtx = std::make_shared<connector::ConnectorQueryCtx>(
       pool_,
       connectorPool,
       task->queryCtx()->connectorSessionProperties(connectorId),
@@ -69,6 +69,9 @@ OperatorCtx::createConnectorQueryCtx(
       driverCtx_->driverId,
       driverCtx_->queryConfig().sessionTimezone(),
       task->getCancellationToken());
+  connectorQueryCtx->setSelectiveNimbleReaderEnabled(
+      driverCtx_->queryConfig().selectiveNimbleReaderEnabled());
+  return connectorQueryCtx;
 }
 
 Operator::Operator(

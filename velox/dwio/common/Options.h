@@ -577,6 +577,14 @@ class ReaderOptions : public io::ReaderOptions {
     scanSpec_ = std::move(scanSpec);
   }
 
+  bool selectiveNimbleReaderEnabled() const {
+    return selectiveNimbleReaderEnabled_;
+  }
+
+  void setSelectiveNimbleReaderEnabled(bool value) {
+    selectiveNimbleReaderEnabled_ = value;
+  }
+
  private:
   uint64_t tailLocation_;
   FileFormat fileFormat_;
@@ -591,6 +599,7 @@ class ReaderOptions : public io::ReaderOptions {
   std::shared_ptr<random::RandomSkipTracker> randomSkip_;
   std::shared_ptr<velox::common::ScanSpec> scanSpec_;
   const tz::TimeZone* sessionTimezone_{nullptr};
+  bool selectiveNimbleReaderEnabled_{false};
 };
 
 struct WriterOptions {

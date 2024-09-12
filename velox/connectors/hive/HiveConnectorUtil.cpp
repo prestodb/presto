@@ -28,7 +28,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 
 #ifdef VELOX_ENABLE_PARQUET
-#include "velox/dwio/parquet/writer/Writer.h"
+#include "velox/dwio/parquet/writer/Writer.h" // @manual
 #endif
 
 #include "velox/expression/Expr.h"
@@ -564,6 +564,8 @@ void configureReaderOptions(
     const auto timezone = tz::locateZone(sessionTzName);
     readerOptions.setSessionTimezone(timezone);
   }
+  readerOptions.setSelectiveNimbleReaderEnabled(
+      connectorQueryCtx->selectiveNimbleReaderEnabled());
 
   if (readerOptions.fileFormat() != dwio::common::FileFormat::UNKNOWN) {
     VELOX_CHECK(
