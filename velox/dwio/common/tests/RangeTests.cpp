@@ -16,16 +16,16 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/Range.h"
 
 using namespace ::testing;
-using namespace facebook::velox::dwio::common;
 
 namespace facebook::velox::common {
 
 TEST(RangeTests, Add) {
   Ranges ranges;
-  ASSERT_THROW(ranges.add(2, 1), exception::LoggedException);
+  VELOX_ASSERT_THROW(ranges.add(2, 1), "");
   ranges.add(2, 2);
   ranges.add(1, 3);
   ASSERT_THAT(ranges.ranges_, ElementsAre(std::tuple<size_t, size_t>{1, 3}));

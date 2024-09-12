@@ -20,7 +20,7 @@
 
 namespace facebook::velox::dwio::common {
 
-/// Abstract class for format and encoding-independent parts of reading ingeger
+/// Abstract class for format and encoding-independent parts of reading integer
 /// columns.
 class SelectiveIntegerColumnReader : public SelectiveColumnReader {
  public:

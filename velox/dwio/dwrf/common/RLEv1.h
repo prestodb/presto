@@ -37,15 +37,15 @@ class RleEncoderV1 : public IntEncoder<isSigned> {
       bool useVInts,
       uint32_t numBytes)
       : IntEncoder<isSigned>{std::move(outStream), useVInts, numBytes},
-        numLiterals{0},
-        delta{0},
-        repeat{false},
-        tailRunLength{0},
-        isOverflow{false} {}
+        numLiterals_{0},
+        delta_{0},
+        repeat_{false},
+        tailRunLength_{0},
+        overflow_{false} {}
 
-  // For 64 bit Integers, only signed type is supported. writeVuLong only
-  // supports int64_t and it needs to support uint64_t before this method
-  // can support uint64_t overload.
+  /// For 64 bit Integers, only signed type is supported. writeVuLong only
+  /// supports int64_t and it needs to support uint64_t before this method
+  /// can support uint64_t overload.
   uint64_t add(
       const int64_t* data,
       const common::Ranges& ranges,
@@ -81,7 +81,7 @@ class RleEncoderV1 : public IntEncoder<isSigned> {
     return addImpl(data, ranges, nulls);
   }
 
-  void writeValue(const int64_t value) override {
+  void writeValue(int64_t value) override {
     write(value);
   }
 
@@ -93,65 +93,59 @@ class RleEncoderV1 : public IntEncoder<isSigned> {
   void recordPosition(PositionRecorder& recorder, int32_t strideIndex = -1)
       const override {
     IntEncoder<isSigned>::recordPosition(recorder, strideIndex);
-    recorder.add(static_cast<uint64_t>(numLiterals), strideIndex);
+    recorder.add(static_cast<uint64_t>(numLiterals_), strideIndex);
   }
 
  private:
   constexpr static int32_t MAX_DELTA = 127;
   constexpr static int32_t MIN_DELTA = -128;
 
-  std::array<int64_t, RLE_MAX_LITERAL_SIZE> literals;
-  int32_t numLiterals;
-  int64_t delta;
-  bool repeat;
-  int32_t tailRunLength;
-  bool isOverflow;
-
   template <typename T>
   void write(T value) {
-    if (numLiterals == 0) {
+    if (numLiterals_ == 0) {
       // Starting new sequence of run or literals.
-      literals[numLiterals++] = value;
-      tailRunLength = 1;
+      literals_[numLiterals_++] = value;
+      tailRunLength_ = 1;
       return;
     }
 
-    if (repeat) {
+    if (repeat_) {
       if (isRunRepeating(value)) {
-        numLiterals += 1;
-        if (numLiterals == RLE_MAXIMUM_REPEAT) {
+        ++numLiterals_;
+        if (numLiterals_ == RLE_MAXIMUM_REPEAT) {
           writeValues();
         }
       } else {
         writeValues();
-        literals[numLiterals++] = value;
-        tailRunLength = 1;
+        literals_[numLiterals_++] = value;
+        tailRunLength_ = 1;
       }
       return;
     }
 
-    if (tailRunLength == 1) {
+    if (tailRunLength_ == 1) {
       computeDeltaAndTailRunLength(value);
     } else if (isRunStarting(value)) {
-      tailRunLength += 1;
+      ++tailRunLength_;
     } else {
       computeDeltaAndTailRunLength(value);
     }
-    if (tailRunLength == RLE_MINIMUM_REPEAT) {
-      if (numLiterals + 1 == RLE_MINIMUM_REPEAT) {
-        numLiterals += 1;
+
+    if (tailRunLength_ == RLE_MINIMUM_REPEAT) {
+      if (numLiterals_ + 1 == RLE_MINIMUM_REPEAT) {
+        ++numLiterals_;
       } else {
-        numLiterals -= (RLE_MINIMUM_REPEAT - 1);
-        int64_t base = literals[numLiterals];
+        numLiterals_ -= (RLE_MINIMUM_REPEAT - 1);
+        const int64_t base = literals_[numLiterals_];
         writeValues();
-        literals[0] = base;
-        numLiterals = RLE_MINIMUM_REPEAT;
+        literals_[0] = base;
+        numLiterals_ = RLE_MINIMUM_REPEAT;
       }
-      // set repeat, so that next call call to write can be special cased.
-      repeat = true;
+      // Set repeat, so that next call call to write can be special cased.
+      repeat_ = true;
     } else {
-      literals[numLiterals++] = value;
-      if (numLiterals == RLE_MAX_LITERAL_SIZE) {
+      literals_[numLiterals_++] = value;
+      if (numLiterals_ == RLE_MAX_LITERAL_SIZE) {
         writeValues();
       }
     }
@@ -165,47 +159,54 @@ class RleEncoderV1 : public IntEncoder<isSigned> {
 
   template <typename Integer>
   FOLLY_ALWAYS_INLINE bool isRunRepeating(const Integer& value) {
-    if constexpr (sizeof(Integer) == sizeof(delta)) {
+    if constexpr (sizeof(Integer) == sizeof(delta_)) {
       int64_t nextRunValue;
-      isOverflow = __builtin_add_overflow(
-          literals[0], delta * numLiterals, &nextRunValue);
-      return value == nextRunValue && !isOverflow;
+      overflow_ = __builtin_add_overflow(
+          literals_[0], delta_ * numLiterals_, &nextRunValue);
+      return value == nextRunValue && !overflow_;
     } else {
-      return value == literals[0] + delta * numLiterals;
+      return value == literals_[0] + delta_ * numLiterals_;
     }
   }
 
   template <typename Integer>
   FOLLY_ALWAYS_INLINE bool isRunStarting(const Integer& value) {
-    if constexpr (sizeof(Integer) == sizeof(delta)) {
+    if constexpr (sizeof(Integer) == sizeof(delta_)) {
       int64_t nextRunValue;
-      isOverflow = __builtin_add_overflow(
-          literals[numLiterals - 1], delta, &nextRunValue);
-      return value == nextRunValue && !isOverflow;
+      overflow_ = __builtin_add_overflow(
+          literals_[numLiterals_ - 1], delta_, &nextRunValue);
+      return value == nextRunValue && !overflow_;
     } else {
-      return value == literals[numLiterals - 1] + delta;
+      return value == literals_[numLiterals_ - 1] + delta_;
     }
   }
 
   template <typename Integer>
   FOLLY_ALWAYS_INLINE void computeDeltaAndTailRunLength(const Integer& value) {
-    if constexpr (sizeof(Integer) == sizeof(delta)) {
-      isOverflow =
-          __builtin_sub_overflow(value, literals[numLiterals - 1], &delta);
-      if (UNLIKELY(isOverflow)) {
-        tailRunLength = 1;
+    if constexpr (sizeof(Integer) == sizeof(delta_)) {
+      overflow_ =
+          __builtin_sub_overflow(value, literals_[numLiterals_ - 1], &delta_);
+      if (UNLIKELY(overflow_)) {
+        tailRunLength_ = 1;
         return;
       }
     } else {
-      delta = value - literals[numLiterals - 1];
+      delta_ = value - literals_[numLiterals_ - 1];
     }
 
-    if (delta < MIN_DELTA || delta > MAX_DELTA) {
-      tailRunLength = 1;
+    if (delta_ < MIN_DELTA || delta_ > MAX_DELTA) {
+      tailRunLength_ = 1;
     } else {
-      tailRunLength = 2;
+      tailRunLength_ = 2;
     }
   }
+
+  std::array<int64_t, RLE_MAX_LITERAL_SIZE> literals_;
+  int32_t numLiterals_;
+  int64_t delta_;
+  bool repeat_;
+  int32_t tailRunLength_;
+  bool overflow_;
 
   VELOX_FRIEND_TEST(RleEncoderV1Test, encodeMinAndMax);
   VELOX_FRIEND_TEST(RleEncoderV1Test, encodeMinAndMaxint32);
@@ -245,10 +246,10 @@ class RleDecoderV1 : public dwio::common::IntDecoder<isSigned> {
       uint32_t numBytes)
       : dwio::common::IntDecoder<
             isSigned>{std::move(input), useVInts, numBytes},
-        remainingValues(0),
-        value(0),
-        delta(0),
-        repeating(false) {}
+        remainingValues_(0),
+        value_(0),
+        delta_(0),
+        repeating_(false) {}
 
   void seekToRowGroup(
       dwio::common::PositionProvider& positionProvider) override;
@@ -264,6 +265,7 @@ class RleDecoderV1 : public dwio::common::IntDecoder<isSigned> {
       fastPath<hasNulls>(nulls, visitor);
       return;
     }
+
     int32_t current = visitor.start();
     this->template skip<hasNulls>(current, 0, nulls);
     int32_t toSkip;
@@ -284,21 +286,21 @@ class RleDecoderV1 : public dwio::common::IntDecoder<isSigned> {
         }
 
         // We are at a non-null value on a row to visit.
-        if (!remainingValues) {
+        if (remainingValues_ == 0) {
           readHeader();
         }
-        if (repeating) {
-          toSkip = visitor.process(value, atEnd);
-          value += delta;
+        if (repeating_) {
+          toSkip = visitor.process(value_, atEnd);
+          value_ += delta_;
         } else {
-          value =
+          value_ =
               dwio::common::IntDecoder<isSigned>::template readInt<int64_t>();
-          toSkip = visitor.process(value, atEnd);
+          toSkip = visitor.process(value_, atEnd);
         }
-        --remainingValues;
+        --remainingValues_;
       }
       ++current;
-      if (toSkip) {
+      if (toSkip > 0) {
         this->template skip<hasNulls>(toSkip, current, nulls);
         current += toSkip;
       }
@@ -388,31 +390,34 @@ class RleDecoderV1 : public dwio::common::IntDecoder<isSigned> {
         numValues);
   }
 
-  // Returns 1. how many of 'rows' are in the current run 2. the
-  // distance in rows from the current row to the first row after the
-  // last in rows that falls in the current run.
+  /// Returns 1. how many of 'rows' are in the current run; 2. the distance in
+  /// rows from the current row to the first row after the last in rows that
+  /// falls in the current run.
   template <bool dense>
   std::pair<int32_t, std::int32_t> findNumInRun(
       const int32_t* rows,
       int32_t rowIndex,
       int32_t numRows,
       int32_t currentRow) {
-    DCHECK_LT(rowIndex, numRows);
+    VELOX_DCHECK_LT(rowIndex, numRows);
     if (dense) {
-      auto left = std::min<int32_t>(remainingValues, numRows - rowIndex);
+      const auto left = std::min<int32_t>(remainingValues_, numRows - rowIndex);
       return std::make_pair(left, left);
     }
-    if (rows[rowIndex] - currentRow >= remainingValues) {
+
+    if (rows[rowIndex] - currentRow >= remainingValues_) {
       return std::make_pair(0, 0);
     }
-    if (rows[numRows - 1] - currentRow < remainingValues) {
+
+    if (rows[numRows - 1] - currentRow < remainingValues_) {
       return std::pair(numRows - rowIndex, rows[numRows - 1] - currentRow + 1);
     }
-    auto range = folly::Range<const int32_t*>(
+
+    const auto range = folly::Range<const int32_t*>(
         rows + rowIndex,
-        std::min<int32_t>(remainingValues, numRows - rowIndex));
-    auto endOfRun = currentRow + remainingValues;
-    auto bound = std::lower_bound(range.begin(), range.end(), endOfRun);
+        std::min<int32_t>(remainingValues_, numRows - rowIndex));
+    const auto endOfRun = currentRow + remainingValues_;
+    const auto bound = std::lower_bound(range.begin(), range.end(), endOfRun);
     return std::make_pair(bound - range.begin(), bound[-1] - currentRow + 1);
   }
 
@@ -431,23 +436,23 @@ class RleDecoderV1 : public dwio::common::IntDecoder<isSigned> {
     auto filterHits = hasFilter ? visitor.outputRows(numRows) : nullptr;
     int32_t numValues = 0;
     for (;;) {
-      if (remainingValues) {
+      if (remainingValues_ > 0) {
         auto [numInRun, numAdvanced] =
             findNumInRun<Visitor::dense>(rows, rowIndex, numRows, currentRow);
         if (!numInRun) {
           // We are not at end and the next row of interest is after this run.
           VELOX_CHECK(!numAdvanced, "Would advance past end of RLEv1 run");
-        } else if (repeating) {
+        } else if (repeating_) {
           visitor.template processRle<hasFilter, hasHook, scatter>(
-              value,
-              delta,
+              value_,
+              delta_,
               numInRun,
               currentRow,
               scatterRows,
               filterHits,
               values,
               numValues);
-          value += numAdvanced * delta;
+          value_ += numAdvanced * delta_;
         } else {
           processRun<hasFilter, hasHook, scatter>(
               rows,
@@ -460,16 +465,16 @@ class RleDecoderV1 : public dwio::common::IntDecoder<isSigned> {
               numValues,
               visitor);
         }
-        remainingValues -= numAdvanced;
+        remainingValues_ -= numAdvanced;
         currentRow += numAdvanced;
         rowIndex += numInRun;
         if (visitor.atEnd()) {
           visitor.setNumValues(hasFilter ? numValues : numAllRows);
           return;
         }
-        if (remainingValues) {
-          currentRow += remainingValues;
-          this->template skip<false>(remainingValues, -1, nullptr);
+        if (remainingValues_ > 0) {
+          currentRow += remainingValues_;
+          this->template skip<false>(remainingValues_, -1, nullptr);
         }
       }
       readHeader();
@@ -477,24 +482,24 @@ class RleDecoderV1 : public dwio::common::IntDecoder<isSigned> {
   }
 
   inline void readHeader() {
-    signed char ch = dwio::common::IntDecoder<isSigned>::readByte();
+    const signed char ch = dwio::common::IntDecoder<isSigned>::readByte();
     if (ch < 0) {
-      remainingValues = static_cast<uint64_t>(-ch);
-      repeating = false;
+      remainingValues_ = static_cast<uint64_t>(-ch);
+      repeating_ = false;
     } else {
-      remainingValues = static_cast<uint64_t>(ch) + RLE_MINIMUM_REPEAT;
-      repeating = true;
-      delta = dwio::common::IntDecoder<isSigned>::readByte();
-      value = dwio::common::IntDecoder<isSigned>::template readInt<int64_t>();
+      remainingValues_ = static_cast<uint64_t>(ch) + RLE_MINIMUM_REPEAT;
+      repeating_ = true;
+      delta_ = dwio::common::IntDecoder<isSigned>::readByte();
+      value_ = dwio::common::IntDecoder<isSigned>::template readInt<int64_t>();
     }
   }
 
   void skipPending() override;
 
-  uint64_t remainingValues;
-  int64_t value;
-  int64_t delta;
-  bool repeating;
+  uint64_t remainingValues_;
+  int64_t value_;
+  int64_t delta_;
+  bool repeating_;
 };
 
 } // namespace facebook::velox::dwrf

@@ -30,22 +30,23 @@ FOLLY_ALWAYS_INLINE void IntDecoder<isSigned>::skipVarints(uint64_t items) {
 template <bool isSigned>
 FOLLY_ALWAYS_INLINE uint64_t
 IntDecoder<isSigned>::skipVarintsInBuffer(uint64_t items) {
-  VELOX_DCHECK_EQ(pendingSkip, 0);
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
   static constexpr uint64_t kVarintMask = 0x8080808080808080L;
-  if (bufferStart == bufferEnd) {
+  if (bufferStart_ == bufferEnd_) {
     const void* bufferPointer;
     int32_t size;
-    if (!inputStream->Next(&bufferPointer, &size)) {
-      VELOX_CHECK(false, "Skipping past end of strean");
+    if (!inputStream_->Next(&bufferPointer, &size)) {
+      VELOX_FAIL("Skipping past end of strean");
     }
-    bufferStart = static_cast<const char*>(bufferPointer);
-    bufferEnd = bufferStart + size;
+    bufferStart_ = static_cast<const char*>(bufferPointer);
+    bufferEnd_ = bufferStart_ + size;
   }
+
   uint64_t toSkip = items;
-  while (bufferEnd - bufferStart >= sizeof(uint64_t)) {
+  while (bufferEnd_ - bufferStart_ >= sizeof(uint64_t)) {
     uint64_t controlBits =
-        (~*reinterpret_cast<const uint64_t*>(bufferStart) & kVarintMask);
-    auto endCount = __builtin_popcountll(controlBits);
+        (~*reinterpret_cast<const uint64_t*>(bufferStart_) & kVarintMask);
+    const auto endCount = __builtin_popcountll(controlBits);
     if (endCount >= toSkip) {
       // The range to skip ends within 'word'. Clear all but the
       // last end marker bits and count trailing zeros to see what
@@ -53,30 +54,31 @@ IntDecoder<isSigned>::skipVarintsInBuffer(uint64_t items) {
       for (int32_t i = 1; i < toSkip; ++i) {
         controlBits &= controlBits - 1;
       }
-      auto zeros = __builtin_ctzll(controlBits);
-      bufferStart += (zeros + 1) / 8;
+      const auto tailingZeros = __builtin_ctzll(controlBits);
+      bufferStart_ += (tailingZeros + 1) / 8;
       return items;
     }
     toSkip -= endCount;
-    bufferStart += sizeof(uint64_t);
+    bufferStart_ += sizeof(uint64_t);
   }
 
-  while (toSkip && bufferEnd > bufferStart) {
-    if ((*reinterpret_cast<const uint8_t*>(bufferStart) & 0x80) == 0) {
+  while ((toSkip > 0) && bufferEnd_ > bufferStart_) {
+    if ((*reinterpret_cast<const uint8_t*>(bufferStart_) & 0x80) == 0) {
       --toSkip;
     }
-    ++bufferStart;
+    ++bufferStart_;
   }
   return items - toSkip;
 }
 
 template <bool isSigned>
 void IntDecoder<isSigned>::skipLongs(uint64_t numValues) {
-  VELOX_DCHECK_EQ(pendingSkip, 0);
-  if (useVInts) {
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
+  if (useVInts_) {
     skipVarints(numValues);
   } else {
-    skipBytes(numValues * numBytes, inputStream.get(), bufferStart, bufferEnd);
+    skipBytes(
+        numValues * numBytes_, inputStream_.get(), bufferStart_, bufferEnd_);
   }
 }
 
@@ -86,40 +88,40 @@ template void IntDecoder<false>::skipLongs(uint64_t numValues);
 template <bool isSigned>
 template <typename T>
 void IntDecoder<isSigned>::bulkReadFixed(uint64_t size, T* result) {
-  VELOX_DCHECK_EQ(pendingSkip, 0);
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
   if (isSigned) {
-    switch (numBytes) {
+    switch (numBytes_) {
       case 2:
         dwio::common::readContiguous<int16_t>(
-            size, *inputStream, result, bufferStart, bufferEnd);
+            size, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       case 4:
         dwio::common::readContiguous<int32_t>(
-            size, *inputStream, result, bufferStart, bufferEnd);
+            size, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       case 8:
         dwio::common::readContiguous<int64_t>(
-            size, *inputStream, result, bufferStart, bufferEnd);
+            size, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       default:
-        VELOX_FAIL("Bad fixed width {}", numBytes);
+        VELOX_FAIL("Bad fixed width {}", numBytes_);
     }
   } else {
-    switch (numBytes) {
+    switch (numBytes_) {
       case 2:
         dwio::common::readContiguous<uint16_t>(
-            size, *inputStream, result, bufferStart, bufferEnd);
+            size, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       case 4:
         dwio::common::readContiguous<uint32_t>(
-            size, *inputStream, result, bufferStart, bufferEnd);
+            size, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       case 8:
         dwio::common::readContiguous<uint64_t>(
-            size, *inputStream, result, bufferStart, bufferEnd);
+            size, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       default:
-        VELOX_FAIL("Bad fixed width {}", numBytes);
+        VELOX_FAIL("Bad fixed width {}", numBytes_);
     }
   }
 }
@@ -130,40 +132,40 @@ void IntDecoder<isSigned>::bulkReadRowsFixed(
     RowSet rows,
     int32_t initialRow,
     T* result) {
-  VELOX_DCHECK_EQ(pendingSkip, 0);
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
   if (isSigned) {
-    switch (numBytes) {
+    switch (numBytes_) {
       case 2:
         dwio::common::readRows<int16_t>(
-            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+            rows, initialRow, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       case 4:
         dwio::common::readRows<int32_t>(
-            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+            rows, initialRow, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       case 8:
         dwio::common::readRows<int64_t>(
-            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+            rows, initialRow, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       default:
-        VELOX_FAIL("Bad fixed width {}", numBytes);
+        VELOX_FAIL("Bad fixed width {}", numBytes_);
     }
   } else {
-    switch (numBytes) {
+    switch (numBytes_) {
       case 2:
         dwio::common::readRows<uint16_t>(
-            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+            rows, initialRow, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       case 4:
         dwio::common::readRows<uint32_t>(
-            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+            rows, initialRow, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       case 8:
         dwio::common::readRows<uint64_t>(
-            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+            rows, initialRow, *inputStream_, result, bufferStart_, bufferEnd_);
         break;
       default:
-        VELOX_FAIL("Bad fixed width {}", numBytes);
+        VELOX_FAIL("Bad fixed width {}", numBytes_);
     }
   }
 }
@@ -920,7 +922,7 @@ template <bool isSigned>
 template <typename T>
 void IntDecoder<isSigned>::bulkRead(uint64_t size, T* result) {
   skipPending();
-  if (!useVInts) {
+  if (!useVInts_) {
     bulkReadFixed(size, result);
     return;
   }
@@ -929,14 +931,14 @@ void IntDecoder<isSigned>::bulkRead(uint64_t size, T* result) {
   uint64_t carryover = 0;
   int32_t carryoverBits = 0;
   auto output = result;
-  const char* pos = bufferStart;
+  const char* pos = bufferStart_;
   auto end = result + size;
   if (pos) {
     // Decrement only if non-null to avoid asan error.
     pos -= maskSize;
   }
   while (output < end) {
-    while (end >= output + 8 && bufferEnd - pos >= 8 + maskSize) {
+    while (end >= output + 8 && bufferEnd_ - pos >= 8 + maskSize) {
       pos += maskSize;
       const auto word = folly::loadUnaligned<uint64_t>(pos);
       const uint64_t controlBits = bits::extractBits<uint64_t>(word, mask);
@@ -945,16 +947,16 @@ void IntDecoder<isSigned>::bulkRead(uint64_t size, T* result) {
     if (pos) {
       pos += maskSize;
     }
-    bufferStart = pos;
+    bufferStart_ = pos;
     if (output < end) {
       *output++ = (readVuLong() << carryoverBits) | carryover;
       carryover = 0;
       carryoverBits = 0;
       while (output < end) {
         *output++ = readVuLong();
-        if (output + 8 <= end && bufferEnd - bufferStart > 8 + maskSize) {
+        if (output + 8 <= end && bufferEnd_ - bufferStart_ > 8 + maskSize) {
           // Go back to fast loop after refilling the buffer.
-          pos = bufferStart - maskSize;
+          pos = bufferStart_ - maskSize;
           break;
         }
       }
@@ -972,7 +974,7 @@ void IntDecoder<isSigned>::bulkReadRows(
     T* result,
     int32_t initialRow) {
   skipPending();
-  if (!useVInts) {
+  if (!useVInts_) {
     bulkReadRowsFixed(rows, initialRow, result);
     return;
   }
@@ -981,7 +983,7 @@ void IntDecoder<isSigned>::bulkReadRows(
   uint64_t carryover = 0;
   int32_t carryoverBits = 0;
   auto output = result;
-  const char* pos = bufferStart;
+  const char* pos = bufferStart_;
   int32_t nextRowIndex = 0;
   int32_t nextRow = rows[0];
   int32_t row = initialRow;
@@ -992,7 +994,7 @@ void IntDecoder<isSigned>::bulkReadRows(
     pos -= maskSize;
   }
   while (nextRowIndex < rows.size()) {
-    while (row + 8 <= endRow && bufferEnd - pos >= 8 + maskSize) {
+    while (row + 8 <= endRow && bufferEnd_ - pos >= 8 + maskSize) {
       pos += maskSize;
       const auto word = folly::loadUnaligned<uint64_t>(pos);
       if (nextRow >= row + 8) {
@@ -2311,7 +2313,7 @@ void IntDecoder<isSigned>::bulkReadRows(
     if (pos) {
       pos += maskSize;
     }
-    bufferStart = pos;
+    bufferStart_ = pos;
     DCHECK(!carryover || row == nextRow);
     while (nextRowIndex < endRowIndex) {
       skipVarints(nextRow - row);
@@ -2323,9 +2325,9 @@ void IntDecoder<isSigned>::bulkReadRows(
       }
       row = nextRow + 1;
       nextRow = rows[nextRowIndex];
-      if (endRow - row >= 8 && bufferEnd - bufferStart > 8 + maskSize) {
+      if (endRow - row >= 8 && bufferEnd_ - bufferStart_ > 8 + maskSize) {
         // Go back to fast loop after refilling the buffer.
-        pos = bufferStart - maskSize;
+        pos = bufferStart_ - maskSize;
         break;
       }
     }

@@ -39,32 +39,28 @@ class IntDecoder {
       bool useVInts,
       uint32_t numBytes,
       bool bigEndian = false)
-      : inputStream(std::move(input)),
-        bufferStart(nullptr),
-        bufferEnd(bufferStart),
-        useVInts(useVInts),
-        numBytes(numBytes),
-        bigEndian(bigEndian) {}
+      : inputStream_(std::move(input)),
+        bufferStart_(nullptr),
+        bufferEnd_(bufferStart_),
+        useVInts_(useVInts),
+        numBytes_(numBytes),
+        bigEndian_(bigEndian) {}
 
-  // Constructs for use in Parquet /Alphawhere the buffer is always preloaded.
+  /// Constructs for use in Parquet /Alphawhere the buffer is always preloaded.
   IntDecoder(const char* start, const char* end)
-      : bufferStart(start), bufferEnd(end), useVInts(false), numBytes(0) {}
+      : bufferStart_(start), bufferEnd_(end), useVInts_(false), numBytes_(0) {}
 
   virtual ~IntDecoder() = default;
 
-  /**
-   * Seek to a specific row group.  Should not read the underlying input stream
-   * to avoid decoding same data multiple times.
-   */
+  /// Seeks to a specific row group.  Should not read the underlying input
+  /// stream to avoid decoding same data multiple times.
   virtual void seekToRowGroup(
       dwio::common::PositionProvider& positionProvider) = 0;
 
-  /**
-   * Seek over a given number of values.  Does not decode the underlying input
-   * stream.
-   */
+  /// Seeks over a given number of values.  Does not decode the underlying input
+  /// stream.
   void skip(uint64_t numValues) {
-    pendingSkip += numValues;
+    pendingSkip_ += numValues;
   }
 
   /**
@@ -114,7 +110,7 @@ class IntDecoder {
    * @return updated start index after this stream's index values.
    */
   size_t loadIndices(size_t startIndex) const {
-    return inputStream->positionSize() + startIndex + 1;
+    return inputStream_->positionSize() + startIndex + 1;
   }
 
   // Reads 'size' consecutive T' and stores then in 'result'.
@@ -137,8 +133,8 @@ class IntDecoder {
     if constexpr (kHasNulls) {
       numValues = bits::countNonNulls(nulls, current, current + numValues);
     }
-    pendingSkip += numValues;
-    if (pendingSkip > 0) {
+    pendingSkip_ += numValues;
+    if (pendingSkip_ > 0) {
       skipPending();
     }
   }
@@ -171,62 +167,60 @@ class IntDecoder {
   int128_t readVsHugeInt();
   uint128_t readVuHugeInt();
 
-  // note: there is opportunity for performance gains here by avoiding
-  //       this by directly supporting deserialization into the correct
-  //       target data type
+  // NOTE: there is opportunity for performance gains here by avoiding this by
+  // directly supporting deserialization into the correct target data type
   template <typename T>
-  void
-  narrow(T* const data, const uint64_t numValues, const uint64_t* const nulls) {
-    DWIO_ENSURE_LE(numBytes, sizeof(T))
+  void narrow(T* data, uint64_t numValues, const uint64_t* nulls) {
+    VELOX_CHECK_LE(numBytes_, sizeof(T));
     std::array<int64_t, 64> buf;
     uint64_t remain = numValues;
     T* dataPtr = data;
     const uint64_t* nullsPtr = nulls;
-    while (remain != 0) {
-      uint64_t num = std::min(remain, static_cast<uint64_t>(buf.size()));
+    while (remain > 0) {
+      const uint64_t num = std::min(remain, static_cast<uint64_t>(buf.size()));
       next(buf.data(), num, nullsPtr);
       for (uint64_t i = 0; i < num; ++i) {
         *(dataPtr++) = (T)buf[i];
       }
       remain -= num;
       if (remain != 0 && nullsPtr) {
-        DWIO_ENSURE(num % 64 == 0);
+        VELOX_CHECK_EQ(num % 64, 0);
         nullsPtr += num / 64;
       }
     }
   }
 
  protected:
-  const std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
-  const char* bufferStart;
-  const char* bufferEnd;
-  const bool useVInts;
-  const uint32_t numBytes;
-  bool bigEndian;
-  int64_t pendingSkip = 0;
+  const std::unique_ptr<dwio::common::SeekableInputStream> inputStream_;
+  const char* bufferStart_;
+  const char* bufferEnd_;
+  const bool useVInts_;
+  const uint32_t numBytes_;
+  const bool bigEndian_;
+  int64_t pendingSkip_{0};
 };
 
 template <bool isSigned>
 FOLLY_ALWAYS_INLINE signed char IntDecoder<isSigned>::readByte() {
-  VELOX_DCHECK_EQ(pendingSkip, 0);
-  if (UNLIKELY(bufferStart == bufferEnd)) {
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
+
+  if (UNLIKELY(bufferStart_ == bufferEnd_)) {
     int32_t bufferLength;
     const void* bufferPointer;
-    DWIO_ENSURE(
-        inputStream->Next(&bufferPointer, &bufferLength),
-        "bad read in readByte, ",
-        inputStream->getName());
-    bufferStart = static_cast<const char*>(bufferPointer);
-    bufferEnd = bufferStart + bufferLength;
+    const bool ret = inputStream_->Next(&bufferPointer, &bufferLength);
+    VELOX_CHECK(ret, "bad read in readByte, ", inputStream_->getName());
+    bufferStart_ = static_cast<const char*>(bufferPointer);
+    bufferEnd_ = bufferStart_ + bufferLength;
   }
-  return *(bufferStart++);
+  return *(bufferStart_++);
 }
 
 template <bool isSigned>
 FOLLY_ALWAYS_INLINE uint64_t IntDecoder<isSigned>::readVuLong() {
-  VELOX_DCHECK_EQ(pendingSkip, 0);
-  if (LIKELY(bufferEnd - bufferStart >= folly::kMaxVarintLength64)) {
-    const char* p = bufferStart;
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
+
+  if (LIKELY(bufferEnd_ - bufferStart_ >= folly::kMaxVarintLength64)) {
+    const char* p = bufferStart_;
     uint64_t val;
     do {
       int64_t b;
@@ -280,29 +274,30 @@ FOLLY_ALWAYS_INLINE uint64_t IntDecoder<isSigned>::readVuLong() {
       if (LIKELY(b >= 0)) {
         break;
       } else {
-        DWIO_RAISE(fmt::format(
+        VELOX_FAIL(
             "Invalid encoding: likely corrupt data.  bytes remaining: {} , useVInts: {}, numBytes: {}, Input Stream Name: {}, byte: {}, val: {}",
-            bufferEnd - bufferStart,
-            useVInts,
-            numBytes,
-            inputStream->getName(),
+            bufferEnd_ - bufferStart_,
+            useVInts_,
+            numBytes_,
+            inputStream_->getName(),
             b,
-            val));
+            val);
       }
     } while (false);
-    bufferStart = p;
+
+    bufferStart_ = p;
     return val;
-  } else {
-    int64_t result = 0;
-    int64_t offset = 0;
-    signed char ch;
-    do {
-      ch = readByte();
-      result |= (ch & BASE_128_MASK) << offset;
-      offset += 7;
-    } while (ch < 0);
-    return result;
   }
+
+  int64_t result = 0;
+  int64_t offset = 0;
+  signed char ch;
+  do {
+    ch = readByte();
+    result |= (ch & BASE_128_MASK) << offset;
+    offset += 7;
+  } while (ch < 0);
+  return result;
 }
 
 template <bool isSigned>
@@ -312,40 +307,41 @@ FOLLY_ALWAYS_INLINE int64_t IntDecoder<isSigned>::readVsLong() {
 
 template <bool isSigned>
 inline int64_t IntDecoder<isSigned>::readLongLE() {
-  VELOX_DCHECK_EQ(pendingSkip, 0);
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
   int64_t result = 0;
-  if (bufferStart && bufferStart + sizeof(int64_t) <= bufferEnd) {
-    bufferStart += numBytes;
-    if (numBytes == 8) {
-      return *reinterpret_cast<const int64_t*>(bufferStart - 8);
+  if (bufferStart_ && bufferStart_ + sizeof(int64_t) <= bufferEnd_) {
+    bufferStart_ += numBytes_;
+    if (numBytes_ == 8) {
+      return *reinterpret_cast<const int64_t*>(bufferStart_ - 8);
     }
-    if (numBytes == 4) {
+    if (numBytes_ == 4) {
       if (isSigned) {
-        return *reinterpret_cast<const int32_t*>(bufferStart - 4);
+        return *reinterpret_cast<const int32_t*>(bufferStart_ - 4);
       }
-      return *reinterpret_cast<const uint32_t*>(bufferStart - 4);
+      return *reinterpret_cast<const uint32_t*>(bufferStart_ - 4);
     }
     if (isSigned) {
-      return *reinterpret_cast<const int16_t*>(bufferStart - 2);
+      return *reinterpret_cast<const int16_t*>(bufferStart_ - 2);
     }
-    return *reinterpret_cast<const uint16_t*>(bufferStart - 2);
+    return *reinterpret_cast<const uint16_t*>(bufferStart_ - 2);
   }
+
   char b;
   int64_t offset = 0;
-  for (uint32_t i = 0; i < numBytes; ++i) {
+  for (uint32_t i = 0; i < numBytes_; ++i) {
     b = readByte();
     result |= (b & BASE_256_MASK) << offset;
     offset += 8;
   }
 
-  if (isSigned && numBytes < 8) {
-    if (numBytes == 2) {
+  if (isSigned && numBytes_ < 8) {
+    if (numBytes_ == 2) {
       return static_cast<int16_t>(result);
     }
-    if (numBytes == 4) {
+    if (numBytes_ == 4) {
       return static_cast<int32_t>(result);
     }
-    DCHECK(false) << "Bad width for signed fixed width: " << numBytes;
+    VELOX_DCHECK(false, "Bad width for signed fixed width: {}", numBytes_);
   }
   return result;
 }
@@ -353,20 +349,22 @@ inline int64_t IntDecoder<isSigned>::readLongLE() {
 template <bool isSigned>
 template <typename cppType>
 inline cppType IntDecoder<isSigned>::readLittleEndianFromBigEndian() {
-  VELOX_DCHECK_EQ(pendingSkip, 0);
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
+
   cppType bigEndianValue = 0;
   // Input is in Big Endian layout of size numBytes.
-  if (bufferStart && bufferStart + sizeof(int64_t) <= bufferEnd) {
-    bufferStart += numBytes;
-    auto valueOffset = bufferStart - numBytes;
+  if (bufferStart_ && (bufferStart_ + sizeof(int64_t) <= bufferEnd_)) {
+    bufferStart_ += numBytes_;
+    const auto valueOffset = bufferStart_ - numBytes_;
     // Use first byte to initialize bigEndianValue.
     bigEndianValue =
         *(reinterpret_cast<const int8_t*>(valueOffset)) >= 0 ? 0 : -1;
     // Copy numBytes input to the bigEndianValue.
-    memcpy(
-        reinterpret_cast<char*>(&bigEndianValue) + (sizeof(cppType) - numBytes),
+    ::memcpy(
+        reinterpret_cast<char*>(&bigEndianValue) +
+            (sizeof(cppType) - numBytes_),
         reinterpret_cast<const char*>(valueOffset),
-        numBytes);
+        numBytes_);
     // Convert bigEndianValue to little endian value and return.
     if constexpr (sizeof(cppType) == 16) {
       return bits::builtin_bswap128(bigEndianValue);
@@ -374,11 +372,12 @@ inline cppType IntDecoder<isSigned>::readLittleEndianFromBigEndian() {
       return __builtin_bswap64(bigEndianValue);
     }
   }
+
   char b;
   cppType offset = 0;
   cppType numBytesBigEndian = 0;
   // Read numBytes input into numBytesBigEndian.
-  for (uint32_t i = 0; i < numBytes; ++i) {
+  for (uint32_t i = 0; i < numBytes_; ++i) {
     b = readByte();
     if constexpr (sizeof(cppType) == 16) {
       numBytesBigEndian |= (b & INT128_BASE_256_MASK) << offset;
@@ -391,10 +390,10 @@ inline cppType IntDecoder<isSigned>::readLittleEndianFromBigEndian() {
   bigEndianValue =
       (reinterpret_cast<const int8_t*>(&numBytesBigEndian)[0]) >= 0 ? 0 : -1;
   // Copy numBytes input to the bigEndianValue.
-  memcpy(
-      reinterpret_cast<char*>(&bigEndianValue) + (sizeof(cppType) - numBytes),
+  ::memcpy(
+      reinterpret_cast<char*>(&bigEndianValue) + (sizeof(cppType) - numBytes_),
       reinterpret_cast<const char*>(&numBytesBigEndian),
-      numBytes);
+      numBytes_);
   // Convert bigEndianValue to little endian value and return.
   if constexpr (sizeof(cppType) == 16) {
     return bits::builtin_bswap128(bigEndianValue);
@@ -410,7 +409,8 @@ inline int128_t IntDecoder<isSigned>::readVsHugeInt() {
 
 template <bool isSigned>
 inline uint128_t IntDecoder<isSigned>::readVuHugeInt() {
-  VELOX_DCHECK_EQ(pendingSkip, 0);
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
+
   uint128_t value = 0;
   uint128_t work;
   uint32_t offset = 0;
@@ -431,10 +431,10 @@ inline uint128_t IntDecoder<isSigned>::readVuHugeInt() {
 template <bool isSigned>
 template <typename T>
 inline T IntDecoder<isSigned>::readInt() {
-  if (useVInts) {
+  if (useVInts_) {
     return readVInt<T>();
   }
-  if (bigEndian) {
+  if (bigEndian_) {
     return readLittleEndianFromBigEndian<T>();
   } else {
     if constexpr (std::is_same_v<T, int128_t>) {

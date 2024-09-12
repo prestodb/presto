@@ -18,12 +18,13 @@
 
 namespace facebook::velox::common {
 
-Ranges Ranges::filter(std::function<bool(size_t)> func) const {
+Ranges Ranges::filter(const std::function<bool(size_t)>& func) const {
   Ranges ret;
-  for (auto& r : ranges_) {
+  for (auto& range : ranges_) {
     bool inRun = false;
     size_t runStart = 0;
-    for (auto cur = std::get<0>(r), end = std::get<1>(r); cur != end; ++cur) {
+    for (auto cur = std::get<0>(range), end = std::get<1>(range); cur != end;
+         ++cur) {
       if (func(cur)) {
         if (!inRun) {
           inRun = true;
@@ -35,9 +36,10 @@ Ranges Ranges::filter(std::function<bool(size_t)> func) const {
         inRun = false;
       }
     }
+
     if (inRun) {
-      ret.ranges_.emplace_back(runStart, std::get<1>(r));
-      ret.size_ += (std::get<1>(r) - runStart);
+      ret.ranges_.emplace_back(runStart, std::get<1>(range));
+      ret.size_ += (std::get<1>(range) - runStart);
     }
   }
   return ret;

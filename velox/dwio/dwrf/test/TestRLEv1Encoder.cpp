@@ -107,10 +107,10 @@ TEST_F(RleEncoderV1Test, encodeMinAndMax) {
 
   auto data = folly::make_array(INT64_MIN, INT64_MAX, INT64_MIN);
   encoder.add(data.data(), common::Ranges::of(0, 2), nullptr);
-  EXPECT_TRUE(encoder.isOverflow);
+  EXPECT_TRUE(encoder.overflow_);
 
   encoder.add(data.data(), common::Ranges::of(2, 3), nullptr);
-  EXPECT_TRUE(encoder.isOverflow);
+  EXPECT_TRUE(encoder.overflow_);
   encoder.flush();
 
   decodeAndVerify<false>(memSink, data.data(), 2, nullptr);
@@ -127,10 +127,10 @@ TEST_F(RleEncoderV1Test, encodeMinAndMaxint32) {
 
   auto data = folly::make_array(INT32_MIN, INT32_MAX, INT32_MIN);
   encoder.add(data.data(), common::Ranges::of(0, 2), nullptr);
-  EXPECT_FALSE(encoder.isOverflow);
+  EXPECT_FALSE(encoder.overflow_);
 
   encoder.add(data.data(), common::Ranges::of(2, 3), nullptr);
-  EXPECT_FALSE(encoder.isOverflow);
+  EXPECT_FALSE(encoder.overflow_);
 
   encoder.flush();
 

@@ -16,33 +16,31 @@
 
 #pragma once
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/GTestMacros.h"
-#include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook::velox::common {
 
-/** Utility class to represent ranges of input used by DWRF writer.
-This class does not dedepe overlapping ranges because for encoded input, the
-overlapping range should be processed the same amount of time as specified
-rather than just once.
-This class does not support representing empty ranges. It
-is the Caller's responsibility to avoid using the class when empty ranges are
-possible.
-*/
+/// Utility class to represent ranges of input used by DWRF writer.This class
+/// does not dedepe overlapping ranges because for encoded input, the
+/// overlapping range should be processed the same amount of time as specified
+/// rather than just once. This class does not support representing empty
+/// ranges. It is the Caller's responsibility to avoid using the class when
+/// empty ranges are possible.
 class Ranges {
  public:
   void add(size_t begin, size_t end) {
     if (begin == end) {
       return;
     }
-    DWIO_ENSURE_LT(begin, end);
+    VELOX_CHECK_LT(begin, end);
     size_ += (end - begin);
-    if (ranges_.size()) {
-      // try merge with last
+    if (!ranges_.empty()) {
+      // try merge with last.
       auto& last = ranges_.back();
-      auto& e = std::get<1>(last);
-      if (e == begin) {
-        e = end;
+      auto& lastEnd = std::get<1>(last);
+      if (lastEnd == begin) {
+        lastEnd = end;
         return;
       }
     }
@@ -51,22 +49,23 @@ class Ranges {
     ranges_.emplace_back(begin, end);
   }
 
-  // returns another instance with ranges meet the filter criteria
-  Ranges filter(std::function<bool(size_t)> func) const;
+  /// Returns another instance with ranges meet the filter criteria
+  Ranges filter(const std::function<bool(size_t)>& func) const;
 
   class Iterator {
    public:
     Iterator(
         std::vector<std::tuple<size_t, size_t>>::const_iterator cur,
         std::vector<std::tuple<size_t, size_t>>::const_iterator end)
-        : cur_{cur}, end_{end}, val_{0} {
+        : end_{end}, cur_{cur}, val_{0} {
       if (cur_ != end_) {
         val_ = std::get<0>(*cur_);
       }
     }
 
     bool operator==(const Iterator& other) const {
-      return cur_ == other.cur_ && end_ == other.end_ && val_ == other.val_;
+      return std::tie(cur_, end_, val_) ==
+          std::tie(other.cur_, other.end_, other.val_);
     }
 
     bool operator!=(const Iterator& other) const {
@@ -74,7 +73,7 @@ class Ranges {
     }
 
     Iterator& operator++() {
-      DCHECK(cur_ != end_);
+      VELOX_DCHECK(cur_ != end_);
       if (++val_ == std::get<1>(*cur_)) {
         val_ = (++cur_ != end_ ? std::get<0>(*cur_) : 0);
       }
@@ -82,13 +81,13 @@ class Ranges {
     }
 
     const size_t& operator*() const {
-      DCHECK(cur_ != end_);
+      VELOX_DCHECK(cur_ != end_);
       return val_;
     }
 
    private:
+    const std::vector<std::tuple<size_t, size_t>>::const_iterator end_;
     std::vector<std::tuple<size_t, size_t>>::const_iterator cur_;
-    std::vector<std::tuple<size_t, size_t>>::const_iterator end_;
     size_t val_;
   };
 
@@ -114,9 +113,9 @@ class Ranges {
   }
 
   static Ranges of(size_t begin, size_t end) {
-    Ranges r;
-    r.add(begin, end);
-    return r;
+    Ranges ranges;
+    ranges.add(begin, end);
+    return ranges;
   }
 
  private:

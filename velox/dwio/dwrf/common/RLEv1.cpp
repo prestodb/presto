@@ -22,42 +22,45 @@ namespace facebook::velox::dwrf {
 
 template <bool isSigned>
 void RleEncoderV1<isSigned>::writeValues() {
-  if (numLiterals != 0) {
-    if (repeat) {
-      IntEncoder<isSigned>::writeByte(
-          static_cast<char>(numLiterals - RLE_MINIMUM_REPEAT));
-      IntEncoder<isSigned>::writeByte(static_cast<char>(delta));
-      if (!IntEncoder<isSigned>::useVInts_) {
-        IntEncoder<isSigned>::writeLongLE(literals[0]);
+  if (numLiterals_ == 0) {
+    return;
+  }
+
+  if (repeat_) {
+    IntEncoder<isSigned>::writeByte(
+        static_cast<char>(numLiterals_ - RLE_MINIMUM_REPEAT));
+    IntEncoder<isSigned>::writeByte(static_cast<char>(delta_));
+    if (!IntEncoder<isSigned>::useVInts_) {
+      IntEncoder<isSigned>::writeLongLE(literals_[0]);
+    } else {
+      if constexpr (isSigned) {
+        IntEncoder<isSigned>::writeVslong(literals_[0]);
       } else {
-        if constexpr (isSigned) {
-          IntEncoder<isSigned>::writeVslong(literals[0]);
-        } else {
-          IntEncoder<isSigned>::writeVulong(literals[0]);
-        }
+        IntEncoder<isSigned>::writeVulong(literals_[0]);
+      }
+    }
+  } else {
+    IntEncoder<isSigned>::writeByte(static_cast<char>(-numLiterals_));
+    if (!IntEncoder<isSigned>::useVInts_) {
+      for (int32_t i = 0; i < numLiterals_; ++i) {
+        IntEncoder<isSigned>::writeLongLE(literals_[i]);
       }
     } else {
-      IntEncoder<isSigned>::writeByte(static_cast<char>(-numLiterals));
-      if (!IntEncoder<isSigned>::useVInts_) {
-        for (int32_t i = 0; i < numLiterals; ++i) {
-          IntEncoder<isSigned>::writeLongLE(literals[i]);
+      if constexpr (isSigned) {
+        for (int32_t i = 0; i < numLiterals_; ++i) {
+          IntEncoder<isSigned>::writeVslong(literals_[i]);
         }
       } else {
-        if constexpr (isSigned) {
-          for (int32_t i = 0; i < numLiterals; ++i) {
-            IntEncoder<isSigned>::writeVslong(literals[i]);
-          }
-        } else {
-          for (int32_t i = 0; i < numLiterals; ++i) {
-            IntEncoder<isSigned>::writeVulong(literals[i]);
-          }
+        for (int32_t i = 0; i < numLiterals_; ++i) {
+          IntEncoder<isSigned>::writeVulong(literals_[i]);
         }
       }
     }
-    repeat = false;
-    numLiterals = 0;
-    tailRunLength = 0;
   }
+
+  repeat_ = false;
+  numLiterals_ = 0;
+  tailRunLength_ = 0;
 }
 
 template void RleEncoderV1<true>::writeValues();
@@ -66,15 +69,15 @@ template void RleEncoderV1<false>::writeValues();
 template <bool isSigned>
 void RleDecoderV1<isSigned>::seekToRowGroup(
     dwio::common::PositionProvider& location) {
-  // move the input stream
-  dwio::common::IntDecoder<isSigned>::inputStream->seekToPosition(location);
-  // force a re-read from the stream
-  dwio::common::IntDecoder<isSigned>::bufferEnd =
-      dwio::common::IntDecoder<isSigned>::bufferStart;
-  // force reading a new header
-  remainingValues = 0;
-  // skip ahead the given number of records
-  this->pendingSkip = location.next();
+  // Move the input stream.
+  dwio::common::IntDecoder<isSigned>::inputStream_->seekToPosition(location);
+  // Force a re-read from the stream.
+  dwio::common::IntDecoder<isSigned>::bufferEnd_ =
+      dwio::common::IntDecoder<isSigned>::bufferStart_;
+  // Force reading a new header.
+  remainingValues_ = 0;
+  // Skip ahead the given number of records.
+  this->pendingSkip_ = location.next();
 }
 
 template void RleDecoderV1<true>::seekToRowGroup(
@@ -84,17 +87,17 @@ template void RleDecoderV1<false>::seekToRowGroup(
 
 template <bool isSigned>
 void RleDecoderV1<isSigned>::skipPending() {
-  uint64_t numValues = this->pendingSkip;
-  this->pendingSkip = 0;
+  uint64_t numValues = this->pendingSkip_;
+  this->pendingSkip_ = 0;
   while (numValues > 0) {
-    if (remainingValues == 0) {
+    if (remainingValues_ == 0) {
       readHeader();
     }
-    uint64_t count = std::min(numValues, remainingValues);
-    remainingValues -= count;
+    const uint64_t count = std::min(numValues, remainingValues_);
+    remainingValues_ -= count;
     numValues -= count;
-    if (repeating) {
-      value += delta * static_cast<int64_t>(count);
+    if (repeating_) {
+      value_ += delta_ * static_cast<int64_t>(count);
     } else {
       dwio::common::IntDecoder<isSigned>::skipLongs(count);
     }
@@ -106,10 +109,11 @@ template void RleDecoderV1<false>::skipPending();
 
 template <bool isSigned>
 void RleDecoderV1<isSigned>::next(
-    int64_t* const data,
+    int64_t* data,
     const uint64_t numValues,
     const uint64_t* const nulls) {
   skipPending();
+
   uint64_t position = 0;
   // skipNulls()
   if (nulls) {
@@ -120,83 +124,85 @@ void RleDecoderV1<isSigned>::next(
   }
   while (position < numValues) {
     // If we are out of values, read more.
-    if (remainingValues == 0) {
+    if (remainingValues_ == 0) {
       readHeader();
     }
     // How many do we read out of this block?
-    uint64_t count = std::min(numValues - position, remainingValues);
+    const uint64_t count = std::min(numValues - position, remainingValues_);
     uint64_t consumed = 0;
-    if (repeating) {
+    if (repeating_) {
       if (nulls) {
         for (uint64_t i = 0; i < count; ++i) {
           if (!bits::isBitNull(nulls, position + i)) {
-            data[position + i] = value + static_cast<int64_t>(consumed) * delta;
-            consumed += 1;
+            data[position + i] =
+                value_ + static_cast<int64_t>(consumed) * delta_;
+            ++consumed;
           }
         }
       } else {
         for (uint64_t i = 0; i < count; ++i) {
-          data[position + i] = value + static_cast<int64_t>(i) * delta;
+          data[position + i] = value_ + static_cast<int64_t>(i) * delta_;
         }
         consumed = count;
       }
-      value += static_cast<int64_t>(consumed) * delta;
+      value_ += static_cast<int64_t>(consumed) * delta_;
     } else {
-      int64_t* datap = data + position;
-      int64_t* const datapEnd = datap + count;
+      int64_t* next = data + position;
+      int64_t* const end = next + count;
       if (nulls) {
-        int32_t idx = position;
-        if (!dwio::common::IntDecoder<isSigned>::useVInts) {
-          while (datap != datapEnd) {
-            if (LIKELY(!bits::isBitNull(nulls, idx++))) {
-              *(datap++) = dwio::common::IntDecoder<isSigned>::readLongLE();
+        int32_t index = position;
+        if (!dwio::common::IntDecoder<isSigned>::useVInts_) {
+          while (next != end) {
+            if (LIKELY(!bits::isBitNull(nulls, index++))) {
+              *(next++) = dwio::common::IntDecoder<isSigned>::readLongLE();
               ++consumed;
             } else {
-              *(datap++) = 0;
+              *(next++) = 0;
             }
           }
         } else if constexpr (isSigned) {
-          while (datap != datapEnd) {
-            if (LIKELY(!bits::isBitNull(nulls, idx++))) {
-              *(datap++) = dwio::common::IntDecoder<isSigned>::readVsLong();
+          while (next != end) {
+            if (LIKELY(!bits::isBitNull(nulls, index++))) {
+              *(next++) = dwio::common::IntDecoder<isSigned>::readVsLong();
               ++consumed;
             } else {
-              *(datap++) = 0;
+              *(next++) = 0;
             }
           }
         } else {
-          while (datap != datapEnd) {
-            if (LIKELY(!bits::isBitNull(nulls, idx++))) {
-              *(datap++) = static_cast<int64_t>(
+          while (next != end) {
+            if (LIKELY(!bits::isBitNull(nulls, index++))) {
+              *(next++) = static_cast<int64_t>(
                   dwio::common::IntDecoder<isSigned>::readVuLong());
               ++consumed;
             } else {
-              *(datap++) = 0;
+              *(next++) = 0;
             }
           }
         }
       } else {
-        if (!dwio::common::IntDecoder<isSigned>::useVInts) {
-          while (datap != datapEnd) {
-            *(datap++) = dwio::common::IntDecoder<isSigned>::readLongLE();
+        if (!dwio::common::IntDecoder<isSigned>::useVInts_) {
+          while (next != end) {
+            *(next++) = dwio::common::IntDecoder<isSigned>::readLongLE();
           }
         } else if constexpr (isSigned) {
-          while (datap != datapEnd) {
-            *(datap++) = dwio::common::IntDecoder<isSigned>::readVsLong();
+          while (next != end) {
+            *(next++) = dwio::common::IntDecoder<isSigned>::readVsLong();
           }
         } else {
-          while (datap != datapEnd) {
-            *(datap++) = static_cast<int64_t>(
+          while (next != end) {
+            *(next++) = static_cast<int64_t>(
                 dwio::common::IntDecoder<isSigned>::readVuLong());
           }
         }
         consumed = count;
       }
     }
-    remainingValues -= consumed;
+
+    remainingValues_ -= consumed;
     position += count;
 
-    // skipNulls()
+    // skipNulls().
     if (nulls) {
       // Skip over null values.
       while (position < numValues && bits::isBitNull(nulls, position)) {
@@ -209,37 +215,38 @@ void RleDecoderV1<isSigned>::next(
 template void RleDecoderV1<true>::next(
     int64_t* const data,
     const uint64_t numValues,
-    const uint64_t* const nulls);
+    const uint64_t* nulls);
 template void RleDecoderV1<false>::next(
     int64_t* const data,
     const uint64_t numValues,
-    const uint64_t* const nulls);
+    const uint64_t* nulls);
 
 template <bool isSigned>
-void RleDecoderV1<isSigned>::nextLengths(
-    int32_t* const data,
-    const int32_t numValues) {
+void RleDecoderV1<isSigned>::nextLengths(int32_t* data, int32_t numValues) {
   skipPending();
+
   uint32_t position = 0;
   while (position < numValues) {
     // If we are out of values, read more.
-    if (remainingValues == 0) {
+    if (remainingValues_ == 0) {
       readHeader();
     }
+
     // How many do we read out of this block?
-    int32_t count = std::min<int32_t>(numValues - position, remainingValues);
+    const int32_t count =
+        std::min<int32_t>(numValues - position, remainingValues_);
     uint64_t consumed = 0;
-    if (repeating) {
+    if (repeating_) {
       for (uint32_t i = 0; i < count; ++i) {
-        data[position + i] = value + i * delta;
+        data[position + i] = value_ + i * delta_;
       }
       consumed = count;
-      value += static_cast<int64_t>(consumed) * delta;
+      value_ += static_cast<int64_t>(consumed) * delta_;
     } else {
       dwio::common::IntDecoder<isSigned>::bulkRead(count, data + position);
       consumed = count;
     }
-    remainingValues -= consumed;
+    remainingValues_ -= consumed;
     position += count;
   }
 }

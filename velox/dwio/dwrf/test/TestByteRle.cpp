@@ -17,6 +17,7 @@
 #include <folly/Random.h>
 #include <gtest/gtest.h>
 #include <vector>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/dwio/dwrf/common/ByteRLE.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
@@ -911,7 +912,7 @@ TEST(ByteRle, testSeek) {
   PositionProvider pp{position};
   rle->seekToRowGroup(pp);
   // Seek is fine, but read should fail
-  EXPECT_THROW(rle->next(data.data(), 1, nullptr), exception::LoggedException);
+  VELOX_ASSERT_THROW(rle->next(data.data(), 1, nullptr), "");
 
   // Seek to end + 1
   position.clear();
@@ -919,7 +920,7 @@ TEST(ByteRle, testSeek) {
   position.push_back(1);
   PositionProvider pp2{position};
   rle->seekToRowGroup(pp2);
-  EXPECT_THROW(rle->next(data.data(), 1, nullptr), exception::LoggedException);
+  VELOX_ASSERT_THROW(rle->next(data.data(), 1, nullptr), "");
 }
 
 TEST(BooleanRle, simpleTest) {
@@ -1601,7 +1602,7 @@ TEST(BooleanRle, skipToEnd) {
   rle->next(value, 1, nullptr);
   rle->skip(15);
   // additional read will fail
-  ASSERT_THROW(rle->next(value, 1, nullptr), exception::LoggedException);
+  VELOX_ASSERT_THROW(rle->next(value, 1, nullptr), "");
 }
 
 TEST(BooleanRle, longReadTest) {

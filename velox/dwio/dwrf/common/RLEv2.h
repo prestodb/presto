@@ -102,52 +102,54 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
  private:
   // Used by PATCHED_BASE
   void adjustGapAndPatch() {
-    curGap = static_cast<uint64_t>(unpackedPatch[patchIdx]) >> patchBitSize;
-    curPatch = unpackedPatch[patchIdx] & patchMask;
-    actualGap = 0;
+    curGap_ = static_cast<uint64_t>(unpackedPatch_[patchIdx_]) >> patchBitSize_;
+    curPatch_ = unpackedPatch_[patchIdx_] & patchMask_;
+    actualGap_ = 0;
 
     // special case: gap is >255 then patch value will be 0.
     // if gap is <=255 then patch value cannot be 0
-    while (curGap == 255 && curPatch == 0) {
-      actualGap += 255;
-      ++patchIdx;
-      curGap = static_cast<uint64_t>(unpackedPatch[patchIdx]) >> patchBitSize;
-      curPatch = unpackedPatch[patchIdx] & patchMask;
+    while (curGap_ == 255 && curPatch_ == 0) {
+      actualGap_ += 255;
+      ++patchIdx_;
+      curGap_ =
+          static_cast<uint64_t>(unpackedPatch_[patchIdx_]) >> patchBitSize_;
+      curPatch_ = unpackedPatch_[patchIdx_] & patchMask_;
     }
     // add the left over gap
-    actualGap += curGap;
+    actualGap_ += curGap_;
   }
 
   void resetReadLongs() {
-    bitsLeft = 0;
-    curByte = 0;
+    bitsLeft_ = 0;
+    curByte_ = 0;
   }
 
   void resetRun() {
     resetReadLongs();
-    bitSize = 0;
-    firstByte = readByte();
-    type = static_cast<EncodingType>((firstByte >> 6) & 0x03);
+    bitSize_ = 0;
+    firstByte_ = readByte();
+    type_ = static_cast<EncodingType>((firstByte_ >> 6) & 0x03);
   }
 
   unsigned char readByte() {
-    if (dwio::common::IntDecoder<isSigned>::bufferStart ==
-        dwio::common::IntDecoder<isSigned>::bufferEnd) {
+    if (dwio::common::IntDecoder<isSigned>::bufferStart_ ==
+        dwio::common::IntDecoder<isSigned>::bufferEnd_) {
       int32_t bufferLength;
       const void* bufferPointer;
-      DWIO_ENSURE(
-          dwio::common::IntDecoder<isSigned>::inputStream->Next(
-              &bufferPointer, &bufferLength),
+      const bool ret = dwio::common::IntDecoder<isSigned>::inputStream_->Next(
+          &bufferPointer, &bufferLength);
+      VELOX_CHECK(
+          ret,
           "bad read in RleDecoderV2::readByte, ",
-          dwio::common::IntDecoder<isSigned>::inputStream->getName());
-      dwio::common::IntDecoder<isSigned>::bufferStart =
+          dwio::common::IntDecoder<isSigned>::inputStream_->getName());
+      dwio::common::IntDecoder<isSigned>::bufferStart_ =
           static_cast<const char*>(bufferPointer);
-      dwio::common::IntDecoder<isSigned>::bufferEnd =
-          dwio::common::IntDecoder<isSigned>::bufferStart + bufferLength;
+      dwio::common::IntDecoder<isSigned>::bufferEnd_ =
+          dwio::common::IntDecoder<isSigned>::bufferStart_ + bufferLength;
     }
 
     unsigned char result = static_cast<unsigned char>(
-        *dwio::common::IntDecoder<isSigned>::bufferStart++);
+        *dwio::common::IntDecoder<isSigned>::bufferStart_++);
     return result;
   }
 
@@ -168,19 +170,19 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
       }
       uint64_t result = 0;
       uint64_t bitsLeftToRead = fb;
-      while (bitsLeftToRead > bitsLeft) {
-        result <<= bitsLeft;
-        result |= curByte & ((1 << bitsLeft) - 1);
-        bitsLeftToRead -= bitsLeft;
-        curByte = readByte();
-        bitsLeft = 8;
+      while (bitsLeftToRead > bitsLeft_) {
+        result <<= bitsLeft_;
+        result |= curByte_ & ((1 << bitsLeft_) - 1);
+        bitsLeftToRead -= bitsLeft_;
+        curByte_ = readByte();
+        bitsLeft_ = 8;
       }
 
       // handle the left over bits
       if (bitsLeftToRead > 0) {
         result <<= bitsLeftToRead;
-        bitsLeft -= static_cast<uint32_t>(bitsLeftToRead);
-        result |= (curByte >> bitsLeft) & ((1 << bitsLeftToRead) - 1);
+        bitsLeft_ -= static_cast<uint32_t>(bitsLeftToRead);
+        result |= (curByte_ >> bitsLeft_) & ((1 << bitsLeftToRead) - 1);
       }
       data[i] = static_cast<int64_t>(result);
       ++ret;
@@ -217,27 +219,27 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
       const uint64_t numValues,
       const uint64_t* const nulls);
 
-  unsigned char firstByte;
-  uint64_t runLength;
-  uint64_t runRead;
-  int64_t deltaBase; // Used by DELTA
-  uint64_t byteSize; // Used by SHORT_REPEAT and PATCHED_BASE
-  int64_t firstValue; // Used by SHORT_REPEAT and DELTA
-  int64_t prevValue; // Used by DELTA
-  uint32_t bitSize; // Used by DIRECT, PATCHED_BASE and DELTA
-  uint32_t bitsLeft; // Used by anything that uses readLongs
-  uint32_t curByte; // Used by anything that uses readLongs
-  uint32_t patchBitSize; // Used by PATCHED_BASE
-  uint64_t unpackedIdx; // Used by PATCHED_BASE
-  uint64_t patchIdx; // Used by PATCHED_BASE
-  int64_t base; // Used by PATCHED_BASE
-  uint64_t curGap; // Used by PATCHED_BASE
-  int64_t curPatch; // Used by PATCHED_BASE
-  int64_t patchMask; // Used by PATCHED_BASE
-  int64_t actualGap; // Used by PATCHED_BASE
-  EncodingType type;
-  dwio::common::DataBuffer<int64_t> unpacked; // Used by PATCHED_BASE
-  dwio::common::DataBuffer<int64_t> unpackedPatch; // Used by PATCHED_BASE
+  unsigned char firstByte_;
+  uint64_t runLength_;
+  uint64_t runRead_;
+  int64_t deltaBase_; // Used by DELTA
+  uint64_t byteSize_; // Used by SHORT_REPEAT and PATCHED_BASE
+  int64_t firstValue_; // Used by SHORT_REPEAT and DELTA
+  int64_t prevValue_; // Used by DELTA
+  uint32_t bitSize_; // Used by DIRECT, PATCHED_BASE and DELTA
+  uint32_t bitsLeft_; // Used by anything that uses readLongs
+  uint32_t curByte_; // Used by anything that uses readLongs
+  uint32_t patchBitSize_; // Used by PATCHED_BASE
+  uint64_t unpackedIdx_; // Used by PATCHED_BASE
+  uint64_t patchIdx_; // Used by PATCHED_BASE
+  int64_t base_; // Used by PATCHED_BASE
+  uint64_t curGap_; // Used by PATCHED_BASE
+  int64_t curPatch_; // Used by PATCHED_BASE
+  int64_t patchMask_; // Used by PATCHED_BASE
+  int64_t actualGap_; // Used by PATCHED_BASE
+  EncodingType type_;
+  dwio::common::DataBuffer<int64_t> unpacked_; // Used by PATCHED_BASE
+  dwio::common::DataBuffer<int64_t> unpackedPatch_; // Used by PATCHED_BASE
 };
 
 } // namespace facebook::velox::dwrf

@@ -23,11 +23,11 @@ namespace facebook::velox::dwio::common {
 template <bool isSigned>
 void DirectDecoder<isSigned>::seekToRowGroup(
     dwio::common::PositionProvider& location) {
-  // move the input stream
-  IntDecoder<isSigned>::inputStream->seekToPosition(location);
-  // force a re-read from the stream
-  IntDecoder<isSigned>::bufferEnd = IntDecoder<isSigned>::bufferStart;
-  this->pendingSkip = 0;
+  // Moves the input stream.
+  IntDecoder<isSigned>::inputStream_->seekToPosition(location);
+  // Forces a re-read from the stream.
+  IntDecoder<isSigned>::bufferEnd_ = IntDecoder<isSigned>::bufferStart_;
+  this->pendingSkip_ = 0;
 }
 
 template void DirectDecoder<true>::seekToRowGroup(
@@ -54,7 +54,7 @@ void DirectDecoder<isSigned>::nextValues(
   // this is gross and very not DRY, but helps avoid branching
   if (position < numValues) {
     if (nulls) {
-      if (!IntDecoder<isSigned>::useVInts) {
+      if (!IntDecoder<isSigned>::useVInts_) {
         if constexpr (std::is_same_v<T, int128_t>) {
           VELOX_NYI();
         }
@@ -71,7 +71,7 @@ void DirectDecoder<isSigned>::nextValues(
         }
       }
     } else {
-      if (!IntDecoder<isSigned>::useVInts) {
+      if (!IntDecoder<isSigned>::useVInts_) {
         if constexpr (std::is_same_v<T, int128_t>) {
           VELOX_NYI();
         }

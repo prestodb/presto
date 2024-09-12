@@ -320,7 +320,7 @@ std::pair<std::string_view, std::string_view> extractColumnName(
     return std::make_pair(name, "");
   }
 
-  // special map column handling
+  // Special map column handling.
   const auto colName = name.substr(0, pos);
   const auto expr = name.substr(pos + 1);
   return std::make_pair(colName, expr);

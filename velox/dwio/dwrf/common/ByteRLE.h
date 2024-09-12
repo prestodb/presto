@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <glog/logging.h>
 #include <memory>
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Nulls.h"
@@ -100,13 +101,13 @@ class ByteRleDecoder {
   ByteRleDecoder(
       std::unique_ptr<dwio::common::SeekableInputStream> input,
       EncodingKey ek)
-      : inputStream{std::move(input)},
-        remainingValues{0},
-        value{0},
-        bufferStart{nullptr},
-        bufferEnd{nullptr},
-        repeating{false},
-        encodingKey_{ek} {}
+      : inputStream_{std::move(input)},
+        encodingKey_{ek},
+        remainingValues_{0},
+        value_{0},
+        bufferStart_{nullptr},
+        bufferEnd_{nullptr},
+        repeating_{false} {}
 
   virtual ~ByteRleDecoder() = default;
 
@@ -137,7 +138,7 @@ class ByteRleDecoder {
    * Load the RowIndex values for the stream this is reading.
    */
   virtual size_t loadIndices(size_t startIndex) {
-    return inputStream->positionSize() + startIndex + 1;
+    return inputStream_->positionSize() + startIndex + 1;
   }
 
   void skipBytes(size_t bytes);
@@ -147,8 +148,8 @@ class ByteRleDecoder {
     skipPending();
     int32_t current = visitor.start();
     skip<hasNulls>(current, 0, nulls);
-    int32_t toSkip;
-    bool atEnd = false;
+    int32_t toSkip{0};
+    bool atEnd{false};
     const bool allowNulls = hasNulls && visitor.allowNulls();
     for (;;) {
       if (hasNulls && allowNulls && bits::isBitNull(nulls, current)) {
@@ -164,16 +165,16 @@ class ByteRleDecoder {
           }
         }
         // We are at a non-null value on a row to visit.
-        if (!remainingValues) {
+        if (!remainingValues_) {
           readHeader();
         }
-        if (repeating) {
-          toSkip = visitor.process(value, atEnd);
+        if (repeating_) {
+          toSkip = visitor.process(value_, atEnd);
         } else {
-          value = readByte();
-          toSkip = visitor.process(value, atEnd);
+          value_ = readByte();
+          toSkip = visitor.process(value_, atEnd);
         }
-        --remainingValues;
+        --remainingValues_;
       }
       ++current;
       if (toSkip) {
@@ -186,6 +187,53 @@ class ByteRleDecoder {
     }
   }
 
+ protected:
+  void nextBuffer();
+
+  inline signed char readByte() {
+    if (bufferStart_ == bufferEnd_) {
+      nextBuffer();
+    }
+    return *(bufferStart_++);
+  }
+
+  inline void readHeader() {
+    const signed char ch = readByte();
+    if (ch < 0) {
+      remainingValues_ = static_cast<size_t>(-ch);
+      repeating_ = false;
+    } else {
+      remainingValues_ = static_cast<size_t>(ch) + RLE_MINIMUM_REPEAT;
+      repeating_ = true;
+      value_ = readByte();
+    }
+  }
+
+  virtual void skipPending() {
+    auto numValues = pendingSkip_;
+    pendingSkip_ = 0;
+    while (numValues > 0) {
+      if (remainingValues_ == 0) {
+        readHeader();
+      }
+      const auto count = std::min<int64_t>(numValues, remainingValues_);
+      remainingValues_ -= count;
+      numValues -= count;
+      if (!repeating_) {
+        skipBytes(count);
+      }
+    }
+  }
+
+  const std::unique_ptr<dwio::common::SeekableInputStream> inputStream_;
+  const EncodingKey encodingKey_;
+  size_t remainingValues_;
+  char value_;
+  const char* bufferStart_;
+  const char* bufferEnd_;
+  bool repeating_;
+  int64_t pendingSkip_{0};
+
  private:
   template <bool kHasNulls>
   inline void skip(int32_t numValues, int32_t current, const uint64_t* nulls) {
@@ -197,53 +245,6 @@ class ByteRleDecoder {
       skipPending();
     }
   }
-
- protected:
-  void nextBuffer();
-
-  inline signed char readByte() {
-    if (bufferStart == bufferEnd) {
-      nextBuffer();
-    }
-    return *(bufferStart++);
-  }
-
-  inline void readHeader() {
-    signed char ch = readByte();
-    if (ch < 0) {
-      remainingValues = static_cast<size_t>(-ch);
-      repeating = false;
-    } else {
-      remainingValues = static_cast<size_t>(ch) + RLE_MINIMUM_REPEAT;
-      repeating = true;
-      value = readByte();
-    }
-  }
-
-  virtual void skipPending() {
-    auto numValues = pendingSkip_;
-    pendingSkip_ = 0;
-    while (numValues > 0) {
-      if (remainingValues == 0) {
-        readHeader();
-      }
-      auto count = std::min<int64_t>(numValues, remainingValues);
-      remainingValues -= count;
-      numValues -= count;
-      if (!repeating) {
-        skipBytes(count);
-      }
-    }
-  }
-
-  std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
-  size_t remainingValues;
-  char value;
-  const char* bufferStart;
-  const char* bufferEnd;
-  bool repeating;
-  EncodingKey encodingKey_;
-  int64_t pendingSkip_ = 0;
 };
 
 /**
@@ -266,16 +267,16 @@ std::unique_ptr<ByteRleEncoder> createBooleanRleEncoder(
  */
 std::unique_ptr<ByteRleDecoder> createByteRleDecoder(
     std::unique_ptr<dwio::common::SeekableInputStream> input,
-    const EncodingKey& ek);
+    const EncodingKey& encodingKey);
 
 class BooleanRleDecoder : public ByteRleDecoder {
  public:
   BooleanRleDecoder(
       std::unique_ptr<dwio::common::SeekableInputStream> input,
-      const EncodingKey& ek)
-      : ByteRleDecoder{std::move(input), ek},
-        remainingBits{0},
-        reversedLastByte{0} {}
+      const EncodingKey& encodingKey)
+      : ByteRleDecoder{std::move(input), encodingKey},
+        remainingBits_{0},
+        reversedLastByte_{0} {}
 
   ~BooleanRleDecoder() override = default;
 
@@ -303,9 +304,9 @@ class BooleanRleDecoder : public ByteRleDecoder {
     if (hasNulls) {
       totalNulls = bits::countNulls(nulls, 0, end);
     }
-    bits.resize(bits::nwords(end - totalNulls));
+    bits_.resize(bits::nwords(end - totalNulls));
     if (end > totalNulls) {
-      next(reinterpret_cast<char*>(bits.data()), end - totalNulls, nullptr);
+      next(reinterpret_cast<char*>(bits_.data()), end - totalNulls, nullptr);
     }
     int32_t dataPosition = 0;
     int32_t current = visitor.start();
@@ -331,7 +332,7 @@ class BooleanRleDecoder : public ByteRleDecoder {
         }
       }
       toSkip =
-          visitor.process(bits::isBitSet(bits.data(), dataPosition), atEnd);
+          visitor.process(bits::isBitSet(bits_.data(), dataPosition), atEnd);
       ++dataPosition;
     skip:
       ++current;
@@ -363,10 +364,10 @@ class BooleanRleDecoder : public ByteRleDecoder {
   void skipPending() override;
 
  protected:
-  size_t remainingBits;
-  uint8_t reversedLastByte;
-  char buffer;
-  std::vector<uint64_t> bits;
+  size_t remainingBits_;
+  uint8_t reversedLastByte_;
+  char buffer_;
+  std::vector<uint64_t> bits_;
 };
 
 /**
