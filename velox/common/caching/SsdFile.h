@@ -200,6 +200,10 @@ struct SsdCacheStats {
     return result;
   }
 
+  void clear() {
+    *this = SsdCacheStats();
+  }
+
   /// Snapshot stats
   tsan_atomic<uint64_t> entriesCached{0};
   tsan_atomic<uint64_t> regionsCached{0};
@@ -301,7 +305,6 @@ class SsdFile {
 
   /// Erases 'key'
   bool erase(RawFileCacheKey key);
-
   /// Copies the data in 'ssdPins' into 'pins'. Coalesces IO for nearby
   /// entries if they are in ascending order and near enough.
   CoalesceIoStats load(
@@ -320,16 +323,6 @@ class SsdFile {
   void checkPinned(uint64_t offset) const {
     tsan_lock_guard<std::shared_mutex> l(mutex_);
     VELOX_CHECK_GT(regionPins_[regionIndex(offset)], 0);
-  }
-
-  /// Returns the region number corresponding to offset.
-  static int32_t regionIndex(uint64_t offset) {
-    return offset / kRegionSize;
-  }
-
-  /// Updates the read count of a region.
-  void regionRead(int32_t region, int32_t size) {
-    tracker_.regionRead(region, size);
   }
 
   int32_t maxRegions() const {
@@ -399,10 +392,6 @@ class SsdFile {
     return entries_;
   }
 
-  SsdCacheStats testingStats() const {
-    return stats_;
-  }
-
   bool testingChecksumReadVerificationEnabled() const {
     return checksumReadVerificationEnabled_;
   }
@@ -415,6 +404,21 @@ class SsdFile {
   static constexpr int64_t kCheckpointEndMarker = 0xcbedf11e;
 
   static constexpr int kMaxErasedSizePct = 50;
+
+  // Updates the read count of a region.
+  void regionRead(int32_t region, int32_t size) {
+    tracker_.regionRead(region, size);
+  }
+
+  // Returns the region number corresponding to 'offset'.
+  static int32_t regionIndex(uint64_t offset) {
+    return offset / kRegionSize;
+  }
+
+  // Returns the offset within a region corresponding to 'offset'.
+  static int32_t regionOffset(uint64_t offset) {
+    return offset % kRegionSize;
+  }
 
   // The first 4 bytes of a checkpoint file contains version string to indicate
   // if checksum write is enabled or not.

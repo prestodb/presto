@@ -294,7 +294,7 @@ std::optional<std::pair<uint64_t, int32_t>> SsdFile::getSpace(
         return std::nullopt;
       }
     }
-    assert(!writableRegions_.empty());
+    VELOX_CHECK(!writableRegions_.empty());
     const auto region = writableRegions_[0];
     const auto offset = regionSizes_[region];
     auto available = kRegionSize - offset;
@@ -554,6 +554,7 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
   stats.readSsdErrors += stats_.readSsdErrors;
   stats.readCheckpointErrors += stats_.readCheckpointErrors;
   stats.readSsdCorruptions += stats_.readSsdCorruptions;
+  stats.readWithoutChecksumChecks += stats_.readWithoutChecksumChecks;
 }
 
 void SsdFile::clear() {
@@ -651,8 +652,8 @@ bool SsdFile::removeFileEntries(
   VELOX_SSD_CACHE_LOG(INFO)
       << "Removed " << entriesAgedOut << " entries from " << fileName_
       << ". And erased " << toFree.size() << " regions with "
-      << kMaxErasedSizePct << "% entries removed.";
-
+      << kMaxErasedSizePct << "% entries removed, and " << entries_.size()
+      << " left.";
   return true;
 }
 
@@ -1009,6 +1010,8 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
   for (auto region : evicted) {
     evictedMap.insert(region);
   }
+
+  std::vector<uint32_t> regionCacheSizes(numRegions_, 0);
   for (;;) {
     const auto fileNum = readNumber<uint64_t>(state);
     if (fileNum == kCheckpointEndMarker) {
@@ -1021,15 +1024,32 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
       checksum = readNumber<uint32_t>(state);
     }
     const auto run = SsdRun(fileBits, checksum);
+    const auto region = regionIndex(run.offset());
     // Check that the recovered entry does not fall in an evicted region.
-    if (evictedMap.find(regionIndex(run.offset())) == evictedMap.end()) {
-      // The file may have a different id on restore.
-      auto it = idMap.find(fileNum);
-      VELOX_CHECK(it != idMap.end());
-      FileCacheKey key{it->second, offset};
-      entries_[std::move(key)] = run;
+    if (evictedMap.find(region) != evictedMap.end()) {
+      continue;
     }
+    // The file may have a different id on restore.
+    const auto it = idMap.find(fileNum);
+    VELOX_CHECK(it != idMap.end());
+    FileCacheKey key{it->second, offset};
+    entries_[std::move(key)] = run;
+    regionCacheSizes[region] += run.size();
+    regionSizes_[region] = std::max<uint32_t>(
+        regionSizes_[region], regionOffset(run.offset()) + run.size());
   }
+
+  // NOTE: we might erase entries from a region for TTL eviction, so we need to
+  // set the region size to the max offset of the recovered cache entry from the
+  // region. Correspondingly, we substract the cached size from the region size
+  // to get the erased size.
+  for (auto region = 0; region < numRegions_; ++region) {
+    VELOX_CHECK_LE(regionSizes_[region], kRegionSize);
+    VELOX_CHECK_LE(regionCacheSizes[region], regionSizes_[region]);
+    erasedRegionSizes_[region] =
+        regionSizes_[region] - regionCacheSizes[region];
+  }
+
   ++stats_.checkpointsRead;
   stats_.entriesRecovered += entries_.size();
 
@@ -1042,10 +1062,16 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
     writableRegions_.push_back(region);
   }
   tracker_.setRegionScores(scores);
+
+  uint64_t cachedBytes{0};
+  for (const auto regionSize : regionSizes_) {
+    cachedBytes += regionSize;
+  }
   VELOX_SSD_CACHE_LOG(INFO) << fmt::format(
-      "Starting shard {} from checkpoint with {} entries, {} regions with {} free, with checksum write {}, read verification {}, checkpoint file {}",
+      "Starting shard {} from checkpoint with {} entries, {} cached data, {} regions with {} free, with checksum write {}, read verification {}, checkpoint file {}",
       shardId_,
       entries_.size(),
+      succinctBytes(cachedBytes),
       numRegions_,
       writableRegions_.size(),
       checksumEnabled_ ? "enabled" : "disabled",
