@@ -64,6 +64,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_FILE_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveMetadata.shouldCreateFilesForMissingBuckets;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileSplittable;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrderBasedExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
@@ -111,6 +112,7 @@ public class StoragePartitionLoader
     private final Deque<Iterator<InternalHiveSplit>> fileIterators;
     private final boolean schedulerUsesHostAddresses;
     private final boolean partialAggregationsPushedDown;
+    private static final String SPLIT_MINSIZE = "mapreduce.input.fileinputformat.split.minsize";
 
     public StoragePartitionLoader(
             Table table,
@@ -185,6 +187,7 @@ public class StoragePartitionLoader
             JobConf targetJob = toJobConf(targetFilesystem.getConf());
             targetJob.setInputFormat(TextInputFormat.class);
             targetInputFormat.configure(targetJob);
+            targetJob.set(SPLIT_MINSIZE, Long.toString(getMaxSplitSize(session).toBytes()));
             FileInputFormat.setInputPaths(targetJob, targetPath);
             InputSplit[] targetSplits = targetInputFormat.getSplits(targetJob, 0);
 
@@ -214,6 +217,7 @@ public class StoragePartitionLoader
         FileInputFormat.setInputPaths(jobConf, path);
         // SerDes parameters and Table parameters passing into input format
         fromProperties(schema).forEach(jobConf::set);
+        jobConf.set(SPLIT_MINSIZE, Long.toString(getMaxSplitSize(session).toBytes()));
         InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
 
         return addSplitsToSource(splits, splitFactory, hiveSplitSource, stopped);
