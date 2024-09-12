@@ -54,7 +54,7 @@ class PrefixSortEncoder {
   }
 
   /// @tparam T Type of value. Supported type are: uint64_t, int64_t, uint32_t,
-  /// int32_t, float, double, Timestamp. TODO Add support for int16_t, uint16_t.
+  /// int32_t, int16_t, uint16_t, float, double, Timestamp.
   template <typename T>
   FOLLY_ALWAYS_INLINE void encodeNoNulls(T value, char* dest) const;
 
@@ -71,6 +71,9 @@ class PrefixSortEncoder {
   FOLLY_ALWAYS_INLINE static std::optional<uint32_t> encodedSize(
       TypeKind typeKind) {
     switch ((typeKind)) {
+      case ::facebook::velox::TypeKind::SMALLINT: {
+        return 3;
+      }
       case ::facebook::velox::TypeKind::INTEGER: {
         return 5;
       }
@@ -145,6 +148,25 @@ FOLLY_ALWAYS_INLINE void PrefixSortEncoder::encodeNoNulls(
     int64_t value,
     char* dest) const {
   encodeNoNulls((uint64_t)(value ^ (1ull << 63)), dest);
+}
+
+/// Logic is as same as int32_t.
+template <>
+FOLLY_ALWAYS_INLINE void PrefixSortEncoder::encodeNoNulls(
+    uint16_t value,
+    char* dest) const {
+  auto& v = *reinterpret_cast<uint16_t*>(dest);
+  v = __builtin_bswap16(value);
+  if (!ascending_) {
+    v = ~v;
+  }
+}
+
+template <>
+FOLLY_ALWAYS_INLINE void PrefixSortEncoder::encodeNoNulls(
+    int16_t value,
+    char* dest) const {
+  encodeNoNulls(static_cast<uint16_t>(value ^ (1u << 15)), dest);
 }
 
 namespace detail {
