@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.translator.FunctionTranslator;
 import com.facebook.presto.expressions.translator.RowExpressionTranslator;
 import com.facebook.presto.expressions.translator.RowExpressionTreeTranslator;
@@ -26,7 +27,8 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.SqlSignature;
+import com.facebook.presto.spi.function.SupportedSignatures;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -34,8 +36,10 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -46,10 +50,12 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.expressions.translator.FunctionTranslator.buildFunctionTranslator;
 import static com.facebook.presto.expressions.translator.RowExpressionTreeTranslator.translateWith;
 import static com.facebook.presto.expressions.translator.TranslatedExpression.untranslated;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.type.DecimalParametricType.DECIMAL;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -145,13 +151,24 @@ public class TestRowExpressionTranslator
         assertEquals(translatedExpression.getTranslated().get(), "NOT_2 true");
     }
 
-    @Test
-    public void testBasicOperator()
+    @DataProvider(name = "testBasicOperator")
+    public Object[][] createTestBasicOperatorData()
+    {
+        Type decimalType = DECIMAL.createType(ImmutableList.of());
+        return new Object[][] {
+                {BIGINT, BIGINT},
+                {INTEGER, INTEGER},
+                {decimalType, decimalType}
+        };
+    }
+
+    @Test(dataProvider = "testBasicOperator")
+    public void testBasicOperator(Type argType1, Type argType2)
     {
         String untranslated = "col1 + col2";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("col1", BIGINT, "col2", BIGINT));
-        RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), typeProvider);
+        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("col1", argType1, "col2", argType2));
 
+        RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), typeProvider);
         TranslatedExpression translatedExpression = translateWith(
                 specialForm,
                 new TestFunctionTranslator(functionAndTypeManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
@@ -251,43 +268,46 @@ public class TestRowExpressionTranslator
     public static class TestFunctions
     {
         @ScalarFunction
-        @SqlType(StandardTypes.BIGINT)
-        public static String bitwiseAnd(@SqlType(StandardTypes.BIGINT) String left, @SqlType(StandardTypes.BIGINT) String right)
+        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT))
+        public static String bitwiseAnd(String left, String right)
         {
             return left + " BITWISE_AND " + right;
         }
 
         @ScalarFunction("ln")
-        @SqlType(StandardTypes.DOUBLE)
-        public static String ln(@SqlType(StandardTypes.DOUBLE) String sql)
+        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.DOUBLE, returnType = StandardTypes.DOUBLE))
+        public static String ln(String sql)
         {
             return "LNof(" + sql + ")";
         }
 
         @ScalarFunction("ceil")
-        @SqlType(StandardTypes.DOUBLE)
-        public static String ceil(@SqlType(StandardTypes.BOOLEAN) String sql)
+        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BOOLEAN, returnType = StandardTypes.DOUBLE))
+        public static String ceil(String sql)
         {
             return "CEILof(" + sql + ")";
         }
 
         @ScalarFunction("not")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static String not(@SqlType(StandardTypes.BOOLEAN) String sql)
+        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BOOLEAN, returnType = StandardTypes.BOOLEAN))
+        public static String not(String sql)
         {
             return "NOT_2 " + sql;
         }
 
         @ScalarOperator(OperatorType.ADD)
-        @SqlType(StandardTypes.BIGINT)
-        public static String plus(@SqlType(StandardTypes.BIGINT) String left, @SqlType(StandardTypes.BIGINT) String right)
+        @SupportedSignatures({
+                @SqlSignature(argumentType = StandardTypes.INTEGER, returnType = StandardTypes.INTEGER),
+                @SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT),
+                @SqlSignature(argumentType = "decimal(38, 0)", returnType = "decimal(38, 0)")})
+        public static String plus(String left, String right)
         {
             return left + " -|- " + right;
         }
 
         @ScalarOperator(OperatorType.LESS_THAN)
-        @SqlType(StandardTypes.BOOLEAN)
-        public static String lessThan(@SqlType(StandardTypes.BIGINT) String left, @SqlType(StandardTypes.BIGINT) String right)
+        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BOOLEAN))
+        public static String lessThan(String left, String right)
         {
             return left + " LT " + right;
         }
