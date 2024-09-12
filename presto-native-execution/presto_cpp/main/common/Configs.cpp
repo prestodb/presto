@@ -853,6 +853,9 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           BOOL_PROP(
               QueryConfig::kPrestoArrayAggIgnoreNulls,
               c.prestoArrayAggIgnoreNulls()),
+          BOOL_PROP(
+              QueryConfig::kSelectiveNimbleReaderEnabled,
+              c.selectiveNimbleReaderEnabled()),
           NUM_PROP(QueryConfig::kMaxOutputBufferSize, c.maxOutputBufferSize()),
       };
 }
