@@ -21,9 +21,7 @@
 namespace facebook::presto::http {
 
 void sendOkResponse(proxygen::ResponseHandler* downstream) {
-  proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "OK")
-      .sendWithEOM();
+  proxygen::ResponseBuilder(downstream).status(http::kHttpOk, "").sendWithEOM();
 }
 
 void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body) {
@@ -49,7 +47,7 @@ void sendOkResponse(
     proxygen::ResponseHandler* downstream,
     const std::string& body) {
   proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "OK")
+      .status(http::kHttpOk, "")
       .header(
           proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
       .body(body)
@@ -60,7 +58,7 @@ void sendOkThriftResponse(
     proxygen::ResponseHandler* downstream,
     const std::string& body) {
   proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "OK")
+      .status(http::kHttpOk, "")
       .header(
           proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationThrift)
       .body(body)
@@ -71,19 +69,8 @@ void sendErrorResponse(
     proxygen::ResponseHandler* downstream,
     const std::string& error,
     uint16_t status) {
-  static const size_t kMaxStatusSize = 1024;
-
-  // Use a prefix of the 'error' as status message. Make sure it doesn't include
-  // new lines. See https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
-
-  size_t statusSize = kMaxStatusSize;
-  auto pos = error.find('\n');
-  if (pos != std::string::npos && pos < statusSize) {
-    statusSize = pos;
-  }
-
   proxygen::ResponseBuilder(downstream)
-      .status(status, error.substr(0, statusSize))
+      .status(status, "")
       .body(error)
       .sendWithEOM();
 }
