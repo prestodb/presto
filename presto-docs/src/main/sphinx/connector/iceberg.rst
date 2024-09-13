@@ -984,6 +984,31 @@ Examples:
 
     CALL iceberg.system.fast_forward('schema_name', 'table_name', 'branch1', 'main');
 
+Set Table Property
+^^^^^^^^^^^^^^^^^^
+
+Iceberg table property can be set from the catalog using the ``set_table_property`` procedure on the catalog's ``system`` schema.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update
+
+``table_name``        ✔️         string          Name of the table to update
+
+``key``               ✔️         string          Name of the table property
+
+``value``             ✔️         string          Value for the table property
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Set table property ``commit.retry.num-retries`` to ``10`` for a Iceberg table ::
+
+    CALL iceberg.system.set_table_property('schema_name', 'table_name', 'commit.retry.num-retries', '10');
+
 SQL Support
 -----------
 

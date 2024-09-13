@@ -179,6 +179,9 @@ public class Decoders
                     if (isTimeStampMicrosType(columnDescriptor) || isTimeMicrosType(columnDescriptor)) {
                         return new Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
                     }
+                    if (isDecimalType(columnDescriptor) && isShortDecimalType(columnDescriptor)) {
+                        return new Int64RLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
+                    }
                 }
                 case DOUBLE: {
                     return new Int64RLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);

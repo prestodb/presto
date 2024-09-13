@@ -157,6 +157,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
           BOOL_PROP(kDriverThreadsBatchSchedulingEnabled, false),
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
+          NUM_PROP(
+              kDriverCancelTasksWithStuckOperatorsThresholdMs, 40 * 60 * 1000),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
@@ -178,7 +180,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAsyncCacheMaxSsdWriteRatio, 0.7),
           NUM_PROP(kAsyncCacheSsdSavableRatio, 0.125),
           NUM_PROP(kAsyncCacheMinSsdSavableBytes, 1 << 24 /*16MB*/),
-          STR_PROP(kAsyncCacheFullPersistenceInterval, "0s"),
+          STR_PROP(kAsyncCachePersistenceInterval, "0s"),
           BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
           BOOL_PROP(kSsdCacheChecksumEnabled, false),
           BOOL_PROP(kSsdCacheReadVerificationEnabled, false),
@@ -377,6 +379,12 @@ size_t SystemConfig::driverStuckOperatorThresholdMs() const {
   return optionalProperty<size_t>(kDriverStuckOperatorThresholdMs).value();
 }
 
+size_t SystemConfig::driverCancelTasksWithStuckOperatorsThresholdMs() const {
+  return optionalProperty<size_t>(
+             kDriverCancelTasksWithStuckOperatorsThresholdMs)
+      .value();
+}
+
 double SystemConfig::spillerNumCpuThreadsHwMultiplier() const {
   return optionalProperty<double>(kSpillerNumCpuThreadsHwMultiplier).value();
 }
@@ -465,10 +473,10 @@ int32_t SystemConfig::asyncCacheMinSsdSavableBytes() const {
   return optionalProperty<int32_t>(kAsyncCacheMinSsdSavableBytes).value();
 }
 
-std::chrono::duration<double> SystemConfig::asyncCacheFullPersistenceInterval()
+std::chrono::duration<double> SystemConfig::asyncCachePersistenceInterval()
     const {
   return velox::config::toDuration(
-      optionalProperty(kAsyncCacheFullPersistenceInterval).value());
+      optionalProperty(kAsyncCachePersistenceInterval).value());
 }
 
 bool SystemConfig::asyncCacheSsdDisableFileCow() const {
@@ -853,6 +861,9 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           BOOL_PROP(
               QueryConfig::kPrestoArrayAggIgnoreNulls,
               c.prestoArrayAggIgnoreNulls()),
+          BOOL_PROP(
+              QueryConfig::kSelectiveNimbleReaderEnabled,
+              c.selectiveNimbleReaderEnabled()),
           NUM_PROP(QueryConfig::kMaxOutputBufferSize, c.maxOutputBufferSize()),
       };
 }

@@ -144,6 +144,27 @@ class SessionProperties {
   static constexpr const char* kValidateOutputFromOperators =
       "native_debug_validate_output_from_operators";
 
+  /// Disable optimization in expression evaluation to peel common dictionary
+  /// layer from inputs.
+  static constexpr const char* kDebugDisableExpressionWithPeeling =
+      "native_debug_disable_expression_with_peeling";
+
+  /// Disable optimization in expression evaluation to reuse cached results for
+  /// common sub-expressions.
+  static constexpr const char* kDebugDisableCommonSubExpressions =
+      "native_debug_disable_common_sub_expressions";
+
+  /// Disable optimization in expression evaluation to reuse cached results
+  /// between subsequent input batches that are dictionary encoded and have the
+  /// same alphabet(underlying flat vector).
+  static constexpr const char* kDebugDisableExpressionWithMemoization =
+      "native_debug_disable_expression_with_memoization";
+
+  /// Disable optimization in expression evaluation to delay loading of lazy
+  /// inputs unless required.
+  static constexpr const char* kDebugDisableExpressionWithLazyInputs =
+      "native_debug_disable_expression_with_lazy_inputs";
+
   /// Enable timezone-less timestamp conversions.
   static constexpr const char* kLegacyTimestamp = "legacy_timestamp";
 

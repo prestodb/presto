@@ -25,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import org.apache.iceberg.AddedRowsScanTask;
 import org.apache.iceberg.ChangelogScanTask;
 import org.apache.iceberg.ContentScanTask;
@@ -35,6 +36,7 @@ import org.apache.iceberg.IncrementalChangelogScan;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
@@ -59,6 +61,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class ChangelogSplitSource
         implements ConnectorSplitSource
 {
+    private final Closer closer = Closer.create();
+    private CloseableIterable<ChangelogScanTask> fileScanTaskIterable;
     private CloseableIterator<ChangelogScanTask> fileScanTaskIterator;
     private final IncrementalChangelogScan tableScan;
     private final double minimumAssignedSplitWeight;
@@ -77,7 +81,8 @@ public class ChangelogSplitSource
         this.columnHandles = getColumns(table.schema(), table.spec(), typeManager);
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
-        this.fileScanTaskIterator = tableScan.planFiles().iterator();
+        this.fileScanTaskIterable = closer.register(tableScan.planFiles());
+        this.fileScanTaskIterator = closer.register(fileScanTaskIterable.iterator());
     }
 
     @Override
@@ -102,7 +107,11 @@ public class ChangelogSplitSource
     public void close()
     {
         try {
-            fileScanTaskIterator.close();
+            closer.close();
+            // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
+            //  correct release resources holds by iterator.
+            fileScanTaskIterable = CloseableIterable.empty();
+            fileScanTaskIterator = CloseableIterator.empty();
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, e);

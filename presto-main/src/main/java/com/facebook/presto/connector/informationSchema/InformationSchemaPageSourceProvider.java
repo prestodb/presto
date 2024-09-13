@@ -164,7 +164,7 @@ public class InformationSchemaPageSourceProvider
                             column.getName(),
                             ordinalPosition,
                             null,
-                            "YES",
+                            column.isNullable() ? "YES" : "NO",
                             column.getType().getDisplayName(),
                             column.getComment(),
                             column.getExtraInfo());
