@@ -554,7 +554,7 @@ public class SqlQueryExecution
                     .getRuntimeStats()
                     .profileNanos(
                             LOGICAL_PLANNER_TIME_NANOS,
-                            () -> queryAnalyzer.plan(this.analyzerContext, queryAnalysis));;
+                            () -> queryAnalyzer.plan(this.analyzerContext, queryAnalysis));
 
             Optimizer optimizer = new Optimizer(
                     stateMachine.getSession(),

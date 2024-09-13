@@ -572,7 +572,7 @@ public abstract class AbstractTestQueryFramework
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
-                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), featuresConfig),
+                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), featuresConfig, null),
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,

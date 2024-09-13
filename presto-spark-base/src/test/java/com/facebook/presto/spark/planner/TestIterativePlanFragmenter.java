@@ -157,7 +157,7 @@ public class TestIterativePlanFragmenter
                 new SimpleTtlNodeSelectorConfig());
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
-        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new FeaturesConfig());
+        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new FeaturesConfig(), null);
     }
 
     @AfterClass(alwaysRun = true)
@@ -224,7 +224,7 @@ public class TestIterativePlanFragmenter
                 plan,
                 testingFragmentTracker::isFragmentFinished,
                 metadata,
-                new PlanChecker(new FeaturesConfig()),
+                new PlanChecker(new FeaturesConfig(), false),
                 new PlanNodeIdAllocator(),
                 nodePartitioningManager,
                 new QueryManagerConfig(),
