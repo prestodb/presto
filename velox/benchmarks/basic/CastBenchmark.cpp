@@ -48,6 +48,14 @@ int main(int argc, char** argv) {
       vectorSize, [](auto /*row*/) { return "infinity"; });
   auto spaceInput = vectorMaker.flatVector<std::string>(
       vectorSize, [](auto /*row*/) { return "   "; });
+  auto integerInput = vectorMaker.flatVector<int32_t>(
+      vectorSize, [&](auto j) { return 12345 * j; }, nullptr);
+  auto bigintInput = vectorMaker.flatVector<int64_t>(
+      vectorSize,
+      [&](auto j) {
+        return facebook::velox::HugeInt::build(12345 * j, 56789 * j + 12345);
+      },
+      nullptr);
   auto decimalInput = vectorMaker.flatVector<int64_t>(
       vectorSize, [&](auto j) { return 12345 * j; }, nullptr, DECIMAL(9, 2));
   auto shortDecimalInput = vectorMaker.flatVector<int64_t>(
@@ -148,6 +156,8 @@ int main(int argc, char** argv) {
               {"valid",
                "empty",
                "invalid",
+               "integer",
+               "bigint",
                "decimal",
                "short_decimal",
                "long_decimal",
@@ -158,6 +168,8 @@ int main(int argc, char** argv) {
               {validInput,
                emptyInput,
                invalidInput,
+               integerInput,
+               bigintInput,
                decimalInput,
                shortDecimalInput,
                longDecimalInput,
@@ -191,6 +203,14 @@ int main(int argc, char** argv) {
           "cast(large_double as varchar)")
       .addExpression("cast_real_as_int", "cast (small_real as integer)")
       .addExpression("cast_decimal_as_bigint", "cast (short_decimal as bigint)")
+      .addExpression(
+          "cast_int_as_short_decimal", "cast (integer as decimal(18,6))")
+      .addExpression(
+          "cast_int_as_long_decimal", "cast (integer as decimal(38,16))")
+      .addExpression(
+          "cast_bigint_as_short_decimal", "cast (bigint as decimal(18,6))")
+      .addExpression(
+          "cast_bigint_as_long_decimal", "cast (bigint as decimal(38,16))")
       .withIterations(100)
       .disableTesting();
 
