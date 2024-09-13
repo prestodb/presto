@@ -18,13 +18,12 @@
 #include "velox/common/memory/Memory.h"
 
 namespace facebook::velox::memory {
-// A set of Allocations holding the fixed width payload
-// rows. The Runs are filled to the end except for the last one. This
-// is used for iterating over the payload for rehashing, returning
-// results etc. This is used via HashStringAllocator for variable length
-// allocation for backing ByteStreams for complex objects. In that case, there
-// is a current run that is appended to and when this is exhausted a new run is
-// started.
+/// A set of Allocations holding the fixed width payload ows. The Runs are
+/// filled to the end except for the last one. This is used for iterating over
+/// the payload for rehashing, returning results etc. This is used via
+/// HashStringAllocator for variable length allocation for backing ByteStreams
+/// for complex objects. In that case, there is a current run that is appended
+/// to and when this is exhausted a new run is started.
 class AllocationPool {
  public:
   static constexpr int32_t kMinPages = 16;

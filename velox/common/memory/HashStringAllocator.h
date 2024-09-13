@@ -341,12 +341,6 @@ class HashStringAllocator : public StreamArena {
   /// checkConsistency() which makes it slow. Do not use in hot paths.
   bool isEmpty() const;
 
-  /// Throws if 'this' is not empty. Checks consistency of
-  /// 'this'. This is a fast check for RowContainer users freeing the
-  /// variable length data they store. Can be used in non-debug
-  /// builds.
-  void checkEmpty() const;
-
   std::string toString() const;
 
   /// Effectively makes this immutable while executing f, any attempt to access

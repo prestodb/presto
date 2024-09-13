@@ -1951,15 +1951,15 @@ TEST_F(RowContainerTest, nextRowVector) {
   };
 
   auto validateNextRowVector = [&]() {
-    for (int i = 0; i < rows.size(); i++) {
+    for (int i = 0; i < rows.size(); ++i) {
       auto vector = data->getNextRowVector(rows[i]);
       if (vector) {
         auto iter = std::find(vector->begin(), vector->end(), rows[i]);
-        EXPECT_NE(iter, vector->end());
-        EXPECT_TRUE(vector->size() <= 2 && vector->size() > 0);
+        ASSERT_NE(iter, vector->end());
+        ASSERT_TRUE(vector->size() <= 2 && vector->size() > 0);
         for (auto next : *vector) {
-          EXPECT_EQ(data->getNextRowVector(next), vector);
-          EXPECT_TRUE(std::find(rows.begin(), rows.end(), next) != rows.end());
+          ASSERT_EQ(data->getNextRowVector(next), vector);
+          ASSERT_TRUE(std::find(rows.begin(), rows.end(), next) != rows.end());
         }
       }
     }
@@ -1969,18 +1969,18 @@ TEST_F(RowContainerTest, nextRowVector) {
     for (int i = 0; i < numRows; ++i) {
       rows.push_back(data->newRow());
       rowSet.insert(rows.back());
-      EXPECT_EQ(data->getNextRowVector(rows.back()), nullptr);
+      ASSERT_EQ(data->getNextRowVector(rows.back()), nullptr);
     }
-    EXPECT_EQ(numRows, data->numRows());
+    ASSERT_EQ(numRows, data->numRows());
     std::vector<char*> rowsFromContainer(numRows);
     RowContainerIterator iter;
-    EXPECT_EQ(
+    ASSERT_EQ(
         data->listRows(&iter, numRows, rowsFromContainer.data()), numRows);
-    EXPECT_EQ(0, data->listRows(&iter, numRows, rows.data()));
-    EXPECT_EQ(rows, rowsFromContainer);
+    ASSERT_EQ(0, data->listRows(&iter, numRows, rows.data()));
+    ASSERT_EQ(rows, rowsFromContainer);
 
     for (int i = 0; i + 2 <= numRows; i += 2) {
-      data->appendNextRow(rows[i], rows[i + 1]);
+      data->appendNextRow(rows[i], rows[i + 1], &data->stringAllocator());
     }
     validateNextRowVector();
   };
@@ -2008,7 +2008,6 @@ TEST_F(RowContainerTest, nextRowVector) {
   std::vector<int> eraseRows(numRows);
   std::iota(eraseRows.begin(), eraseRows.end(), 0);
   nextRowVectorEraseValidation(eraseRows);
-
   VELOX_ASSERT_THROW(
       nextRowVectorEraseValidation({1}),
       "All rows with the same keys must be present in 'rows'");

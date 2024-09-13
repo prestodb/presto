@@ -735,12 +735,6 @@ void HashTable<ignoreNullKeys>::allocateTables(
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::clear(bool freeTable) {
-  if (otherTables_.size() > 0) {
-    rows_->clearNextRowVectors();
-    for (auto i = 0; i < otherTables_.size(); ++i) {
-      otherTables_[i]->rows()->clearNextRowVectors();
-    }
-  }
   for (auto* rowContainer : allRows()) {
     rowContainer->clear();
   }
@@ -954,6 +948,12 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
   }
 
   // The parallel table building step.
+  VELOX_CHECK(joinInsertAllocators_.empty());
+  joinInsertAllocators_.reserve(otherTables_.size());
+  for (int i = 0; i < otherTables_.size(); ++i) {
+    joinInsertAllocators_.push_back(
+        std::make_unique<HashStringAllocator>(rows_->pool()));
+  }
   std::vector<std::vector<char*>> overflowPerPartition(numPartitions);
   for (auto i = 0; i < numPartitions; ++i) {
     buildSteps.push_back(std::make_shared<AsyncSource<bool>>(
@@ -984,7 +984,8 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
         overflows.data(),
         hashes.data(),
         overflows.size(),
-        nullptr);
+        nullptr,
+        &rows_->stringAllocator());
 
     VELOX_CHECK_EQ(table->rows()->numRows(), table->numParallelBuildRows_);
   }
@@ -1052,8 +1053,11 @@ void HashTable<ignoreNullKeys>::buildJoinPartition(
       buildPartitionBounds_[partition],
       buildPartitionBounds_[partition + 1],
       overflow};
-  auto* rowContainer =
-      (partition == 0 ? this : otherTables_[partition - 1].get())->rows();
+  const int partitionNum = partition;
+  auto* allocator = (partitionNum == 0)
+      ? &rows_->stringAllocator()
+      : joinInsertAllocators_[partitionNum - 1].get();
+  VELOX_CHECK_NOT_NULL(allocator);
   for (auto i = 0; i < numPartitions; ++i) {
     auto* table = i == 0 ? this : otherTables_[i - 1].get();
     RowContainerIterator iter;
@@ -1061,7 +1065,12 @@ void HashTable<ignoreNullKeys>::buildJoinPartition(
                iter, partition, kBatch, *rowPartitions[i], rows.data())) {
       hashRows(folly::Range(rows.data(), numRows), false, hashes);
       insertForJoin(
-          rowContainer, rows.data(), hashes.data(), numRows, &partitionInfo);
+          table->rows_.get(),
+          rows.data(),
+          hashes.data(),
+          numRows,
+          &partitionInfo,
+          allocator);
       table->numParallelBuildRows_ += numRows;
     }
   }
@@ -1077,7 +1086,13 @@ bool HashTable<ignoreNullKeys>::insertBatch(
     return false;
   }
   if (isJoinBuild_) {
-    insertForJoin(rows(), groups, hashes.data(), numGroups);
+    insertForJoin(
+        rows(),
+        groups,
+        hashes.data(),
+        numGroups,
+        nullptr,
+        &rows_->stringAllocator());
   } else {
     insertForGroupBy(groups, hashes.data(), numGroups);
   }
@@ -1137,12 +1152,16 @@ void HashTable<ignoreNullKeys>::insertForGroupBy(
 }
 
 template <bool ignoreNullKeys>
-bool HashTable<ignoreNullKeys>::arrayPushRow(char* row, int32_t index) {
+bool HashTable<ignoreNullKeys>::arrayPushRow(
+    RowContainer* rows,
+    char* row,
+    int32_t index,
+    HashStringAllocator* allocator) {
   auto* existingRow = table_[index];
   if (existingRow != nullptr) {
     if (nextOffset_ > 0) {
       hasDuplicates_ = true;
-      rows_->appendNextRow(existingRow, row);
+      rows->appendNextRow(existingRow, row, allocator);
     }
     return false;
   }
@@ -1154,10 +1173,11 @@ template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::pushNext(
     RowContainer* rows,
     char* row,
-    char* next) {
+    char* next,
+    HashStringAllocator* allocator) {
   VELOX_CHECK_GT(nextOffset_, 0);
   hasDuplicates_ = true;
-  rows->appendNextRow(row, next);
+  rows->appendNextRow(row, next, allocator);
 }
 
 template <bool ignoreNullKeys>
@@ -1168,7 +1188,8 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
     uint64_t hash,
     char* inserted,
     bool extraCheck,
-    TableInsertPartitionInfo* partitionInfo) {
+    TableInsertPartitionInfo* partitionInfo,
+    HashStringAllocator* allocator) {
   constexpr int32_t kKeyOffset =
       -static_cast<int32_t>(sizeof(normalized_key_t));
   auto insertFn = [&](int32_t /*row*/, PartitionBoundIndexType index) {
@@ -1187,7 +1208,7 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
           if (RowContainer::normalizedKey(group) ==
               RowContainer::normalizedKey(inserted)) {
             if (nextOffset_ > 0) {
-              pushNext(rows, group, inserted);
+              pushNext(rows, group, inserted, allocator);
             }
             return true;
           }
@@ -1204,7 +1225,7 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
         [&](char* group, int32_t /*row*/) {
           if (compareKeys(group, inserted)) {
             if (nextOffset_ > 0) {
-              pushNext(rows, group, inserted);
+              pushNext(rows, group, inserted, allocator);
             }
             return true;
           }
@@ -1224,7 +1245,8 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::insertForJoinWithPrefetch(
     char** groups,
     uint64_t* hashes,
     int32_t numGroups,
-    TableInsertPartitionInfo* partitionInfo) {
+    TableInsertPartitionInfo* partitionInfo,
+    HashStringAllocator* allocator) {
   auto i = 0;
   ProbeState states[kPrefetchSize];
   constexpr int32_t kKeyOffset =
@@ -1244,14 +1266,20 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::insertForJoinWithPrefetch(
     for (int32_t j = 0; j < kPrefetchSize; ++j) {
       auto index = i + j;
       buildFullProbe<isNormailizedKeyMode>(
-          rows, states[j], hashes[index], groups[index], j != 0, partitionInfo);
+          rows,
+          states[j],
+          hashes[index],
+          groups[index],
+          j != 0,
+          partitionInfo,
+          allocator);
     }
   }
   for (; i < numGroups; ++i) {
     states[0].preProbe(*this, hashes[i], i);
     states[0].firstProbe(*this, keyOffset);
     buildFullProbe<isNormailizedKeyMode>(
-        rows, states[0], hashes[i], groups[i], false, partitionInfo);
+        rows, states[0], hashes[i], groups[i], false, partitionInfo, allocator);
   }
 }
 
@@ -1261,23 +1289,24 @@ void HashTable<ignoreNullKeys>::insertForJoin(
     char** groups,
     uint64_t* hashes,
     int32_t numGroups,
-    TableInsertPartitionInfo* partitionInfo) {
+    TableInsertPartitionInfo* partitionInfo,
+    HashStringAllocator* allocator) {
   // The insertable rows are in the table, all get put in the hash table or
   // array.
   if (hashMode_ == HashMode::kArray) {
     for (auto i = 0; i < numGroups; ++i) {
       auto index = hashes[i];
       VELOX_CHECK_LT(index, capacity_);
-      arrayPushRow(groups[i], index);
+      arrayPushRow(rows, groups[i], index, allocator);
     }
     return;
   }
   if (hashMode_ == HashMode::kNormalizedKey) {
     insertForJoinWithPrefetch<true>(
-        rows, groups, hashes, numGroups, partitionInfo);
+        rows, groups, hashes, numGroups, partitionInfo, allocator);
   } else {
     insertForJoinWithPrefetch<false>(
-        rows, groups, hashes, numGroups, partitionInfo);
+        rows, groups, hashes, numGroups, partitionInfo, allocator);
   }
 }
 

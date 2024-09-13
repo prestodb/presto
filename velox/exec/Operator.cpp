@@ -636,11 +636,8 @@ uint64_t Operator::MemoryReclaimer::reclaim(
       "facebook::velox::exec::Operator::MemoryReclaimer::reclaim", pool);
 
   // NOTE: we can't reclaim memory from an operator which is under
-  // non-reclaimable section, except for HashBuild operator. If it is HashBuild
-  // operator, we allow it to enter HashBuild::reclaim because there is a good
-  // chance we can release some unused reserved memory even if it's in
   // non-reclaimable section.
-  if (op_->nonReclaimableSection_ && op_->operatorType() != "HashBuild") {
+  if (op_->nonReclaimableSection_) {
     // TODO: reduce the log frequency if it is too verbose.
     ++stats.numNonReclaimableAttempts;
     RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
@@ -659,12 +656,6 @@ uint64_t Operator::MemoryReclaimer::reclaim(
         {
           memory::ScopedReclaimedBytesRecorder recoder(pool, &reclaimedBytes);
           op_->reclaim(targetBytes, stats);
-        }
-        // NOTE: the parallel hash build is running at the background thread
-        // pool which won't stop during memory reclamation so the operator's
-        // memory usage might increase in such case. memory usage.
-        if (op_->operatorType() == "HashBuild") {
-          reclaimedBytes = std::max<int64_t>(0, reclaimedBytes);
         }
         VELOX_CHECK_GE(
             reclaimedBytes,

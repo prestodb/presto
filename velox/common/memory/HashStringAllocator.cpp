@@ -793,10 +793,4 @@ int64_t HashStringAllocator::checkConsistency() const {
 bool HashStringAllocator::isEmpty() const {
   return state_.sizeFromPool() == 0 && checkConsistency() == 0;
 }
-
-void HashStringAllocator::checkEmpty() const {
-  VELOX_CHECK_EQ(0, state_.sizeFromPool());
-  VELOX_CHECK_EQ(0, checkConsistency());
-}
-
 } // namespace facebook::velox
