@@ -136,6 +136,11 @@ TEST_F(ServerOperationTest, buildServerOp) {
 
 TEST_F(ServerOperationTest, taskEndpoint) {
   // Setup environment for TaskManager
+  if (!connector::hasConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
+  }
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
