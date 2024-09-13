@@ -183,6 +183,11 @@ class TaskManagerTest : public testing::Test {
  public:
   static void SetUpTestCase() {
     filesystems::registerLocalFileSystem();
+    if (!connector::hasConnectorFactory(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+      connector::registerConnectorFactory(
+          std::make_shared<connector::hive::HiveConnectorFactory>());
+    }
     test::setupMutableSystemConfig();
     SystemConfig::instance()->setValue(
         std::string(SystemConfig::kMemoryArbitratorKind), "SHARED");
