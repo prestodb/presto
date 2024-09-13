@@ -34,8 +34,10 @@ import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.event.QueryProgressMonitor;
 import com.facebook.presto.execution.ClusterSizeMonitor;
+import com.facebook.presto.execution.EagerPlanValidationExecutionMBean;
 import com.facebook.presto.execution.ExecutionFactoriesManager;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
+import com.facebook.presto.execution.ForEagerPlanValidation;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.ForTimeoutThread;
 import com.facebook.presto.execution.NodeResourceStatusConfig;
@@ -83,6 +85,7 @@ import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -104,8 +107,11 @@ import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
@@ -264,6 +270,8 @@ public class CoordinatorModule
                 .toInstance(newCachedThreadPool(threadsNamed("query-execution-%s")));
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
+        binder.bind(EagerPlanValidationExecutionMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(EagerPlanValidationExecutionMBean.class).withGeneratedName();
 
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
@@ -376,6 +384,14 @@ public class CoordinatorModule
         return executor;
     }
 
+    @Provides
+    @Singleton
+    @ForEagerPlanValidation
+    public static ExecutorService createEagerPlanValidationExecutor(FeaturesConfig featuresConfig)
+    {
+        return new ThreadPoolExecutor(0, featuresConfig.getEagerPlanValidationThreadPoolSize(), 1L, TimeUnit.MINUTES, new LinkedBlockingQueue(), threadsNamed("plan-validation-%s"));
+    }
+
     private void bindLowMemoryKiller(String name, Class<? extends LowMemoryKiller> clazz)
     {
         install(installModuleIf(
@@ -395,7 +411,8 @@ public class CoordinatorModule
                 @ForQueryExecution ExecutorService queryExecutionExecutor,
                 @ForScheduler ScheduledExecutorService schedulerExecutor,
                 @ForTransactionManager ExecutorService transactionFinishingExecutor,
-                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor)
+                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor,
+                @ForEagerPlanValidation ExecutorService eagerPlanValidationExecutor)
         {
             executors = ImmutableList.<ExecutorService>builder()
                     .add(statementResponseExecutor)
@@ -404,6 +421,7 @@ public class CoordinatorModule
                     .add(schedulerExecutor)
                     .add(transactionFinishingExecutor)
                     .add(transactionIdleExecutor)
+                    .add(eagerPlanValidationExecutor)
                     .build();
         }
 
