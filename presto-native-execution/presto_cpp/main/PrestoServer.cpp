@@ -39,6 +39,7 @@
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/types/VeloxPlanConversion.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -478,6 +479,9 @@ void PrestoServer::run() {
 
   pool_ =
       velox::memory::MemoryManager::getInstance()->addLeafPool("PrestoServer");
+  nativeWorkerPool_ = velox::memory::MemoryManager::getInstance()->addLeafPool(
+      "PrestoNativeWorker");
+
   taskManager_ = std::make_unique<TaskManager>(
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 
@@ -1474,6 +1478,24 @@ void PrestoServer::registerSidecarEndpoints() {
          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
          proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(downstream, getFunctionsMetadata());
+      });
+  httpServer_->registerPost(
+      "/v1/velox/plan",
+      [server = this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        std::string planFragmentJson = util::extractMessageBody(body);
+        protocol::PlanConversionResponse response = prestoToVeloxPlanConversion(
+            planFragmentJson,
+            server->nativeWorkerPool_.get(),
+            server->getVeloxPlanValidator());
+        if (response.failures.empty()) {
+          http::sendOkResponse(downstream, json(response));
+        } else {
+          http::sendResponse(
+              downstream, json(response), http::kHttpUnprocessableContent);
+        }
       });
 }
 

@@ -17,7 +17,8 @@
 namespace facebook::presto {
 class VeloxPlanValidator {
  public:
-  virtual void validatePlanFragment(const velox::core::PlanFragment& fragment);
+  virtual void validatePlanFragment(
+      const velox::core::PlanFragment& fragment) const;
   virtual ~VeloxPlanValidator() = default;
 };
 } // namespace facebook::presto

@@ -50,6 +50,7 @@ target_link_libraries(
   presto_function_metadata
   presto_http
   presto_operators
+  presto_velox_conversion
   velox_aggregates
   velox_caching
   velox_common_base
