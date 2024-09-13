@@ -89,14 +89,6 @@
             <outputDirectory>plugin/pinot</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>${project.build.directory}/dependency/presto-example-http-${project.version}</directory>
-            <outputDirectory>plugin/example-http</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>${project.build.directory}/dependency/presto-hana-${project.version}</directory>
-            <outputDirectory>plugin/hana</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>${project.build.directory}/dependency/presto-hive-hadoop2-${project.version}</directory>
             <outputDirectory>plugin/hive-hadoop2</outputDirectory>
         </fileSet>
@@ -105,24 +97,12 @@
             <outputDirectory>plugin/memory</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>${project.build.directory}/dependency/presto-blackhole-${project.version}</directory>
-            <outputDirectory>plugin/blackhole</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>${project.build.directory}/dependency/presto-kafka-${project.version}</directory>
             <outputDirectory>plugin/kafka</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>${project.build.directory}/dependency/presto-kudu-${project.version}</directory>
-            <outputDirectory>plugin/kudu</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>${project.build.directory}/dependency/presto-atop-${project.version}</directory>
             <outputDirectory>plugin/atop</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>${project.build.directory}/dependency/presto-ml-${project.version}</directory>
-            <outputDirectory>plugin/ml</outputDirectory>
         </fileSet>
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-mysql-${project.version}</directory>
@@ -165,20 +145,12 @@
             <outputDirectory>plugin/tpcds</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>${project.build.directory}/dependency/presto-teradata-functions-${project.version}</directory>
-            <outputDirectory>plugin/teradata-functions</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>${project.build.directory}/dependency/presto-mongodb-${project.version}</directory>
             <outputDirectory>plugin/mongodb</outputDirectory>
         </fileSet>
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-local-file-${project.version}</directory>
             <outputDirectory>plugin/localfile</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>${project.build.directory}/dependency/presto-accumulo-${project.version}</directory>
-            <outputDirectory>plugin/accumulo</outputDirectory>
         </fileSet>
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-thrift-connector-${project.version}</directory>
@@ -199,10 +171,6 @@
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-iceberg-${project.version}</directory>
             <outputDirectory>plugin/iceberg</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>${project.build.directory}/dependency/presto-hive-function-namespace-${project.version}</directory>
-            <outputDirectory>plugin/hive-function-namespace</outputDirectory>
         </fileSet>
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-delta-${project.version}</directory>
