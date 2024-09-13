@@ -44,4 +44,7 @@ long getProcessCpuTimeNs();
 /// context such as the queryId.
 void installSignalHandler();
 
+std::string extractMessageBody(
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body);
+
 } // namespace facebook::presto::util

@@ -33,7 +33,7 @@ bool planHasNestedJoinLoop(const velox::core::PlanNodePtr planNode) {
 }
 
 void VeloxPlanValidator::validatePlanFragment(
-    const velox::core::PlanFragment& fragment) {
+    const velox::core::PlanFragment& fragment) const {
   const auto failOnNestedLoopJoin =
       SystemConfig::instance()
           ->optionalProperty<bool>(

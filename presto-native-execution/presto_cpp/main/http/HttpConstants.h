@@ -20,6 +20,7 @@ const uint16_t kHttpNoContent = 204;
 const uint16_t kHttpBadRequest = 400;
 const uint16_t kHttpUnauthorized = 401;
 const uint16_t kHttpNotFound = 404;
+const uint16_t kHttpUnprocessableContent = 422;
 const uint16_t kHttpInternalServerError = 500;
 
 const char kMimeTypeApplicationJson[] = "application/json";
