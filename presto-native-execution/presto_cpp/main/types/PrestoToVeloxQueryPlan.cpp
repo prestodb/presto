@@ -1841,7 +1841,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       case protocol::SystemPartitioning::FIXED: {
         switch (systemPartitioningHandle->function) {
           case protocol::SystemPartitionFunction::ROUND_ROBIN: {
-            auto numPartitions = partitioningScheme.bucketToPartition->size();
+            auto numPartitions = partitioningScheme.bucketToPartition ? partitioningScheme.bucketToPartition->size() : 1;
 
             if (numPartitions == 1) {
               planFragment.planNode = core::PartitionedOutputNode::single(
@@ -1861,7 +1861,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
             return planFragment;
           }
           case protocol::SystemPartitionFunction::HASH: {
-            auto numPartitions = partitioningScheme.bucketToPartition->size();
+            auto numPartitions = partitioningScheme.bucketToPartition ? partitioningScheme.bucketToPartition->size() : 1;
 
             if (numPartitions == 1) {
               planFragment.planNode = core::PartitionedOutputNode::single(
