@@ -24,15 +24,16 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 
 public class TestIcebergTypes
         extends AbstractTestQueryFramework
 {
     @Override
-    protected QueryRunner createQueryRunner() throws Exception {
+    protected QueryRunner createQueryRunner() throws Exception
+    {
         return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of());
     }
 
@@ -64,11 +65,11 @@ public class TestIcebergTypes
         assertTrue(partitionTypes.get(0) instanceof TimestampWithTimeZoneType);
         assertTrue(partitionTypes.get(1) instanceof TimestampType);
 
-        String early_timestamptz = "TIMESTAMP '1980-12-08 00:10:00 America/Los_Angeles'";
+        String earlyTimestamptz = "TIMESTAMP '1980-12-08 00:10:00 America/Los_Angeles'";
         getQueryRunner().execute("CREATE TABLE test_timestamptz_filter(a TIMESTAMP WITH TIME ZONE)");
 
         for (int i = 0; i < 5; i++) {
-            getQueryRunner().execute("INSERT INTO test_timestamptz_filter VALUES (" + early_timestamptz + ")");
+            getQueryRunner().execute("INSERT INTO test_timestamptz_filter VALUES (" + earlyTimestamptz + ")");
         }
         for (int i = 0; i < 5; i++) {
             getQueryRunner().execute("INSERT INTO test_timestamptz_filter VALUES (" + timestamptz + ")");
