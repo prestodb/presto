@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -114,11 +113,9 @@ public class SessionPropertyDefaults
             Optional<ResourceGroupId> resourceGroupId)
     {
         SessionPropertyConfigurationManager configurationManager = delegate.get();
-        SessionBuilder sessionBuilder = Session.builder(session);
-        sessionBuilder.setQueryType(queryType);
 
         if (configurationManager == null) {
-            return sessionBuilder.build();
+            return session;
         }
 
         SessionConfigurationContext context = new SessionConfigurationContext(
@@ -132,6 +129,6 @@ public class SessionPropertyDefaults
 
         SystemSessionPropertyConfiguration systemPropertyConfiguration = configurationManager.getSystemSessionProperties(context);
         Map<String, Map<String, String>> catalogPropertyOverrides = configurationManager.getCatalogSessionProperties(context);
-        return sessionBuilder.withDefaultProperties(systemPropertyConfiguration, catalogPropertyOverrides).build();
+        return session.withDefaultProperties(systemPropertyConfiguration, catalogPropertyOverrides);
     }
 }

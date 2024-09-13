@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
 import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
 import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
@@ -267,6 +268,7 @@ public class DispatchManager
     private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
+        SessionBuilder sessionBuilder = null;
         PreparedQuery preparedQuery;
         try {
             if (query.length() > maxQueryLength) {
@@ -282,7 +284,8 @@ public class DispatchManager
             Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, sessionContext);
 
             // decode session
-            session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
+            sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
+            session = sessionBuilder.build();
 
             // prepare query
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, session.getWarningCollector());
@@ -292,6 +295,7 @@ public class DispatchManager
 
             // select resource group
             Optional<QueryType> queryType = preparedQuery.getQueryType();
+            sessionBuilder.setQueryType(queryType);
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
@@ -304,7 +308,7 @@ public class DispatchManager
                     sessionContext.getIdentity().getPrincipal().map(Principal::getName)));
 
             // apply system default session properties (does not override user set properties)
-            session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType, Optional.of(selectionContext.getResourceGroupId()));
+            session = sessionPropertyDefaults.newSessionWithDefaultProperties(sessionBuilder.build(), queryType, Optional.of(selectionContext.getResourceGroupId()));
 
             // mark existing transaction as active
             transactionManager.activateTransaction(session, preparedQuery.isTransactionControlStatement(), accessControl);

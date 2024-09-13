@@ -460,6 +460,63 @@ public final class Session
                 queryType);
     }
 
+    public Session withDefaultProperties(
+            SystemSessionPropertyConfiguration systemPropertyConfiguration,
+            Map<String, Map<String, String>> catalogPropertyDefaults)
+    {
+        requireNonNull(systemPropertyConfiguration, "systemPropertyConfiguration is null");
+        requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
+
+        // to remove this check properties must be authenticated and validated as in beginTransactionId
+        checkState(
+                !this.transactionId.isPresent() && this.connectorProperties.isEmpty(),
+                "Session properties cannot be overridden once a transaction is active");
+
+        Map<String, String> systemProperties = new HashMap<>();
+        systemProperties.putAll(systemPropertyConfiguration.systemPropertyDefaults);
+        systemProperties.putAll(this.systemProperties);
+        systemProperties.putAll(systemPropertyConfiguration.systemPropertyOverrides);
+
+        Map<String, Map<String, String>> connectorProperties = catalogPropertyDefaults.entrySet().stream()
+                .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+        for (Entry<String, Map<String, String>> catalogProperties : this.unprocessedCatalogProperties.entrySet()) {
+            String catalog = catalogProperties.getKey();
+            for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
+                connectorProperties.computeIfAbsent(catalog, id -> new HashMap<>())
+                        .put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        return new Session(
+                queryId,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                source,
+                catalog,
+                schema,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                resourceEstimates,
+                startTime,
+                systemProperties,
+                ImmutableMap.of(),
+                connectorProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                sessionFunctions,
+                tracer,
+                warningCollector,
+                runtimeStats,
+                queryType);
+    }
+
     public ConnectorSession toConnectorSession()
     {
         return new FullConnectorSession(this, identity.toConnectorIdentity());
@@ -783,47 +840,19 @@ public final class Session
             return this;
         }
 
-        public SessionBuilder withDefaultProperties(
-                SystemSessionPropertyConfiguration systemPropertyConfiguration,
-                Map<String, Map<String, String>> catalogPropertyDefaults)
-        {
-            requireNonNull(systemPropertyConfiguration, "systemPropertyConfiguration is null");
-            requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
-
-            // to remove this check properties must be authenticated and validated as in beginTransactionId
-            checkState(
-                    this.transactionId == null && this.connectorProperties.isEmpty(),
-                    "Session properties cannot be overridden once a transaction is active");
-
-            Map<String, String> systemProperties = new HashMap<>();
-            systemProperties.putAll(systemPropertyConfiguration.systemPropertyDefaults);
-            systemProperties.putAll(this.systemProperties);
-            systemProperties.putAll(systemPropertyConfiguration.systemPropertyOverrides);
-            this.systemProperties.putAll(systemProperties);
-
-            Map<String, Map<String, String>> connectorProperties = catalogPropertyDefaults.entrySet().stream()
-                    .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
-                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-            for (Entry<String, Map<String, String>> catalogProperties : this.catalogSessionProperties.entrySet()) {
-                String catalog = catalogProperties.getKey();
-                for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
-                    connectorProperties.computeIfAbsent(catalog, id -> new HashMap<>()).put(entry.getKey(), entry.getValue());
-                }
-            }
-
-            for (Entry<String, Map<String, String>> catalogProperties : connectorProperties.entrySet()) {
-                String catalog = catalogProperties.getKey();
-                for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
-                    setCatalogSessionProperty(catalog, entry.getKey(), entry.getValue());
-                }
-            }
-
-            return this;
-        }
-
         public <T> T getSystemProperty(String name, Class<T> type)
         {
             return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
+        }
+
+        public WarningCollector getWarningCollector()
+        {
+            return warningCollector;
+        }
+
+        public Map<String, String> getPreparedStatements()
+        {
+            return preparedStatements;
         }
 
         public Session build()

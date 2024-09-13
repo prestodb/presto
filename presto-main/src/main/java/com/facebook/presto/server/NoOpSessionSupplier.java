@@ -20,6 +20,8 @@ import com.facebook.presto.spi.security.AuthorizedIdentity;
 
 import java.util.Optional;
 
+import static com.facebook.presto.Session.SessionBuilder;
+
 /**
  * Used on workers.
  */
@@ -28,6 +30,12 @@ public class NoOpSessionSupplier
 {
     @Override
     public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity)
     {
         throw new UnsupportedOperationException();
     }

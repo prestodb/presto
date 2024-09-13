@@ -20,7 +20,11 @@ import com.facebook.presto.spi.security.AuthorizedIdentity;
 
 import java.util.Optional;
 
+import static com.facebook.presto.Session.SessionBuilder;
+
 public interface SessionSupplier
 {
     Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity);
+
+    SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity);
 }
