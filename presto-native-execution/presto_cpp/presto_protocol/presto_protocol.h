@@ -2149,6 +2149,7 @@ enum class IcebergTableType {
   MANIFESTS,
   PARTITIONS,
   FILES,
+  REFS,
   PROPERTIES,
   CHANGELOG,
   EQUALITY_DELETES,
