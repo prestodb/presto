@@ -21,7 +21,6 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/base/StatsReporter.h"
 #include "velox/common/testutil/TestValue.h"
 
 using namespace facebook::velox;
