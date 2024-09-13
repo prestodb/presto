@@ -18,30 +18,35 @@
 
 #include <gtest/gtest.h>
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 TEST(RangeTest, ranges) {
   std::vector<uint64_t> bits(10);
   uint64_t* data = &bits[0];
+
   Range<bool> readable(data, 11, 511);
   MutableRange<bool> writable(data, 9, 509);
   Range<uint8_t> readableBytes(&bits[0], 1, 79);
   MutableRange<uint8_t> writableBytes(&bits[0], 0, 80);
-  // Bit 13 appears as bit 2 in readable and as bit 4 in writable.
+
+  // Bit 13 appears as bit 2 in 'readable' and as bit 4 in 'writable'.
   bits::setBit(data, 13);
   EXPECT_TRUE(readable[2]);
   EXPECT_TRUE(writable[4]);
+
+  // Bit 21 appears as bit 11 in 'readable' and as bit 13 in 'writable'.
   writable[13] = true;
   EXPECT_TRUE(readable[11]);
+
   writable[13] = false;
   EXPECT_FALSE(readable[11]);
 
+  // Byte 10 (ie, bit[80~87]), which corresponds to byte 9 in 'readableBytes'
+  // and bit[69~76] in 'readable'.
   writableBytes[10] = 123;
   EXPECT_EQ(readableBytes[9], 123);
   // Bit 80 is set.
   EXPECT_TRUE(readable[69]);
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

@@ -16,12 +16,10 @@
 
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 #include "velox/common/base/BitUtil.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template <typename T>
 class Range {
@@ -63,12 +61,12 @@ inline bool Range<bool>::operator[](int32_t idx) const {
 template <typename T>
 class WritablePosition {
  public:
-  WritablePosition(uint64_t* pointer, unsigned char bit)
+  WritablePosition(uint64_t* pointer, int8_t bitIndex)
       : pointer_(
             reinterpret_cast<uint64_t>(pointer) |
-            (static_cast<uint64_t>(bit) << 56)) {}
+            (static_cast<uint64_t>(bitIndex) << 56)) {}
 
-  WritablePosition(T* pointer)
+  explicit WritablePosition(T* pointer)
       : pointer_(reinterpret_cast<uint64_t>(pointer)) {}
 
   operator T() const {
@@ -144,8 +142,8 @@ template <>
 inline WritablePosition<bool> MutableRange<bool>::operator[](int32_t idx) {
   int32_t bit = begin_ + idx;
   return WritablePosition<bool>(
-      reinterpret_cast<uint64_t*>(data_) + (bit / 64), bit & 63);
+      reinterpret_cast<uint64_t*>(data_) + (bit / 64),
+      static_cast<int8_t>(bit & 63));
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox
