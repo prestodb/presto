@@ -8058,6 +8058,7 @@ static const std::pair<IcebergTableType, json> IcebergTableType_enum_table[] =
         {IcebergTableType::MANIFESTS, "MANIFESTS"},
         {IcebergTableType::PARTITIONS, "PARTITIONS"},
         {IcebergTableType::FILES, "FILES"},
+        {IcebergTableType::REFS, "REFS"},
         {IcebergTableType::PROPERTIES, "PROPERTIES"},
         {IcebergTableType::CHANGELOG, "CHANGELOG"},
         {IcebergTableType::EQUALITY_DELETES, "EQUALITY_DELETES"},
