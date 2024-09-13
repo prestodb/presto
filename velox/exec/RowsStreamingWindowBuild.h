@@ -63,6 +63,9 @@ class RowsStreamingWindowBuild : public WindowBuild {
   // does not exist.
   void addPartitionInputs(bool finished);
 
+  // Sets to true if this window node has range frames.
+  const bool hasRangeFrame_;
+
   // Points to the input rows in the current partition.
   std::vector<char*> inputRows_;
 

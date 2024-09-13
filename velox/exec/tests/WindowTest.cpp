@@ -141,6 +141,40 @@ TEST_F(WindowTest, rowBasedStreamingWindowOOM) {
   testWindowBuild(false);
 }
 
+DEBUG_ONLY_TEST_F(WindowTest, aggWindowResultMismatch) {
+  auto data = makeRowVector(
+      {"id", "order_num"},
+      {makeFlatVector<int64_t>(4500, [](auto row) { return row; }),
+       makeConstant(1, 4500)});
+
+  createDuckDbTable({data});
+
+  const std::vector<std::string> kClauses = {
+      "sum(order_num) over (order by order_num DESC)"};
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .orderBy({"order_num"}, false)
+                  .streamingWindow(kClauses)
+                  .planNode();
+
+  std::atomic_bool isStreamCreated{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::RowsStreamingWindowBuild::RowsStreamingWindowBuild",
+      std::function<void(RowsStreamingWindowBuild*)>(
+          [&](RowsStreamingWindowBuild* windowBuild) {
+            isStreamCreated.store(true);
+          }));
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
+      .config(core::QueryConfig::kPreferredOutputBatchRows, "2")
+      .config(core::QueryConfig::kMaxOutputBatchRows, "2")
+      .assertResults(
+          "SELECT *, sum(order_num) over (order by order_num DESC) FROM tmp");
+  ASSERT_TRUE(isStreamCreated.load());
+}
+
 DEBUG_ONLY_TEST_F(WindowTest, rankRowStreamingWindowBuild) {
   auto data = makeRowVector(
       {"c1"},

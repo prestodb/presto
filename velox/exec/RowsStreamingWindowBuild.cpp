@@ -16,15 +16,28 @@
 
 #include "velox/exec/RowsStreamingWindowBuild.h"
 #include "velox/common/testutil/TestValue.h"
+#include "velox/exec/WindowFunction.h"
 
 namespace facebook::velox::exec {
+
+namespace {
+bool hasRangeFrame(const std::shared_ptr<const core::WindowNode>& windowNode) {
+  for (const auto& function : windowNode->windowFunctions()) {
+    if (function.frame.type == core::WindowNode::WindowType::kRange) {
+      return true;
+    }
+  }
+  return false;
+}
+} // namespace
 
 RowsStreamingWindowBuild::RowsStreamingWindowBuild(
     const std::shared_ptr<const core::WindowNode>& windowNode,
     velox::memory::MemoryPool* pool,
     const common::SpillConfig* spillConfig,
     tsan_atomic<bool>* nonReclaimableSection)
-    : WindowBuild(windowNode, pool, spillConfig, nonReclaimableSection) {
+    : WindowBuild(windowNode, pool, spillConfig, nonReclaimableSection),
+      hasRangeFrame_(hasRangeFrame(windowNode)) {
   velox::common::testutil::TestValue::adjust(
       "facebook::velox::exec::RowsStreamingWindowBuild::RowsStreamingWindowBuild",
       this);
@@ -68,7 +81,14 @@ void RowsStreamingWindowBuild::addInput(RowVectorPtr input) {
     }
 
     if (previousRow_ != nullptr && inputRows_.size() >= numRowsPerOutput_) {
-      addPartitionInputs(false);
+      // Needs to wait the peer group ready for range frame.
+      if (hasRangeFrame_) {
+        if (compareRowsWithKeys(previousRow_, newRow, sortKeyInfo_)) {
+          addPartitionInputs(false);
+        }
+      } else {
+        addPartitionInputs(false);
+      }
     }
 
     inputRows_.push_back(newRow);
