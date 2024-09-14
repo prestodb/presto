@@ -1349,7 +1349,7 @@ class RowContainer {
   int32_t nextOffset_ = 0;
   // Indicates if this row container has rows with duplicate keys. This only
   // applies if 'nextOffset_' is set.
-  bool hasDuplicateRows_{false};
+  tsan_atomic<bool> hasDuplicateRows_{false};
   // Bit position of null bit  in the row. 0 if no null flag. Order is keys,
   // accumulators, dependent.
   std::vector<int32_t> nullOffsets_;
