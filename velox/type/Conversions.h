@@ -230,6 +230,11 @@ struct Converter<TypeKind::BOOLEAN, void, TPolicy> {
   }
 };
 
+/// Presto compatible trim of whitespace. This also trims
+/// control characters from both front and back and returns
+/// a StringView of the trimmed string.
+StringView trimWhiteSpace(const char* data, size_t length);
+
 /// To TINYINT, SMALLINT, INTEGER, BIGINT, and HUGEINT converter.
 template <TypeKind KIND, typename TPolicy>
 struct Converter<
@@ -317,7 +322,8 @@ struct Converter<
     if constexpr (TPolicy::truncate) {
       return convertStringToInt(v);
     } else {
-      return detail::callFollyTo<T>(v);
+      auto trimmed = trimWhiteSpace(v.data(), v.size());
+      return detail::callFollyTo<T>(trimmed);
     }
   }
 
@@ -325,7 +331,8 @@ struct Converter<
     if constexpr (TPolicy::truncate) {
       return convertStringToInt(folly::StringPiece(v));
     } else {
-      return detail::callFollyTo<T>(folly::StringPiece(v));
+      auto trimmed = trimWhiteSpace(v.data(), v.size());
+      return detail::callFollyTo<T>(trimmed);
     }
   }
 
@@ -333,7 +340,8 @@ struct Converter<
     if constexpr (TPolicy::truncate) {
       return convertStringToInt(v);
     } else {
-      return detail::callFollyTo<T>(v);
+      auto trimmed = trimWhiteSpace(v.data(), v.length());
+      return detail::callFollyTo<T>(trimmed);
     }
   }
 

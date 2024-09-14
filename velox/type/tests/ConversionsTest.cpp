@@ -438,12 +438,15 @@ TEST_F(ConversionsTest, toIntegeralTypes) {
             "1",
             "+1",
             "-100",
+            "\u000f100",
+            "\u000f100\u000f",
+            // unicode space's interspaced with control chars
+            " -100\u000f",
+            " \u000f+100",
+            "\u001f101\u000e",
+            " \u001f-102\u000f ",
         },
-        {
-            1,
-            1,
-            -100,
-        },
+        {1, 1, -100, 100, 100, -100, 100, 101, -102},
         /*truncate*/ false);
 
     // When TRUNCATE = false, invalid cases.
@@ -466,14 +469,17 @@ TEST_F(ConversionsTest, toIntegeralTypes) {
     testConversion<std::string, int8_t>(
         {"1234567"}, {}, /*truncate*/ false, false, /*expectError*/ true);
     testConversion<std::string, int64_t>(
-        {
-            "1a",
-            "",
-            "1'234'567",
-            "1,234,567",
-            "infinity",
-            "nan",
-        },
+        {"1a",
+         "",
+         "1'234'567",
+         "1,234,567",
+         "infinity",
+         "nan",
+         // Unicode spaces and control chars and unicode at the end
+         // Should fail conversion since we do not support unicode digits
+         " \u001f-103٢\u000f ",
+         // All spaces
+         "   \u000f "},
         {},
         /*truncate*/ false,
         false,
