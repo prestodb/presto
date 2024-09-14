@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.LazyIterable;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -27,9 +28,10 @@ import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,14 +60,27 @@ public final class MetadataUtils
             // Do not create tuple domains for every partition at the same time!
             // There can be a huge number of partitions so use an iterable so
             // all domains do not need to be in memory at the same time.
-            Iterable<TupleDomain<ColumnHandle>> partitionDomains = Iterables.transform(partitions, (hivePartition) -> {
-                if (hivePartition.getPartitionId().equals(UNPARTITIONED_ID)) {
-                    return TupleDomain.all();
+            Iterable<TupleDomain<ColumnHandle>> partitionDomains = new LazyIterable<TupleDomain<ColumnHandle>>()
+            {
+                @Override
+                public void setMaxIterableCount(int maxIterableCount)
+                {
+                    partitions.setMaxIterableCount(maxIterableCount);
                 }
-                else {
-                    return TupleDomain.fromFixedValues(hivePartition.getKeys());
+
+                @Override
+                public Iterator<TupleDomain<ColumnHandle>> iterator()
+                {
+                    return Iterators.transform(partitions.iterator(), (hivePartition) -> {
+                        if (hivePartition.getPartitionId().equals(UNPARTITIONED_ID)) {
+                            return TupleDomain.all();
+                        }
+                        else {
+                            return TupleDomain.fromFixedValues(hivePartition.getKeys());
+                        }
+                    });
                 }
-            });
+            };
             discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
         }
         return discretePredicates;

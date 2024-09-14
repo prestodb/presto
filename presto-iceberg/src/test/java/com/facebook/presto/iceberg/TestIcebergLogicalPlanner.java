@@ -89,6 +89,7 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfie
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -198,6 +199,74 @@ public class TestIcebergLogicalPlanner
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS metadata_optimize");
+        }
+    }
+
+    @Test(dataProvider = "push_down_filter_enabled")
+    public void testMetadataQueryOptimizerWithMaxPartitionThreshold(boolean enabled)
+
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        try {
+            queryRunner.execute("create table metadata_optimize_with_threshold(v1 int, v2 varchar, a int, b varchar)" +
+                    " with(partitioning = ARRAY['a', 'b'])");
+            // insert data into 4 different partitions
+            queryRunner.execute("insert into metadata_optimize_with_threshold values" +
+                    " (1, '1001', 1, '1001')," +
+                    " (2, '1002', 2, '1001')," +
+                    " (3, '1003', 3, '1002')," +
+                    " (4, '1004', 4, '1002')");
+
+            // Perform metadata optimization when the number of partitions does not exceed the threshold
+            Session sessionWithThresholdBigger = getSessionWithOptimizeMetadataQueriesAndThreshold(enabled, 4);
+            assertQuery(sessionWithThresholdBigger, "select b, max(a), min(a) from metadata_optimize_with_threshold group by b",
+                    "values('1001', 2, 1), ('1002', 4, 3)");
+            assertPlan(sessionWithThresholdBigger, "select b, max(a), min(a) from metadata_optimize_with_threshold group by b",
+                    anyTree(values(
+                            ImmutableList.of("a", "b"),
+                            ImmutableList.of(
+                                    ImmutableList.of(new LongLiteral("1"), new StringLiteral("1001")),
+                                    ImmutableList.of(new LongLiteral("2"), new StringLiteral("1001")),
+                                    ImmutableList.of(new LongLiteral("3"), new StringLiteral("1002")),
+                                    ImmutableList.of(new LongLiteral("4"), new StringLiteral("1002"))))));
+
+            assertQuery(sessionWithThresholdBigger, "select distinct a, b from metadata_optimize_with_threshold",
+                    "values(1, '1001'), (2, '1001'), (3, '1002'), (4, '1002')");
+            assertPlan(sessionWithThresholdBigger, "select distinct a, b from metadata_optimize_with_threshold",
+                    anyTree(values(
+                            ImmutableList.of("a", "b"),
+                            ImmutableList.of(
+                                    ImmutableList.of(new LongLiteral("1"), new StringLiteral("1001")),
+                                    ImmutableList.of(new LongLiteral("2"), new StringLiteral("1001")),
+                                    ImmutableList.of(new LongLiteral("3"), new StringLiteral("1002")),
+                                    ImmutableList.of(new LongLiteral("4"), new StringLiteral("1002"))))));
+
+            // Do not perform metadata optimization when the number of partitions exceeds the threshold
+            Session sessionWithThresholdSmaller = getSessionWithOptimizeMetadataQueriesAndThreshold(false, 3);
+            assertQuery(sessionWithThresholdSmaller, "select b, max(a), min(a) from metadata_optimize_with_threshold group by b",
+                    "values('1001', 2, 1), ('1002', 4, 3)");
+            assertPlan(sessionWithThresholdSmaller, "select b, max(a), min(a) from metadata_optimize_with_threshold group by b",
+                    anyTree(strictTableScan("metadata_optimize_with_threshold", identityMap("a", "b"))));
+
+            assertQuery(sessionWithThresholdSmaller, "select distinct a, b from metadata_optimize_with_threshold",
+                    "values(1, '1001'), (2, '1001'), (3, '1002'), (4, '1002')");
+            assertPlan(sessionWithThresholdSmaller, "select distinct a, b from metadata_optimize_with_threshold",
+                    anyTree(strictTableScan("metadata_optimize_with_threshold", identityMap("a", "b"))));
+
+            // Perform further reducible optimization regardless of whether the number of partitions exceeds the threshold
+            assertQuery(sessionWithThresholdBigger, "select min(a), max(b) from metadata_optimize_with_threshold", "values(1, '1002')");
+            assertPlan(sessionWithThresholdBigger, "select min(a), max(b) from metadata_optimize_with_threshold",
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of("a", expression("1"), "b", expression("1002")),
+                            anyTree(values()))));
+            assertQuery(sessionWithThresholdSmaller, "select min(a), max(b) from metadata_optimize_with_threshold", "values(1, '1002')");
+            assertPlan(sessionWithThresholdSmaller, "select min(a), max(b) from metadata_optimize_with_threshold",
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of("a", expression("1"), "b", expression("1002")),
+                            anyTree(values()))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS metadata_optimize_with_threshold");
         }
     }
 
@@ -2305,6 +2374,14 @@ public class TestIcebergLogicalPlanner
     {
         return Session.builder(super.getSession())
                 .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, String.valueOf(enabled))
+                .build();
+    }
+
+    protected Session getSessionWithOptimizeMetadataQueriesAndThreshold(boolean enabled, int rowsForMetadataOptimizationThreshold)
+    {
+        return Session.builder(super.getSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, String.valueOf(enabled))
+                .setCatalogSessionProperty(ICEBERG_CATALOG, ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD, String.valueOf(rowsForMetadataOptimizationThreshold))
                 .build();
     }
 

@@ -48,6 +48,13 @@ public final class DiscretePredicates
         return predicates;
     }
 
+    public void setPartitionThreshold(int partitionThreshold)
+    {
+        if (predicates instanceof LazyIterable) {
+            ((LazyIterable) predicates).setMaxIterableCount(partitionThreshold);
+        }
+    }
+
     public boolean isSingleAllDomain()
     {
         Iterator<TupleDomain<ColumnHandle>> predicateIterator = this.predicates.iterator();
