@@ -359,6 +359,81 @@ TEST_F(QueryAssertionsTest, multiFloatColumnWithNonUniqueKeys) {
       "971 extra rows, 971 missing rows");
 }
 
+TEST_F(QueryAssertionsTest, complexTypesContainingFloat) {
+  auto size = 1000;
+  // Test array.
+  auto expected = makeRowVector(
+      {makeArrayVector<float>(
+           size,
+           [](auto /*row*/) { return 2; },
+           [](auto row) { return row % 2 + 0.01; },
+           [](auto row) { return row % 7 == 0; }),
+       makeFlatVector<int64_t>(size, [](auto row) { return row; })});
+  auto actual = makeRowVector(
+      {makeArrayVector<float>(
+           size,
+           [&](auto /*row*/) { return 2; },
+           [&](auto row) {
+             auto value = row % 2 + 0.01;
+             return value + value * FLT_EPSILON;
+           },
+           [&](auto row) { return (size - row - 1) % 7 == 0; }),
+       makeFlatVector<int64_t>(
+           size, [&](auto row) { return size - row - 1; })});
+  EXPECT_TRUE(assertEqualResults({expected}, {actual}));
+
+  // Test map and row.
+  expected = makeRowVector(
+      {makeMapVector<int64_t, float>(
+           size,
+           [](auto /*row*/) { return 2; },
+           [](auto row) { return row; },
+           [](auto row) { return row % 5 + 0.01; },
+           [](auto /*row*/) { return false; },
+           [](auto row) { return row % 6 == 0; }),
+       makeRowVector(
+           {makeFlatVector<float>(
+                size, [](auto row) { return row % 5 + 0.01; }),
+            makeFlatVector<int64_t>(size, [](auto row) { return row % 5; }),
+            makeArrayVector<float>(
+                size,
+                [](auto /*row*/) { return 2; },
+                [](auto row) { return row % 2 + 0.01; },
+                [](auto row) { return row % 7 == 0; })}),
+       makeFlatVector<int64_t>(size, [](auto row) { return row; })});
+  actual = makeRowVector(
+      {makeMapVector<int64_t, float>(
+           size,
+           [](auto /*row*/) { return 2; },
+           [&](auto row) { return (size * 2 - row - 1); },
+           [&](auto row) {
+             auto value = (size * 2 - row - 1) % 5 + 0.01;
+             return value + value * FLT_EPSILON;
+           },
+           [&](auto /*row*/) { return false; },
+           [&](auto row) { return (size * 2 - row - 1) % 6 == 0; }),
+       makeRowVector(
+           {makeFlatVector<float>(
+                size,
+                [&](auto row) {
+                  auto value = (size - row - 1) % 5 + 0.01;
+                  return value + value * FLT_EPSILON;
+                }),
+            makeFlatVector<int64_t>(
+                size, [&](auto row) { return (size - row - 1) % 5; }),
+            makeArrayVector<float>(
+                size,
+                [](auto /*row*/) { return 2; },
+                [&](auto row) {
+                  auto value = row % 2 + 0.01;
+                  return value + value * FLT_EPSILON;
+                },
+                [&](auto row) { return (size - row - 1) % 7 == 0; })}),
+       makeFlatVector<int64_t>(
+           size, [&](auto row) { return (size - row - 1); })});
+  EXPECT_TRUE(assertEqualResults({expected}, {actual}));
+}
+
 TEST_F(QueryAssertionsTest, nullDecimalValue) {
   auto shortDecimal = makeRowVector(
       {makeNullableFlatVector<int64_t>({std::nullopt}, DECIMAL(5, 2))});

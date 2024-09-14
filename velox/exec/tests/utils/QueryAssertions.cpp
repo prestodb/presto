@@ -1068,26 +1068,44 @@ void assertEqualTypeAndNumRows(
   EXPECT_EQ(expectedNumRows, actualNumRows);
 }
 
+bool containsFloatingPoint(const TypePtr& type) {
+  if (type->isPrimitiveType()) {
+    return type->isReal() || type->isDouble();
+  } else if (type->isArray()) {
+    return containsFloatingPoint(type->as<TypeKind::ARRAY>().elementType());
+  } else if (type->isMap()) {
+    // We currently don't support comparing maps with floating-point keys with
+    // epsilon. This is because fuzzer can generate floating-point keys that are
+    // very close, causing one key incorrectly match another during the
+    // comparison.
+    return containsFloatingPoint(type->as<TypeKind::MAP>().valueType());
+  } else if (type->isRow()) {
+    for (auto& child : type->as<TypeKind::ROW>().children()) {
+      if (containsFloatingPoint(child)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /// Returns the number of floating-point columns and a list of columns indices
 /// with floating-point columns placed at the end.
 std::tuple<uint32_t, std::vector<velox::column_index_t>>
-findFloatingPointColumns(const MaterializedRow& row) {
-  auto isFloatingPointColumn = [&](size_t i) {
-    return row[i].kind() == TypeKind::REAL || row[i].kind() == TypeKind::DOUBLE;
-  };
-
+findFloatingPointColumns(const TypePtr& type) {
+  const auto rowType = asRowType(type);
   uint32_t numFloatingPointColumns = 0;
   std::vector<velox::column_index_t> indices;
-  for (auto i = 0; i < row.size(); ++i) {
-    if (isFloatingPointColumn(i)) {
+  for (auto i = 0; i < rowType->children().size(); ++i) {
+    if (containsFloatingPoint(rowType->childAt(i))) {
       ++numFloatingPointColumns;
     } else {
       indices.push_back(i);
     }
   }
 
-  for (auto i = 0; i < row.size(); ++i) {
-    if (isFloatingPointColumn(i)) {
+  for (auto i = 0; i < rowType->children().size(); ++i) {
+    if (containsFloatingPoint(rowType->childAt(i))) {
       indices.push_back(i);
     }
   }
@@ -1107,8 +1125,8 @@ bool assertEqualResults(
     const MaterializedRowMultiset& actualRows,
     const TypePtr& actualType,
     const std::string& message) {
+  const auto& type = (!expectedRows.empty()) ? expectedType : actualType;
   if (expectedRows.empty() != actualRows.empty()) {
-    const auto& type = (!expectedRows.empty()) ? expectedType : actualType;
     ADD_FAILURE() << generateUserFriendlyDiff(expectedRows, actualRows, type)
                   << message;
     return false;
@@ -1125,8 +1143,7 @@ bool assertEqualResults(
     return false;
   }
 
-  auto [numFloatingPointColumns, columns] =
-      findFloatingPointColumns(*expectedRows.begin());
+  auto [numFloatingPointColumns, columns] = findFloatingPointColumns(type);
   if (numFloatingPointColumns) {
     MaterializedRowEpsilonComparator comparator{
         numFloatingPointColumns, columns};
@@ -1214,10 +1231,11 @@ using OrderedPartition = std::pair<MaterializedRow, MaterializedRowMultiset>;
 
 // Special function to compare ordered partitions in a way that
 // we compare all floating point values inside using 'epsilon' constant.
-// Returns true if equal.
+// Returns true if equal. valueType is the type of expected.second.
 static bool compareOrderedPartitions(
     const OrderedPartition& expected,
-    const OrderedPartition& actual) {
+    const OrderedPartition& actual,
+    const RowTypePtr& valueType) {
   if (expected.first.size() != actual.first.size() or
       expected.second.size() != actual.second.size()) {
     return false;
@@ -1238,8 +1256,9 @@ static bool compareOrderedPartitions(
     return false;
   }
 
-  auto [numFloatingPointColumns, columns] =
-      findFloatingPointColumns(*expected.second.begin());
+  // valueType is needed by findFloatingPointColumns() to avoid having to infer
+  // the type from expected.second.
+  auto [numFloatingPointColumns, columns] = findFloatingPointColumns(valueType);
   if (numFloatingPointColumns) {
     MaterializedRowEpsilonComparator comparator{
         numFloatingPointColumns, columns};
@@ -1255,16 +1274,17 @@ static bool compareOrderedPartitions(
 
 // Special function to compare vectors of ordered partitions in a way that
 // we compare all floating point values inside using 'epsilon' constant.
-// Returns true if equal.
+// Returns true if equal. valueType is the type of expected[i].second.
 static bool compareOrderedPartitionsVectors(
     const std::vector<OrderedPartition>& expected,
-    const std::vector<OrderedPartition>& actual) {
+    const std::vector<OrderedPartition>& actual,
+    const RowTypePtr& valueType) {
   if (expected.size() != actual.size()) {
     return false;
   }
 
   for (size_t i = 0; i < expected.size(); ++i) {
-    if (not compareOrderedPartitions(expected[i], actual[i])) {
+    if (not compareOrderedPartitions(expected[i], actual[i], valueType)) {
       return false;
     }
   }
@@ -1302,12 +1322,13 @@ void assertResultsOrdered(
   }
 
   if (not compareOrderedPartitionsVectors(
-          expectedPartitions, actualPartitions)) {
+          expectedPartitions, actualPartitions, resultType)) {
     auto actualPartIter = actualPartitions.begin();
     auto expectedPartIter = expectedPartitions.begin();
     while (expectedPartIter != expectedPartitions.end() &&
            actualPartIter != actualPartitions.end()) {
-      if (not compareOrderedPartitions(*expectedPartIter, *actualPartIter)) {
+      if (not compareOrderedPartitions(
+              *expectedPartIter, *actualPartIter, resultType)) {
         break;
       }
       ++expectedPartIter;

@@ -858,20 +858,70 @@ bool variant::lessThanWithEpsilon(const variant& other) const {
   return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(lessThan, kind_, *this, other);
 }
 
+namespace {
+
+// Compare variants of Array or Row type.
+template <TypeKind KIND>
+bool compareComplexTypeWithEpsilon(const variant& left, const variant& right) {
+  auto& leftContainer = left.value<KIND>();
+  auto& rightContainer = right.value<KIND>();
+  if (leftContainer.size() != rightContainer.size()) {
+    return false;
+  }
+  for (int32_t i = 0; i < leftContainer.size(); i++) {
+    if (!leftContainer[i].equalsWithEpsilon(rightContainer[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Compare variants of Map type.
+template <>
+bool compareComplexTypeWithEpsilon<TypeKind::MAP>(
+    const variant& left,
+    const variant& right) {
+  auto& leftMap = left.value<TypeKind::MAP>();
+  auto& rightMap = right.value<TypeKind::MAP>();
+  if (leftMap.size() != rightMap.size()) {
+    return false;
+  }
+  for (auto it = leftMap.begin(); it != leftMap.end(); ++it) {
+    auto otherIt = rightMap.find(it->first);
+    if (otherIt == rightMap.end()) {
+      return false;
+    }
+    if (!it->second.equalsWithEpsilon(otherIt->second)) {
+      return false;
+    }
+  }
+  return true;
+}
+} // namespace
+
 // Uses kEpsilon to compare floating point types (REAL and DOUBLE).
 // For testing purposes.
 bool variant::equalsWithEpsilon(const variant& other) const {
   if (other.kind_ != this->kind_) {
     return false;
   }
-  if (other.isNull()) {
-    return this->isNull();
+  if (other.isNull() || this->isNull()) {
+    return other.isNull() && this->isNull();
   }
   if ((kind_ == TypeKind::REAL) or (kind_ == TypeKind::DOUBLE)) {
     return equalsFloatingPointWithEpsilon(*this, other);
   }
 
-  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(equals, kind_, *this, other);
+  switch (kind_) {
+    case TypeKind::ARRAY:
+      return compareComplexTypeWithEpsilon<TypeKind::ARRAY>(*this, other);
+    case TypeKind::MAP:
+      return compareComplexTypeWithEpsilon<TypeKind::MAP>(*this, other);
+    case TypeKind::ROW:
+      return compareComplexTypeWithEpsilon<TypeKind::ROW>(*this, other);
+    default:
+      return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(equals, kind_, *this, other);
+  }
 }
 
 void variant::verifyArrayElements(const std::vector<variant>& inputs) {
