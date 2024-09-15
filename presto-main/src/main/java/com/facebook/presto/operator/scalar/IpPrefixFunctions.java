@@ -52,6 +52,8 @@ public final class IpPrefixFunctions
 {
     private static final BigInteger TWO = BigInteger.valueOf(2);
 
+    private static final Block EMPTY_BLOCK = IPPREFIX.createBlockBuilder(null, 0).build();
+
     /**
      * Our definitions for what IANA considers not "globally reachable" are taken from the docs at
      * https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml and
@@ -288,6 +290,71 @@ public final class IpPrefixFunctions
         }
 
         return false;
+    }
+
+    @Description("Split the input prefix into subnets the size of the new prefix length.")
+    @ScalarFunction("ip_prefix_subnets")
+    @SqlType("array(IPPREFIX)")
+    public static Block ipPrefixSubnets(@SqlType(StandardTypes.IPPREFIX) Slice prefix, @SqlType(StandardTypes.BIGINT) long newPrefixLength)
+    {
+        boolean inputIsIpV4 = isIpv4(prefix);
+
+        if (newPrefixLength < 0 || (inputIsIpV4 && newPrefixLength > 32) || (!inputIsIpV4 && newPrefixLength > 128)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid prefix length for IPv" + (inputIsIpV4 ? "4" : "6") + ": " + newPrefixLength);
+        }
+
+        int inputPrefixLength = getPrefixLength(prefix);
+        // An IP prefix is a 'network', or group of contiguous IP addresses. The common format for describing IP prefixes is
+        // uses 2 parts separated by a '/': (1) the IP address part and the (2) prefix length part (also called subnet size or CIDR).
+        // For example, in 9.255.255.0/24, 9.255.255.0 is the IP address part and 24 is the prefix length.
+        // The prefix length describes how many IP addresses the prefix contains in terms of the leading number of bits required. A higher number of bits
+        // means smaller number of IP addresses. Subnets inherently mean smaller groups of IP addresses.
+        // We can only disaggregate a prefix if the prefix length is the same length or longer (more-specific) than the length of the input prefix.
+        // E.g., if the input prefix is 9.255.255.0/24, the prefix length can be /24, /25, /26, etc... but not 23 or larger value than 24.
+
+        int newPrefixCount = 0;  // if inputPrefixLength > newPrefixLength, there are no new prefixes and we will return an empty array.
+        if (inputPrefixLength <= newPrefixLength) {
+            // Next, count how many new prefixes we will generate. In general, every difference in prefix length doubles the number new prefixes.
+            // For example if we start with 9.255.255.0/24, and want to split into /25s, we would have 2 new prefixes. If we wanted to split into /26s,
+            // we would have 4 new prefixes, and /27 would have 8 prefixes etc....
+            newPrefixCount = 1 << (newPrefixLength - inputPrefixLength);  // 2^N
+        }
+
+        if (newPrefixCount == 0) {
+            return EMPTY_BLOCK;
+        }
+
+        BlockBuilder blockBuilder = IPPREFIX.createBlockBuilder(null, newPrefixCount);
+
+        if (newPrefixCount == 1) {
+            IPPREFIX.writeSlice(blockBuilder, prefix); // just return the original prefix in an array
+            return blockBuilder.build(); // returns empty or single entry
+        }
+
+        int ipVersionMaxBits = inputIsIpV4 ? 32 : 128;
+        BigInteger newPrefixIpCount = TWO.pow(ipVersionMaxBits - (int) newPrefixLength);
+
+        Slice startingIpAddressAsSlice = ipSubnetMin(prefix);
+        BigInteger currentIpAddress = toBigInteger(startingIpAddressAsSlice);
+
+        try {
+            for (int i = 0; i < newPrefixCount; i++) {
+                InetAddress asInetAddress = bigIntegerToIpAddress(currentIpAddress);
+                Slice ipPrefixAsSlice = castFromVarcharToIpPrefix(utf8Slice(InetAddresses.toAddrString(asInetAddress) + "/" + newPrefixLength));
+                IPPREFIX.writeSlice(blockBuilder, ipPrefixAsSlice);
+                currentIpAddress = currentIpAddress.add(newPrefixIpCount);   // increment to start of next new prefix
+            }
+        }
+        catch (UnknownHostException ex) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unable to convert " + currentIpAddress + " to IP prefix", ex);
+        }
+
+        return blockBuilder.build();
+    }
+
+    private static int getPrefixLength(Slice ipPrefix)
+    {
+        return ipPrefix.getByte(IPPREFIX.getFixedSize() - 1) & 0xFF;
     }
 
     private static List<Slice> generateMinIpPrefixes(BigInteger firstIpAddress, BigInteger lastIpAddress, int ipVersionMaxBits)
