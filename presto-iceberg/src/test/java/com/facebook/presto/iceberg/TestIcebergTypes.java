@@ -75,7 +75,7 @@ public class TestIcebergTypes
             getQueryRunner().execute("INSERT INTO test_timestamptz_filter VALUES (" + timestamptz + ")");
         }
 
-        MaterializedResult earlyRows = getQueryRunner().execute("SELECT a FROM test_timestamptz_filter WHERE a =" + timestamptz);
+        MaterializedResult earlyRows = getQueryRunner().execute("SELECT a FROM test_timestamptz_filter WHERE a <= " + timestamptz);
         assertEquals(earlyRows.getMaterializedRows().size(), 5);
     }
 }
