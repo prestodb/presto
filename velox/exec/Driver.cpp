@@ -591,7 +591,7 @@ StopReason Driver::runInternal(
           // for the current running arbitration, it is more efficient
           // system-wide to let driver go off thread for the other queries which
           // have free memory capacity to run during the time.
-          blockedOperatorId_ = curOperatorId_ + 1;
+          blockedOperatorId_ = curOperatorId_;
           VELOX_CHECK(future.valid());
           blockingReason_ = BlockingReason::kWaitForArbitration;
           blockingState = std::make_shared<BlockingState>(
