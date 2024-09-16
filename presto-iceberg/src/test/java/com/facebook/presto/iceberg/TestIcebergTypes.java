@@ -40,7 +40,7 @@ public class TestIcebergTypes
     @Test
     public void testTimestampWithTimezone()
     {
-        String timestamptz = "TIMESTAMP '1984-12-08 00:10:00 UTC'";
+        String timestamptz = "TIMESTAMP '1984-12-08 00:10:00 America/Los_Angeles'";
         String timestamp = "TIMESTAMP '1984-12-08 00:10:00'";
 
         getQueryRunner().execute("CREATE TABLE test_timestamptz(a TIMESTAMP WITH TIME ZONE, b TIMESTAMP, c TIMESTAMP WITH TIME ZONE)");
@@ -75,7 +75,13 @@ public class TestIcebergTypes
             getQueryRunner().execute("INSERT INTO test_timestamptz_filter VALUES (" + timestamptz + ")");
         }
 
-        MaterializedResult earlyRows = getQueryRunner().execute("SELECT a FROM test_timestamptz_filter WHERE a <= " + timestamptz);
+        MaterializedResult lateRows = getQueryRunner().execute("SELECT a FROM test_timestamptz_filter WHERE a > " + earlyTimestamptz);
+        assertEquals(lateRows.getMaterializedRows().size(), 5);
+
+        MaterializedResult rows = getQueryRunner().execute("SELECT * FROM test_timestamptz_filter");
+        System.out.println(rows.toString());
+
+        MaterializedResult earlyRows = getQueryRunner().execute("SELECT a FROM test_timestamptz_filter WHERE a <= " + earlyTimestamptz);
         assertEquals(earlyRows.getMaterializedRows().size(), 5);
     }
 }
