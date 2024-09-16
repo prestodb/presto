@@ -170,18 +170,32 @@ struct ArrayJoinFunction {
   }
 
   FOLLY_ALWAYS_INLINE void initialize(
-      const std::vector<TypePtr>& /*inputTypes*/,
+      const std::vector<TypePtr>& inputTypes,
       const core::QueryConfig& config,
       const arg_type<velox::Array<T>>* /*arr*/,
       const arg_type<Varchar>* /*delimiter*/,
       const arg_type<Varchar>* /*nullReplacement*/) {
     const exec::PrestoCastHooks hooks{config};
     options_ = hooks.timestampToStringOptions();
+    VELOX_CHECK(
+        inputTypes[0]->isArray(),
+        "Array join's first parameter type has to be array");
+    arrayElementType_ = inputTypes[0]->asArray().elementType();
   }
 
   template <typename C>
   void writeValue(out_type<velox::Varchar>& result, const C& value) {
     // To VARCHAR converter never throws.
+    result += util::Converter<TypeKind::VARCHAR>::tryCast(value).value();
+  }
+
+  void writeValue(out_type<velox::Varchar>& result, const int32_t& value) {
+    if (arrayElementType_->isDate()) {
+      result += util::Converter<TypeKind::VARCHAR>::tryCast(
+                    DateType::get()->toString(value))
+                    .value();
+      return;
+    }
     result += util::Converter<TypeKind::VARCHAR>::tryCast(value).value();
   }
 
@@ -244,6 +258,7 @@ struct ArrayJoinFunction {
 
  private:
   TimestampToStringOptions options_;
+  TypePtr arrayElementType_;
 };
 
 /// Function Signature: combinations(array(T), n) -> array(array(T))

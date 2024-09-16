@@ -38,9 +38,14 @@ class ArrayJoinTest : public FunctionBaseTest {
   void testArrayJoinNoReplacement(
       std::vector<std::optional<T>> array,
       const StringView& delimiter,
-      const StringView& expected) {
+      const StringView& expected,
+      bool isDate = false) {
     auto arrayVector = makeNullableArrayVector(
         std::vector<std::vector<std::optional<T>>>{array});
+    if (isDate) {
+      arrayVector = makeNullableArrayVector(
+          std::vector<std::vector<std::optional<T>>>{array}, ARRAY(DATE()));
+    }
     auto delimiterVector = makeFlatVector<StringView>({delimiter});
     auto expectedVector = makeFlatVector<StringView>({expected});
     testExpr(
@@ -52,9 +57,14 @@ class ArrayJoinTest : public FunctionBaseTest {
       std::vector<std::optional<T>> array,
       const StringView& delimiter,
       const StringView& replacement,
-      const StringView& expected) {
+      const StringView& expected,
+      bool isDate = false) {
     auto arrayVector = makeNullableArrayVector(
         std::vector<std::vector<std::optional<T>>>{array});
+    if (isDate) {
+      arrayVector = makeNullableArrayVector(
+          std::vector<std::vector<std::optional<T>>>{array}, ARRAY(DATE()));
+    }
     auto delimiterVector = makeFlatVector<StringView>({delimiter});
     auto replacementVector = makeFlatVector<StringView>({replacement});
     auto expectedVector = makeFlatVector<StringView>({expected});
@@ -135,6 +145,19 @@ TEST_F(ArrayJoinTest, timestampTest) {
       "~"_sv,
       "<absent>"_sv,
       "1970-01-04 12:33:03.000~<absent>~1970-02-03 12:33:03.000"_sv);
+}
+
+TEST_F(ArrayJoinTest, dateTest) {
+  std::cout << std::nextafter(0.67777777, INFINITY);
+  setLegacyCast(false);
+  testArrayJoinNoReplacement<int32_t>(
+      {-7204, std::nullopt, -7203}, ","_sv, "1950-04-12,1950-04-13"_sv, true);
+  testArrayJoinReplacement<int32_t>(
+      {-7204, std::nullopt, -7203},
+      ","_sv,
+      "."_sv,
+      "1950-04-12,.,1950-04-13"_sv,
+      true);
 }
 
 } // namespace
