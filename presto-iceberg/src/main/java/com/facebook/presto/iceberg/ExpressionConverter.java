@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -199,7 +200,7 @@ public final class ExpressionConverter
             return toIntExact(((Long) marker.getValue()));
         }
 
-        if (type instanceof TimestampType || type instanceof TimeType) {
+        if (type instanceof TimestampType || type instanceof TimeType || type instanceof TimestampWithTimeZoneType) {
             return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 
