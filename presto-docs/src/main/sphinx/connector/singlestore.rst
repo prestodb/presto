@@ -68,7 +68,7 @@ that catalog name instead of ``singlestore`` in the above examples.
 SingleStore Connector Limitations
 ---------------------------------
 
-For :doc:`/sql/create-table` statement, the default table type is columnstore.
+For :doc:`/sql/create-table` statement, the default table type is ``columnstore``.
 The table type can be configured by setting the ``default_table_type`` engine variable, see the
 `Creating a Columnstore Table <https://docs.singlestore.com/cloud/create-a-database/creating-a-columnstore-table/>`_.
 
