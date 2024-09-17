@@ -1,0 +1,274 @@
+<runtime>
+    <!-- Target -->
+    <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
+
+    <!-- Notices -->
+    <fileSet to="/">
+        <directory path="${basedir}">
+            <include>NOTICE</include>
+            <include>README.txt</include>
+        </directory>
+    </fileSet>
+
+    <!-- Launcher -->
+    <artifactSet to="bin">
+        <artifact id="com.facebook.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
+            <unpack />
+        </artifact>
+        <artifact id="com.facebook.airlift:launcher:tar.gz:properties:${dep.packaging.version}">
+            <unpack filter="true" />
+        </artifact>
+    </artifactSet>
+
+    <!-- Server -->
+    <artifactSet to="lib">
+        <artifact id="${project.groupId}:presto-main:${project.version}" />
+    </artifactSet>
+
+    <!-- Plugins -->
+    <artifactSet to="plugin/resource-group-managers">
+        <artifact id="${project.groupId}:presto-resource-group-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/password-authenticators">
+        <artifact id="${project.groupId}:presto-password-authenticators:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/session-property-managers">
+        <artifact id="${project.groupId}:presto-session-property-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/ttl-fetchers">
+        <artifact id="${project.groupId}:presto-node-ttl-fetchers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/cluster-ttl-providers">
+        <artifact id="${project.groupId}:presto-cluster-ttl-providers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/function-namespace-managers">
+        <artifact id="${project.groupId}:presto-function-namespace-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/jmx">
+        <artifact id="${project.groupId}:presto-jmx:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/cassandra">
+        <artifact id="${project.groupId}:presto-cassandra:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/pinot">
+        <artifact id="${project.groupId}:presto-pinot:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/example-http">
+        <artifact id="${project.groupId}:presto-example-http:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/hana">
+        <artifact id="${project.groupId}:presto-hana:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/hive-hadoop2">
+        <artifact id="${project.groupId}:presto-hive-hadoop2:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/memory">
+        <artifact id="${project.groupId}:presto-memory:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/blackhole">
+        <artifact id="${project.groupId}:presto-blackhole:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/kafka">
+        <artifact id="${project.groupId}:presto-kafka:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/kudu">
+        <artifact id="${project.groupId}:presto-kudu:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/atop">
+        <artifact id="${project.groupId}:presto-atop:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/ml">
+        <artifact id="${project.groupId}:presto-ml:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/mysql">
+        <artifact id="${project.groupId}:presto-mysql:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/singlestore">
+        <artifact id="${project.groupId}:presto-singlestore:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/oracle">
+        <artifact id="${project.groupId}:presto-oracle:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/postgresql">
+        <artifact id="${project.groupId}:presto-postgresql:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/prometheus">
+        <artifact id="${project.groupId}:presto-prometheus:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/redshift">
+        <artifact id="${project.groupId}:presto-redshift:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/sqlserver">
+        <artifact id="${project.groupId}:presto-sqlserver:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/redis">
+        <artifact id="${project.groupId}:presto-redis:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/tpch">
+        <artifact id="${project.groupId}:presto-tpch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/tpcds">
+        <artifact id="${project.groupId}:presto-tpcds:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/teradata-functions">
+        <artifact id="${project.groupId}:presto-teradata-functions:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/mongodb">
+        <artifact id="${project.groupId}:presto-mongodb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/localfile">
+        <artifact id="${project.groupId}:presto-local-file:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/accumulo">
+        <artifact id="${project.groupId}:presto-accumulo:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/presto-thrift">
+        <artifact id="${project.groupId}:presto-thrift-connector:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/presto-elasticsearch">
+        <artifact id="${project.groupId}:presto-elasticsearch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/presto-druid">
+        <artifact id="${project.groupId}:presto-druid:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/presto-bigquery">
+        <artifact id="${project.groupId}:presto-bigquery:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/iceberg">
+        <artifact id="${project.groupId}:presto-iceberg:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/hive-function-namespace">
+        <artifact id="${project.groupId}:presto-hive-function-namespace:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/delta">
+        <artifact id="${project.groupId}:presto-delta:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/hudi">
+        <artifact id="${project.groupId}:presto-hudi:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/clickhouse">
+        <artifact id="${project.groupId}:presto-clickhouse:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+</runtime>
