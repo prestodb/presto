@@ -1120,7 +1120,7 @@ class Task : public std::enable_shared_from_this<Task> {
   // queued split groups.
   std::queue<uint32_t> queuedSplitGroups_;
 
-  TaskState state_ = TaskState::kRunning;
+  TaskState state_{TaskState::kRunning};
 
   // Stores splits state structure for each plan node. At construction populated
   // with all leaf plan nodes that require splits. Afterwards accessed with

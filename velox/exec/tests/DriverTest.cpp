@@ -1416,6 +1416,49 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionCalledFromOffThread) {
   VELOX_ASSERT_THROW(driver->task()->leaveSuspended(driver->state()), "");
 }
 
+// This test case verifies that the driver thread leaves suspended state after
+// task termiates and before resuming.
+DEBUG_ONLY_TEST_F(DriverTest, driverSuspendedAfterTaskTerminateBeforeResume) {
+  std::shared_ptr<Driver> driver;
+  std::atomic_bool triggerSuspended{false};
+  std::atomic_bool taskPaused{false};
+  // std::atomic_bool driverExecutionWaitFlag{true};
+  folly::EventCount taskPausedWait;
+  std::atomic_bool driverLeaveSuspended{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const exec::Values*)>([&](const exec::Values* values) {
+        if (triggerSuspended.exchange(true)) {
+          return;
+        }
+        driver = values->testingOperatorCtx()->driver()->shared_from_this();
+        driver->task()->enterSuspended(driver->state());
+        driver->task()->requestPause().wait();
+        taskPaused = true;
+        taskPausedWait.notifyAll();
+        const StopReason ret = driver->task()->leaveSuspended(driver->state());
+        ASSERT_EQ(ret, StopReason::kAlreadyTerminated);
+        driverLeaveSuspended = true;
+      }));
+
+  auto task = createAndStartTaskToReadValues(1);
+
+  taskPausedWait.await([&]() { return taskPaused.load(); });
+  task->requestCancel().wait();
+  // Wait for 1 second and check the driver is still under suspended state
+  // without resuming.
+  std::this_thread::sleep_for(std::chrono::milliseconds(1'000));
+  ASSERT_FALSE(driverLeaveSuspended);
+
+  Task::resume(task);
+  std::this_thread::sleep_for(std::chrono::milliseconds(1'000));
+  // Check the driver leaves the suspended state after task is resumed. Wait for
+  // 1 second to avoid timing flakiness.
+  ASSERT_TRUE(driverLeaveSuspended);
+
+  ASSERT_TRUE(waitForTaskCancelled(task.get(), 100'000'000));
+}
+
 DEBUG_ONLY_TEST_F(DriverTest, driverThreadContext) {
   ASSERT_TRUE(driverThreadContext() == nullptr);
   std::thread nonDriverThread(
