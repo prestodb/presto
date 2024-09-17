@@ -2882,7 +2882,7 @@ TEST_F(VectorTest, resizeArrayAndMapResetOffsets) {
 
   // Test array.
   {
-    auto offsets = makeIndices({1, 1, 1, 1});
+    auto offsets = makeIndices({0, 1, 2, 3});
     auto sizes = makeIndices({1, 1, 1, 1});
 
     auto* rawSizes = sizes->as<vector_size_t>();
@@ -2907,7 +2907,7 @@ TEST_F(VectorTest, resizeArrayAndMapResetOffsets) {
 
   // Test map.
   {
-    auto offsets = makeIndices({1, 1, 1, 1});
+    auto offsets = makeIndices({0, 1, 2, 3});
     auto sizes = makeIndices({1, 1, 1, 1});
 
     auto* rawSizes = sizes->as<vector_size_t>();
@@ -3897,6 +3897,40 @@ TEST_F(VectorTest, testOverSizedArray) {
   auto array = makeArrayVector(offsets, flat);
   auto constArray = BaseVector::wrapInConstant(21474830, 0, array);
   EXPECT_THROW(BaseVector::flattenVector(constArray), VeloxUserError);
+}
+
+TEST_F(VectorTest, hasOverlappingRanges) {
+  auto test = [this](
+                  vector_size_t length,
+                  const std::vector<bool>& nulls,
+                  const std::vector<vector_size_t>& offsets,
+                  const std::vector<vector_size_t>& sizes,
+                  bool overlap) {
+    auto makeArray = [&] {
+      return std::make_shared<ArrayVector>(
+          pool(),
+          ARRAY(BIGINT()),
+          makeNulls(nulls),
+          length,
+          makeIndices(length, [&](auto i) { return offsets[i]; }),
+          makeIndices(length, [&](auto i) { return sizes[i]; }),
+          makeNullConstant(
+              TypeKind::BIGINT, std::numeric_limits<vector_size_t>::max()));
+    };
+    if (!overlap) {
+      ASSERT_FALSE(makeArray()->hasOverlappingRanges());
+    } else {
+      ASSERT_TRUE(makeArray()->hasOverlappingRanges());
+    }
+  };
+  test(3, {false, false, false}, {0, 1, 2}, {1, 1, 1}, false);
+  test(3, {false, true, false}, {0, 0, 2}, {1, 1, 1}, false);
+  test(3, {false, false, false}, {0, 0, 2}, {1, 0, 1}, false);
+  test(3, {false, false, false}, {0, 0, 2}, {1, 1, 1}, true);
+  test(3, {false, false, false}, {2, 1, 0}, {1, 1, 1}, false);
+  test(3, {false, false, false}, {2, 1, 0}, {1, 2, 1}, true);
+  test(2, {false, false}, {0, 1}, {3, 1}, true);
+  test(2, {false, false}, {1, 0}, {1, 3}, true);
 }
 
 } // namespace

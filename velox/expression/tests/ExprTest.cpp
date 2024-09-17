@@ -3568,10 +3568,10 @@ TEST_P(ParameterizedExprTest, mapKeysAndValues) {
       MAP(BIGINT(), BIGINT()),
       makeNulls(vectorSize, nullEvery(3)),
       vectorSize,
-      makeIndices(vectorSize, [](auto /* row */) { return 0; }),
+      makeIndices(vectorSize, folly::identity),
       makeIndices(vectorSize, [](auto /* row */) { return 1; }),
-      makeFlatVector<int64_t>({1, 2, 3}),
-      makeFlatVector<int64_t>({10, 20, 30}));
+      makeFlatVector<int64_t>(vectorSize, folly::identity),
+      makeFlatVector<int64_t>(vectorSize, [](auto i) { return 10 * i; }));
   auto input = makeRowVector({mapVector});
   auto exprSet = compileMultiple(
       {"map_keys(c0)", "map_values(c0)"}, asRowType(input->type()));
@@ -4805,7 +4805,7 @@ TEST_F(ExprTest, disablePeeling) {
   // Verify that peeling is disabled when the config is set by checking whether
   // the number of rows processed is equal to the alphabet size (when enabled)
   // or the dictionary size (when disabled).
-  // Also, ensure that single arg function recieves a flat vector even when
+  // Also, ensure that single arg function receives a flat vector even when
   // peeling is disabled.
 
   // This throws if input is not flat or constant.
@@ -4847,7 +4847,7 @@ TEST_F(ExprTest, disablePeeling) {
   ASSERT_TRUE(stats.find("plus") != stats.end());
   ASSERT_EQ(stats["plus"].numProcessedRows, dictSize);
 
-  // Ensure single arg function recieves a flat vector.
+  // Ensure single arg function receives a flat vector.
   // When top level column is dictionary wrapped.
   ASSERT_NO_THROW(evaluateMultiple(
       {"testing_single_arg_deterministic((c0))"},

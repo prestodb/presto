@@ -168,14 +168,14 @@ TEST_F(MapEntriesTest, differentSizedValueKeyVectors) {
       makeNullableFlatVector<int64_t>({1, 2, 3, 4, std::nullopt, std::nullopt});
   auto valueVector = makeFlatVector<int64_t>({1, 2, 3, 4});
 
-  auto offsetBuffer = makeIndices({3, 2, 1, 0, 0, 0});
-  auto sizeBuffer = makeIndices({1, 1, 1, 1, 1, 1});
+  auto offsetBuffer = makeIndices({3, 2, 1, 0});
+  auto sizeBuffer = makeIndices({1, 1, 1, 1});
 
   auto mapVector = std::make_shared<MapVector>(
       pool(),
       MAP(BIGINT(), BIGINT()),
       nullptr,
-      6,
+      4,
       offsetBuffer,
       sizeBuffer,
       keyVector,
@@ -188,9 +188,9 @@ TEST_F(MapEntriesTest, differentSizedValueKeyVectors) {
 
   EXPECT_NE(result, nullptr);
   auto elementVector = makeRowVector(
-      {makeFlatVector<int64_t>({4, 3, 2, 1, 1, 1}),
-       makeFlatVector<int64_t>({4, 3, 2, 1, 1, 1})});
-  auto arrayVector = makeArrayVector({0, 1, 2, 3, 4, 5}, elementVector);
+      {makeFlatVector<int64_t>({4, 3, 2, 1}),
+       makeFlatVector<int64_t>({4, 3, 2, 1})});
+  auto arrayVector = makeArrayVector({0, 1, 2, 3}, elementVector);
 
   test::assertEqualVectors(arrayVector, result);
 }

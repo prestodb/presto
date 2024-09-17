@@ -364,9 +364,8 @@ struct ArrayVectorBase : BaseVector {
     sizes_->asMutable<vector_size_t>()[i] = size;
   }
 
-  /// Verify that an ArrayVector/MapVector does not contain overlapping [offset,
-  /// size] ranges. Throws in case overlaps are found.
-  void checkRanges() const;
+  /// Check if there is any overlapping [offset, size] ranges.
+  bool hasOverlappingRanges() const;
 
  protected:
   ArrayVectorBase(
@@ -411,6 +410,14 @@ struct ArrayVectorBase : BaseVector {
   const vector_size_t* rawOffsets_;
   BufferPtr sizes_;
   const vector_size_t* rawSizes_;
+
+ private:
+  template <bool kHasNulls>
+  bool maybeHaveOverlappingRanges() const;
+
+  // Returns the next non-null non-empty array/map on or after `index'.
+  template <bool kHasNulls>
+  vector_size_t nextNonEmpty(vector_size_t index) const;
 };
 
 class ArrayVector : public ArrayVectorBase {

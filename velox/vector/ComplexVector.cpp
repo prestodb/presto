@@ -809,31 +809,59 @@ VectorPtr RowVector::pushDictionaryToRowVectorLeaves(const VectorPtr& input) {
       wrappers, input->size(), input, input->pool());
 }
 
-void ArrayVectorBase::checkRanges() const {
-  std::unordered_map<vector_size_t, vector_size_t> seenElements;
-  seenElements.reserve(size());
+template <bool kHasNulls>
+vector_size_t ArrayVectorBase::nextNonEmpty(vector_size_t i) const {
+  while (i < size() &&
+         ((kHasNulls && bits::isBitNull(rawNulls(), i)) || rawSizes_[i] <= 0)) {
+    ++i;
+  }
+  return i;
+}
 
+template <bool kHasNulls>
+bool ArrayVectorBase::maybeHaveOverlappingRanges() const {
+  vector_size_t curr = 0;
+  curr = nextNonEmpty<kHasNulls>(curr);
+  if (curr >= size()) {
+    return false;
+  }
+  for (;;) {
+    auto next = nextNonEmpty<kHasNulls>(curr + 1);
+    if (next >= size()) {
+      return false;
+    }
+    // This also implicitly ensures rawOffsets_[curr] <= rawOffsets_[next].
+    if (rawOffsets_[curr] + rawSizes_[curr] > rawOffsets_[next]) {
+      return true;
+    }
+    curr = next;
+  }
+}
+
+bool ArrayVectorBase::hasOverlappingRanges() const {
+  if (!(rawNulls() ? maybeHaveOverlappingRanges<true>()
+                   : maybeHaveOverlappingRanges<false>())) {
+    return false;
+  }
+  std::vector<vector_size_t> indices;
+  indices.reserve(size());
   for (vector_size_t i = 0; i < size(); ++i) {
-    auto size = sizeAt(i);
-    auto offset = offsetAt(i);
-
-    for (vector_size_t j = 0; j < size; ++j) {
-      auto it = seenElements.find(offset + j);
-      if (it != seenElements.end()) {
-        VELOX_FAIL(
-            "checkRanges() found overlap at idx {}: element {} has offset {} "
-            "and size {}, and element {} has offset {} and size {}.",
-            offset + j,
-            it->second,
-            offsetAt(it->second),
-            sizeAt(it->second),
-            i,
-            offset,
-            size);
-      }
-      seenElements.emplace(offset + j, i);
+    const bool isNull = rawNulls() && bits::isBitNull(rawNulls(), i);
+    if (!isNull && rawSizes_[i] > 0) {
+      indices.push_back(i);
     }
   }
+  std::sort(indices.begin(), indices.end(), [&](auto i, auto j) {
+    return rawOffsets_[i] < rawOffsets_[j];
+  });
+  for (vector_size_t i = 1; i < indices.size(); ++i) {
+    auto j = indices[i - 1];
+    auto k = indices[i];
+    if (rawOffsets_[j] + rawSizes_[j] > rawOffsets_[k]) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void ArrayVectorBase::validateArrayVectorBase(

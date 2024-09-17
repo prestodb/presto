@@ -386,8 +386,9 @@ ArrayVector
 ~~~~~~~~~~~
 
 ArrayVector stores values of type ARRAY. In addition to nulls buffer, it
-contains offsets and sizes buffers and an elements vector. Offsets and sizes
-are 32-bit integers.
+contains offsets and sizes buffers and an elements vector. Offsets and sizes are
+32-bit integers. The non-null non-empty ranges formed by offsets and sizes in a
+vector is not allowed to overlap with each other.
 
 .. code-block:: c++
 
@@ -443,8 +444,9 @@ MapVector
 ~~~~~~~~~
 
 MapVector stores values of type MAP. In addition to nulls buffer, it contains
-offsets and sizes buffers, keys and values vectors. Offsets and sizes are
-32-bit integers.
+offsets and sizes buffers, keys and values vectors. Offsets and sizes are 32-bit
+integers. The non-null non-empty ranges formed by offsets and sizes in a vector
+is not allowed to overlap with each other.
 
 .. code-block:: c++
 

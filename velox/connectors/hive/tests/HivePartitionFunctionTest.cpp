@@ -319,23 +319,17 @@ TEST_F(HivePartitionFunctionTest, arrayElementsEncoded) {
   auto rawSizes = sizesBuffer->asMutable<vector_size_t>();
   auto rawNulls = nullsBuffer->asMutable<uint64_t>();
 
-  // Make the elements overlap and have gaps.
+  // Make the elements have gaps.
   // Set the values in position 2 to be invalid since that Array should be null.
   std::vector<vector_size_t> offsets{
-      0, 2, std::numeric_limits<int32_t>().max(), 1, 8};
+      0, 2, std::numeric_limits<int32_t>().max(), 4, 8};
   std::vector<vector_size_t> sizes{
-      4, 3, std::numeric_limits<int32_t>().max(), 5, 2};
+      2, 1, std::numeric_limits<int32_t>().max(), 3, 2};
   memcpy(rawOffsets, offsets.data(), size * sizeof(vector_size_t));
   memcpy(rawSizes, sizes.data(), size * sizeof(vector_size_t));
 
   bits::setNull(rawNulls, 2);
 
-  // Produces arrays that look like:
-  // [9, NULL, 7, 6]
-  // [7, 6, 5]
-  // NULL
-  // [NULL, 7, 6, 5, NULL]
-  // [1, NULL]
   auto values = std::make_shared<ArrayVector>(
       pool_.get(),
       ARRAY(elements->type()),
@@ -346,9 +340,9 @@ TEST_F(HivePartitionFunctionTest, arrayElementsEncoded) {
       encodedElements);
 
   assertPartitions(values, 1, {0, 0, 0, 0, 0});
-  assertPartitions(values, 2, {0, 0, 0, 0, 1});
-  assertPartitions(values, 500, {342, 418, 0, 458, 31});
-  assertPartitions(values, 997, {149, 936, 0, 103, 31});
+  assertPartitions(values, 2, {1, 1, 0, 0, 1});
+  assertPartitions(values, 500, {279, 7, 0, 308, 31});
+  assertPartitions(values, 997, {279, 7, 0, 820, 31});
 
   assertPartitionsWithConstChannel(values, 1);
   assertPartitionsWithConstChannel(values, 2);
@@ -428,23 +422,17 @@ TEST_F(HivePartitionFunctionTest, mapEntriesEncoded) {
   auto rawSizes = sizesBuffer->asMutable<vector_size_t>();
   auto rawNulls = nullsBuffer->asMutable<uint64_t>();
 
-  // Make the elements overlap and have gaps.
+  // Make the elements have gaps.
   // Set the values in position 2 to be invalid since that Map should be null.
   std::vector<vector_size_t> offsets{
-      0, 2, std::numeric_limits<int32_t>().max(), 1, 8};
+      0, 2, std::numeric_limits<int32_t>().max(), 4, 8};
   std::vector<vector_size_t> sizes{
-      4, 3, std::numeric_limits<int32_t>().max(), 5, 2};
+      2, 1, std::numeric_limits<int32_t>().max(), 3, 2};
   memcpy(rawOffsets, offsets.data(), size * sizeof(vector_size_t));
   memcpy(rawSizes, sizes.data(), size * sizeof(vector_size_t));
 
   bits::setNull(rawNulls, 2);
 
-  // Produces maps that look like:
-  // {key_0: 9, key_3: NULL, key_6: 7, key_9: 6}
-  // {key_6: 7, key_9: 6, key_2: 5}
-  // NULL
-  // {key_3: NULL, key_6: 7, key_9: 6, key_2: 5, key_5: NULL}
-  // {key_4: 1, key_7: NULL}
   auto values = std::make_shared<MapVector>(
       pool_.get(),
       MAP(mapKeys->type(), mapValues->type()),
@@ -457,8 +445,8 @@ TEST_F(HivePartitionFunctionTest, mapEntriesEncoded) {
 
   assertPartitions(values, 1, {0, 0, 0, 0, 0});
   assertPartitions(values, 2, {0, 1, 0, 1, 0});
-  assertPartitions(values, 500, {176, 259, 0, 91, 336});
-  assertPartitions(values, 997, {694, 24, 0, 365, 345});
+  assertPartitions(values, 500, {336, 413, 0, 259, 336});
+  assertPartitions(values, 997, {345, 666, 0, 24, 345});
 
   assertPartitionsWithConstChannel(values, 1);
   assertPartitionsWithConstChannel(values, 2);

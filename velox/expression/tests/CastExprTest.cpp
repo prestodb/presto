@@ -1279,7 +1279,8 @@ TEST_F(CastExprTest, mapCast) {
 
     SelectivityVector rows(5);
     rows.setValid(2, false);
-    mapVector->setOffsetAndSize(2, 100, 100);
+    mapVector->setOffsetAndSize(2, 100, 1);
+    mapVector->setOffsetAndSize(51, 2, 1);
     std::vector<VectorPtr> results(1);
 
     auto rowVector = makeRowVector({mapVector});
@@ -1369,7 +1370,8 @@ TEST_F(CastExprTest, arrayCast) {
 
     SelectivityVector rows(5);
     rows.setValid(2, false);
-    arrayVector->setOffsetAndSize(2, 100, 10);
+    arrayVector->setOffsetAndSize(2, 100, 5);
+    arrayVector->setOffsetAndSize(20, 10, 5);
     std::vector<VectorPtr> results(1);
 
     auto rowVector = makeRowVector({arrayVector});

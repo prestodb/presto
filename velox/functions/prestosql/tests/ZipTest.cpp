@@ -326,7 +326,7 @@ TEST_F(ZipTest, flatArraysWithDifferentOffsets) {
 
 /// Test if we can zip two flat vectors of arrays with overlapping ranges of
 /// elements.
-TEST_F(ZipTest, flatArraysWithOverlappingRanges) {
+TEST_F(ZipTest, DISABLED_flatArraysWithOverlappingRanges) {
   const auto size = 3;
   BufferPtr offsetsBuffer = allocateOffsets(size, pool_.get());
   BufferPtr sizesBuffer = allocateSizes(size, pool_.get());
