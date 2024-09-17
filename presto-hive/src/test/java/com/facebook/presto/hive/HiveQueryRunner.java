@@ -216,8 +216,7 @@ public final class HiveQueryRunner
                     .build();
             queryRunner.createCatalog("tpchstandard", "tpch", tpchProperties);
 
-            ExtendedHiveMetastore metastore;
-            metastore = externalMetastore.orElse(getFileHiveMetastore(queryRunner));
+            ExtendedHiveMetastore metastore = externalMetastore.orElse(getFileHiveMetastore(queryRunner));
 
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
 
@@ -280,9 +279,8 @@ public final class HiveQueryRunner
 
             return queryRunner;
         }
-        catch (Exception e) {
+        finally {
             queryRunner.close();
-            throw e;
         }
     }
 
@@ -489,9 +487,8 @@ public final class HiveQueryRunner
                 }
             });
         }
-        catch (Exception e) {
+        finally {
             queryRunner.close();
-            throw e;
         }
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);

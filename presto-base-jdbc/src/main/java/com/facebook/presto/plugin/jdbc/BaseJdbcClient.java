@@ -294,9 +294,8 @@ public class BaseJdbcClient
         try {
             connection.setReadOnly(true);
         }
-        catch (SQLException e) {
+        finally {
             connection.close();
-            throw e;
         }
         return connection;
     }
