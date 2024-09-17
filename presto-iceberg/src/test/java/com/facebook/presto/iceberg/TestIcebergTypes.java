@@ -106,13 +106,13 @@ public class TestIcebergTypes
         assertEquals(lateRows.getMaterializedRows().size(), 5);
 
         MaterializedResult lateRowsFromEquals = runner.execute("SELECT a FROM test_timestamptz_filter WHERE a = " + timestamptz);
-        assertEquals(lateRows, lateRowsFromEquals);
+        com.facebook.presto.testing.assertions.Assert.assertEquals(lateRows, lateRowsFromEquals);
 
         MaterializedResult earlyRows = runner.execute("SELECT a FROM test_timestamptz_filter WHERE a < " + timestamptz);
         assertEquals(earlyRows.getMaterializedRows().size(), 5);
 
         MaterializedResult earlyRowsFromEquals = runner.execute("SELECT a FROM test_timestamptz_filter WHERE a = " + earlyTimestamptz);
-        assertEquals(earlyRows, earlyRowsFromEquals);
+        com.facebook.presto.testing.assertions.Assert.assertEquals(earlyRows, earlyRowsFromEquals);
     }
 
     private QueryRunner getBatchReaderEnabledQueryRunner()
