@@ -14,12 +14,9 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 
-import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 public class LongTimestampMicrosColumnReader
@@ -36,12 +33,7 @@ public class LongTimestampMicrosColumnReader
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             long utcMillis = MICROSECONDS.toMillis(valuesReader.readLong());
             // TODO: specialize the class at creation time
-            if (type instanceof TimestampWithTimeZoneType) {
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
-            }
-            else {
-                type.writeLong(blockBuilder, utcMillis);
-            }
+            type.writeLong(blockBuilder, utcMillis);
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();
