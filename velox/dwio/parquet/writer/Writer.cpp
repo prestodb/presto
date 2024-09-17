@@ -18,6 +18,7 @@
 #include <arrow/c/bridge.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/table.h>
+#include "velox/common/base/Pointers.h"
 #include "velox/common/config/Config.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/core/QueryConfig.h"
@@ -233,18 +234,7 @@ Writer::Writer(
   validateSchemaRecursive(schema_);
 
   if (options.flushPolicyFactory) {
-    auto* flushPolicy = options.flushPolicyFactory().release();
-    VELOX_CHECK_NOT_NULL(flushPolicy);
-    // TODO: consider to add a utility to handle similar smart pointer
-    // conversion use cases.
-    try {
-      auto* parquetFlushPolicy = dynamic_cast<DefaultFlushPolicy*>(flushPolicy);
-      VELOX_CHECK_NOT_NULL(parquetFlushPolicy);
-      flushPolicy_.reset(parquetFlushPolicy);
-    } catch (const std::exception& e) {
-      delete flushPolicy;
-      throw;
-    }
+    castUniquePointer(options.flushPolicyFactory(), flushPolicy_);
   } else {
     flushPolicy_ = std::make_unique<DefaultFlushPolicy>();
   }

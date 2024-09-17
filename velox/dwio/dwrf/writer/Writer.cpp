@@ -19,6 +19,7 @@
 #include <folly/ScopeGuard.h>
 
 #include "velox/common/base/Counters.h"
+#include "velox/common/base/Pointers.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
@@ -90,18 +91,7 @@ Writer::Writer(
         context.stripeSizeFlushThreshold(),
         context.dictionarySizeFlushThreshold());
   } else {
-    auto* flushPolicy = options.flushPolicyFactory().release();
-    VELOX_CHECK_NOT_NULL(flushPolicy);
-    // TODO: consider to add a utility to handle similar smart pointer
-    // conversion use cases.
-    try {
-      auto* dwrfFlushPolicy = dynamic_cast<DWRFFlushPolicy*>(flushPolicy);
-      VELOX_CHECK_NOT_NULL(dwrfFlushPolicy);
-      flushPolicy_.reset(dwrfFlushPolicy);
-    } catch (const std::exception& e) {
-      delete flushPolicy;
-      throw;
-    }
+    castUniquePointer(options.flushPolicyFactory(), flushPolicy_);
   }
 
   if (options.layoutPlannerFactory != nullptr) {
