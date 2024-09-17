@@ -896,6 +896,11 @@ TEST_F(DateTimeFunctionsTest, timestampMinusIntervalYearMonth) {
   EXPECT_EQ("2001-02-28 04:05:06", minus("2001-03-30 04:05:06", 1));
   EXPECT_EQ("2000-02-29 04:05:06", minus("2000-03-30 04:05:06", 1));
   EXPECT_EQ("2000-01-29 04:05:06", minus("2000-02-29 04:05:06", 1));
+
+  // Check if it does the right thing if we cross daylight saving boundaries.
+  setQueryTimeZone("America/Los_Angeles");
+  EXPECT_EQ("2024-01-01 00:00:00", minus("2024-07-01 00:00:00", 6));
+  EXPECT_EQ("2023-07-01 00:00:00", minus("2024-01-01 00:00:00", 6));
 }
 
 TEST_F(DateTimeFunctionsTest, timestampPlusIntervalYearMonth) {
@@ -919,7 +924,6 @@ TEST_F(DateTimeFunctionsTest, timestampPlusIntervalYearMonth) {
 
     // They should be the same.
     EXPECT_EQ(result1, result2);
-
     return result1;
   };
 
@@ -933,6 +937,11 @@ TEST_F(DateTimeFunctionsTest, timestampPlusIntervalYearMonth) {
   EXPECT_EQ("2001-02-28 04:05:06", plus("2001-01-31 04:05:06", 1));
   EXPECT_EQ("2000-02-29 04:05:06", plus("2000-01-31 04:05:06", 1));
   EXPECT_EQ("2000-02-29 04:05:06", plus("2000-01-29 04:05:06", 1));
+
+  // Check if it does the right thing if we cross daylight saving boundaries.
+  setQueryTimeZone("America/Los_Angeles");
+  EXPECT_EQ("2025-01-01 00:00:00", plus("2024-07-01 00:00:00", 6));
+  EXPECT_EQ("2024-07-01 00:00:00", plus("2024-01-01 00:00:00", 6));
 }
 
 TEST_F(DateTimeFunctionsTest, plusMinusTimestampIntervalDayTime) {

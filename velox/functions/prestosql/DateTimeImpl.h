@@ -199,6 +199,24 @@ FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
           timestamp.getNanos() % kNanosecondsInMillisecond);
 }
 
+// If time zone is provided, use it for the arithmetic operation (convert to it,
+// apply operation, then convert back to UTC).
+FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
+    const Timestamp& timestamp,
+    const DateTimeUnit unit,
+    const int32_t value,
+    const tz::TimeZone* timeZone) {
+  if (timeZone == nullptr) {
+    return addToTimestamp(timestamp, unit, value);
+  } else {
+    Timestamp zonedTimestamp = timestamp;
+    zonedTimestamp.toTimezone(*timeZone);
+    auto resultTimestamp = addToTimestamp(zonedTimestamp, unit, value);
+    resultTimestamp.toGMT(*timeZone);
+    return resultTimestamp;
+  }
+}
+
 FOLLY_ALWAYS_INLINE int64_t addToTimestampWithTimezone(
     int64_t timestampWithTimezone,
     const DateTimeUnit unit,

@@ -533,11 +533,22 @@ struct TimestampPlusInterval {
     result = Timestamp::fromMillisNoError(a.toMillis() + b);
   }
 
+  // We only need to capture the time zone session config if we are operating on
+  // a timestamp and a IntervalYearMonth.
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const arg_type<Timestamp>*,
+      const arg_type<IntervalYearMonth>*) {
+    sessionTimeZone_ = getTimeZoneFromConfig(config);
+  }
+
   FOLLY_ALWAYS_INLINE void call(
       out_type<Timestamp>& result,
       const arg_type<Timestamp>& timestamp,
       const arg_type<IntervalYearMonth>& interval) {
-    result = addToTimestamp(timestamp, DateTimeUnit::kMonth, interval);
+    result = addToTimestamp(
+        timestamp, DateTimeUnit::kMonth, interval, sessionTimeZone_);
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -555,6 +566,10 @@ struct TimestampPlusInterval {
     result = addToTimestampWithTimezone(
         timestampWithTimezone, DateTimeUnit::kMonth, interval);
   }
+
+ private:
+  // Only set if the parameters are timestamp and IntervalYearMonth.
+  const tz::TimeZone* sessionTimeZone_ = nullptr;
 };
 
 template <typename T>
@@ -574,11 +589,22 @@ struct IntervalPlusTimestamp {
     result = Timestamp::fromMillisNoError(a + b.toMillis());
   }
 
+  // We only need to capture the time zone session config if we are operating on
+  // a timestamp and a IntervalYearMonth.
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const arg_type<IntervalYearMonth>*,
+      const arg_type<Timestamp>*) {
+    sessionTimeZone_ = getTimeZoneFromConfig(config);
+  }
+
   FOLLY_ALWAYS_INLINE void call(
       out_type<Timestamp>& result,
       const arg_type<IntervalYearMonth>& interval,
       const arg_type<Timestamp>& timestamp) {
-    result = addToTimestamp(timestamp, DateTimeUnit::kMonth, interval);
+    result = addToTimestamp(
+        timestamp, DateTimeUnit::kMonth, interval, sessionTimeZone_);
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -596,6 +622,10 @@ struct IntervalPlusTimestamp {
     result = addToTimestampWithTimezone(
         timestampWithTimezone, DateTimeUnit::kMonth, interval);
   }
+
+ private:
+  // Only set if the parameters are timestamp and IntervalYearMonth.
+  const tz::TimeZone* sessionTimeZone_ = nullptr;
 };
 
 template <typename T>
@@ -615,11 +645,22 @@ struct TimestampMinusInterval {
     result = Timestamp::fromMillisNoError(a.toMillis() - b);
   }
 
+  // We only need to capture the time zone session config if we are operating on
+  // a timestamp and a IntervalYearMonth.
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const arg_type<Timestamp>*,
+      const arg_type<IntervalYearMonth>*) {
+    sessionTimeZone_ = getTimeZoneFromConfig(config);
+  }
+
   FOLLY_ALWAYS_INLINE void call(
       out_type<Timestamp>& result,
       const arg_type<Timestamp>& timestamp,
       const arg_type<IntervalYearMonth>& interval) {
-    result = addToTimestamp(timestamp, DateTimeUnit::kMonth, -interval);
+    result = addToTimestamp(
+        timestamp, DateTimeUnit::kMonth, -interval, sessionTimeZone_);
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -637,6 +678,10 @@ struct TimestampMinusInterval {
     result = addToTimestampWithTimezone(
         timestampWithTimezone, DateTimeUnit::kMonth, -interval);
   }
+
+ private:
+  // Only set if the parameters are timestamp and IntervalYearMonth.
+  const tz::TimeZone* sessionTimeZone_ = nullptr;
 };
 
 template <typename T>
