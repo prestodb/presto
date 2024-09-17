@@ -719,8 +719,14 @@ void PageReader::skip(int64_t numRows) {
   }
   firstUnvisited_ += numRows;
 
+  if (toSkip == 0) {
+    return;
+  }
   // Skip nulls
   toSkip = skipNulls(toSkip);
+  if (toSkip == 0) {
+    return;
+  }
 
   // Skip the decoder
   if (isDictionary()) {
