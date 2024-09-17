@@ -19,14 +19,11 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -108,11 +105,14 @@ public class TestIcebergTypes
         MaterializedResult lateRows = runner.execute("SELECT a FROM test_timestamptz_filter WHERE a > " + earlyTimestamptz);
         assertEquals(lateRows.getMaterializedRows().size(), 5);
 
-        MaterializedResult rows = runner.execute("SELECT * FROM test_timestamptz_filter");
-        System.out.println(rows.toString());
+        MaterializedResult lateRowsFromEquals = runner.execute("SELECT a FROM test_timestamptz_filter WHERE a = " + timestamptz);
+        assertEquals(lateRows, lateRowsFromEquals);
 
-        MaterializedResult earlyRows = runner.execute("SELECT a FROM test_timestamptz_filter WHERE a <= " + earlyTimestamptz);
+        MaterializedResult earlyRows = runner.execute("SELECT a FROM test_timestamptz_filter WHERE a < " + timestamptz);
         assertEquals(earlyRows.getMaterializedRows().size(), 5);
+
+        MaterializedResult earlyRowsFromEquals = runner.execute("SELECT a FROM test_timestamptz_filter WHERE a = " + earlyTimestamptz);
+        assertEquals(earlyRows, earlyRowsFromEquals);
     }
 
     private QueryRunner getBatchReaderEnabledQueryRunner()
