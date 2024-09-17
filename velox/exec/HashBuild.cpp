@@ -678,6 +678,11 @@ bool HashBuild::finishHashBuild() {
 
   std::vector<HashBuild*> otherBuilds;
   otherBuilds.reserve(peers.size());
+  uint64_t numRows{0};
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    numRows += table_->rows()->numRows();
+  }
   for (auto& peer : peers) {
     auto op = peer->findOperator(planNodeId());
     HashBuild* build = dynamic_cast<HashBuild*>(op);
@@ -695,9 +700,12 @@ bool HashBuild::finishHashBuild() {
           !build->stateCleared_,
           "Internal state for a peer is empty. It might have already"
           " been closed.");
+      numRows += build->table_->rows()->numRows();
     }
     otherBuilds.push_back(build);
   }
+
+  ensureTableFits(numRows);
 
   std::vector<std::unique_ptr<BaseHashTable>> otherTables;
   otherTables.reserve(peers.size());
@@ -730,7 +738,6 @@ bool HashBuild::finishHashBuild() {
   //  it might decide it is not going to trigger parallel join build.
   const bool allowParallelJoinBuild =
       !otherTables.empty() && spillPartitions.empty();
-  ensureTableFits(otherBuilds, otherTables, allowParallelJoinBuild);
 
   SCOPE_EXIT {
     // Make a guard to release the unused memory reservation since we have
@@ -773,16 +780,13 @@ bool HashBuild::finishHashBuild() {
   return true;
 }
 
-void HashBuild::ensureTableFits(
-    const std::vector<HashBuild*>& otherBuilds,
-    const std::vector<std::unique_ptr<BaseHashTable>>& otherTables,
-    bool isParallelJoin) {
+void HashBuild::ensureTableFits(uint64_t numRows) {
   // NOTE: we don't need memory reservation if all the partitions have been
   // spilled as nothing need to be built.
-  if (!spillEnabled() || spiller_ == nullptr || spiller_->isAllSpilled()) {
+  if (!spillEnabled() || spiller_ == nullptr || spiller_->isAllSpilled() ||
+      numRows == 0) {
     return;
   }
-  VELOX_CHECK_EQ(otherBuilds.size(), otherTables.size());
 
   // Test-only spill path.
   if (testingTriggerSpill(pool()->name())) {
@@ -793,32 +797,12 @@ void HashBuild::ensureTableFits(
 
   TestValue::adjust("facebook::velox::exec::HashBuild::ensureTableFits", this);
 
-  uint64_t totalNumRows{0};
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    totalNumRows += table_->rows()->numRows();
-  }
-
-  for (auto i = 0; i < otherTables.size(); ++i) {
-    auto& otherTable = otherTables[i];
-    VELOX_CHECK_NOT_NULL(otherTable);
-    auto& otherBuild = otherBuilds[i];
-    {
-      std::lock_guard<std::mutex> l(otherBuild->mutex_);
-      totalNumRows += otherTable->rows()->numRows();
-    }
-  }
-
-  if (totalNumRows == 0) {
-    return;
-  }
-
   // NOTE: reserve a bit more memory to consider the extra memory used for
   // parallel table build operation.
   //
   // TODO: make this query configurable.
   const uint64_t memoryBytesToReserve =
-      table_->estimateHashTableSize(totalNumRows) * 1.1;
+      table_->estimateHashTableSize(numRows) * 1.1;
   {
     Operator::ReclaimableSectionGuard guard(this);
     if (pool()->maybeReserve(memoryBytesToReserve)) {

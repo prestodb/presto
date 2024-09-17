@@ -143,10 +143,7 @@ class HashBuild final : public Operator {
 
   // Invoked to ensure there is sufficient memory to build the join table. The
   // function throws to fail the query if the memory reservation fails.
-  void ensureTableFits(
-      const std::vector<HashBuild*>& otherBuilds,
-      const std::vector<std::unique_ptr<BaseHashTable>>& otherTables,
-      bool isParallelJoin);
+  void ensureTableFits(uint64_t numRows);
 
   // Invoked to compute spill partitions numbers for each row 'input' and spill
   // rows to spiller directly if the associated partition(s) is spilling. The

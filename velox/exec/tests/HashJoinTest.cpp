@@ -7316,42 +7316,29 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredDuringParallelJoinBuild) {
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
-  std::atomic<bool> injectOnce{true};
+  // Use manual spill injection other than spill injection framework. This is
+  // because spill injection framework does not allow fine grain spill within a
+  // single operator (We do not want to spill during addInput() but only during
+  // finishHashBuild()).
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::HashBuild::ensureTableFits",
-      std::function<void(HashBuild*)>([&](HashBuild* buildOp) {
-        // Inject the allocation once to ensure the merged table allocation will
-        // trigger memory arbitration.
-        if (!injectOnce.exchange(false)) {
-          return;
-        }
-        testingRunArbitration(buildOp->pool());
-      }));
-
-  fuzzerOpts_.vectorSize = 128;
-  auto probeVectors = createVectors(10, probeType_, fuzzerOpts_);
-  auto buildVectors = createVectors(20, buildType_, fuzzerOpts_);
-  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+      std::function<void(Operator*)>(([&](Operator* op) {
+        Operator::ReclaimableSectionGuard guard(op);
+        memory::testingRunArbitration(op->pool());
+      })));
+  auto tempDirectory = exec::test::TempDirectoryPath::create();
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(1)
-      .spillDirectory(spillDirectory->getPath())
-      .probeKeys({"t_k1"})
-      .probeVectors(std::move(probeVectors))
-      .buildKeys({"u_k1"})
-      .buildVectors(std::move(buildVectors))
-      .config(core::QueryConfig::kJoinSpillEnabled, "true")
-      .joinType(core::JoinType::kRight)
-      .joinOutputLayout({"t_k1", "t_k2", "u_k1", "t_v1"})
-      .referenceQuery(
-          "SELECT t.t_k1, t.t_k2, u.u_k1, t.t_v1 FROM t RIGHT JOIN u ON t.t_k1 = u.u_k1")
+      .numDrivers(numDrivers_)
       .injectSpill(false)
+      .spillDirectory(tempDirectory->getPath())
+      .keyTypes({BIGINT()})
+      .probeVectors(1600, 5)
+      .buildVectors(1500, 5)
+      .referenceQuery(
+          "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t.t_k0 = u.u_k0")
       .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
-        auto opStats = toOperatorStats(task->taskStats());
-        ASSERT_GT(
-            opStats.at("HashBuild")
-                .runtimeStats["memoryArbitrationWallNanos"]
-                .count,
-            0);
+        const auto statsPair = taskSpilledStats(*task);
+        ASSERT_GT(statsPair.first.spilledBytes, 0);
       })
       .run();
 }
