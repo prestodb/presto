@@ -52,8 +52,7 @@ HashTable<ignoreNullKeys>::HashTable(
     bool isJoinBuild,
     bool hasProbedFlag,
     uint32_t minTableSizeForParallelJoinBuild,
-    memory::MemoryPool* pool,
-    const std::shared_ptr<velox::HashStringAllocator>& stringArena)
+    memory::MemoryPool* pool)
     : BaseHashTable(std::move(hashers)),
       minTableSizeForParallelJoinBuild_(minTableSizeForParallelJoinBuild),
       isJoinBuild_(isJoinBuild) {
@@ -74,8 +73,7 @@ HashTable<ignoreNullKeys>::HashTable(
       isJoinBuild,
       hasProbedFlag,
       hashMode_ != HashMode::kHash,
-      pool,
-      stringArena);
+      pool);
   nextOffset_ = rows_->nextOffset();
 }
 

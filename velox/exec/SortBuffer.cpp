@@ -252,21 +252,23 @@ void SortBuffer::ensureOutputFits() {
     return;
   }
 
-  if (estimatedOutputRowSize_.has_value()) {
-    const uint64_t outputBufferSizeToReserve =
-        estimatedOutputRowSize_.value() * 1.2;
-    {
-      memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
-      if (pool_->maybeReserve(outputBufferSizeToReserve)) {
-        return;
-      }
-    }
-    LOG(WARNING) << "Failed to reserve "
-                 << succinctBytes(outputBufferSizeToReserve)
-                 << " for memory pool " << pool_->name()
-                 << ", usage: " << succinctBytes(pool_->usedBytes())
-                 << ", reservation: " << succinctBytes(pool_->reservedBytes());
+  if (!estimatedOutputRowSize_.has_value()) {
+    return;
   }
+
+  const uint64_t outputBufferSizeToReserve =
+      estimatedOutputRowSize_.value() * 1.2;
+  {
+    memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
+    if (pool_->maybeReserve(outputBufferSizeToReserve)) {
+      return;
+    }
+  }
+  LOG(WARNING) << "Failed to reserve "
+               << succinctBytes(outputBufferSizeToReserve)
+               << " for memory pool " << pool_->name()
+               << ", usage: " << succinctBytes(pool_->usedBytes())
+               << ", reservation: " << succinctBytes(pool_->reservedBytes());
 }
 
 void SortBuffer::updateEstimatedOutputRowSize() {

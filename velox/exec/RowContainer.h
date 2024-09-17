@@ -227,9 +227,6 @@ class RowContainer {
   /// into one word for faster comparison. The bulk allocation is done
   /// from 'allocator'. ContainerRowSerde is used for serializing complex
   /// type values into the container.
-  /// 'stringAllocator' allows sharing the variable length data arena with
-  /// another RowContainer. This is needed for spilling where the same
-  /// aggregates are used for reading one container and merging into another.
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
       bool nullableKeys,
@@ -239,8 +236,7 @@ class RowContainer {
       bool isJoinBuild,
       bool hasProbedFlag,
       bool hasNormalizedKey,
-      memory::MemoryPool* pool,
-      std::shared_ptr<HashStringAllocator> stringAllocator = nullptr);
+      memory::MemoryPool* pool);
 
   /// Allocates a new row and initializes possible aggregates to null.
   char* newRow();
@@ -311,10 +307,6 @@ class RowContainer {
 
   HashStringAllocator& stringAllocator() {
     return *stringAllocator_;
-  }
-
-  const std::shared_ptr<HashStringAllocator>& stringAllocatorShared() {
-    return stringAllocator_;
   }
 
   /// Returns the number of used rows in 'this'. This is the number of rows a
@@ -1330,7 +1322,7 @@ class RowContainer {
   const bool isJoinBuild_;
   // True if normalized keys are enabled in initial state.
   const bool hasNormalizedKeys_;
-  const std::shared_ptr<HashStringAllocator> stringAllocator_;
+  const std::unique_ptr<HashStringAllocator> stringAllocator_;
 
   std::vector<bool> columnHasNulls_;
 

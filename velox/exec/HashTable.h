@@ -457,17 +457,14 @@ class HashTable : public BaseHashTable {
       bool isJoinBuild,
       bool hasProbedFlag,
       uint32_t minTableSizeForParallelJoinBuild,
-      memory::MemoryPool* pool,
-      const std::shared_ptr<velox::HashStringAllocator>& stringArena = nullptr);
+      memory::MemoryPool* pool);
 
   ~HashTable() override = default;
 
   static std::unique_ptr<HashTable> createForAggregation(
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
       const std::vector<Accumulator>& accumulators,
-      memory::MemoryPool* pool,
-      const std::shared_ptr<velox::HashStringAllocator>& stringArena =
-          nullptr) {
+      memory::MemoryPool* pool) {
     return std::make_unique<HashTable>(
         std::move(hashers),
         accumulators,
@@ -476,8 +473,7 @@ class HashTable : public BaseHashTable {
         false, // isJoinBuild
         false, // hasProbedFlag
         0, // minTableSizeForParallelJoinBuild
-        pool,
-        stringArena);
+        pool);
   }
 
   static std::unique_ptr<HashTable> createForJoin(

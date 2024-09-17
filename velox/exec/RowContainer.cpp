@@ -139,15 +139,12 @@ RowContainer::RowContainer(
     bool isJoinBuild,
     bool hasProbedFlag,
     bool hasNormalizedKeys,
-    memory::MemoryPool* pool,
-    std::shared_ptr<HashStringAllocator> stringAllocator)
+    memory::MemoryPool* pool)
     : keyTypes_(keyTypes),
       nullableKeys_(nullableKeys),
       isJoinBuild_(isJoinBuild),
       hasNormalizedKeys_(hasNormalizedKeys),
-      stringAllocator_(
-          stringAllocator ? stringAllocator
-                          : std::make_shared<HashStringAllocator>(pool)),
+      stringAllocator_(std::make_unique<HashStringAllocator>(pool)),
       accumulators_(accumulators),
       rows_(pool) {
   // Compute the layout of the payload row.  The row has keys, null flags,
@@ -936,8 +933,7 @@ void RowContainer::hash(
 }
 
 void RowContainer::clear() {
-  const bool sharedStringAllocator = !stringAllocator_.unique();
-  if (sharedStringAllocator || usesExternalMemory_) {
+  if (usesExternalMemory_) {
     constexpr int32_t kBatch = 1000;
     std::vector<char*> rows(kBatch);
     RowContainerIterator iter;
@@ -948,9 +944,7 @@ void RowContainer::clear() {
   hasDuplicateRows_ = false;
 
   rows_.clear();
-  if (!sharedStringAllocator) {
-    stringAllocator_->clear();
-  }
+  stringAllocator_->clear();
   numRows_ = 0;
   numRowsWithNormalizedKey_ = 0;
   normalizedKeySize_ = originalNormalizedKeySize_;
