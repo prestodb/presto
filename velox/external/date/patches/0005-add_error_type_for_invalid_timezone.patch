@@ -1,0 +1,51 @@
+diff --git a/velox/external/date/tz.cpp b/velox/external/date/tz.cpp
+index c3a3a8f7e..69513d7d3 100644
+--- a/velox/external/date/tz.cpp
++++ b/velox/external/date/tz.cpp
+@@ -3577,7 +3577,7 @@ tzdb::locate_zone(const std::string& tz_name) const
+                 return &*zi;
+         }
+ #endif  // !USE_OS_TZDB
+-        throw std::runtime_error(std::string(tz_name) + " not found in timezone database");
++        throw invalid_timezone(std::string(tz_name));
+     }
+     return &*zi;
+ }
+diff --git a/velox/external/date/tz.h b/velox/external/date/tz.h
+index a70bda4ad..c85b30eb7 100644
+--- a/velox/external/date/tz.h
++++ b/velox/external/date/tz.h
+@@ -284,6 +284,33 @@ ambiguous_local_time::make_msg(local_time<Duration> tp, const local_info& i)
+     return os.str();
+ }
+ 
++class invalid_timezone
++    : public std::runtime_error
++{
++public:
++    invalid_timezone(const std::string tz_name);
++
++private:
++    static
++    std::string
++    make_msg(const std::string tz_name);
++};
++
++inline
++invalid_timezone::invalid_timezone(const std::string tz_name)
++    : std::runtime_error(make_msg(tz_name))
++{
++}
++
++inline
++std::string
++invalid_timezone::make_msg(const std::string tz_name)
++{
++    std::ostringstream os;
++    os << tz_name << " not found in timezone database";
++    return os.str();
++}
++
+ class time_zone;
+ 
+ #if HAS_STRING_VIEW

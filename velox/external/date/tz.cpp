@@ -3577,7 +3577,7 @@ tzdb::locate_zone(const std::string& tz_name) const
                 return &*zi;
         }
 #endif  // !USE_OS_TZDB
-        throw std::runtime_error(std::string(tz_name) + " not found in timezone database");
+        throw invalid_timezone(std::string(tz_name));
     }
     return &*zi;
 }

@@ -284,6 +284,33 @@ ambiguous_local_time::make_msg(local_time<Duration> tp, const local_info& i)
     return os.str();
 }
 
+class invalid_timezone
+    : public std::runtime_error
+{
+public:
+    invalid_timezone(const std::string& tz_name);
+
+private:
+    static
+    std::string
+    make_msg(const std::string& tz_name);
+};
+
+inline
+invalid_timezone::invalid_timezone(const std::string& tz_name)
+    : std::runtime_error(make_msg(tz_name))
+{
+}
+
+inline
+std::string
+invalid_timezone::make_msg(const std::string& tz_name)
+{
+    std::ostringstream os;
+    os << tz_name << " not found in timezone database";
+    return os.str();
+}
+
 class time_zone;
 
 #if HAS_STRING_VIEW

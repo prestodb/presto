@@ -21,7 +21,10 @@
 #include <folly/container/F14Map.h>
 #include <folly/container/F14Set.h>
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/external/date/tz.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::tz {
 
@@ -39,6 +42,12 @@ inline std::chrono::minutes getTimeZoneOffset(int16_t tzID) {
   return std::chrono::minutes{(tzID <= 840) ? (tzID - 841) : (tzID - 840)};
 }
 
+const date::time_zone* locateZoneImpl(std::string_view tz_name) {
+  TestValue::adjust("facebook::velox::tz::locateZoneImpl", &tz_name);
+  const date::time_zone* zone = date::locate_zone(tz_name);
+  return zone;
+}
+
 // Flattens the input vector of pairs into a vector, assuming that the
 // timezoneIDs are (mostly) sequential. Note that since they are "mostly"
 // senquential, the vector can have holes. But it is still more efficient than
@@ -52,8 +61,8 @@ TTimeZoneDatabase buildTimeZoneDatabase(
     std::unique_ptr<TimeZone> timeZonePtr;
 
     if (entry.first == 0) {
-      timeZonePtr = std::make_unique<TimeZone>(
-          "UTC", entry.first, date::locate_zone("UTC"));
+      timeZonePtr =
+          std::make_unique<TimeZone>("UTC", entry.first, locateZoneImpl("UTC"));
     } else if (entry.first <= 1680) {
       std::chrono::minutes offset = getTimeZoneOffset(entry.first);
       timeZonePtr =
@@ -62,8 +71,22 @@ TTimeZoneDatabase buildTimeZoneDatabase(
     // Every single other time zone entry (outside of offsets) needs to be
     // available in external/date or this will throw.
     else {
-      timeZonePtr = std::make_unique<TimeZone>(
-          entry.second, entry.first, date::locate_zone(entry.second));
+      const date::time_zone* zone;
+      try {
+        zone = locateZoneImpl(entry.second);
+      } catch (date::invalid_timezone& err) {
+        // When this exception is thrown, it typically means the time zone name
+        // we are trying to locate cannot be found from OS's time zone database.
+        // Thus, we just command a "continue;" to skip the creation of the
+        // corresponding TimeZone object.
+        //
+        // Then, once this time zone is requested at runtime, a runtime error
+        // will be thrown and caller is expected to handle that error in code.
+        LOG(WARNING) << "Unable to load [" << entry.second
+                     << "] from local timezone database: " << err.what();
+        continue;
+      }
+      timeZonePtr = std::make_unique<TimeZone>(entry.second, entry.first, zone);
     }
     tzDatabase[entry.first] = std::move(timeZonePtr);
   }
