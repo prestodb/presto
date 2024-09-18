@@ -232,7 +232,9 @@ void validateRangeImpl(time_point<TDuration> timePoint) {
   auto year = year_month_day(floor<days>(timePoint)).year();
 
   if (year < kMinYear || year > kMaxYear) {
-    VELOX_FAIL(
+    // This is a special case where we intentionally throw
+    // VeloxRuntimeError to avoid it being suppressed by TRY().
+    VELOX_FAIL_UNSUPPORTED_INPUT_UNCATCHABLE(
         "Timepoint is outside of supported year range: [{}, {}], got {}",
         (int)kMinYear,
         (int)kMaxYear,

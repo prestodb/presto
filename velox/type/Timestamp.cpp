@@ -79,9 +79,9 @@ void Timestamp::toTimezone(const tz::TimeZone& zone) {
     seconds_ = zone.to_local(std::chrono::seconds(seconds_)).count();
   } catch (const std::invalid_argument& e) {
     // Invalid argument means we hit a conversion not supported by
-    // external/date. Need to throw a RuntimeError so that try() statements do
-    // not suppress it.
-    VELOX_FAIL(e.what());
+    // external/date. This is a special case where we intentionally throw
+    // VeloxRuntimeError to avoid it being suppressed by TRY().
+    VELOX_FAIL_UNSUPPORTED_INPUT_UNCATCHABLE(e.what());
   }
 }
 

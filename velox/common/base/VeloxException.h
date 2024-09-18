@@ -110,6 +110,12 @@ inline constexpr auto kFileNotFound = "FILE_NOT_FOUND"_fs;
 
 // We do not know how to classify it yet.
 inline constexpr auto kUnknown = "UNKNOWN"_fs;
+
+// VeloxRuntimeErrors due to unsupported input values such as unicode input to
+// cast-varchar-to-integer and timestamps beyond the year 2037 to datetime
+// functions. This kind of errors is allowed in expression fuzzer.
+inline constexpr auto kUnsupportedInputUncatchable =
+    "UNSUPPORTED_INPUT_UNCATCHABLE"_fs;
 } // namespace error_code
 
 class VeloxException : public std::exception {

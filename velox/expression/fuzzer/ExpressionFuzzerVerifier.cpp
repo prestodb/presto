@@ -240,19 +240,17 @@ void ExpressionFuzzerVerifier::retryWithTry(
         plan->type(), std::vector<core::TypedExprPtr>{plan}, "try"));
   }
 
-  RowVectorPtr tryResult;
+  ResultOrError tryResult;
 
-  // The function throws if anything goes wrong.
+  // The function throws if anything goes wrong except
+  // UNSUPPORTED_INPUT_UNCATCHABLE errors.
   try {
-    tryResult =
-        verifier_
-            .verify(
-                tryPlans,
-                rowVector,
-                resultVector ? BaseVector::copy(*resultVector) : nullptr,
-                false, // canThrow
-                columnsToWrapInLazy)
-            .result;
+    tryResult = verifier_.verify(
+        tryPlans,
+        rowVector,
+        resultVector ? BaseVector::copy(*resultVector) : nullptr,
+        false, // canThrow
+        columnsToWrapInLazy);
   } catch (const std::exception&) {
     if (options_.findMinimalSubexpression) {
       test::computeMinimumSubExpression(
@@ -264,10 +262,15 @@ void ExpressionFuzzerVerifier::retryWithTry(
     }
     throw;
   }
+  if (tryResult.unsupportedInputUncatchableError) {
+    LOG(INFO)
+        << "Retry with try fails to find minimal subexpression due to UNSUPPORTED_INPUT_UNCATCHABLE error.";
+    return;
+  }
 
   // Re-evaluate the original expression on rows that didn't produce an
   // error (i.e. returned non-NULL results when evaluated with TRY).
-  BufferPtr noErrorIndices = extractNonNullIndices(tryResult);
+  BufferPtr noErrorIndices = extractNonNullIndices(tryResult.result);
 
   if (noErrorIndices != nullptr) {
     auto noErrorRowVector = wrapChildren(noErrorIndices, rowVector);
@@ -360,8 +363,10 @@ void ExpressionFuzzerVerifier::go() {
 
     // If both paths threw compatible exceptions, we add a try() function to
     // the expression's root and execute it again. This time the expression
-    // cannot throw.
-    if (result.exceptionPtr && options_.retryWithTry) {
+    // cannot throw. Expressions that throw UNSUPPORTED_INPUT_UNCATCHABLE errors
+    // are not supported.
+    if (result.exceptionPtr && options_.retryWithTry &&
+        !result.unsupportedInputUncatchableError) {
       LOG(INFO)
           << "Both paths failed with compatible exceptions. Retrying expression using try().";
       retryWithTry(plans, rowVector, resultVectors, columnsToWrapInLazy);

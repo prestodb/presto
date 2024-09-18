@@ -196,6 +196,20 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
       /* isRetriable */ false,                                      \
       ##__VA_ARGS__)
 
+/// Throws VeloxRuntimeError when functions receive input values out of the
+/// supported range. This should only be used when we want to force TRY() to not
+/// suppress the error.
+#define VELOX_CHECK_UNSUPPORTED_INPUT_UNCATCHABLE(expr, ...)                 \
+  if (UNLIKELY(!(expr))) {                                                   \
+    _VELOX_THROW_IMPL(                                                       \
+        ::facebook::velox::VeloxRuntimeError,                                \
+        #expr,                                                               \
+        ::facebook::velox::error_source::kErrorSourceRuntime.c_str(),        \
+        ::facebook::velox::error_code::kUnsupportedInputUncatchable.c_str(), \
+        /* isRetriable */ false,                                             \
+        __VA_ARGS__);                                                        \
+  }
+
 // If the caller passes a custom message (4 *or more* arguments), we
 // have to construct a format string from ours ("({} vs. {})") plus
 // theirs by adding a space and shuffling arguments. If they don't (exactly 3
@@ -328,6 +342,17 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
       ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
       ::facebook::velox::error_code::kInvalidState.c_str(),         \
       /* isRetriable */ false,                                      \
+      ##__VA_ARGS__)
+
+/// Throws VeloxRuntimeError when functions receive input values out of the
+/// supported range. This should only be used when we want to force TRY() to not
+/// suppress the error.
+#define VELOX_FAIL_UNSUPPORTED_INPUT_UNCATCHABLE(...)                      \
+  _VELOX_THROW(                                                            \
+      ::facebook::velox::VeloxRuntimeError,                                \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(),        \
+      ::facebook::velox::error_code::kUnsupportedInputUncatchable.c_str(), \
+      /* isRetriable */ false,                                             \
       ##__VA_ARGS__)
 
 DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxUserError);

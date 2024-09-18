@@ -46,6 +46,9 @@ struct SignatureTemplate {
 struct ResultOrError {
   RowVectorPtr result;
   std::exception_ptr exceptionPtr;
+  /// Whether the exception is UNSUPPORTED_INPUT_UNCATCHABLE error. This flag
+  /// should only be set to true when exceptionPtr is not a nullptr.
+  bool unsupportedInputUncatchableError{false};
 };
 
 /// Sort callable function signatures.
