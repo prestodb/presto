@@ -38,7 +38,7 @@ distributed between fragments:
 
 ``BROADCAST``
     Fragment is executed on a fixed number of nodes with the input data
-    broadcasted to all nodes.
+    broadcast to all nodes.
 
 ``SOURCE``
     Fragment is executed on nodes where input splits are accessed.
