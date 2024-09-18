@@ -30,13 +30,14 @@ bool initializeIota() {
 }
 } // namespace
 
-const int32_t* iota(int32_t size, raw_vector<int32_t>& storage) {
-  if (iotaData.size() < size) {
+const int32_t*
+iota(int32_t size, raw_vector<int32_t>& storage, int32_t offset) {
+  if (iotaData.size() < offset + size) {
     storage.resize(size);
-    std::iota(&storage[0], &storage[storage.size()], 0);
+    std::iota(storage.begin(), storage.end(), offset);
     return storage.data();
   }
-  return iotaData.data();
+  return iotaData.data() + offset;
 }
 
 static bool FB_ANONYMOUS_VARIABLE(g_iotaConstants) = initializeIota();

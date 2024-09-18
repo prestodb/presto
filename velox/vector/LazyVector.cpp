@@ -69,7 +69,7 @@ void VectorLoader::load(
       return;
     }
   }
-  std::vector<vector_size_t> positions(rows.countSelected());
+  raw_vector<vector_size_t> positions(rows.countSelected());
   simd::indicesOfSetBits(
       rows.allBits(), rows.begin(), rows.end(), positions.data());
   load(positions, hook, resultSize, result);

@@ -312,6 +312,26 @@ TEST_F(ParquetTableScanTest, basic) {
       "SELECT max(b), a FROM tmp WHERE a < 3 GROUP BY a");
 }
 
+TEST_F(ParquetTableScanTest, lazy) {
+  auto filePath = getExampleFilePath("sample.parquet");
+  auto schema = ROW({"a", "b"}, {BIGINT(), DOUBLE()});
+  CursorParameters params;
+  params.copyResult = false;
+  params.planNode = PlanBuilder().tableScan(schema).planNode();
+  auto cursor = TaskCursor::create(params);
+  cursor->task()->addSplit("0", exec::Split(makeSplit(filePath)));
+  cursor->task()->noMoreSplits("0");
+  int rows = 0;
+  while (cursor->moveNext()) {
+    auto* result = cursor->current()->asUnchecked<RowVector>();
+    ASSERT_TRUE(result->childAt(0)->isLazy());
+    ASSERT_TRUE(result->childAt(1)->isLazy());
+    rows += result->size();
+  }
+  ASSERT_EQ(rows, 20);
+  ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
+}
+
 TEST_F(ParquetTableScanTest, countStar) {
   // sample.parquet holds two columns (a: BIGINT, b: DOUBLE) and
   // 20 rows.

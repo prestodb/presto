@@ -120,7 +120,8 @@ class E2EFilterTestBase : public testing::Test {
 
   static bool typeKindSupportsValueHook(TypeKind kind) {
     return kind != TypeKind::TIMESTAMP && kind != TypeKind::ARRAY &&
-        kind != TypeKind::ROW && kind != TypeKind::MAP;
+        kind != TypeKind::ROW && kind != TypeKind::MAP &&
+        kind != TypeKind::HUGEINT;
   }
 
   std::vector<RowVectorPtr> makeDataset(
@@ -257,7 +258,7 @@ class E2EFilterTestBase : public testing::Test {
     for (int32_t i = 0; i < 5 && i < batch->size(); ++i) {
       rows.push_back(i);
     }
-    for (int32_t i = 5; i < 5 && i < batch->size(); i += 2) {
+    for (int32_t i = 5; i < batch->size(); i += 2) {
       rows.push_back(i);
     }
     auto result = std::static_pointer_cast<FlatVector<T>>(

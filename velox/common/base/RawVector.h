@@ -201,6 +201,7 @@ class raw_vector {
 // SIMD width. Typically returns preallocated memory but if this is
 // not large enough,resizes and initializes 'storage' to the requested
 // size and returns storage.data().
-const int32_t* iota(int32_t size, raw_vector<int32_t>& storage);
+const int32_t*
+iota(int32_t size, raw_vector<int32_t>& storage, int32_t offset = 0);
 
 } // namespace facebook::velox

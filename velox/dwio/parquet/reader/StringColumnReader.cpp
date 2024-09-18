@@ -36,7 +36,7 @@ void StringColumnReader::read(
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<folly::StringPiece>(offset, rows, incomingNulls);
-  dwio::common::StringColumnReadWithVisitorHelper<true>(
+  dwio::common::StringColumnReadWithVisitorHelper<true, false>(
       *this, rows)([&](auto visitor) {
     formatData_->as<ParquetData>().readWithVisitor(visitor);
   });
