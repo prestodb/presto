@@ -214,10 +214,10 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
         maxDrivers_{params.maxDrivers},
         numConcurrentSplitGroups_{params.numConcurrentSplitGroups},
         numSplitGroups_{params.numSplitGroups} {
-    VELOX_CHECK(!params.serialExecution)
+    VELOX_CHECK(!params.serialExecution);
     VELOX_CHECK(
         queryCtx_->isExecutorSupplied(),
-        "Executor should be set in parallel task cursor")
+        "Executor should be set in parallel task cursor");
 
     queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);
     // Captured as a shared_ptr by the consumer callback of task_.
@@ -322,10 +322,10 @@ class SingleThreadedTaskCursor : public TaskCursorBase {
  public:
   explicit SingleThreadedTaskCursor(const CursorParameters& params)
       : TaskCursorBase(params, nullptr) {
-    VELOX_CHECK(params.serialExecution)
+    VELOX_CHECK(params.serialExecution);
     VELOX_CHECK(
         !queryCtx_->isExecutorSupplied(),
-        "Executor should not be set in serial task cursor")
+        "Executor should not be set in serial task cursor");
 
     task_ = Task::create(
         taskId_,
@@ -340,7 +340,7 @@ class SingleThreadedTaskCursor : public TaskCursorBase {
 
     VELOX_CHECK(
         task_->supportSerialExecutionMode(),
-        "Plan doesn't support serial execution mode")
+        "Plan doesn't support serial execution mode");
   }
 
   ~SingleThreadedTaskCursor() override {
@@ -382,7 +382,7 @@ class SingleThreadedTaskCursor : public TaskCursorBase {
         return false;
       }
       // Task is blocked for some reason. Wait and try again.
-      VELOX_CHECK_NULL(next)
+      VELOX_CHECK_NULL(next);
       future.wait();
     }
   };

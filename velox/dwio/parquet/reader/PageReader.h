@@ -326,7 +326,7 @@ class PageReader {
           int>::type = 0>
   void
   callDecoder(const uint64_t* nulls, bool& nullsFromFastPath, Visitor visitor) {
-    VELOX_CHECK(!isDictionary(), "BOOLEAN types are never dictionary-encoded")
+    VELOX_CHECK(!isDictionary(), "BOOLEAN types are never dictionary-encoded");
     if (nulls) {
       nullsFromFastPath = false;
       booleanDecoder_->readWithVisitor<true>(nulls, visitor);

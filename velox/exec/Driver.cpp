@@ -237,7 +237,7 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
               VELOX_FAIL(
                   "A ContinueFuture for task {} was realized with error: {}",
                   state->driver_->task()->taskId(),
-                  e.what())
+                  e.what());
             } catch (const VeloxException&) {
               state->driver_->task()->setError(std::current_exception());
             }
@@ -841,7 +841,7 @@ void Driver::run(std::shared_ptr<Driver> self) {
   VELOX_CHECK_NULL(
       nullResult,
       "The last operator (sink) must not produce any results. "
-      "Results need to be consumed by either a callback or another operator. ")
+      "Results need to be consumed by either a callback or another operator. ");
 
   // There can be a race between Task terminating and the Driver being on the
   // thread and exiting the runInternal() in a blocked state. If this happens

@@ -780,7 +780,7 @@ exec::AggregateRegistrationResult registerCovariance(
           default:
             VELOX_UNSUPPORTED(
                 "Unsupported raw input type: {}. Expected DOUBLE or REAL.",
-                rawInputType->toString())
+                rawInputType->toString());
         }
       },
       withCompanionFunctions,

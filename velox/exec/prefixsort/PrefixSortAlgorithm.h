@@ -252,7 +252,7 @@ class PrefixSortRunner {
       const detail::PrefixSortIterator& start,
       const detail::PrefixSortIterator& end,
       TCompare compare) const {
-    VELOX_CHECK(end >= start, "Invalid sort range.")
+    VELOX_CHECK(end >= start, "Invalid sort range.");
     const uint64_t len = end - start;
 
     // Insertion sort on smallest arrays

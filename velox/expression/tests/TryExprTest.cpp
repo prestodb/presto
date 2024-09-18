@@ -500,7 +500,7 @@ DEBUG_ONLY_TEST_F(TryExprTest, errorRestoringContext) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::EvalCtx::restore",
       std::function<void(exec::EvalCtx*)>(
-          ([&](exec::EvalCtx*) { VELOX_FAIL(exceptionMessage) })));
+          ([&](exec::EvalCtx*) { VELOX_FAIL(exceptionMessage); })));
 
   VELOX_ASSERT_THROW(
       evaluate("try(always_throws(c0))", data), exceptionMessage);

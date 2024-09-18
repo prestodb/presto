@@ -99,7 +99,7 @@ class DecimalSumAggregate {
       if (!sum.has_value()) {
         // sum is initialized to 0. When it is nullopt, it implies that the
         // input data must not be empty.
-        VELOX_CHECK(!isEmpty)
+        VELOX_CHECK(!isEmpty);
         return true;
       }
       int128_t result;

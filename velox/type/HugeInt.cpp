@@ -39,7 +39,9 @@ int128_t HugeInt::parse(const std::string& str) {
   int128_t min = std::numeric_limits<int128_t>::min();
   for (; idx < str.size(); ++idx) {
     VELOX_CHECK(
-        std::isdigit(str[idx]), "Invalid character {} in the string.", str[idx])
+        std::isdigit(str[idx]),
+        "Invalid character {} in the string.",
+        str[idx]);
 
     // Throw error if the result is out of the range of int128_t, and return the
     // result before computing the last digit if the digit string would be the

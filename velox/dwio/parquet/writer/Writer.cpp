@@ -157,7 +157,7 @@ void validateSchemaRecursive(const RowTypePtr& schema) {
 
   folly::F14FastSet<std::string> uniqueNames;
   for (const auto& name : fieldNames) {
-    VELOX_USER_CHECK(!name.empty(), "Field name must not be empty.")
+    VELOX_USER_CHECK(!name.empty(), "Field name must not be empty.");
     auto result = uniqueNames.insert(name);
     VELOX_USER_CHECK(
         result.second,

@@ -37,7 +37,7 @@ bool prepareFlatResultsVector(
     exec::EvalCtx& context,
     VectorPtr& argToReuse,
     const TypePtr& resultType) {
-  VELOX_CHECK(resultType->isVarbinary() || resultType->isVarchar())
+  VELOX_CHECK(resultType->isVarbinary() || resultType->isVarchar());
 
   if (!result && BaseVector::isVectorWritable(argToReuse) &&
       argToReuse->isFlatEncoding() &&

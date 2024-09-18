@@ -1052,7 +1052,7 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
         break;
       case DateTimeFormatSpecifier::TIMEZONE:
         if (timezone == nullptr) {
-          VELOX_USER_FAIL("Timezone unknown")
+          VELOX_USER_FAIL("Timezone unknown");
         }
         size += std::max(
             token.pattern.minRepresentDigits, timezone->name().length());
@@ -1295,10 +1295,10 @@ int32_t DateTimeFormatter::format(
           // TODO: implement short name time zone, need a map from full name to
           // short name
           if (token.pattern.minRepresentDigits <= 3) {
-            VELOX_UNSUPPORTED("short name time zone is not yet supported")
+            VELOX_UNSUPPORTED("short name time zone is not yet supported");
           }
           if (timezone == nullptr) {
-            VELOX_USER_FAIL("Timezone unknown")
+            VELOX_USER_FAIL("Timezone unknown");
           }
           const auto& piece = timezone->name();
           std::memcpy(result, piece.data(), piece.length());
@@ -1558,7 +1558,7 @@ std::shared_ptr<DateTimeFormatter> buildMysqlDateTimeFormatter(
         case 'w':
         case 'X':
           VELOX_UNSUPPORTED(
-              "Date format specifier is not supported: %{}", *tokenEnd)
+              "Date format specifier is not supported: %{}", *tokenEnd);
         default:
           builder.appendLiteral(tokenEnd, 1);
           break;

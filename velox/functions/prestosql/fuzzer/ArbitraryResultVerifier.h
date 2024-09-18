@@ -133,10 +133,10 @@ class ArbitraryResultVerifier : public ResultVerifier {
   std::string makeArrayAggCall(
       const core::AggregationNode::Aggregate& aggregate) {
     const auto& args = aggregate.call->inputs();
-    VELOX_CHECK_GE(args.size(), 1)
+    VELOX_CHECK_GE(args.size(), 1);
 
     auto inputField = core::TypedExprs::asFieldAccess(args[0]);
-    VELOX_CHECK_NOT_NULL(inputField)
+    VELOX_CHECK_NOT_NULL(inputField);
 
     std::string arrayAggCall = fmt::format("array_agg({})", inputField->name());
 

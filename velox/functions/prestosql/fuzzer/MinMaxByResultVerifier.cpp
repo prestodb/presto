@@ -369,10 +369,10 @@ int32_t MinMaxByResultVerifier::getElementIndexInBucketWithMemo(
 std::string MinMaxByResultVerifier::extractYColumnName(
     const core::AggregationNode::Aggregate& aggregate) {
   const auto& args = aggregate.call->inputs();
-  VELOX_CHECK_GE(args.size(), 2)
+  VELOX_CHECK_GE(args.size(), 2);
 
   auto inputField = core::TypedExprs::asFieldAccess(args[1]);
-  VELOX_CHECK_NOT_NULL(inputField)
+  VELOX_CHECK_NOT_NULL(inputField);
 
   return inputField->name();
 }
@@ -380,11 +380,11 @@ std::string MinMaxByResultVerifier::extractYColumnName(
 std::string MinMaxByResultVerifier::makeArrayAggCall(
     const core::AggregationNode::Aggregate& aggregate) {
   const auto& args = aggregate.call->inputs();
-  VELOX_CHECK_GE(args.size(), 1)
+  VELOX_CHECK_GE(args.size(), 1);
 
   auto distinct = aggregate.distinct ? "distinct" : "";
   auto inputField = core::TypedExprs::asFieldAccess(args[0]);
-  VELOX_CHECK_NOT_NULL(inputField)
+  VELOX_CHECK_NOT_NULL(inputField);
 
   // Use $internal$array_agg to ensure we don't ignore input nulls since they
   // may affect the result of min_by/max_by.

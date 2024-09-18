@@ -129,7 +129,7 @@ RowVectorPtr FilterProject::getOutput() {
   vector_size_t size = input_->size();
   LocalSelectivityVector localRows(*operatorCtx_->execCtx(), size);
   auto* rows = localRows.get();
-  VELOX_DCHECK_NOT_NULL(rows)
+  VELOX_DCHECK_NOT_NULL(rows);
   rows->setAll();
   EvalCtx evalCtx(operatorCtx_->execCtx(), exprs_.get(), input_.get());
 

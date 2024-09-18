@@ -545,7 +545,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     auto baseFirstRow = decoded.index(rows.begin());
     if (!decoded.isConstantMapping()) {
       rows.applyToSelected([&](vector_size_t row) {
-        VELOX_USER_CHECK(!decoded.isNullAt(row), "Percentile cannot be null")
+        VELOX_USER_CHECK(!decoded.isNullAt(row), "Percentile cannot be null");
         auto baseRow = decoded.index(row);
         VELOX_USER_CHECK(
             base->equalValueAt(base, baseRow, baseFirstRow),

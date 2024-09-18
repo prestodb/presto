@@ -287,7 +287,7 @@ WriterFuzzer::WriterFuzzer(
 void WriterFuzzer::go() {
   VELOX_CHECK(
       FLAGS_steps > 0 || FLAGS_duration_sec > 0,
-      "Either --steps or --duration_sec needs to be greater than zero.")
+      "Either --steps or --duration_sec needs to be greater than zero.");
 
   auto startTime = std::chrono::system_clock::now();
   size_t iteration = 0;

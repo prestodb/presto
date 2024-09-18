@@ -235,7 +235,7 @@ class FlatVector final : public SimpleVector<T> {
   void set(vector_size_t idx, T value) {
     VELOX_DCHECK_LT(idx, BaseVector::length_);
     ensureValues();
-    VELOX_DCHECK(!values_->isView())
+    VELOX_DCHECK(!values_->isView());
     rawValues_[idx] = value;
     if (BaseVector::nulls_) {
       BaseVector::setNull(idx, false);

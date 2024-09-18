@@ -557,7 +557,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::Plan& substraitPlan) {
   VELOX_CHECK(
       checkTypeExtension(substraitPlan),
-      "The type extension only have unknown type.")
+      "The type extension only have unknown type.");
   // Construct the function map based on the Substrait representation.
   constructFunctionMap(substraitPlan);
 

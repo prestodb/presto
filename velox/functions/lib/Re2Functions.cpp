@@ -1794,7 +1794,7 @@ class PatternStringIterator {
         VELOX_USER_FAIL(
             "Escape character must be followed by '%', '_' or the escape character itself: {}, escape {}",
             pattern_,
-            escapeChar_.value())
+            escapeChar_.value());
       }
       // One escape char plus the current char.
       nextStart_ = currentStart_ + 2;
@@ -1858,7 +1858,7 @@ class PatternStringIterator {
 
   // Char at current cursor.
   char charAt(size_t index) const {
-    VELOX_DCHECK(index < pattern_.size())
+    VELOX_DCHECK(index < pattern_.size());
     return pattern_.data()[index];
   }
 

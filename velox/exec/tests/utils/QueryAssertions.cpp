@@ -363,7 +363,7 @@ variant mapVariantAt(const ::duckdb::Value& vector, const TypePtr& mapType) {
     variant variantValue;
     auto value = ::duckdb::StructValue::GetChildren(valueList[i]);
     // Map key cannot be null.
-    VELOX_CHECK(!value[0].IsNull())
+    VELOX_CHECK(!value[0].IsNull());
     variantKey = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         variantAt, keyType->kind(), value[0]);
 
@@ -936,7 +936,7 @@ void DuckDbQueryRunner::createTable(
               type->equivalent(*columnVector->type()),
               "{} vs. {}",
               type->toString(),
-              columnVector->toString())
+              columnVector->toString());
           auto value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
               duckValueAt, type->kind(), columnVector, row);
           appender.Append(value);

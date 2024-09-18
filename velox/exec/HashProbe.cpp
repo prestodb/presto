@@ -903,7 +903,7 @@ void HashProbe::checkStateTransition(ProbeOperatorState state) {
       } else {
         VELOX_CHECK(
             state_ == ProbeOperatorState::kWaitForBuild ||
-            state_ == ProbeOperatorState::kWaitForPeers)
+            state_ == ProbeOperatorState::kWaitForPeers);
       }
       break;
     case ProbeOperatorState::kWaitForPeers:

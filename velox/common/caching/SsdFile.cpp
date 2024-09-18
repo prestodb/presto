@@ -939,7 +939,7 @@ void SsdFile::maybeVerifyChecksum(
         "IOERR: Corrupt SSD cache entry - File: {}, Offset: {}, Size: {}",
         fileName_,
         ssdRun.offset(),
-        ssdRun.size())
+        ssdRun.size());
   }
 }
 

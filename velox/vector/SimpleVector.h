@@ -246,7 +246,7 @@ class SimpleVector : public BaseVector {
   isAscii(
       const SelectivityVector& rows,
       const vector_size_t* rowMappings = nullptr) const {
-    VELOX_CHECK(rows.hasSelections())
+    VELOX_CHECK(rows.hasSelections());
     auto rlockedAsciiComputedRows{asciiInfo.readLockedAsciiComputedRows()};
     if (rlockedAsciiComputedRows->hasSelections()) {
       if (rowMappings) {

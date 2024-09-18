@@ -241,7 +241,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
       const std::string& valueField,
       const std::optional<std::string>& weightField,
       const core::FieldAccessTypedExprPtr& mask) {
-    VELOX_CHECK(!input.empty())
+    VELOX_CHECK(!input.empty());
     const auto rowType = asRowType(input[0]->type());
 
     std::vector<std::string> projections = groupingKeys_;
@@ -459,7 +459,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
       const core::WindowNode::Frame& frame,
       const TypePtr& resultType,
       bool isArray) {
-    VELOX_CHECK(!input.empty())
+    VELOX_CHECK(!input.empty());
     const auto rowType = asRowType(input[0]->type());
     const bool weighted = weightField.has_value();
 

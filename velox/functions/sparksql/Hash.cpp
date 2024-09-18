@@ -705,7 +705,7 @@ bool checkHashElementType(const TypePtr& type) {
 void checkArgTypes(const std::vector<exec::VectorFunctionArg>& args) {
   for (const auto& arg : args) {
     if (!checkHashElementType(arg.type)) {
-      VELOX_USER_FAIL("Unsupported type for hash: {}", arg.type->toString())
+      VELOX_USER_FAIL("Unsupported type for hash: {}", arg.type->toString());
     }
   }
 }

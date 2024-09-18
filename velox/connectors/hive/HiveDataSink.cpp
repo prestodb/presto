@@ -503,7 +503,7 @@ void HiveDataSink::computePartitionAndBucketIds(const RowVectorPtr& input) {
             VELOX_USER_CHECK(
                 !col->isNullAt(i),
                 "Partition key must not be null: {}",
-                input->type()->asRow().nameOf(partitionIdx))
+                input->type()->asRow().nameOf(partitionIdx));
           }
         }
       }

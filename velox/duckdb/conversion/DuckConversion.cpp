@@ -33,7 +33,7 @@ using ::duckdb::string_t;
 using ::duckdb::timestamp_t;
 
 variant decimalVariant(const Value& val) {
-  VELOX_DCHECK(val.type().id() == LogicalTypeId::DECIMAL)
+  VELOX_DCHECK(val.type().id() == LogicalTypeId::DECIMAL);
   switch (val.type().InternalType()) {
     case ::duckdb::PhysicalType::INT128: {
       auto unscaledValue = val.GetValueUnsafe<::duckdb::hugeint_t>();

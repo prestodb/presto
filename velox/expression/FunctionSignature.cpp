@@ -114,7 +114,7 @@ void validateBaseTypeAndCollectTypeParams(
           !isReturnType, "Type 'Any' cannot appear in return type");
 
       VELOX_USER_CHECK(
-          arg.parameters().empty(), "Type 'Any' cannot have parameters")
+          arg.parameters().empty(), "Type 'Any' cannot have parameters");
       return;
     }
 
@@ -136,7 +136,7 @@ void validateBaseTypeAndCollectTypeParams(
     VELOX_USER_CHECK(
         arg.parameters().empty(),
         "Named type cannot have parameters: '{}'",
-        arg.toString())
+        arg.toString());
     collectedTypeVariables.insert(arg.baseName());
   }
 }

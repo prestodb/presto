@@ -29,7 +29,7 @@ class FloorAndRoundArgGenerator : public fuzzer::ArgGenerator {
     if (signature.argumentTypes().size() == 1) {
       return generateSingleArg(returnType, rng);
     }
-    VELOX_CHECK_EQ(2, signature.argumentTypes().size())
+    VELOX_CHECK_EQ(2, signature.argumentTypes().size());
     return generateTwoArgs(returnType);
   }
 

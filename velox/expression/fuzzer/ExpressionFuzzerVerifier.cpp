@@ -304,11 +304,11 @@ void ExpressionFuzzerVerifier::retryWithTry(
 void ExpressionFuzzerVerifier::go() {
   VELOX_CHECK(
       options_.steps > 0 || options_.durationSeconds > 0,
-      "Either --steps or --duration_sec needs to be greater than zero.")
+      "Either --steps or --duration_sec needs to be greater than zero.");
   VELOX_CHECK_GT(
       options_.maxExpressionTreesPerStep,
       0,
-      "--max_expression_trees_per_step needs to be greater than zero.")
+      "--max_expression_trees_per_step needs to be greater than zero.");
 
   auto startTime = std::chrono::system_clock::now();
   size_t i = 0;

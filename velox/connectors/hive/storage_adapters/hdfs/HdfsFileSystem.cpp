@@ -38,7 +38,7 @@ class HdfsFileSystem::Impl {
         hdfsClient_,
         "Unable to connect to HDFS: {}, got error: {}.",
         endpoint.identity(),
-        hdfsGetLastError())
+        hdfsGetLastError());
   }
 
   ~Impl() {

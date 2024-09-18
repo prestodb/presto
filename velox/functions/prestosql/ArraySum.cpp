@@ -266,7 +266,7 @@ std::shared_ptr<exec::VectorFunction> create(
           kPropagateElementNull>>();
     }
     default: {
-      VELOX_FAIL("Unsupported Type")
+      VELOX_FAIL("Unsupported Type");
     }
   }
 }

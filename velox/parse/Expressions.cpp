@@ -203,7 +203,7 @@ TypedExprPtr Expressions::inferTypes(
     if (fun->getFunctionName() == "__complex_constant") {
       VELOX_CHECK_NOT_NULL(
           complexConstants,
-          "Expression contains __complex_constant function call, but complexConstants is missing")
+          "Expression contains __complex_constant function call, but complexConstants is missing");
 
       auto ccInputRow = complexConstants->as<RowVector>();
       VELOX_CHECK_NOT_NULL(

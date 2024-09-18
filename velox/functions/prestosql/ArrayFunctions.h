@@ -991,7 +991,7 @@ struct ArrayRemoveFunction {
       auto result = element.compare(item.value(), kFlags);
       VELOX_USER_CHECK(
           result.has_value(),
-          "array_remove does not support arrays with elements that are null or contain null")
+          "array_remove does not support arrays with elements that are null or contain null");
       if (result.value()) {
         toCopyItems.push_back(item.value());
       }

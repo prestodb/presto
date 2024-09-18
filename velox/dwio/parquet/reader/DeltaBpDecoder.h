@@ -142,7 +142,7 @@ class DeltaBpDecoder {
     VELOX_DCHECK_GT(totalValuesRemaining_, 0, "initBlock called at EOF");
 
     if (!getZigZagVlqInt(minDelta_)) {
-      VELOX_FAIL("initBlock EOF")
+      VELOX_FAIL("initBlock EOF");
     }
 
     // read the bitwidth of each miniblock

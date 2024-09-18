@@ -378,7 +378,7 @@ void registerEntropyAggregate(
               VELOX_UNSUPPORTED(
                   "Unsupported input type: {}. "
                   "Expected SMALLINT, INTEGER, BIGINT.",
-                  inputType->toString())
+                  inputType->toString());
           }
         } else {
           checkRowType(

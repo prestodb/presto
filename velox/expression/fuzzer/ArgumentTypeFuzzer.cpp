@@ -238,7 +238,7 @@ std::optional<int> ArgumentTypeFuzzer::tryFixedBinding(
         isPositiveInteger(name),
         "Precision and scale of a decimal type must refer to a variable "
         "or specify a positive integer constant: {}",
-        name)
+        name);
     return std::stoi(name);
   }
 
@@ -259,7 +259,7 @@ std::pair<std::optional<int>, std::optional<int>>
 ArgumentTypeFuzzer::tryBindFixedPrecisionScale(
     const exec::TypeSignature& type) {
   VELOX_CHECK(isDecimalBaseName(type.baseName()));
-  VELOX_CHECK_EQ(2, type.parameters().size())
+  VELOX_CHECK_EQ(2, type.parameters().size());
 
   const auto& precisionName = type.parameters()[0].baseName();
   const auto& scaleName = type.parameters()[1].baseName();

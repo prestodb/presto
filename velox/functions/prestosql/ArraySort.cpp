@@ -523,7 +523,7 @@ core::TypedExprPtr rewriteArraySortCall(
                                               : prefix + "array_sort_desc";
 
     if (!comparison->expr->type()->isOrderable()) {
-      VELOX_USER_FAIL(kNotSupported, lambda->toString())
+      VELOX_USER_FAIL(kNotSupported, lambda->toString());
     }
 
     auto rewritten = std::make_shared<core::CallTypedExpr>(
@@ -540,7 +540,7 @@ core::TypedExprPtr rewriteArraySortCall(
     return rewritten;
   }
 
-  VELOX_USER_FAIL(kNotSupported, lambda->toString())
+  VELOX_USER_FAIL(kNotSupported, lambda->toString());
 }
 
 // Register function.

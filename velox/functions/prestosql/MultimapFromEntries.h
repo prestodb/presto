@@ -39,7 +39,7 @@ struct MultimapFromEntriesFunction {
       const auto& key = entry.template at<0>();
       const auto& value = entry.template at<1>();
 
-      VELOX_USER_CHECK(key.has_value(), "map key cannot be null")
+      VELOX_USER_CHECK(key.has_value(), "map key cannot be null");
 
       auto result = keyValuesMap_.insert({key.value(), {}});
       result.first->second.push_back(value);

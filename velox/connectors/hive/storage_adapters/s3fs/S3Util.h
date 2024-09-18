@@ -180,7 +180,7 @@ inline std::string getRequestID(
       if (error.GetResponseCode() == Aws::Http::HttpResponseCode::NOT_FOUND) {                                                  \
         VELOX_FILE_NOT_FOUND_ERROR(errMsg);                                                                                     \
       }                                                                                                                         \
-      VELOX_FAIL(errMsg)                                                                                                        \
+      VELOX_FAIL(errMsg);                                                                                                       \
     }                                                                                                                           \
   }
 

@@ -122,8 +122,8 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
 
     std::vector<double> largeGaps;
     for (auto i = 0; i < numGroups; ++i) {
-      VELOX_CHECK(!actual->isNullAt(i))
-      VELOX_CHECK(!expected->isNullAt(i))
+      VELOX_CHECK(!actual->isNullAt(i));
+      VELOX_CHECK(!expected->isNullAt(i));
 
       const auto actualCnt = actual->valueAt(i);
       const auto expectedCnt = expected->valueAt(i);
@@ -260,10 +260,10 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
   static std::string makeCountDistinctCall(
       const core::AggregationNode::Aggregate& aggregate) {
     const auto& args = aggregate.call->inputs();
-    VELOX_CHECK_GE(args.size(), 1)
+    VELOX_CHECK_GE(args.size(), 1);
 
     auto inputField = core::TypedExprs::asFieldAccess(args[0]);
-    VELOX_CHECK_NOT_NULL(inputField)
+    VELOX_CHECK_NOT_NULL(inputField);
 
     std::string countDistinctCall =
         fmt::format("count(distinct {})", inputField->name());
@@ -280,10 +280,10 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
       const core::WindowNode::Function& function,
       const std::string& frame) {
     const auto& args = function.functionCall->inputs();
-    VELOX_CHECK_GE(args.size(), 1)
+    VELOX_CHECK_GE(args.size(), 1);
 
     auto inputField = core::TypedExprs::asFieldAccess(args[0]);
-    VELOX_CHECK_NOT_NULL(inputField)
+    VELOX_CHECK_NOT_NULL(inputField);
 
     std::string countDistinctCall =
         fmt::format("\"$internal$count_distinct\"({})", inputField->name());

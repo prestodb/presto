@@ -156,7 +156,7 @@ std::string errorMessage(fmt::string_view fmt, const Args&... args) {
 
 #define _VELOX_THROW_IMPL(                                               \
     exception, exprStr, errorSource, errorCode, isRetriable, ...)        \
-  {                                                                      \
+  do {                                                                   \
     /* GCC 9.2.1 doesn't accept this code with constexpr. */             \
     static const ::facebook::velox::detail::VeloxCheckFailArgs           \
         veloxCheckFailArgs = {                                           \
@@ -172,14 +172,21 @@ std::string errorMessage(fmt::string_view fmt, const Args&... args) {
         exception,                                                       \
         typename ::facebook::velox::detail::VeloxCheckFailStringType<    \
             decltype(message)>::type>(veloxCheckFailArgs, message);      \
-  }
+  } while (0)
 
-#define _VELOX_CHECK_AND_THROW_IMPL(                                           \
-    expr, exprStr, exception, errorSource, errorCode, isRetriable, ...)        \
-  if (UNLIKELY(!(expr))) {                                                     \
-    _VELOX_THROW_IMPL(                                                         \
-        exception, exprStr, errorSource, errorCode, isRetriable, __VA_ARGS__); \
-  }
+#define _VELOX_CHECK_AND_THROW_IMPL(                                    \
+    expr, exprStr, exception, errorSource, errorCode, isRetriable, ...) \
+  do {                                                                  \
+    if (UNLIKELY(!(expr))) {                                            \
+      _VELOX_THROW_IMPL(                                                \
+          exception,                                                    \
+          exprStr,                                                      \
+          errorSource,                                                  \
+          errorCode,                                                    \
+          isRetriable,                                                  \
+          __VA_ARGS__);                                                 \
+    }                                                                   \
+  } while (0)
 
 #define _VELOX_THROW(exception, ...) \
   _VELOX_THROW_IMPL(exception, "", ##__VA_ARGS__)

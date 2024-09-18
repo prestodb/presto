@@ -373,7 +373,7 @@ void PrestoHasher::hash(
       *vector->type() == *type_,
       "Vector type: {} != initialized type: {}",
       vector->type()->toString(),
-      type_->toString())
+      type_->toString());
   vector_->decode(*vector, rows);
   auto kind = vector_->base()->typeKind();
   VELOX_DYNAMIC_TYPE_DISPATCH(hash, kind, rows, hashes);

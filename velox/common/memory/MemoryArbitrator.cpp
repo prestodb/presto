@@ -45,7 +45,7 @@ class FactoryRegistry {
     VELOX_USER_CHECK(
         map_.find(kind) != map_.end(),
         "Arbitrator factory for kind {} not registered",
-        kind)
+        kind);
     return map_[kind];
   }
 
@@ -54,7 +54,7 @@ class FactoryRegistry {
     VELOX_USER_CHECK(
         map_.find(kind) != map_.end(),
         "Arbitrator factory for kind {} not registered",
-        kind)
+        kind);
     return map_.erase(kind);
   }
 

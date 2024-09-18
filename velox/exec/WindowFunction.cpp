@@ -94,7 +94,7 @@ std::unique_ptr<WindowFunction> WindowFunction::create(
             "Unexpected return type for window function {}. Expected {}. Got {}.",
             toString(name, argTypes),
             type->toString(),
-            resultType->toString())
+            resultType->toString());
         return func.value()->factory(
             args, resultType, ignoreNulls, pool, stringAllocator, config);
       }

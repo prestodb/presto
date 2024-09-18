@@ -74,7 +74,7 @@ std::optional<int64_t> tryResolveLongLiteral(
   VELOX_CHECK(
       integerVariablesBindings.count(variable),
       "Variable {} calculation failed.",
-      variable)
+      variable);
   return integerVariablesBindings.at(variable);
 }
 

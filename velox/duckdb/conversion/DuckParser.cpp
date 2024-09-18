@@ -594,7 +594,7 @@ std::shared_ptr<const core::IExpr> parseLambdaExpr(
   } else {
     VELOX_FAIL(
         "Unexpected left-hand-side expression for the lambda expression: {}",
-        capture->toString())
+        capture->toString());
   }
 
   return std::make_shared<const core::LambdaExpr>(
@@ -695,7 +695,7 @@ bool isAscending(::duckdb::OrderType orderType, const std::string& exprString) {
       return true;
     case ::duckdb::OrderType::INVALID:
     default:
-      VELOX_FAIL("Cannot parse ORDER BY clause: {}", exprString)
+      VELOX_FAIL("Cannot parse ORDER BY clause: {}", exprString);
   }
 }
 
@@ -712,7 +712,7 @@ bool isNullsFirst(
       return false;
     case ::duckdb::OrderByNullType::INVALID:
     default:
-      VELOX_FAIL("Cannot parse ORDER BY clause: {}", exprString)
+      VELOX_FAIL("Cannot parse ORDER BY clause: {}", exprString);
   }
 
   VELOX_UNREACHABLE();

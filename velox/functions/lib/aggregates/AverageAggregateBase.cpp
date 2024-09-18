@@ -28,7 +28,7 @@ void checkAvgIntermediateType(const TypePtr& type) {
   VELOX_USER_CHECK(
       type->childAt(0)->kind() == TypeKind::DOUBLE ||
           type->childAt(0)->isLongDecimal(),
-      "Input type for sum in final average must be double or long decimal type.")
+      "Input type for sum in final average must be double or long decimal type.");
   VELOX_USER_CHECK_EQ(
       type->childAt(1)->kind(),
       TypeKind::BIGINT,

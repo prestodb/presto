@@ -38,7 +38,7 @@ void HdfsMiniCluster::start() {
         serverProcess_->exit_code(),
         383,
         "Minicluster process exited, code: ",
-        serverProcess_->exit_code())
+        serverProcess_->exit_code());
   } catch (const std::exception& e) {
     VELOX_FAIL("Failed to launch Minicluster server: {}", e.what());
   }
@@ -91,7 +91,7 @@ void HdfsMiniCluster::addFile(std::string source, std::string destination) {
   if (!isExited) {
     VELOX_FAIL(
         "Failed to add file to hdfs, exit code: {}",
-        filePutProcess->exit_code())
+        filePutProcess->exit_code());
   }
 }
 

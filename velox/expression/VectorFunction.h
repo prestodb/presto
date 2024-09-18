@@ -156,7 +156,7 @@ class ApplyNeverCalled final : public VectorFunction {
       const TypePtr&,
       EvalCtx&,
       VectorPtr&) const final {
-    VELOX_UNREACHABLE("Not expected to be called.")
+    VELOX_UNREACHABLE("Not expected to be called.");
   }
 };
 

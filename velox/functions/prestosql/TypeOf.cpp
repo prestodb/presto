@@ -108,7 +108,7 @@ std::string typeName(const TypePtr& type) {
     case TypeKind::UNKNOWN:
       return "unknown";
     default:
-      VELOX_UNSUPPORTED("Unsupported type: {}", type->toString())
+      VELOX_UNSUPPORTED("Unsupported type: {}", type->toString());
   }
 }
 

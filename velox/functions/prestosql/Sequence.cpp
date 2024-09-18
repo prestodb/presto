@@ -176,7 +176,7 @@ class SequenceFunction : public exec::VectorFunction {
     VELOX_USER_CHECK(
         step > 0 ? stop >= start : stop <= start,
         "sequence stop value should be greater than or equal to start value if "
-        "step is greater than zero otherwise stop should be less than or equal to start")
+        "step is greater than zero otherwise stop should be less than or equal to start");
     int128_t sequenceCount;
     if (isYearMonth) {
       sequenceCount = getStepCount(start, stop, step);

@@ -598,7 +598,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
     return leafTypePtr;
   }
 
-  VELOX_FAIL("Unable to extract Parquet column info.")
+  VELOX_FAIL("Unable to extract Parquet column info.");
   return nullptr;
 }
 

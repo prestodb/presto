@@ -734,7 +734,7 @@ void MemoryArbitrationFuzzer::verify() {
 void MemoryArbitrationFuzzer::go() {
   VELOX_USER_CHECK(
       FLAGS_steps > 0 || FLAGS_duration_sec > 0,
-      "Either --steps or --duration_sec needs to be greater than zero.")
+      "Either --steps or --duration_sec needs to be greater than zero.");
   VELOX_USER_CHECK_GE(FLAGS_batch_size, 10, "Batch size must be at least 10.");
 
   const auto startTime = std::chrono::system_clock::now();

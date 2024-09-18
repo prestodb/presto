@@ -49,7 +49,7 @@ Expand::Expand(
       } else {
         VELOX_USER_FAIL(
             "Expand operator doesn't support this expression. Only column references and constants are supported. {}",
-            columnProjection->toString())
+            columnProjection->toString());
       }
     }
 

@@ -801,7 +801,7 @@ PlanBuilder::AggregatesAndNames PlanBuilder::createAggregateExpressionsAndNames(
             step == core::AggregationNode::Step::kSingle,
             "Order sensitive aggregation over sorted inputs cannot be split "
             "into partial and final: {}.",
-            aggregate)
+            aggregate);
       }
     }
 

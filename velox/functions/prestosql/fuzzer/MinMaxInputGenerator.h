@@ -54,7 +54,7 @@ class MinMaxInputGenerator : public InputGenerator {
     VELOX_CHECK(
         types.back()->isBigint(),
         "Unexpected type: {}",
-        types.back()->toString())
+        types.back()->toString());
     inputs.push_back(
         BaseVector::createConstant(BIGINT(), n_.value(), size, pool));
     return inputs;
@@ -76,7 +76,7 @@ class MinMaxInputGenerator : public InputGenerator {
       return 2;
     }
 
-    VELOX_FAIL("Unexpected function name: {}", name)
+    VELOX_FAIL("Unexpected function name: {}", name);
   }
 
   // Zero-based index of the 'n' argument.

@@ -50,7 +50,7 @@ struct HdfsFile {
 
   int32_t read(char* pos, uint64_t length) const {
     auto bytesRead = hdfsRead(client_, handle_, pos, length);
-    VELOX_CHECK(bytesRead >= 0, "Read failure in HDFSReadFile::preadInternal.")
+    VELOX_CHECK(bytesRead >= 0, "Read failure in HDFSReadFile::preadInternal.");
     return bytesRead;
   }
 };

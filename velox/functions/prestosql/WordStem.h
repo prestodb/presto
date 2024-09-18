@@ -106,7 +106,7 @@ struct WordStemFunction {
     stringImpl::lower<isAscii>(lowerOutput, input);
     auto* stem = stemmer->stem(lowerOutput);
     VELOX_CHECK_NOT_NULL(
-        stem, "Stemmer library returned a NULL (out-of-memory)")
+        stem, "Stemmer library returned a NULL (out-of-memory)");
     result = stem;
   }
 

@@ -193,7 +193,7 @@ std::shared_ptr<exec::VectorFunction> createMakeTimestampFunction(
   const auto sessionTzName = config.sessionTimezone();
   VELOX_USER_CHECK(
       !sessionTzName.empty(),
-      "make_timestamp requires session time zone to be set.")
+      "make_timestamp requires session time zone to be set.");
   const auto* sessionTimeZone = tz::locateZone(sessionTzName);
 
   const auto& secondsType = inputArgs[5].type;

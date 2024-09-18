@@ -35,7 +35,7 @@ void AzuriteServer::start() {
         serverProcess_->exit_code(),
         383,
         "AzuriteServer process exited, code: ",
-        serverProcess_->exit_code())
+        serverProcess_->exit_code());
   } catch (const std::exception& e) {
     VELOX_FAIL("Failed to launch Azurite server: {}", e.what());
   }

@@ -286,7 +286,7 @@ class EncoderSpec : public GeneratorSpec {
         break;
       }
       default: {
-        VELOX_UNREACHABLE()
+        VELOX_UNREACHABLE();
         break;
       }
     }

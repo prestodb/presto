@@ -218,7 +218,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
     if (compressionKind.has_value()) {
       VELOX_CHECK(
           compressionKind.value() != common::CompressionKind_MAX,
-          "Unsupported compression type: CompressionKind_MAX")
+          "Unsupported compression type: CompressionKind_MAX");
     }
   }
 

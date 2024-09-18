@@ -47,7 +47,7 @@ class ApproxDistinctInputGenerator : public InputGenerator {
     VELOX_CHECK(
         types.back()->isDouble(),
         "Unexpected type: {}",
-        types.back()->toString())
+        types.back()->toString());
     return {
         fuzzer.fuzz(types[0]),
         BaseVector::createConstant(DOUBLE(), e_.value(), size, pool)};

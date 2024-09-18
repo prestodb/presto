@@ -34,7 +34,7 @@ struct BitCountFunction {
     VELOX_USER_CHECK(
         bits >= 2 && bits <= kMaxBits,
         "Bits specified in bit_count must be between 2 and 64, got {}",
-        bits)
+        bits);
     // Check if input "num" falls within the limits of max and min that
     // can be represented with "bits".
     const uint64_t lowBitsMask = 1L << (bits - 1);

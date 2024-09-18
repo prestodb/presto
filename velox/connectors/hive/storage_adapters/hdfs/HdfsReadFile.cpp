@@ -91,6 +91,6 @@ void HdfsReadFile::checkFileReadParameters(uint64_t offset, uint64_t length)
       "Cannot read HDFS file beyond its size: {}, offset: {}, end point: {}",
       fileSize,
       offset,
-      endPoint)
+      endPoint);
 }
 } // namespace facebook::velox
