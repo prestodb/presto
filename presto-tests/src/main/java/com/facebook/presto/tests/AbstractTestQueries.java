@@ -1669,6 +1669,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUncorrelatedSubqueryWithEmptyResult()
+    {
+        assertQuery(
+                "SELECT regionkey, (select name from nation where false) from region",
+                "SELECT regionkey, NULL from region");
+        assertQuery(
+                "SELECT regionkey, (select name from nation where nationkey = 5 and mod(nationkey,5) = 1) from region",
+                "SELECT regionkey, NULL from region");
+    }
+
+    @Test
     public void testChecksum()
     {
         assertQuery("SELECT to_hex(checksum(0))", "SELECT '0000000000000000'");
