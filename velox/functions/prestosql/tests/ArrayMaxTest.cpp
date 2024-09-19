@@ -165,7 +165,7 @@ TEST_F(ArrayMaxTest, docs) {
 template <typename Type>
 class ArrayMaxIntegralTest : public FunctionBaseTest {
  public:
-  using T = typename Type::NativeType::NativeType;
+  using T = typename Type::NativeType;
 
   void testArrayMax(const VectorPtr& input, const VectorPtr& expected) {
     auto result =
@@ -230,7 +230,7 @@ class ArrayMaxIntegralTest : public FunctionBaseTest {
 template <typename Type>
 class ArrayMaxFloatingPointTest : public FunctionBaseTest {
  public:
-  using T = typename Type::NativeType::NativeType;
+  using T = typename Type::NativeType;
 
   void testArrayMax(VectorPtr input, VectorPtr expected) {
     auto result =

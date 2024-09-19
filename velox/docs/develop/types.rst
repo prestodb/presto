@@ -137,6 +137,14 @@ the existing physical types. For example, Presto Types described below are imple
 by extending the physical types.
 An OPAQUE type must be used when there is no physical type available to back the logical type.
 
+When extending an existing physical type, if different compare and/or hash semantics are
+needed instead of those provided by the underlying native C++ type, this can be achieved by
+doing the following:
+* Pass `true` for the `providesCustomComparison` argument in the custom type's base class's constructor.
+* Override the `compare` and `hash` functions inherited from the `TypeBase` class (you must implement both).
+Note that this is currently only supported for custom types that extend physical types that
+are primitive and fixed width.
+
 Complex Types
 ~~~~~~~~~~~~~
 Velox supports the ARRAY, MAP, and ROW complex types.
@@ -184,12 +192,12 @@ IPPREFIX networks.
 
 Spark Types
 ~~~~~~~~~~~~
-The `data types <https://spark.apache.org/docs/latest/sql-ref-datatypes.html>`_ in Spark have some semantic differences compared to those in 
-Presto. These differences require us to implement the same functions 
-separately for each system in Velox, such as min, max and collect_set. The 
+The `data types <https://spark.apache.org/docs/latest/sql-ref-datatypes.html>`_ in Spark have some semantic differences compared to those in
+Presto. These differences require us to implement the same functions
+separately for each system in Velox, such as min, max and collect_set. The
 key differences are listed below.
 
-* Spark operates on timestamps with "microsecond" precision while Presto with 
+* Spark operates on timestamps with "microsecond" precision while Presto with
   "millisecond" precision.
   Example::
 
@@ -210,7 +218,7 @@ key differences are listed below.
       FROM (
           VALUES
               (ARRAY[1, 2]),
-              (ARRAY[1, null])  
+              (ARRAY[1, null])
       ) AS t(a);
       -- ARRAY[1, null]
 

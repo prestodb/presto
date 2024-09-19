@@ -778,7 +778,7 @@ typedef ::testing::Types<
 template <typename ComparisonTypeOp>
 class SimdComparisonsTest : public functions::test::FunctionBaseTest {
  public:
-  using T = typename ComparisonTypeOp::type::NativeType::NativeType;
+  using T = typename ComparisonTypeOp::type::NativeType;
   using ComparisonOp = typename ComparisonTypeOp::fn;
   const std::string sqlFn = ComparisonTypeOp().sqlFunction;
 

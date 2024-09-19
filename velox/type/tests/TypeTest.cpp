@@ -18,6 +18,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/type/CppToType.h"
 #include "velox/type/SimpleFunctionApi.h"
+#include "velox/type/tests/utils/CustomTypesForTesting.h"
 
 using namespace facebook;
 using namespace facebook::velox;
@@ -989,4 +990,55 @@ TEST(TypeTest, functionTypeEquivalent) {
       std::vector<TypePtr>{MAP(BIGINT(), VARCHAR())}, BOOLEAN());
 
   EXPECT_TRUE(functionType->equivalent(*otherFunctionType));
+}
+
+TEST(TypeTest, providesCustomComparison) {
+  // None of the builtin types provide custom comparison.
+  EXPECT_FALSE(BOOLEAN()->providesCustomComparison());
+  EXPECT_FALSE(TINYINT()->providesCustomComparison());
+  EXPECT_FALSE(SMALLINT()->providesCustomComparison());
+  EXPECT_FALSE(INTEGER()->providesCustomComparison());
+  EXPECT_FALSE(BIGINT()->providesCustomComparison());
+  EXPECT_FALSE(HUGEINT()->providesCustomComparison());
+  EXPECT_FALSE(REAL()->providesCustomComparison());
+  EXPECT_FALSE(DOUBLE()->providesCustomComparison());
+  EXPECT_FALSE(VARCHAR()->providesCustomComparison());
+  EXPECT_FALSE(VARBINARY()->providesCustomComparison());
+  EXPECT_FALSE(TIMESTAMP()->providesCustomComparison());
+  EXPECT_FALSE(DATE()->providesCustomComparison());
+  EXPECT_FALSE(ARRAY(INTEGER())->providesCustomComparison());
+  EXPECT_FALSE(MAP(INTEGER(), INTEGER())->providesCustomComparison());
+  EXPECT_FALSE(ROW({INTEGER()})->providesCustomComparison());
+  EXPECT_FALSE(DECIMAL(10, 5)->providesCustomComparison());
+  EXPECT_FALSE(UNKNOWN()->providesCustomComparison());
+  EXPECT_FALSE(INTERVAL_YEAR_MONTH()->providesCustomComparison());
+  EXPECT_FALSE(INTERVAL_DAY_TIME()->providesCustomComparison());
+  EXPECT_FALSE(FUNCTION({INTEGER()}, INTEGER())->providesCustomComparison());
+
+  // This custom type does provide custom comparison.
+  EXPECT_TRUE(
+      test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()->providesCustomComparison());
+  EXPECT_EQ(0, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()->compare(0, 0));
+  EXPECT_EQ(
+      8633297058295171728, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()->hash(0));
+
+  // BIGINT does not provide custom comparison so calling compare or hash on it
+  // should fail.
+  EXPECT_THROW(BIGINT()->compare(0, 0), VeloxRuntimeError);
+  EXPECT_THROW(BIGINT()->hash(0), VeloxRuntimeError);
+
+  // This type claims it providesCustomComparison but does not implement the
+  // compare and hash functions so invoking them should still fail.
+  EXPECT_TRUE(test::BIGINT_TYPE_WITH_INVALID_CUSTOM_COMPARISON()
+                  ->providesCustomComparison());
+  EXPECT_THROW(
+      test::BIGINT_TYPE_WITH_INVALID_CUSTOM_COMPARISON()->compare(0, 0),
+      VeloxRuntimeError);
+  EXPECT_THROW(
+      test::BIGINT_TYPE_WITH_INVALID_CUSTOM_COMPARISON()->hash(0),
+      VeloxRuntimeError);
+
+  // We do not support variable width custom comparison for variable width
+  // types, so attempting to instantiate one should fail.
+  EXPECT_THROW(test::VARCHAR_TYPE_WITH_CUSTOM_COMPARISON(), VeloxRuntimeError);
 }

@@ -434,7 +434,8 @@ struct TypeParameter {
 ///                   BigintType
 class Type : public Tree<const TypePtr>, public velox::ISerializable {
  public:
-  explicit Type(TypeKind kind) : kind_{kind} {}
+  explicit Type(TypeKind kind, bool providesCustomComparison = false)
+      : kind_{kind}, providesCustomComparison_(providesCustomComparison) {}
 
   TypeKind kind() const {
     return kind_;
@@ -463,6 +464,13 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
   /// usually orderable, arrays and structs are orderable if their nested types
   /// are, while map types are not orderable.
   virtual bool isOrderable() const = 0;
+
+  /// Returns true if values of this type implements custom comparison and hash
+  /// functions. If this returns true the compare and hash functions in TypeBase
+  /// should be used instead of native implementations, e.g. ==, <, >, etc.
+  bool providesCustomComparison() const {
+    return providesCustomComparison_;
+  }
 
   /// Returns unique logical type name. It can be
   /// different from the physical type name returned by 'kindName()'.
@@ -560,6 +568,7 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
 
  private:
   const TypeKind kind_;
+  const bool providesCustomComparison_;
 
   VELOX_DEFINE_CLASS_NAME(Type)
 };
@@ -569,9 +578,16 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
 template <TypeKind KIND>
 class TypeBase : public Type {
  public:
-  using NativeType = TypeTraits<KIND>;
+  using NativeType = typename TypeTraits<KIND>::NativeType;
 
-  TypeBase() : Type{KIND} {}
+  explicit TypeBase(bool providesCustomComparison = false)
+      : Type{KIND, providesCustomComparison} {
+    if (providesCustomComparison) {
+      VELOX_CHECK(
+          isPrimitiveType() && isFixedWidth(),
+          "Custom comparisons are only supported for primite types that are fixed width.");
+    }
+  }
 
   bool isPrimitiveType() const override {
     return TypeTraits<KIND>::isPrimitiveType;
@@ -604,8 +620,35 @@ class TypeBase : public Type {
 };
 
 template <TypeKind KIND>
-class ScalarType : public TypeBase<KIND> {
+class CanProvideCustomComparisonType : public TypeBase<KIND> {
  public:
+  explicit CanProvideCustomComparisonType(bool providesCustomComparison = false)
+      : TypeBase<KIND>{providesCustomComparison} {}
+
+  virtual int32_t compare(
+      const typename TypeBase<KIND>::NativeType& /*left*/,
+      const typename TypeBase<KIND>::NativeType& /*right*/) const {
+    VELOX_CHECK(
+        !this->providesCustomComparison(),
+        "Type {} is marked as providesCustomComparison but did not implement compare.");
+    VELOX_FAIL("Type {} does not provide custom comparison", this->name());
+  }
+
+  virtual uint64_t hash(
+      const typename TypeBase<KIND>::NativeType& /*value*/) const {
+    VELOX_CHECK(
+        !this->providesCustomComparison(),
+        "Type {} is marked as providesCustomComparison but did not implement hash.");
+    VELOX_FAIL("Type {} does not provide custom hash", this->name());
+  }
+};
+
+template <TypeKind KIND>
+class ScalarType : public CanProvideCustomComparisonType<KIND> {
+ public:
+  explicit ScalarType(bool providesCustomComparison = false)
+      : CanProvideCustomComparisonType<KIND>{providesCustomComparison} {}
+
   uint32_t size() const override {
     return 0;
   }
@@ -657,8 +700,8 @@ const std::shared_ptr<const ScalarType<KIND>> ScalarType<KIND>::create() {
 
 /// This class represents the fixed-point numbers.
 /// The parameter "precision" represents the number of digits the
-/// Decimal Type can support and "scale" represents the number of digits to the
-/// right of the decimal point.
+/// Decimal Type can support and "scale" represents the number of digits to
+/// the right of the decimal point.
 template <TypeKind KIND>
 class DecimalType : public ScalarType<KIND> {
  public:
@@ -767,9 +810,11 @@ FOLLY_ALWAYS_INLINE bool isDecimalName(const std::string& name) {
 
 std::pair<uint8_t, uint8_t> getDecimalPrecisionScale(const Type& type);
 
-class UnknownType : public TypeBase<TypeKind::UNKNOWN> {
+class UnknownType : public CanProvideCustomComparisonType<TypeKind::UNKNOWN> {
  public:
-  UnknownType() = default;
+  explicit UnknownType(bool proivdesCustomComparison = false)
+      : CanProvideCustomComparisonType<TypeKind::UNKNOWN>(
+            proivdesCustomComparison) {}
 
   uint32_t size() const override {
     return 0;
@@ -1077,11 +1122,12 @@ class OpaqueType : public TypeBase<TypeKind::OPAQUE> {
   folly::dynamic serialize() const override;
   /// In special cases specific OpaqueTypes might want to serialize additional
   /// metadata. In those cases we need to deserialize it back. Since
-  /// OpaqueType::create<T>() returns canonical type for T without metadata, we
-  /// allow to create new instance here or return nullptr if the same one can be
-  /// used. Note that it's about deserialization of type itself, DeserializeFunc
-  /// above is about deserializing instances of the type. It's implemented as a
-  /// virtual member instead of a standalone registry just for convenience.
+  /// OpaqueType::create<T>() returns canonical type for T without metadata,
+  /// we allow to create new instance here or return nullptr if the same one
+  /// can be used. Note that it's about deserialization of type itself,
+  /// DeserializeFunc above is about deserializing instances of the type. It's
+  /// implemented as a virtual member instead of a standalone registry just
+  /// for convenience.
   virtual std::shared_ptr<const OpaqueType> deserializeExtra(
       const folly::dynamic& json) const;
 
@@ -1236,8 +1282,8 @@ class IntervalYearMonthType : public IntegerType {
   }
 
   /// Returns the interval 'value' (months) formatted as YEARS MONTHS.
-  /// For example, 14 months (INTERVAL '1-2' YEAR TO MONTH) would be represented
-  /// as 1-2; -14 months would be represents as -1-2.
+  /// For example, 14 months (INTERVAL '1-2' YEAR TO MONTH) would be
+  /// represented as 1-2; -14 months would be represents as -1-2.
   std::string valueToString(int32_t value) const;
 
   folly::dynamic serialize() const override {
@@ -1896,8 +1942,8 @@ using CastOperatorPtr = std::shared_ptr<const CastOperator>;
 
 } // namespace exec
 
-/// Associates custom types with their custom operators to be the payload in the
-/// custom type registry.
+/// Associates custom types with their custom operators to be the payload in
+/// the custom type registry.
 class CustomTypeFactories {
  public:
   virtual ~CustomTypeFactories() = default;
@@ -1912,9 +1958,9 @@ class CustomTypeFactories {
   virtual exec::CastOperatorPtr getCastOperator() const = 0;
 };
 
-/// Adds custom type to the registry if it doesn't exist already. No-op if type
-/// with specified name already exists. Returns true if type was added, false if
-/// type with the specified name already exists.
+/// Adds custom type to the registry if it doesn't exist already. No-op if
+/// type with specified name already exists. Returns true if type was added,
+/// false if type with the specified name already exists.
 bool registerCustomType(
     const std::string& name,
     std::unique_ptr<const CustomTypeFactories> factories);

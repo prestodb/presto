@@ -91,7 +91,7 @@ TEST_F(ArrayMinTest, timestamp) {
 template <typename Type>
 class ArrayMinIntegralTest : public ArrayMinTest {
  public:
-  using NATIVE_TYPE = typename Type::NativeType::NativeType;
+  using NATIVE_TYPE = typename Type::NativeType;
 };
 
 TYPED_TEST_SUITE(ArrayMinIntegralTest, FunctionBaseTest::IntegralTypes);
@@ -132,7 +132,7 @@ TYPED_TEST(ArrayMinIntegralTest, basic) {
 template <typename Type>
 class ArrayMinFloatingPointTest : public ArrayMinTest {
  public:
-  using NATIVE_TYPE = typename Type::NativeType::NativeType;
+  using NATIVE_TYPE = typename Type::NativeType;
 };
 
 TYPED_TEST_SUITE(

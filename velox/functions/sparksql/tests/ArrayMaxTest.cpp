@@ -90,7 +90,7 @@ TEST_F(ArrayMaxTest, timestamp) {
 template <typename Type>
 class ArrayMaxIntegralTest : public ArrayMaxTest {
  public:
-  using NATIVE_TYPE = typename Type::NativeType::NativeType;
+  using NATIVE_TYPE = typename Type::NativeType;
 };
 
 TYPED_TEST_SUITE(ArrayMaxIntegralTest, FunctionBaseTest::IntegralTypes);
@@ -131,7 +131,7 @@ TYPED_TEST(ArrayMaxIntegralTest, basic) {
 template <typename Type>
 class ArrayMaxFloatingPointTest : public ArrayMaxTest {
  public:
-  using NATIVE_TYPE = typename Type::NativeType::NativeType;
+  using NATIVE_TYPE = typename Type::NativeType;
 };
 
 TYPED_TEST_SUITE(
