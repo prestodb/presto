@@ -15,6 +15,7 @@
 ARG image=ghcr.io/facebookincubator/velox-dev:centos9
 FROM $image
 
+COPY scripts/setup-helper-functions.sh /
 COPY scripts/setup-adapters.sh /
 RUN mkdir build && ( cd build &&  source /opt/rh/gcc-toolset-12/enable && \
     bash /setup-adapters.sh ) && rm -rf build && dnf remove -y conda && dnf clean all

@@ -45,6 +45,14 @@ if(DEFINED ENV{CONDA_PREFIX})
   endif()
 endif()
 
+if(DEFINED ENV{INSTALL_PREFIX})
+  message(STATUS "Dependency install directory set to: $ENV{INSTALL_PREFIX}")
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{INSTALL_PREFIX}")
+  # Allow installed package headers to be picked up before brew/system package
+  # headers
+  include_directories(BEFORE "$ENV{INSTALL_PREFIX}/include")
+endif()
+
 list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/CMake"
      "${PROJECT_SOURCE_DIR}/CMake/third-party")
 

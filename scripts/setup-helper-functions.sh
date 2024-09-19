@@ -16,6 +16,9 @@
 # github_checkout $REPO $VERSION $GIT_CLONE_PARAMS clones or re-uses an existing clone of the
 # specified repo, checking out the requested version.
 
+DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)/deps-download}
+OS_CXXFLAGS=""
+
 function run_and_time {
   time "$@" || (echo "Failed to run $* ." ; exit 1 )
   { echo "+ Finished running $*"; } 2> /dev/null
@@ -156,29 +159,49 @@ function get_cxx_flags {
 function wget_and_untar {
   local URL=$1
   local DIR=$2
+  mkdir -p "${DEPENDENCY_DIR}"
+  pushd "${DEPENDENCY_DIR}"
+  SUDO="${SUDO:-""}"
+  if [ -d "${DIR}" ]; then
+    if prompt "${DIR} already exists. Delete?"; then
+      ${SUDO} rm -rf "${DIR}"
+    else
+      popd
+      return
+    fi
+  fi
   mkdir -p "${DIR}"
   pushd "${DIR}"
   curl -L "${URL}" > $2.tar.gz
   tar -xz --strip-components=1 -f $2.tar.gz
   popd
+  popd
+}
+
+function cmake_install_dir {
+  pushd "${DEPENDENCY_DIR}/$1"
+  # remove the directory argument
+  shift
+  cmake_install $@
+  popd
 }
 
 function cmake_install {
-  if [ -d "$1" ]; then
-    DIR="$1"
-    shift
-  else
-    DIR=$(pwd)
-  fi
   local NAME=$(basename "$(pwd)")
   local BINARY_DIR=_build
   SUDO="${SUDO:-""}"
-  pushd "${DIR}"
-  if [ -d "${BINARY_DIR}" ] && prompt "Do you want to rebuild ${NAME}?"; then
-    ${SUDO} rm -rf "${BINARY_DIR}"
+  if [ -d "${BINARY_DIR}" ]; then
+    if prompt "Do you want to rebuild ${NAME}?"; then
+      ${SUDO} rm -rf "${BINARY_DIR}"
+    else
+      return
+    fi
   fi
+
   mkdir -p "${BINARY_DIR}"
   COMPILER_FLAGS=$(get_cxx_flags)
+  # Add platform specific CXX flags if any
+  COMPILER_FLAGS+=${OS_CXXFLAGS}
 
   # CMAKE_POSITION_INDEPENDENT_CODE is required so that Velox can be built into dynamic libraries \
   cmake -Wno-dev -B"${BINARY_DIR}" \
@@ -193,6 +216,5 @@ function cmake_install {
   # Exit if the build fails.
   cmake --build "${BINARY_DIR}" || { echo 'build failed' ; exit 1; }
   ${SUDO} cmake --install "${BINARY_DIR}"
-  popd
 }
 

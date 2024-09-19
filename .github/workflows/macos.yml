@@ -54,6 +54,7 @@ jobs:
       CCACHE_DIR: '${{ github.workspace }}/.ccache'
       # The arm runners have only 7GB RAM
       BUILD_TYPE: "${{ matrix.os ==  'macos-14' && 'Release' || 'Debug' }}"
+      INSTALL_PREFIX: "/tmp/deps-install"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,6 +67,7 @@ jobs:
           source scripts/setup-macos.sh
           install_build_prerequisites
           install_velox_deps_from_brew
+          install_double_conversion
 
           echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
           brew unlink protobuf || echo "protobuf not installed"

@@ -49,6 +49,8 @@ projects/*
 !projects/*.*
 !projects/Makefile
 .venv
+deps-install
+deps-download
 
 #==============================================================================#
 # Autotools artifacts

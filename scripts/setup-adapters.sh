@@ -21,9 +21,13 @@ set -eufx -o pipefail
 
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
-DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
+DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)/deps-download}
 CMAKE_BUILD_TYPE="${BUILD_TYPE:-Release}"
 MACHINE=$(uname -m)
+
+if [[ "$OSTYPE" == darwin* ]]; then
+  export INSTALL_PREFIX=${INSTALL_PREFIX:-"$(pwd)/deps-install"}
+fi
 
 function install_aws_deps {
   local AWS_REPO_NAME="aws/aws-sdk-cpp"
@@ -40,14 +44,16 @@ function install_aws_deps {
     MINIO_ARCH="amd64"
   fi
   local MINIO_BINARY="minio-2022-05-26"
-  local MINIO_OS="linux"
-  if [[ "$OSTYPE" == darwin* ]]; then
-    # minio will have to approved under the Privacy & Security on MacOS on first use.
-    MINIO_OS="darwin"
+  if [[! -f /usr/local/bin/${MINIO_BINARY} ]]; then
+    local MINIO_OS="linux"
+    if [[ "$OSTYPE" == darwin* ]]; then
+      # minio will have to approved under the Privacy & Security on MacOS on first use.
+      MINIO_OS="darwin"
+    fi
+    wget https://dl.min.io/server/minio/release/${MINIO_OS}-${MINIO_ARCH}/archive/minio.RELEASE.2022-05-26T05-48-41Z -O ${MINIO_BINARY}
+    chmod +x ./${MINIO_BINARY}
+    mv ./${MINIO_BINARY} /usr/local/bin/
   fi
-  wget https://dl.min.io/server/minio/release/${MINIO_OS}-${MINIO_ARCH}/archive/minio.RELEASE.2022-05-26T05-48-41Z -O ${MINIO_BINARY}
-  chmod +x ./${MINIO_BINARY}
-  mv ./${MINIO_BINARY} /usr/local/bin/
 }
 
 function install_gcs-sdk-cpp {
@@ -117,41 +123,51 @@ function install_azure-storage-sdk-cpp {
     sed -i "s/\"version-string\"/\"builtin-baseline\": \"$vcpkg_commit_id\",\"version-string\"/" $azure_core_dir/vcpkg.json
     sed -i "s/\"version-string\"/\"overrides\": [{ \"name\": \"openssl\", \"version-string\": \"$openssl_version\" }],\"version-string\"/" $azure_core_dir/vcpkg.json
   fi
-  cmake_install $azure_core_dir -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
-
+  (
+    cd $azure_core_dir 
+    cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  )
   # install azure-storage-common
-  cmake_install sdk/storage/azure-storage-common -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  (
+    cd sdk/storage/azure-storage-common
+    cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  )
 
   # install azure-storage-blobs
-  cmake_install sdk/storage/azure-storage-blobs -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
-
+  (
+    cd sdk/storage/azure-storage-blobs
+    cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  )
   # install azure-storage-files-datalake
-  cmake_install sdk/storage/azure-storage-files-datalake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  (
+    cd sdk/storage/azure-storage-files-datalake
+    cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  )
 }
 
 function install_hdfs_deps {
   github_checkout apache/hawq master
-  libhdfs3_dir=$DEPENDENCY_DIR/hawq/depends/libhdfs3
+  libhdfs3_dir=hawq/depends/libhdfs3
   if [[ "$OSTYPE" == darwin* ]]; then
-     sed -i '' -e "/FIND_PACKAGE(GoogleTest REQUIRED)/d" $libhdfs3_dir/CMakeLists.txt
-     sed -i '' -e "s/dumpversion/dumpfullversion/" $libhdfs3_dir/CMakeLists.txt
+     sed -i '' -e "/FIND_PACKAGE(GoogleTest REQUIRED)/d" $DEPENDENCY_DIR/$libhdfs3_dir/CMakeLists.txt
+     sed -i '' -e "s/dumpversion/dumpfullversion/" $DEPENDENCY_DIR/$libhdfs3_dir/CMakeLists.txt
   fi
 
   if [[ "$OSTYPE" == linux-gnu* ]]; then
-    sed -i "/FIND_PACKAGE(GoogleTest REQUIRED)/d" $libhdfs3_dir/CMakeLists.txt
-    sed -i "s/dumpversion/dumpfullversion/" $libhdfs3_dir/CMake/Platform.cmake
+    sed -i "/FIND_PACKAGE(GoogleTest REQUIRED)/d" $DEPENDENCY_DIR/$libhdfs3_dir/CMakeLists.txt
+    sed -i "s/dumpversion/dumpfullversion/" $DEPENDENCY_DIR/$libhdfs3_dir/CMake/Platform.cmake
     # Dependencies for Hadoop testing
     wget_and_untar https://archive.apache.org/dist/hadoop/common/hadoop-3.3.0/hadoop-3.3.0.tar.gz hadoop
-    cp -a hadoop /usr/local/
+    cp -a ${DEPENDENCY_DIR}/hadoop /usr/local/
     wget -P /usr/local/hadoop/share/hadoop/common/lib/ https://repo1.maven.org/maven2/junit/junit/4.11/junit-4.11.jar
 
     yum install -y java-1.8.0-openjdk-devel
     
   fi
-  cmake_install $libhdfs3_dir
+  cmake_install_dir $libhdfs3_dir
 }
 
-cd "${DEPENDENCY_DIR}" || exit
+(mkdir -p "${DEPENDENCY_DIR}") || exit
 # aws-sdk-cpp missing dependencies
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
