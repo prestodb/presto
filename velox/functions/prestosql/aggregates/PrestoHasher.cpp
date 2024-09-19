@@ -44,7 +44,7 @@ FOLLY_ALWAYS_INLINE void applyHashFunction(
     const DecodedVector& vector,
     BufferPtr& hashes,
     Callable func) {
-  VELOX_CHECK_GE(hashes->size(), rows.end())
+  VELOX_CHECK_GE(hashes->size(), rows.end());
   auto rawHashes = hashes->asMutable<int64_t>();
 
   rows.applyToSelected([&](auto row) {
@@ -273,7 +273,7 @@ void PrestoHasher::hash<TypeKind::MAP>(
     BufferPtr& hashes) {
   auto baseMap = vector_->base()->as<MapVector>();
   auto indices = vector_->indices();
-  VELOX_CHECK_EQ(children_.size(), 2)
+  VELOX_CHECK_EQ(children_.size(), 2);
 
   auto nonNullRows = SelectivityVector(rows);
   if (vector_->nulls(&nonNullRows)) {

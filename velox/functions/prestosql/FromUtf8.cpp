@@ -172,7 +172,7 @@ class FromUtf8Function : public exec::VectorFunction {
       VELOX_USER_CHECK_EQ(
           charLength,
           replacement.size(),
-          "Replacement string must be empty or a single character")
+          "Replacement string must be empty or a single character");
     }
     return replacement;
   }

@@ -735,7 +735,7 @@ void Task::start(uint32_t maxDrivers, uint32_t concurrentSplitGroups) {
 }
 
 void Task::checkExecutionMode(ExecutionMode mode) {
-  VELOX_CHECK_EQ(mode, mode_, "Inconsistent task execution mode.")
+  VELOX_CHECK_EQ(mode, mode_, "Inconsistent task execution mode.");
 }
 
 void Task::createDriverFactoriesLocked(uint32_t maxDrivers) {

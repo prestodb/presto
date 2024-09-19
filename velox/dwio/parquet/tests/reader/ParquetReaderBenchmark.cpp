@@ -147,7 +147,7 @@ int ParquetReaderBenchmark::read(
     VELOX_CHECK_EQ(
         rowVector->childrenSize(),
         1,
-        "The benchmark is performed on single columns. So the result should only contain one column.")
+        "The benchmark is performed on single columns. So the result should only contain one column.");
 
     for (int i = 0; i < rowVector->size(); i++) {
       resultSize += !rowVector->childAt(0)->isNullAt(i);

@@ -66,10 +66,10 @@ void extractColumns(
     memory::MemoryPool* pool,
     const std::vector<TypePtr>& resultTypes,
     std::vector<VectorPtr>& resultVectors) {
-  VELOX_CHECK_EQ(resultTypes.size(), resultVectors.size())
+  VELOX_CHECK_EQ(resultTypes.size(), resultVectors.size());
   for (auto projection : projections) {
     const auto resultChannel = projection.outputChannel;
-    VELOX_CHECK_LT(resultChannel, resultVectors.size())
+    VELOX_CHECK_LT(resultChannel, resultVectors.size());
 
     auto& child = resultVectors[resultChannel];
     // TODO: Consider reuse of complex types.

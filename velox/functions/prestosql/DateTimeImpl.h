@@ -318,7 +318,7 @@ FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
       fromTimestamp.toString(),
       toTimestamp.toString(),
       toTimePointMillis,
-      toDaysTimepointMillis)
+      toDaysTimepointMillis);
   const uint8_t fromDay = static_cast<unsigned>(fromCalDate.day()),
                 fromMonth = static_cast<unsigned>(fromCalDate.month());
   const uint8_t toDay = static_cast<unsigned>(toCalDate.day()),

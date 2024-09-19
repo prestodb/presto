@@ -1607,7 +1607,7 @@ MarkDistinctNode::MarkDistinctNode(
       sources_{std::move(source)},
       outputType_(
           getMarkDistinctOutputType(sources_[0]->outputType(), markerName_)) {
-  VELOX_USER_CHECK_GT(markerName_.size(), 0)
+  VELOX_USER_CHECK_GT(markerName_.size(), 0);
   VELOX_USER_CHECK_GT(distinctKeys_.size(), 0);
 }
 

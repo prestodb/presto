@@ -92,7 +92,7 @@ class FlatVector final : public SimpleVector<T> {
       VELOX_CHECK_EQ(
           0,
           cnt,
-          "FlatVector with null values buffer must have all rows set to null")
+          "FlatVector with null values buffer must have all rows set to null");
       return;
     }
     auto byteSize = BaseVector::byteSize<T>(BaseVector::length_);

@@ -115,11 +115,11 @@ struct BitGetFunction {
     VELOX_USER_CHECK_GE(
         pos,
         0,
-        "The value of 'pos' argument must be greater than or equal to zero.")
+        "The value of 'pos' argument must be greater than or equal to zero.");
     VELOX_USER_CHECK_LT(
         pos,
         kMaxBits,
-        "The value of 'pos' argument must not exceed the number of bits in 'x' - 1.")
+        "The value of 'pos' argument must not exceed the number of bits in 'x' - 1.");
     result = (num >> pos) & 1;
   }
 };

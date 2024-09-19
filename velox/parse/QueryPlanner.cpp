@@ -262,7 +262,7 @@ PlanNodePtr toVeloxPlan(
     memory::MemoryPool* pool,
     std::vector<PlanNodePtr> sources,
     QueryContext& queryContext) {
-  VELOX_CHECK_EQ(1, logicalFilter.expressions.size())
+  VELOX_CHECK_EQ(1, logicalFilter.expressions.size());
   auto filter = toVeloxExpression(
       *logicalFilter.expressions.front(), sources[0]->outputType());
   return std::make_shared<FilterNode>(

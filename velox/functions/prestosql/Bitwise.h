@@ -82,7 +82,7 @@ struct BitwiseArithmeticShiftRightFunction {
   // Only support bigint inputs.
   FOLLY_ALWAYS_INLINE void
   call(int64_t& result, int64_t number, int64_t shift) {
-    VELOX_USER_CHECK_GE(shift, 0, "Shift must be non-negative")
+    VELOX_USER_CHECK_GE(shift, 0, "Shift must be non-negative");
     if (shift >= 63) {
       if (number >= 0) {
         result = 0;

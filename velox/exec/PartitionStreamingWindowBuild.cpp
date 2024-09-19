@@ -63,7 +63,7 @@ void PartitionStreamingWindowBuild::noMoreInput() {
 std::shared_ptr<WindowPartition>
 PartitionStreamingWindowBuild::nextPartition() {
   VELOX_CHECK_GT(
-      partitionStartRows_.size(), 0, "No window partitions available")
+      partitionStartRows_.size(), 0, "No window partitions available");
 
   ++currentPartition_;
   VELOX_CHECK_LE(

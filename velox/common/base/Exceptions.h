@@ -206,16 +206,18 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
 /// Throws VeloxRuntimeError when functions receive input values out of the
 /// supported range. This should only be used when we want to force TRY() to not
 /// suppress the error.
-#define VELOX_CHECK_UNSUPPORTED_INPUT_UNCATCHABLE(expr, ...)                 \
-  if (UNLIKELY(!(expr))) {                                                   \
-    _VELOX_THROW_IMPL(                                                       \
-        ::facebook::velox::VeloxRuntimeError,                                \
-        #expr,                                                               \
-        ::facebook::velox::error_source::kErrorSourceRuntime.c_str(),        \
-        ::facebook::velox::error_code::kUnsupportedInputUncatchable.c_str(), \
-        /* isRetriable */ false,                                             \
-        __VA_ARGS__);                                                        \
-  }
+#define VELOX_CHECK_UNSUPPORTED_INPUT_UNCATCHABLE(expr, ...)                   \
+  do {                                                                         \
+    if (UNLIKELY(!(expr))) {                                                   \
+      _VELOX_THROW_IMPL(                                                       \
+          ::facebook::velox::VeloxRuntimeError,                                \
+          #expr,                                                               \
+          ::facebook::velox::error_source::kErrorSourceRuntime.c_str(),        \
+          ::facebook::velox::error_code::kUnsupportedInputUncatchable.c_str(), \
+          /* isRetriable */ false,                                             \
+          __VA_ARGS__);                                                        \
+    }                                                                          \
+  } while (0)
 
 // If the caller passes a custom message (4 *or more* arguments), we
 // have to construct a format string from ours ("({} vs. {})") plus
@@ -234,17 +236,19 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
       ##__VA_ARGS__)
 
 #define _VELOX_CHECK_OP_HELPER(implmacro, expr1, expr2, op, ...) \
-  if constexpr (FOLLY_PP_DETAIL_NARGS(__VA_ARGS__) > 0) {        \
-    _VELOX_CHECK_OP_WITH_USER_FMT_HELPER(                        \
-        implmacro, expr1, expr2, op, __VA_ARGS__);               \
-  } else {                                                       \
-    implmacro(                                                   \
-        (expr1)op(expr2),                                        \
-        #expr1 " " #op " " #expr2,                               \
-        "({} vs. {})",                                           \
-        expr1,                                                   \
-        expr2);                                                  \
-  }
+  do {                                                           \
+    if constexpr (FOLLY_PP_DETAIL_NARGS(__VA_ARGS__) > 0) {      \
+      _VELOX_CHECK_OP_WITH_USER_FMT_HELPER(                      \
+          implmacro, expr1, expr2, op, __VA_ARGS__);             \
+    } else {                                                     \
+      implmacro(                                                 \
+          (expr1)op(expr2),                                      \
+          #expr1 " " #op " " #expr2,                             \
+          "({} vs. {})",                                         \
+          expr1,                                                 \
+          expr2);                                                \
+    }                                                            \
+  } while (0)
 
 #define _VELOX_CHECK_OP(expr1, expr2, op, ...) \
   _VELOX_CHECK_OP_HELPER(_VELOX_CHECK_IMPL, expr1, expr2, op, ##__VA_ARGS__)

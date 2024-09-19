@@ -169,7 +169,7 @@ std::vector<double> toBinValues(
       VELOX_USER_CHECK_GT(
           value,
           simpleVector->valueAt(offset + i - 1),
-          "Bin values are not sorted in ascending order")
+          "Bin values are not sorted in ascending order");
     }
     binValues.push_back(value);
   }

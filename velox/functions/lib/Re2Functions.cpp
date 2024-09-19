@@ -1783,7 +1783,7 @@ class PatternStringIterator {
           pattern_.size(),
           "Escape character must be followed by '%', '_' or the escape character itself: {}, escape {}",
           pattern_,
-          escapeChar_.value())
+          escapeChar_.value());
 
       currentChar = charAt(currentStart_ + 1);
       // The char follows escapeChar can only be one of (%, _, escapeChar).

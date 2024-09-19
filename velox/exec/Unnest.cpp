@@ -45,7 +45,7 @@ Unnest::Unnest(
     VELOX_CHECK_EQ(
         outputType_->children().back(),
         BIGINT(),
-        "Ordinality column should be BIGINT type.")
+        "Ordinality column should be BIGINT type.");
   }
 
   column_index_t outputChannel = 0;

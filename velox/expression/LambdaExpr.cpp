@@ -115,7 +115,7 @@ class ExprCallable : public Callable {
       const BufferPtr& wrapCapture,
       const std::vector<VectorPtr>& args,
       vector_size_t size) {
-    VELOX_CHECK_EQ(signature_->size(), args.size())
+    VELOX_CHECK_EQ(signature_->size(), args.size());
     std::vector<VectorPtr> allVectors = args;
     for (auto index = args.size(); index < capture_->childrenSize(); ++index) {
       auto values = capture_->childAt(index);

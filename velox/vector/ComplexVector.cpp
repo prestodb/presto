@@ -907,7 +907,7 @@ void ArrayVectorBase::validateArrayVectorBase(
         rawOffsets_[i],
         0,
         "ArrayVectorBase offset must be greater than zero. Index: {}.",
-        i)
+        i);
     VELOX_CHECK_LT(
         rawOffsets_[i] + rawSizes_[i] - 1,
         minChildVectorSize,

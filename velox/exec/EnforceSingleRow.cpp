@@ -33,7 +33,7 @@ EnforceSingleRow::EnforceSingleRow(
 void EnforceSingleRow::addInput(RowVectorPtr input) {
   auto numInput = input->size();
   VELOX_CHECK_NE(
-      numInput, 0, "EnforceSingleRow::addInput received empty set of rows")
+      numInput, 0, "EnforceSingleRow::addInput received empty set of rows");
   if (input_ == nullptr) {
     VELOX_USER_CHECK_EQ(
         numInput,
