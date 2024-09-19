@@ -809,55 +809,74 @@ VectorPtr RowVector::pushDictionaryToRowVectorLeaves(const VectorPtr& input) {
       wrappers, input->size(), input, input->pool());
 }
 
+namespace {
+
+// Returns the next non-null non-empty array/map on or after `index'.
 template <bool kHasNulls>
-vector_size_t ArrayVectorBase::nextNonEmpty(vector_size_t i) const {
-  while (i < size() &&
-         ((kHasNulls && bits::isBitNull(rawNulls(), i)) || rawSizes_[i] <= 0)) {
+vector_size_t nextNonEmpty(
+    vector_size_t i,
+    vector_size_t size,
+    const uint64_t* nulls,
+    const vector_size_t* sizes) {
+  while (i < size &&
+         ((kHasNulls && bits::isBitNull(nulls, i)) || sizes[i] <= 0)) {
     ++i;
   }
   return i;
 }
 
 template <bool kHasNulls>
-bool ArrayVectorBase::maybeHaveOverlappingRanges() const {
+bool maybeHaveOverlappingRanges(
+    vector_size_t size,
+    const uint64_t* nulls,
+    const vector_size_t* offsets,
+    const vector_size_t* sizes) {
   vector_size_t curr = 0;
-  curr = nextNonEmpty<kHasNulls>(curr);
-  if (curr >= size()) {
+  curr = nextNonEmpty<kHasNulls>(curr, size, nulls, sizes);
+  if (curr >= size) {
     return false;
   }
   for (;;) {
-    auto next = nextNonEmpty<kHasNulls>(curr + 1);
-    if (next >= size()) {
+    auto next = nextNonEmpty<kHasNulls>(curr + 1, size, nulls, sizes);
+    if (next >= size) {
       return false;
     }
-    // This also implicitly ensures rawOffsets_[curr] <= rawOffsets_[next].
-    if (rawOffsets_[curr] + rawSizes_[curr] > rawOffsets_[next]) {
+    // This also implicitly ensures offsets[curr] <= offsets[next].
+    if (offsets[curr] + sizes[curr] > offsets[next]) {
       return true;
     }
     curr = next;
   }
 }
 
-bool ArrayVectorBase::hasOverlappingRanges() const {
-  if (!(rawNulls() ? maybeHaveOverlappingRanges<true>()
-                   : maybeHaveOverlappingRanges<false>())) {
+} // namespace
+
+// static
+bool ArrayVectorBase::hasOverlappingRanges(
+    vector_size_t size,
+    const uint64_t* nulls,
+    const vector_size_t* offsets,
+    const vector_size_t* sizes) {
+  if (!(nulls
+            ? maybeHaveOverlappingRanges<true>(size, nulls, offsets, sizes)
+            : maybeHaveOverlappingRanges<false>(size, nulls, offsets, sizes))) {
     return false;
   }
   std::vector<vector_size_t> indices;
-  indices.reserve(size());
-  for (vector_size_t i = 0; i < size(); ++i) {
-    const bool isNull = rawNulls() && bits::isBitNull(rawNulls(), i);
-    if (!isNull && rawSizes_[i] > 0) {
+  indices.reserve(size);
+  for (vector_size_t i = 0; i < size; ++i) {
+    const bool isNull = nulls && bits::isBitNull(nulls, i);
+    if (!isNull && sizes[i] > 0) {
       indices.push_back(i);
     }
   }
   std::sort(indices.begin(), indices.end(), [&](auto i, auto j) {
-    return rawOffsets_[i] < rawOffsets_[j];
+    return offsets[i] < offsets[j];
   });
   for (vector_size_t i = 1; i < indices.size(); ++i) {
     auto j = indices[i - 1];
     auto k = indices[i];
-    if (rawOffsets_[j] + rawSizes_[j] > rawOffsets_[k]) {
+    if (offsets[j] + sizes[j] > offsets[k]) {
       return true;
     }
   }
