@@ -718,7 +718,7 @@ void CastExpr::applyPeeled(
 
     auto applyCustomCast = [&]() {
       if (castToOperator) {
-        castToOperator->castTo(input, context, rows, toType, result);
+        castToOperator->castTo(input, context, rows, toType, result, hooks_);
       } else {
         castFromOperator->castFrom(input, context, rows, toType, result);
       }

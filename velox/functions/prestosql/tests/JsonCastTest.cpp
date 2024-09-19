@@ -359,7 +359,10 @@ TEST_F(JsonCastTest, fromDate) {
   testCastToJson<int32_t>(
       DATE(),
       {0, 1000, -10000, std::nullopt},
-      {"1970-01-01"_sv, "1972-09-27"_sv, "1942-08-16"_sv, std::nullopt});
+      {"\"1970-01-01\""_sv,
+       "\"1972-09-27\""_sv,
+       "\"1942-08-16\""_sv,
+       std::nullopt});
   testCastToJson<int32_t>(
       DATE(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
@@ -402,9 +405,9 @@ TEST_F(JsonCastTest, fromTimestamp) {
        Timestamp{10000000, 0},
        Timestamp{-1, 9000},
        std::nullopt},
-      {"1970-01-01T00:00:00.000000000"_sv,
-       "1970-04-26T17:46:40.000000000"_sv,
-       "1969-12-31T23:59:59.000009000"_sv,
+      {"\"1970-01-01 00:00:00.000\""_sv,
+       "\"1970-04-26 17:46:40.000\""_sv,
+       "\"1969-12-31 23:59:59.000\""_sv,
        std::nullopt});
   testCastToJson<Timestamp>(
       TIMESTAMP(),
@@ -449,6 +452,13 @@ TEST_F(JsonCastTest, fromArray) {
   std::vector<std::optional<JsonNativeType>> expectedJsonArray{
       "[red,blue]", "[null,null,purple]", "[]"};
   testCastFromArray(ARRAY(JSON()), array, expectedJsonArray);
+
+  // Tests array of Timestamp elements.
+  TwoDimVector<Timestamp> arrayTimestamps{
+      {Timestamp{0, 0}, Timestamp{10000000, 0}}};
+  std::vector<std::optional<JsonNativeType>> expectedTimestamp{
+      "[\"1970-01-01 00:00:00.000\",\"1970-04-26 17:46:40.000\"]"};
+  testCastFromArray(ARRAY(TIMESTAMP()), arrayTimestamps, expectedTimestamp);
 
   // Tests array whose elements are of unknown type.
   auto arrayOfUnknownElements = makeArrayWithDictionaryElements<UnknownValue>(
@@ -538,6 +548,14 @@ TEST_F(JsonCastTest, fromMap) {
       R"({"false":2,"true":null})", "{}"};
   testCastFromMap(MAP(BOOLEAN(), BIGINT()), mapBoolKey, expectedBoolKey);
 
+  // Tests map with Timestamp values.
+  std::vector<std::vector<Pair<int16_t, Timestamp>>> mapTimestamp{
+      {{3, Timestamp{0, 0}}, {4, Timestamp{0, 0}}}, {}};
+  std::vector<std::optional<JsonNativeType>> expectedTimestamp{
+      R"({"3":"1970-01-01 00:00:00.000","4":"1970-01-01 00:00:00.000"})", "{}"};
+  testCastFromMap(
+      MAP(SMALLINT(), TIMESTAMP()), mapTimestamp, expectedTimestamp);
+
   // Tests map whose values are of unknown type.
   std::vector<std::optional<StringView>> keys{
       "a"_sv, "b"_sv, "c"_sv, "d"_sv, "e"_sv, "f"_sv, "g"_sv};
@@ -623,6 +641,13 @@ TEST_F(JsonCastTest, fromRow) {
       child2,
       child3,
       expectedJsonChild);
+
+  // Tests row whose children are Timestamps.
+  auto rowOfTimestampElements = makeRowWithDictionaryElements<Timestamp>(
+      {{Timestamp{0, 0}, Timestamp{10000000, 0}}}, ROW({TIMESTAMP()}));
+  auto rowOfTimestampElementsExpected = makeNullableFlatVector<JsonNativeType>(
+      {"[null]", "[\"1970-01-01 00:00:00.000\"]"}, JSON());
+  testCast(rowOfTimestampElements, rowOfTimestampElementsExpected);
 
   // Tests row whose children are of unknown type.
   auto rowOfUnknownChildren = makeRowWithDictionaryElements<UnknownValue>(

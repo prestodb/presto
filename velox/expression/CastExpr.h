@@ -52,6 +52,16 @@ class CastOperator {
       const TypePtr& resultType,
       VectorPtr& result) const = 0;
 
+  virtual void castTo(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result,
+      const std::shared_ptr<CastHooks>& /* hooks */) const {
+    castTo(input, context, rows, resultType, result);
+  }
+
   /// Casts a vector of the custom type to another type. This function should
   /// not throw when processing input rows, but report errors via
   /// context.setError().
