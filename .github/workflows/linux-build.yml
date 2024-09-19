@@ -79,6 +79,15 @@ jobs:
             install_cuda ${CUDA_VERSION}
           fi
 
+      - name: Install Minio
+        run: |
+          MINIO_BINARY="minio-2022-05-26"
+          if [ ! -f /usr/local/bin/${MINIO_BINARY} ]; then
+            wget https://dl.min.io/server/minio/release/linux-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z -O ${MINIO_BINARY}
+            chmod +x ./${MINIO_BINARY}
+            mv ./${MINIO_BINARY} /usr/local/bin/
+          fi
+
       - uses: assignUser/stash/restore@v1
         with:
           path: '${{ env.CCACHE_DIR }}'

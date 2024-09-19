@@ -44,7 +44,7 @@ function install_aws_deps {
     MINIO_ARCH="amd64"
   fi
   local MINIO_BINARY="minio-2022-05-26"
-  if [[! -f /usr/local/bin/${MINIO_BINARY} ]]; then
+  if [ ! -f /usr/local/bin/${MINIO_BINARY} ]; then
     local MINIO_OS="linux"
     if [[ "$OSTYPE" == darwin* ]]; then
       # minio will have to approved under the Privacy & Security on MacOS on first use.
