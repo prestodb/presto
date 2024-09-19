@@ -118,37 +118,6 @@ struct ExtremeValueFunctionTimestampWithTimezone {
 
     result = currentValue;
   }
-
- private:
-  template <typename K>
-  bool greaterThan(const K& lhs, const K& rhs) const {
-    if constexpr (std::is_same_v<K, double> || std::is_same_v<K, float>) {
-      if (std::isnan(lhs)) {
-        return true;
-      }
-
-      if (std::isnan(rhs)) {
-        return false;
-      }
-    }
-
-    return lhs > rhs;
-  }
-
-  template <typename K>
-  bool smallerThan(const K& lhs, const K& rhs) const {
-    if constexpr (std::is_same_v<K, double> || std::is_same_v<K, float>) {
-      if (std::isnan(lhs)) {
-        return false;
-      }
-
-      if (std::isnan(rhs)) {
-        return true;
-      }
-    }
-
-    return lhs < rhs;
-  }
 };
 } // namespace details
 
