@@ -1098,8 +1098,7 @@ TEST_F(DriverTest, blockedNoFuture) {
   // Ensure execution threw correct error.
   VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan).copyResults(pool()),
-      "The operator BlockedNoFuture is blocked but blocking future is not set "
-      "by isBlocked method.");
+      "The operator BlockedNoFuture is blocked but blocking future is not valid");
 }
 
 TEST_F(DriverTest, nonVeloxOperatorException) {
