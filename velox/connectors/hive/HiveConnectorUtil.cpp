@@ -383,18 +383,17 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     }
   }
 
-  int numChildren = 0;
   // Process columns that will be projected out.
   for (int i = 0; i < rowType->size(); ++i) {
     auto& name = rowType->nameOf(i);
     auto& type = rowType->childAt(i);
-    if (isRowIndexColumn(name, rowIndexColumn)) {
-      VELOX_CHECK(type->isBigint());
-      continue;
-    }
     auto it = outputSubfields.find(name);
     if (it == outputSubfields.end()) {
-      auto* fieldSpec = spec->addFieldRecursively(name, *type, numChildren++);
+      auto* fieldSpec = spec->addFieldRecursively(name, *type, i);
+      if (isRowIndexColumn(name, rowIndexColumn)) {
+        VELOX_CHECK(type->isBigint());
+        fieldSpec->setExplicitRowNumber(true);
+      }
       processFieldSpec(dataColumns, type, *fieldSpec);
       filterSubfields.erase(name);
       continue;
@@ -409,7 +408,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
       }
       filterSubfields.erase(it);
     }
-    auto* fieldSpec = spec->addField(name, numChildren++);
+    auto* fieldSpec = spec->addField(name, i);
     addSubfields(*type, subfieldSpecs, 1, pool, *fieldSpec);
     processFieldSpec(dataColumns, type, *fieldSpec);
     subfieldSpecs.clear();

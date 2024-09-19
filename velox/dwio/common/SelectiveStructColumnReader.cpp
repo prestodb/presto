@@ -124,13 +124,13 @@ void SelectiveStructColumnReaderBase::next(
     // No readers
     // This can be either count(*) query or a query that select only
     // constant columns (partition keys or columns missing from an old file
-    // due to schema evolution)
+    // due to schema evolution) or row number column.
     auto resultRowVector = std::dynamic_pointer_cast<RowVector>(result);
     resultRowVector->unsafeResize(numValues);
 
     for (auto& childSpec : scanSpec_->children()) {
-      VELOX_CHECK(childSpec->isConstant());
-      if (childSpec->projectOut()) {
+      VELOX_CHECK(childSpec->isConstant() || childSpec->isExplicitRowNumber());
+      if (childSpec->projectOut() && childSpec->isConstant()) {
         const auto channel = childSpec->channel();
         resultRowVector->childAt(channel) = BaseVector::wrapInConstant(
             numValues, 0, childSpec->constantValue());
@@ -201,6 +201,10 @@ void SelectiveStructColumnReaderBase::read(
       continue;
     }
 
+    if (childSpec->isExplicitRowNumber()) {
+      continue;
+    }
+
     const auto fieldIndex = childSpec->subscript();
     auto* reader = children_.at(fieldIndex);
     if (reader->isTopLevel() && childSpec->projectOut() &&
@@ -254,6 +258,10 @@ void SelectiveStructColumnReaderBase::recordParentNullsInChildren(
     if (isChildConstant(*childSpec)) {
       continue;
     }
+    if (childSpec->isExplicitRowNumber()) {
+      continue;
+    }
+
     const auto fieldIndex = childSpec->subscript();
     auto* reader = children_.at(fieldIndex);
     reader->addParentNulls(
@@ -401,6 +409,10 @@ void SelectiveStructColumnReaderBase::getValues(
       continue;
     }
 
+    if (childSpec->isExplicitRowNumber()) {
+      // Row number data is generated after, skip data loading for it.
+      continue;
+    }
     const auto channel = childSpec->channel();
     auto& childResult = resultRow->childAt(channel);
     if (childSpec->isConstant()) {

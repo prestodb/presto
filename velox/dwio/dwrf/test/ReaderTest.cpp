@@ -2118,6 +2118,7 @@ TEST_F(TestReader, setRowNumberColumnInfo) {
   RowNumberColumnInfo rowNumberColumnInfo;
   rowNumberColumnInfo.insertPosition = 1;
   rowNumberColumnInfo.name = "";
+  rowNumberColumnInfo.isExplicit = false;
   rowReaderOpts.setRowNumberColumnInfo(rowNumberColumnInfo);
   {
     SCOPED_TRACE("Selective no filter");
@@ -2147,6 +2148,7 @@ TEST_F(TestReader, reuseRowNumberColumn) {
   RowNumberColumnInfo rowNumberColumnInfo;
   rowNumberColumnInfo.insertPosition = 1;
   rowNumberColumnInfo.name = "";
+  rowNumberColumnInfo.isExplicit = false;
   rowReaderOpts.setRowNumberColumnInfo(rowNumberColumnInfo);
   {
     SCOPED_TRACE("Reuse passed in");

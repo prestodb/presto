@@ -138,7 +138,8 @@ class SplitReader {
       const std::shared_ptr<const velox::RowType>& tableSchema);
 
   void setRowIndexColumn(
-      const std::shared_ptr<HiveColumnHandle>& rowIndexColumn);
+      const std::shared_ptr<HiveColumnHandle>& rowIndexColumn,
+      bool isExplicit);
 
   void setPartitionValue(
       common::ScanSpec* spec,

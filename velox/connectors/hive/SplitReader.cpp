@@ -264,7 +264,8 @@ void SplitReader::createReader(
   auto columnTypes = adaptColumns(fileType, baseReaderOpts_.fileSchema());
   auto columnNames = fileType->names();
   if (rowIndexColumn != nullptr) {
-    setRowIndexColumn(rowIndexColumn);
+    bool isExplicit = scanSpec_->childByName(rowIndexColumn->name()) != nullptr;
+    setRowIndexColumn(rowIndexColumn, isExplicit);
   }
   configureRowReaderOptions(
       hiveTableHandle_->tableParameters(),
@@ -311,11 +312,13 @@ void SplitReader::createRowReader() {
 }
 
 void SplitReader::setRowIndexColumn(
-    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
+    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn,
+    bool isExplicit) {
   dwio::common::RowNumberColumnInfo rowNumberColumnInfo;
   rowNumberColumnInfo.insertPosition =
       readerOutputType_->getChildIdx(rowIndexColumn->name());
   rowNumberColumnInfo.name = rowIndexColumn->name();
+  rowNumberColumnInfo.isExplicit = isExplicit;
   baseRowReaderOpts_.setRowNumberColumnInfo(std::move(rowNumberColumnInfo));
 }
 
@@ -364,7 +367,7 @@ std::vector<TypePtr> SplitReader::adaptColumns(
           1,
           connectorQueryCtx_->memoryPool());
       childSpec->setConstantValue(constant);
-    } else {
+    } else if (!childSpec->isExplicitRowNumber()) {
       auto fileTypeIdx = fileType->getChildIdxIfExists(fieldName);
       if (!fileTypeIdx.has_value()) {
         // Column is missing. Most likely due to schema evolution.

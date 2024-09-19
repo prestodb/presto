@@ -101,6 +101,14 @@ class ScanSpec {
     return constantValue_ != nullptr;
   }
 
+  void setExplicitRowNumber(bool isExplicitRowNumber) {
+    isExplicitRowNumber_ = isExplicitRowNumber;
+  }
+
+  bool isExplicitRowNumber() const {
+    return isExplicitRowNumber_;
+  }
+
   // Name of the value in its container, i.e. field name in struct or
   // string key in map. Not all fields of 'this' apply in list/map
   // value cases but the overhead is manageable, the space taken is
@@ -363,6 +371,8 @@ class ScanSpec {
   VectorPtr constantValue_;
   bool projectOut_ = false;
   bool extractValues_ = false;
+
+  bool isExplicitRowNumber_ = false;
   // True if a string dictionary or flat map in this field should be
   // returned as flat.
   bool makeFlat_ = false;

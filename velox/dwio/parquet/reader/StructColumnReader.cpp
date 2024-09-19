@@ -38,6 +38,9 @@ StructColumnReader::StructColumnReader(
     if (childSpecs[i]->isConstant()) {
       continue;
     }
+    if (childSpecs[i]->isExplicitRowNumber()) {
+      continue;
+    }
     auto childFileType = fileType_->childByName(childSpec->fieldName());
     auto childRequestedType =
         requestedType_->asRow().findChild(childSpec->fieldName());

@@ -50,6 +50,9 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
   const auto& rowType = requestedType_->asRow();
   for (auto i = 0; i < childSpecs.size(); ++i) {
     auto* childSpec = childSpecs[i];
+    if (childSpec->isExplicitRowNumber()) {
+      continue;
+    }
     if (isChildConstant(*childSpec)) {
       childSpec->setSubscript(kConstantChildSpecSubscript);
       continue;
