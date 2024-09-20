@@ -20,7 +20,7 @@ public enum FunctionImplementationType
     THRIFT(true, false),
     GRPC(true, false),
     CPP(false, false),
-    REST(false, true);
+    REST(true, false);
 
     private final boolean externalExecution;
     private final boolean evaluatedInCoordinator;
