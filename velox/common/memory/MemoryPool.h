@@ -582,7 +582,6 @@ class MemoryPoolImpl : public MemoryPool {
       Kind kind,
       std::shared_ptr<MemoryPool> parent,
       std::unique_ptr<MemoryReclaimer> reclaimer,
-      DestructionCallback destructionCb,
       const Options& options = Options{});
 
   ~MemoryPoolImpl() override;
@@ -655,6 +654,8 @@ class MemoryPoolImpl : public MemoryPool {
       memory::MemoryReclaimer::Stats& stats) override;
 
   void abort(const std::exception_ptr& error) override;
+
+  void setDestructionCallback(const DestructionCallback& callback);
 
   std::string toString() const override {
     std::lock_guard<std::mutex> l(mutex_);
@@ -1001,7 +1002,6 @@ class MemoryPoolImpl : public MemoryPool {
   MemoryManager* const manager_;
   MemoryAllocator* const allocator_;
   MemoryArbitrator* const arbitrator_;
-  const DestructionCallback destructionCb_;
 
   // Regex for filtering on 'name_' when debug mode is enabled. This allows us
   // to only track the callsites of memory allocations for memory pools whose
@@ -1014,6 +1014,8 @@ class MemoryPoolImpl : public MemoryPool {
   // work based on atomic 'reservationBytes_' without mutex as children updating
   // the same parent do not have to be serialized.
   mutable std::mutex mutex_;
+
+  DestructionCallback destructionCb_;
 
   // Used by memory arbitration to reclaim memory from the associated query
   // object if not null. For example, a memory pool can reclaim the used memory

@@ -146,7 +146,6 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
           MemoryPool::Kind::kAggregate,
           nullptr,
           nullptr,
-          nullptr,
           // NOTE: the default root memory pool has no capacity limit, and it is
           // used for system usage in production such as disk spilling.
           MemoryPool::Options{
@@ -247,7 +246,7 @@ uint16_t MemoryManager::alignment() const {
   return alignment_;
 }
 
-std::shared_ptr<MemoryPool> MemoryManager::createRootPool(
+std::shared_ptr<MemoryPoolImpl> MemoryManager::createRootPool(
     std::string poolName,
     std::unique_ptr<MemoryReclaimer>& reclaimer,
     MemoryPool::Options& options) {
@@ -257,7 +256,6 @@ std::shared_ptr<MemoryPool> MemoryManager::createRootPool(
       MemoryPool::Kind::kAggregate,
       nullptr,
       std::move(reclaimer),
-      poolDestructionCb_,
       options);
   VELOX_CHECK_EQ(pool->capacity(), 0);
   arbitrator_->addPool(pool);
@@ -283,16 +281,23 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   options.debugEnabled = debugEnabled_;
   options.coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled_;
 
-  if (disableMemoryPoolTracking_) {
-    return createRootPool(poolName, reclaimer, options);
-  }
-
-  std::unique_lock guard{mutex_};
-  if (pools_.find(poolName) != pools_.end()) {
-    VELOX_FAIL("Duplicate root pool name found: {}", poolName);
-  }
   auto pool = createRootPool(poolName, reclaimer, options);
-  pools_.emplace(poolName, pool);
+  if (!disableMemoryPoolTracking_) {
+    try {
+      std::unique_lock guard{mutex_};
+      if (pools_.find(poolName) != pools_.end()) {
+        VELOX_FAIL("Duplicate root pool name found: {}", poolName);
+      }
+      pools_.emplace(poolName, pool);
+    } catch (const VeloxRuntimeError& ex) {
+      arbitrator_->removePool(pool.get());
+      throw;
+    }
+  }
+  // NOTE: we need to set destruction callback at the end to avoid potential
+  // deadlock or failure because of duplicate memory pool name or unexpected
+  // failure to add memory pool to the arbitrator.
+  pool->setDestructionCallback(poolDestructionCb_);
   return pool;
 }
 
@@ -315,12 +320,12 @@ uint64_t MemoryManager::shrinkPools(
 }
 
 void MemoryManager::dropPool(MemoryPool* pool) {
+  VELOX_CHECK_NOT_NULL(pool);
   VELOX_DCHECK_EQ(pool->reservedBytes(), 0);
   arbitrator_->removePool(pool);
   if (disableMemoryPoolTracking_) {
     return;
   }
-  VELOX_CHECK_NOT_NULL(pool);
   std::unique_lock guard{mutex_};
   auto it = pools_.find(pool->name());
   if (it == pools_.end()) {

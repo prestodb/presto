@@ -152,21 +152,19 @@ TEST_P(MemoryPoolTest, ctor) {
   ASSERT_EQ(root->parent(), nullptr);
   ASSERT_EQ(root->root(), root.get());
   ASSERT_EQ(root->capacity(), capacity);
+  VELOX_ASSERT_THROW(
+      static_cast<MemoryPoolImpl*>(root.get())
+          ->setDestructionCallback([](MemoryPool*) {}),
+      "");
 
   {
     auto fakeRoot = std::make_shared<MemoryPoolImpl>(
-        &manager,
-        "fake_root",
-        MemoryPool::Kind::kAggregate,
-        nullptr,
-        nullptr,
-        nullptr);
+        &manager, "fake_root", MemoryPool::Kind::kAggregate, nullptr, nullptr);
     // We can't construct an aggregate memory pool with non-thread safe.
     ASSERT_ANY_THROW(std::make_shared<MemoryPoolImpl>(
         &manager,
         "fake_root",
         MemoryPool::Kind::kAggregate,
-        nullptr,
         nullptr,
         nullptr,
         MemoryPool::Options{.threadSafe = false}));
@@ -182,6 +180,10 @@ TEST_P(MemoryPoolTest, ctor) {
     ASSERT_EQ(child->parent(), root.get());
     ASSERT_EQ(child->root(), root.get());
     ASSERT_EQ(child->capacity(), capacity);
+    VELOX_ASSERT_THROW(
+        static_cast<MemoryPoolImpl*>(child.get())
+            ->setDestructionCallback([](MemoryPool*) {}),
+        "");
     auto& favoriteChild = dynamic_cast<MemoryPoolImpl&>(*child);
     ASSERT_EQ("child", favoriteChild.name());
     ASSERT_EQ(
@@ -194,6 +196,10 @@ TEST_P(MemoryPoolTest, ctor) {
     ASSERT_EQ(aggregateChild->parent(), root.get());
     ASSERT_EQ(aggregateChild->root(), root.get());
     ASSERT_EQ(aggregateChild->capacity(), capacity);
+    VELOX_ASSERT_THROW(
+        static_cast<MemoryPoolImpl*>(aggregateChild.get())
+            ->setDestructionCallback([](MemoryPool*) {}),
+        "");
     auto grandChild = aggregateChild->addLeafChild("child", isLeafThreadSafe_);
     ASSERT_EQ(grandChild->parent(), aggregateChild.get());
     ASSERT_EQ(grandChild->root(), root.get());

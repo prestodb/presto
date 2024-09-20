@@ -117,13 +117,18 @@ TEST_F(MemoryManagerTest, ctor) {
 namespace {
 class FakeTestArbitrator : public MemoryArbitrator {
  public:
-  explicit FakeTestArbitrator(const Config& config)
+  explicit FakeTestArbitrator(
+      const Config& config,
+      bool injectAddPoolFailure = false)
       : MemoryArbitrator(
             {.kind = config.kind,
              .capacity = config.capacity,
-             .extraConfigs = config.extraConfigs}) {}
+             .extraConfigs = config.extraConfigs}),
+        injectAddPoolFailure_(injectAddPoolFailure) {}
 
-  void addPool(const std::shared_ptr<MemoryPool>& /*unused*/) override {}
+  void addPool(const std::shared_ptr<MemoryPool>& /*unused*/) override {
+    VELOX_CHECK(!injectAddPoolFailure_, "Failed to add pool");
+  }
 
   void removePool(MemoryPool* /*unused*/) override {}
 
@@ -152,6 +157,9 @@ class FakeTestArbitrator : public MemoryArbitrator {
   std::string kind() const override {
     return "FAKE";
   }
+
+ private:
+  const bool injectAddPoolFailure_{false};
 };
 } // namespace
 
@@ -171,6 +179,22 @@ TEST_F(MemoryManagerTest, createWithCustomArbitrator) {
   MemoryManager manager{options};
   ASSERT_EQ(manager.arbitrator()->capacity(), options.allocatorCapacity);
   ASSERT_EQ(manager.allocator()->capacity(), options.allocatorCapacity);
+}
+
+TEST_F(MemoryManagerTest, addPoolFailure) {
+  const std::string kindString = "FAKE";
+  MemoryArbitrator::Factory factory =
+      [](const MemoryArbitrator::Config& config) {
+        return std::make_unique<FakeTestArbitrator>(
+            config, /*injectAddPoolFailure*/ true);
+      };
+  MemoryArbitrator::registerFactory(kindString, factory);
+  auto guard = folly::makeGuard(
+      [&] { MemoryArbitrator::unregisterFactory(kindString); });
+  MemoryManagerOptions options;
+  options.arbitratorKind = kindString;
+  MemoryManager manager{options};
+  VELOX_ASSERT_THROW(manager.addRootPool(), "Failed to add pool");
 }
 
 TEST_F(MemoryManagerTest, addPool) {
