@@ -29,6 +29,7 @@ import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.RealValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.TimeValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.TimestampValueWriter;
+import com.facebook.presto.parquet.writer.valuewriter.TimestampWithTimezoneValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.UuidValuesWriter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
@@ -209,8 +210,11 @@ class ParquetWriters
         if (REAL.equals(type)) {
             return new RealValueWriter(valuesWriter, parquetType);
         }
-        if (TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+        if (TIMESTAMP.equals(type)) {
             return new TimestampValueWriter(valuesWriter, type, parquetType);
+        }
+        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            return new TimestampWithTimezoneValueWriter(valuesWriter, type, parquetType);
         }
         if (TIME.equals(type)) {
             return new TimeValueWriter(valuesWriter, type, parquetType);
