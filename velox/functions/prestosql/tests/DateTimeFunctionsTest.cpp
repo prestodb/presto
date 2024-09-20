@@ -435,9 +435,7 @@ TEST_F(DateTimeFunctionsTest, yearTimestampWithTimezone) {
       1938,
       yearTimestampWithTimezone(
           TimestampWithTimezone(-987654321000, "-13:00")));
-  EXPECT_EQ(
-      std::nullopt,
-      yearTimestampWithTimezone(TimestampWithTimezone::unpack(std::nullopt)));
+  EXPECT_EQ(std::nullopt, yearTimestampWithTimezone(std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, weekDate) {
@@ -602,10 +600,7 @@ TEST_F(DateTimeFunctionsTest, quarterTimestampWithTimezone) {
       3,
       quarterTimestampWithTimezone(
           TimestampWithTimezone(-987654321000, "-13:00")));
-  EXPECT_EQ(
-      std::nullopt,
-      quarterTimestampWithTimezone(
-          TimestampWithTimezone::unpack(std::nullopt)));
+  EXPECT_EQ(std::nullopt, quarterTimestampWithTimezone(std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, month) {
@@ -670,9 +665,7 @@ TEST_F(DateTimeFunctionsTest, monthTimestampWithTimezone) {
       9,
       monthTimestampWithTimezone(
           TimestampWithTimezone(-987654321000, "-13:00")));
-  EXPECT_EQ(
-      std::nullopt,
-      monthTimestampWithTimezone(TimestampWithTimezone::unpack(std::nullopt)));
+  EXPECT_EQ(std::nullopt, monthTimestampWithTimezone(std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, hour) {
@@ -726,9 +719,7 @@ TEST_F(DateTimeFunctionsTest, hourTimestampWithTimezone) {
       9, hourTimestampWithTimezone(TimestampWithTimezone(-100000, "-14:00")));
   EXPECT_EQ(
       2, hourTimestampWithTimezone(TimestampWithTimezone(-41028000, "+14:00")));
-  EXPECT_EQ(
-      std::nullopt,
-      hourTimestampWithTimezone(TimestampWithTimezone::unpack(std::nullopt)));
+  EXPECT_EQ(std::nullopt, hourTimestampWithTimezone(std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, hourDate) {
@@ -1150,34 +1141,34 @@ TEST_F(DateTimeFunctionsTest, minusTimestampWithTimezone) {
 }
 
 TEST_F(DateTimeFunctionsTest, dayOfMonthTimestampWithTimezone) {
+  const auto dayOfMonthTimestampWithTimezone =
+      [&](std::optional<TimestampWithTimezone> timestampWithTimezone) {
+        return evaluateOnce<int64_t>(
+            "day_of_month(c0)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(timestampWithTimezone));
+      };
   EXPECT_EQ(
-      31,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_month(c0)", 0, "-01:00"));
+      31, dayOfMonthTimestampWithTimezone(TimestampWithTimezone(0, "-01:00")));
   EXPECT_EQ(
-      1,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_month(c0)", 0, "+00:00"));
+      1, dayOfMonthTimestampWithTimezone(TimestampWithTimezone(0, "+00:00")));
   EXPECT_EQ(
       30,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_month(c0)", 123456789000, "+14:00"));
+      dayOfMonthTimestampWithTimezone(
+          TimestampWithTimezone(123456789000, "+14:00")));
   EXPECT_EQ(
       2,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_month(c0)", -123456789000, "+03:00"));
+      dayOfMonthTimestampWithTimezone(
+          TimestampWithTimezone(-123456789000, "+03:00")));
   EXPECT_EQ(
       18,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_month(c0)", 987654321000, "-07:00"));
+      dayOfMonthTimestampWithTimezone(
+          TimestampWithTimezone(987654321000, "-07:00")));
   EXPECT_EQ(
       14,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_month(c0)", -987654321000, "-13:00"));
-  EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_month(c0)", std::nullopt, std::nullopt));
+      dayOfMonthTimestampWithTimezone(
+          TimestampWithTimezone(-987654321000, "-13:00")));
+  EXPECT_EQ(std::nullopt, dayOfMonthTimestampWithTimezone(std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, dayOfWeek) {
@@ -1223,34 +1214,34 @@ TEST_F(DateTimeFunctionsTest, dayOfWeekDate) {
 }
 
 TEST_F(DateTimeFunctionsTest, dayOfWeekTimestampWithTimezone) {
+  const auto dayOfWeekTimestampWithTimezone =
+      [&](std::optional<TimestampWithTimezone> timestampWithTimezone) {
+        return evaluateOnce<int64_t>(
+            "day_of_week(c0)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(timestampWithTimezone));
+      };
   EXPECT_EQ(
-      3,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_week(c0)", 0, "-01:00"));
+      3, dayOfWeekTimestampWithTimezone(TimestampWithTimezone(0, "-01:00")));
   EXPECT_EQ(
-      4,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_week(c0)", 0, "+00:00"));
+      4, dayOfWeekTimestampWithTimezone(TimestampWithTimezone(0, "+00:00")));
   EXPECT_EQ(
       5,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_week(c0)", 123456789000, "+14:00"));
+      dayOfWeekTimestampWithTimezone(
+          TimestampWithTimezone(123456789000, "+14:00")));
   EXPECT_EQ(
       3,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_week(c0)", -123456789000, "+03:00"));
+      dayOfWeekTimestampWithTimezone(
+          TimestampWithTimezone(-123456789000, "+03:00")));
   EXPECT_EQ(
       3,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_week(c0)", 987654321000, "-07:00"));
+      dayOfWeekTimestampWithTimezone(
+          TimestampWithTimezone(987654321000, "-07:00")));
   EXPECT_EQ(
       3,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_week(c0)", -987654321000, "-13:00"));
-  EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_week(c0)", std::nullopt, std::nullopt));
+      dayOfWeekTimestampWithTimezone(
+          TimestampWithTimezone(-987654321000, "-13:00")));
+  EXPECT_EQ(std::nullopt, dayOfWeekTimestampWithTimezone(std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, dayOfYear) {
@@ -1290,34 +1281,34 @@ TEST_F(DateTimeFunctionsTest, dayOfYearDate) {
 }
 
 TEST_F(DateTimeFunctionsTest, dayOfYearTimestampWithTimezone) {
+  const auto dayOfYearTimestampWithTimezone =
+      [&](std::optional<TimestampWithTimezone> timestampWithTimezone) {
+        return evaluateOnce<int64_t>(
+            "day_of_year(c0)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(timestampWithTimezone));
+      };
   EXPECT_EQ(
-      365,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_year(c0)", 0, "-01:00"));
+      365, dayOfYearTimestampWithTimezone(TimestampWithTimezone(0, "-01:00")));
   EXPECT_EQ(
-      1,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_year(c0)", 0, "+00:00"));
+      1, dayOfYearTimestampWithTimezone(TimestampWithTimezone(0, "+00:00")));
   EXPECT_EQ(
       334,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_year(c0)", 123456789000, "+14:00"));
+      dayOfYearTimestampWithTimezone(
+          TimestampWithTimezone(123456789000, "+14:00")));
   EXPECT_EQ(
       33,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_year(c0)", -123456789000, "+03:00"));
+      dayOfYearTimestampWithTimezone(
+          TimestampWithTimezone(-123456789000, "+03:00")));
   EXPECT_EQ(
       108,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_year(c0)", 987654321000, "-07:00"));
+      dayOfYearTimestampWithTimezone(
+          TimestampWithTimezone(987654321000, "-07:00")));
   EXPECT_EQ(
       257,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_year(c0)", -987654321000, "-13:00"));
-  EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "day_of_year(c0)", std::nullopt, std::nullopt));
+      dayOfYearTimestampWithTimezone(
+          TimestampWithTimezone(-987654321000, "-13:00")));
+  EXPECT_EQ(std::nullopt, dayOfYearTimestampWithTimezone(std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, yearOfWeek) {
@@ -1363,34 +1354,36 @@ TEST_F(DateTimeFunctionsTest, yearOfWeekDate) {
 }
 
 TEST_F(DateTimeFunctionsTest, yearOfWeekTimestampWithTimezone) {
+  const auto yearOfWeekTimestampWithTimezone =
+      [&](std::optional<TimestampWithTimezone> timestampWithTimezone) {
+        return evaluateOnce<int64_t>(
+            "year_of_week(c0)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(timestampWithTimezone));
+      };
   EXPECT_EQ(
       1970,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "year_of_week(c0)", 0, "-01:00"));
+      yearOfWeekTimestampWithTimezone(TimestampWithTimezone(0, "-01:00")));
   EXPECT_EQ(
       1970,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "year_of_week(c0)", 0, "+00:00"));
+      yearOfWeekTimestampWithTimezone(TimestampWithTimezone(0, "+00:00")));
   EXPECT_EQ(
       1973,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "year_of_week(c0)", 123456789000, "+14:00"));
+      yearOfWeekTimestampWithTimezone(
+          TimestampWithTimezone(123456789000, "+14:00")));
   EXPECT_EQ(
       1966,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "year_of_week(c0)", -123456789000, "+03:00"));
+      yearOfWeekTimestampWithTimezone(
+          TimestampWithTimezone(-123456789000, "+03:00")));
   EXPECT_EQ(
       2001,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "year_of_week(c0)", 987654321000, "-07:00"));
+      yearOfWeekTimestampWithTimezone(
+          TimestampWithTimezone(987654321000, "-07:00")));
   EXPECT_EQ(
       1938,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "year_of_week(c0)", -987654321000, "-13:00"));
-  EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "year_of_week(c0)", std::nullopt, std::nullopt));
+      yearOfWeekTimestampWithTimezone(
+          TimestampWithTimezone(-987654321000, "-13:00")));
+  EXPECT_EQ(std::nullopt, yearOfWeekTimestampWithTimezone(std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, minute) {
