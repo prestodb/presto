@@ -167,6 +167,47 @@ paths:
           description: The function was successfully deleted. The response body is empty.
         '404':
           description: The function was not found.
+  /v1/functions/{schema}/{functionName}/{functionId}/{version}:
+    post:
+      summary: Retrieve value from function
+      parameters:
+        - name: schema
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The schema in which the function is defined.
+        - name: functionName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the function.
+        - name: functionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the function.
+        - name: version
+          in: path
+          schema:
+            type: string
+          required: true
+          description: The version of the function to execute
+      requestBody:
+        required: true
+        content:
+          text/plain; charset=utf-8:
+            schema:
+              $ref: '#/components/schemas/SerializedPageBinary'
+      responses:
+        '200':
+          description: function value output
+          content:
+            text/plain; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/SerializedPageBinary'
 components:
   schemas:
     UdfSignatureMap:
@@ -284,3 +325,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TypeSignature'
+    SerializedPageBinary:
+      type: string
+      format: binary
+      description: Match this format https://prestodb.io/docs/current/develop/serialized-page.html
+    Page:
+      type: string
+      format: binary
