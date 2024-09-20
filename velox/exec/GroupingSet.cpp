@@ -972,7 +972,9 @@ void GroupingSet::spill() {
         makeSpillType(),
         HashBitRange(
             spillConfig_->startPartitionBit,
-            spillConfig_->startPartitionBit + spillConfig_->numPartitionBits),
+            static_cast<uint8_t>(
+                spillConfig_->startPartitionBit +
+                spillConfig_->numPartitionBits)),
         rows->keyTypes().size(),
         std::vector<CompareFlags>(),
         spillConfig_,
