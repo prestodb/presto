@@ -921,6 +921,13 @@ class HashJoinTest : public HiveConnectorTestBase {
     return stats[operatorIndex].runtimeStats[statsName];
   }
 
+  // Get the operator index from the plan node id. Only used in the probe-side
+  // pipeline. The plan node id starts from "1" and the operator index starts
+  // from 0. Plan node IDs map to operators 1:1.
+  static int32_t getOperatorIndex(const core::PlanNodeId& planNodeId) {
+    return folly::to<int32_t>(planNodeId) - 1;
+  }
+
   static core::JoinType flipJoinType(core::JoinType joinType) {
     switch (joinType) {
       case core::JoinType::kInner:
@@ -5173,6 +5180,75 @@ TEST_F(HashJoinTest, dynamicFiltersAppliedToPreloadedSplits) {
         ASSERT_EQ(1, getStatSum(probeScanId, "dynamicFiltersAccepted"));
         ASSERT_EQ(4, getStatSum(probeScanId, "skippedSplits"));
         ASSERT_LT(1, getStatSum(probeScanId, "preloadedSplits"));
+      })
+      .run();
+}
+
+TEST_F(HashJoinTest, dynamicFiltersPushDownThroughAgg) {
+  const int32_t numRowsProbe = 300;
+  const int32_t numRowsBuild = 100;
+
+  // Create probe data
+  std::vector<RowVectorPtr> probeVectors{makeRowVector({
+      makeFlatVector<int32_t>(numRowsProbe, [&](auto row) { return row - 10; }),
+      makeFlatVector<int64_t>(numRowsProbe, folly::identity),
+  })};
+  std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
+  writeToFile(probeFile->getPath(), probeVectors);
+
+  // Create build data
+  std::vector<RowVectorPtr> buildVectors{makeRowVector(
+      {"u0"}, {makeFlatVector<int32_t>(numRowsBuild, [&](auto row) {
+        return 35 + 2 * (row + numRowsBuild / 5);
+      })})};
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  auto probeType = ROW({"c0", "c1"}, {INTEGER(), BIGINT()});
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto buildSide =
+      PlanBuilder(planNodeIdGenerator).values(buildVectors).planNode();
+
+  // Inner join.
+  core::PlanNodeId scanNodeId;
+  core::PlanNodeId joinNodeId;
+  core::PlanNodeId aggNodeId;
+  auto op = PlanBuilder(planNodeIdGenerator, pool_.get())
+                .tableScan(probeType)
+                .capturePlanNodeId(scanNodeId)
+                .partialAggregation({"c0"}, {"sum(c1)"})
+                .capturePlanNodeId(aggNodeId)
+                .hashJoin(
+                    {"c0"},
+                    {"u0"},
+                    buildSide,
+                    "",
+                    {"c0", "a0"},
+                    core::JoinType::kInner)
+                .capturePlanNodeId(joinNodeId)
+                .planNode();
+
+  SplitInput splitInput = {
+      {scanNodeId, {Split(makeHiveConnectorSplit(probeFile->getPath()))}}};
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .planNode(std::move(op))
+      .inputSplits(splitInput)
+      .injectSpill(false)
+      .checkSpillStats(false)
+      .referenceQuery("SELECT c0, sum(c1) FROM t, u WHERE c0 = u0 group by c0")
+      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+        auto planStats = toPlanStats(task->taskStats());
+        auto dynamicFilterStats = planStats.at(scanNodeId).dynamicFilterStats;
+        ASSERT_EQ(
+            1, getFiltersProduced(task, getOperatorIndex(joinNodeId)).sum);
+        ASSERT_EQ(
+            1, getFiltersAccepted(task, getOperatorIndex(scanNodeId)).sum);
+        ASSERT_LT(
+            getInputPositions(task, getOperatorIndex(aggNodeId)), numRowsProbe);
+        ASSERT_EQ(
+            dynamicFilterStats.producerNodeIds,
+            std::unordered_set({joinNodeId}));
       })
       .run();
 }

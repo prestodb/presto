@@ -81,10 +81,8 @@ void HashAggregation::initialize() {
         core::AggregationNode::stepName(aggregationNode_->step()));
   }
 
-  if (isDistinct_) {
-    for (auto i = 0; i < hashers.size(); ++i) {
-      identityProjections_.emplace_back(hashers[i]->channel(), i);
-    }
+  for (auto i = 0; i < hashers.size(); ++i) {
+    identityProjections_.emplace_back(hashers[i]->channel(), i);
   }
 
   std::optional<column_index_t> groupIdChannel;
