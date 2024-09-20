@@ -64,6 +64,7 @@ public class TpcdsConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(config);
+        boolean useVarcharType = useVarcharType(config);
         NodeManager nodeManager = context.getNodeManager();
         return new Connector()
         {
@@ -76,7 +77,7 @@ public class TpcdsConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
             {
-                return new TpcdsMetadata();
+                return new TpcdsMetadata(useVarcharType);
             }
 
             @Override
@@ -106,6 +107,16 @@ public class TpcdsConnectorFactory
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpcds.splits-per-node");
+        }
+    }
+
+    private boolean useVarcharType(Map<String, String> properties)
+    {
+        try {
+            return parseBoolean(firstNonNull(properties.get("tpcds.use-varchar-type"), String.valueOf(false)));
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid property tpcds.use-varchar-type");
         }
     }
 
