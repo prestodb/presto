@@ -983,11 +983,6 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   std::vector<std::string> aggregateNames;
   std::vector<core::AggregationNode::Aggregate> aggregates;
 
-  VELOX_CHECK(node->preGroupedVariables.empty()
-                  && node->groupingSets.groupingSetCount == 1
-                  && node->groupingSets.globalGroupingSets.empty(),
-              "Streaming aggregation is disabled");
-
   std::vector<protocol::VariableReferenceExpression> outputVariables;
   for (auto it = node->aggregations.begin(); it != node->aggregations.end();
        it++) {
