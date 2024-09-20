@@ -198,7 +198,10 @@ class TaskManagerTest : public testing::Test {
     velox::memory::MemoryManagerOptions options;
     options.allocatorCapacity = 8L << 30;
     options.arbitratorCapacity = 6L << 30;
-    options.memoryPoolInitCapacity = 512 << 20;
+    options.extraArbitratorConfigs = {
+        {std::string(velox::memory::SharedArbitrator::ExtraConfig::
+                         kMemoryPoolInitialCapacity),
+         "512MB"}};
     options.arbitratorKind = "SHARED";
     options.checkUsageLeak = true;
     options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
