@@ -415,13 +415,12 @@ struct MakeDateFunction {
       const int32_t year,
       const int32_t month,
       const int32_t day) {
-    int64_t daysSinceEpoch;
-    auto status =
-        util::daysSinceEpochFromDate(year, month, day, daysSinceEpoch);
-    if (!status.ok()) {
-      VELOX_DCHECK(status.isUserError());
-      VELOX_USER_FAIL(status.message());
+    Expected<int64_t> expected = util::daysSinceEpochFromDate(year, month, day);
+    if (expected.hasError()) {
+      VELOX_DCHECK(expected.error().isUserError());
+      VELOX_USER_FAIL(expected.error().message());
     }
+    int64_t daysSinceEpoch = expected.value();
     VELOX_USER_CHECK_EQ(
         daysSinceEpoch,
         (int32_t)daysSinceEpoch,
@@ -457,13 +456,13 @@ struct LastDayFunction {
     int32_t month = getMonth(dateTime);
     int32_t day = getMonth(dateTime);
     auto lastDay = util::getMaxDayOfMonth(year, month);
-    int64_t daysSinceEpoch;
-    auto status =
-        util::daysSinceEpochFromDate(year, month, lastDay, daysSinceEpoch);
-    if (!status.ok()) {
-      VELOX_DCHECK(status.isUserError());
-      VELOX_USER_FAIL(status.message());
+    Expected<int64_t> expected =
+        util::daysSinceEpochFromDate(year, month, lastDay);
+    if (expected.hasError()) {
+      VELOX_DCHECK(expected.error().isUserError());
+      VELOX_USER_FAIL(expected.error().message());
     }
+    int64_t daysSinceEpoch = expected.value();
     VELOX_USER_CHECK_EQ(
         daysSinceEpoch,
         (int32_t)daysSinceEpoch,
@@ -567,13 +566,13 @@ struct AddMonthsFunction {
     // Adjusts day to valid one.
     auto dayResult = lastDayOfMonth < day ? lastDayOfMonth : day;
 
-    int64_t daysSinceEpoch;
-    auto status = util::daysSinceEpochFromDate(
-        yearResult, monthResult, dayResult, daysSinceEpoch);
-    if (!status.ok()) {
-      VELOX_DCHECK(status.isUserError());
-      VELOX_USER_FAIL(status.message());
+    Expected<int64_t> expected =
+        util::daysSinceEpochFromDate(yearResult, monthResult, dayResult);
+    if (expected.hasError()) {
+      VELOX_DCHECK(expected.error().isUserError());
+      VELOX_USER_FAIL(expected.error().message());
     }
+    int64_t daysSinceEpoch = expected.value();
     VELOX_USER_CHECK_EQ(
         daysSinceEpoch,
         (int32_t)daysSinceEpoch,

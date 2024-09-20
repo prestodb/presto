@@ -52,11 +52,10 @@ std::pair<Timestamp, const tz::TimeZone*> parseTimestampWithTimezone(
 TEST(DateTimeUtilTest, fromDate) {
   auto testDaysSinceEpochFromDate =
       [](int32_t year, int32_t month, int32_t day) {
-        int64_t daysSinceEpoch;
-        auto status =
-            util::daysSinceEpochFromDate(year, month, day, daysSinceEpoch);
-        EXPECT_TRUE(status.ok());
-        return daysSinceEpoch;
+        Expected<int64_t> daysSinceEpoch =
+            util::daysSinceEpochFromDate(year, month, day);
+        EXPECT_FALSE(daysSinceEpoch.hasError());
+        return daysSinceEpoch.value();
       };
   EXPECT_EQ(0, testDaysSinceEpochFromDate(1970, 1, 1));
   EXPECT_EQ(1, testDaysSinceEpochFromDate(1970, 1, 2));
@@ -81,11 +80,11 @@ TEST(DateTimeUtilTest, fromDate) {
 TEST(DateTimeUtilTest, fromDateInvalid) {
   auto testDaysSinceEpochFromDateInvalid =
       [](int32_t year, int32_t month, int32_t day, const std::string& error) {
-        int64_t daysSinceEpoch;
-        auto status =
-            util::daysSinceEpochFromDate(year, month, day, daysSinceEpoch);
-        EXPECT_TRUE(status.isUserError());
-        EXPECT_EQ(status.message(), error);
+        Expected<int64_t> expected =
+            util::daysSinceEpochFromDate(year, month, day);
+        EXPECT_TRUE(expected.hasError());
+        EXPECT_TRUE(expected.error().isUserError());
+        EXPECT_EQ(expected.error().message(), error);
       };
   EXPECT_NO_THROW(testDaysSinceEpochFromDateInvalid(
       1970, 1, -1, "Date out of range: 1970-1--1"));

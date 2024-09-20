@@ -94,22 +94,21 @@ int32_t getMaxDayOfMonth(int32_t year, int32_t month);
 
 /// Computes the last day of month since unix epoch (1970-01-01).
 /// Returns UserError status if the date is invalid.
-Status lastDayOfMonthSinceEpochFromDate(const std::tm& dateTime, int64_t& out);
+Expected<int64_t> lastDayOfMonthSinceEpochFromDate(const std::tm& dateTime);
 
 /// Date conversions.
 
 /// Computes the (signed) number of days since unix epoch (1970-01-01).
 /// Returns UserError status if the date is invalid.
-Status
-daysSinceEpochFromDate(int32_t year, int32_t month, int32_t day, int64_t& out);
+Expected<int64_t>
+daysSinceEpochFromDate(int32_t year, int32_t month, int32_t day);
 
 /// Computes the (signed) number of days since unix epoch (1970-01-01).
 /// Returns UserError status if the date is invalid.
-Status daysSinceEpochFromWeekDate(
+Expected<int64_t> daysSinceEpochFromWeekDate(
     int32_t weekYear,
     int32_t weekOfYear,
-    int32_t dayOfWeek,
-    int64_t& out);
+    int32_t dayOfWeek);
 
 /// Computes the signed number of days since the Unix epoch (1970-01-01). To
 /// align with Spark's SimpleDateFormat behavior, this function offers two
@@ -145,8 +144,7 @@ Expected<int64_t> daysSinceEpochFromWeekOfMonthDate(
 
 /// Computes the (signed) number of days since unix epoch (1970-01-01).
 /// Returns UserError status if the date is invalid.
-Status
-daysSinceEpochFromDayOfYear(int32_t year, int32_t dayOfYear, int64_t& out);
+Expected<int64_t> daysSinceEpochFromDayOfYear(int32_t year, int32_t dayOfYear);
 
 /// Cast string to date. Supported date formats vary, depending on input
 /// ParseMode. Refer to ParseMode enum for further info.
