@@ -37,7 +37,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
@@ -226,10 +226,10 @@ public class TestTupleDomainFilterUtils
     @BeforeClass
     public void setup()
     {
-        FeaturesConfig newNanDefinitionConfig = new FeaturesConfig().setUseNewNanDefinition(true);
+        FunctionsConfig newNanDefinitionConfig = new FunctionsConfig().setUseNewNanDefinition(true);
         metadata = createTestMetadataManager(newNanDefinitionConfig);
 
-        FeaturesConfig oldNanDefinitionConfig = new FeaturesConfig().setUseNewNanDefinition(false);
+        FunctionsConfig oldNanDefinitionConfig = new FunctionsConfig().setUseNewNanDefinition(false);
         oldNanDefinitionMetadata = createTestMetadataManager(oldNanDefinitionConfig);
         literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
     }

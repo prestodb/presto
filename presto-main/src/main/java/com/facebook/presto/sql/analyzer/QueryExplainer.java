@@ -219,7 +219,6 @@ public class QueryExplainer
                 metadata,
                 planOptimizers,
                 planChecker,
-                sqlParser,
                 planVariableAllocator,
                 idAllocator,
                 warningCollector,

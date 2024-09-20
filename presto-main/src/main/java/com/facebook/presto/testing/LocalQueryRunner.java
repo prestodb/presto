@@ -115,7 +115,6 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
@@ -141,6 +140,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
@@ -161,8 +161,11 @@ import com.facebook.presto.sql.analyzer.BuiltInAnalyzerProvider;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparerProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -345,25 +348,25 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), false, false);
+        this(defaultSession, new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false);
     }
 
-    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
     {
-        this(defaultSession, featuresConfig, new NodeSpillConfig(), false, false);
+        this(defaultSession, featuresConfig, functionsConfig, new NodeSpillConfig(), false, false);
     }
 
-    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
     {
-        this(defaultSession, featuresConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory, 1, new ObjectMapper());
+        this(defaultSession, featuresConfig, functionsConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory, 1, new ObjectMapper());
     }
 
-    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, ObjectMapper objectMapper)
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, ObjectMapper objectMapper)
     {
-        this(defaultSession, featuresConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory, 1, objectMapper);
+        this(defaultSession, featuresConfig, functionsConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory, 1, objectMapper);
     }
 
-    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, int nodeCountForStats, ObjectMapper objectMapper)
+    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, int nodeCountForStats, ObjectMapper objectMapper)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
@@ -407,7 +410,7 @@ public class LocalQueryRunner
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
 
         this.metadata = new MetadataManager(
-                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
                 new SessionPropertyManager(
                         new SystemSessionProperties(
@@ -415,6 +418,7 @@ public class LocalQueryRunner
                                 new TaskManagerConfig(),
                                 new MemoryManagerConfig(),
                                 featuresConfig,
+                                functionsConfig,
                                 new NodeMemoryConfig(),
                                 new WarningCollectorConfig(),
                                 new NodeSchedulerConfig(),
@@ -430,7 +434,7 @@ public class LocalQueryRunner
         this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSchedulerConfig);
         this.distributedPlanChecker = new PlanChecker(featuresConfig, false);
         this.singleNodePlanChecker = new PlanChecker(featuresConfig, true);
-        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), sqlParser, featuresConfig);
+        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), featuresConfig);
         this.joinCompiler = new JoinCompiler(metadata);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
         this.statsNormalizer = new StatsNormalizer();
@@ -488,7 +492,9 @@ public class LocalQueryRunner
                 ImmutableSet.of());
 
         BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty(), metadataExtractorExecutor);
-        BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(new BuiltInQueryPreparer(sqlParser), queryAnalyzer);
+        BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(queryAnalyzer);
+        BuiltInQueryPreparer queryPreparer = new BuiltInQueryPreparer(sqlParser);
+        BuiltInQueryPreparerProvider queryPreparerProvider = new BuiltInQueryPreparerProvider(queryPreparer);
 
         this.pluginManager = new PluginManager(
                 nodeInfo,
@@ -497,6 +503,7 @@ public class LocalQueryRunner
                 metadata,
                 new NoOpResourceGroupManager(),
                 new AnalyzerProviderManager(analyzerProvider),
+                new QueryPreparerProviderManager(queryPreparerProvider),
                 accessControl,
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
@@ -577,12 +584,12 @@ public class LocalQueryRunner
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
     {
         checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), true, false);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), true, false);
     }
 
     public static LocalQueryRunner queryRunnerWithFakeNodeCountForStats(Session defaultSession, int nodeCount)
     {
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), false, false, nodeCount, new ObjectMapper());
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false, nodeCount, new ObjectMapper());
     }
 
     @Override
@@ -935,7 +942,7 @@ public class LocalQueryRunner
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig().setTaskConcurrency(4),
                 new MemoryManagerConfig(),
-                new FeaturesConfig(),
+                new FunctionsConfig(),
                 spillerFactory,
                 singleStreamSpillerFactory,
                 partitioningSpillerFactory,
@@ -1132,7 +1139,6 @@ public class LocalQueryRunner
                 metadata,
                 optimizers,
                 singleNodePlanChecker,
-                sqlParser,
                 analyzerContext.getVariableAllocator(),
                 idAllocator,
                 warningCollector,

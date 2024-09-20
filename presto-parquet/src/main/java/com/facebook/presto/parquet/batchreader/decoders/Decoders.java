@@ -27,7 +27,7 @@ import com.facebook.presto.parquet.batchreader.decoders.delta.Int32DeltaBinaryPa
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int32ShortDecimalDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64DeltaBinaryPackedValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64ShortDecimalDeltaValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.delta.Int64TimestampMicrosDeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryLongDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryShortDecimalPlainValuesDecoder;
@@ -38,14 +38,14 @@ import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDe
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32ShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64ShortDecimalPlainValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimestampMicrosPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimeAndTimestampMicrosPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimestampMicrosRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.LongDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
@@ -79,6 +79,7 @@ import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_C
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_ENCODING;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isShortDecimalType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeMicrosType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
 import static com.facebook.presto.parquet.ValuesType.VALUES;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -123,8 +124,8 @@ public class Decoders
                 case FLOAT:
                     return new Int32PlainValuesDecoder(buffer, offset, length);
                 case INT64: {
-                    if (isTimeStampMicrosType(columnDescriptor)) {
-                        return new Int64TimestampMicrosPlainValuesDecoder(buffer, offset, length);
+                    if (isTimeStampMicrosType(columnDescriptor) || isTimeMicrosType(columnDescriptor)) {
+                        return new Int64TimeAndTimestampMicrosPlainValuesDecoder(buffer, offset, length);
                     }
 
                     if (isShortDecimalType(columnDescriptor)) {
@@ -175,8 +176,11 @@ public class Decoders
                     return new Int32RLEDictionaryValuesDecoder(bitWidth, inputStream, (IntegerDictionary) dictionary);
                 }
                 case INT64: {
-                    if (isTimeStampMicrosType(columnDescriptor)) {
-                        return new Int64TimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
+                    if (isTimeStampMicrosType(columnDescriptor) || isTimeMicrosType(columnDescriptor)) {
+                        return new Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
+                    }
+                    if (isDecimalType(columnDescriptor) && isShortDecimalType(columnDescriptor)) {
+                        return new Int64RLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
                     }
                 }
                 case DOUBLE: {
@@ -212,8 +216,8 @@ public class Decoders
                     return new Int32DeltaBinaryPackedValuesDecoder(valueCount, inputStream);
                 }
                 case INT64: {
-                    if (isTimeStampMicrosType(columnDescriptor)) {
-                        return new Int64TimestampMicrosDeltaBinaryPackedValuesDecoder(valueCount, inputStream);
+                    if (isTimeStampMicrosType(columnDescriptor) || isTimeMicrosType(columnDescriptor)) {
+                        return new Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(valueCount, inputStream);
                     }
 
                     if (isShortDecimalType(columnDescriptor)) {

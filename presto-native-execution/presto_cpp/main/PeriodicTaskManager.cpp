@@ -18,7 +18,6 @@
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/common/Counters.h"
-#include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "velox/common/base/PeriodicStatsReporter.h"
 #include "velox/common/base/StatsReporter.h"
@@ -470,10 +469,13 @@ void PeriodicTaskManager::addWatchdogTask() {
         }
         RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
 
-        // Detach worker from the cluster if more than half of driver threads
-        // are blocked by stuck operators (one unique operator can only get
-        // stuck on one unique thread).
-        if (stuckOpCalls.size() > numDriverThreads_ / 2) {
+        // Detach worker from the cluster if more than a certain number of
+        // driver threads are blocked by stuck operators (one unique operator
+        // can only get stuck on one unique thread).
+        const auto numStuckOperatorsToDetachWorker = std::min(
+            SystemConfig::instance()->driverNumStuckOperatorsToDetachWorker(),
+            numDriverThreads_);
+        if (stuckOpCalls.size() >= numStuckOperatorsToDetachWorker) {
           detachWorker("detected stuck operators");
         } else if (!deadlockTasks.empty()) {
           detachWorker("starving or deadlocked task");

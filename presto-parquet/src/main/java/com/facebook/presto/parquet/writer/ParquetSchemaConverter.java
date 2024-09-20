@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -126,8 +127,14 @@ public class ParquetSchemaConverter
         if (DATE.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition).as(OriginalType.DATE).named(name);
         }
-        if (BIGINT.equals(type) || TIMESTAMP.equals(type)) {
+        if (BIGINT.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).named(name);
+        }
+        if (TIMESTAMP.equals(type)) {
+            Types.PrimitiveBuilder<PrimitiveType> parquetTypeBuilder = Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition);
+            LogicalTypeAnnotation annotation = LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MILLIS);
+            parquetTypeBuilder.as(annotation);
+            return parquetTypeBuilder.named(name);
         }
         if (DOUBLE.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.DOUBLE, repetition).named(name);

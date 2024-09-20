@@ -51,6 +51,7 @@ import org.apache.iceberg.util.Tasks;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -400,6 +401,7 @@ public class HiveTableOperations
         try {
             Tasks.foreach(newLocation)
                     .retry(config.getTableRefreshRetries())
+                    .shouldRetryTest(this::shouldRetry)
                     .exponentialBackoff(
                             config.getTableRefreshBackoffMinSleepTime().toMillis(),
                             config.getTableRefreshBackoffMaxSleepTime().toMillis(),
@@ -426,6 +428,11 @@ public class HiveTableOperations
         currentMetadataLocation = newLocation;
         version = parseVersion(newLocation);
         shouldRefresh = false;
+    }
+
+    private boolean shouldRetry(Exception exception)
+    {
+        return !(exception.getCause() instanceof FileNotFoundException);
     }
 
     private static String newTableMetadataFilePath(TableMetadata meta, int newVersion)

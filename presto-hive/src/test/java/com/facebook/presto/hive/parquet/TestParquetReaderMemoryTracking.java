@@ -70,7 +70,7 @@ public class TestParquetReaderMemoryTracking
 
             while (parquetReader.nextBatch() > 0) {
                 Block block = parquetReader.readBlock(field);
-                assertBetweenInclusive(parquetReader.getSystemMemoryUsage(), 320000L, 370000L);
+                assertBetweenInclusive(parquetReader.getSystemMemoryUsage(), 320000L, 420000L);
                 blocks.add(block);
             }
         }

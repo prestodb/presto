@@ -77,7 +77,7 @@ import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.hadoop.ParquetWriter.DEFAULT_BLOCK_SIZE;
 import static org.apache.parquet.hadoop.ParquetWriter.DEFAULT_PAGE_SIZE;
 import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
@@ -109,7 +109,7 @@ public class BenchmarkDecimalColumnBatchReader
     })
     // PARQUET_1_0 => PLAIN
     // PARQUET_2_0 => DELTA_BYTE_ARRAY, DELTA_LENGTH_BYTE_ARRAY, DELTA_BYTE_ARRAY
-    public static WriterVersion writerVersion = PARQUET_2_0;
+    public static WriterVersion writerVersion = PARQUET_1_0;
 
     public static void main(String[] args)
             throws Throwable

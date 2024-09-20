@@ -51,7 +51,7 @@ public class TestVerifyOnlyOneOutputNode
                                         Optional.empty()),
                                 Assignments.of()
                         ), ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
+        new VerifyOnlyOneOutputNode().validate(root, null, null, WarningCollector.NOOP);
     }
 
     @Test(expectedExceptions = IllegalStateException.class)
@@ -71,6 +71,6 @@ public class TestVerifyOnlyOneOutputNode
                                 false,
                                 ExplainFormat.Type.TEXT),
                         ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
+        new VerifyOnlyOneOutputNode().validate(root, null, null, WarningCollector.NOOP);
     }
 }

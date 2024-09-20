@@ -31,16 +31,14 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.SessionSupplier;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
-import com.facebook.presto.spi.analyzer.AnalyzerProvider;
+import com.facebook.presto.spi.analyzer.QueryPreparerProvider;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.security.AuthorizedIdentity;
-import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
+import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -57,8 +55,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
-import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
-import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -93,8 +89,7 @@ public class DispatchManager
 
     private final QueryManagerStats stats = new QueryManagerStats();
 
-    private final SecurityConfig securityConfig;
-    private final AnalyzerProviderManager analyzerProviderManager;
+    private final QueryPreparerProviderManager queryPreparerProviderManager;
 
     /**
      * Dispatch Manager is used for the pre-queuing part of queries prior to the query execution phase.
@@ -102,7 +97,7 @@ public class DispatchManager
      * Dispatch Manager object is instantiated when the presto server is launched by server bootstrap time. It is a critical component in resource management section of the query.
      *
      * @param queryIdGenerator query ID generator for generating a new query ID when a query is created
-     * @param analyzerProviderManager provides access to registered analyzer providers
+     * @param queryPreparerProviderManager provides access to registered query preparer providers
      * @param resourceGroupManager the resource group manager to select corresponding resource group for query to retrieve basic information from session context for selection context
      * @param warningCollectorFactory the warning collector factory to collect presto warning in a query session
      * @param dispatchQueryFactory the dispatch query factory is used to create a {@link DispatchQuery} object.  The dispatch query is submitted to the {@link ResourceGroupManager} which enqueues the query.
@@ -118,7 +113,7 @@ public class DispatchManager
     @Inject
     public DispatchManager(
             QueryIdGenerator queryIdGenerator,
-            AnalyzerProviderManager analyzerProviderManager,
+            QueryPreparerProviderManager queryPreparerProviderManager,
             @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
             WarningCollectorFactory warningCollectorFactory,
             DispatchQueryFactory dispatchQueryFactory,
@@ -130,11 +125,10 @@ public class DispatchManager
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor,
             ClusterStatusSender clusterStatusSender,
-            SecurityConfig securityConfig,
             Optional<ClusterQueryTrackerService> clusterQueryTrackerService)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
-        this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
+        this.queryPreparerProviderManager = requireNonNull(queryPreparerProviderManager, "queryPreparerProviderManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.dispatchQueryFactory = requireNonNull(dispatchQueryFactory, "dispatchQueryFactory is null");
@@ -152,8 +146,6 @@ public class DispatchManager
         this.clusterStatusSender = requireNonNull(clusterStatusSender, "clusterStatusSender is null");
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor(), clusterQueryTrackerService);
-
-        this.securityConfig = requireNonNull(securityConfig, "securityConfig is null");
     }
 
     /**
@@ -275,19 +267,13 @@ public class DispatchManager
                 throw new PrestoException(QUERY_TEXT_TOO_LARGE, format("Query text length (%s) exceeds the maximum length (%s)", queryLength, maxQueryLength));
             }
 
-            // check permissions if needed
-            checkPermissions(accessControl, securityConfig, queryId, sessionContext);
-
-            // get authorized identity if possible
-            Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, sessionContext);
-
             // decode session
-            session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
+            session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory);
 
             // prepare query
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, session.getWarningCollector());
-            AnalyzerProvider analyzerProvider = analyzerProviderManager.getAnalyzerProvider(getAnalyzerType(session));
-            preparedQuery = analyzerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
+            QueryPreparerProvider queryPreparerProvider = queryPreparerProviderManager.getQueryPreparerProvider(getAnalyzerType(session));
+            preparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
             query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group
@@ -311,7 +297,6 @@ public class DispatchManager
 
             DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
                     session,
-                    analyzerProvider,
                     query,
                     preparedQuery,
                     slug,

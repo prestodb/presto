@@ -105,21 +105,85 @@ public class TestJdbcConnection
     public void testCommit()
             throws SQLException
     {
-        try (Connection connection = createConnection()) {
-            connection.setAutoCommit(false);
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("CREATE TABLE test_commit (x bigint)");
+        try {
+            try (Connection connection = createConnection()) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("CREATE TABLE test_commit (x bigint)");
+                }
+
+                try (Connection otherConnection = createConnection()) {
+                    assertThat(listTables(otherConnection)).doesNotContain("test_commit");
+                }
+
+                connection.commit();
             }
 
-            try (Connection otherConnection = createConnection()) {
-                assertThat(listTables(otherConnection)).doesNotContain("test_commit");
+            try (Connection connection = createConnection()) {
+                assertThat(listTables(connection)).contains("test_commit");
             }
-
-            connection.commit();
         }
+        finally {
+            try (Connection connection = createConnection()) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE test_commit");
+                }
+            }
+        }
+    }
 
-        try (Connection connection = createConnection()) {
-            assertThat(listTables(connection)).contains("test_commit");
+    @Test
+    public void testAutoCommit()
+            throws SQLException
+    {
+        try {
+            try (Connection connection = createConnection()) {
+                connection.setAutoCommit(true);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("CREATE TABLE test_autocommit (x bigint)");
+                }
+            }
+
+            try (Connection connection = createConnection()) {
+                assertThat(listTables(connection)).contains("test_autocommit");
+            }
+        }
+        finally {
+            try (Connection connection = createConnection()) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE test_autocommit");
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testResetAutoCommit()
+            throws SQLException
+    {
+        try {
+            try (Connection connection = createConnection()) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("CREATE TABLE test_reset_autocommit (x bigint)");
+                }
+
+                try (Connection otherConnection = createConnection()) {
+                    assertThat(listTables(otherConnection)).doesNotContain("test_reset_autocommit");
+                }
+                connection.setAutoCommit(true);
+            }
+
+            try (Connection connection = createConnection()) {
+                assertThat(listTables(connection)).contains("test_reset_autocommit");
+            }
+        }
+        finally {
+            try (Connection connection = createConnection()) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE test_reset_autocommit");
+                }
+            }
         }
     }
 

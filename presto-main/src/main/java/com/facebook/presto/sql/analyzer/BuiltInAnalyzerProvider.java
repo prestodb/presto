@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.analyzer.QueryAnalyzer;
-import com.facebook.presto.spi.analyzer.QueryPreparer;
 import com.google.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
@@ -24,13 +23,11 @@ public class BuiltInAnalyzerProvider
         implements AnalyzerProvider
 {
     private static final String PROVIDER_NAME = "BUILTIN";
-    private final BuiltInQueryPreparer queryPreparer;
     private final BuiltInQueryAnalyzer queryAnalyzer;
 
     @Inject
-    public BuiltInAnalyzerProvider(BuiltInQueryPreparer queryPreparer, BuiltInQueryAnalyzer queryAnalyzer)
+    public BuiltInAnalyzerProvider(BuiltInQueryAnalyzer queryAnalyzer)
     {
-        this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
         this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");
     }
 
@@ -38,12 +35,6 @@ public class BuiltInAnalyzerProvider
     public String getType()
     {
         return PROVIDER_NAME;
-    }
-
-    @Override
-    public QueryPreparer getQueryPreparer()
-    {
-        return queryPreparer;
     }
 
     @Override

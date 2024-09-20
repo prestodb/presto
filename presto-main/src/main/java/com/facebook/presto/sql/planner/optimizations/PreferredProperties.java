@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Partitioning;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateVariableToRowExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -369,7 +370,7 @@ class PreferredProperties
                 return Optional.of(new PartitioningProperties(newPartitioningColumns, Optional.empty(), nullsAndAnyReplicated));
             }
 
-            Optional<Partitioning> newPartitioning = partitioning.get().translateVariableToRowExpression(variable -> translator.apply(variable).map(RowExpression.class::cast));
+            Optional<Partitioning> newPartitioning = translateVariableToRowExpression(partitioning.get(), variable -> translator.apply(variable).map(RowExpression.class::cast));
             if (!newPartitioning.isPresent()) {
                 return Optional.empty();
             }

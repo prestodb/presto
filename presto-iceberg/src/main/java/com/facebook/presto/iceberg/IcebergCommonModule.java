@@ -40,10 +40,16 @@ import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.iceberg.nessie.IcebergNessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
 import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
+import com.facebook.presto.iceberg.procedure.FastForwardBranchProcedure;
 import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
 import com.facebook.presto.iceberg.procedure.RemoveOrphanFiles;
 import com.facebook.presto.iceberg.procedure.RollbackToSnapshotProcedure;
+import com.facebook.presto.iceberg.procedure.RollbackToTimestampProcedure;
+import com.facebook.presto.iceberg.procedure.SetCurrentSnapshotProcedure;
+import com.facebook.presto.iceberg.procedure.SetTablePropertyProcedure;
 import com.facebook.presto.iceberg.procedure.UnregisterTableProcedure;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCacheKey;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;
@@ -71,6 +77,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Binder;
@@ -152,10 +159,14 @@ public class IcebergCommonModule
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(RollbackToTimestampProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(ExpireSnapshotsProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RemoveOrphanFiles.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(FastForwardBranchProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(SetCurrentSnapshotProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(SetTablePropertyProcedure.class).in(Scopes.SINGLETON);
 
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
@@ -168,6 +179,20 @@ public class IcebergCommonModule
         configBinder(binder).bindConfig(ParquetCacheConfig.class, connectorId);
 
         binder.bind(ConnectorPlanOptimizerProvider.class).to(IcebergPlanOptimizerProvider.class).in(Scopes.SINGLETON);
+    }
+
+    @Singleton
+    @Provides
+    public StatisticsFileCache createStatisticsFileCache(IcebergConfig config, MBeanExporter exporter)
+    {
+        Cache<StatisticsFileCacheKey, ColumnStatistics> delegate = CacheBuilder.newBuilder()
+                .maximumWeight(config.getMaxStatisticsFileCacheSize().toBytes())
+                .<StatisticsFileCacheKey, ColumnStatistics>weigher((key, entry) -> (int) entry.getEstimatedSize())
+                .recordStats()
+                .build();
+        CacheStatsMBean bean = new CacheStatsMBean(delegate);
+        exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), bean);
+        return new StatisticsFileCache(delegate);
     }
 
     @ForCachingHiveMetastore

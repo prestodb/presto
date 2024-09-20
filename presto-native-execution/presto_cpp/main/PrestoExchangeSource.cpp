@@ -21,7 +21,6 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/base/StatsReporter.h"
 #include "velox/common/testutil/TestValue.h"
 
 using namespace facebook::velox;
@@ -268,7 +267,7 @@ void PrestoExchangeSource::processDataResponse(
   auto* headers = response->headers();
   VELOX_CHECK(
       !headers->getIsChunked(),
-      "Chunked http transferring encoding is not supported.")
+      "Chunked http transferring encoding is not supported.");
   uint64_t contentLength =
       atol(headers->getHeaders()
                .getSingleOrEmpty(proxygen::HTTP_HEADER_CONTENT_LENGTH)

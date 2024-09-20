@@ -30,6 +30,7 @@ add_library(
   ServerOperation.cpp
   SignalHandler.cpp
   SystemConnector.cpp
+  SessionProperties.cpp
   TaskManager.cpp
   TaskResource.cpp
   PeriodicHeartbeatManager.cpp
@@ -113,7 +114,7 @@ if(PRESTO_STATS_REPORTER_TYPE)
   add_compile_definitions(PRESTO_STATS_REPORTER_TYPE)
   if(PRESTO_STATS_REPORTER_TYPE STREQUAL "PROMETHEUS")
     add_subdirectory(runtime-metrics)
-    target_link_libraries(presto_server prometheus_reporter)
+    target_link_libraries(presto_server presto_prometheus_reporter)
   else()
     message(
       FATAL_ERROR

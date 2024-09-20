@@ -208,10 +208,10 @@ class BroadcastTest : public exec::test::OperatorTestBase {
       ranges.emplace_back(ByteRange{
           const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
     }
-    ByteInputStream byteStream(std::move(ranges));
+    auto byteStream = std::make_unique<BufferInputStream>(std::move(ranges));
 
     RowVectorPtr result;
-    VectorStreamGroup::read(&byteStream, pool(), dataType, &result);
+    VectorStreamGroup::read(byteStream.get(), pool(), dataType, &result);
     return result;
   }
 };

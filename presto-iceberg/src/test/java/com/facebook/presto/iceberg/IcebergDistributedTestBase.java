@@ -30,12 +30,15 @@ import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.iceberg.delete.DeleteFile;
+import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -43,10 +46,14 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
+import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -72,12 +79,15 @@ import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.TableScanUtil;
+import org.apache.parquet.column.ParquetProperties.WriterVersion;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -93,11 +103,10 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
@@ -109,8 +118,14 @@ import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
@@ -119,16 +134,16 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public abstract class IcebergDistributedTestBase
-        extends AbstractTestDistributedQueries
+        extends AbstractTestQueryFramework
 {
     private static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private final CatalogType catalogType;
@@ -152,34 +167,18 @@ public abstract class IcebergDistributedTestBase
         return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType, extraConnectorProperties);
     }
 
-    @Override
-    protected boolean supportsNotNullColumns()
-    {
-        return false;
-    }
-
-    @Override
-    public void testRenameTable()
-    {
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-    }
-
-    @Override
-    public void testDelete()
+    @Test
+    public void testDeleteOnV1Table()
     {
         // Test delete all rows
-        long totalCount = (long) getQueryRunner().execute("CREATE TABLE test_delete as select * from lineitem")
+        long totalCount = (long) getQueryRunner().execute("CREATE TABLE test_delete with (format_version = '1') as select * from lineitem")
                 .getOnlyValue();
         assertUpdate("DELETE FROM test_delete", totalCount);
         assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 0L);
         assertQuerySucceeds("DROP TABLE test_delete");
 
         // Test delete whole partitions identified by one partition column
-        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
+        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (format_version = '1', partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
                 .getOnlyValue();
         long countPart1 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 1").getOnlyValue();
         assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 1", countPart1);
@@ -193,7 +192,7 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP TABLE test_partitioned_drop");
 
         // Test delete whole partitions identified by two partition columns
-        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
+        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (format_version = '1', partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
                 .getOnlyValue();
         long countPart1F = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 1 and linestatus = 'F'").getOnlyValue();
         assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 1 and linestatus = 'F'", countPart1F);
@@ -209,14 +208,10 @@ public abstract class IcebergDistributedTestBase
         assertEquals(totalCount - countPart1F - countPart2O - countPartOther, newTotalCount);
         assertQuerySucceeds("DROP TABLE test_partitioned_drop");
 
-        // Support delete with filters on non-identity partition column
-        assertUpdate("CREATE TABLE test_partitioned_drop WITH (partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem", totalCount);
-        long countOrder1 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where orderkey = 1").getOnlyValue();
-        assertUpdate("DELETE FROM test_partitioned_drop WHERE orderkey = 1", countOrder1);
-        long countPartKey100 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where partkey > 100").getOnlyValue();
-        assertUpdate("DELETE FROM test_partitioned_drop WHERE partkey > 100", countPartKey100);
-        long countLine1Order1 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 1 and orderkey = 1").getOnlyValue();
-        assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 1 and orderkey = 1", countLine1Order1);
+        String errorMessage1 = "This connector only supports delete where one or more partitions are deleted entirely for table versions older than 2";
+        // Do not support delete with filters on non-identity partition column on v1 table
+        assertUpdate("CREATE TABLE test_partitioned_drop WITH (format_version = '1', partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem", totalCount);
+        assertQueryFails("DELETE FROM test_partitioned_drop WHERE orderkey = 1", errorMessage1);
 
         // Do not allow delete data at specified snapshot
         String errorMessage2 = "This connector do not allow delete data at specified snapshot";
@@ -227,12 +222,6 @@ public abstract class IcebergDistributedTestBase
         }
 
         assertQuerySucceeds("DROP TABLE test_partitioned_drop");
-    }
-
-    @Override
-    public void testUpdate()
-    {
-        // Updates are not supported by the connector
     }
 
     @Test
@@ -534,26 +523,6 @@ public abstract class IcebergDistributedTestBase
         assertEquals(actual, expectedParametrizedVarchar);
     }
 
-    @Override
-    public void testShowColumns()
-    {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar", "", "")
-                .build();
-
-        assertEquals(actual, expectedParametrizedVarchar);
-    }
-
     @DataProvider(name = "timezones")
     public Object[][] timezones()
     {
@@ -686,92 +655,88 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("drop table test_partition_columns_varbinary");
     }
 
-    @Override
-    public void testDescribeOutput()
+    @DataProvider(name = "columnCount")
+    public Object[][] getColumnCount()
     {
+        return new Object[][] {{2}, {16}, {100}};
     }
 
-    @Override
-    public void testDescribeOutputNamedAndUnnamed()
+    @Test(dataProvider = "columnCount")
+    public void testReadWriteStatsWithColumnLimits(int columnCount)
     {
-    }
+        try {
+            String columns = Joiner.on(", ")
+                    .join(IntStream.iterate(2, i -> i + 1).limit(columnCount - 2)
+                            .mapToObj(idx -> "column_" + idx + " int")
+                            .iterator());
+            String comma = Strings.isNullOrEmpty(columns.trim()) ? "" : ", ";
 
-    /**
-     * Increased the optimizer timeout from 15000ms to 25000ms
-     */
-    @Override
-    public void testLargeIn()
-    {
-        String longValues = range(0, 5000)
-                .mapToObj(Integer::toString)
-                .collect(joining(", "));
-        Session session = Session.builder(getSession())
-                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "25000ms")
-                .build();
-        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
-        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
+            // The columns number of `test_stats_with_column_limits` for which metrics are collected is set to `columnCount`
+            assertUpdate("CREATE TABLE test_stats_with_column_limits (column_0 int, column_1 varchar, " + columns + comma + "column_10001 varchar) with(metrics_max_inferred_column = " + columnCount + ")");
+            assertTrue(getQueryRunner().tableExists(getSession(), "test_stats_with_column_limits"));
+            List<String> columnNames = IntStream.iterate(0, i -> i + 1).limit(columnCount)
+                    .mapToObj(idx -> "column_" + idx).collect(Collectors.toList());
+            columnNames.add("column_10001");
+            assertTableColumnNames("test_stats_with_column_limits", columnNames.toArray(new String[0]));
 
-        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
-        assertQuery(session, "SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+            // test that stats don't exist before analyze
+            Function<Map<ColumnHandle, ColumnStatistics>, Map<String, ColumnStatistics>> remapper = (input) -> input.entrySet().stream().collect(Collectors.toMap(e -> ((IcebergColumnHandle) e.getKey()).getName(), Map.Entry::getValue));
+            Map<String, ColumnStatistics> columnStats;
+            TableStatistics stats = getTableStats("test_stats_with_column_limits");
+            columnStats = remapper.apply(stats.getColumnStatistics());
+            assertTrue(columnStats.isEmpty());
 
-        String varcharValues = range(0, 5000)
-                .mapToObj(i -> "'" + i + "'")
-                .collect(joining(", "));
-        assertQuery(session, "SELECT orderkey FROM orders WHERE cast(orderkey AS VARCHAR) IN (" + varcharValues + ")");
-        assertQuery(session, "SELECT orderkey FROM orders WHERE cast(orderkey AS VARCHAR) NOT IN (" + varcharValues + ")");
+            String values1 = Joiner.on(", ")
+                    .join(IntStream.iterate(2, i -> i + 1).limit(columnCount - 2)
+                            .mapToObj(idx -> "100" + idx)
+                            .iterator());
+            String values2 = Joiner.on(", ")
+                    .join(IntStream.iterate(2, i -> i + 1).limit(columnCount - 2)
+                            .mapToObj(idx -> "200" + idx)
+                            .iterator());
+            String values3 = Joiner.on(", ")
+                    .join(IntStream.iterate(2, i -> i + 1).limit(columnCount - 2)
+                            .mapToObj(idx -> "300" + idx)
+                            .iterator());
+            // test after simple insert we get a good estimate
+            assertUpdate("INSERT INTO test_stats_with_column_limits VALUES " +
+                    "(1, '1001', " + values1 + comma + "'abc'), " +
+                    "(2, '2001', " + values2 + comma + "'xyz'), " +
+                    "(3, '3001', " + values3 + comma + "'lmnopqrst')", 3);
+            getQueryRunner().execute("ANALYZE test_stats_with_column_limits");
+            stats = getTableStats("test_stats_with_column_limits");
+            columnStats = remapper.apply(stats.getColumnStatistics());
 
-        String arrayValues = range(0, 5000)
-                .mapToObj(i -> format("ARRAY[%s, %s, %s]", i, i + 1, i + 2))
-                .collect(joining(", "));
-        assertQuery(session, "SELECT ARRAY[0, 0, 0] in (ARRAY[0, 0, 0], " + arrayValues + ")", "values true");
-        assertQuery(session, "SELECT ARRAY[0, 0, 0] in (" + arrayValues + ")", "values false");
-    }
+            // `column_0` has columns statistics
+            ColumnStatistics columnStat = columnStats.get("column_0");
+            assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+            assertEquals(columnStat.getNullsFraction(), Estimate.of(0.0));
+            assertEquals(columnStat.getDataSize(), Estimate.unknown());
 
-    /**
-     * Increased the optimizer timeouts from 30000ms and 20000ms to 40000ms and 30000ms respectively
-     */
-    @Override
-    public void testLargeInWithHistograms()
-    {
-        String longValues = range(0, 10_000)
-                .mapToObj(Integer::toString)
-                .collect(joining(", "));
-        String query = "select orderpriority, sum(totalprice) from lineitem join orders on lineitem.orderkey = orders.orderkey where orders.orderkey in (" + longValues + ") group by 1";
-        Session session = Session.builder(getSession())
-                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "40000ms")
-                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
-                .build();
-        assertQuerySucceeds(session, query);
-        session = Session.builder(getSession())
-                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "30000ms")
-                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
-                .build();
-        assertQuerySucceeds(session, query);
-    }
+            // `column_1` has columns statistics
+            columnStat = columnStats.get("column_1");
+            assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+            assertEquals(columnStat.getNullsFraction(), Estimate.of(0.0));
+            assertEquals(columnStat.getDataSize(), Estimate.of(12.0));
 
-    @Override
-    @Test
-    public void testStringFilters()
-    {
-        // Type not supported for Iceberg: CHAR(10). Only test VARCHAR(10).
-        assertUpdate("CREATE TABLE test_varcharn_filter (shipmode VARCHAR(10))");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_varcharn_filter"));
-        assertTableColumnNames("test_varcharn_filter", "shipmode");
-        assertUpdate("INSERT INTO test_varcharn_filter SELECT shipmode FROM lineitem", 60175);
-
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR'", "VALUES (8491)");
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR    '", "VALUES (0)");
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR       '", "VALUES (0)");
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR            '", "VALUES (0)");
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
+            // `column_10001` do not have column statistics as its column index is
+            //  larger than the max number for which metrics are collected
+            columnStat = columnStats.get("column_10001");
+            assertEquals(columnStat.getDistinctValuesCount(), Estimate.unknown());
+            assertEquals(columnStat.getNullsFraction(), Estimate.unknown());
+            assertEquals(columnStat.getDataSize(), Estimate.unknown());
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_stats_with_column_limits");
+        }
     }
 
     @Test
     public void testReadWriteStats()
     {
-        assertUpdate("CREATE TABLE test_stats (col0 int, col1 varchar)");
+        assertUpdate("CREATE TABLE test_stats (col0 int, col_1 varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_stats"));
-        assertTableColumnNames("test_stats", "col0", "col1");
+        assertTableColumnNames("test_stats", "col0", "col_1");
 
         // test that stats don't exist before analyze
         Function<Map<ColumnHandle, ColumnStatistics>, Map<String, ColumnStatistics>> remapper = (input) -> input.entrySet().stream().collect(Collectors.toMap(e -> ((IcebergColumnHandle) e.getKey()).getName(), Map.Entry::getValue));
@@ -788,9 +753,9 @@ public abstract class IcebergDistributedTestBase
         ColumnStatistics columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
-        double dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        double dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col_1) FROM test_stats").getOnlyValue();
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test after inserting the same values, we still get the same estimate
@@ -800,7 +765,7 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
@@ -811,9 +776,9 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
-        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col_1) FROM test_stats").getOnlyValue();
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test after inserting a new value, but not analyzing, the estimate is the same.
@@ -823,7 +788,7 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
@@ -834,9 +799,9 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
-        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col_1) FROM test_stats").getOnlyValue();
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test adding a null value is successful, and analyze still runs successfully
@@ -847,9 +812,9 @@ public abstract class IcebergDistributedTestBase
         columnStat = columnStats.get("col0");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
         assertEquals(columnStat.getDataSize(), Estimate.unknown());
-        columnStat = columnStats.get("col1");
+        columnStat = columnStats.get("col_1");
         assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
-        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col_1) FROM test_stats").getOnlyValue();
         assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         assertUpdate("DROP TABLE test_stats");
@@ -977,7 +942,7 @@ public abstract class IcebergDistributedTestBase
         Session weightedSession = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT, "10000000")
                 .build();
-        Function<Integer, Estimate> ndvs = (x) -> columnStatsFor(getTableStats("test_stat_dist", Optional.of(snapshots.get(x)), weightedSession), "col0")
+        Function<Integer, Estimate> ndvs = (x) -> columnStatsFor(getTableStats("test_stat_dist", Optional.of(snapshots.get(x)), weightedSession, Optional.empty()), "col0")
                 .getDistinctValuesCount();
         assertEquals(ndvs.apply(0).getValue(), 1);
         assertEquals(ndvs.apply(1).getValue(), 1);
@@ -1035,10 +1000,10 @@ public abstract class IcebergDistributedTestBase
 
     private TableStatistics getTableStats(String name, Optional<Long> snapshot)
     {
-        return getTableStats(name, snapshot, getSession());
+        return getTableStats(name, snapshot, getSession(), Optional.empty());
     }
 
-    private TableStatistics getTableStats(String name, Optional<Long> snapshot, Session session)
+    private TableStatistics getTableStats(String name, Optional<Long> snapshot, Session session, Optional<List<String>> columns)
     {
         TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
         Session metadataSession = session.beginTransactionId(
@@ -1052,7 +1017,9 @@ public abstract class IcebergDistributedTestBase
         TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).get();
         return metadata.getTableStatistics(metadataSession,
                 handle,
-                new ArrayList<>(resolver.getColumnHandles(handle).values()),
+                new ArrayList<>(columns
+                        .map(columnSet -> Maps.filterKeys(resolver.getColumnHandles(handle), columnSet::contains))
+                        .orElse(resolver.getColumnHandles(handle)).values()),
                 Constraint.alwaysTrue());
     }
 
@@ -1667,6 +1634,58 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testRefsTable()
+    {
+        assertUpdate("CREATE TABLE test_table_references (id1 BIGINT, id2 BIGINT)");
+        assertUpdate("INSERT INTO test_table_references VALUES (0, 00), (1, 10), (2, 20)", 3);
+
+        Table icebergTable = loadTable("test_table_references");
+        icebergTable.manageSnapshots().createBranch("testBranch").commit();
+
+        assertUpdate("INSERT INTO test_table_references VALUES (3, 30), (4, 40), (5, 50)", 3);
+
+        assertEquals(icebergTable.refs().size(), 2);
+        icebergTable.manageSnapshots().createTag("testTag", icebergTable.currentSnapshot().snapshotId()).commit();
+
+        assertEquals(icebergTable.refs().size(), 3);
+        assertUpdate("INSERT INTO test_table_references VALUES (6, 60), (7, 70), (8, 80)", 3);
+        assertQuery("SELECT count(*) FROM \"test_table_references$refs\"", "VALUES 3");
+
+        assertQuery("SELECT count(*) FROM test_table_references FOR SYSTEM_VERSION AS OF 'testBranch'", "VALUES 3");
+        assertQuery("SELECT count(*) FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag'", "VALUES 6");
+        assertQuery("SELECT count(*) FROM test_table_references FOR SYSTEM_VERSION AS OF 'main'", "VALUES 9");
+
+        assertQuery("SELECT * from \"test_table_references$refs\" where name = 'testBranch' and type = 'BRANCH'",
+                format("VALUES('%s', '%s', %s, %s, %s, %s)",
+                        "testBranch",
+                        "BRANCH",
+                        icebergTable.refs().get("testBranch").snapshotId(),
+                        icebergTable.refs().get("testBranch").maxRefAgeMs(),
+                        icebergTable.refs().get("testBranch").minSnapshotsToKeep(),
+                        icebergTable.refs().get("testBranch").maxSnapshotAgeMs()));
+
+        assertQuery("SELECT * from \"test_table_references$refs\" where type = 'TAG'",
+                format("VALUES('%s', '%s', %s, %s, %s, %s)",
+                        "testTag",
+                        "TAG",
+                        icebergTable.refs().get("testTag").snapshotId(),
+                        icebergTable.refs().get("testTag").maxRefAgeMs(),
+                        icebergTable.refs().get("testTag").minSnapshotsToKeep(),
+                        icebergTable.refs().get("testTag").maxSnapshotAgeMs()));
+
+        // test branch & tag access when schema is changed
+        assertUpdate("ALTER TABLE test_table_references DROP COLUMN id2");
+        assertUpdate("ALTER TABLE test_table_references ADD COLUMN id2_new BIGINT");
+
+        // since current table schema is changed from col id2 to id2_new
+        assertQuery("SELECT * FROM test_table_references where id1=1", "VALUES(1, NULL)");
+        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testBranch' where id1=1", "VALUES(1, NULL)");
+        // Currently Presto returns current table schema for any previous snapshot access https://github.com/prestodb/presto/issues/23553
+        // otherwise querying a tag uses the snapshot's schema https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
+        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, NULL)");
+    }
+
+    @Test
     public void testAllIcebergType()
     {
         String tmpTableName = "test_vector_reader_all_type";
@@ -1704,6 +1723,197 @@ public abstract class IcebergDistributedTestBase
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tmpTableName);
         }
+    }
+
+    @Test
+    public void testExpireSnapshotWithDeletedEntries()
+    {
+        try {
+            assertUpdate("create table test_expire_snapshot_with_deleted_entry (a int, b varchar) with (partitioning = ARRAY['a'])");
+            assertUpdate("insert into test_expire_snapshot_with_deleted_entry values(1, '1001'), (1, '1002'), (2, '2001'), (2, '2002')", 4);
+            Table table = loadTable("test_expire_snapshot_with_deleted_entry");
+            long snapshotId1 = table.currentSnapshot().snapshotId();
+
+            // Execute metadata deletion which delete whole files from table metadata
+            assertUpdate("delete from test_expire_snapshot_with_deleted_entry where a = 1", 2);
+            table = loadTable("test_expire_snapshot_with_deleted_entry");
+            long snapshotId2 = table.currentSnapshot().snapshotId();
+
+            assertUpdate("insert into test_expire_snapshot_with_deleted_entry values(1, '1003'), (2, '2003'), (3, '3003')", 3);
+            table = loadTable("test_expire_snapshot_with_deleted_entry");
+            long snapshotId3 = table.currentSnapshot().snapshotId();
+
+            assertQuery("select snapshot_id from \"test_expire_snapshot_with_deleted_entry$snapshots\"", "values " + snapshotId1 + ", " + snapshotId2 + ", " + snapshotId3);
+
+            // Expire `snapshotId2` which contains a DELETED entry to delete a data file which is still referenced by `snapshotId1`
+            assertUpdate(format("call iceberg.system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => ARRAY[%d])", "tpch", "test_expire_snapshot_with_deleted_entry", snapshotId2));
+            assertQuery("select snapshot_id from \"test_expire_snapshot_with_deleted_entry$snapshots\"", "values " + snapshotId1 + ", " + snapshotId3);
+
+            // Execute time travel query successfully
+            assertQuery("select * from test_expire_snapshot_with_deleted_entry for version as of " + snapshotId1, "values(1, '1001'), (1, '1002'), (2, '2001'), (2, '2002')");
+            assertQuery("select * from test_expire_snapshot_with_deleted_entry for version as of " + snapshotId3, "values(1, '1003'), (2, '2001'), (2, '2002'), (2, '2003'), (3, '3003')");
+        }
+        finally {
+            assertUpdate("drop table if exists test_expire_snapshot_with_deleted_entry");
+        }
+    }
+
+    private void testPathHiddenColumn()
+    {
+        assertEquals(computeActual("SELECT \"$path\", * FROM test_hidden_columns").getRowCount(), 2);
+
+        // Fetch one of the file paths and use it in a filter
+        String filePath = (String) computeActual("SELECT \"$path\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertEquals(
+                computeActual(format("SELECT * from test_hidden_columns WHERE \"$path\"='%s'", filePath)).getRowCount(),
+                1);
+
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$path\"='%s'", filePath))
+                        .getOnlyValue(),
+                1L);
+
+        // Filter for $path that doesn't exist.
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$path\"='%s'", "non-existent-path"))
+                        .getOnlyValue(),
+                0L);
+    }
+
+    private void testDataSequenceNumberHiddenColumn()
+    {
+        assertEquals(computeActual("SELECT \"$data_sequence_number\", * FROM test_hidden_columns").getRowCount(), 2);
+
+        // Fetch one of the data sequence numbers and use it in a filter
+        Long dataSequenceNumber = (Long) computeActual("SELECT \"$data_sequence_number\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertEquals(
+                computeActual(format("SELECT * from test_hidden_columns WHERE \"$data_sequence_number\"=%d", dataSequenceNumber)).getRowCount(),
+                1);
+
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$data_sequence_number\"=%d", dataSequenceNumber))
+                        .getOnlyValue(),
+                1L);
+
+        // Filter for $data_sequence_number that doesn't exist.
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$data_sequence_number\"=%d", 1000))
+                        .getOnlyValue(),
+                0L);
+    }
+
+    @Test
+    public void testHiddenColumns()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_hidden_columns");
+        assertUpdate("CREATE TABLE test_hidden_columns AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO test_hidden_columns SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+
+        testPathHiddenColumn();
+        testDataSequenceNumberHiddenColumn();
+    }
+
+    @DataProvider(name = "pushdownFilterEnabled")
+    public Object[][] pushdownFilterEnabledProvider()
+    {
+        return new Object[][] {
+                {true},
+                {false}
+        };
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testFilterWithRemainingPredicate(boolean pushdownFilterEnabled)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", PUSHDOWN_FILTER_ENABLED, Boolean.toString(pushdownFilterEnabled))
+                .build();
+        int rowCount = 100;
+        String pairs = Joiner.on(", ")
+                .join(IntStream.range(0, rowCount)
+                        .map(idx -> idx * 2)
+                        .mapToObj(idx -> "(" + idx + ", " + (idx + 1) + ")")
+                        .iterator());
+
+        assertQuerySucceeds("CREATE TABLE test_filterstats_remaining_predicate(i int, j int)");
+        assertUpdate(format("INSERT INTO test_filterstats_remaining_predicate VALUES %s", pairs), rowCount);
+        assertQuerySucceeds("ANALYZE test_filterstats_remaining_predicate");
+        @Language("SQL") String query = "SELECT * FROM test_filterstats_remaining_predicate WHERE (i = 10 AND j = 11) OR (i = 20 AND j = 21)";
+        if (pushdownFilterEnabled) {
+            assertPlan(session, query,
+                    output(
+                            exchange(
+                                    tableScan("test_filterstats_remaining_predicate")
+                                            .withOutputRowCount(1))));
+        }
+        else {
+            assertPlan(session, query,
+                    anyTree(
+                            filter(tableScan("test_filterstats_remaining_predicate")
+                                    .withOutputRowCount(100))
+                                    .withOutputRowCount(1)));
+        }
+        assertQuerySucceeds("DROP TABLE test_filterstats_remaining_predicate");
+    }
+
+    public void testStatisticsFileCache()
+            throws Exception
+    {
+        assertQuerySucceeds("CREATE TABLE test_statistics_file_cache(i int)");
+        assertUpdate("INSERT INTO test_statistics_file_cache VALUES 1, 2, 3, 4, 5", 5);
+        assertQuerySucceeds("ANALYZE test_statistics_file_cache");
+        Session session = Session.builder(getSession())
+                .setTransactionId(getQueryRunner().getTransactionManager().beginTransaction(false))
+                .build();
+        Optional<TableHandle> handle = MetadataUtil.getOptionalTableHandle(session,
+                getQueryRunner().getTransactionManager(),
+                QualifiedObjectName.valueOf(session.getCatalog().get(), session.getSchema().get(), "test_statistics_file_cache"),
+                Optional.empty());
+        CatalogMetadata catalogMetadata = getQueryRunner().getTransactionManager()
+                .getCatalogMetadata(session.getTransactionId().get(), handle.get().getConnectorId());
+        // There isn't an easy way to access the cache internally, so use some reflection to grab it
+        Field delegate = ClassLoaderSafeConnectorMetadata.class.getDeclaredField("delegate");
+        delegate.setAccessible(true);
+        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) delegate.get(catalogMetadata.getMetadataFor(handle.get().getConnectorId()));
+        CacheStats initial = metadata.statisticsFileCache.stats();
+        assertEquals(metadata.statisticsFileCache.stats().minus(initial).hitCount(), 0);
+        TableStatistics stats = getTableStats("test_statistics_file_cache", Optional.empty(), getSession(), Optional.of(ImmutableList.of("i")));
+        assertEquals(stats.getRowCount().getValue(), 5);
+        assertEquals(metadata.statisticsFileCache.stats().minus(initial).missCount(), 1);
+        getTableStats("test_statistics_file_cache", Optional.empty(), getSession(), Optional.of(ImmutableList.of("i")));
+        assertEquals(metadata.statisticsFileCache.stats().minus(initial).missCount(), 1);
+        assertEquals(metadata.statisticsFileCache.stats().minus(initial).hitCount(), 1);
+        getQueryRunner().execute("DROP TABLE test_statistics_file_cache");
+    }
+
+    @DataProvider(name = "parquetVersions")
+    public Object[][] parquetVersionsDataProvider()
+    {
+        return new Object[][] {
+                {PARQUET_1_0},
+                {PARQUET_2_0},
+        };
+    }
+
+    @Test(dataProvider = "parquetVersions")
+    public void testBatchReadOnTimeType(WriterVersion writerVersion)
+    {
+        Session parquetVersionSession = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                .build();
+        assertQuerySucceeds(parquetVersionSession, "CREATE TABLE time_batch_read(i int, t time)");
+        assertUpdate(parquetVersionSession, "INSERT INTO time_batch_read VALUES (0, time '1:00:00.000'), (1, time '1:00:00.000'), (2, time '1:00:00.000')", 3);
+        Session disabledBatchRead = Session.builder(parquetVersionSession)
+                .setCatalogSessionProperty("iceberg", PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, "false")
+                .build();
+        Session enabledBatchRead = Session.builder(parquetVersionSession)
+                .setCatalogSessionProperty("iceberg", PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, "true")
+                .build();
+        @Language("SQL") String query = "SELECT t FROM time_batch_read ORDER BY i LIMIT 1";
+        MaterializedResult disabledResult = getQueryRunner().execute(disabledBatchRead, query);
+        MaterializedResult enabledResult = getQueryRunner().execute(enabledBatchRead, query);
+        assertEquals(disabledResult, enabledResult);
+        assertQuerySucceeds("DROP TABLE time_batch_read");
     }
 
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)

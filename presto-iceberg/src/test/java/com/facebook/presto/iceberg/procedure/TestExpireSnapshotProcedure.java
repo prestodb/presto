@@ -79,7 +79,7 @@ public class TestExpireSnapshotProcedure
     public void testExpireSnapshotsInEmptyTable()
     {
         String tableName = "default_empty_table";
-        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " (id integer, value integer)");
         Table table = loadTable(tableName);
         assertHasSize(table.snapshots(), 0);
 
@@ -106,7 +106,7 @@ public class TestExpireSnapshotProcedure
         Session session = sessionForTimezone(zoneId, legacyTimestamp);
         String tableName = "positional_args_table";
         try {
-            assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, value varchar)");
+            assertUpdate(session, "CREATE TABLE IF NOT EXISTS " + tableName + " (id integer, value varchar)");
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1, 'a')", 1);
 
             Table table = loadTable(tableName);
@@ -158,7 +158,7 @@ public class TestExpireSnapshotProcedure
         Session session = sessionForTimezone(zoneId, legacyTimestamp);
         String tableName = "named_args_table";
         try {
-            assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, data varchar)");
+            assertUpdate(session, "CREATE TABLE IF NOT EXISTS " + tableName + " (id integer, data varchar)");
 
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1, 'a')", 1);
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, 'b')", 1);
@@ -200,7 +200,7 @@ public class TestExpireSnapshotProcedure
         Session session = getSession();
         String tableName = "named_args_snapshot_ids_table";
         try {
-            assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, data varchar)");
+            assertUpdate(session, "CREATE TABLE IF NOT EXISTS " + tableName + " (id integer, data varchar)");
 
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1, 'a')", 1);
             Table table = loadTable(tableName);

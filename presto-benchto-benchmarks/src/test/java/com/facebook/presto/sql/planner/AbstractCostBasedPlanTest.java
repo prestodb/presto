@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;

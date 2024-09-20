@@ -17,6 +17,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.tracing.Tracer;
@@ -33,6 +34,11 @@ import java.util.Set;
 public interface SessionContext
 {
     Identity getIdentity();
+
+    default Optional<AuthorizedIdentity> getAuthorizedIdentity()
+    {
+        return Optional.empty();
+    }
 
     default List<X509Certificate> getCertificates()
     {

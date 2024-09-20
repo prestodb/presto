@@ -344,6 +344,7 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testTableNameAmbiguity()
+            throws Exception
     {
         session.execute("CREATE KEYSPACE keyspace_4 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
@@ -354,6 +355,9 @@ public class TestCassandraIntegrationSmokeTest
         // that have differences only in letters case.
         session.execute("CREATE TABLE keyspace_4.\"TaBlE_4\" (column_4 bigint PRIMARY KEY)");
         session.execute("CREATE TABLE keyspace_4.\"tAbLe_4\" (column_4 bigint PRIMARY KEY)");
+
+        // This is added for Cassandra to refresh its metadata so that we don't encounter a race condition in the forthcoming steps and achieve eventual consistency.
+        Thread.sleep(1000);
 
         // Although in Presto all the schema and table names are always displayed as lowercase
         assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_4"), resultBuilder(getSession(), createUnboundedVarcharType())

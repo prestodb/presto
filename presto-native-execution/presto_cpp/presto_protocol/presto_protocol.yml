@@ -73,11 +73,13 @@ AbstractClasses:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveOutputTableHandle,          key: hive }
+        - { name: IcebergOutputTableHandle,       key: hive-iceberg }
 
     ConnectorInsertTableHandle:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveInsertTableHandle,          key: hive }
+        - { name: IcebergInsertTableHandle,       key: hive-iceberg }
 
     ConnectorTransactionHandle:
       super: JsonEncodedSubclass
@@ -250,13 +252,18 @@ JavaClasses:
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveTransactionHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/FileContent.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/FileFormat.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergSchema.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergSplit.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableName.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableType.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableLayoutHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergOutputTableHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergInsertTableHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergColumnHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/ColumnIdentity.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergPartitionSpec.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergNestedField.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/delete/DeleteFile.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogOperation.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogSplitInfo.java
@@ -282,9 +289,9 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/OutputNode.java
   - presto-main/src/main/java/com/facebook/presto/execution/buffer/PageBufferInfo.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/Parameter.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/Partitioning.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/PartitioningHandle.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/PartitioningScheme.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/Partitioning.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/PartitioningHandle.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/PartitioningScheme.java
   - presto-main/src/main/java/com/facebook/presto/operator/PipelineStats.java
   - presto-main/src/main/java/com/facebook/presto/cost/PlanCostEstimate.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/PlanFragment.java
@@ -310,7 +317,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/SpecialFormExpression.java
   - presto-main/src/main/java/com/facebook/presto/metadata/Split.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SplitContext.java
-  - presto-main/src/main/java/com/facebook/presto/operator/StageExecutionDescriptor.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/StageExecutionDescriptor.java
   - presto-main/src/main/java/com/facebook/presto/cost/StatsAndCosts.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/Storage.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/StorageFormat.java

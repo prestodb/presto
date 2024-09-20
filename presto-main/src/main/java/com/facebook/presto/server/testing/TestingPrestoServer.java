@@ -60,6 +60,7 @@ import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -242,6 +243,7 @@ public class TestingPrestoServer
                 false,
                 false,
                 coordinator,
+                false,
                 properties,
                 environment,
                 discoveryUri,
@@ -258,6 +260,7 @@ public class TestingPrestoServer
             boolean coordinatorSidecar,
             boolean coordinatorSidecarEnabled,
             boolean coordinator,
+            boolean skipLoadingResourceGroupConfigurationManager,
             Map<String, String> properties,
             String environment,
             URI discoveryUri,
@@ -367,7 +370,9 @@ public class TestingPrestoServer
             this.resourceGroupManager = resourceGroupManager instanceof InternalResourceGroupManager
                     ? Optional.of((InternalResourceGroupManager<?>) resourceGroupManager)
                     : Optional.empty();
-            resourceGroupManager.loadConfigurationManager();
+            if (!skipLoadingResourceGroupConfigurationManager) {
+                resourceGroupManager.loadConfigurationManager();
+            }
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             planOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
@@ -494,9 +499,18 @@ public class TestingPrestoServer
         }
     }
 
+    public PluginManager getPluginManager()
+    {
+        return pluginManager;
+    }
     public void installPlugin(Plugin plugin)
     {
         pluginManager.installPlugin(plugin);
+    }
+
+    public void installCoordinatorPlugin(CoordinatorPlugin plugin)
+    {
+        pluginManager.installCoordinatorPlugin(plugin);
     }
 
     public DispatchManager getDispatchManager()

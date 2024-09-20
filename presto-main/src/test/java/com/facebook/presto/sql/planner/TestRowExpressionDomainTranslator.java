@@ -28,7 +28,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.google.common.collect.ImmutableList;
@@ -1107,7 +1107,7 @@ public class TestRowExpressionDomainTranslator
     @Test
     public void testLegacyCharComparedToVarcharExpression()
     {
-        metadata = createTestMetadataManager(new FeaturesConfig().setLegacyCharToVarcharCoercion(true));
+        metadata = createTestMetadataManager(new FunctionsConfig().setLegacyCharToVarcharCoercion(true));
         domainTranslator = new RowExpressionDomainTranslator(metadata);
 
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));

@@ -21,7 +21,6 @@ import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
@@ -40,13 +39,11 @@ public class MergeJoinForSortedInputOptimizer
         implements PlanOptimizer
 {
     private final Metadata metadata;
-    private final SqlParser parser;
     private boolean isEnabledForTesting;
 
-    public MergeJoinForSortedInputOptimizer(Metadata metadata, SqlParser parser)
+    public MergeJoinForSortedInputOptimizer(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.parser = requireNonNull(parser, "parser is null");
     }
 
     @Override
@@ -141,8 +138,8 @@ public class MergeJoinForSortedInputOptimizer
         private boolean meetsDataRequirement(PlanNode left, PlanNode right, JoinNode node)
         {
             // Acquire data properties for both left and right side
-            StreamPropertyDerivations.StreamProperties leftProperties = StreamPropertyDerivations.derivePropertiesRecursively(left, metadata, session, types, parser);
-            StreamPropertyDerivations.StreamProperties rightProperties = StreamPropertyDerivations.derivePropertiesRecursively(right, metadata, session, types, parser);
+            StreamPropertyDerivations.StreamProperties leftProperties = StreamPropertyDerivations.derivePropertiesRecursively(left, metadata, session);
+            StreamPropertyDerivations.StreamProperties rightProperties = StreamPropertyDerivations.derivePropertiesRecursively(right, metadata, session);
 
             List<VariableReferenceExpression> leftJoinColumns = node.getCriteria().stream().map(EquiJoinClause::getLeft).collect(toImmutableList());
             List<VariableReferenceExpression> rightJoinColumns = node.getCriteria().stream()

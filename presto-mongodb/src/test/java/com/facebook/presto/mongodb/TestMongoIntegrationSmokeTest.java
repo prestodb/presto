@@ -247,6 +247,19 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");
     }
 
+    @Test
+    public void testBinarys()
+    {
+        assertUpdate("CREATE TABLE tmp_binary AS SELECT cast('value' as varbinary) AS _varbinary", 1);
+        assertOneNotNullResult("SELECT _varbinary FROM tmp_binary");
+
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT _varbinary FROM tmp_binary").toTestTypes();
+        assertEquals(results.getRowCount(), 1);
+
+        MaterializedRow row = results.getMaterializedRows().get(0);
+        assertEquals(row.getField(0), "value".getBytes(UTF_8));
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
@@ -269,5 +282,20 @@ public class TestMongoIntegrationSmokeTest
         assertQuery("SHOW TABLES IN test_rename", "SELECT 'tmp_rename_new_table'");
         assertQuery("SELECT value FROM test_rename.tmp_rename_new_table", "SELECT 1");
         assertUpdate("DROP TABLE test_rename.tmp_rename_new_table");
+    }
+
+    @Test
+    public void testAlterTable()
+    {
+        assertUpdate("CREATE TABLE test_alter.tmp_alter_table (value bigint)");
+        MongoCollection<Document> collection = mongoQueryRunner.getMongoClient().getDatabase("test_alter").getCollection("tmp_alter_table");
+        collection.insertOne(new Document(ImmutableMap.of("value", 1)));
+
+        assertUpdate("ALTER TABLE test_alter.tmp_alter_table ADD COLUMN email varchar");
+        collection.insertOne(new Document(ImmutableMap.of("value", 2, "email", "example@example.com")));
+        assertQuery("SELECT email from test_alter.tmp_alter_table WHERE email IS NOT NULL", "SELECT 'example@example.com'");
+        assertUpdate("ALTER TABLE test_alter.tmp_alter_table RENAME COLUMN email TO email_id");
+        assertQuery("SELECT email_id from test_alter.tmp_alter_table WHERE email_id IS NOT NULL", "SELECT 'example@example.com'");
+        assertUpdate("ALTER TABLE test_alter.tmp_alter_table DROP COLUMN email_id");
     }
 }

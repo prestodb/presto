@@ -3144,6 +3144,18 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty()));
 
+        assertStatement("SELECT * FROM table1 FOR VERSION AS OF 'branch-name'",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new StringLiteral("branch-name"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
         assertStatement("SELECT * FROM table1 FOR SYSTEM_VERSION AS OF 8772871542276440693",
                 simpleQuery(
                         selectList(new AllColumns()),
@@ -3161,6 +3173,18 @@ public class TestSqlParser
                         selectList(new AllColumns()),
                         new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
                                 new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("8772871542276440693"))),
+                        Optional.of(new ComparisonExpression(EQUAL, new Identifier("c1"), new LongLiteral("100"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR VERSION AS OF 'branch-name' WHERE (c1 = 100)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new StringLiteral("branch-name"))),
                         Optional.of(new ComparisonExpression(EQUAL, new Identifier("c1"), new LongLiteral("100"))),
                         Optional.empty(),
                         Optional.empty(),

@@ -44,6 +44,8 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumZombiePrestoTasks, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumTasksWithStuckOperator, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumCancelledTasksByStuckDriver, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterNumTasksDeadlock, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumTaskManagerLockTimeOut, facebook::velox::StatType::AVG);
@@ -97,6 +99,9 @@ void registerPrestoMetrics() {
       95,
       99,
       100);
+  DEFINE_METRIC(kCounterMemoryPushbackCount, facebook::velox::StatType::COUNT);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterMemoryPushbackLatencyMs, 10'000, 0, 100'000, 50, 90, 99, 100);
 
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters

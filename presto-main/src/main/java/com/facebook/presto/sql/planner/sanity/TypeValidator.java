@@ -29,9 +29,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 
 import java.util.List;
@@ -51,27 +49,19 @@ public final class TypeValidator
     public TypeValidator() {}
 
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(session, metadata, sqlParser, types, warningCollector), null);
+        plan.accept(new Visitor(metadata), null);
     }
 
     private static class Visitor
             extends SimplePlanVisitor<Void>
     {
-        private final Session session;
         private final Metadata metadata;
-        private final SqlParser sqlParser;
-        private final TypeProvider types;
-        private final WarningCollector warningCollector;
 
-        public Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+        public Visitor(Metadata metadata)
         {
-            this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-            this.types = requireNonNull(types, "types is null");
-            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
         @Override

@@ -145,7 +145,7 @@ std::unique_ptr<folly::IOBuf> HttpResponse::consumeBody(
 
 void HttpResponse::freeBuffers() {
   if (pool_ != nullptr) {
-    for (auto& iobuf : bodyChain_) {
+    for (const auto& iobuf : bodyChain_) {
       if (iobuf != nullptr) {
         pool_->free(iobuf->writableData(), iobuf->capacity());
       }
@@ -170,7 +170,7 @@ std::string HttpResponse::dumpBodyChain() const {
   std::string responseBody;
   if (!bodyChain_.empty()) {
     std::ostringstream oss;
-    for (auto& buf : bodyChain_) {
+    for (const auto& buf : bodyChain_) {
       oss << std::string((const char*)buf->data(), buf->length());
     }
     responseBody = oss.str();
@@ -462,10 +462,14 @@ folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
     }
     VLOG(3) << "Reuse idle connection from different thread to "
             << address_.describe();
+// Skip this check for GCC to prevent SIGSEGV as described in the issue:
+// https://github.com/prestodb/presto/issues/22995
+#if defined(__clang__)
     auto* evb = session->getEventBase();
     // The event base from idle session should not be the current event base,
     // otherwise we should have already got it from the local session pool.
     VELOX_CHECK(!evb || !evb->isInEventBaseThread());
+#endif
     session->attachThreadLocals(
         eventBase_,
         sslContext_,

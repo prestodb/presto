@@ -249,7 +249,7 @@ Example: ``MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])``
 ^^^^^^^
 
 A structure made up of named fields. The fields may be of any SQL type, and are
-accessed with field reference operator ``.``
+accessed with the field reference operator ``.``
 
 Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``
 

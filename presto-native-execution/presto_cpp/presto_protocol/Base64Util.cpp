@@ -19,12 +19,12 @@
 using namespace facebook::velox;
 namespace facebook::presto::protocol {
 namespace {
-ByteInputStream toByteStream(const std::string& input) {
+std::unique_ptr<ByteInputStream> toByteStream(const std::string& input) {
   ByteRange byteRange{
       reinterpret_cast<uint8_t*>(const_cast<char*>(input.data())),
       (int32_t)input.length(),
       0};
-  return ByteInputStream({byteRange});
+  return std::make_unique<BufferInputStream>(std::vector<ByteRange>{byteRange});
 }
 } // namespace
 
@@ -37,7 +37,7 @@ velox::VectorPtr readBlock(
   auto byteStream = toByteStream(data);
   VectorPtr result;
   serializer::presto::PrestoVectorSerde serde;
-  serde.deserializeSingleColumn(&byteStream, pool, type, &result, nullptr);
+  serde.deserializeSingleColumn(byteStream.get(), pool, type, &result, nullptr);
   return result;
 }
 
