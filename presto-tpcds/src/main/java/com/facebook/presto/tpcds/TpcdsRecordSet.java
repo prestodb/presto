@@ -57,7 +57,10 @@ public class TpcdsRecordSet
         this.columns = ImmutableList.copyOf(columns);
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         for (Column column : columns) {
-            columnTypes.add(getPrestoType(column.getType()));
+            // The TPCDS config tpcds.use-varchar-type is set to true only for native execution, since char type is
+            // currently unsupported in Presto native. This function is only used by the Presto java TPCDS connector
+            // so the argument useVarcharType is false here.
+            columnTypes.add(getPrestoType(column.getType(), false));
         }
         this.columnTypes = columnTypes.build();
     }
@@ -103,7 +106,7 @@ public class TpcdsRecordSet
         @Override
         public Type getType(int field)
         {
-            return getPrestoType(columns.get(field).getType());
+            return getPrestoType(columns.get(field).getType(), false);
         }
 
         @Override
