@@ -15,7 +15,6 @@
  */
 
 #include <folly/init/Init.h>
-#include <gtest/gtest.h>
 #include <unordered_set>
 
 #include "velox/expression/fuzzer/ArgGenerator.h"
@@ -40,8 +39,6 @@ using facebook::velox::fuzzer::FuzzerRunner;
 
 int main(int argc, char** argv) {
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
-
-  ::testing::InitGoogleTest(&argc, argv);
 
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
@@ -96,5 +93,5 @@ int main(int argc, char** argv) {
        {"mod", std::make_shared<ModulusArgGenerator>()},
        {"truncate", std::make_shared<TruncateArgGenerator>()}};
 
-  return FuzzerRunner::run(initialSeed, skipFunctions, {{}}, argGenerators);
+  FuzzerRunner::runFromGtest(initialSeed, skipFunctions, {{}}, argGenerators);
 }
