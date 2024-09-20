@@ -1423,43 +1423,37 @@ TEST_F(DateTimeFunctionsTest, minuteDate) {
 }
 
 TEST_F(DateTimeFunctionsTest, minuteTimestampWithTimezone) {
+  const auto minuteTimestampWithTimezone =
+      [&](std::optional<TimestampWithTimezone> timestampWithTimezone) {
+        return evaluateOnce<int64_t>(
+            "minute(c0)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(timestampWithTimezone));
+      };
+  EXPECT_EQ(std::nullopt, minuteTimestampWithTimezone(std::nullopt));
+  EXPECT_EQ(0, minuteTimestampWithTimezone(TimestampWithTimezone(0, "+00:00")));
   EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "minute(c0)", std::nullopt, std::nullopt));
-  EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "minute(c0)", std::nullopt, "Asia/Kolkata"));
-  EXPECT_EQ(
-      0, evaluateWithTimestampWithTimezone<int64_t>("minute(c0)", 0, "+00:00"));
-  EXPECT_EQ(
-      30,
-      evaluateWithTimestampWithTimezone<int64_t>("minute(c0)", 0, "+05:30"));
+      30, minuteTimestampWithTimezone(TimestampWithTimezone(0, "+05:30")));
   EXPECT_EQ(
       6,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "minute(c0)", 4000000000000, "+00:00"));
+      minuteTimestampWithTimezone(
+          TimestampWithTimezone(4000000000000, "+00:00")));
   EXPECT_EQ(
       36,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "minute(c0)", 4000000000000, "+05:30"));
+      minuteTimestampWithTimezone(
+          TimestampWithTimezone(4000000000000, "+05:30")));
   EXPECT_EQ(
       4,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "minute(c0)", 998474645000, "+00:00"));
+      minuteTimestampWithTimezone(
+          TimestampWithTimezone(998474645000, "+00:00")));
   EXPECT_EQ(
       34,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "minute(c0)", 998474645000, "+05:30"));
+      minuteTimestampWithTimezone(
+          TimestampWithTimezone(998474645000, "+05:30")));
   EXPECT_EQ(
-      59,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "minute(c0)", -1000, "+00:00"));
+      59, minuteTimestampWithTimezone(TimestampWithTimezone(-1000, "+00:00")));
   EXPECT_EQ(
-      29,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "minute(c0)", -1000, "+05:30"));
+      29, minuteTimestampWithTimezone(TimestampWithTimezone(-1000, "+05:30")));
 }
 
 TEST_F(DateTimeFunctionsTest, second) {
@@ -1487,34 +1481,28 @@ TEST_F(DateTimeFunctionsTest, secondDate) {
 }
 
 TEST_F(DateTimeFunctionsTest, secondTimestampWithTimezone) {
-  EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "second(c0)", std::nullopt, std::nullopt));
-  EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "second(c0)", std::nullopt, "+05:30"));
-  EXPECT_EQ(
-      0, evaluateWithTimestampWithTimezone<int64_t>("second(c0)", 0, "+00:00"));
-  EXPECT_EQ(
-      0, evaluateWithTimestampWithTimezone<int64_t>("second(c0)", 0, "+05:30"));
+  const auto secondTimestampWithTimezone =
+      [&](std::optional<TimestampWithTimezone> timestampWithTimezone) {
+        return evaluateOnce<int64_t>(
+            "second(c0)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(timestampWithTimezone));
+      };
+  EXPECT_EQ(std::nullopt, secondTimestampWithTimezone(std::nullopt));
+  EXPECT_EQ(0, secondTimestampWithTimezone(TimestampWithTimezone(0, "+00:00")));
+  EXPECT_EQ(0, secondTimestampWithTimezone(TimestampWithTimezone(0, "+05:30")));
   EXPECT_EQ(
       40,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "second(c0)", 4000000000000, "+00:00"));
+      secondTimestampWithTimezone(
+          TimestampWithTimezone(4000000000000, "+00:00")));
   EXPECT_EQ(
       40,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "second(c0)", 4000000000000, "+05:30"));
+      secondTimestampWithTimezone(
+          TimestampWithTimezone(4000000000000, "+05:30")));
   EXPECT_EQ(
-      59,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "second(c0)", -1000, "+00:00"));
+      59, secondTimestampWithTimezone(TimestampWithTimezone(-1000, "+00:00")));
   EXPECT_EQ(
-      59,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "second(c0)", -1000, "+05:30"));
+      59, secondTimestampWithTimezone(TimestampWithTimezone(-1000, "+05:30")));
 }
 
 TEST_F(DateTimeFunctionsTest, millisecond) {
@@ -1542,38 +1530,32 @@ TEST_F(DateTimeFunctionsTest, millisecondDate) {
 }
 
 TEST_F(DateTimeFunctionsTest, millisecondTimestampWithTimezone) {
+  const auto millisecondTimestampWithTimezone =
+      [&](std::optional<TimestampWithTimezone> timestampWithTimezone) {
+        return evaluateOnce<int64_t>(
+            "millisecond(c0)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(timestampWithTimezone));
+      };
+  EXPECT_EQ(std::nullopt, millisecondTimestampWithTimezone(std::nullopt));
   EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "millisecond(c0)", std::nullopt, std::nullopt));
+      0, millisecondTimestampWithTimezone(TimestampWithTimezone(0, "+00:00")));
   EXPECT_EQ(
-      std::nullopt,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "millisecond(c0)", std::nullopt, "+05:30"));
-  EXPECT_EQ(
-      0,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "millisecond(c0)", 0, "+00:00"));
-  EXPECT_EQ(
-      0,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "millisecond(c0)", 0, "+05:30"));
+      0, millisecondTimestampWithTimezone(TimestampWithTimezone(0, "+05:30")));
   EXPECT_EQ(
       123,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "millisecond(c0)", 4000000000123, "+00:00"));
+      millisecondTimestampWithTimezone(
+          TimestampWithTimezone(4000000000123, "+00:00")));
   EXPECT_EQ(
       123,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "millisecond(c0)", 4000000000123, "+05:30"));
+      millisecondTimestampWithTimezone(
+          TimestampWithTimezone(4000000000123, "+05:30")));
   EXPECT_EQ(
       20,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "millisecond(c0)", -980, "+00:00"));
+      millisecondTimestampWithTimezone(TimestampWithTimezone(-980, "+00:00")));
   EXPECT_EQ(
       20,
-      evaluateWithTimestampWithTimezone<int64_t>(
-          "millisecond(c0)", -980, "+05:30"));
+      millisecondTimestampWithTimezone(TimestampWithTimezone(-980, "+05:30")));
 }
 
 TEST_F(DateTimeFunctionsTest, extractFromIntervalDayTime) {
@@ -3578,36 +3560,45 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
 }
 
 TEST_F(DateTimeFunctionsTest, dateFormatTimestampWithTimezone) {
-  const auto testDateFormat =
+  const auto dateFormatTimestampWithTimezone =
       [&](const std::string& formatString,
-          std::optional<int64_t> timestamp,
-          const std::optional<std::string>& timeZoneName) {
-        return evaluateWithTimestampWithTimezone<std::string>(
+          std::optional<TimestampWithTimezone> timestampWithTimezone) {
+        return evaluateOnce<std::string>(
             fmt::format("date_format(c0, '{}')", formatString),
-            timestamp,
-            timeZoneName);
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(timestampWithTimezone));
       };
 
   EXPECT_EQ(
-      "1969-12-31 11:00:00 PM", testDateFormat("%Y-%m-%d %r", 0, "-01:00"));
+      "1969-12-31 11:00:00 PM",
+      dateFormatTimestampWithTimezone(
+          "%Y-%m-%d %r", TimestampWithTimezone(0, "-01:00")));
   EXPECT_EQ(
       "1973-11-30 12:33:09 AM",
-      testDateFormat("%Y-%m-%d %r", 123456789000, "+03:00"));
+      dateFormatTimestampWithTimezone(
+          "%Y-%m-%d %r", TimestampWithTimezone(123456789000, "+03:00")));
   EXPECT_EQ(
       "1966-02-01 12:26:51 PM",
-      testDateFormat("%Y-%m-%d %r", -123456789000, "-14:00"));
+      dateFormatTimestampWithTimezone(
+          "%Y-%m-%d %r", TimestampWithTimezone(-123456789000, "-14:00")));
   EXPECT_EQ(
       "2001-04-19 18:25:21.000000",
-      testDateFormat("%Y-%m-%d %H:%i:%s.%f", 987654321000, "+14:00"));
+      dateFormatTimestampWithTimezone(
+          "%Y-%m-%d %H:%i:%s.%f",
+          TimestampWithTimezone(987654321000, "+14:00")));
   EXPECT_EQ(
       "1938-09-14 23:34:39.000000",
-      testDateFormat("%Y-%m-%d %H:%i:%s.%f", -987654321000, "+04:00"));
+      dateFormatTimestampWithTimezone(
+          "%Y-%m-%d %H:%i:%s.%f",
+          TimestampWithTimezone(-987654321000, "+04:00")));
   EXPECT_EQ(
       "70-August-22 17:55:15 PM",
-      testDateFormat("%y-%M-%e %T %p", 20220915000, "-07:00"));
+      dateFormatTimestampWithTimezone(
+          "%y-%M-%e %T %p", TimestampWithTimezone(20220915000, "-07:00")));
   EXPECT_EQ(
       "69-May-11 20:04:45 PM",
-      testDateFormat("%y-%M-%e %T %p", -20220915000, "-03:00"));
+      dateFormatTimestampWithTimezone(
+          "%y-%M-%e %T %p", TimestampWithTimezone(-20220915000, "-03:00")));
 }
 
 TEST_F(DateTimeFunctionsTest, fromIso8601Date) {
@@ -4399,22 +4390,27 @@ TEST_F(DateTimeFunctionsTest, lastDayOfMonthTimestamp) {
 }
 
 TEST_F(DateTimeFunctionsTest, lastDayOfMonthTimestampWithTimezone) {
+  const auto lastDayOfMonthTimestampWithTimezone =
+      [&](std::optional<TimestampWithTimezone> timestampWithTimezone) {
+        return evaluateOnce<int32_t>(
+            "last_day_of_month(c0)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(timestampWithTimezone));
+      };
   EXPECT_EQ(
       parseDate("1970-01-31"),
-      evaluateWithTimestampWithTimezone<int32_t>(
-          "last_day_of_month(c0)", 0, "+00:00"));
+      lastDayOfMonthTimestampWithTimezone(TimestampWithTimezone(0, "+00:00")));
   EXPECT_EQ(
       parseDate("1969-12-31"),
-      evaluateWithTimestampWithTimezone<int32_t>(
-          "last_day_of_month(c0)", 0, "-02:00"));
+      lastDayOfMonthTimestampWithTimezone(TimestampWithTimezone(0, "-02:00")));
   EXPECT_EQ(
       parseDate("2008-02-29"),
-      evaluateWithTimestampWithTimezone<int32_t>(
-          "last_day_of_month(c0)", 1201881600000, "+02:00"));
+      lastDayOfMonthTimestampWithTimezone(
+          TimestampWithTimezone(1201881600000, "+02:00")));
   EXPECT_EQ(
       parseDate("2008-01-31"),
-      evaluateWithTimestampWithTimezone<int32_t>(
-          "last_day_of_month(c0)", 1201795200000, "-02:00"));
+      lastDayOfMonthTimestampWithTimezone(
+          TimestampWithTimezone(1201795200000, "-02:00")));
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtimeDouble) {
