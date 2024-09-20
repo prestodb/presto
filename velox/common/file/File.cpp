@@ -22,8 +22,11 @@
 #include <memory>
 #include <stdexcept>
 
-#include <fcntl.h>
 #include <folly/portability/SysUio.h>
+#ifdef linux
+#include <linux/fs.h>
+#endif // linux
+#include <sys/ioctl.h>
 
 namespace facebook::velox {
 
@@ -32,6 +35,27 @@ namespace facebook::velox {
   if (result < 0) {                   \
     return result;                    \
   }
+
+namespace {
+FOLLY_ALWAYS_INLINE void checkNotClosed(bool closed) {
+  VELOX_CHECK(!closed, "file is closed");
+}
+
+template <typename T>
+T getAttribute(
+    const std::unordered_map<std::string, std::string>& attributes,
+    const std::string_view& key,
+    const T& defaultValue) {
+  if (attributes.count(std::string(key)) > 0) {
+    try {
+      return folly::to<T>(attributes.at(std::string(key)));
+    } catch (const std::exception& e) {
+      VELOX_FAIL("Failed while parsing File attributes: {}", e.what());
+    }
+  }
+  return defaultValue;
+}
+} // namespace
 
 std::string ReadFile::pread(uint64_t offset, uint64_t length) const {
   std::string buf;
@@ -118,15 +142,15 @@ LocalReadFile::LocalReadFile(std::string_view path) : path_(path) {
           folly::errnoStr(errno));
     }
   }
-  const off_t rc = lseek(fd_, 0, SEEK_END);
+  const off_t ret = lseek(fd_, 0, SEEK_END);
   VELOX_CHECK_GE(
-      rc,
+      ret,
       0,
       "fseek failure in LocalReadFile constructor, {} {} {}.",
-      rc,
+      ret,
       path,
       folly::errnoStr(errno));
-  size_ = rc;
+  size_ = ret;
 }
 
 LocalReadFile::LocalReadFile(int32_t fd) : fd_(fd) {}
@@ -225,34 +249,62 @@ uint64_t LocalReadFile::memoryUsage() const {
   return sizeof(FILE);
 }
 
+bool LocalWriteFile::Attributes::cowDisabled(
+    const std::unordered_map<std::string, std::string>& attrs) {
+  return getAttribute<bool>(attrs, kNoCow, kDefaultNoCow);
+}
+
 LocalWriteFile::LocalWriteFile(
     std::string_view path,
     bool shouldCreateParentDirectories,
-    bool shouldThrowOnFileAlreadyExists) {
-  auto dir = fs::path(path).parent_path();
+    bool shouldThrowOnFileAlreadyExists,
+    bool bufferWrite)
+    : path_(path) {
+  const auto dir = fs::path(path_).parent_path();
   if (shouldCreateParentDirectories && !fs::exists(dir)) {
     VELOX_CHECK(
         common::generateFileDirectory(dir.c_str()),
         "Failed to generate file directory");
   }
 
-  std::unique_ptr<char[]> buf(new char[path.size() + 1]);
-  buf[path.size()] = 0;
-  memcpy(buf.get(), path.data(), path.size());
-  {
-    if (shouldThrowOnFileAlreadyExists) {
-      FILE* exists = fopen(buf.get(), "rb");
-      VELOX_CHECK_NULL(
-          exists, "Failure in LocalWriteFile: path '{}' already exists.", path);
-    }
+  // File open flags: write-only, create the file if it doesn't exist.
+  int32_t flags = O_WRONLY | O_CREAT;
+  if (shouldThrowOnFileAlreadyExists) {
+    flags |= O_EXCL;
   }
-  auto* file = fopen(buf.get(), "ab");
-  VELOX_CHECK_NOT_NULL(
-      file,
-      "fopen failure in LocalWriteFile constructor, {} {}.",
-      path,
+#ifdef linux
+  if (!bufferWrite) {
+    flags |= O_DIRECT;
+  }
+#endif // linux
+
+  // The file mode bits to be applied when a new file is created. By default
+  // user has read and write access to the file.
+  // NOTE: The mode argument must be supplied if O_CREAT or O_TMPFILE is
+  // specified in flags; if it is not supplied, some arbitrary bytes from the
+  // stack will be applied as the file mode.
+  const int32_t mode = S_IRUSR | S_IWUSR;
+
+  std::unique_ptr<char[]> buf(new char[path_.size() + 1]);
+  buf[path_.size()] = 0;
+  ::memcpy(buf.get(), path_.data(), path_.size());
+  fd_ = open(buf.get(), flags, mode);
+  VELOX_CHECK_GE(
+      fd_,
+      0,
+      "Cannot open or create {}. Error: {}",
+      path_,
       folly::errnoStr(errno));
-  file_ = file;
+
+  const off_t ret = lseek(fd_, 0, SEEK_END);
+  VELOX_CHECK_GE(
+      ret,
+      0,
+      "fseek failure in LocalWriteFile constructor, {} {} {}.",
+      ret,
+      path_,
+      folly::errnoStr(errno));
+  size_ = ret;
 }
 
 LocalWriteFile::~LocalWriteFile() {
@@ -266,8 +318,8 @@ LocalWriteFile::~LocalWriteFile() {
 }
 
 void LocalWriteFile::append(std::string_view data) {
-  VELOX_CHECK(!closed_, "file is closed");
-  const uint64_t bytesWritten = fwrite(data.data(), 1, data.size(), file_);
+  checkNotClosed(closed_);
+  const uint64_t bytesWritten = ::write(fd_, data.data(), data.size());
   VELOX_CHECK_EQ(
       bytesWritten,
       data.size(),
@@ -279,12 +331,12 @@ void LocalWriteFile::append(std::string_view data) {
 }
 
 void LocalWriteFile::append(std::unique_ptr<folly::IOBuf> data) {
-  VELOX_CHECK(!closed_, "file is closed");
+  checkNotClosed(closed_);
   uint64_t totalBytesWritten{0};
   for (auto rangeIter = data->begin(); rangeIter != data->end(); ++rangeIter) {
     const auto bytesToWrite = rangeIter->size();
-    const auto bytesWritten =
-        fwrite(rangeIter->data(), 1, rangeIter->size(), file_);
+    const uint64_t bytesWritten =
+        ::write(fd_, rangeIter->data(), rangeIter->size());
     totalBytesWritten += bytesWritten;
     if (bytesWritten != bytesToWrite) {
       VELOX_FAIL(
@@ -304,23 +356,84 @@ void LocalWriteFile::append(std::unique_ptr<folly::IOBuf> data) {
   size_ += totalBytesWritten;
 }
 
-void LocalWriteFile::flush() {
-  VELOX_CHECK(!closed_, "file is closed");
-  auto ret = fflush(file_);
+void LocalWriteFile::write(
+    const std::vector<iovec>& iovecs,
+    int64_t offset,
+    int64_t length) {
+  checkNotClosed(closed_);
+  VELOX_CHECK_GE(offset, 0, "Offset cannot be negative.");
+  const auto bytesWritten = ::pwritev(
+      fd_, iovecs.data(), static_cast<ssize_t>(iovecs.size()), offset);
+  VELOX_CHECK_EQ(
+      bytesWritten,
+      length,
+      "Failure in LocalWriteFile::write, {} vs {}",
+      bytesWritten,
+      length);
+  size_ = std::max<uint64_t>(size_, offset + bytesWritten);
+}
+
+void LocalWriteFile::truncate(int64_t newSize) {
+  checkNotClosed(closed_);
+  VELOX_CHECK_GE(newSize, 0, "New size cannot be negative.");
+  const auto ret = ::ftruncate(fd_, newSize);
   VELOX_CHECK_EQ(
       ret,
       0,
-      "fflush failed in LocalWriteFile::flush: {}.",
+      "ftruncate failed in LocalWriteFile::truncate: {}.",
       folly::errnoStr(errno));
+  size_ = newSize;
+}
+
+void LocalWriteFile::flush() {
+  checkNotClosed(closed_);
+  const auto ret = ::fsync(fd_);
+  VELOX_CHECK_EQ(
+      ret,
+      0,
+      "fsync failed in LocalWriteFile::flush: {}.",
+      folly::errnoStr(errno));
+}
+
+void LocalWriteFile::setAttributes(
+    const std::unordered_map<std::string, std::string>& attributes) {
+  checkNotClosed(closed_);
+  attributes_ = attributes;
+#ifdef linux
+  if (Attributes::cowDisabled(attributes_)) {
+    int attr{0};
+    auto ret = ioctl(fd_, FS_IOC_GETFLAGS, &attr);
+    VELOX_CHECK_EQ(
+        0,
+        ret,
+        "ioctl(FS_IOC_GETFLAGS) failed: {}, {}",
+        ret,
+        folly::errnoStr(errno));
+    attr |= FS_NOCOW_FL;
+    ret = ioctl(fd_, FS_IOC_SETFLAGS, &attr);
+    VELOX_CHECK_EQ(
+        0,
+        ret,
+        "ioctl(FS_IOC_SETFLAGS, FS_NOCOW_FL) failed: {}, {}",
+        ret,
+        folly::errnoStr(errno));
+  }
+#endif // linux
+}
+
+std::unordered_map<std::string, std::string> LocalWriteFile::getAttributes()
+    const {
+  checkNotClosed(closed_);
+  return attributes_;
 }
 
 void LocalWriteFile::close() {
   if (!closed_) {
-    auto ret = fclose(file_);
+    const auto ret = ::close(fd_);
     VELOX_CHECK_EQ(
         ret,
         0,
-        "fwrite failure in LocalWriteFile::close: {}.",
+        "close failed in LocalWriteFile::close: {}.",
         folly::errnoStr(errno));
     closed_ = true;
   }

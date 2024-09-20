@@ -48,6 +48,24 @@ void writeData(WriteFile* writeFile, bool useIOBuf = false) {
   }
 }
 
+void writeDataWithOffset(WriteFile* writeFile) {
+  ASSERT_EQ(writeFile->size(), 0);
+  writeFile->truncate(15 + kOneMB);
+  std::vector<iovec> iovecs;
+  std::string s1 = "aaaaa";
+  std::string s2 = "bbbbb";
+  std::string s3 = std::string(kOneMB, 'c');
+  std::string s4 = "ddddd";
+  iovecs.push_back({s3.data(), s3.length()});
+  iovecs.push_back({s4.data(), s4.length()});
+  writeFile->write(iovecs, 10, 5 + kOneMB);
+  iovecs.clear();
+  iovecs.push_back({s1.data(), s1.length()});
+  iovecs.push_back({s2.data(), s2.length()});
+  writeFile->write(iovecs, 0, 10);
+  ASSERT_EQ(writeFile->size(), 15 + kOneMB);
+}
+
 void readData(ReadFile* readFile, bool checkFileSize = true) {
   if (checkFileSize) {
     ASSERT_EQ(readFile->size(), 15 + kOneMB);
@@ -142,8 +160,16 @@ class LocalFileTest : public ::testing::TestWithParam<bool> {
 };
 
 TEST_P(LocalFileTest, writeAndRead) {
-  for (bool useIOBuf : {true, false}) {
-    SCOPED_TRACE(fmt::format("useIOBuf: {}", useIOBuf));
+  struct {
+    bool useIOBuf;
+    bool withOffset;
+
+    std::string debugString() const {
+      return fmt::format("useIOBuf {}, withOffset {}", useIOBuf, withOffset);
+    }
+  } testSettings[] = {{false, false}, {true, false}, {false, true}};
+  for (auto testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
 
     auto tempFile = exec::test::TempFilePath::create(useFaultyFs_);
     const auto& filename = tempFile->getPath();
@@ -151,7 +177,11 @@ TEST_P(LocalFileTest, writeAndRead) {
     fs->remove(filename);
     {
       auto writeFile = fs->openFileForWrite(filename);
-      writeData(writeFile.get(), useIOBuf);
+      if (testData.withOffset) {
+        writeDataWithOffset(writeFile.get());
+      } else {
+        writeData(writeFile.get(), testData.useIOBuf);
+      }
       writeFile->close();
       ASSERT_EQ(writeFile->size(), 15 + kOneMB);
     }
@@ -345,6 +375,26 @@ TEST_P(LocalFileTest, fileNotFound) {
       localFs->openFileForRead(path),
       error_code::kFileNotFound,
       "No such file or directory");
+}
+
+TEST_P(LocalFileTest, attributes) {
+  auto tempFile = exec::test::TempFilePath::create(useFaultyFs_);
+  const auto& filename = tempFile->getPath();
+  auto fs = filesystems::getFileSystem(filename, {});
+  fs->remove(filename);
+  auto writeFile = fs->openFileForWrite(filename);
+  ASSERT_FALSE(
+      LocalWriteFile::Attributes::cowDisabled(writeFile->getAttributes()));
+  try {
+    writeFile->setAttributes(
+        {{std::string(LocalWriteFile::Attributes::kNoCow), "true"}});
+  } catch (const std::exception& /*e*/) {
+    // Flags like FS_IOC_SETFLAGS might not be supported for certain
+    // file systems (e.g., EXT4, XFS).
+  }
+  ASSERT_TRUE(
+      LocalWriteFile::Attributes::cowDisabled(writeFile->getAttributes()));
+  writeFile->close();
 }
 
 INSTANTIATE_TEST_SUITE_P(

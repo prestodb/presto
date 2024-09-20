@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include <fcntl.h>
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -140,19 +141,50 @@ class WriteFile {
  public:
   virtual ~WriteFile() = default;
 
-  // Appends data to the end of the file.
+  /// Appends data to the end of the file.
   virtual void append(std::string_view data) = 0;
 
-  // Appends data to the end of the file.
+  /// Appends data to the end of the file.
   virtual void append(std::unique_ptr<folly::IOBuf> /* data */) {
     VELOX_NYI("IOBuf appending is not implemented");
   }
 
-  // Flushes any local buffers, i.e. ensures the backing medium received
-  // all data that has been appended.
+  /// Writes data at the given offset of the file.
+  ///
+  /// NOTE: this is only supported on local file system and used by SSD cache
+  /// for now. For filesystem like S3, it is not supported.
+  virtual void write(
+      const std::vector<iovec>& /* iovecs */,
+      int64_t /* offset */,
+      int64_t /* length */
+  ) {
+    VELOX_NYI("{} is not implemented", __FUNCTION__);
+  }
+
+  /// Truncates file to a new size.
+  ///
+  /// NOTE: this is only supported on local file system and used by SSD cache
+  /// for now. For filesystem like S3, it is not supported.
+  virtual void truncate(int64_t /* newSize */) {
+    VELOX_NYI("{} is not implemented", __FUNCTION__);
+  }
+
+  /// Flushes any write buffers, i.e. ensures the remote storage backend or
+  /// local storage medium received all the written data.
   virtual void flush() = 0;
 
-  // Close the file. Any cleanup (disk flush, etc.) will be done here.
+  /// Sets the file attributes, which are file implementation specific.
+  virtual void setAttributes(
+      const std::unordered_map<std::string, std::string>& /* attributes */) {
+    VELOX_NYI("{} is not implemented", __FUNCTION__);
+  }
+
+  /// Gets the file attributes, which are file implementation specific.
+  virtual std::unordered_map<std::string, std::string> getAttributes() const {
+    VELOX_NYI("{} is not implemented", __FUNCTION__);
+  }
+
+  /// Closes the file. Any cleanup (disk flush, etc.) will be done here.
   virtual void close() = 0;
 
   /// Current file size, i.e. the sum of all previous Appends.  No flush should
@@ -274,17 +306,43 @@ class LocalReadFile final : public ReadFile {
 
 class LocalWriteFile final : public WriteFile {
  public:
+  struct Attributes {
+    // If set to true, the file will not be subject to copy-on-write updates.
+    // This flag has an effect only on filesystems that support copy-on-write
+    // semantics, such as Btrfs.
+    static constexpr std::string_view kNoCow{"write-on-copy-disabled"};
+    static constexpr bool kDefaultNoCow{false};
+
+    static bool cowDisabled(
+        const std::unordered_map<std::string, std::string>& attrs);
+  };
+
   // An error is thrown is a file already exists at |path|,
   // unless flag shouldThrowOnFileAlreadyExists is false
   explicit LocalWriteFile(
       std::string_view path,
       bool shouldCreateParentDirectories = false,
-      bool shouldThrowOnFileAlreadyExists = true);
+      bool shouldThrowOnFileAlreadyExists = true,
+      bool bufferWrite = true);
+
   ~LocalWriteFile();
 
   void append(std::string_view data) final;
+
   void append(std::unique_ptr<folly::IOBuf> data) final;
+
+  void write(const std::vector<iovec>& iovecs, int64_t offset, int64_t length)
+      final;
+
+  void truncate(int64_t newSize) final;
+
   void flush() final;
+
+  void setAttributes(
+      const std::unordered_map<std::string, std::string>& attributes) final;
+
+  std::unordered_map<std::string, std::string> getAttributes() const final;
+
   void close() final;
 
   uint64_t size() const final {
@@ -292,8 +350,11 @@ class LocalWriteFile final : public WriteFile {
   }
 
  private:
-  FILE* file_;
+  // File descriptor.
+  int32_t fd_{-1};
+  std::string path_;
   uint64_t size_{0};
+  std::unordered_map<std::string, std::string> attributes_{};
   bool closed_{false};
 };
 

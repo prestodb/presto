@@ -47,6 +47,23 @@ struct FileOptions {
   memory::MemoryPool* pool{nullptr};
   /// If specified then can be trusted to be the file size.
   std::optional<int64_t> fileSize;
+
+  /// Whether to create parent directories if they don't exist.
+  ///
+  /// NOTE: this only applies for write open file.
+  bool shouldCreateParentDirectories{false};
+
+  /// Whether to throw an error if a file already exists.
+  ///
+  /// NOTE: this only applies for write open file.
+  bool shouldThrowOnFileAlreadyExists{true};
+
+  /// Whether to buffer the write data in file system client or not. For local
+  /// filesystem on Unix-like operating system, this corresponds to the direct
+  /// IO mode if set.
+  ///
+  /// NOTE: this only applies for write open file.
+  bool bufferWrite{true};
 };
 
 /// An abstract FileSystem

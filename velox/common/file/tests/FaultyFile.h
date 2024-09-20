@@ -167,7 +167,17 @@ class FaultyWriteFile : public WriteFile {
 
   void append(std::unique_ptr<folly::IOBuf> data) override;
 
+  void write(const std::vector<iovec>& iovecs, int64_t offset, int64_t length)
+      override;
+
+  void truncate(int64_t newSize) override;
+
   void flush() override;
+
+  void setAttributes(
+      const std::unordered_map<std::string, std::string>& attributes) override;
+
+  std::unordered_map<std::string, std::string> getAttributes() const override;
 
   void close() override;
 
