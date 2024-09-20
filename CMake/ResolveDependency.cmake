@@ -94,10 +94,14 @@ macro(set_source dependency_name)
     STATUS "Setting ${dependency_name} source to ${${dependency_name}_SOURCE}")
 endmacro()
 
-# Set a variable to the value of $ENV{envvar_name} if defined, set to ${DEFAULT}
-# if not defined. If called from within a nested scope the variable will not
+# If the var_name is not defined then set var_name to the value of
+# $ENV{envvar_name} if it is defined. If neither is defined then set var_name to
+# ${DEFAULT}. If called from within a nested scope the variable will not
 # propagate into outer scopes automatically! Use PARENT_SCOPE.
 function(set_with_default var_name envvar_name default)
+  if(DEFINED ${var_name})
+    return()
+  endif()
   if(DEFINED ENV{${envvar_name}})
     set(${var_name}
         $ENV{${envvar_name}}
