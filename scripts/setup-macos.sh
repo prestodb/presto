@@ -41,7 +41,7 @@ NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 snappy xz zstd"
 MACOS_BUILD_DEPS="ninja cmake"
-FB_OS_VERSION="v2024.05.20.00"
+FB_OS_VERSION="v2024.09.16.00"
 FMT_VERSION="10.1.1"
 
 function update_brew {
@@ -141,12 +141,19 @@ function install_re2 {
   cmake_install_dir re2 -DRE2_BUILD_TESTING=OFF
 }
 
+function install_fast_float {
+  # Dependency of folly.
+  wget_and_untar https://github.com/fastfloat/fast_float/archive/refs/tags/${FAST_FLOAT_VERSION}.tar.gz fast_float
+  cmake_install_dir fast_float
+}
+
 function install_velox_deps {
   run_and_time install_velox_deps_from_brew
   run_and_time install_ranges_v3
   run_and_time install_double_conversion
   run_and_time install_re2
   run_and_time install_fmt
+  run_and_time install_fast_float
   run_and_time install_folly
   run_and_time install_fizz
   run_and_time install_wangle
