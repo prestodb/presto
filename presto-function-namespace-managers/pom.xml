@@ -164,6 +164,11 @@
             <artifactId>jackson-datatype-jdk8</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-transport-netty</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -187,11 +192,6 @@
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
         <dependency>
