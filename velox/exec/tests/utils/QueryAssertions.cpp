@@ -1618,7 +1618,7 @@ std::unordered_map<std::string, OperatorStats> toOperatorStats(
 
 template <>
 struct fmt::formatter<::duckdb::LogicalTypeId> : formatter<int> {
-  auto format(::duckdb::LogicalTypeId s, format_context& ctx) {
+  auto format(::duckdb::LogicalTypeId s, format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

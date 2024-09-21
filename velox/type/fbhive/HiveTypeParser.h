@@ -22,7 +22,8 @@
 #include <string>
 #include <vector>
 
-#include "folly/Range.h"
+#include <folly/Range.h>
+
 #include "velox/type/TypeParser.h"
 
 namespace facebook::velox::type::fbhive {

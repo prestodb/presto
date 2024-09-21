@@ -418,7 +418,8 @@ regexpReplaceWithLambdaSignatures();
 template <>
 struct fmt::formatter<facebook::velox::functions::PatternKind>
     : formatter<int> {
-  auto format(facebook::velox::functions::PatternKind s, format_context& ctx) {
+  auto format(facebook::velox::functions::PatternKind s, format_context& ctx)
+      const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

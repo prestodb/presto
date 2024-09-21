@@ -626,7 +626,7 @@ struct fmt::formatter<facebook::velox::connector::hive::HiveDataSink::State>
     : formatter<int> {
   auto format(
       facebook::velox::connector::hive::HiveDataSink::State s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };
@@ -637,7 +637,7 @@ struct fmt::formatter<
     : formatter<int> {
   auto format(
       facebook::velox::connector::hive::LocationHandle::TableType s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

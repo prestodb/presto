@@ -347,7 +347,8 @@ class Spiller {
 
 template <>
 struct fmt::formatter<facebook::velox::exec::Spiller::Type> : formatter<int> {
-  auto format(facebook::velox::exec::Spiller::Type s, format_context& ctx) {
+  auto format(facebook::velox::exec::Spiller::Type s, format_context& ctx)
+      const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

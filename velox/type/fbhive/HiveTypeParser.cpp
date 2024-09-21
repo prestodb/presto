@@ -80,7 +80,7 @@ std::shared_ptr<const Type> HiveTypeParser::parse(const std::string& ser) {
       "Input remaining after parsing the Hive type \"{}\"\n"
       "Remaining: \"{}\"",
       ser,
-      remaining_);
+      remaining_.toString());
   return result.type;
 }
 
@@ -142,7 +142,9 @@ Result HiveTypeParser::parseType() {
     }
   } else {
     VELOX_FAIL(fmt::format(
-        "Unexpected token {} at {}", nt.value, remaining_.toString()));
+        "Unexpected token {} at {}",
+        nt.value.toString(),
+        remaining_.toString()));
   }
 }
 

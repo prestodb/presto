@@ -518,7 +518,7 @@ struct fmt::formatter<facebook::velox::memory::MemoryAllocator::InjectedFailure>
     : fmt::formatter<int> {
   auto format(
       facebook::velox::memory::MemoryAllocator::InjectedFailure s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

@@ -2402,7 +2402,7 @@ struct fmt::formatter<facebook::velox::core::PartitionedOutputNode::Kind>
     : formatter<std::string> {
   auto format(
       facebook::velox::core::PartitionedOutputNode::Kind s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string>::format(
         facebook::velox::core::PartitionedOutputNode::kindString(s), ctx);
   }
@@ -2410,7 +2410,7 @@ struct fmt::formatter<facebook::velox::core::PartitionedOutputNode::Kind>
 
 template <>
 struct fmt::formatter<facebook::velox::core::JoinType> : formatter<int> {
-  auto format(facebook::velox::core::JoinType s, format_context& ctx) {
+  auto format(facebook::velox::core::JoinType s, format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

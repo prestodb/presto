@@ -778,7 +778,7 @@ SelectivityVector restoreSelectivityVector(std::istream& in) {
 
 template <>
 struct fmt::formatter<facebook::velox::Encoding> : formatter<int> {
-  auto format(facebook::velox::Encoding s, format_context& ctx) {
+  auto format(facebook::velox::Encoding s, format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

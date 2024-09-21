@@ -53,7 +53,7 @@ struct fmt::formatter<facebook::velox::common::CompressionKind>
     : fmt::formatter<std::string> {
   auto format(
       const facebook::velox::common::CompressionKind& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string>::format(
         facebook::velox::common::compressionKindToString(s), ctx);
   }

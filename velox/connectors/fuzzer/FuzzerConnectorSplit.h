@@ -34,7 +34,7 @@ struct fmt::formatter<facebook::velox::connector::fuzzer::FuzzerConnectorSplit>
     : formatter<std::string> {
   auto format(
       facebook::velox::connector::fuzzer::FuzzerConnectorSplit s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string>::format(s.toString(), ctx);
   }
 };
@@ -46,7 +46,7 @@ struct fmt::formatter<
   auto format(
       std::shared_ptr<facebook::velox::connector::fuzzer::FuzzerConnectorSplit>
           s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string>::format(s->toString(), ctx);
   }
 };

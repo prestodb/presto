@@ -85,9 +85,8 @@ class SubstraitVeloxExprConverter {
 
 template <>
 struct fmt::formatter<substrait::Expression::RexTypeCase> : formatter<int> {
-  auto format(
-      const substrait::Expression::RexTypeCase& s,
-      format_context& ctx) {
+  auto format(const substrait::Expression::RexTypeCase& s, format_context& ctx)
+      const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };
@@ -97,7 +96,7 @@ struct fmt::formatter<substrait::Expression::Cast::FailureBehavior>
     : formatter<int> {
   auto format(
       const substrait::Expression::Cast::FailureBehavior& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };
@@ -106,7 +105,7 @@ struct fmt::formatter<substrait::Expression_FieldReference::ReferenceTypeCase>
     : formatter<int> {
   auto format(
       const substrait::Expression_FieldReference::ReferenceTypeCase& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };
@@ -116,7 +115,7 @@ struct fmt::formatter<substrait::Expression_Literal::LiteralTypeCase>
     : formatter<int> {
   auto format(
       const substrait::Expression_Literal::LiteralTypeCase& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

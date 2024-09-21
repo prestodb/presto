@@ -15,9 +15,12 @@
  */
 
 #include "FileUtils.h"
-#include <fmt/core.h>
+
 #include <bitset>
-#include "folly/container/Array.h"
+
+#include <fmt/core.h>
+#include <folly/container/Array.h>
+
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook {

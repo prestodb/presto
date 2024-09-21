@@ -492,7 +492,7 @@ struct fmt::formatter<facebook::velox::memory::MemoryArbitrator::Stats>
     : formatter<std::string> {
   auto format(
       facebook::velox::memory::MemoryArbitrator::Stats s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string>::format(s.toString(), ctx);
   }
 };

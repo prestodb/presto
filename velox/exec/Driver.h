@@ -753,7 +753,7 @@ DriverThreadContext* driverThreadContext();
 template <>
 struct fmt::formatter<facebook::velox::exec::StopReason>
     : formatter<std::string> {
-  auto format(facebook::velox::exec::StopReason s, format_context& ctx) {
+  auto format(facebook::velox::exec::StopReason s, format_context& ctx) const {
     return formatter<std::string>::format(
         facebook::velox::exec::stopReasonString(s), ctx);
   }

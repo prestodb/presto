@@ -832,7 +832,7 @@ class SourceOperator : public Operator {
 
 template <>
 struct fmt::formatter<std::thread::id> : formatter<std::string> {
-  auto format(std::thread::id s, format_context& ctx) {
+  auto format(std::thread::id s, format_context& ctx) const {
     std::ostringstream oss;
     oss << s;
     return formatter<std::string>::format(oss.str(), ctx);

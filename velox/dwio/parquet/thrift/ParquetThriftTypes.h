@@ -3749,7 +3749,7 @@ struct fmt::formatter<facebook::velox::parquet::thrift::Type::type>
     : fmt::formatter<std::string_view> {
   auto format(
       const facebook::velox::parquet::thrift::Type::type& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string_view>::format(
         facebook::velox::parquet::thrift::to_string(s), ctx);
   }
@@ -3760,7 +3760,7 @@ struct fmt::formatter<facebook::velox::parquet::thrift::CompressionCodec::type>
     : fmt::formatter<std::string_view> {
   auto format(
       const facebook::velox::parquet::thrift::CompressionCodec::type& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string_view>::format(
         facebook::velox::parquet::thrift::to_string(s), ctx);
   }
@@ -3771,7 +3771,7 @@ struct fmt::formatter<facebook::velox::parquet::thrift::ConvertedType::type>
     : fmt::formatter<std::string_view> {
   auto format(
       const facebook::velox::parquet::thrift::ConvertedType::type& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string_view>::format(
         facebook::velox::parquet::thrift::to_string(s), ctx);
   }
@@ -3783,7 +3783,7 @@ struct fmt::formatter<
     : fmt::formatter<std::string_view> {
   auto format(
       const facebook::velox::parquet::thrift::FieldRepetitionType::type& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string_view>::format(
         facebook::velox::parquet::thrift::to_string(s), ctx);
   }
@@ -3794,7 +3794,7 @@ struct fmt::formatter<facebook::velox::parquet::thrift::Encoding::type>
     : fmt::formatter<std::string_view> {
   auto format(
       const facebook::velox::parquet::thrift::Encoding::type& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string_view>::format(
         facebook::velox::parquet::thrift::to_string(s), ctx);
   }
@@ -3805,7 +3805,7 @@ struct fmt::formatter<facebook::velox::parquet::thrift::PageType::type>
     : fmt::formatter<std::string_view> {
   auto format(
       const facebook::velox::parquet::thrift::PageType::type& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string_view>::format(
         facebook::velox::parquet::thrift::to_string(s), ctx);
   }
@@ -3816,7 +3816,7 @@ struct fmt::formatter<facebook::velox::parquet::thrift::BoundaryOrder::type>
     : fmt::formatter<std::string_view> {
   auto format(
       const facebook::velox::parquet::thrift::BoundaryOrder::type& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string_view>::format(
         facebook::velox::parquet::thrift::to_string(s), ctx);
   }

@@ -314,7 +314,8 @@ inline std::ostream& operator<<(std::ostream& os, HashBuild::State state) {
 template <>
 struct fmt::formatter<facebook::velox::exec::HashBuild::State>
     : formatter<std::string> {
-  auto format(facebook::velox::exec::HashBuild::State s, format_context& ctx) {
+  auto format(facebook::velox::exec::HashBuild::State s, format_context& ctx)
+      const {
     return formatter<std::string>::format(
         facebook::velox::exec::HashBuild::stateName(s), ctx);
   }

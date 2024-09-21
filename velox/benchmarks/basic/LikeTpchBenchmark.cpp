@@ -48,7 +48,7 @@ enum class TpchBenchmarkCase {
 
 template <>
 struct fmt::formatter<TpchBenchmarkCase> : fmt::formatter<int> {
-  auto format(const TpchBenchmarkCase& s, format_context& ctx) {
+  auto format(const TpchBenchmarkCase& s, format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

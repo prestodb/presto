@@ -58,7 +58,7 @@ struct fmt::formatter<
     : formatter<std::string> {
   auto format(
       std::shared_ptr<facebook::velox::connector::tpch::TpchConnectorSplit> s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string>::format(s->toString(), ctx);
   }
 };

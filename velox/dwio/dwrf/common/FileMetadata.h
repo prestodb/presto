@@ -832,7 +832,7 @@ class FooterWrapper : public ProtoWrapperBase {
 
 template <>
 struct fmt::formatter<facebook::velox::dwrf::DwrfFormat> : formatter<int> {
-  auto format(facebook::velox::dwrf::DwrfFormat s, format_context& ctx) {
+  auto format(facebook::velox::dwrf::DwrfFormat s, format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

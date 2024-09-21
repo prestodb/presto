@@ -644,9 +644,8 @@ template <>
 struct fmt::formatter<facebook::velox::dwio::common::FileFormat>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(
-      facebook::velox::dwio::common::FileFormat fmt,
-      FormatContext& ctx) {
+  auto format(facebook::velox::dwio::common::FileFormat fmt, FormatContext& ctx)
+      const {
     return formatter<std::string_view>::format(
         facebook::velox::dwio::common::toString(fmt), ctx);
   }

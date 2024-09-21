@@ -59,9 +59,8 @@ std::string probeOperatorStateName(ProbeOperatorState state);
 template <>
 struct fmt::formatter<facebook::velox::exec::ProbeOperatorState>
     : formatter<int> {
-  auto format(
-      facebook::velox::exec::ProbeOperatorState s,
-      format_context& ctx) {
+  auto format(facebook::velox::exec::ProbeOperatorState s, format_context& ctx)
+      const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

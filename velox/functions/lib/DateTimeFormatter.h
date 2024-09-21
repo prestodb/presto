@@ -216,7 +216,7 @@ struct fmt::formatter<facebook::velox::functions::DateTimeFormatterType>
     : formatter<int> {
   auto format(
       facebook::velox::functions::DateTimeFormatterType s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };
@@ -226,7 +226,7 @@ struct fmt::formatter<facebook::velox::functions::DateTimeFormatSpecifier>
     : formatter<int> {
   auto format(
       facebook::velox::functions::DateTimeFormatSpecifier s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

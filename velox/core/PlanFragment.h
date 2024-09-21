@@ -89,7 +89,7 @@ struct fmt::formatter<facebook::velox::core::ExecutionStrategy>
     : formatter<int> {
   auto format(
       const facebook::velox::core::ExecutionStrategy& s,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };
