@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::functions {
 namespace {

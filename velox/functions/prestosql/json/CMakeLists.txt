@@ -15,6 +15,7 @@ velox_add_library(
   velox_functions_json
   JsonExtractor.cpp
   JsonPathTokenizer.cpp
+  JsonStringUtil.cpp
   SIMDJsonExtractor.cpp
   SIMDJsonUtil.cpp)
 

@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "folly/Unicode.h"
 
+#include "velox/functions/prestosql/json/JsonStringUtil.h"
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
@@ -245,27 +247,71 @@ TEST_F(JsonCastTest, fromInvalidUtf8) {
   auto invalidString = fromBytes({0xBF});
 
   testCastToJson<StringView>(
-      VARCHAR(), {StringView(invalidString)}, {"\"\\ufffd\""});
+      VARCHAR(), {StringView(invalidString)}, {"\"\\uFFFD\""});
 
   invalidString = fmt::format("head_{}_tail", fromBytes({0xBF}));
   testCastToJson<StringView>(
-      VARCHAR(), {StringView(invalidString)}, {"\"head_\\ufffd_tail\""});
+      VARCHAR(), {StringView(invalidString)}, {"\"head_\\uFFFD_tail\""});
 }
 
 TEST_F(JsonCastTest, fromVarchar) {
-  testCastToJson<StringView>(VARCHAR(), {"\U0001F64F"}, {"\"\\ud83d\\ude4f\""});
+  // Test casting from ASCII.
+  {
+    std::vector<char> asciiCharacters;
+    for (int c = 32; c < 0x80; c++) {
+      if (c != '\"' && c != '\\') {
+        asciiCharacters.push_back(c);
+      }
+    }
+    std::string asciiString = folly::join("", asciiCharacters);
+    std::string expected = fmt::format("\"{}\"", asciiString);
+    testCastToJson<StringView>(
+        VARCHAR(), {StringView(asciiString)}, {StringView(expected)});
+
+    testCastToJson<StringView>(
+        VARCHAR(),
+        {"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\"\\ ."_sv},
+        {R"("\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000B\f\r\u000E\u000F\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001A\u001B\u001C\u001D\u001E\u001F\"\\ .")"_sv});
+  }
+
+  // Test casting from unicodes in BMP.
+  {
+    std::vector<std::string> charactersInUtf8;
+    for (int i = 0x80; i < 0x10000; i++) {
+      if (folly::utf16_code_unit_is_bmp(char16_t(i))) {
+        charactersInUtf8.push_back(folly::codePointToUtf8(char32_t(i)));
+      }
+    }
+    std::string utf8String = folly::join("", charactersInUtf8);
+    std::string expected = fmt::format("\"{}\"", utf8String);
+    testCastToJson<StringView>(
+        VARCHAR(), {StringView(utf8String)}, {StringView(expected)});
+  }
+
+  // Test casting from unicodes in supplementary planes.
+  {
+    std::vector<std::string> charactersInUtf8;
+    std::vector<std::string> charactersInUtf16;
+    for (int i = 0x10000; i < 0x110000; i++) {
+      charactersInUtf8.push_back(folly::codePointToUtf8(char32_t(i)));
+
+      std::string utf16Hex(12, '\0');
+      char* pos = utf16Hex.data();
+      testingEncodeUtf16Hex(char32_t(i), pos);
+      charactersInUtf16.push_back(utf16Hex);
+    }
+    std::string utf8String = folly::join("", charactersInUtf8);
+    std::string expected =
+        fmt::format("\"{}\"", folly::join("", charactersInUtf16));
+    testCastToJson<StringView>(
+        VARCHAR(), {StringView(utf8String)}, {StringView(expected)});
+  }
+
   testCastToJson<StringView>(
       VARCHAR(),
-      {"aaa"_sv, "bbb"_sv, "ccc"_sv},
-      {R"("aaa")"_sv, R"("bbb")"_sv, R"("ccc")"_sv});
-  testCastToJson<StringView>(
-      VARCHAR(),
-      {""_sv,
-       std::nullopt,
-       "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\"\\ ."_sv},
-      {"\"\""_sv,
-       std::nullopt,
-       R"("\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f\"\\ .")"_sv});
+      {""_sv, std::nullopt, "\xc0"_sv},
+      {"\"\""_sv, std::nullopt, R"("\uFFFD")"_sv});
+
   testCastToJson<StringView>(
       VARCHAR(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},

@@ -21,7 +21,6 @@
 #include <stdexcept>
 #include <string>
 
-#include "folly/CPortability.h"
 #include "folly/Conv.h"
 #include "folly/json.h"
 
@@ -32,6 +31,7 @@
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/functions/lib/string/StringCore.h"
+#include "velox/functions/prestosql/json/JsonStringUtil.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
@@ -50,16 +50,11 @@ void generateJsonTyped(
   auto value = input.valueAt(row);
 
   if constexpr (std::is_same_v<T, StringView>) {
-    // TODO Presto escapes Unicode characters using uppercase hex:
-    //  SELECT cast(U&'\+01F64F' as json); -- "\uD83D\uDE4F"
-    //  Folly uses lowercase hex digits: "\ud83d\ude4f".
-    // Figure out how to produce uppercase digits.
-    folly::json::serialization_opts opts;
-    opts.encode_non_ascii = true;
-    // Replace invalid UTF-8 bytes with U+FFFD.
-    opts.skip_invalid_utf8 = true;
-
-    folly::json::escapeString(value, result, opts);
+    size_t resultSize = escapedStringSize(value.data(), value.size());
+    result.resize(resultSize + 2);
+    result.data()[0] = '"';
+    escapeString(value.data(), value.size(), result.data() + 1);
+    result.data()[resultSize + 1] = '"';
   } else if constexpr (std::is_same_v<T, UnknownValue>) {
     VELOX_FAIL(
         "Casting UNKNOWN to JSON: Vectors of UNKNOWN type should not contain non-null rows");

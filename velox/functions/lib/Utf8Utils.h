@@ -17,6 +17,10 @@
 
 #include <cstdint>
 
+#include "folly/CPortability.h"
+
+#include "velox/common/base/Exceptions.h"
+
 namespace facebook::velox::functions {
 
 /// This function is not part of the original utf8proc.
@@ -47,5 +51,32 @@ namespace facebook::velox::functions {
 /// Adapted from tryGetCodePointAt in
 /// https://github.com/airlift/slice/blob/master/src/main/java/io/airlift/slice/SliceUtf8.java
 int32_t tryGetCharLength(const char* input, int64_t size);
+
+/// Return the length in byte of the next UTF-8 encoded character at the
+/// beginning of `string`. If the beginning of `string` is not valid UTF-8
+/// encoding, return -1.
+FOLLY_ALWAYS_INLINE int validateAndGetNextUtf8Length(
+    const unsigned char* string,
+    const unsigned char* end) {
+  VELOX_DCHECK(string < end, "Expect non-empty string.");
+
+  if ((*string & 0x80u) == 0) {
+    return 1;
+  }
+  if ((*string & 0xE0u) == 0xC0u && (string + 1) < end &&
+      (*(string + 1) & 0xC0u) == 0x80u) {
+    return 2;
+  }
+  if ((*string & 0xF0u) == 0xE0u && (string + 2) < end &&
+      (*(string + 1) & 0xC0u) == 0x80u && (*(string + 2) & 0xC0u) == 0x80u) {
+    return 3;
+  }
+  if ((*string & 0xF8u) == 0xF0u && (string + 3) < end &&
+      (*(string + 1) & 0xC0u) == 0x80u && (*(string + 2) & 0xC0u) == 0x80u &&
+      (*(string + 3) & 0xC0u) == 0x80u) {
+    return 4;
+  }
+  return -1;
+}
 
 } // namespace facebook::velox::functions
