@@ -1375,9 +1375,8 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
       const arg_type<Varchar>& unitString,
       const arg_type<Timestamp>& timestamp1,
       const arg_type<Timestamp>& timestamp2) {
-    const auto unit = unit_.has_value()
-        ? unit_.value()
-        : fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value();
+    const auto unit = unit_.value_or(
+        fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value());
 
     if (LIKELY(sessionTimeZone_ != nullptr)) {
       // sessionTimeZone not null means that the config
@@ -1416,13 +1415,19 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
   FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Varchar>& unitString,
-      const arg_type<TimestampWithTimezone>& timestamp1,
-      const arg_type<TimestampWithTimezone>& timestamp2) {
-    call(
-        result,
-        unitString,
-        this->toTimestamp(timestamp1, true),
-        this->toTimestamp(timestamp2, true));
+      const arg_type<TimestampWithTimezone>& timestampWithTz1,
+      const arg_type<TimestampWithTimezone>& timestampWithTz2) {
+    const auto unit = unit_.value_or(
+        fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value());
+
+    // Presto's behavior is to use the time zone of the first parameter to
+    // perform the calculation. Note that always normalizing to UTC is not
+    // correct as calculations may cross daylight savings boundaries.
+    auto timestamp1 = this->toTimestamp(timestampWithTz1, false);
+    auto timestamp2 = this->toTimestamp(timestampWithTz2, true);
+    timestamp2.toTimezone(*tz::locateZone(unpackZoneKeyId(timestampWithTz1)));
+
+    result = diffTimestamp(unit, timestamp1, timestamp2);
   }
 };
 

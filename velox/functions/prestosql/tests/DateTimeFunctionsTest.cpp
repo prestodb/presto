@@ -2804,24 +2804,28 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
 }
 
 TEST_F(DateTimeFunctionsTest, dateDiffTimestampWithTimezone) {
-  const auto dateDiff = [&](const std::string& unit,
-                            std::optional<int64_t> timestamp1,
-                            const std::optional<std::string>& timeZoneName1,
-                            std::optional<int64_t> timestamp2,
-                            const std::optional<std::string>& timeZoneName2) {
-    auto ts1 = (timestamp1.has_value() && timeZoneName1.has_value())
-        ? makeTimestampWithTimeZoneVector(
-              timestamp1.value(), timeZoneName1.value().c_str())
-        : BaseVector::createNullConstant(TIMESTAMP_WITH_TIME_ZONE(), 1, pool());
-    auto ts2 = (timestamp2.has_value() && timeZoneName2.has_value())
-        ? makeTimestampWithTimeZoneVector(
-              timestamp2.value(), timeZoneName2.value().c_str())
-        : BaseVector::createNullConstant(TIMESTAMP_WITH_TIME_ZONE(), 1, pool());
-
+  const auto dateDiff = [&](std::optional<std::string> unit,
+                            std::optional<TimestampWithTimezone> input1,
+                            std::optional<TimestampWithTimezone> input2) {
     return evaluateOnce<int64_t>(
-        fmt::format("date_diff('{}', c0, c1)", unit),
-        makeRowVector({ts1, ts2}));
+        "date_diff(c0, c1, c2)",
+        {VARCHAR(), TIMESTAMP_WITH_TIME_ZONE(), TIMESTAMP_WITH_TIME_ZONE()},
+        unit,
+        TimestampWithTimezone::pack(input1),
+        TimestampWithTimezone::pack(input2));
   };
+
+  // Null behavior.
+  EXPECT_EQ(
+      std::nullopt,
+      dateDiff(
+          std::nullopt,
+          TimestampWithTimezone(0, 0),
+          TimestampWithTimezone(0, 0)));
+
+  EXPECT_EQ(
+      std::nullopt,
+      dateDiff("asdf", std::nullopt, TimestampWithTimezone(0, 0)));
 
   // timestamp1: 1970-01-01 00:00:00.000 +00:00 (0)
   // timestamp2: 2020-08-25 16:30:10.123 -08:00 (1'598'373'010'123)
@@ -2829,37 +2833,89 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestampWithTimezone) {
       1598373010123,
       dateDiff(
           "millisecond",
-          0,
-          "+00:00",
-          1'598'373'010'123,
-          "America/Los_Angeles"));
+          TimestampWithTimezone(0, "+00:00"),
+          TimestampWithTimezone(1'598'373'010'123, "America/Los_Angeles")));
   EXPECT_EQ(
       1598373010,
       dateDiff(
-          "second", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+          "second",
+          TimestampWithTimezone(0, "+00:00"),
+          TimestampWithTimezone(1'598'373'010'123, "America/Los_Angeles")));
   EXPECT_EQ(
       26639550,
       dateDiff(
-          "minute", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+          "minute",
+          TimestampWithTimezone(0, "+00:00"),
+          TimestampWithTimezone(1'598'373'010'123, "America/Los_Angeles")));
   EXPECT_EQ(
       443992,
-      dateDiff("hour", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+      dateDiff(
+          "hour",
+          TimestampWithTimezone(0, "+00:00"),
+          TimestampWithTimezone(1'598'373'010'123, "America/Los_Angeles")));
   EXPECT_EQ(
       18499,
-      dateDiff("day", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+      dateDiff(
+          "day",
+          TimestampWithTimezone(0, "+00:00"),
+          TimestampWithTimezone(1'598'373'010'123, "America/Los_Angeles")));
   EXPECT_EQ(
       2642,
-      dateDiff("week", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+      dateDiff(
+          "week",
+          TimestampWithTimezone(0, "+00:00"),
+          TimestampWithTimezone(1'598'373'010'123, "America/Los_Angeles")));
   EXPECT_EQ(
       607,
-      dateDiff("month", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+      dateDiff(
+          "month",
+          TimestampWithTimezone(0, "+00:00"),
+          TimestampWithTimezone(1'598'373'010'123, "America/Los_Angeles")));
   EXPECT_EQ(
       202,
       dateDiff(
-          "quarter", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+          "quarter",
+          TimestampWithTimezone(0, "+00:00"),
+          TimestampWithTimezone(1'598'373'010'123, "America/Los_Angeles")));
   EXPECT_EQ(
       50,
-      dateDiff("year", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+      dateDiff(
+          "year",
+          TimestampWithTimezone(0, "+00:00"),
+          TimestampWithTimezone(1'598'373'010'123, "America/Los_Angeles")));
+
+  // Test if calculations are being performed in correct zone. Presto behavior
+  // is to use the zone of the first parameter. Note that that this UTC interval
+  // (a, b) crosses a daylight savings boundary in PST when PST loses one hour.
+  // So whenever the calculation is performed in PST, the interval is
+  // effectively smaller than 24h and returns zero.
+  auto a = parseTimestamp("2024-11-02 17:00:00").toMillis();
+  auto b = parseTimestamp("2024-11-03 17:30:00").toMillis();
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "day",
+          TimestampWithTimezone(a, "UTC"),
+          TimestampWithTimezone(b, "America/Los_Angeles")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "day",
+          TimestampWithTimezone(a, "UTC"),
+          TimestampWithTimezone(b, "UTC")));
+
+  EXPECT_EQ(
+      0,
+      dateDiff(
+          "day",
+          TimestampWithTimezone(a, "America/Los_Angeles"),
+          TimestampWithTimezone(b, "UTC")));
+  EXPECT_EQ(
+      0,
+      dateDiff(
+          "day",
+          TimestampWithTimezone(a, "America/Los_Angeles"),
+          TimestampWithTimezone(b, "America/Los_Angeles")));
 }
 
 TEST_F(DateTimeFunctionsTest, parseDatetime) {
