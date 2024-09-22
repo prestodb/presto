@@ -227,49 +227,6 @@
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>com.googlecode.fmpp-maven-plugin</groupId>
-                <artifactId>fmpp-maven-plugin</artifactId>
-                <version>1.0</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>net.sourceforge.fmpp</groupId>
-                        <artifactId>fmpp</artifactId>
-                        <version>0.9.15</version>
-                    </dependency>
-                </dependencies>
-                <configuration>
-                    <cfgFile>${project.basedir}/src/main/resources/freemarker/config.fmpp</cfgFile>
-                    <outputDirectory>${project.build.directory}/generated-sources/java/</outputDirectory>
-                    <templateDirectory>${project.basedir}/src/main/resources/freemarker/templates</templateDirectory>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>add-source</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>add-source</goal>
-                        </goals>
-                        <configuration>
-                            <sources>
-                                <source>${project.build.directory}/generated-sources/java/</source>
-                            </sources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
 
