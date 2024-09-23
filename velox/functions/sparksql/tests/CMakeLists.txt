@@ -23,6 +23,7 @@ add_executable(
   ArraySortTest.cpp
   ArrayShuffleTest.cpp
   ArgGeneratorTest.cpp
+  AtLeastNNonNullsTest.cpp
   BitwiseTest.cpp
   ComparisonsTest.cpp
   DateTimeFunctionsTest.cpp

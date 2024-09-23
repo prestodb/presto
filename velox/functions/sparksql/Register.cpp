@@ -53,6 +53,7 @@
 #include "velox/functions/sparksql/StringToMap.h"
 #include "velox/functions/sparksql/UnscaledValueFunction.h"
 #include "velox/functions/sparksql/Uuid.h"
+#include "velox/functions/sparksql/specialforms/AtLeastNNonNulls.h"
 #include "velox/functions/sparksql/specialforms/DecimalRound.h"
 #include "velox/functions/sparksql/specialforms/MakeDecimal.h"
 #include "velox/functions/sparksql/specialforms/SparkCastExpr.h"
@@ -148,6 +149,9 @@ void registerAllSpecialFormGeneralFunctions() {
       "cast", std::make_unique<SparkCastCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
       "try_cast", std::make_unique<SparkTryCastCallToSpecialForm>());
+  exec::registerFunctionCallToSpecialForm(
+      AtLeastNNonNullsCallToSpecialForm::kAtLeastNNonNulls,
+      std::make_unique<AtLeastNNonNullsCallToSpecialForm>());
 }
 
 namespace {

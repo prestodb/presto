@@ -14,6 +14,7 @@
 
 velox_add_library(
   velox_functions_spark_specialforms
+  AtLeastNNonNulls.cpp
   DecimalRound.cpp
   MakeDecimal.cpp
   SparkCastExpr.cpp
