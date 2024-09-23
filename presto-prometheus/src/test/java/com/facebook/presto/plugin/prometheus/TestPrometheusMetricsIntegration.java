@@ -118,4 +118,13 @@ public class TestPrometheusMetricsIntegration
         MaterializedResult results = runner.execute(session, "SELECT * FROM prometheus.default.up WHERE timestamp > (NOW() - INTERVAL '15' SECOND)").toTestTypes();
         assertEquals(results.getRowCount(), 1);
     }
+    @Test(priority = 3, dependsOnMethods = "testConfirmMetricAvailableAndCheckUp")
+    public void testCountQuery()
+    {
+        MaterializedResult countResult = runner.execute(session, "SELECT COUNT(*) FROM prometheus.default.up").toTestTypes();
+        assertEquals(countResult.getRowCount(), 1);
+        MaterializedRow countRow = countResult.getMaterializedRows().get(0);
+        long countValue = (Long) countRow.getField(0);
+        assert countValue >= 1 : "Expected COUNT(*) to be >= 1, but got " + countValue;
+    }
 }
