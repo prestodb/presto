@@ -19,6 +19,7 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -40,7 +41,7 @@ public class TimestampWithTimezoneValueWriter
     {
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
-                long value = type.getLong(block, i);
+                long value = unpackMillisUtc(type.getLong(block, i));
                 long scaledValue = writeMicroseconds ? MILLISECONDS.toMicros(value) : value;
                 getValueWriter().writeLong(scaledValue);
                 getStatistics().updateStats(scaledValue);

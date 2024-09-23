@@ -46,6 +46,7 @@ import java.util.Map;
 import static com.facebook.presto.common.predicate.Marker.Bound.ABOVE;
 import static com.facebook.presto.common.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
@@ -198,8 +199,12 @@ public final class ExpressionConverter
             return toIntExact(((Long) marker.getValue()));
         }
 
-        if (type instanceof TimestampType || type instanceof TimeType || type instanceof TimestampWithTimeZoneType) {
+        if (type instanceof TimestampType || type instanceof TimeType) {
             return MILLISECONDS.toMicros((Long) marker.getValue());
+        }
+
+        if (type instanceof TimestampWithTimeZoneType) {
+            return MILLISECONDS.toMicros(unpackMillisUtc((Long) marker.getValue()));
         }
 
         if (type instanceof VarcharType) {
