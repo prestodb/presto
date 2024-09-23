@@ -41,7 +41,6 @@ public class TimestampValueWriter
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
                 long value = type.getLong(block, i);
-                // Convert to proper encoding here
                 long scaledValue = writeMicroseconds ? MILLISECONDS.toMicros(value) : value;
                 getValueWriter().writeLong(scaledValue);
                 getStatistics().updateStats(scaledValue);
