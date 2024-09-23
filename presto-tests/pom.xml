@@ -261,13 +261,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
-            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
