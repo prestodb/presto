@@ -287,6 +287,11 @@ class QueryConfig {
   /// The current spark partition id.
   static constexpr const char* kSparkPartitionId = "spark.partition_id";
 
+  /// If true, simple date formatter is used for time formatting and parsing.
+  /// Joda date formatter is used by default.
+  static constexpr const char* kSparkLegacyDateFormatter =
+      "spark.legacy_date_formatter";
+
   /// The number of local parallel table writer operators per task.
   static constexpr const char* kTaskWriterCount = "task_writer_count";
 
@@ -739,6 +744,10 @@ class QueryConfig {
     auto value = id.value();
     VELOX_CHECK_GE(value, 0, "Invalid Spark partition id.");
     return value;
+  }
+
+  bool sparkLegacyDateFormatter() const {
+    return get<bool>(kSparkLegacyDateFormatter, false);
   }
 
   bool exprTrackCpuUsage() const {

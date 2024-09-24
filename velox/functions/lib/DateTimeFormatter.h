@@ -23,7 +23,19 @@
 
 namespace facebook::velox::functions {
 
-enum class DateTimeFormatterType { JODA, MYSQL, UNKNOWN };
+enum class DateTimeFormatterType {
+  JODA,
+  MYSQL,
+  // Corresponding to java.text.SimpleDateFormat in lenient mode. It is used by
+  // the 'date_format', 'from_unixtime', 'unix_timestamp' and
+  // 'to_unix_timestamp' Spark functions.
+  // TODO: this is currently no different from STRICT_SIMPLE.
+  LENIENT_SIMPLE,
+  // Corresponding to java.text.SimpleDateFormat in strict(lenient=false) mode.
+  // It is used by Spark 'cast date to string'.
+  STRICT_SIMPLE,
+  UNKNOWN
+};
 
 enum class DateTimeFormatSpecifier : uint8_t {
   // Era, e.g: "AD"
@@ -208,6 +220,10 @@ std::shared_ptr<DateTimeFormatter> buildMysqlDateTimeFormatter(
 
 std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
     const std::string_view& format);
+
+std::shared_ptr<DateTimeFormatter> buildSimpleDateTimeFormatter(
+    const std::string_view& format,
+    bool lenient);
 
 } // namespace facebook::velox::functions
 

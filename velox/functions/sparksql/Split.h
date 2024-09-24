@@ -165,6 +165,6 @@ struct Split {
     result.add_item().setNoCopy(StringView(start + pos, end - pos));
   }
 
-  mutable detail::ReCache cache_;
+  mutable facebook::velox::functions::detail::ReCache cache_;
 };
 } // namespace facebook::velox::functions::sparksql

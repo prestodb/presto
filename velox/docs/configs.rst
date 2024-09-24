@@ -713,6 +713,13 @@ Spark-specific Configuration
      - integer
      -
      - The current task's Spark partition ID. It's set by the query engine (Spark) prior to task execution.
+   * - spark.legacy_date_formatter
+     - bool
+     - false
+     - If true, `Simple <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>` date formatter is used for time formatting and parsing. Joda date formatter is used by default.
+     - Joda date formatter performs strict checking of its input and uses different pattern string.
+     - For example, the 2015-07-22 10:00:00 timestamp cannot be parse if pattern is yyyy-MM-dd because the parser does not consume whole input.
+     - Another example is that the 'W' pattern, which means week in month, is not supported. For more differences, see :issue:`10354`.
 
 Tracing
 --------

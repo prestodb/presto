@@ -82,7 +82,9 @@ These functions support TIMESTAMP and DATE input types.
 
     Adjusts ``unixTime`` (elapsed seconds since UNIX epoch) to configured session timezone, then
     converts it to a formatted time string according to ``format``. Only supports BIGINT type for
-    ``unixTime``.
+    ``unixTime``. Using `Simple <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>`
+    date formatter in lenient mode that is align with Spark legacy date parser behavior or
+    `Joda <https://www.joda.org/joda-time/>` date formatter depends on ``spark.legacy_date_formatter`` configuration.
     `Valid patterns for date format
     <https://spark.apache.org/docs/latest/sql-ref-datetime-pattern.html>`_. Throws exception for
     invalid ``format``. This function will convert input to milliseconds, and integer overflow is
@@ -285,7 +287,10 @@ These functions support TIMESTAMP and DATE input types.
 
 .. spark:function:: unix_timestamp() -> integer
 
-    Returns the current UNIX timestamp in seconds.
+    Returns the current UNIX timestamp in seconds. Using
+    `Simple <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>` date formatter in lenient mode
+    that is align with Spark legacy date parser behavior or `Joda <https://www.joda.org/joda-time/>` date formatter
+    depends on the ``spark.legacy_date_formatter`` configuration.
 
 .. spark:function:: unix_timestamp(string) -> integer
    :noindex:
