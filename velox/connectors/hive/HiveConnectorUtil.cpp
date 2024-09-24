@@ -409,6 +409,12 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
       filterSubfields.erase(it);
     }
     auto* fieldSpec = spec->addField(name, i);
+    if (isRowIndexColumn(name, rowIndexColumn)) {
+      VELOX_CHECK(type->isBigint());
+      // Set the flag for the case that the row index column only exists in
+      // remaining filters.
+      fieldSpec->setExplicitRowNumber(true);
+    }
     addSubfields(*type, subfieldSpecs, 1, pool, *fieldSpec);
     processFieldSpec(dataColumns, type, *fieldSpec);
     subfieldSpecs.clear();

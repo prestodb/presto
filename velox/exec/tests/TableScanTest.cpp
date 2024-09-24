@@ -5089,18 +5089,15 @@ TEST_F(TableScanTest, rowNumberInRemainingFilter) {
   });
   auto file = TempFilePath::create();
   writeToFile(file->getPath(), {vector});
-  auto outputType = ROW({"c1"}, {BIGINT()});
-  // FIXME: We should not need r1 in table schema for production code; this is
-  // just to infer type of r1 in remaining filter expression parser.  We
-  // probably need to find a way to specify the type of r1 without adding it to
-  // table schema to test this case.  For now it's essentially untested.
-  auto schema = ROW({"c1", "r1"}, {BIGINT(), BIGINT()});
+  auto outputType = ROW({"c0"}, {BIGINT()});
+  auto remainingFilter = parseExpr("r1 % 2 == 0", ROW({"r1"}, {BIGINT()}));
+  auto tableHandle = makeTableHandle(SubfieldFilters{}, remainingFilter);
   auto plan = PlanBuilder()
                   .startTableScan()
                   .outputType(outputType)
-                  .dataColumns(schema)
+                  .tableHandle(tableHandle)
                   .assignments({
-                      {"c1", makeColumnHandle("c1", BIGINT(), {})},
+                      {"c0", makeColumnHandle("c0", BIGINT(), {})},
                       {"r1",
                        std::make_shared<HiveColumnHandle>(
                            "r1",
@@ -5108,11 +5105,10 @@ TEST_F(TableScanTest, rowNumberInRemainingFilter) {
                            BIGINT(),
                            BIGINT())},
                   })
-                  .remainingFilter("r1 % 2 == 0")
                   .endTableScan()
                   .planNode();
   auto expected = makeRowVector(
-      {"c1"}, {makeFlatVector<int64_t>(kSize / 2, [](vector_size_t row) {
+      {"c0"}, {makeFlatVector<int64_t>(kSize / 2, [](vector_size_t row) {
         return row * 2;
       })});
   AssertQueryBuilder(plan)
