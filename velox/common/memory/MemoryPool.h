@@ -40,6 +40,10 @@ class ParallelMemoryReclaimer;
 }
 
 namespace facebook::velox::memory {
+class TestArbitrator;
+}
+
+namespace facebook::velox::memory {
 #define VELOX_MEM_POOL_CAP_EXCEEDED(errorMessage)                   \
   _VELOX_THROW(                                                     \
       ::facebook::velox::VeloxRuntimeError,                         \
@@ -558,7 +562,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   friend class velox::exec::ParallelMemoryReclaimer;
   friend class MemoryManager;
   friend class MemoryArbitrator;
+  friend class velox::memory::TestArbitrator;
   friend class ScopedMemoryPoolArbitrationCtx;
+  friend class ArbitrationParticipant;
 
   VELOX_FRIEND_TEST(MemoryPoolTest, shrinkAndGrowAPIs);
   VELOX_FRIEND_TEST(MemoryPoolTest, grow);
