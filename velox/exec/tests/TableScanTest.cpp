@@ -5090,6 +5090,10 @@ TEST_F(TableScanTest, rowNumberInRemainingFilter) {
   auto file = TempFilePath::create();
   writeToFile(file->getPath(), {vector});
   auto outputType = ROW({"c1"}, {BIGINT()});
+  // FIXME: We should not need r1 in table schema for production code; this is
+  // just to infer type of r1 in remaining filter expression parser.  We
+  // probably need to find a way to specify the type of r1 without adding it to
+  // table schema to test this case.  For now it's essentially untested.
   auto schema = ROW({"c1", "r1"}, {BIGINT(), BIGINT()});
   auto plan = PlanBuilder()
                   .startTableScan()

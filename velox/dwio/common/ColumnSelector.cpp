@@ -344,7 +344,7 @@ std::shared_ptr<ColumnSelector> ColumnSelector::fromScanSpec(
     const RowTypePtr& rowType) {
   std::vector<std::string> columnNames;
   for (auto& child : spec.children()) {
-    if (child->isConstant()) {
+    if (child->isConstant() || child->isExplicitRowNumber()) {
       continue;
     }
     std::string name = child->fieldName();
