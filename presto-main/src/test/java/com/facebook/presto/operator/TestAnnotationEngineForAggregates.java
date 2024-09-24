@@ -1039,7 +1039,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(implementations.getGenericImplementations().size(), 1);
         AggregationImplementation implementation = implementations.getGenericImplementations().get(0);
 
-        assertTrue(!implementation.getStateSerializerFactory().isPresent());
+        assertFalse(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), LongConstraintAggregateFunction.class);
 
         assertDependencyCount(implementation, 0, 0, 0);

@@ -96,7 +96,7 @@ public class MockExchangeRequestProcessor
         }
 
         // verify we got a data size and it parses correctly
-        assertTrue(!request.getHeaders().get(PrestoHeaders.PRESTO_MAX_SIZE).isEmpty());
+        assertFalse(request.getHeaders().get(PrestoHeaders.PRESTO_MAX_SIZE).isEmpty());
         DataSize maxSize = DataSize.valueOf(request.getHeader(PrestoHeaders.PRESTO_MAX_SIZE));
         assertTrue(maxSize.compareTo(expectedMaxSize) <= 0);
         requestMaxSizes.add(maxSize);

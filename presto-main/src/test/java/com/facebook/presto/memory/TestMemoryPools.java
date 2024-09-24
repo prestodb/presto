@@ -185,7 +185,7 @@ public class TestMemoryPools
     {
         setUpCountStarFromOrdersWithJoin();
         ListenableFuture future = userPool.reserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
-        assertTrue(!future.isDone());
+        assertFalse(future.isDone());
         try {
             future.cancel(true);
             fail("cancel should fail");

@@ -312,7 +312,7 @@ public class TestSpillableGroupedTopNBuilder
         // Yield after producing first output Page
         SettableFuture<?> currentWaitingFuture = SettableFuture.create();
         memoryWaitingFuture.setFuture(currentWaitingFuture);
-        assertTrue(!memoryWaitingFuture.getFuture().isDone());
+        assertFalse(memoryWaitingFuture.getFuture().isDone());
 
         // try to get output and assert that none is available
         boolean isResAvailble = result.process();

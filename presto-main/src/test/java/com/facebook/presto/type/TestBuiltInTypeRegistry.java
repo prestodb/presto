@@ -347,14 +347,14 @@ public class TestBuiltInTypeRegistry
             this.commonSuperType = requireNonNull(commonSuperType, "commonSuperType is null");
 
             // Assert that: (canFirstCoerceToSecond || canSecondCoerceToFirst) => commonSuperType.isPresent
-            assertTrue(!(canCoerceFirstToSecond || canCoerceSecondToFirst) || commonSuperType.isPresent(), "Expected canCoercion to be false when there is no commonSuperType");
+            assertFalse((canCoerceFirstToSecond || canCoerceSecondToFirst) || commonSuperType.isPresent(), "Expected canCoercion to be false when there is no commonSuperType");
             this.canCoerceFirstToSecond = canCoerceFirstToSecond;
             this.canCoerceSecondToFirst = canCoerceSecondToFirst;
         }
 
         public void isIncompatible()
         {
-            assertTrue(!commonSuperType.isPresent(), "Expected to be incompatible");
+            assertFalse(commonSuperType.isPresent(), "Expected to be incompatible");
         }
 
         public CompatibilityAssertion hasCommonSuperType(Type expected)

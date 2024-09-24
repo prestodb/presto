@@ -562,7 +562,7 @@ public class TestHashAggregationOperator
             }
 
             // There should be some pages that were drained
-            assertTrue(!outputPages.isEmpty());
+            assertFalse(outputPages.isEmpty());
 
             // The operator need input again since this was a partial flush
             assertTrue(operator.needsInput());
