@@ -21,6 +21,8 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -70,6 +72,50 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
                         long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
                         values[destinationIndex++] = MICROSECONDS.toMillis(dictionaryValue);
+                    }
+                    break;
+                }
+                default:
+                    throw new ParquetDecodingException("not a valid mode " + mode);
+            }
+
+            currentCount -= numEntriesToFill;
+            remainingToCopy -= numEntriesToFill;
+        }
+
+        checkState(remainingToCopy == 0, "End of stream: Invalid read size request");
+    }
+
+    @Override
+    public void readNextWithTimezone(long[] values, int offset, int length)
+            throws IOException
+    {
+        int destinationIndex = offset;
+        int remainingToCopy = length;
+        while (remainingToCopy > 0) {
+            if (currentCount == 0) {
+                if (!decode()) {
+                    break;
+                }
+            }
+
+            int numEntriesToFill = Math.min(remainingToCopy, currentCount);
+            int endIndex = destinationIndex + numEntriesToFill;
+            switch (mode) {
+                case RLE: {
+                    final int rleValue = currentValue;
+                    final long rleDictionaryValue = packDateTimeWithZone(MICROSECONDS.toMillis(dictionary.decodeToLong(rleValue)), UTC_KEY);
+                    while (destinationIndex < endIndex) {
+                        values[destinationIndex++] = rleDictionaryValue;
+                    }
+                    break;
+                }
+                case PACKED: {
+                    final int[] localBuffer = currentBuffer;
+                    final LongDictionary localDictionary = dictionary;
+                    for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
+                        long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
+                        values[destinationIndex++] = packDateTimeWithZone(MICROSECONDS.toMillis(dictionaryValue), UTC_KEY);
                     }
                     break;
                 }

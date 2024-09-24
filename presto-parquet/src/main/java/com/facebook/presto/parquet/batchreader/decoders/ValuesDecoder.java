@@ -60,6 +60,9 @@ public interface ValuesDecoder
         void readNext(long[] values, int offset, int length)
                 throws IOException;
 
+        void readNextWithTimezone(long[] values, int offset, int length)
+                throws IOException;
+
         void skip(int length)
                 throws IOException;
     }
