@@ -1098,15 +1098,21 @@ class RowContainer {
         Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
         Kind == TypeKind::MAP) {
       return compareComplexType(row, offset, decoded, index) == 0;
-    }
-    if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
+    } else if constexpr (
+        Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       return compareStringAsc(
                  valueAt<StringView>(row, offset), decoded, index) == 0;
+    } else {
+      using T = typename KindToFlatVector<Kind>::HashRowType;
+      return decoded.base()->typeUsesCustomComparison()
+          ? SimpleVector<T>::template comparePrimitiveAscWithCustomComparison<
+                Kind>(
+                decoded.base()->type().get(),
+                decoded.valueAt<T>(index),
+                valueAt<T>(row, offset))
+          : SimpleVector<T>::comparePrimitiveAsc(
+                decoded.valueAt<T>(index), valueAt<T>(row, offset)) == 0;
     }
-
-    using T = typename KindToFlatVector<Kind>::HashRowType;
-    return SimpleVector<T>::comparePrimitiveAsc(
-               decoded.valueAt<T>(index), valueAt<T>(row, offset)) == 0;
   }
 
   template <TypeKind Kind>
@@ -1129,16 +1135,20 @@ class RowContainer {
         Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
         Kind == TypeKind::MAP) {
       return compareComplexType(row, column.offset(), decoded, index, flags);
-    }
-    if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
+    } else if constexpr (
+        Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       auto result = compareStringAsc(
           valueAt<StringView>(row, column.offset()), decoded, index);
       return flags.ascending ? result : result * -1;
+    } else {
+      auto left = valueAt<T>(row, column.offset());
+      auto right = decoded.valueAt<T>(index);
+      auto result = decoded.base()->typeUsesCustomComparison()
+          ? SimpleVector<T>::template comparePrimitiveAscWithCustomComparison<
+                Kind>(decoded.base()->type().get(), left, right)
+          : SimpleVector<T>::comparePrimitiveAsc(left, right);
+      return flags.ascending ? result : result * -1;
     }
-    auto left = valueAt<T>(row, column.offset());
-    auto right = decoded.valueAt<T>(index);
-    auto result = SimpleVector<T>::comparePrimitiveAsc(left, right);
-    return flags.ascending ? result : result * -1;
   }
 
   template <TypeKind Kind>
@@ -1168,18 +1178,21 @@ class RowContainer {
         Kind == TypeKind::MAP) {
       return compareComplexType(
           left, right, type, leftOffset, rightOffset, flags);
-    }
-    if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
+    } else if constexpr (
+        Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       auto leftValue = valueAt<StringView>(left, leftOffset);
       auto rightValue = valueAt<StringView>(right, rightOffset);
       auto result = compareStringAsc(leftValue, rightValue);
       return flags.ascending ? result : result * -1;
+    } else {
+      auto leftValue = valueAt<T>(left, leftOffset);
+      auto rightValue = valueAt<T>(right, rightOffset);
+      auto result = type->providesCustomComparison()
+          ? SimpleVector<T>::template comparePrimitiveAscWithCustomComparison<
+                Kind>(type, leftValue, rightValue)
+          : SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+      return flags.ascending ? result : result * -1;
     }
-
-    auto leftValue = valueAt<T>(left, leftOffset);
-    auto rightValue = valueAt<T>(right, rightOffset);
-    auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
-    return flags.ascending ? result : result * -1;
   }
 
   template <TypeKind Kind>

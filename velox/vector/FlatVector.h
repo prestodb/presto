@@ -326,16 +326,32 @@ class FlatVector final : public SimpleVector<T> {
 
     auto thisValue = valueAtFast(index);
     auto otherValue = other->valueAtFast(otherIndex);
-    auto result = SimpleVector<T>::comparePrimitiveAsc(thisValue, otherValue);
+    auto result = this->typeUsesCustomComparison_
+        ? SimpleVector<T>::comparePrimitiveAscWithCustomComparison(
+              this->type_.get(), thisValue, otherValue)
+        : SimpleVector<T>::comparePrimitiveAsc(thisValue, otherValue);
+
     return flags.ascending ? result : result * -1;
   }
 
-  void sortIndices(std::vector<vector_size_t>& indices, CompareFlags flags)
-      const override {
+  template <bool useCustomComparison, typename ValueAt, typename IsNullAt>
+  void sortIndices(
+      ValueAt valueAt,
+      IsNullAt isNullAt,
+      std::vector<vector_size_t>& indices,
+      CompareFlags flags) const {
     auto compareNonNull = [&](vector_size_t left, vector_size_t right) {
-      auto leftValue = valueAtFast(left);
-      auto rightValue = valueAtFast(right);
-      auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+      auto leftValue = valueAt(left);
+      auto rightValue = valueAt(right);
+
+      int result;
+      if constexpr (useCustomComparison) {
+        result = SimpleVector<T>::comparePrimitiveAscWithCustomComparison(
+            this->type_.get(), leftValue, rightValue);
+      } else {
+        result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+      }
+
       return (flags.ascending ? result : result * -1) < 0;
     };
 
@@ -344,8 +360,8 @@ class FlatVector final : public SimpleVector<T> {
           indices.begin(),
           indices.end(),
           [&](vector_size_t left, vector_size_t right) {
-            bool leftNull = BaseVector::isNullAt(left);
-            bool rightNull = BaseVector::isNullAt(right);
+            bool leftNull = isNullAt(left);
+            bool rightNull = isNullAt(right);
             if (leftNull || rightNull) {
               return BaseVector::compareNulls(leftNull, rightNull, flags)
                          .value() < 0;
@@ -358,33 +374,39 @@ class FlatVector final : public SimpleVector<T> {
     }
   }
 
+  void sortIndices(std::vector<vector_size_t>& indices, CompareFlags flags)
+      const override {
+    if (this->typeUsesCustomComparison_) {
+      sortIndices<true>(
+          [this](vector_size_t idx) { return valueAtFast(idx); },
+          [this](vector_size_t idx) { return BaseVector::isNullAt(idx); },
+          indices,
+          flags);
+    } else {
+      sortIndices<false>(
+          [this](vector_size_t idx) { return valueAtFast(idx); },
+          [this](vector_size_t idx) { return BaseVector::isNullAt(idx); },
+          indices,
+          flags);
+    }
+  }
+
   void sortIndices(
       std::vector<vector_size_t>& indices,
       const vector_size_t* mapping,
       CompareFlags flags) const override {
-    auto compareNonNull = [&](vector_size_t left, vector_size_t right) {
-      auto leftValue = valueAtFast(mapping[left]);
-      auto rightValue = valueAtFast(mapping[right]);
-      auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
-      return (flags.ascending ? result : result * -1) < 0;
-    };
-
-    if (BaseVector::rawNulls_) {
-      std::sort(
-          indices.begin(),
-          indices.end(),
-          [&](vector_size_t left, vector_size_t right) {
-            bool leftNull = BaseVector::isNullAt(mapping[left]);
-            bool rightNull = BaseVector::isNullAt(mapping[right]);
-            if (leftNull || rightNull) {
-              return BaseVector::compareNulls(leftNull, rightNull, flags)
-                         .value() < 0;
-            }
-
-            return compareNonNull(left, right);
-          });
+    if (this->typeUsesCustomComparison_) {
+      sortIndices<true>(
+          [&](vector_size_t idx) { return valueAtFast(mapping[idx]); },
+          [&](vector_size_t idx) { return BaseVector::isNullAt(mapping[idx]); },
+          indices,
+          flags);
     } else {
-      std::sort(indices.begin(), indices.end(), compareNonNull);
+      sortIndices<false>(
+          [&](vector_size_t idx) { return valueAtFast(mapping[idx]); },
+          [&](vector_size_t idx) { return BaseVector::isNullAt(mapping[idx]); },
+          indices,
+          flags);
     }
   }
 
@@ -401,8 +423,8 @@ class FlatVector final : public SimpleVector<T> {
     return size;
   }
 
-  /// Used for vectors of type VARCHAR and VARBINARY to hold data referenced by
-  /// StringView's. It is safe to share these among multiple vectors. These
+  /// Used for vectors of type VARCHAR and VARBINARY to hold data referenced
+  /// by StringView's. It is safe to share these among multiple vectors. These
   /// buffers are append only. It is allowed to append data, but it is
   /// prohibited to modify already written data.
   const std::vector<BufferPtr>& stringBuffers() const {
@@ -422,8 +444,8 @@ class FlatVector final : public SimpleVector<T> {
     }
   }
 
-  /// Used for vectors of type VARCHAR and VARBINARY to release the data buffers
-  /// referenced by StringView's.
+  /// Used for vectors of type VARCHAR and VARBINARY to release the data
+  /// buffers referenced by StringView's.
   void clearStringBuffers() {
     VELOX_DCHECK_GE(stringBuffers_.size(), stringBufferSet_.size());
 
@@ -474,13 +496,13 @@ class FlatVector final : public SimpleVector<T> {
 
   /// This API is available only for string vectors (T = StringView).
   ///
-  /// Finds an existing string buffer that's singly-referenced (not shared) and
-  /// have enough unused capacity to fit 'size' bytes. If found, resizes the
-  /// buffer to add 'size' bytes and returns a pointer to the start of writable
-  /// memory. If not found, allocates new buffer, adds it to 'stringBuffers',
-  /// sets buffer size to 'size' and returns a pointer to the start of writable
-  /// memory.
-  /// The caller must ensure not to write more then 'size' bytes.
+  /// Finds an existing string buffer that's singly-referenced (not shared)
+  /// and have enough unused capacity to fit 'size' bytes. If found, resizes
+  /// the buffer to add 'size' bytes and returns a pointer to the start of
+  /// writable memory. If not found, allocates new buffer, adds it to
+  /// 'stringBuffers', sets buffer size to 'size' and returns a pointer to the
+  /// start of writable memory. The caller must ensure not to write more then
+  /// 'size' bytes.
   ///
   /// If allocates new buffer and 'exactSize' is true, allocates 'size' bytes.
   /// Otherwise, allocates at least kInitialStringSize bytes.
@@ -495,9 +517,10 @@ class FlatVector final : public SimpleVector<T> {
   }
 
   /// Calls BaseVector::prapareForReuse() to check and reset nulls buffer if
-  /// needed, checks and resets values buffer. Resets all strings buffers except
-  /// the first one. Keeps the first string buffer if singly-referenced and
-  /// mutable. Resizes the buffer to zero to allow for reuse instead of append.
+  /// needed, checks and resets values buffer. Resets all strings buffers
+  /// except the first one. Keeps the first string buffer if singly-referenced
+  /// and mutable. Resizes the buffer to zero to allow for reuse instead of
+  /// append.
   void prepareForReuse() override;
 
   void validate(const VectorValidateOptions& options) const override {
@@ -569,8 +592,8 @@ class FlatVector final : public SimpleVector<T> {
   // Used by 'acquireSharedStringBuffers()' to fast check if a buffer to share
   // has already been referenced by 'stringBuffers_'.
   //
-  // NOTE: we need to ensure 'stringBuffers_' and 'stringBufferSet_' are always
-  // consistent.
+  // NOTE: we need to ensure 'stringBuffers_' and 'stringBufferSet_' are
+  // always consistent.
   folly::F14FastSet<const Buffer*> stringBufferSet_;
 };
 

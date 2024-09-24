@@ -43,6 +43,8 @@ BaseVector::BaseVector(
     std::optional<ByteCount> storageByteCount)
     : type_(std::move(type)),
       typeKind_(type_ ? type_->kind() : TypeKind::INVALID),
+      typeUsesCustomComparison_(
+          type_ ? type_->providesCustomComparison() : false),
       encoding_(encoding),
       nulls_(std::move(nulls)),
       rawNulls_(nulls_.get() ? nulls_->as<uint64_t>() : nullptr),

@@ -48,6 +48,7 @@ target_link_libraries(
   velox_presto_serializer
   velox_presto_types
   velox_temp_path
+  velox_type_test_lib
   velox_vector_fuzzer
   Boost::atomic
   Boost::context

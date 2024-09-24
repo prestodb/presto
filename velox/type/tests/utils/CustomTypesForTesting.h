@@ -142,8 +142,6 @@ class VarcharTypeWithCustomComparison : public VarcharType {
     return this == &other;
   }
 
-  // For the purposes of testing, this type only compares the bottom 8 bits of
-  // values.
   int32_t compare(const StringView& left, const StringView& right)
       const override {
     return left.compare(right);

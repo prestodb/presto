@@ -365,7 +365,10 @@ std::optional<int32_t> compare(
   using T = typename TypeTraits<Kind>::NativeType;
   auto rightValue = right.asUnchecked<SimpleVector<T>>()->valueAt(index);
   auto leftValue = left.read<T>();
-  auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+  auto result = right.typeUsesCustomComparison()
+      ? SimpleVector<T>::template comparePrimitiveAscWithCustomComparison<Kind>(
+            right.type().get(), leftValue, rightValue)
+      : SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
   return flags.ascending ? result : result * -1;
 }
 
@@ -592,12 +595,15 @@ template <TypeKind Kind>
 std::optional<int32_t> compare(
     ByteInputStream& left,
     ByteInputStream& right,
-    const Type* /*type*/,
+    const Type* type,
     CompareFlags flags) {
   using T = typename TypeTraits<Kind>::NativeType;
   T leftValue = left.read<T>();
   T rightValue = right.read<T>();
-  auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+  auto result = type->providesCustomComparison()
+      ? SimpleVector<T>::template comparePrimitiveAscWithCustomComparison<Kind>(
+            type, leftValue, rightValue)
+      : SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
   return flags.ascending ? result : result * -1;
 }
 

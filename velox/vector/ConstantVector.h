@@ -313,8 +313,12 @@ class ConstantVector final : public SimpleVector<T> {
               isNull_, otherConstant->isNull_, flags);
         }
 
-        auto result =
-            SimpleVector<T>::comparePrimitiveAsc(value_, otherConstant->value_);
+        auto result = this->typeUsesCustomComparison_
+            ? SimpleVector<T>::comparePrimitiveAscWithCustomComparison(
+                  this->type_.get(), value_, otherConstant->value_)
+            : SimpleVector<T>::comparePrimitiveAsc(
+                  value_, otherConstant->value_);
+
         return flags.ascending ? result : result * -1;
       }
     }

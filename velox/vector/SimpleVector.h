@@ -160,7 +160,10 @@ class SimpleVector : public BaseVector {
     auto simpleVector = reinterpret_cast<const SimpleVector<T>*>(other);
     auto thisValue = valueAt(index);
     auto otherValue = simpleVector->valueAt(otherIndex);
-    auto result = comparePrimitiveAsc(thisValue, otherValue);
+    auto result = this->typeUsesCustomComparison_
+        ? comparePrimitiveAscWithCustomComparison(
+              this->type_.get(), thisValue, otherValue)
+        : comparePrimitiveAsc(thisValue, otherValue);
     return {flags.ascending ? result : result * -1};
   }
 
@@ -168,17 +171,37 @@ class SimpleVector : public BaseVector {
     BaseVector::validate(options);
   }
 
+  template <TypeKind Kind>
+  uint64_t hashValueAt(const T& value) const {
+    if constexpr (!std::is_same<T, typename TypeTraits<Kind>::NativeType>()) {
+      VELOX_UNSUPPORTED(
+          "Cannot apply custom comparisons when the value type of the Vector {} does not match the NativeType associated with the Type of the Vector {}",
+          typeid(typename TypeTraits<Kind>::NativeType).name(),
+          typeid(T).name());
+    } else {
+      return static_cast<const CanProvideCustomComparisonType<Kind>*>(
+                 type_.get())
+          ->hash(value);
+    }
+  }
+
   /**
    * @return the hash of the value at the given index in this vector
    */
   uint64_t hashValueAt(vector_size_t index) const override {
+    if (isNullAt(index)) {
+      return BaseVector::kNullHash;
+    }
+
+    if (type_->providesCustomComparison()) {
+      return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          hashValueAt, type_->kind(), valueAt(index));
+    }
+
     if constexpr (std::is_floating_point_v<T>) {
-      return isNullAt(index)
-          ? BaseVector::kNullHash
-          : util::floating_point::NaNAwareHash<T>{}(valueAt(index));
+      return util::floating_point::NaNAwareHash<T>{}(valueAt(index));
     } else {
-      return isNullAt(index) ? BaseVector::kNullHash
-                             : folly::hasher<T>{}(valueAt(index));
+      return folly::hasher<T>{}(valueAt(index));
     }
   }
 
@@ -352,6 +375,34 @@ class SimpleVector : public BaseVector {
   typename std::enable_if_t<std::is_same_v<U, StringView>, const AsciiInfo&>
   testGetAsciiInfo() const {
     return asciiInfo;
+  }
+
+  template <TypeKind Kind>
+  FOLLY_ALWAYS_INLINE static int comparePrimitiveAscWithCustomComparison(
+      const Type* type,
+      const T& left,
+      const T& right) {
+    if constexpr (!std::is_same<T, typename TypeTraits<Kind>::NativeType>()) {
+      VELOX_UNSUPPORTED(
+          "Cannot apply custom comparisons when the value type of the Vector {} does not match the NativeType associated with the Type of the Vector {}",
+          typeid(typename TypeTraits<Kind>::NativeType).name(),
+          typeid(T).name());
+    } else {
+      return static_cast<const CanProvideCustomComparisonType<Kind>*>(type)
+          ->compare(left, right);
+    }
+  }
+
+  static int comparePrimitiveAscWithCustomComparison(
+      const Type* type,
+      const T& left,
+      const T& right) {
+    return VELOX_DYNAMIC_TYPE_DISPATCH(
+        comparePrimitiveAscWithCustomComparison,
+        type->kind(),
+        type,
+        left,
+        right);
   }
 
   FOLLY_ALWAYS_INLINE static int comparePrimitiveAsc(

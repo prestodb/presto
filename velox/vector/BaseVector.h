@@ -186,6 +186,10 @@ class BaseVector {
     return type_;
   }
 
+  bool typeUsesCustomComparison() const {
+    return typeUsesCustomComparison_;
+  }
+
   /// Changes vector type. The new type can have a different
   /// logical representation while maintaining the same physical type.
   /// Additionally, note that the caller must ensure that this vector is not
@@ -888,6 +892,12 @@ class BaseVector {
 
   TypePtr type_;
   const TypeKind typeKind_;
+  // Whether `type_` is a type that provides custom comparison operations.
+  // We use this instead of calling type_->providesCustomCompare() because
+  // having a constant field helps the compiler to pull this condition up in
+  // loops, and `type_` itself is non-constant (though it can only be modified
+  // logically, so this property is safe to store).
+  const bool typeUsesCustomComparison_;
   const VectorEncoding::Simple encoding_;
   BufferPtr nulls_;
   // Caches raw pointer to 'nulls->as<uint64_t>().

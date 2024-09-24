@@ -19,6 +19,7 @@
 #include <optional>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/type/tests/utils/CustomTypesForTesting.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -115,6 +116,149 @@ class VectorCompareTest : public testing::Test,
         testCompare(
             vector1, index1, vector2, index2, kOrderingAsc, kIndeterminate),
         "Ordering nulls is not supported");
+  }
+
+  void testCustomComparison(
+      const std::vector<VectorPtr>& vectors,
+      const std::vector<vector_size_t>& offsets) {
+    // Tests BaseVector::compare() for custom types that supply custom
+    // comparison. It assumes:
+    //   vectors[2][offsets[2]] is null or is a complex type that only contains
+    //     nulls
+    //   vectors[0][offsets[0]] < vectors[1][offsets[1]]
+    //   vectors[3][offsets[3]] == vectors[0][offsets[0]]
+    //   vectors[4][offsets[4]] == vectors[1][offsets[1]]
+
+    ASSERT_EQ(vectors.size(), 5);
+    ASSERT_EQ(offsets.size(), 5);
+
+    // Test equality.
+    {
+      testCompare(
+          vectors[0], offsets[0], vectors[0], offsets[0], kEquality, kEq);
+      testCompare(
+          vectors[0], offsets[0], vectors[1], offsets[1], kEquality, kNeq);
+      testCompare(
+          vectors[1], offsets[1], vectors[0], offsets[0], kEquality, kNeq);
+      testCompare(
+          vectors[0], offsets[0], vectors[3], offsets[3], kEquality, kEq);
+      testCompare(
+          vectors[3], offsets[3], vectors[0], offsets[0], kEquality, kEq);
+      testCompare(
+          vectors[0], offsets[0], vectors[4], offsets[4], kEquality, kNeq);
+      testCompare(
+          vectors[4], offsets[4], vectors[0], offsets[0], kEquality, kNeq);
+      testCompare(
+          vectors[1], offsets[1], vectors[3], offsets[3], kEquality, kNeq);
+      testCompare(
+          vectors[3], offsets[3], vectors[1], offsets[1], kEquality, kNeq);
+      testCompare(
+          vectors[1], offsets[1], vectors[4], offsets[4], kEquality, kEq);
+      testCompare(
+          vectors[4], offsets[4], vectors[1], offsets[1], kEquality, kEq);
+      testCompare(
+          vectors[0],
+          offsets[0],
+          vectors[2],
+          offsets[2],
+          kEquality,
+          kIndeterminate);
+      testCompare(
+          vectors[2],
+          offsets[2],
+          vectors[0],
+          offsets[0],
+          kEquality,
+          kIndeterminate);
+      testCompare(
+          vectors[2],
+          offsets[2],
+          vectors[2],
+          offsets[2],
+          kEquality,
+          kIndeterminate);
+    }
+
+    // Test ordering.
+    if (vectors[0]->type()->isOrderable()) {
+      testCompare(
+          vectors[0], offsets[0], vectors[0], offsets[0], kOrderingDesc, 0);
+      testCompare(
+          vectors[0], offsets[0], vectors[1], offsets[1], kOrderingDesc, 1);
+      testCompare(
+          vectors[1], offsets[1], vectors[0], offsets[0], kOrderingDesc, -1);
+      testCompare(
+          vectors[0], offsets[0], vectors[3], offsets[3], kOrderingDesc, 0);
+      testCompare(
+          vectors[3], offsets[3], vectors[0], offsets[0], kOrderingDesc, 0);
+      testCompare(
+          vectors[0], offsets[0], vectors[4], offsets[4], kOrderingDesc, 1);
+      testCompare(
+          vectors[4], offsets[4], vectors[0], offsets[0], kOrderingDesc, -1);
+      testCompare(
+          vectors[1], offsets[1], vectors[3], offsets[3], kOrderingDesc, -1);
+      testCompare(
+          vectors[3], offsets[3], vectors[1], offsets[1], kOrderingDesc, 1);
+      testCompare(
+          vectors[1], offsets[1], vectors[4], offsets[4], kOrderingDesc, 0);
+      testCompare(
+          vectors[4], offsets[4], vectors[1], offsets[1], kOrderingDesc, 0);
+
+      testCompare(
+          vectors[0], offsets[0], vectors[0], offsets[0], kOrderingAsc, 0);
+      testCompare(
+          vectors[0], offsets[0], vectors[1], offsets[1], kOrderingAsc, -1);
+      testCompare(
+          vectors[1], offsets[1], vectors[0], offsets[0], kOrderingAsc, 1);
+      testCompare(
+          vectors[0], offsets[0], vectors[3], offsets[3], kOrderingAsc, 0);
+      testCompare(
+          vectors[3], offsets[3], vectors[0], offsets[0], kOrderingAsc, 0);
+      testCompare(
+          vectors[0], offsets[0], vectors[4], offsets[4], kOrderingAsc, -1);
+      testCompare(
+          vectors[4], offsets[4], vectors[0], offsets[0], kOrderingAsc, 1);
+      testCompare(
+          vectors[1], offsets[1], vectors[3], offsets[3], kOrderingAsc, 1);
+      testCompare(
+          vectors[3], offsets[3], vectors[1], offsets[1], kOrderingAsc, -1);
+      testCompare(
+          vectors[1], offsets[1], vectors[4], offsets[4], kOrderingAsc, 0);
+      testCompare(
+          vectors[4], offsets[4], vectors[1], offsets[1], kOrderingAsc, 0);
+    }
+
+    // Test hashing.
+    {
+      ASSERT_EQ(
+          vectors[0]->hashValueAt(offsets[0]), vectors[0]->hashValueAt(0));
+      ASSERT_NE(
+          vectors[0]->hashValueAt(offsets[0]), vectors[1]->hashValueAt(1));
+      ASSERT_NE(
+          vectors[1]->hashValueAt(offsets[1]), vectors[0]->hashValueAt(0));
+      ASSERT_EQ(
+          vectors[0]->hashValueAt(offsets[0]), vectors[3]->hashValueAt(3));
+      ASSERT_EQ(
+          vectors[3]->hashValueAt(offsets[3]), vectors[0]->hashValueAt(0));
+      ASSERT_NE(
+          vectors[0]->hashValueAt(offsets[0]), vectors[4]->hashValueAt(4));
+      ASSERT_NE(
+          vectors[4]->hashValueAt(offsets[4]), vectors[0]->hashValueAt(0));
+      ASSERT_NE(
+          vectors[1]->hashValueAt(offsets[1]), vectors[3]->hashValueAt(3));
+      ASSERT_NE(
+          vectors[3]->hashValueAt(offsets[3]), vectors[1]->hashValueAt(1));
+      ASSERT_EQ(
+          vectors[1]->hashValueAt(offsets[1]), vectors[4]->hashValueAt(4));
+      ASSERT_EQ(
+          vectors[4]->hashValueAt(offsets[4]), vectors[1]->hashValueAt(1));
+      ASSERT_NE(
+          vectors[0]->hashValueAt(offsets[0]), vectors[2]->hashValueAt(2));
+      ASSERT_NE(
+          vectors[2]->hashValueAt(offsets[2]), vectors[0]->hashValueAt(0));
+      ASSERT_EQ(
+          vectors[2]->hashValueAt(offsets[2]), vectors[2]->hashValueAt(2));
+    }
   }
 };
 
@@ -427,6 +571,77 @@ TEST_F(VectorCompareTest, CompareWithNullChildVector) {
           nullptr,
           maker.flatVector<int32_t>({1, 2, 3, 4})});
   test::assertEqualVectors(rowVector1, rowVector2);
+}
+
+TEST_F(VectorCompareTest, customComparisonFlat) {
+  auto flatVector = vectorMaker_.flatVectorNullable<int64_t>(
+      {0, 1, std::nullopt, 256, 257},
+      test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON());
+
+  testCustomComparison(std::vector<VectorPtr>(5, flatVector), {0, 1, 2, 3, 4});
+}
+
+TEST_F(VectorCompareTest, customComparisonConstant) {
+  auto flatVector = vectorMaker_.flatVectorNullable<int64_t>(
+      {0, 1, std::nullopt, 256, 257},
+      test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON());
+
+  auto constantVectorNull = BaseVector::wrapInConstant(1, 2, flatVector);
+  auto constantVectorOne = BaseVector::wrapInConstant(1, 0, flatVector);
+  auto constantVectorTwo = BaseVector::wrapInConstant(1, 1, flatVector);
+  auto constantVectorThree = BaseVector::wrapInConstant(1, 3, flatVector);
+  auto constantVectorFour = BaseVector::wrapInConstant(1, 4, flatVector);
+
+  testCustomComparison(
+      {constantVectorOne,
+       constantVectorTwo,
+       constantVectorNull,
+       constantVectorThree,
+       constantVectorFour},
+      std::vector<vector_size_t>(5, 0));
+}
+
+TEST_F(VectorCompareTest, customComparisonDictionary) {
+  auto flatVector = vectorMaker_.flatVectorNullable<int64_t>(
+      {0, 1, std::nullopt, 256, 257},
+      test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON());
+
+  auto indices = makeIndices({0, 1, 2, 3, 4});
+  auto dictionary =
+      BaseVector::wrapInDictionary(nullptr, indices, 5, flatVector);
+
+  testCustomComparison(std::vector<VectorPtr>(5, dictionary), {0, 1, 2, 3, 4});
+}
+
+TEST_F(VectorCompareTest, customComparisonArray) {
+  auto arrayVector = makeNullableArrayVector<int64_t>(
+      {{0}, {1}, {std::nullopt}, {256}, {257}},
+      ARRAY(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()));
+
+  testCustomComparison(std::vector<VectorPtr>(5, arrayVector), {0, 1, 2, 3, 4});
+}
+
+TEST_F(VectorCompareTest, customComparisonMap) {
+  auto mapVector = makeNullableMapVector<int64_t, int64_t>(
+      {{{{0, 0}}},
+       {{{1, 1}}},
+       {{{0, std::nullopt}}},
+       {{{256, 256}}},
+       {{{257, 257}}}},
+      MAP(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON(),
+          test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()));
+
+  testCustomComparison(std::vector<VectorPtr>(5, mapVector), {0, 1, 2, 3, 4});
+}
+
+TEST_F(VectorCompareTest, customComparisonRow) {
+  auto rowVector = makeRowVector(
+      {"a"},
+      {vectorMaker_.flatVectorNullable<int64_t>(
+          {0, 1, std::nullopt, 256, 257},
+          test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())});
+
+  testCustomComparison(std::vector<VectorPtr>(5, rowVector), {0, 1, 2, 3, 4});
 }
 
 } // namespace facebook::velox
