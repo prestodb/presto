@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.delta;
 
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesReader;
@@ -20,6 +21,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 /**
@@ -47,6 +49,15 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
         int endOffset = offset + length;
         for (int i = offset; i < endOffset; i++) {
             values[i] = MICROSECONDS.toMillis(innerReader.readLong());
+        }
+    }
+
+    @Override
+    public void readNextWithTimezone(long[] values, int offset, int length)
+    {
+        int endOffset = offset + length;
+        for (int i = offset; i < endOffset; i++) {
+            values[i] = packDateTimeWithZone(MICROSECONDS.toMillis(innerReader.readLong()), TimeZoneKey.UTC_KEY);
         }
     }
 
