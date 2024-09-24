@@ -17,10 +17,24 @@
 #pragma once
 
 #include <string>
+#include <vector>
+#include "velox/common/file/FileSystems.h"
+
+#include <folly/dynamic.h>
 
 namespace facebook::velox::exec::trace {
 
 /// Creates a directory to store the query trace metdata and data.
 void createTraceDirectory(const std::string& traceDir);
 
+/// Extracts task ids of the query tracing by listing the trace directory.
+std::vector<std::string> getTaskIds(
+    const std::string& traceDir,
+    const std::shared_ptr<filesystems::FileSystem>& fs);
+
+/// Gets the metadata from the given task directory which includes query plan,
+/// configs and connector properties.
+folly::dynamic getMetadata(
+    const std::string& traceTaskDir,
+    const std::shared_ptr<filesystems::FileSystem>& fs);
 } // namespace facebook::velox::exec::trace

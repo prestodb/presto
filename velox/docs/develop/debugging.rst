@@ -9,3 +9,4 @@ Debugging Tools
     debugging/print-expr-with-stats
     debugging/vector-saver
     debugging/metrics
+    debugging/tracing.rst

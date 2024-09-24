@@ -737,3 +737,11 @@ Tracing
      -
      - A comma-separated list of plan node ids whose input data will be trace. If it is empty, then we only trace the
        query metadata which includes the query plan and configs etc.
+   * - query_trace_task_reg_exp
+     - string
+     -
+     - The regexp of traced task id. We only enable trace on a task if its id matches.
+   * - query_trace_max_bytes
+     - integer
+     - 0
+     - The max trace bytes limit. Tracing is disabled if zero.

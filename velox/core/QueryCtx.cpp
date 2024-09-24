@@ -87,6 +87,18 @@ void QueryCtx::updateSpilledBytesAndCheckLimit(uint64_t bytes) {
   }
 }
 
+bool QueryCtx::updateTracedBytesAndCheckLimit(uint64_t bytes) {
+  if (numTracedBytes_.fetch_add(bytes) + bytes <
+      queryConfig_.queryTraceMaxBytes()) {
+    return false;
+  }
+
+  numTracedBytes_.fetch_sub(bytes);
+  LOG(WARNING) << "Query exceeded trace limit of "
+               << succinctBytes(queryConfig_.queryTraceMaxBytes());
+  return true;
+}
+
 std::unique_ptr<memory::MemoryReclaimer> QueryCtx::MemoryReclaimer::create(
     QueryCtx* queryCtx,
     memory::MemoryPool* pool) {

@@ -16,17 +16,25 @@
 
 #include "velox/exec/trace/QueryTraceConfig.h"
 
+#include <utility>
+
 namespace facebook::velox::exec::trace {
 
 QueryTraceConfig::QueryTraceConfig(
     std::unordered_set<std::string> _queryNodeIds,
-    std::string _queryTraceDir)
+    std::string _queryTraceDir,
+    UpdateAndCheckTraceLimitCB _updateAndCheckTraceLimitCB,
+    std::string _taskRegExp)
     : queryNodes(std::move(_queryNodeIds)),
-      queryTraceDir(std::move(_queryTraceDir)) {}
+      queryTraceDir(std::move(_queryTraceDir)),
+      updateAndCheckTraceLimitCB(std::move(_updateAndCheckTraceLimitCB)),
+      taskRegExp(std::move(_taskRegExp)) {}
 
 QueryTraceConfig::QueryTraceConfig(std::string _queryTraceDir)
     : QueryTraceConfig(
           std::unordered_set<std::string>{},
-          std::move(_queryTraceDir)) {}
+          std::move(_queryTraceDir),
+          [](uint64_t) { return false; },
+          ".*") {}
 
 } // namespace facebook::velox::exec::trace

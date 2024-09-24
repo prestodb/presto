@@ -20,6 +20,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/trace/QueryTraceTraits.h"
+#include "velox/exec/trace/QueryTraceUtil.h"
 
 namespace facebook::velox::exec::trace {
 
@@ -43,19 +44,14 @@ void QueryMetadataReader::read(
         std::string,
         std::unordered_map<std::string, std::string>>& connectorProperties,
     core::PlanNodePtr& queryPlan) const {
-  const auto file = fs_->openFileForRead(metaFilePath_);
-  VELOX_CHECK_NOT_NULL(file);
-  const auto metadata = file->pread(0, file->size());
-  VELOX_USER_CHECK(!metadata.empty());
-  folly::dynamic obj = folly::parseJson(metadata);
-
-  const auto& queryConfigObj = obj[QueryTraceTraits::kQueryConfigKey];
+  folly::dynamic metaObj = getMetadata(metaFilePath_, fs_);
+  const auto& queryConfigObj = metaObj[QueryTraceTraits::kQueryConfigKey];
   for (const auto& [key, value] : queryConfigObj.items()) {
     queryConfigs[key.asString()] = value.asString();
   }
 
   const auto& connectorPropertiesObj =
-      obj[QueryTraceTraits::kConnectorPropertiesKey];
+      metaObj[QueryTraceTraits::kConnectorPropertiesKey];
   for (const auto& [connectorId, configs] : connectorPropertiesObj.items()) {
     const auto connectorIdStr = connectorId.asString();
     connectorProperties[connectorIdStr] = {};
@@ -65,6 +61,6 @@ void QueryMetadataReader::read(
   }
 
   queryPlan = ISerializable::deserialize<core::PlanNode>(
-      obj[QueryTraceTraits::kPlanNodeKey], pool_);
+      metaObj[QueryTraceTraits::kPlanNodeKey], pool_);
 }
 } // namespace facebook::velox::exec::trace

@@ -2848,6 +2848,14 @@ std::optional<trace::QueryTraceConfig> Task::maybeMakeTraceConfig() const {
       !queryConfig.queryTraceDir().empty(),
       "Query trace enabled but the trace dir is not set");
 
+  VELOX_USER_CHECK(
+      !queryConfig.queryTraceTaskRegExp().empty(),
+      "Query trace enabled but the trace task regexp is not set");
+
+  if (!RE2::FullMatch(taskId_, queryConfig.queryTraceTaskRegExp())) {
+    return std::nullopt;
+  }
+
   const auto queryTraceNodes = queryConfig.queryTraceNodeIds();
   if (queryTraceNodes.empty()) {
     return trace::QueryTraceConfig(queryConfig.queryTraceDir());
@@ -2858,8 +2866,16 @@ std::optional<trace::QueryTraceConfig> Task::maybeMakeTraceConfig() const {
   std::unordered_set<std::string> nodeSet(nodes.begin(), nodes.end());
   VELOX_CHECK_EQ(nodeSet.size(), nodes.size());
   LOG(INFO) << "Query trace plan node ids: " << queryTraceNodes;
+
+  trace::UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB =
+      [this](uint64_t bytes) {
+        return queryCtx_->updateTracedBytesAndCheckLimit(bytes);
+      };
   return trace::QueryTraceConfig(
-      std::move(nodeSet), queryConfig.queryTraceDir());
+      std::move(nodeSet),
+      queryConfig.queryTraceDir(),
+      std::move(updateAndCheckTraceLimitCB),
+      queryConfig.queryTraceTaskRegExp());
 }
 
 void Task::maybeInitQueryTrace() {

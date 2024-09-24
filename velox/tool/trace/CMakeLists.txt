@@ -12,37 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(
-  velox_query_trace_exec
-  QueryMetadataWriter.cpp
-  QueryTraceConfig.cpp
-  QueryDataWriter.cpp
-  QueryTraceUtil.cpp)
-
+velox_add_library(query_trace_replayer_base QueryTraceReplayer.cpp)
 velox_link_libraries(
-  velox_query_trace_exec
-  PRIVATE
-    velox_common_io
-    velox_file
-    velox_core
-    velox_vector
-    velox_connector
-    velox_common_base
-    velox_presto_serializer)
-
-velox_add_library(velox_query_trace_retrieve QueryDataReader.cpp
-                  QueryMetadataReader.cpp QueryTraceUtil.cpp)
-
-velox_link_libraries(
+  query_trace_replayer_base
   velox_query_trace_retrieve
-  velox_common_io
-  velox_file
-  velox_core
+  velox_aggregates
+  velox_type
   velox_vector
-  velox_connector
-  velox_common_base
-  velox_hive_connector)
+  velox_vector_test_lib
+  velox_exec
+  velox_exec_test_lib
+  velox_tpch_connector
+  velox_memory
+  Folly::folly
+  glog::glog
+  gflags::gflags)
 
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(test)
-endif()
+add_executable(query_replayer QueryReplayer.cpp)
+
+target_link_libraries(
+  query_replayer query_trace_replayer_base)

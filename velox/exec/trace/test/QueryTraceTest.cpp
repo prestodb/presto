@@ -32,7 +32,9 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
-namespace facebook::velox::exec::test {
+using namespace facebook::velox::exec::test;
+
+namespace facebook::velox::exec::trace::test {
 class QueryTracerTest : public HiveConnectorTestBase {
  protected:
   static void SetUpTestCase() {
@@ -101,34 +103,75 @@ class QueryTracerTest : public HiveConnectorTestBase {
 };
 
 TEST_F(QueryTracerTest, traceData) {
-  const auto rowType = generateTypes(5);
+  const auto rowType = ROW({"a", "b", "c"}, {BIGINT(), BIGINT(), BIGINT()});
   std::vector<RowVectorPtr> inputVectors;
-  constexpr auto numBatch = 3;
+  constexpr auto numBatch = 5;
   inputVectors.reserve(numBatch);
   for (auto i = 0; i < numBatch; ++i) {
-    inputVectors.push_back(vectorFuzzer_.fuzzInputRow(rowType));
+    inputVectors.push_back(vectorFuzzer_.fuzzInputFlatRow(rowType));
   }
 
-  const auto outputDir = TempDirectoryPath::create();
-  auto writer = trace::QueryDataWriter(outputDir->getPath(), pool());
-  for (auto i = 0; i < numBatch; ++i) {
-    writer.write(inputVectors[i]);
-  }
-  writer.finish();
+  struct {
+    uint64_t maxTracedBytes;
+    uint8_t numTracedBatches;
+    bool limitExceeded;
 
-  const auto reader = trace::QueryDataReader(outputDir->getPath(), pool());
-  RowVectorPtr actual;
-  size_t numOutputVectors{0};
-  while (reader.read(actual)) {
-    const auto expected = inputVectors[numOutputVectors];
-    const auto size = actual->size();
-    ASSERT_EQ(size, expected->size());
-    for (auto i = 0; i < size; ++i) {
-      actual->compare(expected.get(), i, i, {.nullsFirst = true});
+    std::string debugString() const {
+      return fmt::format(
+          "maxTracedBytes: {}, numTracedBatches: {}, limitExceeded {}",
+          maxTracedBytes,
+          numTracedBatches,
+          limitExceeded);
     }
-    ++numOutputVectors;
+  } testSettings[]{
+      {0, 0, true}, {800, 2, true}, {100UL << 30, numBatch, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const auto outputDir = TempDirectoryPath::create();
+    // Ensure the writer only write one batch.
+    uint64_t numTracedBytes{0};
+    auto writer = trace::QueryDataWriter(
+        outputDir->getPath(), pool(), [&](uint64_t bytes) {
+          numTracedBytes += bytes;
+          return numTracedBytes >= testData.maxTracedBytes;
+        });
+    for (auto i = 0; i < numBatch; ++i) {
+      writer.write(inputVectors[i]);
+    }
+    writer.finish();
+
+    const auto fs = filesystems::getFileSystem(outputDir->getPath(), nullptr);
+    const auto summaryFile = fs->openFileForRead(fmt::format(
+        "{}/{}", outputDir->getPath(), QueryTraceTraits::kDataSummaryFileName));
+    const auto summary = summaryFile->pread(0, summaryFile->size());
+    ASSERT_FALSE(summary.empty());
+    folly::dynamic obj = folly::parseJson(summary);
+    ASSERT_EQ(
+        obj[QueryTraceTraits::kTraceLimitExceededKey].asBool(),
+        testData.limitExceeded);
+
+    if (testData.maxTracedBytes == 0) {
+      const auto dataFile = fs->openFileForRead(fmt::format(
+          "{}/{}", outputDir->getPath(), QueryTraceTraits::kDataFileName));
+      ASSERT_EQ(dataFile->size(), 0);
+      continue;
+    }
+
+    const auto reader = QueryDataReader(outputDir->getPath(), pool());
+    RowVectorPtr actual;
+    size_t numOutputVectors{0};
+    while (reader.read(actual)) {
+      const auto expected = inputVectors[numOutputVectors];
+      const auto size = actual->size();
+      ASSERT_EQ(size, expected->size());
+      for (auto i = 0; i < size; ++i) {
+        actual->compare(expected.get(), i, i, {.nullsFirst = true});
+      }
+      ++numOutputVectors;
+    }
+    ASSERT_EQ(numOutputVectors, testData.numTracedBatches);
   }
-  ASSERT_EQ(numOutputVectors, inputVectors.size());
 }
 
 TEST_F(QueryTracerTest, traceMetadata) {
@@ -235,7 +278,8 @@ TEST_F(QueryTracerTest, task) {
   const auto expectedResult =
       AssertQueryBuilder(planNode).maxDrivers(1).copyResults(pool());
 
-  for (const auto& queryTraceNodeIds : {"1,2", ""}) {
+  for (const auto* taceTaskRegExp :
+       {".*", "test_cursor [12345]", "xxx_yyy \\d+"}) {
     const auto outputDir = TempDirectoryPath::create();
     const auto expectedQueryConfigs =
         std::unordered_map<std::string, std::string>{
@@ -243,9 +287,11 @@ TEST_F(QueryTracerTest, task) {
             {core::QueryConfig::kSpillNumPartitionBits, "17"},
             {core::QueryConfig::kQueryTraceEnabled, "true"},
             {core::QueryConfig::kQueryTraceDir, outputDir->getPath()},
-            {core::QueryConfig::kQueryTraceEnabled, queryTraceNodeIds},
+            {core::QueryConfig::kQueryTraceTaskRegExp, taceTaskRegExp},
+            {core::QueryConfig::kQueryTraceNodeIds, "1,2"},
             {"key1", "value1"},
         };
+
     const auto expectedConnectorProperties =
         std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>{
             {"test_trace",
@@ -268,8 +314,16 @@ TEST_F(QueryTracerTest, task) {
         fmt::format("{}/{}", outputDir->getPath(), task->taskId());
     const auto fs = filesystems::getFileSystem(expectedDir, nullptr);
     const auto actaulDirs = fs->list(outputDir->getPath());
+
+    if (std::strcmp(taceTaskRegExp, "xxx_yyy \\d+") == 0) {
+      ASSERT_EQ(actaulDirs.size(), 0);
+      continue;
+    }
     ASSERT_EQ(actaulDirs.size(), 1);
     ASSERT_EQ(actaulDirs.at(0), expectedDir);
+    const auto taskIds = getTaskIds(outputDir->getPath(), fs);
+    ASSERT_EQ(taskIds.size(), 1);
+    ASSERT_EQ(taskIds.at(0), task->taskId());
 
     std::unordered_map<std::string, std::string> acutalQueryConfigs;
     std::
@@ -361,7 +415,7 @@ TEST_F(QueryTracerTest, traceDir) {
     ASSERT_EQ(expectedDirs.count(dir), 1);
   }
 }
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::exec::trace::test
 
 // This main is needed for some tests on linux.
 int main(int argc, char** argv) {

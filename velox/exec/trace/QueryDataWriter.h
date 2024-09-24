@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "QueryTraceConfig.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/trace/QueryTraceTraits.h"
@@ -28,21 +29,25 @@ namespace facebook::velox::exec::trace {
 /// file.
 class QueryDataWriter {
  public:
-  explicit QueryDataWriter(const std::string& path, memory::MemoryPool* pool);
+  explicit QueryDataWriter(
+      std::string path,
+      memory::MemoryPool* pool,
+      UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB);
 
   /// Serializes rows and writes out each batch.
   void write(const RowVectorPtr& rows);
 
   /// Closes the data file and writes out the data summary.
   ///
-  /// NOTE: This method should be only called once.
-  void finish();
+  /// @param limitExceeded A flag indicates the written data bytes exceed the
+  /// limit causing the 'QueryDataWriter' to finish early.
+  void finish(bool limitExceeded = false);
 
  private:
   // Flushes the trace data summaries to the disk.
   //
   // TODO: add more summaries such as number of rows etc.
-  void writeSummary() const;
+  void writeSummary(bool limitExceeded = false) const;
 
   const std::string dirPath_;
   // TODO: make 'useLosslessTimestamp' configuerable.
@@ -52,9 +57,11 @@ class QueryDataWriter {
       /*nullsFirst=*/true};
   const std::shared_ptr<filesystems::FileSystem> fs_;
   memory::MemoryPool* const pool_;
+  const UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB_;
   std::unique_ptr<WriteFile> dataFile_;
   TypePtr dataType_;
   std::unique_ptr<VectorStreamGroup> batch_;
+  bool finished_{false};
 };
 
 } // namespace facebook::velox::exec::trace

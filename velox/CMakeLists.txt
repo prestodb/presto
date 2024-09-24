@@ -72,3 +72,7 @@ endif()
 if(${VELOX_ENABLE_SUBSTRAIT})
   add_subdirectory(substrait)
 endif()
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tool)
+endif()

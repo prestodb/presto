@@ -15,6 +15,8 @@
  */
 
 #include "velox/exec/trace/QueryDataWriter.h"
+
+#include <utility>
 #include "velox/common/base/SpillStats.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
@@ -24,17 +26,23 @@
 namespace facebook::velox::exec::trace {
 
 QueryDataWriter::QueryDataWriter(
-    const std::string& path,
-    memory::MemoryPool* pool)
-    : dirPath_(path),
+    std::string path,
+    memory::MemoryPool* pool,
+    UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB)
+    : dirPath_(std::move(path)),
       fs_(filesystems::getFileSystem(dirPath_, nullptr)),
-      pool_(pool) {
+      pool_(pool),
+      updateAndCheckTraceLimitCB_(std::move(updateAndCheckTraceLimitCB)) {
   dataFile_ = fs_->openFileForWrite(
       fmt::format("{}/{}", dirPath_, QueryTraceTraits::kDataFileName));
   VELOX_CHECK_NOT_NULL(dataFile_);
 }
 
 void QueryDataWriter::write(const RowVectorPtr& rows) {
+  if (FOLLY_UNLIKELY(finished_)) {
+    return;
+  }
+
   if (batch_ == nullptr) {
     batch_ = std::make_unique<VectorStreamGroup>(pool_);
     batch_->createStreamTree(
@@ -51,24 +59,35 @@ void QueryDataWriter::write(const RowVectorPtr& rows) {
   batch_->flush(&out);
   batch_->clear();
   auto iobuf = out.getIOBuf();
+  if (FOLLY_UNLIKELY(
+          updateAndCheckTraceLimitCB_(iobuf->computeChainDataLength()))) {
+    finish(true);
+    return;
+  }
   dataFile_->append(std::move(iobuf));
 }
 
-void QueryDataWriter::finish() {
+void QueryDataWriter::finish(bool limitExceeded) {
+  if (finished_) {
+    return;
+  }
+
   VELOX_CHECK_NOT_NULL(
       dataFile_, "The query data writer has already been finished");
   dataFile_->close();
   dataFile_.reset();
   batch_.reset();
-  writeSummary();
+  writeSummary(limitExceeded);
+  finished_ = true;
 }
 
-void QueryDataWriter::writeSummary() const {
+void QueryDataWriter::writeSummary(bool limitExceeded) const {
   const auto summaryFilePath =
       fmt::format("{}/{}", dirPath_, QueryTraceTraits::kDataSummaryFileName);
   const auto file = fs_->openFileForWrite(summaryFilePath);
   folly::dynamic obj = folly::dynamic::object;
   obj[QueryTraceTraits::kDataTypeKey] = dataType_->serialize();
+  obj[QueryTraceTraits::kTraceLimitExceededKey] = limitExceeded;
   file->append(folly::toJson(obj));
   file->close();
 }

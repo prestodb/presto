@@ -357,6 +357,14 @@ class QueryConfig {
   /// Empty string if only want to trace the query metadata.
   static constexpr const char* kQueryTraceNodeIds = "query_trace_node_ids";
 
+  /// The max trace bytes limit. Tracing is disabled if zero.
+  static constexpr const char* kQueryTraceMaxBytes = "query_trace_max_bytes";
+
+  /// The regexp of traced task id. We only enable trace on a task if its id
+  /// matches.
+  static constexpr const char* kQueryTraceTaskRegExp =
+      "query_trace_task_reg_exp";
+
   /// Disable optimization in expression evaluation to peel common dictionary
   /// layer from inputs.
   static constexpr const char* kDebugDisableExpressionWithPeeling =
@@ -687,6 +695,15 @@ class QueryConfig {
   std::string queryTraceNodeIds() const {
     // The default query trace nodes, empty by default.
     return get<std::string>(kQueryTraceNodeIds, "");
+  }
+
+  uint64_t queryTraceMaxBytes() const {
+    return get<uint64_t>(kQueryTraceMaxBytes, 0);
+  }
+
+  std::string queryTraceTaskRegExp() const {
+    // The default query trace task regexp, empty by default.
+    return get<std::string>(kQueryTraceTaskRegExp, "");
   }
 
   bool prestoArrayAggIgnoreNulls() const {

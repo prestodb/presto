@@ -26,6 +26,7 @@ struct QueryTraceTraits {
   static inline const std::string kDataTypeKey = "rowType";
   static inline const std::string kConnectorPropertiesKey =
       "connectorProperties";
+  static inline const std::string kTraceLimitExceededKey = "traceLimitExceeded";
 
   static inline const std::string kQueryMetaFileName = "query_meta.json";
   static inline const std::string kDataSummaryFileName = "data_summary.json";

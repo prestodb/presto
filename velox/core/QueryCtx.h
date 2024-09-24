@@ -118,9 +118,13 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   /// the memory arbiration finishes.
   bool checkUnderArbitration(ContinueFuture* future);
 
-  /// Updates the aggregated spill bytes of this query, and and throws if
-  /// exceeds the max spill bytes limit.
+  /// Updates the aggregated spill bytes of this query, and throws if exceeds
+  /// the max spill bytes limit.
   void updateSpilledBytesAndCheckLimit(uint64_t bytes);
+
+  /// Updates the aggregated trace bytes of this query, and return true if
+  /// exceeds the max query trace bytes limit.
+  bool updateTracedBytesAndCheckLimit(uint64_t bytes);
 
   void testingOverrideMemoryPool(std::shared_ptr<memory::MemoryPool> pool) {
     pool_ = std::move(pool);
@@ -216,6 +220,7 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   std::shared_ptr<memory::MemoryPool> pool_;
   QueryConfig queryConfig_;
   std::atomic<uint64_t> numSpilledBytes_{0};
+  std::atomic<uint64_t> numTracedBytes_{0};
 
   mutable std::mutex mutex_;
   // Indicates if this query is under memory arbitration or not.
