@@ -244,6 +244,16 @@ SessionProperties::SessionProperties() {
       QueryConfig::kDebugDisableExpressionWithLazyInputs,
       boolToString(c.debugDisableExpressionsWithLazyInputs()));
 
+  addSessionProperty(
+      kSelectiveNimbleReaderEnabled,
+      "Temporary flag to control whether selective Nimble reader should be "
+      "used in this query or not.  Will be removed after the selective Nimble "
+      "reader is fully rolled out.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kSelectiveNimbleReaderEnabled,
+      boolToString(c.selectiveNimbleReaderEnabled()));
+
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's
   // session_timezone.
