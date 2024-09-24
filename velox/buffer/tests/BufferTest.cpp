@@ -453,5 +453,43 @@ TEST_F(BufferTest, testAllocateSizeOverflow) {
       AlignedBuffer::reallocate<int64_t>(&buf, 1ull << 62), VeloxException);
 }
 
+TEST_F(BufferTest, sliceBigintBuffer) {
+  auto bufferPtr = AlignedBuffer::allocate<int64_t>(10, pool_.get());
+  auto sliceBufferPtr = Buffer::slice<int64_t>(bufferPtr, 1, 5, pool_.get());
+  ASSERT_TRUE(sliceBufferPtr->isView());
+  ASSERT_EQ(sliceBufferPtr->size(), 40); // 5 * type size of int64_t.
+  ASSERT_EQ(sliceBufferPtr->as<int64_t>(), bufferPtr->as<int64_t>() + 1);
+
+  VELOX_ASSERT_THROW(
+      Buffer::slice<int64_t>(bufferPtr, 11, 1, pool_.get()),
+      "Offset must be less than or equal to 10.");
+  VELOX_ASSERT_THROW(
+      Buffer::slice<int64_t>(bufferPtr, 5, 6, pool_.get()),
+      "Length must be less than or equal to 5.");
+  VELOX_ASSERT_THROW(
+      Buffer::slice<int64_t>(nullptr, 5, 6, pool_.get()),
+      "Buffer must not be null.");
+}
+
+TEST_F(BufferTest, sliceBooleanBuffer) {
+  auto bufferPtr = AlignedBuffer::allocate<bool>(16, pool_.get());
+  auto data = bufferPtr->asMutableRange<bool>();
+  for (int i = 0; i < 16; ++i) {
+    data[i] = (i % 2 != 0);
+  }
+  auto sliceBufferPtr = Buffer::slice<bool>(bufferPtr, 8, 8, pool_.get());
+  ASSERT_TRUE(sliceBufferPtr->isView());
+  ASSERT_EQ(sliceBufferPtr->as<bool>(), bufferPtr->as<bool>() + 1);
+
+  sliceBufferPtr = Buffer::slice<bool>(bufferPtr, 5, 5, pool_.get());
+  ASSERT_FALSE(sliceBufferPtr->isView());
+  auto sliceData = sliceBufferPtr->asRange<bool>();
+  for (int i = 0; i < 5; ++i) {
+    ASSERT_EQ(sliceData[i], i % 2 == 0);
+  }
+  VELOX_ASSERT_THROW(
+      Buffer::slice<bool>(bufferPtr, 5, 6, nullptr), "Pool must not be null.");
+}
+
 } // namespace velox
 } // namespace facebook

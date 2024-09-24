@@ -882,20 +882,8 @@ class BaseVector {
     ensureNullsCapacity(length_, true);
   }
 
-  // Slice a buffer with specific type.
-  //
-  // For boolean type and if the offset is not multiple of 8, return a shifted
-  // copy; otherwise return a BufferView into the original buffer (with shared
-  // ownership of original buffer).
-  static BufferPtr sliceBuffer(
-      const Type&,
-      const BufferPtr&,
-      vector_size_t offset,
-      vector_size_t length,
-      memory::MemoryPool*);
-
   BufferPtr sliceNulls(vector_size_t offset, vector_size_t length) const {
-    return sliceBuffer(*BOOLEAN(), nulls_, offset, length, pool_);
+    return nulls_ ? Buffer::slice<bool>(nulls_, offset, length, pool_) : nulls_;
   }
 
   TypePtr type_;
