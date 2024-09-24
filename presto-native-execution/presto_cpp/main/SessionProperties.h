@@ -165,6 +165,12 @@ class SessionProperties {
   static constexpr const char* kDebugDisableExpressionWithLazyInputs =
       "native_debug_disable_expression_with_lazy_inputs";
 
+  /// Temporary flag to control whether selective Nimble reader should be used
+  /// in this query or not.  Will be removed after the selective Nimble reader
+  /// is fully rolled out.
+  static constexpr const char* kSelectiveNimbleReaderEnabled =
+      "native_selective_nimble_reader_enabled";
+
   /// Enable timezone-less timestamp conversions.
   static constexpr const char* kLegacyTimestamp = "legacy_timestamp";
 

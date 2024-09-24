@@ -355,6 +355,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_DEBUG_DISABLE_COMMON_SUB_EXPRESSION = "native_debug_disable_common_sub_expressions";
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION = "native_debug_disable_expression_with_memoization";
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS = "native_debug_disable_expression_with_lazy_inputs";
+    public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
 
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
@@ -1748,6 +1749,13 @@ public final class SystemSessionProperties
                         NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS,
                         "If set to true, disables optimization in expression evaluation to delay loading " +
                                 "of lazy inputs unless required. Should only be used for debugging.",
+                        false,
+                        true),
+                booleanProperty(
+                        NATIVE_SELECTIVE_NIMBLE_READER_ENABLED,
+                        "Temporary flag to control whether selective Nimble reader should be " +
+                        "used in this query or not.  Will be removed after the selective Nimble " +
+                        "reader is fully rolled out.",
                         false,
                         true),
                 longProperty(
