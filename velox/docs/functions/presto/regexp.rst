@@ -24,10 +24,12 @@ limited to 20 different expressions per instance and thread of execution.
     Note: Each function instance allow for a maximum of 20 regular expressions to
     be compiled per thread of execution. Not all patterns require
     compilation of regular expressions. Patterns 'hello', 'hello%', '_hello__%',
-    '%hello', '%__hello_', '%hello%', where 'hello', 'velox'
-    contains only regular characters and '_' wildcards are evaluated without
-    using regular expressions. Only those patterns that require the compilation of
-    regular expressions are counted towards the limit.
+    '%hello', '%__hello_', '%hello%' where 'hello', 'velox' contains only regular
+    characters and '_' wildcards are evaluated without using regular expressions,
+    and constant pattern '%hello%velox%' where 'hello', 'velox' contains only regular
+    characters(not contains '_' '#' wildcards) is evaluated with substrings-searching.
+    Only those patterns that require the compilation of regular expressions are
+    counted towards the limit.
 
         SELECT like('abc', '%b%'); -- true
         SELECT like('a_c', '%#_%', '#'); -- true

@@ -19,7 +19,6 @@
 #include <vector>
 
 #include <re2/re2.h>
-
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/Udf.h"
 #include "velox/vector/BaseVector.h"
@@ -50,6 +49,10 @@ enum class PatternKind {
   kRelaxedSuffix,
   /// Patterns matching '%{c0}%', such as '%foo%%', '%%%hello%'.
   kSubstring,
+  /// Patterns matching '%{c0}%{c1}%', such as '%%foo%%bar%%', '%foo%bar%'.
+  /// Note: Unlike kSubstring, kSubstrings applies only to constant patterns
+  /// as pattern parsing is expensive.
+  kSubstrings,
   /// Patterns which do not fit any of the above types, such as 'hello_world',
   /// '_presto%'.
   kGeneric,
@@ -101,6 +104,11 @@ class PatternMetadata {
 
   static PatternMetadata substring(const std::string& fixedPattern);
 
+  static PatternMetadata substrings(std::vector<std::string> substrings);
+
+  static std::vector<std::string> parseSubstrings(
+      const std::string_view& pattern);
+
   PatternKind patternKind() const {
     return patternKind_;
   }
@@ -117,12 +125,17 @@ class PatternMetadata {
     return fixedPattern_;
   }
 
+  const std::vector<std::string>& substrings() const {
+    return substrings_;
+  }
+
  private:
   PatternMetadata(
       PatternKind patternKind,
       size_t length,
       std::string fixedPattern,
-      std::vector<SubPatternMetadata> subPatterns);
+      std::vector<SubPatternMetadata> subPatterns,
+      std::vector<std::string> substrings);
 
   PatternKind patternKind_;
 
@@ -140,6 +153,8 @@ class PatternMetadata {
   /// used for kRelaxedXxx patterns. e.g. If the pattern is: _pr_sto%, we will
   /// have four sub-patterns here: _, pr, _ and sto.
   std::vector<SubPatternMetadata> subPatterns_;
+
+  std::vector<std::string> substrings_;
 };
 
 inline const int kMaxCompiledRegexes = 20;

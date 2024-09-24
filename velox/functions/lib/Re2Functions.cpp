@@ -650,6 +650,22 @@ bool matchSubstringPattern(
       std::string::npos);
 }
 
+bool matchSubstringsPattern(
+    const StringView& input,
+    const std::vector<std::string>& patterns) {
+  const char* data = input.data();
+  for (int i = 0; i < patterns.size(); i++) {
+    auto curPos =
+        std::string_view(data, input.end() - data)
+            .find(std::string_view(patterns[i].c_str(), patterns[i].size()));
+    if (curPos == std::string::npos) {
+      return false;
+    }
+    data = data + curPos + patterns[i].size();
+  }
+  return true;
+}
+
 // Return true if the input VARCHAR argument is all-ASCII for the specified
 // rows.
 FOLLY_ALWAYS_INLINE static bool isAsciiArg(
@@ -705,6 +721,8 @@ class OptimizedLike final : public exec::VectorFunction {
               .first;
         case PatternKind::kSubstring:
           return matchSubstringPattern(input, patternMetadata.fixedPattern());
+        case PatternKind::kSubstrings:
+          return matchSubstringsPattern(input, patternMetadata.substrings());
       }
     } else {
       switch (P) {
@@ -739,6 +757,8 @@ class OptimizedLike final : public exec::VectorFunction {
               input, patternMetadata, input.size() - 1);
         case PatternKind::kSubstring:
           return matchSubstringPattern(input, patternMetadata.fixedPattern());
+        case PatternKind::kSubstrings:
+          return matchSubstringsPattern(input, patternMetadata.substrings());
       }
     }
   }
@@ -1688,19 +1708,19 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractSignatures() {
 }
 
 PatternMetadata PatternMetadata::generic() {
-  return {PatternKind::kGeneric, 0, "", {}};
+  return {PatternKind::kGeneric, 0, "", {}, {}};
 }
 
 PatternMetadata PatternMetadata::atLeastN(size_t length) {
-  return {PatternKind::kAtLeastN, length, "", {}};
+  return {PatternKind::kAtLeastN, length, "", {}, {}};
 }
 
 PatternMetadata PatternMetadata::exactlyN(size_t length) {
-  return {PatternKind::kExactlyN, length, "", {}};
+  return {PatternKind::kExactlyN, length, "", {}, {}};
 }
 
 PatternMetadata PatternMetadata::fixed(const std::string& fixedPattern) {
-  return {PatternKind::kFixed, fixedPattern.length(), fixedPattern, {}};
+  return {PatternKind::kFixed, fixedPattern.length(), fixedPattern, {}, {}};
 }
 
 PatternMetadata PatternMetadata::relaxedFixed(
@@ -1711,11 +1731,12 @@ PatternMetadata PatternMetadata::relaxedFixed(
       PatternKind::kRelaxedFixed,
       fixedLength,
       std::move(fixedPattern),
-      std::move(subPatterns)};
+      std::move(subPatterns),
+      {}};
 }
 
 PatternMetadata PatternMetadata::prefix(const std::string& fixedPattern) {
-  return {PatternKind::kPrefix, fixedPattern.length(), fixedPattern, {}};
+  return {PatternKind::kPrefix, fixedPattern.length(), fixedPattern, {}, {}};
 }
 
 PatternMetadata PatternMetadata::relaxedPrefix(
@@ -1726,11 +1747,12 @@ PatternMetadata PatternMetadata::relaxedPrefix(
       PatternKind::kRelaxedPrefix,
       fixedLength,
       std::move(fixedPattern),
-      std::move(subPatterns)};
+      std::move(subPatterns),
+      {}};
 }
 
 PatternMetadata PatternMetadata::suffix(const std::string& fixedPattern) {
-  return {PatternKind::kSuffix, fixedPattern.length(), fixedPattern, {}};
+  return {PatternKind::kSuffix, fixedPattern.length(), fixedPattern, {}, {}};
 }
 
 PatternMetadata PatternMetadata::relaxedSuffix(
@@ -1741,22 +1763,47 @@ PatternMetadata PatternMetadata::relaxedSuffix(
       PatternKind::kRelaxedSuffix,
       fixedLength,
       std::move(fixedPattern),
-      std::move(subPatterns)};
+      std::move(subPatterns),
+      {}};
 }
 
 PatternMetadata PatternMetadata::substring(const std::string& fixedPattern) {
-  return {PatternKind::kSubstring, fixedPattern.length(), fixedPattern, {}};
+  return {PatternKind::kSubstring, fixedPattern.length(), fixedPattern, {}, {}};
+}
+
+PatternMetadata PatternMetadata::substrings(
+    std::vector<std::string> substrings) {
+  return {PatternKind::kSubstrings, 0, "", {}, std::move(substrings)};
+}
+
+std::vector<std::string> PatternMetadata::parseSubstrings(
+    const std::string_view& pattern) {
+  // Not support substrings-search with '_' for best performance.
+  static const re2::RE2 fullPattern(R"((%+[^%_#\\]+)+%+)");
+  static const re2::RE2 subPattern(R"((?:%+)([^%_#\\]+))");
+  re2::StringPiece full(pattern);
+  re2::StringPiece cur;
+  std::vector<std::string> substrings;
+  if (RE2::FullMatch(full, fullPattern)) {
+    while (RE2::PartialMatch(full, subPattern, &cur)) {
+      substrings.push_back(cur.as_string());
+      full.set(cur.end(), full.end() - cur.end());
+    }
+  }
+  return substrings;
 }
 
 PatternMetadata::PatternMetadata(
     PatternKind patternKind,
     size_t length,
     std::string fixedPattern,
-    std::vector<SubPatternMetadata> subPatterns)
+    std::vector<SubPatternMetadata> subPatterns,
+    std::vector<std::string> substrings)
     : patternKind_{patternKind},
       length_{length},
       fixedPattern_(std::move(fixedPattern)),
-      subPatterns_(std::move(subPatterns)) {}
+      subPatterns_(std::move(subPatterns)),
+      substrings_(std::move(substrings)) {}
 
 // Iterates through a pattern string. Transparently handles escape sequences.
 class PatternStringIterator {
@@ -2154,6 +2201,14 @@ std::shared_ptr<exec::VectorFunction> makeLike(
 
   PatternMetadata patternMetadata = PatternMetadata::generic();
   try {
+    // Fast path for substrings search.
+    auto substrings =
+        PatternMetadata::parseSubstrings(std::string_view(pattern));
+    if (substrings.size() > 0) {
+      patternMetadata = PatternMetadata::substrings(std::move(substrings));
+      return std::make_shared<OptimizedLike<PatternKind::kSubstrings>>(
+          patternMetadata);
+    }
     patternMetadata =
         determinePatternKind(std::string_view(pattern), escapeChar);
   } catch (...) {

@@ -460,6 +460,9 @@ TEST_F(Re2FunctionsTest, likePattern) {
       false);
 
   testLike("abc", "MEDIUM POLISHED%", false);
+
+  testLike("aabbccddeeff", "%aa%bb%", true);
+  testLike("aaccddeeff", "%aa%bb%", false);
 }
 
 TEST_F(Re2FunctionsTest, likeDeterminePatternKind) {
@@ -1500,5 +1503,27 @@ TEST_F(Re2FunctionsTest, split) {
   assertEqualVectors(expected, result);
 }
 
+TEST_F(Re2FunctionsTest, parseSubstrings) {
+  auto test = [&](const std::string& input,
+                  const std::vector<std::string>& expected) {
+    ASSERT_EQ(PatternMetadata::parseSubstrings(input), expected);
+  };
+  // Cases that not supported by substrings-search.
+  // Note: we always return LikeGeneric for escape-case, see makeLike().
+  test("%%", {});
+  // Not supports prefix.
+  test("aa%bb%%", {});
+  // Not supports sufix.
+  test("%aa%bb", {});
+  // Not supports '_'.
+  test("%aa_%", {});
+  // Not supports '#'.
+  test("%aa#%", {});
+
+  // Cases that supported by substrings-search.
+  test("%aa%", {"aa"});
+  test("%aa%bb%%", {"aa", "bb"});
+  test("%aa%bb%%%cc%", {"aa", "bb", "cc"});
+}
 } // namespace
 } // namespace facebook::velox::functions
