@@ -321,8 +321,7 @@ This should only be used for debugging purposes.
 * **Default value:** ``false``
 
 Temporary flag to control whether selective Nimble reader should be used in this
-query or not.  Will be removed after the selective Nimble reader is fully rolled
-out.
+query or not.  
 
 ``native_join_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
