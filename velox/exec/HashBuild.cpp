@@ -495,15 +495,21 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
 
   {
     Operator::ReclaimableSectionGuard guard(this);
-    if (!pool()->maybeReserve(targetIncrementBytes)) {
-      LOG(WARNING) << "Failed to reserve "
-                   << succinctBytes(targetIncrementBytes) << " for memory pool "
-                   << pool()->name()
-                   << ", usage: " << succinctBytes(pool()->usedBytes())
-                   << ", reservation: "
-                   << succinctBytes(pool()->reservedBytes());
+    if (pool()->maybeReserve(targetIncrementBytes)) {
+      // If above reservation triggers the spilling of 'HashBuild' operator
+      // itself, we will no longer need the reserved memory for building hash
+      // table as the table is spilled, and the input will be directly spilled,
+      // too.
+      if (spiller_->isAllSpilled()) {
+        pool()->release();
+      }
+      return;
     }
   }
+  LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
+               << " for memory pool " << pool()->name()
+               << ", usage: " << succinctBytes(pool()->usedBytes())
+               << ", reservation: " << succinctBytes(pool()->reservedBytes());
 }
 
 void HashBuild::spillInput(const RowVectorPtr& input) {
@@ -806,6 +812,12 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
   {
     Operator::ReclaimableSectionGuard guard(this);
     if (pool()->maybeReserve(memoryBytesToReserve)) {
+      // If reservation triggers the spilling of 'HashBuild' operator itself, we
+      // will no longer need the reserved memory for building hash table as the
+      // table is spilled.
+      if (spiller_->isAllSpilled()) {
+        pool()->release();
+      }
       return;
     }
   }

@@ -928,6 +928,14 @@ void GroupingSet::ensureOutputFits() {
   {
     memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
     if (pool_.maybeReserve(outputBufferSizeToReserve)) {
+      if (hasSpilled()) {
+        // If reservation triggers spilling on the 'GroupingSet' itself, we will
+        // no longer need the reserved memory for output processing as the
+        // output processing will be conducted from unspilled data through
+        // 'getOutputWithSpill()', and it does not require this amount of memory
+        // to process.
+        pool_.release();
+      }
       return;
     }
   }

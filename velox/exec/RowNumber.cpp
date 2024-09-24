@@ -98,8 +98,10 @@ void RowNumber::addInput(RowVectorPtr input) {
 
 void RowNumber::addSpillInput() {
   VELOX_CHECK_NOT_NULL(input_);
+  VELOX_CHECK_NULL(inputSpiller_);
   ensureInputFits(input_);
   if (input_ == nullptr) {
+    VELOX_CHECK_NOT_NULL(inputSpiller_);
     // Memory arbitration might be triggered by ensureInputFits() which will
     // spill 'input_'.
     return;
@@ -124,6 +126,7 @@ void RowNumber::noMoreInput() {
 
   if (inputSpiller_ != nullptr) {
     inputSpiller_->finishSpill(spillInputPartitionSet_);
+    inputSpiller_.reset();
     removeEmptyPartitions(spillInputPartitionSet_);
     restoreNextSpillPartition();
   }
@@ -185,7 +188,7 @@ void RowNumber::restoreNextSpillPartition() {
 }
 
 void RowNumber::ensureInputFits(const RowVectorPtr& input) {
-  if (!spillEnabled()) {
+  if (!spillEnabled() || inputSpiller_ != nullptr) {
     // Spilling is disabled.
     return;
   }
@@ -242,6 +245,12 @@ void RowNumber::ensureInputFits(const RowVectorPtr& input) {
   {
     Operator::ReclaimableSectionGuard guard(this);
     if (pool()->maybeReserve(targetIncrementBytes)) {
+      // If reservation triggers the spilling of 'RowNumber' operator itself, we
+      // will no longer need the reserved memory for building hash table as the
+      // table is spilled.
+      if (inputSpiller_ != nullptr) {
+        pool()->release();
+      }
       return;
     }
   }
@@ -524,6 +533,7 @@ void RowNumber::recursiveSpillInput() {
   }
 
   inputSpiller_->finishSpill(spillInputPartitionSet_);
+  inputSpiller_.reset();
   spillInputReader_ = nullptr;
 
   removeEmptyPartitions(spillInputPartitionSet_);
