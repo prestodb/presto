@@ -59,8 +59,8 @@ public class TestIcebergTypes
     public Object[][] createTestTimestampWithTimezoneData()
     {
         return new Object[][] {
-                {getBatchReaderEnabledQueryRunner()},
-                {getQueryRunner()}
+                {getQueryRunner()},
+                {getBatchReaderEnabledQueryRunner()}
         };
     }
 
