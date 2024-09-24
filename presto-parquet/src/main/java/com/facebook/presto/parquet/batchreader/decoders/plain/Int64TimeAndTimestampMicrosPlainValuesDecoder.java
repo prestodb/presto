@@ -17,11 +17,14 @@ import com.facebook.presto.parquet.batchreader.BytesUtils;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Arrays;
+
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class Int64TimeAndTimestampMicrosPlainValuesDecoder
         implements Int64TimeAndTimestampMicrosValuesDecoder
@@ -51,8 +54,25 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
         int localBufferOffset = bufferOffset;
 
         while (offset < endOffset) {
-            long utcMillis = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
-            values[offset++] = packDateTimeWithZone(utcMillis, UTC_KEY);
+            values[offset++] = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
+            localBufferOffset += 8;
+        }
+
+        bufferOffset = localBufferOffset;
+    }
+
+    @Override
+    public void readNextWithTimezone(long[] values, int offset, int length)
+    {
+        checkArgument(bufferOffset + length * 8 <= bufferEnd, "End of stream: invalid read request");
+        checkArgument(length >= 0 && offset >= 0, "invalid read request: offset %s, length", offset, length);
+
+        final int endOffset = offset + length;
+        final byte[] localByteBuffer = byteBuffer;
+        int localBufferOffset = bufferOffset;
+
+        while (offset < endOffset) {
+            values[offset++] = packDateTimeWithZone(MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset)), UTC_KEY);
             localBufferOffset += 8;
         }
 
