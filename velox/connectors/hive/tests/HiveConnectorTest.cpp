@@ -205,9 +205,12 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeMap) {
   ASSERT_TRUE(applyFilter(*keysFilter, 20));
   ASSERT_FALSE(applyFilter(*keysFilter, 15));
   auto* values = c0->childByName(ScanSpec::kMapValuesFieldName);
-  ASSERT_FALSE(values->childByName("c0c0")->isConstant());
+  auto c0c0 = values->childByName("c0c0");
+  ASSERT_FALSE(c0c0->isConstant());
+  ASSERT_TRUE(c0c0->projectOut());
+  auto c0c1 = values->childByName("c0c1");
+  validateNullConstant(*c0c1, *BIGINT());
   ASSERT_FALSE(values->childByName("c0c2")->isConstant());
-  validateNullConstant(*values->childByName("c0c1"), *BIGINT());
 }
 
 TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
@@ -346,7 +349,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
   ASSERT_FALSE(applyFilter(*keysFilter, 100000008.0f));
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_filtersNotInRequiredSubfields) {
+TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_onlyInFilters) {
   auto c0Type = ROW({
       {"c0c0", BIGINT()},
       {"c0c1", VARCHAR()},
@@ -354,18 +357,22 @@ TEST_F(HiveConnectorTest, makeScanSpec_filtersNotInRequiredSubfields) {
       {"c0c3", ROW({{"c0c3c0", BIGINT()}})},
       {"c0c4", BIGINT()},
   });
+  auto c1c0Type = ROW({{"c1c0c0", BIGINT()}, {"c1c0c1", BIGINT()}});
   auto c1c1Type = ROW({{"c1c1c0", BIGINT()}, {"c1c1c1", BIGINT()}});
   auto c1Type = ROW({
-      {"c1c0", ROW({{"c1c0c0", BIGINT()}, {"c1c0c1", BIGINT()}})},
+      {"c1c0", c1c0Type},
       {"c1c1", c1c1Type},
   });
+  auto readerOutputType = ROW({{"c0", c0Type}});
+
   SubfieldFilters filters;
   filters.emplace(Subfield("c0.c0c0"), exec::equal(42));
   filters.emplace(Subfield("c0.c0c2"), exec::isNotNull());
   filters.emplace(Subfield("c0.c0c3"), exec::isNotNull());
   filters.emplace(Subfield("c1.c1c0.c1c0c0"), exec::equal(43));
+
   auto scanSpec = makeScanSpec(
-      ROW({{"c0", c0Type}}),
+      readerOutputType,
       groupSubfields(makeSubfields({"c0.c0c1", "c0.c0c3"})),
       filters,
       ROW({{"c0", c0Type}, {"c1", c1Type}}),
@@ -373,36 +380,71 @@ TEST_F(HiveConnectorTest, makeScanSpec_filtersNotInRequiredSubfields) {
       {},
       nullptr,
       pool_.get());
+
   auto c0 = scanSpec->childByName("c0");
   ASSERT_FALSE(c0->isConstant());
   ASSERT_TRUE(c0->projectOut());
+  ASSERT_FALSE(c0->filter());
+  ASSERT_TRUE(c0->hasFilter());
+
   // Filter only.
-  auto* c0c0 = scanSpec->childByName("c0")->childByName("c0c0");
+  auto* c0c0 = c0->childByName("c0c0");
   ASSERT_FALSE(c0c0->isConstant());
+  ASSERT_TRUE(c0c0->projectOut());
   ASSERT_TRUE(c0c0->filter());
+  ASSERT_TRUE(c0c0->hasFilter());
   // Project output.
-  auto* c0c1 = scanSpec->childByName("c0")->childByName("c0c1");
+  auto* c0c1 = c0->childByName("c0c1");
   ASSERT_FALSE(c0c1->isConstant());
+  ASSERT_TRUE(c0c1->projectOut());
   ASSERT_FALSE(c0c1->filter());
+  ASSERT_FALSE(c0c1->hasFilter());
   // Filter on struct, no children.
-  auto* c0c2 = scanSpec->childByName("c0")->childByName("c0c2");
+  auto* c0c2 = c0->childByName("c0c2");
   ASSERT_FALSE(c0c2->isConstant());
+  ASSERT_TRUE(c0c2->projectOut());
   ASSERT_TRUE(c0c2->filter());
-  validateNullConstant(*c0c2->childByName("c0c2c0"), *BIGINT());
+  ASSERT_TRUE(c0c2->hasFilter());
+
+  auto c0c2c0 = c0c2->childByName("c0c2c0");
+  validateNullConstant(*c0c2c0, *BIGINT());
+
   // Filtered and project out.
-  auto* c0c3 = scanSpec->childByName("c0")->childByName("c0c3");
+  auto* c0c3 = c0->childByName("c0c3");
   ASSERT_FALSE(c0c3->isConstant());
+  ASSERT_TRUE(c0c3->projectOut());
   ASSERT_TRUE(c0c3->filter());
-  ASSERT_FALSE(c0c3->childByName("c0c3c0")->isConstant());
+  ASSERT_TRUE(c0c3->hasFilter());
+
+  auto c0c3c0 = c0c3->childByName("c0c3c0");
+  ASSERT_FALSE(c0c3c0->isConstant());
+
+  auto c0c4 = c0->childByName("c0c4");
+  ASSERT_TRUE(c0c4->projectOut());
+
   // Filter only, column not projected out.
   auto* c1 = scanSpec->childByName("c1");
   ASSERT_FALSE(c1->isConstant());
   ASSERT_FALSE(c1->projectOut());
+  ASSERT_FALSE(c1->filter());
+  ASSERT_TRUE(c1->hasFilter());
+
   auto* c1c0 = c1->childByName("c1c0");
-  ASSERT_FALSE(c1c0->childByName("c1c0c0")->isConstant());
-  ASSERT_TRUE(c1c0->childByName("c1c0c0"));
-  validateNullConstant(*c1c0->childByName("c1c0c1"), *BIGINT());
-  validateNullConstant(*c1->childByName("c1c1"), *c1c1Type);
+  ASSERT_FALSE(c1c0->filter());
+  ASSERT_TRUE(c1c0->hasFilter());
+
+  auto c1c0c0 = c1c0->childByName("c1c0c0");
+  ASSERT_TRUE(c1c0c0);
+  ASSERT_FALSE(c1c0c0->isConstant());
+  ASSERT_TRUE(c1c0c0->filter());
+  ASSERT_TRUE(c1c0c0->hasFilter());
+
+  auto c1c0c1 = c1c0->childByName("c1c0c1");
+  ASSERT_TRUE(c1c0c1);
+  validateNullConstant(*c1c0c1, *BIGINT());
+
+  auto c1c1 = c1->childByName("c1c1");
+  validateNullConstant(*c1c1, *c1c1Type);
 }
 
 TEST_F(HiveConnectorTest, makeScanSpec_duplicateSubfields) {
@@ -460,7 +502,23 @@ TEST_F(HiveConnectorTest, makeScanSpec_prunedMapNonNullMapKey) {
       pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_EQ(c0->children().size(), 2);
-  ASSERT_TRUE(c0->childByName("c0c0")->isConstant());
+  validateNullConstant(
+      *c0->childByName("c0c0"), *MAP(BIGINT(), MAP(BIGINT(), BIGINT())));
+  ASSERT_FALSE(c0->childByName("c0c1")->isConstant());
+
+  scanSpec = makeScanSpec(
+      rowType,
+      groupSubfields(makeSubfields({"c0.c0c0"})),
+      {},
+      nullptr,
+      {},
+      {},
+      nullptr,
+      pool_.get());
+  c0 = scanSpec->childByName("c0");
+  ASSERT_EQ(c0->children().size(), 2);
+  auto c0c0 = c0->childByName("c0c0");
+  ASSERT_TRUE(mapKeyIsNotNull(*c0c0));
 }
 
 TEST_F(HiveConnectorTest, extractFiltersFromRemainingFilter) {
