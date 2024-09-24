@@ -34,6 +34,7 @@
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 DEFINE_int64(
     seed,
@@ -183,6 +184,24 @@ int main(int argc, char** argv) {
           {"sum_data_size_for_stats", nullptr},
       };
 
+  using facebook::velox::DataSpec;
+  // For some functions, velox supports NaN, Infinity better than presto query
+  // runner, which makes the comparison impossible.
+  // Add data constraint in vector fuzzer to enforce to not generate such data
+  // for those functions before they are fixed in presto query runner
+  static const std::unordered_map<std::string, DataSpec> functionDataSpec = {
+      {"regr_avgx", DataSpec{false, false}},
+      {"regr_avgy", DataSpec{false, false}},
+      {"regr_r2", DataSpec{false, false}},
+      {"regr_sxx", DataSpec{false, false}},
+      {"regr_syy", DataSpec{false, false}},
+      {"regr_sxy", DataSpec{false, false}},
+      {"regr_slope", DataSpec{false, false}},
+      {"regr_replacement", DataSpec{false, false}},
+      {"covar_pop", DataSpec{true, false}},
+      {"covar_samp", DataSpec{true, false}},
+  };
+
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
   using Options = facebook::velox::exec::test::AggregationFuzzerOptions;
 
@@ -194,6 +213,7 @@ int main(int argc, char** argv) {
       facebook::velox::exec::test::getCustomInputGenerators();
   options.timestampPrecision =
       facebook::velox::VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
+  options.functionDataSpec = functionDataSpec;
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
       facebook::velox::memory::memoryManager()->addRootPool()};
   return Runner::run(

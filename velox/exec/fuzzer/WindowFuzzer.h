@@ -38,13 +38,15 @@ class WindowFuzzer : public AggregationFuzzerBase {
       const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
           customInputGenerators,
       const std::unordered_set<std::string>& orderDependentFunctions,
+      const std::unordered_map<std::string, DataSpec>& functionDataSpec,
       VectorFuzzer::Options::TimestampPrecision timestampPrecision,
       const std::unordered_map<std::string, std::string>& queryConfigs,
       const std::unordered_map<std::string, std::string>& hiveConfigs,
       bool orderableGroupKeys,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner)
       : AggregationFuzzerBase{seed, customVerificationFunctions, customInputGenerators, timestampPrecision, queryConfigs, hiveConfigs, orderableGroupKeys, std::move(referenceQueryRunner)},
-        orderDependentFunctions_{orderDependentFunctions} {
+        orderDependentFunctions_{orderDependentFunctions},
+        functionDataSpec_{functionDataSpec} {
     VELOX_CHECK(
         !aggregationSignatureMap.empty() || !windowSignatureMap.empty(),
         "No function signatures available.");
@@ -123,6 +125,7 @@ class WindowFuzzer : public AggregationFuzzerBase {
       const velox::fuzzer::ResultOrError& expected);
 
   const std::unordered_set<std::string> orderDependentFunctions_;
+  const std::unordered_map<std::string, DataSpec> functionDataSpec_;
 
   struct Stats : public AggregationFuzzerBase::Stats {
     std::unordered_set<std::string> verifiedFunctionNames;
@@ -150,6 +153,7 @@ void windowFuzzer(
     const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
         customInputGenerators,
     const std::unordered_set<std::string>& orderDependentFunctions,
+    const std::unordered_map<std::string, DataSpec>& functionDataSpec,
     VectorFuzzer::Options::TimestampPrecision timestampPrecision,
     const std::unordered_map<std::string, std::string>& queryConfigs,
     const std::unordered_map<std::string, std::string>& hiveConfigs,

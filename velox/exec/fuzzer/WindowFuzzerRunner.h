@@ -86,6 +86,7 @@ class WindowFuzzerRunner {
         options.customVerificationFunctions,
         options.customInputGenerators,
         options.orderDependentFunctions,
+        options.functionDataSpec,
         options.timestampPrecision,
         options.queryConfigs,
         options.hiveConfigs,

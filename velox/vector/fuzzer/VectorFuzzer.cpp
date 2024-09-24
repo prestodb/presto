@@ -64,57 +64,73 @@ struct ScopedOptions {
 
 // Generate random values for the different supported types.
 template <typename T>
-T rand(FuzzerGenerator&) {
+T rand(FuzzerGenerator& rng, DataSpec dataSpec = {false, false}) {
   VELOX_NYI();
 }
 
 template <>
-int8_t rand(FuzzerGenerator& rng) {
+int8_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
   return boost::random::uniform_int_distribution<int8_t>()(rng);
 }
 
 template <>
-int16_t rand(FuzzerGenerator& rng) {
+int16_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
   return boost::random::uniform_int_distribution<int16_t>()(rng);
 }
 
 template <>
-int32_t rand(FuzzerGenerator& rng) {
+int32_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
   return boost::random::uniform_int_distribution<int32_t>()(rng);
 }
 
 template <>
-int64_t rand(FuzzerGenerator& rng) {
+int64_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
   return boost::random::uniform_int_distribution<int64_t>()(rng);
 }
 
 template <>
-double rand(FuzzerGenerator& rng) {
+double rand(FuzzerGenerator& rng, DataSpec dataSpec) {
+  if (dataSpec.includeNaN && coinToss(rng, 0.05)) {
+    return std::nan("");
+  }
+
+  if (dataSpec.includeInfinity && coinToss(rng, 0.05)) {
+    return std::numeric_limits<double>::infinity();
+  }
+
   return boost::random::uniform_01<double>()(rng);
 }
 
 template <>
-float rand(FuzzerGenerator& rng) {
+float rand(FuzzerGenerator& rng, DataSpec dataSpec) {
+  if (dataSpec.includeNaN && coinToss(rng, 0.05)) {
+    return std::nanf("");
+  }
+
+  if (dataSpec.includeInfinity && coinToss(rng, 0.05)) {
+    return std::numeric_limits<float>::infinity();
+  }
+
   return boost::random::uniform_01<float>()(rng);
 }
 
 template <>
-bool rand(FuzzerGenerator& rng) {
+bool rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
   return boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng);
 }
 
 template <>
-uint32_t rand(FuzzerGenerator& rng) {
+uint32_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
   return boost::random::uniform_int_distribution<uint32_t>()(rng);
 }
 
 template <>
-uint64_t rand(FuzzerGenerator& rng) {
+uint64_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
   return boost::random::uniform_int_distribution<uint64_t>()(rng);
 }
 
 template <>
-int128_t rand(FuzzerGenerator& rng) {
+int128_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
   return HugeInt::build(rand<int64_t>(rng), rand<uint64_t>(rng));
 }
 
@@ -286,7 +302,7 @@ VectorPtr fuzzConstantPrimitiveImpl(
         pool, size, false, type, randLongDecimal(type, rng));
   } else {
     return std::make_shared<ConstantVector<TCpp>>(
-        pool, size, false, type, rand<TCpp>(rng));
+        pool, size, false, type, rand<TCpp>(rng, opts.dataSpec));
   }
 }
 
@@ -311,13 +327,13 @@ void fuzzFlatPrimitiveImpl(
       if (vector->type()->isShortDecimal()) {
         flatVector->set(i, randShortDecimal(vector->type(), rng));
       } else {
-        flatVector->set(i, rand<TCpp>(rng));
+        flatVector->set(i, rand<TCpp>(rng, opts.dataSpec));
       }
     } else if constexpr (std::is_same_v<TCpp, int128_t>) {
       if (vector->type()->isLongDecimal()) {
         flatVector->set(i, randLongDecimal(vector->type(), rng));
       } else if (vector->type()->isHugeint()) {
-        flatVector->set(i, rand<int128_t>(rng));
+        flatVector->set(i, rand<int128_t>(rng, opts.dataSpec));
       } else {
         VELOX_NYI();
       }
@@ -328,7 +344,7 @@ void fuzzFlatPrimitiveImpl(
         flatVector->set(i, rand<TCpp>(rng));
       }
     } else {
-      flatVector->set(i, rand<TCpp>(rng));
+      flatVector->set(i, rand<TCpp>(rng, opts.dataSpec));
     }
   }
 }

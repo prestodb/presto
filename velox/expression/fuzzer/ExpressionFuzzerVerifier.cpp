@@ -314,6 +314,11 @@ void ExpressionFuzzerVerifier::go() {
   size_t i = 0;
   size_t numFailed = 0;
 
+  // TODO: some expression will throw exception for NaN input, eg: IN predicate
+  // for floating point. remove this constraint once that are fixed
+  auto vectorOptions = vectorFuzzer_->getOptions();
+  vectorOptions.dataSpec = {false, false};
+  vectorFuzzer_->setOptions(vectorOptions);
   while (!isDone(i, startTime)) {
     LOG(INFO) << "==============================> Started iteration " << i
               << " (seed: " << currentSeed_ << ")";

@@ -31,6 +31,7 @@ target_link_libraries(
   velox_aggregation_result_verifier
   velox_aggregates
   velox_window
+  velox_vector_fuzzer
   velox_vector_test_lib
   GTest::gtest
   GTest::gtest_main)
