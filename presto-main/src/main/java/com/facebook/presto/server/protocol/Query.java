@@ -22,6 +22,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.BooleanType;
@@ -445,6 +446,19 @@ class Query
                 queryResults.getUpdateCount());
     }
 
+    private static void validateBlockSizesInPage(Page page)
+    {
+        // debugging
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
+            if (block.getPositionCount() != page.getPositionCount()) {
+                throw new IllegalArgumentException(
+                        format("Wrongly sized block: channel: %d block position count: %d page position count: %d %s",
+                                channel, block.getPositionCount(), page.getPositionCount(), block.getClass().getCanonicalName()));
+            }
+        }
+    }
+
     private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize, boolean binaryResults)
     {
         // check if the result for the token have already been created
@@ -502,6 +516,7 @@ class Query
                     }
 
                     Page page = serde.deserialize(serializedPage);
+                    validateBlockSizesInPage(page);
                     bytes += page.getLogicalSizeInBytes();
                     rows += page.getPositionCount();
                     pages.add(new RowIterable(session.toConnectorSession(), types, page));
