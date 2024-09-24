@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
@@ -38,6 +39,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class LongDictionaryColumnWriter
         extends DictionaryColumnWriter

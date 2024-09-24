@@ -229,6 +229,11 @@ public class DecimalColumnWriter
     }
 
     @Override
+    public void printRetainedBytes() {
+
+    }
+
+    @Override
     public void reset()
     {
         closed = false;

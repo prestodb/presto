@@ -245,6 +245,11 @@ public class StructColumnWriter
     }
 
     @Override
+    public void printRetainedBytes() {
+
+    }
+
+    @Override
     public void reset()
     {
         closed = false;

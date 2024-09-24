@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarMap;
 import com.facebook.presto.common.type.FixedWidthType;
@@ -80,6 +81,7 @@ public class MapFlatColumnWriter
         implements ColumnWriter
 {
     // sequence must start from 1 because presto-orc treats sequence 0 the same as a missing sequence
+    private static final Logger log = Logger.get(MapFlatColumnWriter.class);
     private static final int SEQUENCE_START_INDEX = 1;
     private static final ColumnEncoding FLAT_MAP_COLUMN_ENCODING = new ColumnEncoding(DWRF_MAP_FLAT, 0);
     private static final DwrfProto.KeyInfo EMPTY_SLICE_KEY = DwrfProto.KeyInfo.newBuilder().setBytesKey(ByteString.EMPTY).build();
@@ -430,6 +432,25 @@ public class MapFlatColumnWriter
         }
         // TODO Implement me
         return INSTANCE_SIZE + retainedBytes;
+    }
+
+    @Override
+    public void printRetainedBytes()
+    {
+        log.info("buffered: %.2f kB, retained: %.2f kB, num of writers: %d",
+                getBufferedBytes()/1024.0,
+                getRetainedBytes()/1024.0,
+                valueWriters.size());
+        log.info("present stream: %.2f / %.2f kB",
+                presentStream.getBufferedBytes()/1024.0,
+                presentStream.getRetainedBytes()/1024.0);
+        if (mapStatsEnabled) {
+            // TODO
+            log.info("map stats %.2f kB, num of row groups: %d",
+                    rowGroupColumnStatistics.stream().mapToLong(ColumnStatistics::getRetainedSizeInBytes).sum()/1024.0,
+                    rowGroupColumnStatistics.size());
+        }
+//        valueWriters.forEach(valueWriter -> valueWriter.getValueWriter().printRetainedBytes());
     }
 
     @Override

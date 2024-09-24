@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DictionaryCompressionOptimizer.DictionaryColumn;
@@ -58,6 +59,7 @@ import static java.util.stream.Collectors.toList;
 public abstract class DictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
+    private static final Logger log = Logger.get(DictionaryColumnWriter.class);
     // In theory, nulls are stored using bit fields with 1 bit per entry
     // In code, though they use Byte RLE, using 8 is a good heuristic and close to worst case.
     public static final int NUMBER_OF_NULLS_PER_BYTE = 8;
@@ -530,6 +532,21 @@ public abstract class DictionaryColumnWriter
                 presentStream.getRetainedBytes() +
                 getRetainedDictionaryBytes() +
                 rowGroupRetainedSizeInBytes;
+    }
+
+    @Override
+    public void printRetainedBytes() {
+        log.info("data stream: %.2f / %.2f kB, present stream: %.2f / %.2f kB, dictionary: %.2f kb, " +
+                        "row group indexes: %.2f kb, row group builder: %.2f kb, row group: %.2f kB",
+                dataStream.getBufferedBytes()/1024.0,
+                dataStream.getRetainedBytes()/1024.0,
+                presentStream.getBufferedBytes()/1024.0,
+                presentStream.getRetainedBytes()/1024.0,
+                getRetainedDictionaryBytes()/1024.0,
+                sizeOf(rowGroupIndexes)/1024.0,
+                rowGroupBuilder.getRetainedSizeInBytes()/1024.0,
+                rowGroupRetainedSizeInBytes/1024.0);
+
     }
 
     private void resetRowGroups()

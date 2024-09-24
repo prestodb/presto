@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarArray;
 import com.facebook.presto.orc.ColumnWriterOptions;
@@ -54,6 +55,7 @@ import static java.util.Objects.requireNonNull;
 public class ListColumnWriter
         implements ColumnWriter
 {
+    private static final Logger log = Logger.get(ListColumnWriter.class);
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListColumnWriter.class).instanceSize();
     private final int column;
     private final int sequence;
@@ -230,6 +232,20 @@ public class ListColumnWriter
     public long getRetainedBytes()
     {
         return INSTANCE_SIZE + lengthStream.getRetainedBytes() + presentStream.getRetainedBytes() + elementWriter.getRetainedBytes() + columnStatisticsRetainedSizeInBytes;
+    }
+
+    @Override
+    public void printRetainedBytes() {
+        log.info("buffered: %.2f kB, retained: %.2f kB",
+                getBufferedBytes()/1024.0,
+                getRetainedBytes()/1024.0);
+        log.info("length stream: %.2f / %.2f kB, present stream: %.2f / %.2f kB, column statistics: %.2f kB",
+                lengthStream.getBufferedBytes()/1024.0,
+                lengthStream.getRetainedBytes()/1024.0,
+                presentStream.getBufferedBytes()/1024.0,
+                presentStream.getRetainedBytes()/1024.0,
+                columnStatisticsRetainedSizeInBytes/1024.0);
+        elementWriter.printRetainedBytes();
     }
 
     @Override

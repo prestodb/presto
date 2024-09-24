@@ -366,6 +366,7 @@ public final class ChunkedSliceOutput
         public void reset()
         {
             if (!bufferPool.isEmpty()) {
+                System.setProperty("CHUNKED_SLICE_OUTPUT_RESET_BUFFER", "CHUNKED_SLICE_OUTPUT_RESET_BUFFER");
                 log.info("Reset unused buffers, used %d chunks (%d bytes), unused %d chunks (%d bytes)",
                         usedBuffers.size(),
                         usedBuffers.stream().mapToInt(b -> b.length).sum(),
