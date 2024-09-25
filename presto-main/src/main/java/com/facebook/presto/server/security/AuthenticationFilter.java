@@ -62,6 +62,7 @@ public class AuthenticationFilter
     private final List<Authenticator> authenticators;
     private final boolean allowForwardedHttps;
     private final ClientRequestFilterManager clientRequestFilterManager;
+    private final List<String> headersBlockList = ImmutableList.of("X-Presto-Transaction-Id", "X-Presto-Started-Transaction-Id", "X-Presto-Clear-Transaction-Id", "X-Presto-Trace-Token");
 
     @Inject
     public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig, ClientRequestFilterManager clientRequestFilterManager)
@@ -109,6 +110,7 @@ public class AuthenticationFilter
             // authentication succeeded
             CustomHttpServletRequestWrapper wrappedRequest = new CustomHttpServletRequestWrapper(request);
             Map<String, String> extraHeadersMap = new HashMap<>();
+            Set<String> globallyAddedHeaders = new HashSet<>();
 
             for (ClientRequestFilter requestFilter : clientRequestFilterManager.getClientRequestFilters()) {
                 boolean headersPresent = requestFilter.getHeaderNames().stream()
@@ -119,8 +121,16 @@ public class AuthenticationFilter
 
                     extraHeaderValueMap.ifPresent(map -> {
                         for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
-                            if (request.getHeader(extraHeaderEntry.getKey()) == null) {
-                                extraHeadersMap.putIfAbsent(extraHeaderEntry.getKey(), extraHeaderEntry.getValue());
+                            String headerKey = extraHeaderEntry.getKey();
+                            if (headersBlockList.contains(headerKey)) {
+                                throw new RuntimeException("Modification attempt detected: The header " + headerKey + " is present in the blocked headers list.");
+                            }
+                            if (globallyAddedHeaders.contains(headerKey)) {
+                                throw new RuntimeException("Header conflict detected: " + headerKey + " already added by another filter.");
+                            }
+                            if (request.getHeader(headerKey) == null && requestFilter.getHeaderNames().contains(headerKey)) {
+                                extraHeadersMap.putIfAbsent(headerKey, extraHeaderEntry.getValue());
+                                globallyAddedHeaders.add(headerKey);
                             }
                         }
                     });
@@ -200,12 +210,11 @@ public class AuthenticationFilter
     public static class CustomHttpServletRequestWrapper
             extends HttpServletRequestWrapper
     {
-        private final Map<String, String> customHeaders;
+        private final Map<String, String> customHeaders = new ConcurrentHashMap<>();
 
         public CustomHttpServletRequestWrapper(HttpServletRequest request)
         {
             super(request);
-            this.customHeaders = new ConcurrentHashMap<>();
         }
 
         @Override

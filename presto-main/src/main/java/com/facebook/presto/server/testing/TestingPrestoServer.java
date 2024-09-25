@@ -844,10 +844,10 @@ public class TestingPrestoServer
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
 
-    public static ClientRequestFilterManager getClientRequestFilterManager(ClientRequestFilter customModifier)
+    public static ClientRequestFilterManager getClientRequestFilterManager(List<ClientRequestFilter> requestFilters)
     {
         ClientRequestFilterManager manager = new ClientRequestFilterManager();
-        manager.registerClientRequestFilter(customModifier);
+        requestFilters.forEach(manager::registerClientRequestFilter);
         return manager;
     }
 }

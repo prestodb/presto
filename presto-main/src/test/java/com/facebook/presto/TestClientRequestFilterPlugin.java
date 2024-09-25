@@ -16,46 +16,40 @@ package com.facebook.presto;
 import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ClientRequestFilter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import org.testng.annotations.Test;
 
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.testng.Assert.assertEquals;
 
 public class TestClientRequestFilterPlugin
 {
+    private final List<String> headersBlockList = ImmutableList.of("X-Presto-Transaction-Id", "X-Presto-Started-Transaction-Id", "X-Presto-Clear-Transaction-Id", "X-Presto-Trace-Token");
+
     @Test
-    public void testCustomRequestModifierWithHeaders() throws Exception
+    public void testCustomRequestFilterWithHeaders() throws Exception
     {
         ConcreteHttpServletRequest request = new ConcreteHttpServletRequest(ImmutableListMultimap.of("X-Custom-Header1", "CustomValue1"), "http://request-modifier.com", Collections.singletonMap("attribute", "attribute1"));
-        ClientRequestFilter customModifier = new ClientRequestFilter() {
-            @Override
-            public List<String> getHeaderNames()
-            {
-                return Collections.singletonList("Extra-credential");
-            }
-            @Override
-            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
-            {
-                Map<String, String> headers = new HashMap<>();
-                headers.put("X-Custom-Header", "CustomValue");
-                return Optional.of(headers);
-            }
-        };
+        List<ClientRequestFilter> requestFilters = getClientRequestFilter();
 
-        ClientRequestFilterManager clientRequestFilterManager = TestingPrestoServer.getClientRequestFilterManager(customModifier);
+        ClientRequestFilterManager clientRequestFilterManager = TestingPrestoServer.getClientRequestFilterManager(requestFilters);
 
         PrincipalStub testPrincipal = new PrincipalStub();
 
         Map<String, String> extraHeadersMap = new HashMap<>();
+        Set<String> globallyAddedHeaders = new HashSet<>();
 
         for (ClientRequestFilter requestFilter : clientRequestFilterManager.getClientRequestFilters()) {
             boolean headersPresent = requestFilter.getHeaderNames().stream()
@@ -66,8 +60,17 @@ public class TestClientRequestFilterPlugin
 
                 extraHeaderValueMap.ifPresent(map -> {
                     for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
-                        if (request.getHeader(extraHeaderEntry.getKey()) == null) {
-                            extraHeadersMap.putIfAbsent(extraHeaderEntry.getKey(), extraHeaderEntry.getValue());
+                        String headerKey = extraHeaderEntry.getKey();
+                        if (headersBlockList.contains(headerKey)) {
+                            throw new RuntimeException("Modification attempt detected: The header " + headerKey + " is present in the blocked headers list.");
+                        }
+                        if (globallyAddedHeaders.contains(headerKey)) {
+                            throw new RuntimeException("Header conflict detected: " + headerKey + " already added by another filter.");
+                        }
+
+                        if (request.getHeader(headerKey) == null && requestFilter.getHeaderNames().contains(headerKey)) {
+                            extraHeadersMap.putIfAbsent(headerKey, extraHeaderEntry.getValue());
+                            globallyAddedHeaders.add(headerKey);
                         }
                     }
                 });
@@ -75,6 +78,175 @@ public class TestClientRequestFilterPlugin
         }
         request.setHeaders(extraHeadersMap);
         assertEquals("CustomValue", request.getHeader("X-Custom-Header"));
+    }
+
+    private List<ClientRequestFilter> getClientRequestFilter()
+    {
+        List<ClientRequestFilter> requestFilters = new ArrayList<>();
+        ClientRequestFilter customModifier = new ClientRequestFilter()
+        {
+            @Override
+            public List<String> getHeaderNames()
+            {
+                return Collections.singletonList("X-Custom-Header");
+            }
+            @Override
+            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
+            {
+                Map<String, String> headers = new HashMap<>();
+                headers.put("X-Custom-Header", "CustomValue");
+                return Optional.of(headers);
+            }
+        };
+        requestFilters.add(customModifier);
+        return requestFilters;
+    }
+
+    @Test(
+            expectedExceptions = RuntimeException.class,
+            expectedExceptionsMessageRegExp = "Modification attempt detected: The header X-Presto-Transaction-Id is present in the blocked headers list.")
+    public void testCustomRequestFilterWithHeadersInBlockList()
+    {
+        ConcreteHttpServletRequest request = new ConcreteHttpServletRequest(ImmutableListMultimap.of("X-Custom-Header", "CustomValue1"), "http://request-modifier.com", Collections.singletonMap("attribute", "attribute1"));
+        List<ClientRequestFilter> requestFilters = getClientRequestFilterInBlockList();
+        ClientRequestFilterManager clientRequestFilterManager = TestingPrestoServer.getClientRequestFilterManager(requestFilters);
+
+        PrincipalStub testPrincipal = new PrincipalStub();
+
+        Map<String, String> extraHeadersMap = new HashMap<>();
+        Set<String> globallyAddedHeaders = new HashSet<>();
+
+        for (ClientRequestFilter requestFilter : clientRequestFilterManager.getClientRequestFilters()) {
+            boolean headersPresent = requestFilter.getHeaderNames().stream()
+                    .allMatch(headerName -> request.getHeader(headerName) != null);
+
+            if (!headersPresent) {
+                Optional<Map<String, String>> extraHeaderValueMap = requestFilter.getExtraHeaders(testPrincipal);
+
+                extraHeaderValueMap.ifPresent(map -> {
+                    for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
+                        String headerKey = extraHeaderEntry.getKey();
+                        if (headersBlockList.contains(headerKey)) {
+                            throw new RuntimeException("Modification attempt detected: The header " + headerKey + " is present in the blocked headers list.");
+                        }
+                        if (globallyAddedHeaders.contains(headerKey)) {
+                            throw new RuntimeException("Header conflict detected: " + headerKey + " already added by another filter.");
+                        }
+
+                        if (request.getHeader(headerKey) == null && requestFilter.getHeaderNames().contains(headerKey)) {
+                            extraHeadersMap.putIfAbsent(headerKey, extraHeaderEntry.getValue());
+                            globallyAddedHeaders.add(headerKey);
+                        }
+                    }
+                });
+            }
+        }
+        request.setHeaders(extraHeadersMap);
+    }
+
+    private List<ClientRequestFilter> getClientRequestFilterInBlockList()
+    {
+        List<ClientRequestFilter> requestFilters = new ArrayList<>();
+        ClientRequestFilter customModifier = new ClientRequestFilter()
+        {
+            @Override
+            public List<String> getHeaderNames()
+            {
+                return Collections.singletonList("X-Presto-Transaction-Id");
+            }
+            @Override
+            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
+            {
+                Map<String, String> headers = new HashMap<>();
+                headers.put("X-Presto-Transaction-Id", "CustomValue");
+                return Optional.of(headers);
+            }
+        };
+        requestFilters.add(customModifier);
+        return requestFilters;
+    }
+
+    @Test(
+            expectedExceptions = RuntimeException.class,
+            expectedExceptionsMessageRegExp = "Header conflict detected: X-Custom-Header already added by another filter.")
+    public void testCustomRequestFilterHandlesConflict()
+    {
+        ConcreteHttpServletRequest request = new ConcreteHttpServletRequest(ImmutableListMultimap.of("X-Custom-Header1", "CustomValue1"), "http://request-modifier.com", Collections.singletonMap("attribute", "attribute1"));
+        List<ClientRequestFilter> requestFilters = getClientRequestFilters();
+
+        ClientRequestFilterManager clientRequestFilterManager = TestingPrestoServer.getClientRequestFilterManager(requestFilters);
+
+        PrincipalStub testPrincipal = new PrincipalStub();
+
+        Map<String, String> extraHeadersMap = new HashMap<>();
+        Set<String> globallyAddedHeaders = new HashSet<>();
+
+        for (ClientRequestFilter requestFilter : clientRequestFilterManager.getClientRequestFilters()) {
+            boolean headersPresent = requestFilter.getHeaderNames().stream()
+                    .allMatch(headerName -> request.getHeader(headerName) != null);
+
+            if (!headersPresent) {
+                Optional<Map<String, String>> extraHeaderValueMap = requestFilter.getExtraHeaders(testPrincipal);
+
+                extraHeaderValueMap.ifPresent(map -> {
+                    for (Map.Entry<String, String> extraHeaderEntry : map.entrySet()) {
+                        String headerKey = extraHeaderEntry.getKey();
+                        if (headersBlockList.contains(headerKey)) {
+                            throw new RuntimeException("Modification attempt detected: The header " + headerKey + " is present in the blocked headers list.");
+                        }
+                        if (globallyAddedHeaders.contains(headerKey)) {
+                            throw new RuntimeException("Header conflict detected: " + headerKey + " already added by another filter.");
+                        }
+
+                        if (request.getHeader(headerKey) == null && requestFilter.getHeaderNames().contains(headerKey)) {
+                            extraHeadersMap.putIfAbsent(headerKey, extraHeaderEntry.getValue());
+                            globallyAddedHeaders.add(headerKey);
+                        }
+                    }
+                });
+            }
+        }
+        request.setHeaders(extraHeadersMap);
+    }
+
+    private List<ClientRequestFilter> getClientRequestFilters()
+    {
+        List<ClientRequestFilter> requestFilters = new ArrayList<>();
+        ClientRequestFilter customModifier = new ClientRequestFilter()
+        {
+            @Override
+            public List<String> getHeaderNames()
+            {
+                return Collections.singletonList("X-Custom-Header");
+            }
+            @Override
+            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
+            {
+                Map<String, String> headers = new HashMap<>();
+                headers.put("X-Custom-Header", "CustomValue_1");
+                return Optional.of(headers);
+            }
+        };
+
+        ClientRequestFilter customModifierConflict = new ClientRequestFilter()
+        {
+            @Override
+            public List<String> getHeaderNames()
+            {
+                return Collections.singletonList("X-Custom-Header");
+            }
+            @Override
+            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
+            {
+                Map<String, String> headers = new HashMap<>();
+                headers.put("X-Custom-Header", "CustomValue_2");
+                return Optional.of(headers);
+            }
+        };
+
+        requestFilters.add(customModifier);
+        requestFilters.add(customModifierConflict);
+        return requestFilters;
     }
 
     static class ConcreteHttpServletRequest
