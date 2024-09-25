@@ -204,7 +204,6 @@ void CacheFuzzer::initializeCache() {
   options.useMmapAllocator = true;
   options.allocatorCapacity = FLAGS_memory_cache_bytes;
   options.arbitratorCapacity = FLAGS_memory_cache_bytes;
-  options.arbitratorReservedCapacity = 0;
   options.trackDefaultUsage = true;
   memoryManager_ = std::make_unique<memory::MemoryManager>(options);
 

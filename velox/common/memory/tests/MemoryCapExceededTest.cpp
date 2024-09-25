@@ -206,8 +206,7 @@ TEST_P(MemoryCapExceededTest, allocatorCapacityExceededError) {
     memory::MemoryManager manager(
         {.allocatorCapacity = (int64_t)testData.allocatorCapacity,
          .useMmapAllocator = testData.useMmap,
-         .arbitratorCapacity = (int64_t)testData.allocatorCapacity,
-         .arbitratorReservedCapacity = 0});
+         .arbitratorCapacity = (int64_t)testData.allocatorCapacity});
 
     vector_size_t size = 1'024;
     // This limit ensures that only the Aggregation Operator fails.

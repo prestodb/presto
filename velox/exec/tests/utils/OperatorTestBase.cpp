@@ -90,13 +90,21 @@ void OperatorTestBase::setupMemory(
   MemoryManagerOptions options;
   options.allocatorCapacity = allocatorCapacity;
   options.arbitratorCapacity = arbitratorCapacity;
-  options.arbitratorReservedCapacity = arbitratorReservedCapacity;
-  options.memoryPoolInitCapacity = memoryPoolInitCapacity;
-  options.memoryPoolReservedCapacity = memoryPoolReservedCapacity;
   options.arbitratorKind = "SHARED";
   options.checkUsageLeak = true;
-  options.globalArbitrationEnabled = true;
   options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
+
+  using ExtraConfig = SharedArbitrator::ExtraConfig;
+  options.extraArbitratorConfigs = {
+      {std::string(ExtraConfig::kReservedCapacity),
+       folly::to<std::string>(arbitratorReservedCapacity) + "B"},
+      {std::string(ExtraConfig::kMemoryPoolInitialCapacity),
+       folly::to<std::string>(memoryPoolInitCapacity) + "B"},
+      {std::string(ExtraConfig::kMemoryPoolReservedCapacity),
+       folly::to<std::string>(memoryPoolReservedCapacity) + "B"},
+      {std::string(ExtraConfig::kGlobalArbitrationEnabled), "true"},
+  };
+
   memory::MemoryManager::testingSetInstance(options);
   asyncDataCache_ =
       cache::AsyncDataCache::create(memory::memoryManager()->allocator());

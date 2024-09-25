@@ -152,79 +152,11 @@ struct MemoryManagerOptions {
   /// reservation capacity for system usage.
   int64_t arbitratorCapacity{kMaxMemory};
 
-  /// Memory capacity reserved to ensure that a query has minimal memory
-  /// capacity to run. This capacity should be less than 'arbitratorCapacity'.
-  /// A query's minimal memory capacity is defined by
-  /// 'memoryPoolReservedCapacity'.
-  int64_t arbitratorReservedCapacity{0};
-
   /// The string kind of memory arbitrator used in the memory manager.
   ///
   /// NOTE: the arbitrator will only be created if its kind is set explicitly.
   /// Otherwise MemoryArbitrator::create returns a nullptr.
   std::string arbitratorKind{};
-
-  /// The initial memory capacity to reserve for a newly created query memory
-  /// pool.
-  uint64_t memoryPoolInitCapacity{256 << 20};
-
-  /// The minimal query memory pool capacity that is ensured during arbitration.
-  /// During arbitration, memory arbitrator ensures the participants' memory
-  /// pool capacity to be no less than this value on a best-effort basis, for
-  /// more smooth executions of the queries, to avoid frequent arbitration
-  /// requests.
-  uint64_t memoryPoolReservedCapacity{0};
-
-  /// The minimal memory capacity to transfer out of or into a memory pool
-  /// during the memory arbitration.
-  uint64_t memoryPoolTransferCapacity{128 << 20};
-
-  /// When growing capacity, the growth bytes will be adjusted in the
-  /// following way:
-  ///  - If 2 * current capacity is less than or equal to
-  ///    'fastExponentialGrowthCapacityLimit', grow through fast path by at
-  ///    least doubling the current capacity, when conditions allow (see below
-  ///    NOTE section).
-  ///  - If 2 * current capacity is greater than
-  ///    'fastExponentialGrowthCapacityLimit', grow through slow path by growing
-  ///    capacity by at least 'slowCapacityGrowPct' * current capacity if
-  ///    allowed (see below NOTE section).
-  ///
-  /// NOTE: If original requested growth bytes is larger than the adjusted
-  /// growth bytes or adjusted growth bytes reaches max capacity limit, the
-  /// adjusted growth bytes will not be respected.
-  ///
-  /// NOTE: Capacity growth adjust is only enabled if both
-  /// 'fastExponentialGrowthCapacityLimit' and 'slowCapacityGrowPct' are set,
-  /// otherwise it is disabled.
-  uint64_t fastExponentialGrowthCapacityLimit{512 << 20};
-  double slowCapacityGrowPct{0.25};
-
-  /// When shrinking capacity, the shrink bytes will be adjusted in a way such
-  /// that AFTER shrink, the stricter (whichever is smaller) of the following
-  /// conditions is met, in order to better fit the pool's current memory
-  /// usage:
-  /// - Free capacity is greater or equal to capacity *
-  /// 'memoryPoolMinFreeCapacityPct'
-  /// - Free capacity is greater or equal to 'memoryPoolMinFreeCapacity'
-  ///
-  /// NOTE: In the conditions when original requested shrink bytes ends up
-  /// with more free capacity than above 2 conditions, the adjusted shrink
-  /// bytes is not respected.
-  ///
-  /// NOTE: Capacity shrink adjustment is enabled when both
-  /// 'memoryPoolMinFreeCapacityPct' and 'memoryPoolMinFreeCapacity' are set.
-  uint64_t memoryPoolMinFreeCapacity{128 << 20};
-  double memoryPoolMinFreeCapacityPct{0.25};
-
-  /// Specifies the max time to wait for memory reclaim by arbitration. The
-  /// memory reclaim might fail if the max wait time has exceeded. If it is
-  /// zero, then there is no timeout. The default is 5 mins.
-  uint64_t memoryReclaimWaitMs{300'000};
-
-  /// If true, it allows memory arbitrator to reclaim used memory cross query
-  /// memory pools.
-  bool globalArbitrationEnabled{false};
 
   /// Provided by the query system to validate the state after a memory pool
   /// enters arbitration if not null. For instance, Prestissimo provides
@@ -234,9 +166,6 @@ struct MemoryManagerOptions {
   /// pool.
   MemoryArbitrationStateCheckCB arbitrationStateCheckCb{nullptr};
 
-  /// TODO(jtan6): [Config Refactor] Remove above shared arbitrator specific
-  /// configs after Prestissimo switch to use extra configs map.
-  ///
   /// Additional configs that are arbitrator implementation specific.
   std::unordered_map<std::string, std::string> extraArbitratorConfigs{};
 };

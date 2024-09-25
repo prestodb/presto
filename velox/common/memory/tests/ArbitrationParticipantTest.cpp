@@ -377,7 +377,6 @@ class ArbitrationParticipantTest : public testing::Test {
   void setupMemory(int64_t memoryCapacity = kMemoryCapacity) {
     MemoryManagerOptions options;
     options.allocatorCapacity = memoryCapacity;
-    options.arbitratorReservedCapacity = 0;
     options.arbitratorKind = arbitratorKind;
     options.checkUsageLeak = true;
     manager_ = std::make_unique<MemoryManager>(options);

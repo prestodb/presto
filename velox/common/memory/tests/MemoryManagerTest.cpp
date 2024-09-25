@@ -65,9 +65,7 @@ TEST_F(MemoryManagerTest, ctor) {
   {
     const auto kCapacity = 8L * 1024 * 1024;
     MemoryManager manager{
-        {.allocatorCapacity = kCapacity,
-         .arbitratorCapacity = kCapacity,
-         .arbitratorReservedCapacity = 0}};
+        {.allocatorCapacity = kCapacity, .arbitratorCapacity = kCapacity}};
     ASSERT_EQ(kCapacity, manager.capacity());
     ASSERT_EQ(manager.numPools(), 2);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
@@ -77,8 +75,7 @@ TEST_F(MemoryManagerTest, ctor) {
     MemoryManager manager{
         {.alignment = 0,
          .allocatorCapacity = kCapacity,
-         .arbitratorCapacity = kCapacity,
-         .arbitratorReservedCapacity = 0}};
+         .arbitratorCapacity = kCapacity}};
 
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
@@ -93,7 +90,6 @@ TEST_F(MemoryManagerTest, ctor) {
     const auto kCapacity = 4L << 30;
     options.allocatorCapacity = kCapacity;
     options.arbitratorCapacity = kCapacity;
-    options.arbitratorReservedCapacity = 0;
     std::string arbitratorKind = "SHARED";
     options.arbitratorKind = arbitratorKind;
     MemoryManager manager{options};
@@ -232,7 +228,10 @@ TEST_F(MemoryManagerTest, addPoolWithArbitrator) {
   // The arbitrator capacity will be overridden by the memory manager's
   // capacity.
   const uint64_t initialPoolCapacity = options.allocatorCapacity / 32;
-  options.memoryPoolInitCapacity = initialPoolCapacity;
+  using ExtraConfig = SharedArbitrator::ExtraConfig;
+  options.extraArbitratorConfigs = {
+      {std::string(ExtraConfig::kMemoryPoolInitialCapacity),
+       folly::to<std::string>(initialPoolCapacity) + "B"}};
   MemoryManager manager{options};
 
   auto rootPool = manager.addRootPool(
@@ -608,7 +607,6 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
       options.alignment = alignment;
       options.allocatorCapacity = testData.memoryQuotaBytes;
       options.arbitratorCapacity = testData.memoryQuotaBytes;
-      options.arbitratorReservedCapacity = 0;
       MemoryManager manager{options};
       auto pool = manager.addLeafPool("quotaEnforcement");
       void* smallBuffer{nullptr};

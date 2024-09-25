@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/exec/TableWriter.h"
 
 using namespace facebook::velox;
@@ -50,19 +51,23 @@ std::unique_ptr<memory::MemoryManager> createMemoryManager(
     double slowCapacityGrowPct) {
   memory::MemoryManagerOptions options;
   options.arbitratorCapacity = arbitratorCapacity;
-  options.arbitratorReservedCapacity = 0;
   // Avoid allocation failure in unit tests.
   options.allocatorCapacity = arbitratorCapacity * 2;
   options.arbitratorKind = "SHARED";
-  options.memoryPoolInitCapacity = memoryPoolInitCapacity;
-  options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
-  options.memoryPoolReservedCapacity = 0;
-  options.memoryReclaimWaitMs = maxReclaimWaitMs;
-  options.globalArbitrationEnabled = true;
   options.checkUsageLeak = true;
-  options.fastExponentialGrowthCapacityLimit =
-      fastExponentialGrowthCapacityLimit;
-  options.slowCapacityGrowPct = slowCapacityGrowPct;
+  using ExtraConfig = SharedArbitrator::ExtraConfig;
+  options.extraArbitratorConfigs = {
+      {std::string(ExtraConfig::kMemoryPoolInitialCapacity),
+       folly::to<std::string>(memoryPoolInitCapacity) + "B"},
+      {std::string(ExtraConfig::kMemoryPoolTransferCapacity),
+       folly::to<std::string>(memoryPoolTransferCapacity) + "B"},
+      {std::string(ExtraConfig::kMemoryReclaimMaxWaitTime),
+       folly::to<std::string>(maxReclaimWaitMs) + "ms"},
+      {std::string(ExtraConfig::kGlobalArbitrationEnabled), "true"},
+      {std::string(ExtraConfig::kFastExponentialGrowthCapacityLimit),
+       folly::to<std::string>(fastExponentialGrowthCapacityLimit) + "B"},
+      {std::string(ExtraConfig::kSlowCapacityGrowPct),
+       folly::to<std::string>(slowCapacityGrowPct)}};
   options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
   return std::make_unique<memory::MemoryManager>(options);
 }

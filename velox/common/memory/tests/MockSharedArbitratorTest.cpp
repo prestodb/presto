@@ -439,18 +439,30 @@ class MockSharedArbitrationTest : public testing::Test {
       bool globalArtbitrationEnabled = true) {
     MemoryManagerOptions options;
     options.allocatorCapacity = memoryCapacity;
-    options.arbitratorReservedCapacity = reservedMemoryCapacity;
     std::string arbitratorKind = "SHARED";
     options.arbitratorKind = arbitratorKind;
-    options.memoryPoolInitCapacity = memoryPoolInitCapacity;
-    options.memoryPoolReservedCapacity = memoryPoolReserveCapacity;
-    options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
-    options.fastExponentialGrowthCapacityLimit =
-        fastExponentialGrowthCapacityLimit;
-    options.slowCapacityGrowPct = slowCapacityGrowPct;
-    options.memoryPoolMinFreeCapacity = memoryPoolMinFreeCapacity;
-    options.memoryPoolMinFreeCapacityPct = memoryPoolMinFreeCapacityPct;
-    options.globalArbitrationEnabled = globalArtbitrationEnabled;
+
+    using ExtraConfig = SharedArbitrator::ExtraConfig;
+    options.extraArbitratorConfigs = {
+        {std::string(ExtraConfig::kReservedCapacity),
+         folly::to<std::string>(reservedMemoryCapacity) + "B"},
+        {std::string(ExtraConfig::kMemoryPoolInitialCapacity),
+         folly::to<std::string>(memoryPoolInitCapacity) + "B"},
+        {std::string(ExtraConfig::kMemoryPoolReservedCapacity),
+         folly::to<std::string>(memoryPoolReserveCapacity) + "B"},
+        {std::string(ExtraConfig::kMemoryPoolTransferCapacity),
+         folly::to<std::string>(memoryPoolTransferCapacity) + "B"},
+        {std::string(ExtraConfig::kFastExponentialGrowthCapacityLimit),
+         folly::to<std::string>(fastExponentialGrowthCapacityLimit) + "B"},
+        {std::string(ExtraConfig::kSlowCapacityGrowPct),
+         folly::to<std::string>(slowCapacityGrowPct)},
+        {std::string(ExtraConfig::kMemoryPoolMinFreeCapacity),
+         folly::to<std::string>(memoryPoolMinFreeCapacity) + "B"},
+        {std::string(ExtraConfig::kMemoryPoolMinFreeCapacityPct),
+         folly::to<std::string>(memoryPoolMinFreeCapacityPct)},
+        {std::string(ExtraConfig::kGlobalArbitrationEnabled),
+         folly::to<std::string>(globalArtbitrationEnabled)}};
+
     options.arbitrationStateCheckCb = std::move(arbitrationStateCheckCb);
     options.checkUsageLeak = true;
     manager_ = std::make_unique<MemoryManager>(options);

@@ -147,7 +147,6 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
     options.useMmapAllocator = true;
     options.allocatorCapacity = maxBytes;
     options.arbitratorCapacity = maxBytes;
-    options.arbitratorReservedCapacity = 0;
     options.trackDefaultUsage = true;
     manager_ = std::make_unique<memory::MemoryManager>(options);
     allocator_ = static_cast<memory::MmapAllocator*>(manager_->allocator());

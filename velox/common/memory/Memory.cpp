@@ -66,54 +66,12 @@ std::unique_ptr<MemoryArbitrator> createArbitrator(
   //  non-reclaimable cache memory which are pinned by query accesses if
   //  enabled.
 
-  // TODO(jtan6): [Config Refactor] clean up the if condition after Prestissimo
-  //  switched to use extra configs map.
-  if (options.extraArbitratorConfigs.empty()) {
-    std::unordered_map<std::string, std::string> extraArbitratorConfigs;
-    try {
-      // The literal string is temporary in order to not depend on
-      // SharedArbitrator class. After Prestissimo switches, this part of the
-      // code will be removed.
-      extraArbitratorConfigs["reserved-capacity"] =
-          folly::to<std::string>(options.arbitratorReservedCapacity) + "B";
-      extraArbitratorConfigs["memory-pool-initial-capacity"] =
-          folly::to<std::string>(options.memoryPoolInitCapacity) + "B";
-      extraArbitratorConfigs["memory-pool-reserved-capacity"] =
-          folly::to<std::string>(options.memoryPoolReservedCapacity) + "B";
-      extraArbitratorConfigs["memory-pool-transfer-capacity"] =
-          folly::to<std::string>(options.memoryPoolTransferCapacity) + "B";
-      extraArbitratorConfigs["fast-exponential-growth-capacity-limit"] =
-          folly::to<std::string>(options.fastExponentialGrowthCapacityLimit) +
-          "B";
-      extraArbitratorConfigs["slow-capacity-grow-pct"] =
-          folly::to<std::string>(options.slowCapacityGrowPct);
-      extraArbitratorConfigs["memory-pool-min-free-capacity"] =
-          folly::to<std::string>(options.memoryPoolMinFreeCapacity) + "B";
-      extraArbitratorConfigs["memory-pool-min-free-capacity-pct"] =
-          folly::to<std::string>(options.memoryPoolMinFreeCapacityPct);
-      extraArbitratorConfigs["memory-reclaim-max-wait-time"] =
-          folly::to<std::string>(options.memoryReclaimWaitMs) + "ms";
-      extraArbitratorConfigs["global-arbitration-enabled"] =
-          folly::to<std::string>(options.globalArbitrationEnabled);
-      extraArbitratorConfigs["check-usage-leak"] =
-          folly::to<std::string>(options.checkUsageLeak);
-    } catch (const std::exception& e) {
-      VELOX_USER_FAIL("Failed to parse extra arbitrator configs: {}", e.what());
-    }
-    return MemoryArbitrator::create(
-        {.kind = options.arbitratorKind,
-         .capacity =
-             std::min(options.arbitratorCapacity, options.allocatorCapacity),
-         .arbitrationStateCheckCb = options.arbitrationStateCheckCb,
-         .extraConfigs = extraArbitratorConfigs});
-  } else {
-    return MemoryArbitrator::create(
-        {.kind = options.arbitratorKind,
-         .capacity =
-             std::min(options.arbitratorCapacity, options.allocatorCapacity),
-         .arbitrationStateCheckCb = options.arbitrationStateCheckCb,
-         .extraConfigs = options.extraArbitratorConfigs});
-  }
+  return MemoryArbitrator::create(
+      {.kind = options.arbitratorKind,
+       .capacity =
+           std::min(options.arbitratorCapacity, options.allocatorCapacity),
+       .arbitrationStateCheckCb = options.arbitrationStateCheckCb,
+       .extraConfigs = options.extraArbitratorConfigs});
 }
 
 std::vector<std::shared_ptr<MemoryPool>> createSharedLeafMemoryPools(
