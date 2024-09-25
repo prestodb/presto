@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.batchreader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.parquet.ColumnReader;
 import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DictionaryPage;
@@ -163,7 +164,12 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
             totalNonNullCount += nonNullCount;
 
             if (nonNullCount > 0) {
-                valuesDecoder.readNext(values, startOffset, nonNullCount);
+                if (field.getType() instanceof TimestampWithTimeZoneType) {
+                    valuesDecoder.readNextWithTimezone(values, startOffset, nonNullCount);
+                }
+                else {
+                    valuesDecoder.readNext(values, startOffset, nonNullCount);
+                }
 
                 int valueDestinationIndex = startOffset + chunkSize - 1;
                 int valueSourceIndex = startOffset + nonNullCount - 1;
@@ -211,7 +217,12 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
 
             int chunkSize = Math.min(remainingCountInPage, remainingInBatch);
 
-            valuesDecoder.readNext(values, startOffset, chunkSize);
+            if (field.getType() instanceof TimestampWithTimeZoneType) {
+                valuesDecoder.readNextWithTimezone(values, startOffset, chunkSize);
+            }
+            else {
+                valuesDecoder.readNext(values, startOffset, chunkSize);
+            }
             startOffset += chunkSize;
             remainingInBatch -= chunkSize;
             remainingCountInPage -= chunkSize;
