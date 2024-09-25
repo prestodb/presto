@@ -82,22 +82,22 @@ RowVectorPtr TableScan::getOutput() {
   curStatus_ = "getOutput: enter";
   const auto startTimeMs = getCurrentTimeMs();
   for (;;) {
-    if (needNewSplit_) {
-      // Check if our Task needs us to yield or we've been running for too long
-      // w/o producing a result. In this case we return with the Yield blocking
-      // reason and an already fulfilled future.
-      curStatus_ = "getOutput: task->shouldStop";
-      const StopReason taskStopReason = driverCtx_->task->shouldStop();
-      if (shouldStop(taskStopReason) ||
-          shouldYield(taskStopReason, startTimeMs)) {
-        blockingReason_ = BlockingReason::kYield;
-        blockingFuture_ = ContinueFuture{folly::Unit{}};
-        // A point for test code injection.
-        TestValue::adjust(
-            "facebook::velox::exec::TableScan::getOutput::yield", this);
-        return nullptr;
-      }
+    // Check if our Task needs us to yield or we've been running for too long
+    // w/o producing a result. In this case we return with the Yield blocking
+    // reason and an already fulfilled future.
+    curStatus_ = "getOutput: task->shouldStop";
+    const StopReason taskStopReason = driverCtx_->task->shouldStop();
+    if (shouldStop(taskStopReason) ||
+        shouldYield(taskStopReason, startTimeMs)) {
+      blockingReason_ = BlockingReason::kYield;
+      blockingFuture_ = ContinueFuture{folly::Unit{}};
+      // A point for test code injection.
+      TestValue::adjust(
+          "facebook::velox::exec::TableScan::getOutput::yield", this);
+      return nullptr;
+    }
 
+    if (needNewSplit_) {
       // A point for test code injection.
       TestValue::adjust("facebook::velox::exec::TableScan::getOutput", this);
 
