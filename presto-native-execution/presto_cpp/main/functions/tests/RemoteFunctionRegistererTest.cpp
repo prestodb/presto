@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/RemoteFunctionRegisterer.h"
+#include "presto_cpp/main/functions/RemoteFunctionRegisterer.h"
 #include <gtest/gtest.h>
 #include <fstream>
 #include "velox/common/base/Fs.h"

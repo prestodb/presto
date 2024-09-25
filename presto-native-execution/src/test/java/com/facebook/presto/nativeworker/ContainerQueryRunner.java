@@ -129,6 +129,7 @@ public class ContainerQueryRunner
                 .withNetwork(network).withNetworkAliases(nodeId)
                 .withFileSystemBind(BASE_DIR + "/testcontainers/" + nodeId + "/etc", "/opt/presto-server/etc", BindMode.READ_ONLY)
                 .withFileSystemBind(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh", "/opt/entrypoint.sh", BindMode.READ_ONLY)
+                .withFileSystemBind(BASE_DIR + "/testcontainers/plugin/libpresto_function_my_dynamic.dylib", "/opt/plugin/libpresto_function_my_dynamic.dylib", BindMode.READ_ONLY)
                 .waitingFor(Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
     }
 

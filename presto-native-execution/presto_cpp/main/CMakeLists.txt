@@ -11,6 +11,7 @@
 # limitations under the License.
 add_subdirectory(operators)
 add_subdirectory(types)
+add_subdirectory(functions)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
@@ -74,7 +75,8 @@ target_link_libraries(
   ${FOLLY_WITH_DEPENDENCIES}
   ${GLOG}
   ${GFLAGS_LIBRARIES}
-  pthread)
+  pthread
+  presto_dynamic_function_loader)
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
 # likely due to a conflict between Arrow Thrift from velox_hive_connector and
@@ -96,8 +98,7 @@ target_link_libraries(presto_server presto_server_lib velox_hive_connector
                       velox_tpch_connector)
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_library(presto_server_remote_function JsonSignatureParser.cpp
-                                            RemoteFunctionRegisterer.cpp)
+  add_library(presto_server_remote_function JsonSignatureParser.cpp)
 
   target_link_libraries(presto_server_remote_function velox_expression
                         velox_functions_remote ${FOLLY_WITH_DEPENDENCIES})

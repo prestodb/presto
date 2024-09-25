@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/RemoteFunctionRegisterer.h"
+#include "presto_cpp/main/functions/RemoteFunctionRegisterer.h"
 #include <fstream>
 #include "presto_cpp/main/JsonSignatureParser.h"
 #include "velox/common/base/Exceptions.h"

@@ -186,6 +186,8 @@ class PrestoServer {
 
   VeloxPlanValidator* getVeloxPlanValidator();
 
+  virtual void registerDynamicFunctions();
+
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getHttpServerFilters();
