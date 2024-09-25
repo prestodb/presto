@@ -38,6 +38,7 @@ PYTHON_VENV=${PYHTON_VENV:-"${SCRIPTDIR}/../.venv"}
 export OS_CXXFLAGS=" -isystem $(brew --prefix)/include "
 NPROC=$(getconf _NPROCESSORS_ONLN)
 
+BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 snappy xz zstd"
 MACOS_BUILD_DEPS="ninja cmake"
@@ -147,6 +148,14 @@ function install_fast_float {
   cmake_install_dir fast_float
 }
 
+function install_duckdb {
+  if $BUILD_DUCKDB ; then
+    echo 'Building DuckDB'
+    wget_and_untar https://github.com/duckdb/duckdb/archive/refs/tags/v0.8.1.tar.gz duckdb
+    cmake_install_dir duckdb -DBUILD_UNITTESTS=OFF -DENABLE_SANITIZER=OFF -DENABLE_UBSAN=OFF -DBUILD_SHELL=OFF -DEXPORT_DLL_SYMBOLS=OFF -DCMAKE_BUILD_TYPE=Release
+  fi
+}
+
 function install_velox_deps {
   run_and_time install_velox_deps_from_brew
   run_and_time install_ranges_v3
@@ -159,6 +168,7 @@ function install_velox_deps {
   run_and_time install_wangle
   run_and_time install_mvfst
   run_and_time install_fbthrift
+  run_and_time install_duckdb
 }
 
 (return 2> /dev/null) && return # If script was sourced, don't run commands.
