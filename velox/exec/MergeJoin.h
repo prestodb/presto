@@ -180,13 +180,22 @@ class MergeJoin : public Operator {
   bool prepareOutput(const RowVectorPtr& left, const RowVectorPtr& right);
 
   // Appends a cartesian product of the current set of matching rows, leftMatch_
-  // x rightMatch_, to output_. Returns true if output_ is full. Sets
-  // leftMatchCursor_ and rightMatchCursor_ if output_ filled up before all the
-  // rows were added. Fills up output starting from leftMatchCursor_ and
-  // rightMatchCursor_ positions if these are set. Clears leftMatch_ and
-  // rightMatch_ if all rows were added. Updates leftMatchCursor_ and
-  // rightMatchCursor_ if output_ filled up before all rows were added.
+  // x rightMatch_ for left join and rightMatch_ x leftMatch_ for right join, to
+  // output_. Returns true if output_ is full. Sets leftMatchCursor_ and
+  // rightMatchCursor_ if output_ filled up before all the rows were added.
+  // Fills up output starting from leftMatchCursor_ and rightMatchCursor_
+  // positions if these are set. Clears leftMatch_ and rightMatch_ if all rows
+  // were added. Updates leftMatchCursor_ and rightMatchCursor_ if output_
+  // filled up before all rows were added.
   bool addToOutput();
+
+  // Appends the current set of matching rows, leftMatch_ x rightMatch_ for
+  // left.
+  bool addToOutputForLeftJoin();
+
+  // Appends the current set of matching rows, rightMatch_ x leftMatch_ for
+  // right.
+  bool addToOutputForRightJoin();
 
   // Adds one row of output by writing to the indices of the output
   // dictionaries. By default, this operator returns dictionaries wrapped around

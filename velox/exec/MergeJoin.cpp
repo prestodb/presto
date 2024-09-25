@@ -507,6 +507,14 @@ bool MergeJoin::prepareOutput(
 }
 
 bool MergeJoin::addToOutput() {
+  if (isRightJoin(joinType_) || isRightSemiFilterJoin(joinType_)) {
+    return addToOutputForRightJoin();
+  } else {
+    return addToOutputForLeftJoin();
+  }
+}
+
+bool MergeJoin::addToOutputForLeftJoin() {
   size_t firstLeftBatch;
   vector_size_t leftStartIndex;
   if (leftMatch_->cursor) {
@@ -552,10 +560,8 @@ bool MergeJoin::addToOutput() {
         // one match on the other side, we could explore specialized algorithms
         // or data structures that short-circuit the join process once a match
         // is found.
-        if (isLeftSemiFilterJoin(joinType_) ||
-            isRightSemiFilterJoin(joinType_)) {
+        if (isLeftSemiFilterJoin(joinType_)) {
           // LeftSemiFilter produce each row from the left at most once.
-          // RightSemiFilter produce each row from the right at most once.
           rightEnd = rightStart + 1;
         }
 
@@ -582,6 +588,84 @@ bool MergeJoin::addToOutput() {
   // If the current key match finished, but there are still records to be
   // processed in the left, we need to load lazy vectors (see comment above).
   if (input_ && index_ != input_->size()) {
+    loadColumns(currentLeft_, *operatorCtx_->execCtx());
+  }
+  return outputSize_ == outputBatchSize_;
+}
+
+bool MergeJoin::addToOutputForRightJoin() {
+  size_t firstRightBatch;
+  vector_size_t rightStartIndex;
+  if (rightMatch_->cursor) {
+    firstRightBatch = rightMatch_->cursor->batchIndex;
+    rightStartIndex = rightMatch_->cursor->index;
+  } else {
+    firstRightBatch = 0;
+    rightStartIndex = rightMatch_->startIndex;
+  }
+
+  size_t numRights = rightMatch_->inputs.size();
+  for (size_t r = firstRightBatch; r < numRights; ++r) {
+    auto right = rightMatch_->inputs[r];
+    auto rightStart = r == firstRightBatch ? rightStartIndex : 0;
+    auto rightEnd = r == numRights - 1 ? rightMatch_->endIndex : right->size();
+
+    for (auto i = rightStart; i < rightEnd; ++i) {
+      auto firstLeftBatch =
+          (r == firstRightBatch && i == rightStart && leftMatch_->cursor)
+          ? leftMatch_->cursor->batchIndex
+          : 0;
+
+      auto leftStartIndex =
+          (r == firstRightBatch && i == rightStart && leftMatch_->cursor)
+          ? leftMatch_->cursor->index
+          : leftMatch_->startIndex;
+
+      auto numLefts = leftMatch_->inputs.size();
+      for (size_t l = firstLeftBatch; l < numLefts; ++l) {
+        auto left = leftMatch_->inputs[l];
+        auto leftStart = l == firstLeftBatch ? leftStartIndex : 0;
+        auto leftEnd = l == numLefts - 1 ? leftMatch_->endIndex : left->size();
+
+        if (prepareOutput(left, right)) {
+          output_->resize(outputSize_);
+          leftMatch_->setCursor(l, leftStart);
+          rightMatch_->setCursor(r, i);
+          return true;
+        }
+
+        // TODO: Since semi joins only require determining if there is at least
+        // one match on the other side, we could explore specialized algorithms
+        // or data structures that short-circuit the join process once a match
+        // is found.
+        if (isRightSemiFilterJoin(joinType_)) {
+          // RightSemiFilter produce each row from the right at most once.
+          leftEnd = leftStart + 1;
+        }
+
+        for (auto j = leftStart; j < leftEnd; ++j) {
+          if (outputSize_ == outputBatchSize_) {
+            // If we run out of space in the current output_, we will need to
+            // produce a buffer and continue processing left later. In this
+            // case, we cannot leave left as a lazy vector, since we cannot have
+            // two dictionaries wrapping the same lazy vector.
+            loadColumns(currentLeft_, *operatorCtx_->execCtx());
+            rightMatch_->setCursor(r, i);
+            leftMatch_->setCursor(l, j);
+            return true;
+          }
+          addOutputRow(left, j, right, i);
+        }
+      }
+    }
+  }
+
+  leftMatch_.reset();
+  rightMatch_.reset();
+
+  // If the current key match finished, but there are still records to be
+  // processed in the left, we need to load lazy vectors (see comment above).
+  if (rightInput_ && rightIndex_ != rightInput_->size()) {
     loadColumns(currentLeft_, *operatorCtx_->execCtx());
   }
   return outputSize_ == outputBatchSize_;
@@ -649,6 +733,7 @@ RowVectorPtr MergeJoin::getOutput() {
     if (output != nullptr && output->size() > 0) {
       if (filter_) {
         output = applyFilter(output);
+
         if (output != nullptr) {
           for (const auto [channel, _] : filterInputToOutputChannel_) {
             filterInput_->childAt(channel).reset();
@@ -689,7 +774,14 @@ RowVectorPtr MergeJoin::getOutput() {
           if (isFullJoin(joinType_)) {
             rightIndex_ = 0;
           } else {
-            rightIndex_ = firstNonNull(rightInput_, rightKeys_);
+            auto firstNonNullIndex = firstNonNull(rightInput_, rightKeys_);
+            if (isRightJoin(joinType_) && firstNonNullIndex > 0) {
+              prepareOutput(nullptr, rightInput_);
+              for (auto i = 0; i < firstNonNullIndex; ++i) {
+                addOutputRowForRightJoin(rightInput_, i);
+              }
+            }
+            rightIndex_ = firstNonNullIndex;
             if (rightIndex_ == rightInput_->size()) {
               // Ran out of rows on the right side.
               rightInput_ = nullptr;
