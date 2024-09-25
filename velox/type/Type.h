@@ -1612,6 +1612,21 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
     }                                                                         \
   }()
 
+#define VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH_ALL(                    \
+    TEMPLATE_FUNC, T, typeKind, ...)                                 \
+  [&]() {                                                            \
+    if ((typeKind) == ::facebook::velox::TypeKind::UNKNOWN) {        \
+      return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::UNKNOWN>( \
+          __VA_ARGS__);                                              \
+    } else if ((typeKind) == ::facebook::velox::TypeKind::OPAQUE) {  \
+      return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::OPAQUE>(  \
+          __VA_ARGS__);                                              \
+    } else {                                                         \
+      return VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(                   \
+          TEMPLATE_FUNC, T, typeKind, __VA_ARGS__);                  \
+    }                                                                \
+  }()
+
 #define VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(TEMPLATE_FUNC, typeKind, ...)   \
   [&]() {                                                                      \
     if ((typeKind) == ::facebook::velox::TypeKind::UNKNOWN) {                  \

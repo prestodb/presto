@@ -868,7 +868,7 @@ int32_t RowContainer::compareComplexType(
   return compareComplexType(left, right, type, offset, offset, flags);
 }
 
-template <TypeKind Kind>
+template <bool typeProvidesCustomComparison, TypeKind Kind>
 void RowContainer::hashTyped(
     const Type* type,
     RowColumn column,
@@ -881,6 +881,7 @@ void RowContainer::hashTyped(
   auto offset = column.offset();
   std::string storage;
   auto numRows = rows.size();
+
   for (int32_t i = 0; i < numRows; ++i) {
     char* row = rows[i];
     if (nullable && isNullAt(row, column)) {
@@ -897,6 +898,9 @@ void RowContainer::hashTyped(
           Kind == TypeKind::MAP) {
         auto in = prepareRead(row, offset);
         hash = ContainerRowSerde::hash(*in, type);
+      } else if constexpr (typeProvidesCustomComparison) {
+        hash = static_cast<const CanProvideCustomComparisonType<Kind>*>(type)
+                   ->hash(valueAt<T>(row, offset));
       } else if constexpr (std::is_floating_point_v<T>) {
         hash = util::floating_point::NaNAwareHash<T>()(valueAt<T>(row, offset));
       } else {
@@ -921,15 +925,32 @@ void RowContainer::hash(
   }
 
   bool nullable = column >= keyTypes_.size() || nullableKeys_;
-  VELOX_DYNAMIC_TYPE_DISPATCH(
-      hashTyped,
-      typeKinds_[column],
-      types_[column].get(),
-      columnAt(column),
-      nullable,
-      rows,
-      mix,
-      result);
+
+  const auto& type = types_[column];
+
+  if (type->providesCustomComparison()) {
+    VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(
+        hashTyped,
+        true,
+        typeKinds_[column],
+        type.get(),
+        columnAt(column),
+        nullable,
+        rows,
+        mix,
+        result);
+  } else {
+    VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(
+        hashTyped,
+        false,
+        typeKinds_[column],
+        type.get(),
+        columnAt(column),
+        nullable,
+        rows,
+        mix,
+        result);
+  }
 }
 
 void RowContainer::clear() {
