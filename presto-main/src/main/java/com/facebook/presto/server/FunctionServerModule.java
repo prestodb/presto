@@ -24,9 +24,12 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
-import com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.transaction.NoOpTransactionManager;
+import com.facebook.presto.transaction.TransactionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
@@ -40,7 +43,6 @@ import java.util.Set;
 
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 
 public class FunctionServerModule
         extends AbstractConfigurationAwareModule
@@ -49,7 +51,9 @@ public class FunctionServerModule
     protected void setup(Binder binder)
     {
         jaxrsBinder(binder).bind(FunctionResource.class);
-        binder.bind(BuiltInTypeAndFunctionNamespaceManager.class).in(Scopes.SINGLETON);
+        binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
+        binder.bind(TransactionManager.class).to(NoOpTransactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());
         binder.bind(EventClient.class).to(NullEventClient.class);
         binder.bind(ObjectMapper.class).toProvider(JsonObjectMapperProvider.class);
@@ -70,15 +74,15 @@ public class FunctionServerModule
     }
 
     @Provides
-    public Set<Type> provideTypes()
+    public FeaturesConfig provideFeaturesConfig()
     {
-        return ImmutableSet.of();
+        return new FeaturesConfig();
     }
 
     @Provides
-    public FunctionAndTypeManager provideFunctionAndTypeManager()
+    public Set<Type> provideTypes()
     {
-        return createTestFunctionAndTypeManager();
+        return ImmutableSet.of();
     }
 
     @Provides

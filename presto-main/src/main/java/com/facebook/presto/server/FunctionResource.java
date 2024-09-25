@@ -14,49 +14,74 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
-import com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import io.airlift.slice.BasicSliceInput;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.HEAD;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.JAVA;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.readSerializedPage;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Double.longBitsToDouble;
 
 @Path("/v1/functions")
 public class FunctionResource
 {
-    private final BuiltInTypeAndFunctionNamespaceManager manager;
+    private final FunctionAndTypeManager manager;
     private final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> jsonCodec;
+    private final PagesSerde pagesSerde;
     private String etag = "\"etag\"";
     public static final String FUNCTION_CATALOG = "remote";
 
     @Inject
-    public FunctionResource(BuiltInTypeAndFunctionNamespaceManager manager, JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> jsonCodec)
+    public FunctionResource(FunctionAndTypeManager manager, JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> jsonCodec)
     {
         this.manager = manager;
         this.jsonCodec = jsonCodec;
+        this.pagesSerde = createPagesSerde();
     }
 
     @GET
@@ -64,7 +89,7 @@ public class FunctionResource
     public String getFunctions()
     {
         Map<String, List<JsonBasedUdfFunctionMetadata>> udfMap = new HashMap<>();
-        Collection<SqlFunction> builtInFunctions = manager.listFunctions(Optional.empty(), Optional.empty());
+        Collection<SqlFunction> builtInFunctions = manager.listBuiltInFunctions();
         for (SqlFunction function : builtInFunctions) {
             if (function.getSignature().getKind() == FunctionKind.SCALAR) {
                 JsonBasedUdfFunctionMetadata metadata = sqlFunctionToMetadata(function);
@@ -104,7 +129,7 @@ public class FunctionResource
     public String getFunctionsBySchema(@PathParam("schema") String schema)
     {
         Map<String, List<JsonBasedUdfFunctionMetadata>> udfMap = new HashMap<>();
-        Collection<SqlFunction> builtInFunctions = manager.listFunctions(Optional.empty(), Optional.empty());
+        Collection<SqlFunction> builtInFunctions = manager.listBuiltInFunctions();
 
         for (SqlFunction function : builtInFunctions) {
             if (!function.getSignature().getName().getSchemaName().equals(schema)) {
@@ -134,7 +159,7 @@ public class FunctionResource
     public String getFunctionsBySchemaAndName(@PathParam("schema") String schema, @PathParam("functionName") String functionName)
     {
         Map<String, List<JsonBasedUdfFunctionMetadata>> udfMap = new HashMap<>();
-        Collection<SqlFunction> functionList = manager.getFunctions(Optional.empty(), new QualifiedObjectName("presto", schema, functionName));
+        Collection<SqlFunction> functionList = manager.listBuiltInFunctions();
 
         List<JsonBasedUdfFunctionMetadata> filteredList = new ArrayList<>();
         for (SqlFunction function : functionList) {
@@ -152,6 +177,105 @@ public class FunctionResource
         }
 
         return jsonCodec.toJson(udfMap);
+    }
+
+    @POST
+    @Path("/{schema}/{functionName}/{functionId}/{version}")
+    @Consumes(MediaType.WILDCARD)
+    @Produces(MediaType.WILDCARD)
+    public byte[] execute(
+            @PathParam("schema") String schema,
+            @PathParam("functionName") String functionName,
+            @PathParam("functionId") String functionId,
+            @PathParam("version") String version,
+            byte[] serializedPageByteArray)
+    {
+        Slice slice = wrappedBuffer(serializedPageByteArray);
+        SerializedPage serializedPage = readSerializedPage(new BasicSliceInput(slice));
+        Page inputPage = pagesSerde.deserialize(serializedPage);
+
+        // Use functionId to retrieve argument types
+        SqlFunctionId sqlFunctionId = SqlFunctionId.parseSqlFunctionId(functionId);
+        List<TypeSignatureProvider> argumentTypeSignatures = sqlFunctionId.getArgumentTypes().stream()
+                .map(TypeSignatureProvider::new)
+                .collect(Collectors.toList());
+
+        QualifiedObjectName qualifiedName = new QualifiedObjectName("presto", schema, functionName);
+        FunctionHandle functionHandle = manager.lookupFunction(qualifiedName.toString(), argumentTypeSignatures);
+        BuiltInScalarFunctionImplementation functionImplementation = (BuiltInScalarFunctionImplementation) manager.getJavaScalarFunctionImplementation(functionHandle);
+
+        Object[] inputValues = new Object[inputPage.getChannelCount()];
+        for (int i = 0; i < inputPage.getChannelCount(); i++) {
+            TypeSignatureProvider typeSignatureProvider = argumentTypeSignatures.get(i);
+            Type type = manager.getType(typeSignatureProvider.getTypeSignature());
+
+            inputValues[i] = deserializeBlock(type, inputPage.getBlock(i));
+        }
+
+        Object result = executeFunction(functionImplementation, inputValues);
+        Type returnType = manager.getType(manager.getFunctionMetadata(functionHandle).getReturnType());
+        Page outputPage = createResultPage(returnType, result);
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput((int) outputPage.getRetainedSizeInBytes());
+        writeSerializedPage(sliceOutput, pagesSerde.serialize(outputPage));
+
+        return sliceOutput.slice().byteArray();
+    }
+
+    private Object deserializeBlock(Type type, Block block)
+    {
+        if (block.isNull(0)) {
+            return null;
+        }
+
+        switch (type.getTypeSignature().getBase()) {
+            case "boolean":
+                return block.getByte(0) != 0;
+
+            case "integer":
+            case "bigint":
+                return block.getLong(0);
+
+            case "double":
+                return longBitsToDouble(block.toLong(0));
+
+            case "varchar":
+                Slice slice = block.getSlice(0, 0, block.getSliceLength(0));
+                return slice.toStringUtf8();
+
+            case "varbinary":
+                return block.getSlice(0, 0, block.getSliceLength(0)).getBytes();
+
+            default:
+                throw new IllegalArgumentException("Unsupported type for deserialization: " + type);
+        }
+    }
+
+    private Object executeFunction(BuiltInScalarFunctionImplementation functionImplementation, Object[] arguments)
+    {
+        MethodHandle methodHandle = functionImplementation.getMethodHandle();
+        try {
+            return methodHandle.invokeWithArguments(arguments);
+        }
+        catch (Throwable throwable) {
+            throw new RuntimeException("Error during function execution", throwable);
+        }
+    }
+
+    private static PagesSerde createPagesSerde()
+    {
+        return new PagesSerde(new BlockEncodingManager(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    private Page createResultPage(Type type, Object result)
+    {
+        PageBuilder pageBuilder = new PageBuilder(Collections.singletonList(type));
+        pageBuilder.declarePosition();
+        BlockBuilder output = pageBuilder.getBlockBuilder(0);
+        type.writeObject(output, result);
+        return pageBuilder.build();
     }
 
     @HEAD
