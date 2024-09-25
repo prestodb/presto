@@ -138,6 +138,7 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
         FlatDecoders flatDecoders = readFlatPage(page, columnDescriptor, dictionary);
         definitionLevelDecoder = flatDecoders.getDefinitionLevelDecoder();
         valuesDecoder = (Int64TimeAndTimestampMicrosValuesDecoder) flatDecoders.getValuesDecoder();
+        valuesDecoder.setWithTimezone(field.getType() instanceof TimestampWithTimeZoneType);
 
         remainingCountInPage = page.getValueCount();
         return true;
@@ -164,12 +165,7 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
             totalNonNullCount += nonNullCount;
 
             if (nonNullCount > 0) {
-                if (field.getType() instanceof TimestampWithTimeZoneType) {
-                    valuesDecoder.readNextWithTimezone(values, startOffset, nonNullCount);
-                }
-                else {
-                    valuesDecoder.readNext(values, startOffset, nonNullCount);
-                }
+                valuesDecoder.readNext(values, startOffset, nonNullCount);
 
                 int valueDestinationIndex = startOffset + chunkSize - 1;
                 int valueSourceIndex = startOffset + nonNullCount - 1;
@@ -217,12 +213,7 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
 
             int chunkSize = Math.min(remainingCountInPage, remainingInBatch);
 
-            if (field.getType() instanceof TimestampWithTimeZoneType) {
-                valuesDecoder.readNextWithTimezone(values, startOffset, chunkSize);
-            }
-            else {
-                valuesDecoder.readNext(values, startOffset, chunkSize);
-            }
+            valuesDecoder.readNext(values, startOffset, chunkSize);
             startOffset += chunkSize;
             remainingInBatch -= chunkSize;
             remainingCountInPage -= chunkSize;

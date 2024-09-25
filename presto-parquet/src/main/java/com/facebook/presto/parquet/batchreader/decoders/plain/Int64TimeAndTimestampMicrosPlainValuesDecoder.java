@@ -33,11 +33,25 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
 
     private int bufferOffset;
 
+    private boolean withTimezone = false;
+
     public Int64TimeAndTimestampMicrosPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length)
     {
         this.byteBuffer = byteBuffer;
         this.bufferOffset = bufferOffset;
         this.bufferEnd = bufferOffset + length;
+    }
+
+    @Override
+    public boolean isWithTimezone()
+    {
+        return withTimezone;
+    }
+
+    @Override
+    public void setWithTimezone(boolean withTimezone)
+    {
+        this.withTimezone = withTimezone;
     }
 
     @Override
@@ -51,25 +65,13 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
         int localBufferOffset = bufferOffset;
 
         while (offset < endOffset) {
-            values[offset++] = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
-            localBufferOffset += 8;
-        }
-
-        bufferOffset = localBufferOffset;
-    }
-
-    @Override
-    public void readNextWithTimezone(long[] values, int offset, int length)
-    {
-        checkArgument(bufferOffset + length * 8 <= bufferEnd, "End of stream: invalid read request");
-        checkArgument(length >= 0 && offset >= 0, "invalid read request: offset %s, length", offset, length);
-
-        final int endOffset = offset + length;
-        final byte[] localByteBuffer = byteBuffer;
-        int localBufferOffset = bufferOffset;
-
-        while (offset < endOffset) {
-            values[offset++] = packDateTimeWithZone(MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset)), UTC_KEY);
+            long valueMillis = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
+            if (isWithTimezone()) {
+                values[offset++] = packDateTimeWithZone(valueMillis, UTC_KEY);
+            }
+            else {
+                values[offset++] = valueMillis;
+            }
             localBufferOffset += 8;
         }
 
