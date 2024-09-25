@@ -27,7 +27,7 @@ import java.util.Optional;
 public class Int64TimeAndTimestampMicrosNestedBatchReader
         extends AbstractNestedBatchReader
 {
-    private boolean withTimezone = false;
+    private boolean withTimezone;
 
     public Int64TimeAndTimestampMicrosNestedBatchReader(RichColumnDescriptor columnDescriptor)
     {

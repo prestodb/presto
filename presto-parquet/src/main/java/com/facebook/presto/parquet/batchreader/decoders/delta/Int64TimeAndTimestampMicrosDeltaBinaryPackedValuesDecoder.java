@@ -36,7 +36,7 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
 
     private final DeltaBinaryPackingValuesReader innerReader;
 
-    private boolean withTimezone = false;
+    private boolean withTimezone;
 
     public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
             throws IOException

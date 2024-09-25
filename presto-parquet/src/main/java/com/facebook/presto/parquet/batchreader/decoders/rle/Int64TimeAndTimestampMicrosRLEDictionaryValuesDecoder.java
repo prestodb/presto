@@ -37,7 +37,7 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
 
     private final LongDictionary dictionary;
 
-    private boolean withTimezone = false;
+    private boolean withTimezone;
 
     public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
     {
@@ -78,7 +78,7 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     final long rleDictionaryValue = MICROSECONDS.toMillis(dictionary.decodeToLong(rleValue));
                     while (destinationIndex < endIndex) {
                         if (isWithTimezone()) {
-                            values[destinationIndex++] = packDateTimeWithZone(rleDictionaryValue, TimeZoneKey.UTC_KEY);
+                            values[destinationIndex++] = packDateTimeWithZone(rleDictionaryValue, UTC_KEY);
                         }
                         else {
                             values[destinationIndex++] = rleDictionaryValue;
