@@ -20,6 +20,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/HashStringAllocator.h"
+#include "velox/type/tests/utils/CustomTypesForTesting.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -165,20 +166,54 @@ class ContainerRowSerdeTest : public testing::Test,
     }
   }
 
-  void testCompare(const VectorPtr& vector) {
-    auto positions = serializeWithPositions(vector);
+  void testCompare(const VectorPtr& actual) {
+    testCompare(actual, actual);
+  }
+
+  void testCompare(const VectorPtr& actual, const VectorPtr& expected) {
+    auto positionsActual = serializeWithPositions(actual);
+    auto positionsExpected = serializeWithPositions(expected);
 
     CompareFlags compareFlags =
         CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
 
-    DecodedVector decodedVector(*vector);
+    DecodedVector decodedVector(*expected);
 
-    for (auto i = 0; i < positions.size(); ++i) {
-      auto stream = HashStringAllocator::prepareRead(positions.at(i).header);
+    for (auto i = 0; i < positionsActual.size(); ++i) {
+      // Test comparing reading from a ByteInputStream and a DecodedVector.
+      auto actualStream =
+          HashStringAllocator::prepareRead(positionsActual.at(i).header);
       ASSERT_EQ(
           0,
-          ContainerRowSerde::compare(*stream, decodedVector, i, compareFlags))
-          << "at " << i << ": " << vector->toString(i);
+          ContainerRowSerde::compare(
+              *actualStream, decodedVector, i, compareFlags))
+          << "at " << i << ": " << actual->toString(i) << " "
+          << expected->toString(i);
+
+      // Test comparing reading from two ByteInputStreams.
+      actualStream =
+          HashStringAllocator::prepareRead(positionsActual.at(i).header);
+      auto expectedStream =
+          HashStringAllocator::prepareRead(positionsExpected.at(i).header);
+      ASSERT_EQ(
+          0,
+          ContainerRowSerde::compare(
+              *actualStream,
+              *expectedStream,
+              actual->type().get(),
+              compareFlags))
+          << "at " << i << ": " << actual->toString(i) << " "
+          << expected->toString(i);
+
+      // Test comparing hashes.
+      actualStream =
+          HashStringAllocator::prepareRead(positionsActual.at(i).header);
+
+      ASSERT_EQ(
+          expected->hashValueAt(i),
+          ContainerRowSerde::hash(*actualStream, actual->type().get()))
+          << "at " << i << ": " << actual->toString(i) << " "
+          << expected->toString(i);
     }
   }
 
@@ -575,34 +610,89 @@ TEST_F(ContainerRowSerdeTest, fuzzCompare) {
 TEST_F(ContainerRowSerdeTest, nans) {
   // Verify that the NaNs with different representations are considered equal
   // and have the same hash value.
-  auto vector = makeNullableFlatVector<double>(
-      {std::nan("1"),
-       std::nan("2"),
-       std::numeric_limits<double>::quiet_NaN(),
-       std::numeric_limits<double>::signaling_NaN()});
 
-  // Compare with the same NaN value
-  auto expected = makeConstant(std::nan("1"), 4, vector->type());
+  testCompare(
+      makeFlatVector<double>(
+          {std::nan("1"),
+           std::nan("2"),
+           std::numeric_limits<double>::quiet_NaN(),
+           std::numeric_limits<double>::signaling_NaN()}),
+      // Compare with the same NaN value.
+      makeFlatVector<double>(
+          {std::nan("1"), std::nan("1"), std::nan("1"), std::nan("1")}));
+}
 
-  auto positions = serializeWithPositions(vector);
+TEST_F(ContainerRowSerdeTest, customComparison) {
+  testCompare(
+      makeFlatVector<int64_t>(
+          {0, 1, 256, 257, 512, 513},
+          test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()),
+      // Compare with the same values based on the custom comparison.
+      makeFlatVector<int64_t>(
+          {0, 1, 0, 1, 0, 1}, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()));
+}
 
-  CompareFlags compareFlags =
-      CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
+TEST_F(ContainerRowSerdeTest, arrayOfCustomComparison) {
+  testCompare(
+      makeNullableArrayVector<int64_t>(
+          {{0, 1, 2},
+           {256, 257, 258},
+           {512, 513, 514},
+           {3, 4, 5},
+           {259, 260, 261},
+           {515, 516, 517},
+           {std::nullopt}},
+          ARRAY(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())),
+      // Compare with the same values based on the custom comparison.
+      makeNullableArrayVector<int64_t>(
+          {{0, 1, 2},
+           {0, 1, 2},
+           {0, 1, 2},
+           {3, 4, 5},
+           {3, 4, 5},
+           {3, 4, 5},
+           {std::nullopt}},
+          ARRAY(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())));
+}
 
-  DecodedVector decodedVector(*expected);
+TEST_F(ContainerRowSerdeTest, mapOfCustomComparison) {
+  testCompare(
+      makeNullableMapVector<int64_t, int64_t>(
+          {{{{0, 10}, {1, 11}, {2, 12}}},
+           {{{256, 266}, {257, 267}, {258, 268}}},
+           {{{512, 522}, {513, 523}, {514, 524}}},
+           {{{3, 103}, {4, 104}, {5, 105}}},
+           {{{259, 359}, {260, 360}, {261, 361}}},
+           {{{515, 615}, {516, 616}, {517, 617}}},
+           {{{0, std::nullopt}}}},
+          MAP(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON(),
+              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())),
+      // Compare with the same values based on the custom comparison.
+      makeNullableMapVector<int64_t, int64_t>(
+          {{{{0, 10}, {1, 11}, {2, 12}}},
+           {{{0, 10}, {1, 11}, {2, 12}}},
+           {{{0, 10}, {1, 11}, {2, 12}}},
+           {{{3, 103}, {4, 104}, {5, 105}}},
+           {{{3, 103}, {4, 104}, {5, 105}}},
+           {{{3, 103}, {4, 104}, {5, 105}}},
+           {{{0, std::nullopt}}}},
+          MAP(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON(),
+              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())));
+}
 
-  for (auto i = 0; i < positions.size(); ++i) {
-    auto stream = HashStringAllocator::prepareRead(positions.at(i).header);
-    ASSERT_EQ(
-        0, ContainerRowSerde::compare(*stream, decodedVector, i, compareFlags))
-        << "at " << i << ": " << vector->toString(i);
-
-    stream = HashStringAllocator::prepareRead(positions.at(i).header);
-    ASSERT_EQ(
-        expected->hashValueAt(i),
-        ContainerRowSerde::hash(*stream, vector->type().get()))
-        << "at " << i << ": " << vector->toString(i);
-  }
+TEST_F(ContainerRowSerdeTest, rowOfCustomComparison) {
+  testCompare(
+      makeRowVector(
+          {"a"},
+          {makeNullableFlatVector<int64_t>(
+              {std::nullopt, 0, 1, 256, 257, 512, 513},
+              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())}),
+      // Compare with the same values based on the custom comparison.
+      makeRowVector(
+          {"a"},
+          {makeNullableFlatVector<int64_t>(
+              {std::nullopt, 0, 1, 0, 1, 0, 1},
+              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())}));
 }
 
 } // namespace

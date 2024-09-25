@@ -350,13 +350,21 @@ void deserializeSwitch(
 }
 
 // Comparison of serialization and vector.
+template <bool typeProvidesCustomComparison>
 std::optional<int32_t> compareSwitch(
     ByteInputStream& stream,
     const BaseVector& vector,
     vector_size_t index,
     CompareFlags flags);
 
-template <TypeKind Kind>
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<
+        Kind != TypeKind::VARCHAR && Kind != TypeKind::VARBINARY &&
+            Kind != TypeKind::ARRAY && Kind != TypeKind::MAP &&
+            Kind != TypeKind::ROW,
+        int32_t> = 0>
 std::optional<int32_t> compare(
     ByteInputStream& left,
     const BaseVector& right,
@@ -365,10 +373,16 @@ std::optional<int32_t> compare(
   using T = typename TypeTraits<Kind>::NativeType;
   auto rightValue = right.asUnchecked<SimpleVector<T>>()->valueAt(index);
   auto leftValue = left.read<T>();
-  auto result = right.typeUsesCustomComparison()
-      ? SimpleVector<T>::template comparePrimitiveAscWithCustomComparison<Kind>(
-            right.type().get(), leftValue, rightValue)
-      : SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+
+  int result;
+  if constexpr (typeProvidesCustomComparison) {
+    result =
+        SimpleVector<T>::template comparePrimitiveAscWithCustomComparison<Kind>(
+            right.type().get(), leftValue, rightValue);
+  } else {
+    result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+  }
+
   return flags.ascending ? result : result * -1;
 }
 
@@ -398,8 +412,11 @@ int compareStringAsc(
   return leftSize - rightView.size();
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::VARCHAR>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::VARCHAR, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
@@ -408,8 +425,11 @@ std::optional<int32_t> compare<TypeKind::VARCHAR>(
   return flags.ascending ? result : result * -1;
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::VARBINARY>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::VARBINARY, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
@@ -418,8 +438,11 @@ std::optional<int32_t> compare<TypeKind::VARBINARY>(
   return flags.ascending ? result : result * -1;
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::ROW>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::ROW, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
@@ -444,7 +467,13 @@ std::optional<int32_t> compare<TypeKind::ROW>(
       return result;
     }
 
-    auto result = compareSwitch(left, *child, wrappedIndex, flags);
+    std::optional<int32_t> result;
+    if (child->typeUsesCustomComparison()) {
+      result = compareSwitch<true>(left, *child, wrappedIndex, flags);
+    } else {
+      result = compareSwitch<false>(left, *child, wrappedIndex, flags);
+    }
+
     if (result.has_value() && result.value() == 0) {
       continue;
     }
@@ -453,6 +482,7 @@ std::optional<int32_t> compare<TypeKind::ROW>(
   return 0;
 }
 
+template <bool elementTypeProvidesCustomComparison>
 std::optional<int32_t> compareArrays(
     ByteInputStream& left,
     const BaseVector& elements,
@@ -479,7 +509,8 @@ std::optional<int32_t> compareArrays(
     }
 
     auto elementIndex = elements.wrappedIndex(offset + i);
-    auto result = compareSwitch(left, *wrappedElements, elementIndex, flags);
+    auto result = compareSwitch<elementTypeProvidesCustomComparison>(
+        left, *wrappedElements, elementIndex, flags);
     if (result.has_value() && result.value() == 0) {
       continue;
     }
@@ -488,6 +519,7 @@ std::optional<int32_t> compareArrays(
   return flags.ascending ? (leftSize - rightSize) : (rightSize - leftSize);
 }
 
+template <bool elementTypeProvidesCustomComparison>
 std::optional<int32_t> compareArrayIndices(
     ByteInputStream& left,
     const BaseVector& elements,
@@ -514,7 +546,8 @@ std::optional<int32_t> compareArrayIndices(
     }
 
     auto elementIndex = elements.wrappedIndex(rightIndices[i]);
-    auto result = compareSwitch(left, *wrappedElements, elementIndex, flags);
+    auto result = compareSwitch<elementTypeProvidesCustomComparison>(
+        left, *wrappedElements, elementIndex, flags);
     if (result.has_value() && result.value() == 0) {
       continue;
     }
@@ -523,8 +556,11 @@ std::optional<int32_t> compareArrayIndices(
   return flags.ascending ? (leftSize - rightSize) : (rightSize - leftSize);
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::ARRAY>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::ARRAY, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
@@ -532,16 +568,28 @@ std::optional<int32_t> compare<TypeKind::ARRAY>(
   auto array = right.wrappedVector()->asUnchecked<ArrayVector>();
   VELOX_CHECK_EQ(array->encoding(), VectorEncoding::Simple::ARRAY);
   auto wrappedIndex = right.wrappedIndex(index);
-  return compareArrays(
-      left,
-      *array->elements(),
-      array->offsetAt(wrappedIndex),
-      array->sizeAt(wrappedIndex),
-      flags);
+  if (array->type()->childAt(0)->providesCustomComparison()) {
+    return compareArrays<true>(
+        left,
+        *array->elements(),
+        array->offsetAt(wrappedIndex),
+        array->sizeAt(wrappedIndex),
+        flags);
+  } else {
+    return compareArrays<false>(
+        left,
+        *array->elements(),
+        array->offsetAt(wrappedIndex),
+        array->sizeAt(wrappedIndex),
+        flags);
+  }
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::MAP>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::MAP, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
@@ -552,20 +600,42 @@ std::optional<int32_t> compare<TypeKind::MAP>(
   auto size = map->sizeAt(wrappedIndex);
   std::vector<vector_size_t> indices(size);
   auto rightIndices = map->sortedKeyIndices(wrappedIndex);
-  auto result = compareArrayIndices(left, *map->mapKeys(), rightIndices, flags);
+  std::optional<int32_t> result;
+
+  if (map->type()->childAt(0)->providesCustomComparison()) {
+    result =
+        compareArrayIndices<true>(left, *map->mapKeys(), rightIndices, flags);
+  } else {
+    result =
+        compareArrayIndices<false>(left, *map->mapKeys(), rightIndices, flags);
+  }
+
   if (result.has_value() && result.value() == 0) {
-    return compareArrayIndices(left, *map->mapValues(), rightIndices, flags);
+    if (map->type()->childAt(1)->providesCustomComparison()) {
+      return compareArrayIndices<true>(
+          left, *map->mapValues(), rightIndices, flags);
+    } else {
+      return compareArrayIndices<false>(
+          left, *map->mapValues(), rightIndices, flags);
+    }
   }
   return result;
 }
 
+template <bool typeProvidesCustomComparison>
 std::optional<int32_t> compareSwitch(
     ByteInputStream& stream,
     const BaseVector& vector,
     vector_size_t index,
     CompareFlags flags) {
-  return VELOX_DYNAMIC_TYPE_DISPATCH(
-      compare, vector.typeKind(), stream, vector, index, flags);
+  return VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(
+      compare,
+      typeProvidesCustomComparison,
+      vector.typeKind(),
+      stream,
+      vector,
+      index,
+      flags);
 }
 
 // Returns a view over a serialized string with the string as a
@@ -585,13 +655,21 @@ StringView readStringView(ByteInputStream& stream, std::string& storage) {
 }
 
 // Comparison of two serializations.
+template <bool typeProvidesCustomComparison>
 std::optional<int32_t> compareSwitch(
     ByteInputStream& left,
     ByteInputStream& right,
     const Type* type,
     CompareFlags flags);
 
-template <TypeKind Kind>
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<
+        Kind != TypeKind::VARCHAR && Kind != TypeKind::VARBINARY &&
+            Kind != TypeKind::ARRAY && Kind != TypeKind::MAP &&
+            Kind != TypeKind::ROW,
+        int32_t> = 0>
 std::optional<int32_t> compare(
     ByteInputStream& left,
     ByteInputStream& right,
@@ -600,15 +678,24 @@ std::optional<int32_t> compare(
   using T = typename TypeTraits<Kind>::NativeType;
   T leftValue = left.read<T>();
   T rightValue = right.read<T>();
-  auto result = type->providesCustomComparison()
-      ? SimpleVector<T>::template comparePrimitiveAscWithCustomComparison<Kind>(
-            type, leftValue, rightValue)
-      : SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+
+  int result;
+  if constexpr (typeProvidesCustomComparison) {
+    result =
+        SimpleVector<T>::template comparePrimitiveAscWithCustomComparison<Kind>(
+            type, leftValue, rightValue);
+  } else {
+    result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+  }
+
   return flags.ascending ? result : result * -1;
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::VARCHAR>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::VARCHAR, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     ByteInputStream& right,
     const Type* /*type*/,
@@ -621,8 +708,11 @@ std::optional<int32_t> compare<TypeKind::VARCHAR>(
                          : rightValue.compare(leftValue);
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::VARBINARY>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::VARBINARY, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     ByteInputStream& right,
     const Type* /*type*/,
@@ -635,6 +725,7 @@ std::optional<int32_t> compare<TypeKind::VARBINARY>(
                          : rightValue.compare(leftValue);
 }
 
+template <bool elementTypeProvidesCustomComparison>
 std::optional<int32_t> compareArrays(
     ByteInputStream& left,
     ByteInputStream& right,
@@ -659,7 +750,8 @@ std::optional<int32_t> compareArrays(
       return result;
     }
 
-    auto result = compareSwitch(left, right, elementType, flags);
+    auto result = compareSwitch<elementTypeProvidesCustomComparison>(
+        left, right, elementType, flags);
     if (result.has_value() && result.value() == 0) {
       continue;
     }
@@ -668,8 +760,11 @@ std::optional<int32_t> compareArrays(
   return flags.ascending ? (leftSize - rightSize) : (rightSize - leftSize);
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::ROW>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::ROW, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     ByteInputStream& right,
     const Type* type,
@@ -689,7 +784,14 @@ std::optional<int32_t> compare<TypeKind::ROW>(
       return result;
     }
 
-    auto result = compareSwitch(left, right, rowType.childAt(i).get(), flags);
+    std::optional<int32_t> result;
+    const auto& childType = rowType.childAt(i);
+    if (childType->providesCustomComparison()) {
+      result = compareSwitch<true>(left, right, childType.get(), flags);
+    } else {
+      result = compareSwitch<false>(left, right, childType.get(), flags);
+    }
+
     if (result.has_value() && result.value() == 0) {
       continue;
     }
@@ -698,66 +800,115 @@ std::optional<int32_t> compare<TypeKind::ROW>(
   return 0;
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::ARRAY>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::ARRAY, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
-  return compareArrays(left, right, type->childAt(0).get(), flags);
+  const auto& elementType = type->childAt(0);
+
+  if (elementType->providesCustomComparison()) {
+    return compareArrays<true>(left, right, elementType.get(), flags);
+  } else {
+    return compareArrays<false>(left, right, elementType.get(), flags);
+  }
 }
 
-template <>
-std::optional<int32_t> compare<TypeKind::MAP>(
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::MAP, int32_t> = 0>
+std::optional<int32_t> compare(
     ByteInputStream& left,
     ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
-  auto result = compareArrays(left, right, type->childAt(0).get(), flags);
+  std::optional<int32_t> result;
+  const auto& keyType = type->childAt(0);
+  const auto& valueType = type->childAt(1);
+
+  if (keyType->providesCustomComparison()) {
+    result = compareArrays<true>(left, right, keyType.get(), flags);
+  } else {
+    result = compareArrays<false>(left, right, keyType.get(), flags);
+  }
+
   if (result.has_value() && result.value() == 0) {
-    return compareArrays(left, right, type->childAt(1).get(), flags);
+    if (valueType->providesCustomComparison()) {
+      return compareArrays<true>(left, right, valueType.get(), flags);
+    } else {
+      return compareArrays<false>(left, right, valueType.get(), flags);
+    }
   }
   return result;
 }
 
+template <bool typeProvidesCustomComparison>
 std::optional<int32_t> compareSwitch(
     ByteInputStream& left,
     ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
-  return VELOX_DYNAMIC_TYPE_DISPATCH(
-      compare, type->kind(), left, right, type, flags);
+  return VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(
+      compare,
+      typeProvidesCustomComparison,
+      type->kind(),
+      left,
+      right,
+      type,
+      flags);
 }
 
 // Hash functions.
+template <bool typeProvidesCustomComparison>
 uint64_t hashSwitch(ByteInputStream& stream, const Type* type);
 
-template <TypeKind Kind>
-uint64_t hashOne(ByteInputStream& stream, const Type* /*type*/) {
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<
+        Kind != TypeKind::VARBINARY && Kind != TypeKind::VARCHAR &&
+            Kind != TypeKind::ARRAY && Kind != TypeKind::MAP &&
+            Kind != TypeKind::ROW,
+        int32_t> = 0>
+uint64_t hashOne(ByteInputStream& stream, const Type* type) {
   using T = typename TypeTraits<Kind>::NativeType;
-  if constexpr (std::is_floating_point_v<T>) {
-    return util::floating_point::NaNAwareHash<T>()(stream.read<T>());
+
+  T value = stream.read<T>();
+
+  if constexpr (typeProvidesCustomComparison) {
+    return static_cast<const CanProvideCustomComparisonType<Kind>*>(type)->hash(
+        value);
+  } else if constexpr (std::is_floating_point_v<T>) {
+    return util::floating_point::NaNAwareHash<T>()(value);
   } else {
-    return folly::hasher<T>()(stream.read<T>());
+    return folly::hasher<T>()(value);
   }
 }
 
-template <>
-uint64_t hashOne<TypeKind::VARCHAR>(
-    ByteInputStream& stream,
-    const Type* /*type*/) {
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::VARCHAR, int32_t> = 0>
+uint64_t hashOne(ByteInputStream& stream, const Type* /*type*/) {
   std::string storage;
   return folly::hasher<StringView>()(readStringView(stream, storage));
 }
 
-template <>
-uint64_t hashOne<TypeKind::VARBINARY>(
-    ByteInputStream& stream,
-    const Type* /*type*/) {
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::VARBINARY, int32_t> = 0>
+uint64_t hashOne(ByteInputStream& stream, const Type* /*type*/) {
   std::string storage;
   return folly::hasher<StringView>()(readStringView(stream, storage));
 }
 
+template <bool elementTypeProvidesCustomComparison>
 uint64_t
 hashArray(ByteInputStream& in, uint64_t hash, const Type* elementType) {
   auto size = in.read<int32_t>();
@@ -767,15 +918,18 @@ hashArray(ByteInputStream& in, uint64_t hash, const Type* elementType) {
     if (bits::isBitSet(nulls.data(), i)) {
       value = BaseVector::kNullHash;
     } else {
-      value = hashSwitch(in, elementType);
+      value = hashSwitch<elementTypeProvidesCustomComparison>(in, elementType);
     }
     hash = bits::commutativeHashMix(hash, value);
   }
   return hash;
 }
 
-template <>
-uint64_t hashOne<TypeKind::ROW>(ByteInputStream& in, const Type* type) {
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::ROW, int32_t> = 0>
+uint64_t hashOne(ByteInputStream& in, const Type* type) {
   auto size = type->size();
   auto nulls = readNulls(in, size);
   uint64_t hash = BaseVector::kNullHash;
@@ -784,28 +938,58 @@ uint64_t hashOne<TypeKind::ROW>(ByteInputStream& in, const Type* type) {
     if (bits::isBitSet(nulls.data(), i)) {
       value = BaseVector::kNullHash;
     } else {
-      value = hashSwitch(in, type->childAt(i).get());
+      const auto& childType = type->childAt(i);
+      if (childType->providesCustomComparison()) {
+        value = hashSwitch<true>(in, childType.get());
+      } else {
+        value = hashSwitch<false>(in, childType.get());
+      }
     }
     hash = i == 0 ? value : bits::hashMix(hash, value);
   }
   return hash;
 }
 
-template <>
-uint64_t hashOne<TypeKind::ARRAY>(ByteInputStream& in, const Type* type) {
-  return hashArray(in, BaseVector::kNullHash, type->childAt(0).get());
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::ARRAY, int32_t> = 0>
+uint64_t hashOne(ByteInputStream& in, const Type* type) {
+  const auto& elementType = type->childAt(0);
+
+  if (elementType->providesCustomComparison()) {
+    return hashArray<true>(in, BaseVector::kNullHash, elementType.get());
+  } else {
+    return hashArray<false>(in, BaseVector::kNullHash, elementType.get());
+  }
 }
 
-template <>
-uint64_t hashOne<TypeKind::MAP>(ByteInputStream& in, const Type* type) {
-  return hashArray(
-      in,
-      hashArray(in, BaseVector::kNullHash, type->childAt(0).get()),
-      type->childAt(1).get());
+template <
+    bool typeProvidesCustomComparison,
+    TypeKind Kind,
+    std::enable_if_t<Kind == TypeKind::MAP, int32_t> = 0>
+uint64_t hashOne(ByteInputStream& in, const Type* type) {
+  const auto& keyType = type->childAt(0);
+  const auto& valueType = type->childAt(1);
+
+  uint64_t hash;
+  if (keyType->providesCustomComparison()) {
+    hash = hashArray<true>(in, BaseVector::kNullHash, keyType.get());
+  } else {
+    hash = hashArray<false>(in, BaseVector::kNullHash, keyType.get());
+  }
+
+  if (valueType->providesCustomComparison()) {
+    return hashArray<true>(in, hash, valueType.get());
+  } else {
+    return hashArray<false>(in, hash, valueType.get());
+  }
 }
 
+template <bool typeProvidesCustomComparison>
 uint64_t hashSwitch(ByteInputStream& in, const Type* type) {
-  return VELOX_DYNAMIC_TYPE_DISPATCH(hashOne, type->kind(), in, type);
+  return VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(
+      hashOne, typeProvidesCustomComparison, type->kind(), in, type);
 }
 
 } // namespace
@@ -838,7 +1022,13 @@ int32_t ContainerRowSerde::compare(
   VELOX_DCHECK(
       !right.isNullAt(index), "Null top-level values are not supported");
   VELOX_DCHECK(flags.nullAsValue(), "not supported null handling mode");
-  return compareSwitch(left, *right.base(), right.index(index), flags).value();
+  if (right.base()->typeUsesCustomComparison()) {
+    return compareSwitch<true>(left, *right.base(), right.index(index), flags)
+        .value();
+  } else {
+    return compareSwitch<false>(left, *right.base(), right.index(index), flags)
+        .value();
+  }
 }
 
 // static
@@ -849,7 +1039,11 @@ int32_t ContainerRowSerde::compare(
     CompareFlags flags) {
   VELOX_DCHECK(flags.nullAsValue(), "not supported null handling mode");
 
-  return compareSwitch(left, right, type, flags).value();
+  if (type->providesCustomComparison()) {
+    return compareSwitch<true>(left, right, type, flags).value();
+  } else {
+    return compareSwitch<false>(left, right, type, flags).value();
+  }
 }
 
 std::optional<int32_t> ContainerRowSerde::compareWithNulls(
@@ -859,7 +1053,11 @@ std::optional<int32_t> ContainerRowSerde::compareWithNulls(
     CompareFlags flags) {
   VELOX_DCHECK(
       !right.isNullAt(index), "Null top-level values are not supported");
-  return compareSwitch(left, *right.base(), right.index(index), flags);
+  if (right.base()->typeUsesCustomComparison()) {
+    return compareSwitch<true>(left, *right.base(), right.index(index), flags);
+  } else {
+    return compareSwitch<false>(left, *right.base(), right.index(index), flags);
+  }
 }
 
 std::optional<int32_t> ContainerRowSerde::compareWithNulls(
@@ -867,12 +1065,20 @@ std::optional<int32_t> ContainerRowSerde::compareWithNulls(
     ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
-  return compareSwitch(left, right, type, flags);
+  if (type->providesCustomComparison()) {
+    return compareSwitch<true>(left, right, type, flags);
+  } else {
+    return compareSwitch<false>(left, right, type, flags);
+  }
 }
 
 // static
 uint64_t ContainerRowSerde::hash(ByteInputStream& in, const Type* type) {
-  return hashSwitch(in, type);
+  if (type->providesCustomComparison()) {
+    return hashSwitch<true>(in, type);
+  } else {
+    return hashSwitch<false>(in, type);
+  }
 }
 
 } // namespace facebook::velox::exec

@@ -136,6 +136,7 @@ target_link_libraries(
   velox_serialization
   velox_test_util
   velox_type
+  velox_type_test_lib
   velox_vector
   velox_vector_fuzzer
   velox_writer_fuzzer
