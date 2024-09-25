@@ -19,6 +19,7 @@
 #include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/dwio/parquet/reader/Metadata.h"
+#include "velox/dwio/parquet/reader/ParquetStatsContext.h"
 
 namespace facebook::velox::dwio::common {
 

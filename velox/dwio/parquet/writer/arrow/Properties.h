@@ -325,7 +325,9 @@ class PARQUET_EXPORT WriterProperties {
           pagesize_(kDefaultDataPageSize),
           version_(ParquetVersion::PARQUET_2_6),
           data_page_version_(ParquetDataPageVersion::V1),
-          created_by_(DEFAULT_CREATED_BY),
+          created_by_(
+              std::string("parquet-mr version 2.6.0 (build ") +
+              DEFAULT_CREATED_BY + ")"),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false) {}
     virtual ~Builder() {}

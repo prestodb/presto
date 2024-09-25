@@ -24,7 +24,8 @@ velox_add_library(
   RepeatedColumnReader.cpp
   RleBpDecoder.cpp
   StructColumnReader.cpp
-  StringColumnReader.cpp)
+  StringColumnReader.cpp
+  SemanticVersion.cpp)
 
 velox_link_libraries(
   velox_dwio_native_parquet_reader

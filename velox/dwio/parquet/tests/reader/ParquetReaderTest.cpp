@@ -1502,3 +1502,14 @@ TEST_F(ParquetReaderTest, testEmptyV2DataPage) {
   assertReadWithReaderAndExpected(
       outputRowType, *rowReader, expected, *leafPool_);
 }
+
+TEST_F(ParquetReaderTest, parquet251) {
+  FilterMap filters;
+  filters.insert({"str", exec::equal("2")});
+  auto expected = makeRowVector({
+      makeFlatVector<std::string>({"2"}),
+  });
+  auto rowType = ROW({"str"}, {VARCHAR()});
+  assertReadWithFilters(
+      "parquet-251.parquet", rowType, std::move(filters), expected);
+}
