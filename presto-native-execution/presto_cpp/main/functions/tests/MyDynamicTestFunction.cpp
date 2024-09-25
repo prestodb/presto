@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
 
 #include "velox/functions/Udf.h"
+#include "velox/expression/SimpleFunctionRegistry.h"
 
 // This file defines a mock function that will be dynamically linked and
 // registered. There are no restrictions as to how the function needs to be
@@ -25,24 +24,24 @@
 // symbol name).
 
 namespace facebook::presto::functions {
-
-template <typename TExecParams>
+template <typename T>
 struct Dynamic123Function {
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result) {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  FOLLY_ALWAYS_INLINE void call(int64_t& result) {
     result = 123;
-    return true;
   }
 };
-
+__attribute__((visibility("default"))) void registry();
 } // namespace facebook::presto::functions
-
-extern "C" {
-
-void registry() {
-  facebook::velox::registerFunction<
+extern "C" bool registry() {
+  return facebook::velox::registerFunction<
       facebook::presto::functions::Dynamic123Function,
       int64_t>({"dynamic_123"});
 }
+extern "C" facebook::velox::exec::SimpleFunctionRegistry* simpleFunctionsInternalGetInstance() {
+  return &facebook::velox::exec::SimpleFunctionRegistry::simpleFunctionsInternal();
 }
+extern "C" bool registry();
+extern "C" facebook::velox::exec::SimpleFunctionRegistry* simpleFunctionsInternalGetInstance();
 
 

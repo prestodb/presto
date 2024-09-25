@@ -30,7 +30,7 @@ namespace facebook::presto {
 /// The registration function needs to be defined in the top-level namespace,
 /// and be enclosed by a extern "C" directive to prevent the compiler from
 /// mangling the symbol name.
-void loadDynamicLibraryFunctions(const char* fileName);
+bool loadDynamicLibraryFunctions(const char* fileName);
 
 } // namespace facebook::presto
 

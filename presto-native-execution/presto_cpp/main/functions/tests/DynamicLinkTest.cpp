@@ -11,8 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -21,6 +19,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/expression/SimpleFunctionRegistry.h"
 
 using namespace facebook::velox::functions::test;
 using namespace facebook::velox;
@@ -44,10 +43,11 @@ TEST_F(DynamicLinkTest, dynamicLoad) {
   libraryPath +=
       "/libpresto_function_my_dynamic.dylib"; // building on MacOS leads to
                                               // .dylib file not .so file
-
-  loadDynamicLibraryFunctions(libraryPath.data());
-
+  auto& registry = exec::simpleFunctions(); // for testing purposes
+  EXPECT_TRUE(loadDynamicLibraryFunctions(libraryPath.data()));
   auto signaturesAfter = getFunctionSignatures().size();
+  auto type = exec::simpleFunctions().resolveFunction("dynamic_123", {})->type();
+  EXPECT_EQ(TypeKind::BIGINT, type->kind());
   EXPECT_EQ(signaturesAfter, signaturesBefore + 1);
 
   // Make sure the function exists now.

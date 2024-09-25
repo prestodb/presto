@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(presto_dynamic_function_loader OBJECT DynamicLibraryLoader.cpp)
-
+target_link_libraries(presto_dynamic_function_loader PRIVATE xsimd)
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()

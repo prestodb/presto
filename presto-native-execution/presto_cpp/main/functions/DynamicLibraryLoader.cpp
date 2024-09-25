@@ -16,28 +16,32 @@
 #include <dlfcn.h>
 #include <iostream>
 #include "velox/common/base/Exceptions.h"
+#include "velox/expression/SimpleFunctionRegistry.h"
 namespace facebook::presto {
 
 static constexpr const char* kSymbolName = "registry";
 
-void loadDynamicLibraryFunctions(const char* fileName) {
+bool loadDynamicLibraryFunctions(const char* fileName) {
+  auto& simpleFunctions = velox::exec::simpleFunctions();
   // Try to dynamically load the shared library.
   void* handler = dlopen(fileName, RTLD_NOW);
 
   if (handler == nullptr) {
     VELOX_USER_FAIL("Error while loading shared library: {}", dlerror());
   }
-
-  // Lookup the symbol.
+  using simpleFunctionsInternal = velox::exec::SimpleFunctionRegistry* (*)();
+   simpleFunctionsInternal simpleFunctionsInternalInLoader = (simpleFunctionsInternal) dlsym(handler, "simpleFunctionsInternalGetInstance");
+  velox::exec::SimpleFunctionRegistry* sharedsimpleFunctionsInternal = simpleFunctionsInternalInLoader();
+   // Lookup the symbol.
   void* registrySymbol = dlsym(handler, kSymbolName);
-  auto registryFunction = reinterpret_cast<void (*)()>(registrySymbol);
+  auto registryFunction = reinterpret_cast<bool (*)()>(registrySymbol);
   char* error = dlerror();
 
   if (error != nullptr) {
     VELOX_USER_FAIL("Couldn't find Velox registry symbol: {}", error);
   }
-  registryFunction();
-  std::cout << "LOADED DYLLIB 1" << std::endl;
+  dlclose(handler);
+  return registryFunction();
 }
 
 } // namespace facebook::presto
