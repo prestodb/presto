@@ -36,6 +36,8 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
 
     private final DeltaBinaryPackingValuesReader innerReader;
 
+    private boolean withTimezone = false;
+
     public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
             throws IOException
     {
@@ -44,20 +46,29 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
     }
 
     @Override
+    public boolean isWithTimezone()
+    {
+        return withTimezone;
+    }
+
+    @Override
+    public void setWithTimezone(boolean withTimezone)
+    {
+        this.withTimezone = withTimezone;
+    }
+
+    @Override
     public void readNext(long[] values, int offset, int length)
     {
         int endOffset = offset + length;
         for (int i = offset; i < endOffset; i++) {
-            values[i] = MICROSECONDS.toMillis(innerReader.readLong());
-        }
-    }
-
-    @Override
-    public void readNextWithTimezone(long[] values, int offset, int length)
-    {
-        int endOffset = offset + length;
-        for (int i = offset; i < endOffset; i++) {
-            values[i] = packDateTimeWithZone(MICROSECONDS.toMillis(innerReader.readLong()), TimeZoneKey.UTC_KEY);
+            long curValue = MICROSECONDS.toMillis(innerReader.readLong());
+            if (isWithTimezone()) {
+                values[i] = packDateTimeWithZone(curValue, TimeZoneKey.UTC_KEY);
+            }
+            else {
+                values[i] = curValue;
+            }
         }
     }
 
