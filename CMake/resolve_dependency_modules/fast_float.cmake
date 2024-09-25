@@ -17,7 +17,7 @@ set(VELOX_FAST_FLOAT_VERSION 6.1.6)
 set(VELOX_FAST_FLOAT_BUILD_SHA256_CHECKSUM
     4458aae4b0eb55717968edda42987cabf5f7fc737aee8fede87a70035dba9ab0)
 set(VELOX_FAST_FLOAT_SOURCE_URL
-    "https://github.com/fastfloat/fast_float/archive/v${VELOX_FAST_FLOAT_VERSION}.tar.gz"
+    "https://github.com/fastfloat/fast_float/archive/refs/tags/v${VELOX_FAST_FLOAT_VERSION}.tar.gz"
 )
 
 resolve_dependency_url(FAST_FLOAT)

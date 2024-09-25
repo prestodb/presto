@@ -44,6 +44,7 @@ MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4
 MACOS_BUILD_DEPS="ninja cmake"
 FB_OS_VERSION="v2024.09.16.00"
 FMT_VERSION="10.1.1"
+FAST_FLOAT_VERSION="v6.1.6"
 
 function update_brew {
   DEFAULT_BREW_PATH=/usr/local/bin/brew
