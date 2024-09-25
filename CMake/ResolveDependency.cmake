@@ -94,19 +94,16 @@ macro(set_source dependency_name)
     STATUS "Setting ${dependency_name} source to ${${dependency_name}_SOURCE}")
 endmacro()
 
-# If the var_name is not defined then set var_name to the value of
-# $ENV{envvar_name} if it is defined. If neither is defined then set var_name to
-# ${DEFAULT}. If called from within a nested scope the variable will not
-# propagate into outer scopes automatically! Use PARENT_SCOPE.
+# Set var_name to the value of $ENV{envvar_name} if ENV is defined. If neither
+# ENV or var_name is defined then set var_name to ${DEFAULT}. If called from
+# within a nested scope the variable will not propagate into outer scopes
+# automatically! Use PARENT_SCOPE.
 function(set_with_default var_name envvar_name default)
-  if(DEFINED ${var_name})
-    return()
-  endif()
   if(DEFINED ENV{${envvar_name}})
     set(${var_name}
         $ENV{${envvar_name}}
         PARENT_SCOPE)
-  else()
+  elseif(NOT DEFINED ${var_name})
     set(${var_name}
         ${default}
         PARENT_SCOPE)
@@ -142,6 +139,8 @@ macro(resolve_dependency_url dependency_name)
   set_with_default(
     VELOX_${dependency_name}_SOURCE_URL VELOX_${dependency_name}_URL
     ${VELOX_${dependency_name}_SOURCE_URL})
+  message(VERBOSE "Set VELOX_${dependency_name}_SOURCE_URL to "
+          "${VELOX_${dependency_name}_SOURCE_URL}")
   if(DEFINED ENV{VELOX_${dependency_name}_URL})
     set_with_default(VELOX_${dependency_name}_BUILD_SHA256_CHECKSUM
                      VELOX_${dependency_name}_SHA256 "")
