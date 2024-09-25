@@ -507,7 +507,7 @@ TEST_F(HiveDataSinkTest, basic) {
       stats.toString(),
       "numWrittenBytes 0B numWrittenFiles 0 spillRuns[0] spilledInputBytes[0B] "
       "spilledBytes[0B] spilledRows[0] spilledPartitions[0] spilledFiles[0] "
-      "spillFillTimeNanos[0ns] spillSortTimeNanos[0ns] spillSerializationTimeNanos[0ns] "
+      "spillFillTimeNanos[0ns] spillSortTimeNanos[0ns] spillExtractVectorTime[0ns] spillSerializationTimeNanos[0ns] "
       "spillWrites[0] spillFlushTimeNanos[0ns] spillWriteTimeNanos[0ns] "
       "maxSpillExceededLimitCount[0] spillReadBytes[0B] spillReads[0] "
       "spillReadTimeNanos[0ns] spillReadDeserializationTimeNanos[0ns]");
@@ -555,7 +555,7 @@ TEST_F(HiveDataSinkTest, basicBucket) {
       stats.toString(),
       "numWrittenBytes 0B numWrittenFiles 0 spillRuns[0] spilledInputBytes[0B] "
       "spilledBytes[0B] spilledRows[0] spilledPartitions[0] spilledFiles[0] "
-      "spillFillTimeNanos[0ns] spillSortTimeNanos[0ns] spillSerializationTimeNanos[0ns] "
+      "spillFillTimeNanos[0ns] spillSortTimeNanos[0ns] spillExtractVectorTime[0ns] spillSerializationTimeNanos[0ns] "
       "spillWrites[0] spillFlushTimeNanos[0ns] spillWriteTimeNanos[0ns] "
       "maxSpillExceededLimitCount[0] spillReadBytes[0B] spillReads[0] "
       "spillReadTimeNanos[0ns] spillReadDeserializationTimeNanos[0ns]");

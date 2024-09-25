@@ -33,6 +33,7 @@ TEST(SpillStatsTest, spillStats) {
   stats1.spillFlushTimeNanos = 1023;
   stats1.spillWrites = 1023;
   stats1.spillSortTimeNanos = 1023;
+  stats1.spillExtractVectorTimeNanos = 1023;
   stats1.spillFillTimeNanos = 1023;
   stats1.spilledRows = 1023;
   stats1.spillSerializationTimeNanos = 1023;
@@ -52,6 +53,7 @@ TEST(SpillStatsTest, spillStats) {
   stats2.spillFlushTimeNanos = 1027;
   stats2.spillWrites = 1028;
   stats2.spillSortTimeNanos = 1029;
+  stats2.spillExtractVectorTimeNanos = 1033;
   stats2.spillFillTimeNanos = 1030;
   stats2.spilledRows = 1031;
   stats2.spillSerializationTimeNanos = 1032;
@@ -83,6 +85,7 @@ TEST(SpillStatsTest, spillStats) {
   ASSERT_EQ(delta.spillFlushTimeNanos, 4);
   ASSERT_EQ(delta.spillWrites, 5);
   ASSERT_EQ(delta.spillSortTimeNanos, 6);
+  ASSERT_EQ(delta.spillExtractVectorTimeNanos, 10);
   ASSERT_EQ(delta.spillFillTimeNanos, 7);
   ASSERT_EQ(delta.spilledRows, 8);
   ASSERT_EQ(delta.spillSerializationTimeNanos, 9);
@@ -99,6 +102,7 @@ TEST(SpillStatsTest, spillStats) {
   ASSERT_EQ(delta.spillFlushTimeNanos, -4);
   ASSERT_EQ(delta.spillWrites, -5);
   ASSERT_EQ(delta.spillSortTimeNanos, -6);
+  ASSERT_EQ(delta.spillExtractVectorTimeNanos, -10);
   ASSERT_EQ(delta.spillFillTimeNanos, -7);
   ASSERT_EQ(delta.spilledRows, -8);
   ASSERT_EQ(delta.spillSerializationTimeNanos, -9);
@@ -123,7 +127,7 @@ TEST(SpillStatsTest, spillStats) {
       stats2.toString(),
       "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] "
       "spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] "
-      "spillFillTimeNanos[1.03us] spillSortTimeNanos[1.03us] "
+      "spillFillTimeNanos[1.03us] spillSortTimeNanos[1.03us] spillExtractVectorTime[1.03us] "
       "spillSerializationTimeNanos[1.03us] spillWrites[1028] spillFlushTimeNanos[1.03us] "
       "spillWriteTimeNanos[1.03us] maxSpillExceededLimitCount[4] "
       "spillReadBytes[2.00KB] spillReads[10] spillReadTimeNanos[100ns] "
@@ -132,7 +136,7 @@ TEST(SpillStatsTest, spillStats) {
       fmt::format("{}", stats2),
       "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] "
       "spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] "
-      "spillFillTimeNanos[1.03us] spillSortTimeNanos[1.03us] "
+      "spillFillTimeNanos[1.03us] spillSortTimeNanos[1.03us] spillExtractVectorTime[1.03us] "
       "spillSerializationTimeNanos[1.03us] spillWrites[1028] "
       "spillFlushTimeNanos[1.03us] spillWriteTimeNanos[1.03us] "
       "maxSpillExceededLimitCount[4] "

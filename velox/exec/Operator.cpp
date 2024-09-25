@@ -318,6 +318,13 @@ void Operator::recordSpillStats() {
             static_cast<int64_t>(lockedSpillStats->spillSortTimeNanos),
             RuntimeCounter::Unit::kNanos});
   }
+  if (lockedSpillStats->spillExtractVectorTimeNanos != 0) {
+    lockedStats->addRuntimeStat(
+        kSpillExtractVectorTime,
+        RuntimeCounter{
+            static_cast<int64_t>(lockedSpillStats->spillExtractVectorTimeNanos),
+            RuntimeCounter::Unit::kNanos});
+  }
   if (lockedSpillStats->spillSerializationTimeNanos != 0) {
     lockedStats->addRuntimeStat(
         kSpillSerializationTime,

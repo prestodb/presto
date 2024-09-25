@@ -122,6 +122,9 @@ These stats are reported by operators that support spilling.
    * - spillSortWallNanos
      - nanos
      - The time spent on sorting rows for spilling.
+   * - spillExtractVectorWallNanos
+     - nanos
+     - The time spent on extracting Vector from RowContainer for spilling.
    * - spillSerializationWallNanos
      - nanos
      - The time spent on serializing rows for spilling.

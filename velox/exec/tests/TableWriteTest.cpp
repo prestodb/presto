@@ -3313,6 +3313,7 @@ TEST_P(BucketSortOnlyTableWriterTest, sortWriterSpill) {
   ASSERT_GT(stats.customStats[Operator::kSpillRuns].sum, 0);
   ASSERT_GT(stats.customStats[Operator::kSpillFillTime].sum, 0);
   ASSERT_GT(stats.customStats[Operator::kSpillSortTime].sum, 0);
+  ASSERT_GT(stats.customStats[Operator::kSpillExtractVectorTime].sum, 0);
   ASSERT_GT(stats.customStats[Operator::kSpillSerializationTime].sum, 0);
   ASSERT_GT(stats.customStats[Operator::kSpillFlushTime].sum, 0);
   ASSERT_GT(stats.customStats[Operator::kSpillWrites].sum, 0);

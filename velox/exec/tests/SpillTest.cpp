@@ -402,7 +402,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
         fmt::format(
             "spillRuns[{}] spilledInputBytes[{}] spilledBytes[{}] spilledRows[{}] "
             "spilledPartitions[{}] spilledFiles[{}] spillFillTimeNanos[{}] "
-            "spillSortTimeNanos[{}] spillSerializationTimeNanos[{}] spillWrites[{}] "
+            "spillSortTimeNanos[{}] spillExtractVectorTime[{}] spillSerializationTimeNanos[{}] spillWrites[{}] "
             "spillFlushTimeNanos[{}] spillWriteTimeNanos[{}] maxSpillExceededLimitCount[0] "
             "spillReadBytes[{}] spillReads[{}] spillReadTimeNanos[{}] "
             "spillReadDeserializationTimeNanos[{}]",
@@ -414,6 +414,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
             finalStats.spilledFiles,
             succinctNanos(finalStats.spillFillTimeNanos),
             succinctNanos(finalStats.spillSortTimeNanos),
+            succinctNanos(finalStats.spillExtractVectorTimeNanos),
             succinctNanos(finalStats.spillSerializationTimeNanos),
             finalStats.spillWrites,
             succinctNanos(finalStats.spillFlushTimeNanos),

@@ -333,6 +333,8 @@ class Operator : public BaseRuntimeStatWriter {
   /// The spill write stats.
   static inline const std::string kSpillFillTime{"spillFillWallNanos"};
   static inline const std::string kSpillSortTime{"spillSortWallNanos"};
+  static inline const std::string kSpillExtractVectorTime{
+      "spillExtractVectorWallNanos"};
   static inline const std::string kSpillSerializationTime{
       "spillSerializationWallNanos"};
   static inline const std::string kSpillFlushTime{"spillFlushWallNanos"};

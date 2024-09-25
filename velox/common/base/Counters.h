@@ -123,6 +123,9 @@ constexpr folly::StringPiece kMetricSpillFillTimeMs{"velox.spill_fill_time_ms"};
 
 constexpr folly::StringPiece kMetricSpillSortTimeMs{"velox.spill_sort_time_ms"};
 
+constexpr folly::StringPiece kMetricSpillExtractVectorTimeMs{
+    "velox.spill_extract_vector_time_ms"};
+
 constexpr folly::StringPiece kMetricSpillSerializationTimeMs{
     "velox.spill_serialization_time_ms"};
 

@@ -512,6 +512,7 @@ TEST_F(OrderByTest, spill) {
   ASSERT_GT(planStats.customStats[Operator::kSpillRuns].count, 0);
   ASSERT_GT(planStats.customStats[Operator::kSpillFillTime].sum, 0);
   ASSERT_GT(planStats.customStats[Operator::kSpillSortTime].sum, 0);
+  ASSERT_GT(planStats.customStats[Operator::kSpillExtractVectorTime].sum, 0);
   ASSERT_GT(planStats.customStats[Operator::kSpillSerializationTime].sum, 0);
   ASSERT_GT(planStats.customStats[Operator::kSpillFlushTime].sum, 0);
   ASSERT_EQ(
