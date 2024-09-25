@@ -57,6 +57,7 @@ public class OrcOutputBuffer
     private final int minOutputBufferChunkSize;
     private final int maxOutputBufferChunkSize;
     private final int minCompressibleSize;
+    private final boolean resetOutputBuffer;
 
     private final CompressionBufferPool compressionBufferPool;
     private final Optional<DwrfDataEncryptor> dwrfEncryptor;
@@ -87,6 +88,7 @@ public class OrcOutputBuffer
         this.maxBufferSize = compressionKind == CompressionKind.NONE ? maxBufferSize : maxBufferSize - PAGE_HEADER_SIZE;
         this.minOutputBufferChunkSize = columnWriterOptions.getMinOutputBufferChunkSize();
         this.maxOutputBufferChunkSize = columnWriterOptions.getMaxOutputBufferChunkSize();
+        this.resetOutputBuffer = columnWriterOptions.isResetOutputBuffer();
         this.minCompressibleSize = compressionKind.getMinCompressibleSize();
 
         this.buffer = new byte[INITIAL_BUFFER_SIZE];
@@ -473,7 +475,7 @@ public class OrcOutputBuffer
     private void initCompressedOutputStream()
     {
         checkState(compressedOutputStream == null, "compressedOutputStream is already initialized");
-        compressedOutputStream = new ChunkedSliceOutput(minOutputBufferChunkSize, maxOutputBufferChunkSize);
+        compressedOutputStream = new ChunkedSliceOutput(minOutputBufferChunkSize, maxOutputBufferChunkSize, resetOutputBuffer);
     }
 
     private void writeChunkToOutputStream(byte[] chunk, int offset, int length)
