@@ -64,8 +64,6 @@ class RowNumber : public Operator {
 
   void spill();
 
-  void addSpillInput();
-
   void restoreNextSpillPartition();
 
   SpillPartitionNumSet spillHashTable();
@@ -77,6 +75,10 @@ class RowNumber : public Operator {
   RowVectorPtr getOutputForSinglePartition();
 
   FlatVector<int64_t>& getOrCreateRowNumberVector(vector_size_t size);
+
+  // Finishes the current input spilling and restore the next processing
+  // partition.
+  void finishSpillInputAndRestoreNext();
 
   // Used by recursive spill processing to read the spilled input data from the
   // previous spill run through 'spillInputReader_' and then spill them back

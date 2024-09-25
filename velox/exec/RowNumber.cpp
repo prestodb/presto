@@ -96,40 +96,20 @@ void RowNumber::addInput(RowVectorPtr input) {
   input_ = std::move(input);
 }
 
-void RowNumber::addSpillInput() {
-  VELOX_CHECK_NOT_NULL(input_);
-  VELOX_CHECK_NULL(inputSpiller_);
-  ensureInputFits(input_);
-  if (input_ == nullptr) {
-    VELOX_CHECK_NOT_NULL(inputSpiller_);
-    // Memory arbitration might be triggered by ensureInputFits() which will
-    // spill 'input_'.
-    return;
-  }
-
-  const auto numInput = input_->size();
-  SelectivityVector rows(numInput);
-
-  VELOX_CHECK(spillConfig_.has_value());
-  table_->prepareForGroupProbe(
-      *lookup_, input_, rows, spillConfig_->startPartitionBit);
-  table_->groupProbe(*lookup_, spillConfig_->startPartitionBit);
-
-  // Initialize new partitions with zeros.
-  for (auto i : lookup_->newGroups) {
-    setNumRows(lookup_->hits[i], 0);
-  }
-}
-
 void RowNumber::noMoreInput() {
   Operator::noMoreInput();
 
   if (inputSpiller_ != nullptr) {
-    inputSpiller_->finishSpill(spillInputPartitionSet_);
-    inputSpiller_.reset();
-    removeEmptyPartitions(spillInputPartitionSet_);
-    restoreNextSpillPartition();
+    finishSpillInputAndRestoreNext();
   }
+}
+
+void RowNumber::finishSpillInputAndRestoreNext() {
+  VELOX_CHECK_NOT_NULL(inputSpiller_);
+  inputSpiller_->finishSpill(spillInputPartitionSet_);
+  inputSpiller_.reset();
+  removeEmptyPartitions(spillInputPartitionSet_);
+  restoreNextSpillPartition();
 }
 
 void RowNumber::restoreNextSpillPartition() {
@@ -181,10 +161,11 @@ void RowNumber::restoreNextSpillPartition() {
 
   spillInputPartitionSet_.erase(it);
 
-  spillInputReader_->nextBatch(input_);
-  VELOX_CHECK_NOT_NULL(input_);
+  RowVectorPtr unspilledInput;
+  spillInputReader_->nextBatch(unspilledInput);
+  VELOX_CHECK_NOT_NULL(unspilledInput);
   // NOTE: spillInputReader_ will at least produce one batch output.
-  addSpillInput();
+  addInput(std::move(unspilledInput));
 }
 
 void RowNumber::ensureInputFits(const RowVectorPtr& input) {
@@ -339,19 +320,17 @@ RowVectorPtr RowNumber::getOutput() {
     output = fillOutput(numInput, nullptr);
   }
 
+  input_ = nullptr;
   if (spillInputReader_ != nullptr) {
-    if (spillInputReader_->nextBatch(input_)) {
-      addSpillInput();
+    RowVectorPtr unspilledInput;
+    if (spillInputReader_->nextBatch(unspilledInput)) {
+      addInput(std::move(unspilledInput));
     } else {
-      input_ = nullptr;
       spillInputReader_ = nullptr;
       table_->clear();
       restoreNextSpillPartition();
     }
-  } else {
-    input_ = nullptr;
   }
-
   return output;
 }
 
@@ -522,9 +501,9 @@ void RowNumber::spillInput(
 }
 
 void RowNumber::recursiveSpillInput() {
-  RowVectorPtr input;
-  while (spillInputReader_->nextBatch(input)) {
-    spillInput(input, pool());
+  RowVectorPtr unspilledInput;
+  while (spillInputReader_->nextBatch(unspilledInput)) {
+    spillInput(unspilledInput, pool());
 
     if (operatorCtx_->driver()->shouldYield()) {
       yield_ = true;
@@ -532,12 +511,7 @@ void RowNumber::recursiveSpillInput() {
     }
   }
 
-  inputSpiller_->finishSpill(spillInputPartitionSet_);
-  inputSpiller_.reset();
-  spillInputReader_ = nullptr;
-
-  removeEmptyPartitions(spillInputPartitionSet_);
-  restoreNextSpillPartition();
+  finishSpillInputAndRestoreNext();
 }
 
 void RowNumber::setSpillPartitionBits(
