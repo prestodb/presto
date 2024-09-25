@@ -266,4 +266,3 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
         }
     }
 }
-
