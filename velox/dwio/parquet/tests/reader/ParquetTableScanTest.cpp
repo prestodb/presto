@@ -65,6 +65,16 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     assertQuery(plan, splits_, sql);
   }
 
+  void assertSelectWithDataColumns(
+      std::vector<std::string>&& outputColumnNames,
+      const RowTypePtr& dataColumns,
+      const std::string& sql) {
+    auto rowType = getRowType(std::move(outputColumnNames));
+    auto plan =
+        PlanBuilder().tableScan(rowType, {}, "", dataColumns).planNode();
+    assertQuery(plan, splits_, sql);
+  }
+
   void assertSelectWithAssignments(
       std::vector<std::string>&& outputColumnNames,
       std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
@@ -866,6 +876,34 @@ TEST_F(ParquetTableScanTest, timestampPrecisionMicrosecond) {
           kSize, [](auto i) { return Timestamp(i, i * 1'001'000); }),
   });
   assertEqualResults({expected}, result.second);
+}
+
+TEST_F(ParquetTableScanTest, testColumnNotExists) {
+  auto rowType =
+      ROW({"a", "b", "not_exists", "not_exists_array", "not_exists_map"},
+          {BIGINT(),
+           DOUBLE(),
+           BIGINT(),
+           ARRAY(VARBINARY()),
+           MAP(VARCHAR(), BIGINT())});
+  // message schema {
+  //  optional int64 a;
+  //  optional double b;
+  // }
+  loadData(
+      getExampleFilePath("sample.parquet"),
+      rowType,
+      makeRowVector(
+          {"a", "b"},
+          {
+              makeFlatVector<int64_t>(20, [](auto row) { return row + 1; }),
+              makeFlatVector<double>(20, [](auto row) { return row + 1; }),
+          }));
+
+  assertSelectWithDataColumns(
+      {"a", "b", "not_exists", "not_exists_array", "not_exists_map"},
+      rowType,
+      "SELECT a, b, NULL, NULL, NULL FROM tmp");
 }
 
 int main(int argc, char** argv) {

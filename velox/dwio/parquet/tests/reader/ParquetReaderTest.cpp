@@ -1243,6 +1243,53 @@ TEST_F(ParquetReaderTest, readBinaryAsStringFromNation) {
       nameVector->loadedVector()->asFlatVector<StringView>()->valueAt(0));
 }
 
+TEST_F(ParquetReaderTest, readComplexType) {
+  const std::string filename("complex_with_varchar_varbinary.parquet");
+  const std::string sample(getExampleFilePath(filename));
+
+  dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto outputRowType =
+      ROW({"a", "b", "c", "d"},
+          {ARRAY(VARCHAR()),
+           ARRAY(VARBINARY()),
+           MAP(VARCHAR(), BIGINT()),
+           MAP(VARBINARY(), BIGINT())});
+
+  readerOptions.setFileSchema(outputRowType);
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->numberOfRows(), 1);
+  auto rowType = reader->rowType();
+  EXPECT_EQ(rowType->kind(), TypeKind::ROW);
+  EXPECT_EQ(rowType->size(), 4);
+  EXPECT_EQ(*rowType, *outputRowType);
+
+  auto rowReaderOpts = getReaderOpts(outputRowType);
+  rowReaderOpts.setScanSpec(makeScanSpec(outputRowType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  VectorPtr result = BaseVector::create(outputRowType, 0, &(*leafPool_));
+  rowReader->next(1, result);
+  auto aColVector = result->as<RowVector>()
+                        ->childAt(0)
+                        ->loadedVector()
+                        ->as<ArrayVector>()
+                        ->elements();
+  EXPECT_EQ(aColVector->size(), 3);
+  EXPECT_EQ(aColVector->encoding(), VectorEncoding::Simple::DICTIONARY);
+  EXPECT_EQ(
+      aColVector->asUnchecked<DictionaryVector<StringView>>()->valueAt(0).str(),
+      "AAAA");
+
+  auto cColVector =
+      result->as<RowVector>()->childAt(2)->loadedVector()->as<MapVector>();
+  auto mapKeys = cColVector->mapKeys();
+  EXPECT_EQ(mapKeys->size(), 2);
+  EXPECT_EQ(mapKeys->encoding(), VectorEncoding::Simple::DICTIONARY);
+  EXPECT_EQ(
+      mapKeys->asUnchecked<DictionaryVector<StringView>>()->valueAt(0).str(),
+      "foo");
+}
+
 TEST_F(ParquetReaderTest, readFixedLenBinaryAsStringFromUuid) {
   const std::string filename("uuid.parquet");
   const std::string sample(getExampleFilePath(filename));
