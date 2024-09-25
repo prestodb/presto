@@ -309,6 +309,9 @@ class FunctionSignatureBuilder {
     return *this;
   }
 
+  /// Variable arity arguments can appear only at the end of the argument list
+  /// and their types must match the type specified in the last entry of
+  /// 'argumentTypes'. Variable arity arguments can appear zero or more times.
   FunctionSignatureBuilder& variableArity() {
     variableArity_ = true;
     return *this;

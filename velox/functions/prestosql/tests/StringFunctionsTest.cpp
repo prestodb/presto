@@ -844,7 +844,7 @@ TEST_F(StringFunctionsTest, concat) {
   size_t maxStringLength = 100;
 
   std::vector<std::vector<std::string>> inputTable;
-  for (int argsCount = 1; argsCount <= maxArgsCount; argsCount++) {
+  for (int argsCount = 2; argsCount <= maxArgsCount; argsCount++) {
     inputTable.clear();
 
     // Create table with argsCount columns
@@ -929,6 +929,13 @@ TEST_F(StringFunctionsTest, concat) {
     });
 
     test::assertEqualVectors(expected, result);
+  }
+
+  // Less than 2 concatenation arguments throws exception.
+  {
+    VELOX_ASSERT_THROW(
+        evaluateOnce<std::string>("concat('a')", {}),
+        "Scalar function signature is not supported: concat(VARCHAR).");
   }
 }
 
