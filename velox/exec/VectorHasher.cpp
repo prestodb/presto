@@ -52,25 +52,32 @@ namespace facebook::velox::exec {
   }()
 
 namespace {
-template <TypeKind Kind>
+template <bool typeProvidesCustomComparison, TypeKind Kind>
 uint64_t hashOne(DecodedVector& decoded, vector_size_t index) {
   if constexpr (
       Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
       Kind == TypeKind::MAP) {
     // Virtual function call for complex type.
     return decoded.base()->hashValueAt(decoded.index(index));
-  }
-  // Inlined for scalars.
-  using T = typename KindToFlatVector<Kind>::HashRowType;
-  if constexpr (std::is_floating_point_v<T>) {
-    return util::floating_point::NaNAwareHash<T>()(decoded.valueAt<T>(index));
   } else {
-    return folly::hasher<T>()(decoded.valueAt<T>(index));
+    // Inlined for scalars.
+    using T = typename KindToFlatVector<Kind>::HashRowType;
+    T value = decoded.valueAt<T>(index);
+
+    if constexpr (typeProvidesCustomComparison) {
+      return static_cast<const CanProvideCustomComparisonType<Kind>*>(
+                 decoded.base()->type().get())
+          ->hash(value);
+    } else if constexpr (std::is_floating_point_v<T>) {
+      return util::floating_point::NaNAwareHash<T>()(value);
+    } else {
+      return folly::hasher<T>()(value);
+    }
   }
 }
 } // namespace
 
-template <TypeKind Kind>
+template <bool typeProvidesCustomComparison, TypeKind Kind>
 void VectorHasher::hashValues(
     const SelectivityVector& rows,
     bool mix,
@@ -79,7 +86,7 @@ void VectorHasher::hashValues(
   if (decoded_.isConstantMapping()) {
     auto hash = decoded_.isNullAt(rows.begin())
         ? kNullHash
-        : hashOne<Kind>(decoded_, rows.begin());
+        : hashOne<typeProvidesCustomComparison, Kind>(decoded_, rows.begin());
     rows.applyToSelected([&](vector_size_t row) {
       result[row] = mix ? bits::hashMix(result[row], hash) : hash;
     });
@@ -96,7 +103,7 @@ void VectorHasher::hashValues(
       auto baseIndex = decoded_.index(row);
       uint64_t hash = cachedHashes_[baseIndex];
       if (hash == kNullHash) {
-        hash = hashOne<Kind>(decoded_, row);
+        hash = hashOne<typeProvidesCustomComparison, Kind>(decoded_, row);
         cachedHashes_[baseIndex] = hash;
       }
       result[row] = mix ? bits::hashMix(result[row], hash) : hash;
@@ -107,7 +114,7 @@ void VectorHasher::hashValues(
         result[row] = mix ? bits::hashMix(result[row], kNullHash) : kNullHash;
         return;
       }
-      auto hash = hashOne<Kind>(decoded_, row);
+      auto hash = hashOne<typeProvidesCustomComparison, Kind>(decoded_, row);
       result[row] = mix ? bits::hashMix(result[row], hash) : hash;
     });
   }
@@ -543,8 +550,13 @@ void VectorHasher::hash(
       result[row] = mix ? bits::hashMix(result[row], kNullHash) : kNullHash;
     });
   } else {
-    VELOX_DYNAMIC_TYPE_DISPATCH(
-        hashValues, typeKind_, rows, mix, result.data());
+    if (type_->providesCustomComparison()) {
+      VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(
+          hashValues, true, typeKind_, rows, mix, result.data());
+    } else {
+      VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(
+          hashValues, false, typeKind_, rows, mix, result.data());
+    }
   }
 }
 
@@ -566,8 +578,14 @@ void VectorHasher::precompute(const BaseVector& value) {
 
   const SelectivityVector rows(1, true);
   decoded_.decode(value, rows);
-  precomputedHash_ =
-      VELOX_DYNAMIC_TYPE_DISPATCH(hashOne, typeKind_, decoded_, 0);
+
+  if (type_->providesCustomComparison()) {
+    precomputedHash_ = VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(
+        hashOne, true, typeKind_, decoded_, 0);
+  } else {
+    precomputedHash_ = VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH(
+        hashOne, false, typeKind_, decoded_, 0);
+  }
 }
 
 void VectorHasher::analyze(

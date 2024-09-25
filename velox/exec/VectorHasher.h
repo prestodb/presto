@@ -540,7 +540,7 @@ class VectorHasher {
     return *reinterpret_cast<const T*>(group + offset);
   }
 
-  template <TypeKind Kind>
+  template <bool typeProvidesCustomComparison, TypeKind Kind>
   void hashValues(const SelectivityVector& rows, bool mix, uint64_t* result);
 
   const column_index_t channel_;

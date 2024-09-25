@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/type/Type.h"
+#include "velox/type/tests/utils/CustomTypesForTesting.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -1068,4 +1069,129 @@ TEST_F(VectorHasherTest, typeMismatch) {
   SelectivityVector rows(data->size());
   VELOX_ASSERT_THROW(
       hasher->decode(*data, rows), "Type mismatch: BIGINT vs. VARCHAR");
+}
+
+void testCustomComparison(const VectorPtr& actual, const VectorPtr& expected) {
+  // Vector hasher should hash the values in actual to the same hashes as it
+  // does when hashing the values in expected.
+  ASSERT_EQ(actual->size(), expected->size());
+
+  auto vectorHasher = exec::VectorHasher::create(actual->type(), 1);
+  ASSERT_EQ(vectorHasher->channel(), 1);
+
+  SelectivityVector allRows = SelectivityVector(actual->size());
+
+  raw_vector<uint64_t> actualHashes(actual->size());
+  std::fill(actualHashes.begin(), actualHashes.end(), 0);
+  vectorHasher->decode(*actual, allRows);
+  vectorHasher->hash(allRows, false, actualHashes);
+
+  raw_vector<uint64_t> expectedHashes(expected->size());
+  std::fill(expectedHashes.begin(), expectedHashes.end(), 0);
+  vectorHasher->decode(*expected, allRows);
+  vectorHasher->hash(allRows, false, expectedHashes);
+
+  for (int32_t i = 0; i < actual->size(); i++) {
+    EXPECT_EQ(actualHashes[i], expectedHashes[i])
+        << "at " << i << " values: " << actual->toString(i) << " "
+        << expected->toString(i);
+  }
+}
+
+TEST_F(VectorHasherTest, customComparison) {
+  // Tests that types that provide custom comparison are hashed using the custom
+  // hash implementation they provide.
+
+  testCustomComparison(
+      makeFlatVector<int64_t>(
+          {0, 1, 256, 257, 512, 513}, BIGINT_TYPE_WITH_CUSTOM_COMPARISON()),
+      // Different values that are equal mod 256 should hash to the same value.
+      makeFlatVector<int64_t>(
+          {0, 1, 0, 1, 0, 1}, BIGINT_TYPE_WITH_CUSTOM_COMPARISON()));
+}
+
+TEST_F(VectorHasherTest, customComparisonArray) {
+  // Tests that types that provide custom comparison are hashed using the custom
+  // hash implementation they provide.
+
+  testCustomComparison(
+      makeNullableArrayVector<int64_t>(
+          {{0, 1, 2},
+           {256, 257, 258},
+           {512, 513, 514},
+           {3, 4, 5},
+           {259, 260, 261},
+           {515, 516, 517},
+           {std::nullopt}},
+          ARRAY(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())),
+      // Different values that are equal mod 256 should hash to the same value.
+      makeNullableArrayVector<int64_t>(
+          {{0, 1, 2},
+           {0, 1, 2},
+           {0, 1, 2},
+           {3, 4, 5},
+           {3, 4, 5},
+           {3, 4, 5},
+           {std::nullopt}},
+          ARRAY(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())));
+}
+
+TEST_F(VectorHasherTest, customComparisonMap) {
+  // Tests that types that provide custom comparison are hashed using the custom
+  // hash implementation they provide.
+
+  testCustomComparison(
+      makeNullableMapVector<int64_t, int64_t>(
+          {std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {0, 10}, {1, 11}, {2, 12}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {256, 266}, {257, 267}, {258, 268}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {512, 522}, {513, 523}, {514, 524}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {3, 103}, {4, 104}, {5, 105}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {259, 359}, {260, 360}, {261, 361}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {515, 615}, {516, 616}, {517, 617}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {0, std::nullopt}}},
+          MAP(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON(),
+              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())),
+      // Different values that are equal mod 256 should hash to the same value.
+      makeNullableMapVector<int64_t, int64_t>(
+          {std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {0, 10}, {1, 11}, {2, 12}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {0, 10}, {1, 11}, {2, 12}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {0, 10}, {1, 11}, {2, 12}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {3, 103}, {4, 104}, {5, 105}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {3, 103}, {4, 104}, {5, 105}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {3, 103}, {4, 104}, {5, 105}},
+           std::vector<std::pair<int64_t, std::optional<int64_t>>>{
+               {0, std::nullopt}}},
+          MAP(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON(),
+              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())));
+}
+
+TEST_F(VectorHasherTest, customComparisonRow) {
+  // Tests that types that provide custom comparison are hashed using the custom
+  // hash implementation they provide.
+
+  testCustomComparison(
+      makeRowVector(
+          {"a"},
+          {makeNullableFlatVector<int64_t>(
+              {std::nullopt, 0, 1, 256, 257, 512, 513},
+              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())}),
+      // Different values that are equal mod 256 should hash to the same value.
+      makeRowVector(
+          {"a"},
+          {makeNullableFlatVector<int64_t>(
+              {std::nullopt, 0, 1, 0, 1, 0, 1},
+              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())}));
 }
