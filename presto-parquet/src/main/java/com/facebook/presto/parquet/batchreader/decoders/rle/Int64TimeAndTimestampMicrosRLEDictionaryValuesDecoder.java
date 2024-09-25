@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
@@ -36,10 +37,24 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
 
     private final LongDictionary dictionary;
 
+    private boolean withTimezone = false;
+
     public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
     {
         super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;
+    }
+
+    @Override
+    public boolean isWithTimezone()
+    {
+        return withTimezone;
+    }
+
+    @Override
+    public void setWithTimezone(boolean withTimezone)
+    {
+        this.withTimezone = withTimezone;
     }
 
     @Override
@@ -62,7 +77,12 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     final int rleValue = currentValue;
                     final long rleDictionaryValue = MICROSECONDS.toMillis(dictionary.decodeToLong(rleValue));
                     while (destinationIndex < endIndex) {
-                        values[destinationIndex++] = rleDictionaryValue;
+                        if (isWithTimezone()) {
+                            values[destinationIndex++] = packDateTimeWithZone(rleDictionaryValue, TimeZoneKey.UTC_KEY);
+                        }
+                        else {
+                            values[destinationIndex++] = rleDictionaryValue;
+                        }
                     }
                     break;
                 }
@@ -71,51 +91,13 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     final LongDictionary localDictionary = dictionary;
                     for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
                         long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
-                        values[destinationIndex++] = MICROSECONDS.toMillis(dictionaryValue);
-                    }
-                    break;
-                }
-                default:
-                    throw new ParquetDecodingException("not a valid mode " + mode);
-            }
-
-            currentCount -= numEntriesToFill;
-            remainingToCopy -= numEntriesToFill;
-        }
-
-        checkState(remainingToCopy == 0, "End of stream: Invalid read size request");
-    }
-
-    @Override
-    public void readNextWithTimezone(long[] values, int offset, int length)
-            throws IOException
-    {
-        int destinationIndex = offset;
-        int remainingToCopy = length;
-        while (remainingToCopy > 0) {
-            if (currentCount == 0) {
-                if (!decode()) {
-                    break;
-                }
-            }
-
-            int numEntriesToFill = Math.min(remainingToCopy, currentCount);
-            int endIndex = destinationIndex + numEntriesToFill;
-            switch (mode) {
-                case RLE: {
-                    final int rleValue = currentValue;
-                    final long rleDictionaryValue = packDateTimeWithZone(MICROSECONDS.toMillis(dictionary.decodeToLong(rleValue)), UTC_KEY);
-                    while (destinationIndex < endIndex) {
-                        values[destinationIndex++] = rleDictionaryValue;
-                    }
-                    break;
-                }
-                case PACKED: {
-                    final int[] localBuffer = currentBuffer;
-                    final LongDictionary localDictionary = dictionary;
-                    for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
-                        long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
-                        values[destinationIndex++] = packDateTimeWithZone(MICROSECONDS.toMillis(dictionaryValue), UTC_KEY);
+                        long millisValue = MICROSECONDS.toMillis(dictionaryValue);
+                        if (isWithTimezone()) {
+                            values[destinationIndex++] = packDateTimeWithZone(millisValue, TimeZoneKey.UTC_KEY);
+                        }
+                        else {
+                            values[destinationIndex++] = millisValue;
+                        }
                     }
                     break;
                 }

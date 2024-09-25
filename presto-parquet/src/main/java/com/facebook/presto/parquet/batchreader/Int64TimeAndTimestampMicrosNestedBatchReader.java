@@ -27,9 +27,14 @@ import java.util.Optional;
 public class Int64TimeAndTimestampMicrosNestedBatchReader
         extends AbstractNestedBatchReader
 {
+    private boolean withTimezone = false;
+
     public Int64TimeAndTimestampMicrosNestedBatchReader(RichColumnDescriptor columnDescriptor)
     {
         super(columnDescriptor);
+        if (field.getType() instanceof TimestampWithTimeZoneType) {
+            withTimezone = true;
+        }
     }
 
     @Override
@@ -65,12 +70,8 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
         boolean[] isNull = new boolean[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
-            if (field.getType() instanceof TimestampWithTimeZoneType) {
-                ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNextWithTimezone(values, offset, valuesDecoderContext.getNonNullCount());
-            }
-            else {
-                ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
-            }
+            ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).setWithTimezone(withTimezone);
+            ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
 
             int valueDestinationIndex = offset + valuesDecoderContext.getValueCount() - 1;
             int valueSourceIndex = offset + valuesDecoderContext.getNonNullCount() - 1;
@@ -118,12 +119,8 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
         long[] values = new long[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
-            if (field.getType() instanceof TimestampWithTimeZoneType) {
-                ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNextWithTimezone(values, offset, valuesDecoderContext.getNonNullCount());
-            }
-            else {
-                ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
-            }
+            ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).setWithTimezone(withTimezone);
+            ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
             offset += valuesDecoderContext.getValueCount();
         }
 
