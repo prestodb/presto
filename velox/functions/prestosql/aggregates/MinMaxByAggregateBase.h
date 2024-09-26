@@ -21,11 +21,7 @@
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/type/FloatingPointUtil.h"
 
-using namespace facebook::velox::functions::aggregate;
-
 namespace facebook::velox::aggregate::prestosql {
-
-namespace {
 
 /// Returns true if the value in 'index' row of 'newComparisons' is strictly
 /// greater than or less than the value in the 'accumulator'.
@@ -36,7 +32,7 @@ struct Comparator {
       const DecodedVector& newComparisons,
       vector_size_t index,
       bool isFirstValue) {
-    if constexpr (isNumeric<T>()) {
+    if constexpr (functions::aggregate::isNumeric<T>()) {
       if (isFirstValue) {
         return true;
       }
@@ -1017,48 +1013,6 @@ class MinMaxByNAggregate : public exec::Aggregate {
   DecodedVector decodedIntermediates_;
 };
 
-template <typename V, typename C>
-class MinByNAggregate : public MinMaxByNAggregate<V, C, Less<V, C>> {
- public:
-  explicit MinByNAggregate(TypePtr resultType)
-      : MinMaxByNAggregate<V, C, Less<V, C>>(resultType) {}
-};
-
-template <typename C>
-class MinByNAggregate<ComplexType, C>
-    : public MinMaxByNAggregate<
-          ComplexType,
-          C,
-          Less<HashStringAllocator::Position, C>> {
- public:
-  explicit MinByNAggregate(TypePtr resultType)
-      : MinMaxByNAggregate<
-            ComplexType,
-            C,
-            Less<HashStringAllocator::Position, C>>(resultType) {}
-};
-
-template <typename V, typename C>
-class MaxByNAggregate : public MinMaxByNAggregate<V, C, Greater<V, C>> {
- public:
-  explicit MaxByNAggregate(TypePtr resultType)
-      : MinMaxByNAggregate<V, C, Greater<V, C>>(resultType) {}
-};
-
-template <typename C>
-class MaxByNAggregate<ComplexType, C>
-    : public MinMaxByNAggregate<
-          ComplexType,
-          C,
-          Greater<HashStringAllocator::Position, C>> {
- public:
-  explicit MaxByNAggregate(TypePtr resultType)
-      : MinMaxByNAggregate<
-            ComplexType,
-            C,
-            Greater<HashStringAllocator::Position, C>>(resultType) {}
-};
-
 template <template <typename U, typename V> class NAggregate, typename W>
 std::unique_ptr<exec::Aggregate> createNArg(
     TypePtr resultType,
@@ -1142,7 +1096,7 @@ std::unique_ptr<exec::Aggregate> createNArg(
   }
 }
 
-std::string toString(const std::vector<TypePtr>& types) {
+inline std::string toString(const std::vector<TypePtr>& types) {
   std::ostringstream out;
   for (auto i = 0; i < types.size(); ++i) {
     if (i > 0) {
@@ -1239,24 +1193,12 @@ exec::AggregateRegistrationResult registerMinMaxBy(
           return createNArg<NAggregate>(
               resultType, argTypes[0], argTypes[1], errorMessage);
         } else {
-          return create<Aggregate, Comparator, isMaxFunc>(
+          return functions::aggregate::create<Aggregate, Comparator, isMaxFunc>(
               resultType, argTypes[0], argTypes[1], errorMessage, true);
         }
       },
       withCompanionFunctions,
       overwrite);
-}
-
-} // namespace
-
-void registerMinMaxByAggregates(
-    const std::string& prefix,
-    bool withCompanionFunctions,
-    bool overwrite) {
-  registerMinMaxBy<MinMaxByAggregateBase, true, MaxByNAggregate>(
-      prefix + kMaxBy, withCompanionFunctions, overwrite);
-  registerMinMaxBy<MinMaxByAggregateBase, false, MinByNAggregate>(
-      prefix + kMinBy, withCompanionFunctions, overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

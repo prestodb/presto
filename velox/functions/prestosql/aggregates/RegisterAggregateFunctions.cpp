@@ -129,7 +129,11 @@ extern void registerMinMaxAggregates(
     const std::string& prefix,
     bool withCompanionFunctions,
     bool overwrite);
-extern void registerMinMaxByAggregates(
+extern void registerMaxByAggregates(
+    const std::string& prefix,
+    bool withCompanionFunctions,
+    bool overwrite);
+extern void registerMinByAggregates(
     const std::string& prefix,
     bool withCompanionFunctions,
     bool overwrite);
@@ -176,7 +180,8 @@ void registerAllAggregateFunctions(
   registerSumDataSizeForStatsAggregate(
       prefix, withCompanionFunctions, overwrite);
   registerMinMaxAggregates(prefix, withCompanionFunctions, overwrite);
-  registerMinMaxByAggregates(prefix, withCompanionFunctions, overwrite);
+  registerMaxByAggregates(prefix, withCompanionFunctions, overwrite);
+  registerMinByAggregates(prefix, withCompanionFunctions, overwrite);
   registerReduceAgg(prefix, withCompanionFunctions, overwrite);
   registerSetAggAggregate(prefix, withCompanionFunctions, overwrite);
   registerSetUnionAggregate(prefix, withCompanionFunctions, overwrite);

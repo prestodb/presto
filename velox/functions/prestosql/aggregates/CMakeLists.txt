@@ -36,7 +36,8 @@ velox_add_library(
   MapUnionSumAggregate.cpp
   MaxSizeForStatsAggregate.cpp
   MinMaxAggregates.cpp
-  MinMaxByAggregates.cpp
+  MaxByAggregate.cpp
+  MinByAggregate.cpp
   MultiMapAggAggregate.cpp
   PrestoHasher.cpp
   ReduceAgg.cpp
