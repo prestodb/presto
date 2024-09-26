@@ -348,6 +348,7 @@
                                 <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
                                 <exclude>javax.annotation:javax.annotation-api</exclude>
                                 <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                <exclude>com.google.guava:failureaccess</exclude>
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>
