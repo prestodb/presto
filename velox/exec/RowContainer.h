@@ -1368,9 +1368,9 @@ class RowContainer {
   void freeAggregates(folly::Range<char**> rows);
 
   // Free next row vectors associated with the 'rows'.
-  void freeNextRowVectors(folly::Range<char**> rows, bool clear);
+  void freeNextRowVectors(folly::Range<char**> rows);
 
-  void freeRowsExtraMemory(folly::Range<char**> rows, bool clear);
+  void freeRowsExtraMemory(folly::Range<char**> rows, bool freeNextRowVector);
 
   // Updates the specific column's columnHasNulls_ flag, if 'hasNulls' is true.
   // columnHasNulls_ flag is false by default.
