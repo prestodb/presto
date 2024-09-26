@@ -939,6 +939,7 @@ TEST_F(Re2FunctionsTest, likePatternAndEscape) {
   testLike("a%c", "%#%%", '#', true);
   testLike("%cd", "%#%%", '#', true);
   testLike("cde", "%#%%", '#', false);
+  testLike("///__", "%//%/%", '/', false);
 
   testLike(
       "abcd",
