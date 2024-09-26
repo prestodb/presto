@@ -22,6 +22,31 @@
 
 namespace facebook::velox {
 
+using TimeZoneKey = int16_t;
+
+constexpr int32_t kTimezoneMask = 0xFFF;
+constexpr int32_t kMillisShift = 12;
+
+inline int64_t unpackMillisUtc(int64_t dateTimeWithTimeZone) {
+  return dateTimeWithTimeZone >> kMillisShift;
+}
+
+inline TimeZoneKey unpackZoneKeyId(int64_t dateTimeWithTimeZone) {
+  return dateTimeWithTimeZone & kTimezoneMask;
+}
+
+inline int64_t pack(int64_t millisUtc, TimeZoneKey timeZoneKey) {
+  return (millisUtc << kMillisShift) | (timeZoneKey & kTimezoneMask);
+}
+
+inline int64_t pack(const Timestamp& timestamp, TimeZoneKey timeZoneKey) {
+  return pack(timestamp.toMillis(), timeZoneKey);
+}
+
+inline Timestamp unpackTimestampUtc(int64_t dateTimeWithTimeZone) {
+  return Timestamp::fromMillis(unpackMillisUtc(dateTimeWithTimeZone));
+}
+
 class TimestampWithTimeZoneCastOperator : public exec::CastOperator {
  public:
   static const std::shared_ptr<const CastOperator>& get() {
@@ -56,7 +81,7 @@ class TimestampWithTimeZoneCastOperator : public exec::CastOperator {
 /// Represents timestamp with time zone as a number of milliseconds since epoch
 /// and time zone ID.
 class TimestampWithTimeZoneType : public BigintType {
-  TimestampWithTimeZoneType() = default;
+  TimestampWithTimeZoneType() : BigintType(true) {}
 
  public:
   static const std::shared_ptr<const TimestampWithTimeZoneType>& get() {
@@ -70,6 +95,19 @@ class TimestampWithTimeZoneType : public BigintType {
   bool equivalent(const Type& other) const override {
     // Pointer comparison works since this type is a singleton.
     return this == &other;
+  }
+
+  int32_t compare(const int64_t& left, const int64_t& right) const override {
+    int64_t leftUnpacked = unpackMillisUtc(left);
+    int64_t rightUnpacked = unpackMillisUtc(right);
+
+    return leftUnpacked < rightUnpacked ? -1
+        : leftUnpacked == rightUnpacked ? 0
+                                        : 1;
+  }
+
+  uint64_t hash(const int64_t& value) const override {
+    return folly::hasher<int64_t>()(unpackMillisUtc(value));
   }
 
   const char* name() const override {
@@ -124,30 +162,5 @@ class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
 };
 
 void registerTimestampWithTimeZoneType();
-
-using TimeZoneKey = int16_t;
-
-constexpr int32_t kTimezoneMask = 0xFFF;
-constexpr int32_t kMillisShift = 12;
-
-inline int64_t unpackMillisUtc(int64_t dateTimeWithTimeZone) {
-  return dateTimeWithTimeZone >> kMillisShift;
-}
-
-inline TimeZoneKey unpackZoneKeyId(int64_t dateTimeWithTimeZone) {
-  return dateTimeWithTimeZone & kTimezoneMask;
-}
-
-inline int64_t pack(int64_t millisUtc, int16_t timeZoneKey) {
-  return (millisUtc << kMillisShift) | (timeZoneKey & kTimezoneMask);
-}
-
-inline int64_t pack(const Timestamp& timestamp, int16_t timeZoneKey) {
-  return pack(timestamp.toMillis(), timeZoneKey);
-}
-
-inline Timestamp unpackTimestampUtc(int64_t dateTimeWithTimeZone) {
-  return Timestamp::fromMillis(unpackMillisUtc(dateTimeWithTimeZone));
-}
 
 } // namespace facebook::velox

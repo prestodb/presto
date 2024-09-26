@@ -15,6 +15,7 @@
  */
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/types/tests/TypeTestBase.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::test {
 
@@ -63,6 +64,72 @@ TEST_F(TimestampWithTimeZoneTypeTest, pack) {
     ASSERT_EQ(unpackMillisUtc(packedTimeMillis), millisUtc);
     ASSERT_EQ(unpackZoneKeyId(packedTimeMillis), timeZoneKey);
   }
+}
+
+TEST_F(TimestampWithTimeZoneTypeTest, compare) {
+  auto compare = [](int32_t expected,
+                    int64_t millis1,
+                    const std::string& tz1,
+                    int64_t millis2,
+                    const std::string& tz2) {
+    int64_t left = pack(millis1, tz::getTimeZoneID(tz1));
+    int64_t right = pack(millis2, tz::getTimeZoneID(tz2));
+
+    ASSERT_EQ(expected, TIMESTAMP_WITH_TIME_ZONE()->compare(left, right));
+  };
+
+  compare(0, 1639426440000, "+01:00", 1639426440000, "+03:00");
+  compare(0, 1639426440000, "+01:00", 1639426440000, "-14:00");
+  compare(0, 1639426440000, "+03:00", 1639426440000, "-14:00");
+  compare(0, -1639426440000, "+01:00", -1639426440000, "+03:00");
+
+  compare(-1, 1549770072000, "+01:00", 1639426440000, "+03:00");
+  compare(-1, 1549770072000, "+01:00", 1639426440000, "-14:00");
+  compare(-1, 1549770072000, "+03:00", 1639426440000, "-14:00");
+  compare(-1, -1639426440000, "+01:00", -1539426440000, "+03:00");
+  compare(-1, -1639426440000, "+01:00", 1639426440000, "-14:00");
+
+  compare(1, 1639426440000, "+01:00", 1549770072000, "+03:00");
+  compare(1, 1639426440000, "+01:00", 1549770072000, "-14:00");
+  compare(1, 1639426440000, "+03:00", 1549770072000, "-14:00");
+  compare(1, 1639426440000, "+01:00", -1639426440000, "+03:00");
+  compare(1, -1539426440000, "+01:00", -1639426440000, "-14:00");
+}
+
+TEST_F(TimestampWithTimeZoneTypeTest, hash) {
+  auto expectHashesEq = [](int64_t millis1,
+                           const std::string& tz1,
+                           int64_t millis2,
+                           const std::string& tz2) {
+    int64_t left = pack(millis1, tz::getTimeZoneID(tz1));
+    int64_t right = pack(millis2, tz::getTimeZoneID(tz2));
+
+    ASSERT_EQ(
+        TIMESTAMP_WITH_TIME_ZONE()->hash(left),
+        TIMESTAMP_WITH_TIME_ZONE()->hash(right));
+  };
+
+  auto expectHashesNeq = [](int64_t millis1,
+                            const std::string& tz1,
+                            int64_t millis2,
+                            const std::string& tz2) {
+    int64_t left = pack(millis1, tz::getTimeZoneID(tz1));
+    int64_t right = pack(millis2, tz::getTimeZoneID(tz2));
+
+    ASSERT_NE(
+        TIMESTAMP_WITH_TIME_ZONE()->hash(left),
+        TIMESTAMP_WITH_TIME_ZONE()->hash(right));
+  };
+
+  expectHashesEq(1639426440000, "+01:00", 1639426440000, "+03:00");
+  expectHashesEq(1639426440000, "+01:00", 1639426440000, "-14:00");
+  expectHashesEq(1639426440000, "+03:00", 1639426440000, "-14:00");
+  expectHashesEq(-1639426440000, "+03:00", -1639426440000, "-14:00");
+
+  expectHashesNeq(1549770072000, "+01:00", 1639426440000, "+03:00");
+  expectHashesNeq(1549770072000, "+01:00", 1639426440000, "-14:00");
+  expectHashesNeq(1549770072000, "+03:00", 1639426440000, "-14:00");
+  expectHashesNeq(-1639426440000, "+03:00", 1639426440000, "-14:00");
 }
 
 } // namespace facebook::velox::test
