@@ -45,7 +45,7 @@ class UuidCastOperator : public exec::CastOperator {
       castFromString(input, context, rows, *result);
     } else {
       VELOX_UNSUPPORTED(
-          "Cast from {} to UUID not yet supported", resultType->toString());
+          "Cast from {} to UUID not yet supported", input.type()->toString());
     }
   }
 
