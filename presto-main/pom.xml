@@ -436,7 +436,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-thrift-api</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -466,7 +465,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
