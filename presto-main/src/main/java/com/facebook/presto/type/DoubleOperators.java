@@ -162,7 +162,7 @@ public final class DoubleOperators
             return DoubleMath.roundToLong(value, HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", value), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to BIGINT.", value), e);
         }
     }
 
