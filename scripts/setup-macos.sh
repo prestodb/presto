@@ -45,6 +45,7 @@ MACOS_BUILD_DEPS="ninja cmake"
 FB_OS_VERSION="v2024.09.16.00"
 FMT_VERSION="10.1.1"
 FAST_FLOAT_VERSION="v6.1.6"
+STEMMER_VERSION="2.2.0"
 
 function update_brew {
   DEFAULT_BREW_PATH=/usr/local/bin/brew
@@ -157,6 +158,17 @@ function install_duckdb {
   fi
 }
 
+function install_stemmer {
+  wget_and_untar https://snowballstem.org/dist/libstemmer_c-${STEMMER_VERSION}.tar.gz stemmer
+  (
+    cd ${DEPENDENCY_DIR}/stemmer
+    sed -i '/CPPFLAGS=-Iinclude/ s/$/ -fPIC/' Makefile
+    make clean && make "-j${NPROC}"
+    ${SUDO} cp libstemmer.a ${INSTALL_PREFIX}/lib/
+    ${SUDO} cp include/libstemmer.h ${INSTALL_PREFIX}/include/
+  )
+}
+
 function install_velox_deps {
   run_and_time install_velox_deps_from_brew
   run_and_time install_ranges_v3
@@ -170,6 +182,7 @@ function install_velox_deps {
   run_and_time install_mvfst
   run_and_time install_fbthrift
   run_and_time install_duckdb
+  run_and_time install_stemmer
 }
 
 (return 2> /dev/null) && return # If script was sourced, don't run commands.

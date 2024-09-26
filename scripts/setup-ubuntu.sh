@@ -59,6 +59,7 @@ FMT_VERSION="10.1.1"
 BOOST_VERSION="boost-1.84.0"
 ARROW_VERSION="15.0.0"
 FAST_FLOAT_VERSION="v6.1.6"
+STEMMER_VERSION="2.2.0"
 
 # Install packages required for build.
 function install_build_prerequisites {
@@ -186,6 +187,17 @@ function install_duckdb {
   fi
 }
 
+function install_stemmer {
+  wget_and_untar https://snowballstem.org/dist/libstemmer_c-${STEMMER_VERSION}.tar.gz stemmer
+  (
+    cd ${DEPENDENCY_DIR}/stemmer
+    sed -i '/CPPFLAGS=-Iinclude/ s/$/ -fPIC/' Makefile
+    make clean && make "-j${NPROC}"
+    ${SUDO} cp libstemmer.a ${INSTALL_PREFIX}/lib/
+    ${SUDO} cp include/libstemmer.h ${INSTALL_PREFIX}/include/
+  )
+}
+
 function install_arrow {
   wget_and_untar https://archive.apache.org/dist/arrow/arrow-${ARROW_VERSION}/apache-arrow-${ARROW_VERSION}.tar.gz arrow
   cmake_install_dir arrow/cpp \
@@ -241,6 +253,7 @@ function install_velox_deps {
   run_and_time install_fbthrift
   run_and_time install_conda
   run_and_time install_duckdb
+  run_and_time install_stemmer
   run_and_time install_arrow
 }
 
