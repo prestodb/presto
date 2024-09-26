@@ -834,8 +834,6 @@ void PrestoServer::initializeVeloxMemory() {
          systemConfig->sharedArbitratorMemoryPoolInitialCapacity()},
         {std::string(SharedArbitratorConfig::kMemoryPoolReservedCapacity),
          systemConfig->sharedArbitratorMemoryPoolReservedCapacity()},
-        {std::string(SharedArbitratorConfig::kMemoryPoolTransferCapacity),
-         systemConfig->sharedArbitratorMemoryPoolTransferCapacity()},
         {std::string(SharedArbitratorConfig::kMemoryReclaimMaxWaitTime),
          systemConfig->sharedArbitratorMemoryReclaimWaitTime()},
         {std::string(SharedArbitratorConfig::kMemoryPoolMinFreeCapacity),

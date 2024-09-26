@@ -419,11 +419,6 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSharedArbitratorMemoryPoolReservedCapacity{
       "shared-arbitrator.memory-pool-reserved-capacity"};
 
-  /// The minimal memory capacity in bytes transferred between memory pools
-  /// during memory arbitration.
-  static constexpr std::string_view kSharedArbitratorMemoryPoolTransferCapacity{
-      "shared-arbitrator.memory-pool-transfer-capacity"};
-
   /// Specifies the max time to wait for memory reclaim by arbitration. The
   /// memory reclaim might fail if the max wait time has exceeded. If it is
   /// zero, then there is no timeout.
@@ -789,8 +784,6 @@ class SystemConfig : public ConfigBase {
   std::string sharedArbitratorReservedCapacity() const;
 
   std::string sharedArbitratorMemoryPoolReservedCapacity() const;
-
-  std::string sharedArbitratorMemoryPoolTransferCapacity() const;
 
   std::string sharedArbitratorMemoryReclaimWaitTime() const;
 
