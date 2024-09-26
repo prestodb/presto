@@ -119,14 +119,14 @@ void TableWriter::addInput(RowVectorPtr input) {
   if (input->size() == 0) {
     return;
   }
-
+  traceInput(input);
   std::vector<VectorPtr> mappedChildren;
   mappedChildren.reserve(inputMapping_.size());
-  for (auto i : inputMapping_) {
+  for (const auto i : inputMapping_) {
     mappedChildren.emplace_back(input->childAt(i));
   }
 
-  auto mappedInput = std::make_shared<RowVector>(
+  const auto mappedInput = std::make_shared<RowVector>(
       input->pool(),
       mappedType_,
       input->nulls(),

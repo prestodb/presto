@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #pragma once
+
+#include "velox/exec/trace/QueryDataWriter.h"
+
 #include <folly/Synchronized.h>
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/time/CpuWallTimer.h"
@@ -398,6 +401,7 @@ class Operator : public BaseRuntimeStatWriter {
   /// e.g. the first operator in the pipeline.
   virtual void noMoreInput() {
     noMoreInput_ = true;
+    finishTrace();
   }
 
   /// Returns a RowVector with the result columns. Returns nullptr if
@@ -421,6 +425,12 @@ class Operator : public BaseRuntimeStatWriter {
   /// receives specified number of rows and HashProbe finishes early if the
   /// build side is empty.
   virtual bool isFinished() = 0;
+
+  /// Traces input batch of the operator.
+  virtual void traceInput(const RowVectorPtr&);
+
+  /// Finishes tracing of the operator.
+  virtual void finishTrace();
 
   /// Returns single-column dynamically generated filters to be pushed down to
   /// upstream operators. Used to push down filters on join keys from broadcast
@@ -723,6 +733,10 @@ class Operator : public BaseRuntimeStatWriter {
     return spillConfig_.has_value() ? &spillConfig_.value() : nullptr;
   }
 
+  /// Invoked to setup query data writer for this operator if the associated
+  /// query plan node is configured to collect trace.
+  void maybeSetTracer();
+
   /// Creates output vector from 'input_' and 'results' according to
   /// 'identityProjections_' and 'resultProjections_'. If 'mapping' is set to
   /// nullptr, the children of the output vector will be identical to their
@@ -760,6 +774,7 @@ class Operator : public BaseRuntimeStatWriter {
 
   folly::Synchronized<OperatorStats> stats_;
   folly::Synchronized<common::SpillStats> spillStats_;
+  std::unique_ptr<trace::QueryDataWriter> inputTracer_;
 
   /// Indicates if an operator is under a non-reclaimable execution section.
   /// This prevents the memory arbitrator from reclaiming memory from this

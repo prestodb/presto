@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <memory>
@@ -26,6 +27,7 @@
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/exec/trace/QueryTraceConfig.h"
 
 namespace facebook::velox::exec {
 
@@ -284,6 +286,8 @@ struct DriverCtx {
       uint32_t _partitionId);
 
   const core::QueryConfig& queryConfig() const;
+
+  const std::optional<trace::QueryTraceConfig>& traceConfig() const;
 
   velox::memory::MemoryPool* addOperatorPool(
       const core::PlanNodeId& planNodeId,

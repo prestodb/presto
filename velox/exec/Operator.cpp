@@ -22,6 +22,7 @@
 #include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
+#include "velox/exec/trace/QueryTraceUtil.h"
 #include "velox/expression/Expr.h"
 
 using facebook::velox::common::testutil::TestValue;
@@ -104,6 +105,50 @@ void Operator::maybeSetReclaimer() {
       Operator::MemoryReclaimer::create(operatorCtx_->driverCtx(), this));
 }
 
+void Operator::maybeSetTracer() {
+  const auto& queryTraceConfig = operatorCtx_->driverCtx()->traceConfig();
+  if (!queryTraceConfig.has_value()) {
+    return;
+  }
+
+  if (operatorCtx_->driverCtx()->queryConfig().queryTraceMaxBytes() == 0) {
+    return;
+  }
+
+  if (queryTraceConfig->queryNodes.count(planNodeId()) == 0) {
+    return;
+  }
+
+  const auto pipelineId = operatorCtx_->driverCtx()->pipelineId;
+  const auto driverId = operatorCtx_->driverCtx()->driverId;
+  LOG(INFO) << "Trace data for operator type: " << operatorType()
+            << ", operator id: " << operatorId() << ", pipeline: " << pipelineId
+            << ", driver: " << driverId << ", task: " << taskId();
+  const auto opTraceDirPath = fmt::format(
+      "{}/{}/{}/{}/data",
+      queryTraceConfig->queryTraceDir,
+      planNodeId(),
+      pipelineId,
+      driverId);
+  trace::createTraceDirectory(opTraceDirPath);
+  inputTracer_ = std::make_unique<trace::QueryDataWriter>(
+      opTraceDirPath,
+      memory::traceMemoryPool(),
+      queryTraceConfig->updateAndCheckTraceLimitCB);
+}
+
+void Operator::traceInput(const RowVectorPtr& input) {
+  if (FOLLY_UNLIKELY(inputTracer_ != nullptr)) {
+    inputTracer_->write(input);
+  }
+}
+
+void Operator::finishTrace() {
+  if (inputTracer_ != nullptr) {
+    inputTracer_->finish();
+  }
+}
+
 std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&
 Operator::translators() {
   static std::vector<std::unique_ptr<PlanNodeTranslator>> translators;
@@ -153,6 +198,7 @@ void Operator::initialize() {
       pool()->name());
   initialized_ = true;
   maybeSetReclaimer();
+  maybeSetTracer();
 }
 
 // static

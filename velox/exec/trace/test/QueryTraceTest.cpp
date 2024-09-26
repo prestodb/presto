@@ -415,6 +415,108 @@ TEST_F(QueryTracerTest, traceDir) {
     ASSERT_EQ(expectedDirs.count(dir), 1);
   }
 }
+
+TEST_F(QueryTracerTest, traceTableWriter) {
+  const auto rowType = ROW({"a", "b", "c"}, {BIGINT(), BIGINT(), BIGINT()});
+  std::vector<RowVectorPtr> inputVectors;
+  constexpr auto numBatch = 5;
+  inputVectors.reserve(numBatch);
+  for (auto i = 0; i < numBatch; ++i) {
+    inputVectors.push_back(vectorFuzzer_.fuzzInputFlatRow(rowType));
+  }
+
+  struct {
+    std::string taskRegExpr;
+    uint64_t maxTracedBytes;
+    uint8_t numTracedBatches;
+    bool limitExceeded;
+
+    std::string debugString() const {
+      return fmt::format(
+          "taskRegExpr: {}, maxTracedBytes: {}, numTracedBatches: {}, limitExceeded {}",
+          taskRegExpr,
+          maxTracedBytes,
+          numTracedBatches,
+          limitExceeded);
+    }
+  } testSettings[]{
+      {".*", 10UL << 30, numBatch, false},
+      {".*", 0, numBatch, false},
+      {"wrong id", 10UL << 30, 0, false},
+      {"test_cursor \\d+", 10UL << 30, numBatch, false},
+      {"test_cursor \\d+", 800, 2, true}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const auto outputDir = TempDirectoryPath::create();
+    const auto planNode = PlanBuilder()
+                              .values(inputVectors)
+                              .tableWrite(outputDir->getPath())
+                              .planNode();
+    const auto testDir = TempDirectoryPath::create();
+    const auto traceRoot =
+        fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+    std::shared_ptr<Task> task;
+    AssertQueryBuilder(planNode)
+        .maxDrivers(1)
+        .config(core::QueryConfig::kQueryTraceEnabled, true)
+        .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+        .config(core::QueryConfig::kQueryTraceMaxBytes, testData.maxTracedBytes)
+        .config(core::QueryConfig::kQueryTraceTaskRegExp, testData.taskRegExpr)
+        .config(core::QueryConfig::kQueryTraceNodeIds, "1")
+        .copyResults(pool(), task);
+
+    const auto metadataDir = fmt::format("{}/{}", traceRoot, task->taskId());
+    const auto fs = filesystems::getFileSystem(metadataDir, nullptr);
+
+    if (testData.taskRegExpr == "wrong id") {
+      ASSERT_FALSE(fs->exists(traceRoot));
+      continue;
+    }
+
+    // Query metadta file should exist.
+    const auto traceMetaFile = fmt::format(
+        "{}/{}/{}",
+        traceRoot,
+        task->taskId(),
+        trace::QueryTraceTraits::kQueryMetaFileName);
+    ASSERT_TRUE(fs->exists(traceMetaFile));
+
+    const auto dataDir =
+        fmt::format("{}/{}/{}", traceRoot, task->taskId(), "1/0/0/data");
+
+    // Query data tracing disabled.
+    if (testData.maxTracedBytes == 0) {
+      ASSERT_FALSE(fs->exists(dataDir));
+      continue;
+    }
+
+    ASSERT_EQ(fs->list(dataDir).size(), 2);
+    // Check data summaries.
+    const auto summaryFile = fs->openFileForRead(
+        fmt::format("{}/{}", dataDir, QueryTraceTraits::kDataSummaryFileName));
+    const auto summary = summaryFile->pread(0, summaryFile->size());
+    ASSERT_FALSE(summary.empty());
+    folly::dynamic obj = folly::parseJson(summary);
+    ASSERT_EQ(
+        obj[QueryTraceTraits::kTraceLimitExceededKey].asBool(),
+        testData.limitExceeded);
+
+    const auto reader = trace::QueryDataReader(dataDir, pool());
+    RowVectorPtr actual;
+    size_t numOutputVectors{0};
+    while (reader.read(actual)) {
+      const auto expected = inputVectors[numOutputVectors];
+      const auto size = actual->size();
+      ASSERT_EQ(size, expected->size());
+      for (auto i = 0; i < size; ++i) {
+        actual->compare(expected.get(), i, i, {.nullsFirst = true});
+      }
+      ++numOutputVectors;
+    }
+    ASSERT_EQ(numOutputVectors, testData.numTracedBatches);
+  }
+}
 } // namespace facebook::velox::exec::trace::test
 
 // This main is needed for some tests on linux.

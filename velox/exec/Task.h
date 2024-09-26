@@ -138,6 +138,11 @@ class Task : public std::enable_shared_from_this<Task> {
     return pool_.get();
   }
 
+  /// Returns query trace config if specified.
+  const std::optional<trace::QueryTraceConfig>& queryTraceConfig() const {
+    return traceConfig_;
+  }
+
   /// Returns ConsumerSupplier passed in the constructor.
   ConsumerSupplier consumerSupplier() const {
     return consumerSupplier_;

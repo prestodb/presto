@@ -2856,16 +2856,20 @@ std::optional<trace::QueryTraceConfig> Task::maybeMakeTraceConfig() const {
     return std::nullopt;
   }
 
+  const auto traceDir =
+      fmt::format("{}/{}", queryConfig.queryTraceDir(), taskId_);
   const auto queryTraceNodes = queryConfig.queryTraceNodeIds();
   if (queryTraceNodes.empty()) {
-    return trace::QueryTraceConfig(queryConfig.queryTraceDir());
+    LOG(INFO) << "Trace metadata for task: " << taskId_;
+    return trace::QueryTraceConfig(traceDir);
   }
 
   std::vector<std::string> nodes;
   folly::split(',', queryTraceNodes, nodes);
   std::unordered_set<std::string> nodeSet(nodes.begin(), nodes.end());
   VELOX_CHECK_EQ(nodeSet.size(), nodes.size());
-  LOG(INFO) << "Query trace plan node ids: " << queryTraceNodes;
+  LOG(INFO) << "Trace data for task " << taskId_ << " with plan nodes "
+            << queryTraceNodes;
 
   trace::UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB =
       [this](uint64_t bytes) {
@@ -2873,7 +2877,7 @@ std::optional<trace::QueryTraceConfig> Task::maybeMakeTraceConfig() const {
       };
   return trace::QueryTraceConfig(
       std::move(nodeSet),
-      queryConfig.queryTraceDir(),
+      traceDir,
       std::move(updateAndCheckTraceLimitCB),
       queryConfig.queryTraceTaskRegExp());
 }
@@ -2883,11 +2887,9 @@ void Task::maybeInitQueryTrace() {
     return;
   }
 
-  const auto traceTaskDir =
-      fmt::format("{}/{}", traceConfig_->queryTraceDir, taskId_);
-  trace::createTraceDirectory(traceTaskDir);
+  trace::createTraceDirectory(traceConfig_->queryTraceDir);
   const auto queryMetadatWriter = std::make_unique<trace::QueryMetadataWriter>(
-      traceTaskDir, memory::traceMemoryPool());
+      traceConfig_->queryTraceDir, memory::traceMemoryPool());
   queryMetadatWriter->write(queryCtx_, planFragment_.planNode);
 }
 
