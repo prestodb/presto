@@ -16,6 +16,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <velox/type/Filter.h>
+#include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
@@ -1316,6 +1317,12 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
       connectorId, connectorInsertHandle);
+  bool hasBucketProperty{false};
+  if (auto* HiveInsertTableHandle =
+          dynamic_cast<velox::connector::hive::HiveInsertTableHandle*>(
+              connectorInsertHandle.get())) {
+    hasBucketProperty = HiveInsertTableHandle->bucketProperty() != nullptr;
+  }
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1341,6 +1348,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       std::move(aggregationNode),
       std::move(insertTableHandle),
       node->partitioningScheme != nullptr,
+      hasBucketProperty,
       outputType,
       getCommitStrategy(),
       sourceVeloxPlan);
