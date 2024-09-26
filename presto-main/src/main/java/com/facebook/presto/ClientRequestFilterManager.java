@@ -14,22 +14,18 @@
 package com.facebook.presto;
 
 import com.facebook.presto.spi.ClientRequestFilter;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ClientRequestFilterManager
 {
-    private final CopyOnWriteArrayList<ClientRequestFilter> clientRequestFilters;
-    public ClientRequestFilterManager()
-    {
-        this.clientRequestFilters = new CopyOnWriteArrayList<>();
-    }
+    private final List<ClientRequestFilter> clientRequestFilters = new CopyOnWriteArrayList<>();
 
     public List<ClientRequestFilter> getClientRequestFilters()
     {
-        return Collections.unmodifiableList(clientRequestFilters);
+        return ImmutableList.copyOf(clientRequestFilters);
     }
 
     public void registerClientRequestFilter(ClientRequestFilter clientRequestFilter)
