@@ -19,6 +19,8 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/type/tests/utils/CustomTypesForTesting.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
 
@@ -736,6 +738,259 @@ TEST_F(ComparisonsTest, nanComparison) {
   });
   // Note: Complex comparison functions are only registered as simple functions.
   testNaN("", input, false);
+}
+
+TEST_F(ComparisonsTest, TimestampWithTimezone) {
+  auto makeTimestampWithTimezone = [](int64_t millis, const std::string& tz) {
+    return pack(millis, tz::getTimeZoneID(tz));
+  };
+
+  auto lhs = makeFlatVector<int64_t>(
+      {makeTimestampWithTimezone(1639426440000, "+01:00"),
+       makeTimestampWithTimezone(1639426440000, "+01:00"),
+       makeTimestampWithTimezone(1639426440000, "+03:00"),
+       makeTimestampWithTimezone(1549770072000, "+01:00"),
+       makeTimestampWithTimezone(1549770072000, "+01:00"),
+       makeTimestampWithTimezone(1549770072000, "+03:00"),
+       makeTimestampWithTimezone(1639426440000, "+01:00"),
+       makeTimestampWithTimezone(1639426440000, "+01:00"),
+       makeTimestampWithTimezone(1639426440000, "+03:00"),
+       makeTimestampWithTimezone(-1639426440000, "+01:00"),
+       makeTimestampWithTimezone(-1539426440000, "+03:00"),
+       makeTimestampWithTimezone(-1639426440000, "-14:00"),
+       makeTimestampWithTimezone(1639426440000, "+03:00"),
+       makeTimestampWithTimezone(-1639426440000, "-14:00")},
+      TIMESTAMP_WITH_TIME_ZONE());
+
+  auto rhs = makeFlatVector<int64_t>(
+      {makeTimestampWithTimezone(1639426440000, "+03:00"),
+       makeTimestampWithTimezone(1639426440000, "-14:00"),
+       makeTimestampWithTimezone(1639426440000, "-14:00"),
+       makeTimestampWithTimezone(1639426440000, "+03:00"),
+       makeTimestampWithTimezone(1639426440000, "-14:00"),
+       makeTimestampWithTimezone(1639426440000, "-14:00"),
+       makeTimestampWithTimezone(1549770072000, "+03:00"),
+       makeTimestampWithTimezone(1549770072000, "-14:00"),
+       makeTimestampWithTimezone(1549770072000, "-14:00"),
+       makeTimestampWithTimezone(-1639426440000, "+01:00"),
+       makeTimestampWithTimezone(-1639426440000, "-14:00"),
+       makeTimestampWithTimezone(-1539426440000, "+03:00"),
+       makeTimestampWithTimezone(-1639426440000, "+03:00"),
+       makeTimestampWithTimezone(1639426440000, "+01:00")},
+      TIMESTAMP_WITH_TIME_ZONE());
+
+  auto input = makeRowVector({lhs, rhs});
+
+  auto eval = [&](const std::string& expr) {
+    return evaluate<SimpleVector<bool>>(fmt::format("c0 {} c1", expr), input);
+  };
+
+  test::assertEqualVectors(
+      eval("="),
+      makeFlatVector<bool>(
+          {true,
+           true,
+           true,
+           false,
+           false,
+           false,
+           false,
+           false,
+           false,
+           true,
+           false,
+           false,
+           false,
+           false}));
+  test::assertEqualVectors(
+      eval("<>"),
+      makeFlatVector<bool>(
+          {false,
+           false,
+           false,
+           true,
+           true,
+           true,
+           true,
+           true,
+           true,
+           false,
+           true,
+           true,
+           true,
+           true}));
+  test::assertEqualVectors(
+      eval("<"),
+      makeFlatVector<bool>(
+          {false,
+           false,
+           false,
+           true,
+           true,
+           true,
+           false,
+           false,
+           false,
+           false,
+           false,
+           true,
+           false,
+           true}));
+  test::assertEqualVectors(
+      eval(">"),
+      makeFlatVector<bool>(
+          {false,
+           false,
+           false,
+           false,
+           false,
+           false,
+           true,
+           true,
+           true,
+           false,
+           true,
+           false,
+           true,
+           false}));
+  test::assertEqualVectors(
+      eval("<="),
+      makeFlatVector<bool>(
+          {true,
+           true,
+           true,
+           true,
+           true,
+           true,
+           false,
+           false,
+           false,
+           true,
+           false,
+           true,
+           false,
+           true}));
+  test::assertEqualVectors(
+      eval(">="),
+      makeFlatVector<bool>(
+          {true,
+           true,
+           true,
+           false,
+           false,
+           false,
+           true,
+           true,
+           true,
+           true,
+           true,
+           false,
+           true,
+           false}));
+  test::assertEqualVectors(
+      eval("is distinct from"),
+      makeFlatVector<bool>(
+          {false,
+           false,
+           false,
+           true,
+           true,
+           true,
+           true,
+           true,
+           true,
+           false,
+           true,
+           true,
+           true,
+           true}));
+
+  auto betweenInput = makeRowVector({
+      makeFlatVector<int64_t>(
+          {makeTimestampWithTimezone(1639426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "+03:00"),
+           makeTimestampWithTimezone(1539426440000, "+03:00"),
+           makeTimestampWithTimezone(1739426440000, "+01:00"),
+           makeTimestampWithTimezone(-1639426440000, "+01:00"),
+           makeTimestampWithTimezone(-1639426440000, "+03:00"),
+           makeTimestampWithTimezone(1639426440000, "-14:00"),
+           makeTimestampWithTimezone(-1739426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "-14:00")},
+          TIMESTAMP_WITH_TIME_ZONE()),
+      makeFlatVector<int64_t>(
+          {makeTimestampWithTimezone(1639426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "+03:00"),
+           makeTimestampWithTimezone(1539426440000, "+01:00"),
+           makeTimestampWithTimezone(1539426440000, "+03:00"),
+           makeTimestampWithTimezone(1539426440000, "+03:00"),
+           makeTimestampWithTimezone(1539426440000, "+03:00"),
+           makeTimestampWithTimezone(1639426440000, "+01:00"),
+           makeTimestampWithTimezone(1539426440000, "+03:00"),
+           makeTimestampWithTimezone(-1739426440000, "+01:00"),
+           makeTimestampWithTimezone(-1739426440000, "+01:00"),
+           makeTimestampWithTimezone(-1639426440000, "+01:00"),
+           makeTimestampWithTimezone(-1639426440000, "+01:00"),
+           makeTimestampWithTimezone(-1639426440000, "+01:00")},
+          TIMESTAMP_WITH_TIME_ZONE()),
+      makeFlatVector<int64_t>(
+          {makeTimestampWithTimezone(1739426440000, "+01:00"),
+           makeTimestampWithTimezone(1739426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "+03:00"),
+           makeTimestampWithTimezone(1739426440000, "+03:00"),
+           makeTimestampWithTimezone(1739426440000, "+03:00"),
+           makeTimestampWithTimezone(1739426440000, "+01:00"),
+           makeTimestampWithTimezone(1639426440000, "+01:00"),
+           makeTimestampWithTimezone(-1539426440000, "+03:00"),
+           makeTimestampWithTimezone(1539426440000, "+03:00"),
+           makeTimestampWithTimezone(1739426440000, "+01:00"),
+           makeTimestampWithTimezone(-1539426440000, "+03:00"),
+           makeTimestampWithTimezone(-1539426440000, "+03:00")},
+          TIMESTAMP_WITH_TIME_ZONE()),
+  });
+
+  test::assertEqualVectors(
+      evaluate<SimpleVector<bool>>(
+          fmt::format("c0 between c1 and c2"), betweenInput),
+      makeFlatVector<bool>(
+          {true,
+           true,
+           true,
+           true,
+           true,
+           true,
+           false,
+           false,
+           true,
+           true,
+           true,
+           false,
+           false}));
+}
+
+TEST_F(ComparisonsTest, CustomComparisonWithGenerics) {
+  // Tests that functions that support signatures with generics handle custom
+  // comparison correctly.
+  auto input = makeRowVector({
+      makeFlatVector<int64_t>(
+          {0, 1}, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()),
+      makeFlatVector<int64_t>(
+          {256, 258}, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()),
+  });
+
+  test::assertEqualVectors(
+      evaluate<SimpleVector<bool>>("c0 = c1", input),
+      makeFlatVector<bool>({true, false}));
+  test::assertEqualVectors(
+      evaluate<SimpleVector<bool>>("c0 <> c1", input),
+      makeFlatVector<bool>({false, true}));
+  test::assertEqualVectors(
+      evaluate<SimpleVector<bool>>("c0 is distinct from c1", input),
+      makeFlatVector<bool>({false, true}));
 }
 
 namespace {
