@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox::test;
 using namespace facebook::velox::functions::test;
@@ -25,32 +28,32 @@ namespace {
 class InPredicateTest : public FunctionBaseTest {
  protected:
   template <typename T>
-  std::string getInList(
+  ArrayVectorPtr getInList(
       std::vector<std::optional<T>> input,
-      const TypePtr& type = CppToType<T>::create()) {
+      const TypePtr& type) {
     FlatVectorPtr<T> flatVec = makeNullableFlatVector<T>(input, type);
-    std::string inList;
-    auto len = flatVec->size();
-    auto toString = [&](vector_size_t idx) {
-      if (type->isDecimal()) {
-        if (flatVec->isNullAt(idx)) {
-          return std::string("null");
-        }
-        return fmt::format(
-            "cast({} as {})", flatVec->toString(idx), type->toString());
-      }
-      return flatVec->toString(idx);
-    };
 
-    for (auto i = 0; i < len - 1; i++) {
-      inList += fmt::format("{}, ", toString(i));
-    }
-    inList += toString(len - 1);
-    return inList;
+    return makeArrayVector({0, flatVec->size()}, flatVec);
+  }
+
+  core::TypedExprPtr makeInExpression(
+      const std::string& probe,
+      const ArrayVectorPtr& inList,
+      const TypePtr& type) {
+    return std::make_shared<core::CallTypedExpr>(
+        BOOLEAN(),
+        std::vector<core::TypedExprPtr>{
+            std::make_shared<core::FieldAccessTypedExpr>(type, probe),
+            std::make_shared<core::ConstantTypedExpr>(inList)},
+        "in");
   }
 
   template <typename T>
-  void testValues(const TypePtr type = CppToType<T>::create()) {
+  void testValues(
+      const TypePtr type = CppToType<T>::create(),
+      std::function<T(vector_size_t /*row*/)> valueAt = [](auto row) {
+        return row % 17;
+      }) {
     if (type->isDecimal()) {
       this->options_.parseDecimalAsDouble = false;
     }
@@ -58,17 +61,17 @@ class InPredicateTest : public FunctionBaseTest {
         memory::memoryManager()->addLeafPool()};
 
     const vector_size_t size = 1'000;
-    auto inList = getInList<T>({1, 3, 5}, type);
+    auto inList = getInList<T>({valueAt(1), valueAt(3), valueAt(5)}, type);
 
     auto vector = makeFlatVector<T>(
-        size, [](auto row) { return row % 17; }, nullptr, type);
+        size, [&](auto row) { return valueAt(row); }, nullptr, type);
     auto vectorWithNulls = makeFlatVector<T>(
-        size, [](auto row) { return row % 17; }, nullEvery(7), type);
+        size, [&](auto row) { return valueAt(row); }, nullEvery(7), type);
     auto rowVector = makeRowVector({vector, vectorWithNulls});
 
     // no nulls
     auto result = evaluate<SimpleVector<bool>>(
-        fmt::format("c0 IN ({})", inList), rowVector);
+        makeInExpression("c0", inList, type), rowVector);
     auto expected = makeFlatVector<bool>(size, [](auto row) {
       auto n = row % 17;
       return n == 1 || n == 3 || n == 5;
@@ -78,7 +81,7 @@ class InPredicateTest : public FunctionBaseTest {
 
     // some nulls
     result = evaluate<SimpleVector<bool>>(
-        fmt::format("c1 IN ({})", inList), rowVector);
+        makeInExpression("c1", inList, type), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto row) {
@@ -91,9 +94,10 @@ class InPredicateTest : public FunctionBaseTest {
 
     // null values in the in-list
     // The results can be either true or null, but not false.
-    inList = getInList<T>({1, 3, std::nullopt, 5}, type);
+    inList =
+        getInList<T>({valueAt(1), valueAt(3), std::nullopt, valueAt(5)}, type);
     result = evaluate<SimpleVector<bool>>(
-        fmt::format("c0 IN ({})", inList), rowVector);
+        makeInExpression("c0", inList, type), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto /* row */) { return true; },
@@ -105,7 +109,7 @@ class InPredicateTest : public FunctionBaseTest {
     assertEqualVectors(expected, result);
 
     result = evaluate<SimpleVector<bool>>(
-        fmt::format("c1 IN ({})", inList), rowVector);
+        makeInExpression("c1", inList, type), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto /* row */) { return true; },
@@ -116,9 +120,9 @@ class InPredicateTest : public FunctionBaseTest {
 
     assertEqualVectors(expected, result);
 
-    inList = getInList<T>({2, std::nullopt}, type);
+    inList = getInList<T>({valueAt(2), std::nullopt}, type);
     result = evaluate<SimpleVector<bool>>(
-        fmt::format("c0 IN ({})", inList), rowVector);
+        makeInExpression("c0", inList, type), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto /* row */) { return true; },
@@ -130,7 +134,7 @@ class InPredicateTest : public FunctionBaseTest {
     assertEqualVectors(expected, result);
 
     result = evaluate<SimpleVector<bool>>(
-        fmt::format("c1 IN ({})", inList), rowVector);
+        makeInExpression("c1", inList, type), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto /* row */) { return true; },
@@ -173,9 +177,9 @@ class InPredicateTest : public FunctionBaseTest {
 
     rowVector = makeRowVector({dict});
 
-    inList = getInList<T>({2, 5, 9}, type);
+    inList = getInList<T>({valueAt(2), valueAt(5), valueAt(9)}, type);
     result = evaluate<SimpleVector<bool>>(
-        fmt::format("c0 IN ({})", inList), rowVector);
+        makeInExpression("c0", inList, type), rowVector);
     assertEqualVectors(expected, result);
 
     // an in list with nulls only is always null.
@@ -186,12 +190,16 @@ class InPredicateTest : public FunctionBaseTest {
   }
 
   template <typename T>
-  void testConstantValues(const TypePtr type = CppToType<T>::create()) {
+  void testConstantValues(
+      const TypePtr type = CppToType<T>::create(),
+      std::function<T(vector_size_t /*row*/)> valueAt = [](auto row) {
+        return row % 17;
+      }) {
     const vector_size_t size = 1'000;
     auto rowVector = makeRowVector(
-        {makeConstant(static_cast<T>(123), size, type),
+        {makeConstant(valueAt(123), size, type),
          BaseVector::createNullConstant(type, size, pool())});
-    auto inList = getInList<T>({1, 3, 5}, type);
+    auto inList = getInList<T>({valueAt(1), valueAt(3), valueAt(5)}, type);
 
     auto constTrue = makeConstant(true, size);
     auto constFalse = makeConstant(false, size);
@@ -199,24 +207,24 @@ class InPredicateTest : public FunctionBaseTest {
 
     // a miss
     auto result = evaluate<SimpleVector<bool>>(
-        fmt::format("c0 IN ({})", inList), rowVector);
+        makeInExpression("c0", inList, type), rowVector);
     assertEqualVectors(constFalse, result);
 
     // null
     result = evaluate<SimpleVector<bool>>(
-        fmt::format("c1 IN ({})", inList), rowVector);
+        makeInExpression("c1", inList, type), rowVector);
     assertEqualVectors(constNull, result);
 
     // a hit
-    inList = getInList<T>({1, 123, 5}, type);
+    inList = getInList<T>({valueAt(1), valueAt(123), valueAt(5)}, type);
     result = evaluate<SimpleVector<bool>>(
-        fmt::format("c0 IN ({})", inList), rowVector);
+        makeInExpression("c0", inList, type), rowVector);
     assertEqualVectors(constTrue, result);
 
     // a miss that is a null
-    inList = getInList<T>({1, std::nullopt, 5}, type);
+    inList = getInList<T>({valueAt(1), std::nullopt, valueAt(5)}, type);
     result = evaluate<SimpleVector<bool>>(
-        fmt::format("c0 IN ({})", inList), rowVector);
+        makeInExpression("c1", inList, type), rowVector);
     assertEqualVectors(constNull, result);
   }
 
@@ -1118,6 +1126,17 @@ TEST_F(InPredicateTest, nans) {
   // Ensure that NaNs with different bit patterns are treated as equal.
   testNaNs<float>();
   testNaNs<double>();
+}
+
+TEST_F(InPredicateTest, TimestampWithTimeZone) {
+  // The millis ranges from 0-17, but after every 17th row we increment the time
+  // zone ID, so that no two rows have the same millis and time zone.  However,
+  // by the semantics of TimestampWithTimeZone's comparison, it's the same 17
+  // values repeated.
+  auto valueAt = [](auto row) { return pack(row % 17, row / 17); };
+
+  testValues<int64_t>(TIMESTAMP_WITH_TIME_ZONE(), valueAt);
+  testConstantValues<int64_t>(TIMESTAMP_WITH_TIME_ZONE(), valueAt);
 }
 
 } // namespace
