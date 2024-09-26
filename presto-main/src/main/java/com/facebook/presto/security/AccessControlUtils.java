@@ -46,7 +46,8 @@ public class AccessControlUtils
                             sessionContext.getClientTags(),
                             Optional.ofNullable(sessionContext.getSource()),
                             WarningCollector.NOOP,
-                            sessionContext.getRuntimeStats()),
+                            sessionContext.getRuntimeStats(),
+                            Optional.empty()),
                     identity.getPrincipal(),
                     identity.getUser());
         }
@@ -71,7 +72,8 @@ public class AccessControlUtils
                             sessionContext.getClientTags(),
                             Optional.ofNullable(sessionContext.getSource()),
                             WarningCollector.NOOP,
-                            sessionContext.getRuntimeStats()),
+                            sessionContext.getRuntimeStats(),
+                            Optional.empty()),
                     identity.getUser(),
                     sessionContext.getCertificates());
             return Optional.of(authorizedIdentity);

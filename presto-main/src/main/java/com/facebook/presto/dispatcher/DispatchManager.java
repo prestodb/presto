@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
@@ -259,6 +260,7 @@ public class DispatchManager
     private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
+        SessionBuilder sessionBuilder = null;
         PreparedQuery preparedQuery;
         try {
             if (query.length() > maxQueryLength) {
@@ -268,16 +270,18 @@ public class DispatchManager
             }
 
             // decode session
-            session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory);
+            sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
+            session = sessionBuilder.build();
 
             // prepare query
-            AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, session.getWarningCollector());
+            AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, sessionBuilder.getWarningCollector());
             QueryPreparerProvider queryPreparerProvider = queryPreparerProviderManager.getQueryPreparerProvider(getAnalyzerType(session));
-            preparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
+            preparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, sessionBuilder.getPreparedStatements(), sessionBuilder.getWarningCollector());
             query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group
             Optional<QueryType> queryType = preparedQuery.getQueryType();
+            sessionBuilder.setQueryType(queryType);
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
@@ -290,7 +294,12 @@ public class DispatchManager
                     sessionContext.getIdentity().getPrincipal().map(Principal::getName)));
 
             // apply system default session properties (does not override user set properties)
-            session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType.map(Enum::name), Optional.of(selectionContext.getResourceGroupId()));
+            sessionPropertyDefaults.applyDefaultProperties(sessionBuilder, queryType.map(Enum::name), Optional.of(selectionContext.getResourceGroupId()));
+
+            session = sessionBuilder.build();
+            if (sessionContext.getTransactionId().isPresent()) {
+                session = session.beginTransactionId(sessionContext.getTransactionId().get(), transactionManager, accessControl);
+            }
 
             // mark existing transaction as active
             transactionManager.activateTransaction(session, preparedQuery.isTransactionControlStatement(), accessControl);
