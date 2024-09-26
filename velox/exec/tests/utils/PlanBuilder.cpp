@@ -434,7 +434,7 @@ PlanBuilder& PlanBuilder::tableWrite(
       connector::hive::LocationHandle::TableType::kNew,
       outputFileName);
   std::shared_ptr<HiveBucketProperty> bucketProperty;
-  if (!partitionBy.empty() && bucketCount != 0) {
+  if (bucketCount != 0) {
     bucketProperty =
         buildHiveBucketProperty(rowType, bucketCount, bucketedBy, sortBy);
   }
@@ -471,7 +471,8 @@ PlanBuilder& PlanBuilder::tableWrite(
       rowType->names(),
       aggregationNode,
       insertHandle,
-      false,
+      !partitionBy.empty(),
+      bucketProperty != nullptr,
       TableWriteTraits::outputType(aggregationNode),
       connector::CommitStrategy::kNoCommit,
       planNode_);

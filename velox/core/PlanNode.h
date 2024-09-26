@@ -671,6 +671,7 @@ class TableWriteNode : public PlanNode {
       std::shared_ptr<AggregationNode> aggregationNode,
       std::shared_ptr<InsertTableHandle> insertTableHandle,
       bool hasPartitioningScheme,
+      bool hasBucketProperty,
       RowTypePtr outputType,
       connector::CommitStrategy commitStrategy,
       const PlanNodePtr& source)
@@ -681,6 +682,7 @@ class TableWriteNode : public PlanNode {
         aggregationNode_(std::move(aggregationNode)),
         insertTableHandle_(std::move(insertTableHandle)),
         hasPartitioningScheme_(hasPartitioningScheme),
+        hasBucketProperty_(hasBucketProperty),
         outputType_(std::move(outputType)),
         commitStrategy_(commitStrategy) {
     VELOX_USER_CHECK_EQ(columns->size(), columnNames.size());
@@ -692,6 +694,30 @@ class TableWriteNode : public PlanNode {
           source->outputType()->toString());
     }
   }
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  TableWriteNode(
+      const PlanNodeId& id,
+      const RowTypePtr& columns,
+      const std::vector<std::string>& columnNames,
+      std::shared_ptr<AggregationNode> aggregationNode,
+      std::shared_ptr<InsertTableHandle> insertTableHandle,
+      bool hasPartitioningScheme,
+      RowTypePtr outputType,
+      connector::CommitStrategy commitStrategy,
+      const PlanNodePtr& source)
+      : TableWriteNode(
+            id,
+            columns,
+            columnNames,
+            std::move(aggregationNode),
+            std::move(insertTableHandle),
+            hasPartitioningScheme,
+            false,
+            std::move(outputType),
+            commitStrategy,
+            source) {}
+#endif
 
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
@@ -720,10 +746,18 @@ class TableWriteNode : public PlanNode {
   /// Indicates if this table write has specified partitioning scheme. If true,
   /// the task creates a number of table write operators based on the query
   /// config 'task_partitioned_writer_count', otherwise based on
-  /// 'task__writer_count'. As for now, this is only true for hive bucketed
-  /// table write.
+  /// 'task_writer_count'.
   bool hasPartitioningScheme() const {
     return hasPartitioningScheme_;
+  }
+
+  /// Indicates if this table write has specified bucket property. If true, the
+  /// task creates a number of table write operators based on the query config
+  /// 'task_partitioned_bucket_writer_count', otherwise based on
+  /// 'task_partitioned_writer_count' or 'task__writer_count' depending on
+  /// whether paritition scheme is specified or not.
+  bool hasBucketProperty() const {
+    return hasBucketProperty_;
   }
 
   connector::CommitStrategy commitStrategy() const {
@@ -756,6 +790,7 @@ class TableWriteNode : public PlanNode {
   const std::shared_ptr<AggregationNode> aggregationNode_;
   const std::shared_ptr<InsertTableHandle> insertTableHandle_;
   const bool hasPartitioningScheme_;
+  const bool hasBucketProperty_;
   const RowTypePtr outputType_;
   const connector::CommitStrategy commitStrategy_;
 };
