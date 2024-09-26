@@ -144,6 +144,7 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
     ASSERT_FALSE(manager.arbitrator()->growCapacity(rootPool.get(), 6 << 20));
     ASSERT_EQ(rootPool->capacity(), 1 << 20);
     ASSERT_TRUE(manager.arbitrator()->growCapacity(rootPool.get(), 2 << 20));
+    ASSERT_TRUE(manager.arbitrator()->growCapacity(rootPool.get(), 1 << 20));
     ASSERT_EQ(rootPool->capacity(), 4 << 20);
     ASSERT_EQ(manager.arbitrator()->stats().freeCapacityBytes, 2 << 20);
     ASSERT_EQ(manager.arbitrator()->stats().freeReservedCapacityBytes, 2 << 20);
@@ -154,19 +155,19 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
         "Exceeded memory pool capacity after attempt to grow capacity through "
         "arbitration. Requestor pool name 'leaf-1.0', request size 7.00MB, "
         "memory pool capacity 4.00MB, memory pool max capacity 8.00MB");
-    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 0), 1 << 20);
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 0), 0);
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 0);
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 1), 0);
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 1), 0);
-    ASSERT_EQ(rootPool->capacity(), 3 << 20);
+    ASSERT_EQ(rootPool->capacity(), 4 << 20);
     static_cast<MemoryPoolImpl*>(rootPool.get())->testingSetReservation(0);
     ASSERT_EQ(
         manager.arbitrator()->shrinkCapacity(leafPool.get(), 1 << 20), 1 << 20);
     ASSERT_EQ(
         manager.arbitrator()->shrinkCapacity(rootPool.get(), 1 << 20), 1 << 20);
-    ASSERT_EQ(rootPool->capacity(), 1 << 20);
-    ASSERT_EQ(leafPool->capacity(), 1 << 20);
-    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 1 << 20);
+    ASSERT_EQ(rootPool->capacity(), 2 << 20);
+    ASSERT_EQ(leafPool->capacity(), 2 << 20);
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 2 << 20);
     ASSERT_EQ(rootPool->capacity(), 0);
     ASSERT_EQ(leafPool->capacity(), 0);
   }

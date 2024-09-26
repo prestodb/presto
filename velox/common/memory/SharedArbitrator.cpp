@@ -109,16 +109,6 @@ uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(
       config::CapacityUnit::BYTE);
 }
 
-uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolTransferCapacity(
-    const std::unordered_map<std::string, std::string>& configs) {
-  return config::toCapacity(
-      getConfig<std::string>(
-          configs,
-          kMemoryPoolTransferCapacity,
-          std::string(kDefaultMemoryPoolTransferCapacity)),
-      config::CapacityUnit::BYTE);
-}
-
 uint64_t SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(
     const std::unordered_map<std::string, std::string>& configs) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -182,8 +172,6 @@ SharedArbitrator::SharedArbitrator(const Config& config)
           ExtraConfig::getMemoryPoolInitialCapacity(config.extraConfigs)),
       memoryPoolReservedCapacity_(
           ExtraConfig::getMemoryPoolReservedCapacity(config.extraConfigs)),
-      memoryPoolTransferCapacity_(
-          ExtraConfig::getMemoryPoolTransferCapacity(config.extraConfigs)),
       memoryReclaimWaitMs_(
           ExtraConfig::getMemoryReclaimMaxWaitTimeMs(config.extraConfigs)),
       globalArbitrationEnabled_(
@@ -542,7 +530,7 @@ uint64_t SharedArbitrator::getCapacityGrowthTarget(
     const MemoryPool& pool,
     uint64_t requestBytes) const {
   if (fastExponentialGrowthCapacityLimit_ == 0 && slowCapacityGrowPct_ == 0) {
-    return std::max(requestBytes, memoryPoolTransferCapacity_);
+    return requestBytes;
   }
   uint64_t targetBytes{0};
   const auto capacity = pool.capacity();
@@ -551,8 +539,7 @@ uint64_t SharedArbitrator::getCapacityGrowthTarget(
   } else {
     targetBytes = capacity * slowCapacityGrowPct_;
   }
-  return std::max(
-      std::max(requestBytes, targetBytes), memoryPoolTransferCapacity_);
+  return std::max(requestBytes, targetBytes);
 }
 
 bool SharedArbitrator::growCapacity(MemoryPool* pool, uint64_t requestBytes) {
@@ -938,9 +925,8 @@ uint64_t SharedArbitrator::reclaim(
     MemoryPool* pool,
     uint64_t targetBytes,
     bool isLocalArbitration) noexcept {
-  int64_t bytesToReclaim = std::min<uint64_t>(
-      std::max(targetBytes, memoryPoolTransferCapacity_),
-      maxReclaimableCapacity(*pool, true));
+  int64_t bytesToReclaim =
+      std::min<uint64_t>(targetBytes, maxReclaimableCapacity(*pool, true));
   if (bytesToReclaim == 0) {
     return 0;
   }

@@ -45,7 +45,6 @@ std::shared_ptr<core::QueryCtx> newQueryCtx(
 std::unique_ptr<memory::MemoryManager> createMemoryManager(
     int64_t arbitratorCapacity,
     uint64_t memoryPoolInitCapacity,
-    uint64_t memoryPoolTransferCapacity,
     uint64_t maxReclaimWaitMs,
     uint64_t fastExponentialGrowthCapacityLimit,
     double slowCapacityGrowPct) {
@@ -59,8 +58,6 @@ std::unique_ptr<memory::MemoryManager> createMemoryManager(
   options.extraArbitratorConfigs = {
       {std::string(ExtraConfig::kMemoryPoolInitialCapacity),
        folly::to<std::string>(memoryPoolInitCapacity) + "B"},
-      {std::string(ExtraConfig::kMemoryPoolTransferCapacity),
-       folly::to<std::string>(memoryPoolTransferCapacity) + "B"},
       {std::string(ExtraConfig::kMemoryReclaimMaxWaitTime),
        folly::to<std::string>(maxReclaimWaitMs) + "ms"},
       {std::string(ExtraConfig::kGlobalArbitrationEnabled), "true"},

@@ -61,15 +61,6 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     static uint64_t getMemoryPoolReservedCapacity(
         const std::unordered_map<std::string, std::string>& configs);
 
-    /// The minimal memory capacity to transfer out of or into a memory pool
-    /// during the memory arbitration.
-    static constexpr std::string_view kMemoryPoolTransferCapacity{
-        "memory-pool-transfer-capacity"};
-    static constexpr std::string_view kDefaultMemoryPoolTransferCapacity{
-        "128MB"};
-    static uint64_t getMemoryPoolTransferCapacity(
-        const std::unordered_map<std::string, std::string>& configs);
-
     /// Specifies the max time to wait for memory reclaim by arbitration. The
     /// memory reclaim might fail if the max time has exceeded. This prevents
     /// the memory arbitration from getting stuck when the memory reclaim waits
@@ -231,11 +222,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     // The adjusted grow bytes based on 'requestBytes'. This 'targetBytes' is a
     // best effort target, and hence will not be guaranteed. The adjustment is
     // based on 'SharedArbitrator::fastExponentialGrowthCapacityLimit_'
-    // 'SharedArbitrator::slowCapacityGrowPct_' and
-    // 'MemoryArbitrator::memoryPoolTransferCapacity_'.
-    //
-    // TODO: deprecate 'MemoryArbitrator::memoryPoolTransferCapacity_' once
-    // exponential growth works well in production.
+    // 'SharedArbitrator::slowCapacityGrowPct_'
     const std::optional<uint64_t> targetBytes;
 
     // The start time of this arbitration operation.
@@ -516,7 +503,6 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   const uint64_t reservedCapacity_;
   const uint64_t memoryPoolInitialCapacity_;
   const uint64_t memoryPoolReservedCapacity_;
-  const uint64_t memoryPoolTransferCapacity_;
   const uint64_t memoryReclaimWaitMs_;
   const bool globalArbitrationEnabled_;
   const bool checkUsageLeak_;

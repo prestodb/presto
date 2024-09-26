@@ -65,8 +65,6 @@ constexpr int64_t MB = 1024L * KB;
 constexpr uint64_t kMemoryCapacity = 512 * MB;
 constexpr uint64_t kReservedMemoryCapacity = 128 * MB;
 constexpr uint64_t kMemoryPoolInitCapacity = 16 * MB;
-// TODO(jtan6): Remove after complete transfer capacity deprecation
-constexpr uint64_t kMemoryPoolTransferCapacity = 0;
 constexpr uint64_t kMemoryPoolReservedCapacity = 8 * MB;
 constexpr uint64_t kFastExponentialGrowthCapacityLimit = 32 * MB;
 constexpr double kSlowCapacityGrowPct = 0.25;
@@ -429,7 +427,6 @@ class MockSharedArbitrationTest : public testing::Test {
       int64_t reservedMemoryCapacity = kReservedMemoryCapacity,
       uint64_t memoryPoolInitCapacity = kMemoryPoolInitCapacity,
       uint64_t memoryPoolReserveCapacity = kMemoryPoolReservedCapacity,
-      uint64_t memoryPoolTransferCapacity = kMemoryPoolTransferCapacity,
       uint64_t fastExponentialGrowthCapacityLimit =
           kFastExponentialGrowthCapacityLimit,
       double slowCapacityGrowPct = kSlowCapacityGrowPct,
@@ -450,8 +447,6 @@ class MockSharedArbitrationTest : public testing::Test {
          folly::to<std::string>(memoryPoolInitCapacity) + "B"},
         {std::string(ExtraConfig::kMemoryPoolReservedCapacity),
          folly::to<std::string>(memoryPoolReserveCapacity) + "B"},
-        {std::string(ExtraConfig::kMemoryPoolTransferCapacity),
-         folly::to<std::string>(memoryPoolTransferCapacity) + "B"},
         {std::string(ExtraConfig::kFastExponentialGrowthCapacityLimit),
          folly::to<std::string>(fastExponentialGrowthCapacityLimit) + "B"},
         {std::string(ExtraConfig::kSlowCapacityGrowPct),
@@ -556,10 +551,6 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
       SharedArbitrator::ExtraConfig::getMemoryPoolInitialCapacity(emptyConfigs),
       256 << 20);
   ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getMemoryPoolTransferCapacity(
-          emptyConfigs),
-      128 << 20);
-  ASSERT_EQ(
       SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(
           emptyConfigs),
       0);
@@ -579,8 +570,6 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
   configs[std::string(
       SharedArbitrator::ExtraConfig::kMemoryPoolReservedCapacity)] = "200B";
   configs[std::string(
-      SharedArbitrator::ExtraConfig::kMemoryPoolTransferCapacity)] = "256MB";
-  configs[std::string(
       SharedArbitrator::ExtraConfig::kMemoryReclaimMaxWaitTime)] = "5000ms";
   configs[std::string(
       SharedArbitrator::ExtraConfig::kGlobalArbitrationEnabled)] = "true";
@@ -593,9 +582,6 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
   ASSERT_EQ(
       SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(configs),
       200);
-  ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getMemoryPoolTransferCapacity(configs),
-      256 << 20);
   ASSERT_EQ(
       SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(configs),
       5000);
@@ -611,8 +597,6 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
   configs[std::string(
       SharedArbitrator::ExtraConfig::kMemoryPoolReservedCapacity)] = "invalid";
   configs[std::string(
-      SharedArbitrator::ExtraConfig::kMemoryPoolTransferCapacity)] = "invalid";
-  configs[std::string(
       SharedArbitrator::ExtraConfig::kMemoryReclaimMaxWaitTime)] = "invalid";
   configs[std::string(
       SharedArbitrator::ExtraConfig::kGlobalArbitrationEnabled)] = "invalid";
@@ -626,9 +610,6 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
       "Invalid capacity string 'invalid'");
   VELOX_ASSERT_THROW(
       SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(configs),
-      "Invalid capacity string 'invalid'");
-  VELOX_ASSERT_THROW(
-      SharedArbitrator::ExtraConfig::getMemoryPoolTransferCapacity(configs),
       "Invalid capacity string 'invalid'");
   VELOX_ASSERT_THROW(
       SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(configs),
@@ -678,7 +659,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationStateCheck) {
     ASSERT_TRUE(RE2::FullMatch(pool.name(), re)) << pool.name();
     ++checkCount;
   };
-  setupMemory(memCapacity, 0, 0, 0, 0, 0, 0, 0, 0, checkCountCb);
+  setupMemory(memCapacity, 0, 0, 0, 0, 0, 0, 0, checkCountCb);
 
   const int numTasks{5};
   std::vector<std::shared_ptr<MockTask>> tasks;
@@ -703,7 +684,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationStateCheck) {
   MemoryArbitrationStateCheckCB badCheckCb = [&](MemoryPool& /*unused*/) {
     VELOX_FAIL("bad check");
   };
-  setupMemory(memCapacity, 0, 0, 0, 0, 0, 0, 0, 0, badCheckCb);
+  setupMemory(memCapacity, 0, 0, 0, 0, 0, 0, 0, badCheckCb);
   std::shared_ptr<MockTask> task = addTask(kMemoryCapacity);
   ASSERT_EQ(task->capacity(), 0);
   MockMemoryOperator* memOp = task->addMemoryOp();
@@ -1238,7 +1219,6 @@ DEBUG_ONLY_TEST_F(
       0,
       memoryPoolInitCapacity,
       0,
-      0,
       kFastExponentialGrowthCapacityLimit,
       kSlowCapacityGrowPct,
       0,
@@ -1330,7 +1310,6 @@ DEBUG_ONLY_TEST_F(
       memoryCapacity,
       0,
       memoryPoolInitCapacity,
-      0,
       0,
       kFastExponentialGrowthCapacityLimit,
       kSlowCapacityGrowPct,
@@ -1615,7 +1594,6 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, globalArbitrationEnableCheck) {
         0,
         memoryPoolInitCapacity,
         0,
-        0,
         kFastExponentialGrowthCapacityLimit,
         kSlowCapacityGrowPct,
         kMemoryPoolMinFreeCapacity,
@@ -1651,7 +1629,6 @@ DEBUG_ONLY_TEST_F(
       memoryCapacity,
       0,
       memoryPoolInitCapacity,
-      0,
       0,
       kFastExponentialGrowthCapacityLimit,
       kSlowCapacityGrowPct,
@@ -1871,7 +1848,6 @@ TEST_F(MockSharedArbitrationTest, singlePoolShrinkWithoutArbitration) {
               0,
               0,
               0,
-              0,
               testParam.memoryPoolMinFreeCapacity,
               testParam.memoryPoolMinFreeCapacityPct),
           "both need to be set (non-zero) at the same time to enable shrink "
@@ -1882,7 +1858,6 @@ TEST_F(MockSharedArbitrationTest, singlePoolShrinkWithoutArbitration) {
           memoryCapacity,
           0,
           memoryCapacity,
-          0,
           0,
           0,
           0,
@@ -1930,7 +1905,6 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowWithoutArbitration) {
         memoryCapacity,
         0,
         memoryPoolInitCapacity,
-        0,
         0,
         testParam.fastExponentialGrowthCapacityLimit,
         testParam.slowCapacityGrowPct);
@@ -2145,7 +2119,6 @@ TEST_F(MockSharedArbitrationTest, ensureMemoryPoolMaxCapacity) {
         memCapacity,
         0,
         poolInitCapacity,
-        0,
         0,
         kFastExponentialGrowthCapacityLimit,
         kSlowCapacityGrowPct,
@@ -2681,7 +2654,7 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, failedToReclaimFromRequestor) {
        0}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    setupMemory(kMemoryCapacity, 0, kMemoryPoolInitCapacity, 0, 0, 0, 0, 0, 0);
+    setupMemory(kMemoryCapacity, 0, kMemoryPoolInitCapacity, 0, 0, 0, 0, 0);
 
     std::vector<std::shared_ptr<MockTask>> otherTasks;
     std::vector<MockMemoryOperator*> otherTaskOps;
@@ -2865,7 +2838,7 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, failedToReclaimFromOtherTask) {
        nonFailTaskMemoryCapacity}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    setupMemory(kMemoryCapacity, 0, kMemoryPoolInitCapacity, 0, 0, 0, 0, 0, 0);
+    setupMemory(kMemoryCapacity, 0, kMemoryPoolInitCapacity, 0, 0, 0, 0, 0);
 
     std::vector<std::shared_ptr<MockTask>> nonFailedTasks;
     std::vector<MockMemoryOperator*> nonFailedTaskOps;
@@ -3015,7 +2988,6 @@ TEST_F(MockSharedArbitrationTest, memoryPoolAbortThrow) {
       0,
       kMemoryPoolInitCapacity,
       0,
-      0,
       kFastExponentialGrowthCapacityLimit,
       kSlowCapacityGrowPct,
       0,
@@ -3065,7 +3037,7 @@ TEST_F(MockSharedArbitrationTest, memoryPoolAbortThrow) {
 
 // This test makes sure the memory capacity grows as expected.
 DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, concurrentArbitrationRequests) {
-  setupMemory(kMemoryCapacity, 0, 0, 0, 128 << 20);
+  setupMemory(kMemoryCapacity, 0, 0, 0);
   std::shared_ptr<MockTask> task = addTask();
   MockMemoryOperator* op1 = addMemoryOp(task);
   MockMemoryOperator* op2 = addMemoryOp(task);

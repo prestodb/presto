@@ -7506,7 +7506,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, taskWaitTimeout) {
 
   for (uint64_t timeoutMs : {0, 1'000, 30'000}) {
     SCOPED_TRACE(fmt::format("timeout {}", succinctMillis(timeoutMs)));
-    auto memoryManager = createMemoryManager(512 << 20, 0, 0, timeoutMs);
+    auto memoryManager = createMemoryManager(512 << 20, 0, timeoutMs);
     auto queryCtx =
         newQueryCtx(memoryManager.get(), executor_.get(), queryMemoryCapacity);
 
