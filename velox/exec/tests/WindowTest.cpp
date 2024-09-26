@@ -487,5 +487,41 @@ TEST_F(WindowTest, nagativeFrameArg) {
   }
 }
 
+DEBUG_ONLY_TEST_F(WindowTest, frameColumnNullCheck) {
+  auto makePlan = [&](const RowVectorPtr& input) {
+    return PlanBuilder()
+        .values({input})
+        .window(
+            {"sum(c0) OVER (PARTITION BY p0 ORDER BY s0 RANGE BETWEEN UNBOUNDED PRECEDING AND off0 FOLLOWING)"})
+        .planNode();
+  };
+
+  // Null values in order-by column 's0' and frame column 'off0' do not match,
+  // so exception is expected.
+  auto inputThrow = makeRowVector(
+      {"c0", "p0", "s0", "off0"},
+      {
+          makeNullableFlatVector<int64_t>({1, std::nullopt, 1, 2, 2}),
+          makeFlatVector<int64_t>({1, 2, 1, 2, 1}),
+          makeNullableFlatVector<int64_t>({1, 2, 3, std::nullopt, 5}),
+          makeNullableFlatVector<int64_t>({2, std::nullopt, 4, 5, 6}),
+      });
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(makePlan(inputThrow)).copyResults(pool()), "");
+
+  // Null values in order-by column 's0' and frame column 'off0' match, so no
+  // exception should be thrown.
+  auto inputNoThrow = makeRowVector(
+      {"c0", "p0", "s0", "off0"},
+      {
+          makeNullableFlatVector<int64_t>({1, 1, 2, std::nullopt, 2}),
+          makeFlatVector<int64_t>({1, 1, 1, 2, 2}),
+          makeNullableFlatVector<int64_t>({1, std::nullopt, 2, 3, 5}),
+          makeNullableFlatVector<int64_t>({2, std::nullopt, 3, 4, 6}),
+      });
+  ASSERT_NO_THROW(
+      AssertQueryBuilder(makePlan(inputNoThrow)).copyResults(pool()));
+}
+
 } // namespace
 } // namespace facebook::velox::exec
