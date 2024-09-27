@@ -207,6 +207,8 @@ class PrestoServer {
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
+  void getFunctionSignatures(proxygen::ResponseHandler* downstream);
+
   protocol::NodeStatus fetchNodeStatus();
 
   void populateMemAndCPUInfo();
