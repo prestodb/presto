@@ -54,11 +54,10 @@ function install_clang15 {
   ${SUDO} apt install ${CLANG_PACKAGE_LIST} -y
 }
 
-FB_OS_VERSION="v2024.09.16.00"
+FB_OS_VERSION="v2024.05.20.00"
 FMT_VERSION="10.1.1"
 BOOST_VERSION="boost-1.84.0"
 ARROW_VERSION="15.0.0"
-FAST_FLOAT_VERSION="v6.1.6"
 STEMMER_VERSION="2.2.0"
 
 # Install packages required for build.
@@ -235,17 +234,10 @@ function install_cuda {
   $SUDO apt install -y cuda-nvcc-$(echo $1 | tr '.' '-') cuda-cudart-dev-$(echo $1 | tr '.' '-')
 }
 
-function install_fast_float {
-  # Dependency of folly.
-  wget_and_untar https://github.com/fastfloat/fast_float/archive/refs/tags/${FAST_FLOAT_VERSION}.tar.gz fast_float
-  cmake_install_dir fast_float
-}
-
 function install_velox_deps {
   run_and_time install_velox_deps_from_apt
   run_and_time install_fmt
   run_and_time install_boost
-  run_and_time install_fast_float
   run_and_time install_folly
   run_and_time install_fizz
   run_and_time install_wangle
