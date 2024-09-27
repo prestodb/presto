@@ -359,6 +359,7 @@ public final class SystemSessionProperties
 
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
+    public static final String NATIVE_TASK_BUCKETED_WRITER_COUNT = "native_task_bucketed_writer_count";
     public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
@@ -1767,6 +1768,11 @@ public final class SystemSessionProperties
                         NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,
                         "The max partial aggregation memory when data reduction is optimal.",
                         1L << 26,
+                        false),
+                integerProperty(
+                        NATIVE_TASK_BUCKETED_WRITER_COUNT,
+                        "Number of writers per task for bucketed writes.",
+                        7,
                         false),
                 longProperty(
                         NATIVE_MAX_SPILL_BYTES,

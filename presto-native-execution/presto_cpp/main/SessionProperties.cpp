@@ -245,6 +245,14 @@ SessionProperties::SessionProperties() {
       boolToString(c.debugDisableExpressionsWithLazyInputs()));
 
   addSessionProperty(
+      kNativeTaskBucketedWriterCount,
+      "Number of writers per task for bucketed writes.",
+      INTEGER(),
+      false,
+      QueryConfig::kTaskBucketedWriterCount,
+      std::to_string(c.taskBucketedWriterCount()));
+
+  addSessionProperty(
       kSelectiveNimbleReaderEnabled,
       "Temporary flag to control whether selective Nimble reader should be "
       "used in this query or not.  Will be removed after the selective Nimble "

@@ -171,6 +171,9 @@ class SessionProperties {
   static constexpr const char* kSelectiveNimbleReaderEnabled =
       "native_selective_nimble_reader_enabled";
 
+  static constexpr const char* kNativeTaskBucketedWriterCount =
+      "native_task_bucketed_writer_count";
+
   /// Enable timezone-less timestamp conversions.
   static constexpr const char* kLegacyTimestamp = "legacy_timestamp";
 
