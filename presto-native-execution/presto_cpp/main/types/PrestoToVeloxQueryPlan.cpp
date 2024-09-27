@@ -847,15 +847,17 @@ void VeloxQueryPlanConverterBase::toAggregations(
           auto pos = functionId.find(";", start + 1);
           if (pos == std::string::npos) {
             auto argumentType = functionId.substr(start + 1);
-            aggregate.rawInputTypes.push_back(
-                stringToType(argumentType, typeParser_));
+            if (!argumentType.empty()) {
+              aggregate.rawInputTypes.push_back(
+                  stringToType(argumentType, typeParser_));
+            }
             break;
           }
 
           auto argumentType = functionId.substr(start + 1, pos - start - 1);
           aggregate.rawInputTypes.push_back(
               stringToType(argumentType, typeParser_));
-          pos = start + 1;
+          start = pos;
         }
       }
     } else {
