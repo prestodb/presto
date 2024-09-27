@@ -56,6 +56,15 @@ public class NativeQueryRunnerUtils
                 .build();
     }
 
+    public static Map<String, String> getNativeSidecarProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("coordinator-sidecar-enabled", "true")
+                .put("list-built-in-functions-only", "false")
+                .put("presto.default-namespace", "native.default")
+                .build();
+    }
+
     /**
      * Creates all tables for local testing, except for bench tables.
      *
