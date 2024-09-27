@@ -47,7 +47,7 @@ permissions:
 
 jobs:
   compile:
-    runs-on: 8-core-ubuntu
+    runs-on: 16-core-ubuntu
     timeout-minutes: 120
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache/"
@@ -103,8 +103,20 @@ jobs:
           name: join
           path: velox/_build/debug/velox/exec/tests/velox_join_fuzzer_test
 
+      - name: Upload Presto expression fuzzer
+        uses: actions/upload-artifact@v3
+        with:
+          name: presto_expression_fuzzer
+          path: velox/_build/debug/velox/expression/fuzzer/velox_expression_fuzzer_test
+
+      - name: Upload Spark expression fuzzer
+        uses: actions/upload-artifact@v3
+        with:
+          name: spark_expression_fuzzer
+          path: velox/_build/debug/velox/expression/fuzzer/spark_expression_fuzzer_test
+
   presto-java-aggregation-fuzzer-run:
-    runs-on: 8-core-ubuntu
+    runs-on: 16-core-ubuntu
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:
@@ -249,3 +261,96 @@ jobs:
           name: join-fuzzer-failure-artifacts
           path: |
             /tmp/join_fuzzer_repro
+
+  presto-expression-fuzzer-run:
+    runs-on: ubuntu-latest
+    needs: compile
+    timeout-minutes: 120
+    steps:
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v3
+        with:
+          ref: "${{ inputs.ref || 'main' }}"
+
+      - name: "Install dependencies"
+        run: source ./scripts/setup-ubuntu.sh && install_apt_deps
+
+      - name: Download presto fuzzer
+        uses: actions/download-artifact@v3
+        with:
+          name: presto_expression_fuzzer
+
+      - name: "Run Presto Fuzzer"
+        run: |
+          mkdir -p /tmp/presto_fuzzer_repro/
+          rm -rfv /tmp/presto_fuzzer_repro/*
+          chmod -R 777 /tmp/presto_fuzzer_repro
+          chmod +x velox_expression_fuzzer_test
+          ./velox_expression_fuzzer_test \
+                --seed ${RANDOM} \
+                --enable_variadic_signatures \
+                --velox_fuzzer_enable_complex_types \
+                --velox_fuzzer_enable_decimal_type \
+                --lazy_vector_generation_ratio 0.2 \
+                --velox_fuzzer_enable_column_reuse \
+                --velox_fuzzer_enable_expression_reuse \
+                --max_expression_trees_per_step 2 \
+                --retry_with_try \
+                --enable_dereference \
+                --duration_sec 1800 \
+                --logtostderr=1 \
+                --minloglevel=1 \
+                --repro_persist_path=/tmp/presto_fuzzer_repro \
+          && echo -e "\n\nFuzzer run finished successfully."
+
+      - name: Archive Presto expression production artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: presto-fuzzer-failure-artifacts
+          path: |
+            /tmp/presto_fuzzer_repro
+
+  spark-expression-fuzzer-run:
+    runs-on: ubuntu-latest
+    needs: compile
+    timeout-minutes: 120
+    steps:
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v3
+        with:
+          ref: "${{ inputs.ref || 'main' }}"
+
+      - name: "Install dependencies"
+        run: source ./scripts/setup-ubuntu.sh && install_apt_deps
+
+      - name: Download spark fuzzer
+        uses: actions/download-artifact@v3
+        with:
+          name: spark_expression_fuzzer
+
+      - name: "Run Spark Fuzzer"
+        run: |
+          mkdir -p /tmp/spark_fuzzer_repro/
+          rm -rfv /tmp/spark_fuzzer_repro/*
+          chmod -R 777 /tmp/spark_fuzzer_repro
+          chmod +x spark_expression_fuzzer_test
+          ./spark_expression_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec 1800 \
+                --logtostderr=1 \
+                --minloglevel=1 \
+                --repro_persist_path=/tmp/spark_fuzzer_repro \
+                --velox_fuzzer_enable_decimal_type \
+                --retry_with_try \
+            && echo -e "\n\nSpark Fuzzer run finished successfully."
+
+      - name: Archive Spark expression production artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: spark-fuzzer-failure-artifacts
+          path: |
+            /tmp/spark_fuzzer_repro
