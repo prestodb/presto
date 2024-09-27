@@ -122,6 +122,23 @@ const protocol::RoutineCharacteristics getRoutineCharacteristics(
   return routineCharacteristics;
 }
 
+const std::vector<protocol::TypeVariableConstraint> getTypeVariableConstraints(
+    const FunctionSignature& functionSignature) {
+  std::vector<protocol::TypeVariableConstraint> typeVariableConstraints;
+  const auto functionVariables = functionSignature.variables();
+  for (const auto& [name, signature] : functionVariables) {
+    if (signature.isTypeParameter()) {
+      protocol::TypeVariableConstraint typeVariableConstraint;
+      typeVariableConstraint.name = signature.name();
+      typeVariableConstraint.orderableRequired = signature.orderableTypesOnly();
+      typeVariableConstraint.comparableRequired =
+          signature.comparableTypesOnly();
+      typeVariableConstraints.emplace_back(typeVariableConstraint);
+    }
+  }
+  return typeVariableConstraints;
+}
+
 const protocol::JsonBasedUdfFunctionMetadata buildFunctionMetadata(
     const std::string& name,
     const std::string& schema,
@@ -140,7 +157,11 @@ const protocol::JsonBasedUdfFunctionMetadata buildFunctionMetadata(
   }
   metadata.paramTypes = paramTypes;
   metadata.schema = schema;
+  metadata.variableArity = signature.variableArity();
   metadata.routineCharacteristics = getRoutineCharacteristics(name, kind);
+  metadata.typeVariableConstraints =
+      std::make_shared<std::vector<protocol::TypeVariableConstraint>>(
+          getTypeVariableConstraints(signature));
 
   if (aggregateSignature.has_value()) {
     metadata.aggregateMetadata =
@@ -175,8 +196,11 @@ json buildAggregateMetadata(
       getWindowFunctionSignatures(name).has_value(),
       "Aggregate function {} not registered as a window function",
       name);
+
+  // Todo: Without this change, it throws because the SqlFunctionId will be the
+  // same for both functions.
   const std::vector<protocol::FunctionKind> kinds = {
-      protocol::FunctionKind::AGGREGATE, protocol::FunctionKind::WINDOW};
+      protocol::FunctionKind::AGGREGATE};
   json j = json::array();
   json tj;
   for (const auto& kind : kinds) {
