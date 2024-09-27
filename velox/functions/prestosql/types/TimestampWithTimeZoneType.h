@@ -24,8 +24,8 @@ namespace facebook::velox {
 
 using TimeZoneKey = int16_t;
 
-constexpr int32_t kTimezoneMask = 0xFFF;
 constexpr int32_t kMillisShift = 12;
+constexpr int32_t kTimezoneMask = (1 << kMillisShift) - 1;
 
 inline int64_t unpackMillisUtc(int64_t dateTimeWithTimeZone) {
   return dateTimeWithTimeZone >> kMillisShift;
@@ -98,8 +98,8 @@ class TimestampWithTimeZoneType : public BigintType {
   }
 
   int32_t compare(const int64_t& left, const int64_t& right) const override {
-    int64_t leftUnpacked = unpackMillisUtc(left);
-    int64_t rightUnpacked = unpackMillisUtc(right);
+    const int64_t leftUnpacked = unpackMillisUtc(left);
+    const int64_t rightUnpacked = unpackMillisUtc(right);
 
     return leftUnpacked < rightUnpacked ? -1
         : leftUnpacked == rightUnpacked ? 0
