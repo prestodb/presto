@@ -18,7 +18,7 @@
 #include "velox/type/Type.h"
 
 namespace facebook::velox::test {
-// A custom type that provides custom comparison and hash functions.
+/// A custom type that provides custom comparison and hash functions.
 class BigintTypeWithCustomComparison : public BigintType {
   BigintTypeWithCustomComparison() : BigintType(true) {}
 
@@ -36,8 +36,8 @@ class BigintTypeWithCustomComparison : public BigintType {
     return this == &other;
   }
 
-  // For the purposes of testing, this type only compares the bottom 8 bits of
-  // values.
+  /// For the purposes of testing, this type only compares the bottom 8 bits of
+  /// values.
   int32_t compare(const int64_t& left, const int64_t& right) const override {
     int64_t leftTruncated = left & 0xff;
     int64_t rightTruncated = right & 0xff;
@@ -77,8 +77,8 @@ BIGINT_TYPE_WITH_CUSTOM_COMPARISON() {
   return BigintTypeWithCustomComparison::get();
 }
 
-// A custom type that declares it providesCustomComparison but does not
-// implement the compare or hash functions. This is not supported.
+/// A custom type that declares it providesCustomComparison but does not
+/// implement the compare or hash functions. This is not supported.
 class BigintTypeWithInvalidCustomComparison : public BigintType {
   BigintTypeWithInvalidCustomComparison() : BigintType(true) {}
 
@@ -123,8 +123,8 @@ BIGINT_TYPE_WITH_INVALID_CUSTOM_COMPARISON() {
   return BigintTypeWithInvalidCustomComparison::get();
 }
 
-// A custom type that is not fixed width that provides custom comparison and
-// hash functions. This is not currently supported.
+/// A custom type that is not fixed width that provides custom comparison and
+/// hash functions. This is not currently supported.
 class VarcharTypeWithCustomComparison : public VarcharType {
   VarcharTypeWithCustomComparison() : VarcharType(true) {}
 
