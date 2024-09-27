@@ -17,6 +17,7 @@
 #include "velox/common/time/CpuWallTimer.h"
 
 namespace facebook::velox {
+
 CpuWallTimer::CpuWallTimer(CpuWallTiming& timing) : timing_(timing) {
   ++timing_.count;
   cpuTimeStart_ = process::threadCpuNanos();
@@ -29,4 +30,5 @@ CpuWallTimer::~CpuWallTimer() {
       std::chrono::steady_clock::now() - wallTimeStart_);
   timing_.wallNanos += duration.count();
 }
+
 } // namespace facebook::velox

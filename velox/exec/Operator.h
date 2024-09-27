@@ -177,6 +177,7 @@ struct OperatorStats {
   // Last recorded values for lazy loading times for loads triggered by 'this'.
   int64_t lastLazyCpuNanos{0};
   int64_t lastLazyWallNanos{0};
+  int64_t lastLazyInputBytes{0};
 
   // Total null keys processed by the operator.
   // Currently populated only by HashJoin/HashBuild.

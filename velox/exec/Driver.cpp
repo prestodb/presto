@@ -399,20 +399,22 @@ size_t OpCallStatusRaw::callDuration() const {
       : fmt::format("null::{}", operatorMethod);
 }
 
-CpuWallTiming Driver::processLazyTiming(
+CpuWallTiming Driver::processLazyIoStats(
     Operator& op,
     const CpuWallTiming& timing) {
   if (&op == operators_[0].get()) {
     return timing;
   }
   auto lockStats = op.stats().wlock();
+
+  // Checks and tries to update cpu time from lazy loads.
   auto it = lockStats->runtimeStats.find(LazyVector::kCpuNanos);
   if (it == lockStats->runtimeStats.end()) {
     // Return early if no lazy activity.  Lazy CPU and wall times are recorded
     // together, checking one is enough.
     return timing;
   }
-  int64_t cpu = it->second.sum;
+  const int64_t cpu = it->second.sum;
   auto cpuDelta = std::max<int64_t>(0, cpu - lockStats->lastLazyCpuNanos);
   if (cpuDelta == 0) {
     // Return early if no change.  Checking one counter is enough.  If this did
@@ -421,15 +423,29 @@ CpuWallTiming Driver::processLazyTiming(
     return timing;
   }
   lockStats->lastLazyCpuNanos = cpu;
+
+  // Checks and tries to update wall time from lazy loads.
   int64_t wallDelta = 0;
   it = lockStats->runtimeStats.find(LazyVector::kWallNanos);
   if (it != lockStats->runtimeStats.end()) {
-    int64_t wall = it->second.sum;
+    const int64_t wall = it->second.sum;
     wallDelta = std::max<int64_t>(0, wall - lockStats->lastLazyWallNanos);
     if (wallDelta > 0) {
       lockStats->lastLazyWallNanos = wall;
     }
   }
+
+  // Checks and tries to update input bytes from lazy loads.
+  int64_t inputBytesDelta = 0;
+  it = lockStats->runtimeStats.find(LazyVector::kInputBytes);
+  if (it != lockStats->runtimeStats.end()) {
+    const int64_t inputBytes = it->second.sum;
+    inputBytesDelta = inputBytes - lockStats->lastLazyInputBytes;
+    if (inputBytesDelta > 0) {
+      lockStats->lastLazyInputBytes = inputBytes;
+    }
+  }
+
   lockStats.unlock();
   cpuDelta = std::min<int64_t>(cpuDelta, timing.cpuNanos);
   wallDelta = std::min<int64_t>(wallDelta, timing.wallNanos);
@@ -439,6 +455,8 @@ CpuWallTiming Driver::processLazyTiming(
       static_cast<uint64_t>(wallDelta),
       static_cast<uint64_t>(cpuDelta),
   });
+  lockStats->inputBytes += inputBytesDelta;
+  lockStats->outputBytes += inputBytesDelta;
   return CpuWallTiming{
       1,
       timing.wallNanos - wallDelta,
@@ -1016,7 +1034,7 @@ void Driver::withDeltaCpuWallTimer(
   // opTimingMember upon destruction of the timer when withDeltaCpuWallTimer
   // ends. The timer is created on the stack to avoid heap allocation
   auto f = [op, opTimingMember, this](const CpuWallTiming& elapsedTime) {
-    auto elapsedSelfTime = processLazyTiming(*op, elapsedTime);
+    auto elapsedSelfTime = processLazyIoStats(*op, elapsedTime);
     op->stats().withWLock([&](auto& lockedStats) {
       (lockedStats.*opTimingMember).add(elapsedSelfTime);
     });

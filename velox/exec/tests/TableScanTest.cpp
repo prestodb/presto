@@ -3815,7 +3815,12 @@ TEST_F(TableScanTest, structLazy) {
                 .project({"cardinality(c2.c0)"})
                 .planNode();
 
-  assertQuery(op, {filePath}, "select c0 % 3 from tmp");
+  auto task = assertQuery(op, {filePath}, "select c0 % 3 from tmp");
+
+  // Ensure lazy stats are attributed to table scan.
+  const auto stats = task->taskStats();
+  EXPECT_GT(stats.pipelineStats[0].operatorStats[0].inputBytes, 0);
+  EXPECT_GT(stats.pipelineStats[0].operatorStats[0].outputBytes, 0);
 }
 
 TEST_F(TableScanTest, interleaveLazyEager) {

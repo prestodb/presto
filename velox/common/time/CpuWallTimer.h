@@ -57,19 +57,14 @@ class CpuWallTimer {
   CpuWallTiming& timing_;
 };
 
-// Keeps track of elapsed CPU and wall time from construction time.
-// Composes delta CpuWallTiming upon destruction and passes it to the user
-// callback, where it can be added to the user's CpuWallTiming using
-// CpuWallTiming::add().
-template <typename F>
-class DeltaCpuWallTimer {
+/// Keeps track of elapsed CPU and wall time from construction time.
+class DeltaCpuWallTimeStopWatch {
  public:
-  explicit DeltaCpuWallTimer(F&& func)
+  explicit DeltaCpuWallTimeStopWatch()
       : wallTimeStart_(std::chrono::steady_clock::now()),
-        cpuTimeStart_(process::threadCpuNanos()),
-        func_(std::move(func)) {}
+        cpuTimeStart_(process::threadCpuNanos()) {}
 
-  ~DeltaCpuWallTimer() {
+  CpuWallTiming elapsed() const {
     // NOTE: End the cpu-time timing first, and then end the wall-time timing,
     // so as to avoid the counter-intuitive phenomenon that the final calculated
     // cpu-time is slightly larger than the wall-time.
@@ -78,8 +73,7 @@ class DeltaCpuWallTimer {
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now() - wallTimeStart_)
             .count();
-    const CpuWallTiming deltaTiming{1, wallTimeDuration, cpuTimeDuration};
-    func_(deltaTiming);
+    return CpuWallTiming{1, wallTimeDuration, cpuTimeDuration};
   }
 
  private:
@@ -87,6 +81,22 @@ class DeltaCpuWallTimer {
   // counting earlier than cpu-time.
   const std::chrono::steady_clock::time_point wallTimeStart_;
   const uint64_t cpuTimeStart_;
+};
+
+/// Composes delta CpuWallTiming upon destruction and passes it to the user
+/// callback, where it can be added to the user's CpuWallTiming using
+/// CpuWallTiming::add().
+template <typename F>
+class DeltaCpuWallTimer {
+ public:
+  explicit DeltaCpuWallTimer(F&& func) : func_(std::move(func)) {}
+
+  ~DeltaCpuWallTimer() {
+    func_(timer_.elapsed());
+  }
+
+ private:
+  DeltaCpuWallTimeStopWatch timer_;
   F func_;
 };
 

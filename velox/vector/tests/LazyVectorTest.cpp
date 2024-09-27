@@ -639,9 +639,11 @@ TEST_F(LazyVectorTest, runtimeStats) {
   std::sort(stats.begin(), stats.end(), [](auto& x, auto& y) {
     return x.first < y.first;
   });
-  ASSERT_EQ(stats.size(), 2);
+  ASSERT_EQ(stats.size(), 3);
   ASSERT_EQ(stats[0].first, LazyVector::kCpuNanos);
   ASSERT_GE(stats[0].second.value, 0);
-  ASSERT_EQ(stats[1].first, LazyVector::kWallNanos);
+  ASSERT_EQ(stats[1].first, LazyVector::kInputBytes);
   ASSERT_GE(stats[1].second.value, 0);
+  ASSERT_EQ(stats[2].first, LazyVector::kWallNanos);
+  ASSERT_GE(stats[2].second.value, 0);
 }

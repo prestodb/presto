@@ -224,6 +224,8 @@ class LazyVector : public BaseVector {
  public:
   static constexpr const char* kCpuNanos = "dataSourceLazyCpuNanos";
   static constexpr const char* kWallNanos = "dataSourceLazyWallNanos";
+  static constexpr const char* kInputBytes = "dataSourceLazyInputBytes";
+
   LazyVector(
       velox::memory::MemoryPool* pool,
       TypePtr type,

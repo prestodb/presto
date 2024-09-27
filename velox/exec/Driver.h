@@ -532,13 +532,12 @@ class Driver : public std::enable_shared_from_this<Driver> {
       TimingMemberPtr opTimingMember,
       Func&& opFunction);
 
-  // Adjusts 'timing' by removing the lazy load wall and CPU times
-  // accrued since last time timing information was recorded for
-  // 'op'. The accrued lazy load times are credited to the source
-  // operator of 'this'. The per-operator runtimeStats for lazy load
-  // are left in place to reflect which operator triggered the load
-  // but these do not bias the op's timing.
-  CpuWallTiming processLazyTiming(Operator& op, const CpuWallTiming& timing);
+  // Adjusts 'timing' by removing the lazy load wall time, CPU time, and input
+  // bytes accrued since last time timing information was recorded for 'op'. The
+  // accrued lazy load times are credited to the source operator of 'this'. The
+  // per-operator runtimeStats for lazy load are left in place to reflect which
+  // operator triggered the load but these do not bias the op's timing.
+  CpuWallTiming processLazyIoStats(Operator& op, const CpuWallTiming& timing);
 
   inline void validateOperatorOutputResult(
       const RowVectorPtr& result,
