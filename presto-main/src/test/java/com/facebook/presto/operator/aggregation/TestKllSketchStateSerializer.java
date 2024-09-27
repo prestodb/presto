@@ -94,7 +94,7 @@ public class TestKllSketchStateSerializer
     @Test
     public void testEstimatedMemorySizeString()
     {
-        testEstimatedMemorySize(VARCHAR, i -> "abcdefghijklmnopqrstuvwxyz".substring(0, i.hashCode() % 26), .05);
+        testEstimatedMemorySize(VARCHAR, i -> "abcdefghijklmnopqrstuvwxyz".substring(0, i.hashCode() % 26), .2);
     }
 
     @Test

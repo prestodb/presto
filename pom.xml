@@ -2327,11 +2327,15 @@
                     <groupId>org.gaul</groupId>
                     <artifactId>modernizer-maven-plugin</artifactId>
                     <configuration>
+                        <javaVersion>11</javaVersion>
                         <violationsFiles>
                             <violationsFile>${air.main.basedir}/src/modernizer/violations.xml</violationsFile>
                         </violationsFiles>
                         <exclusionPatterns>
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
+                            <exclusionPattern>com/google/common/collect/.*</exclusionPattern>
+                            <exclusionPattern>com/google/common/io/.*</exclusionPattern>
+                            <exclusionPattern>java/net/.*</exclusionPattern>
                         </exclusionPatterns>
                     </configuration>
                 </plugin>
@@ -2539,6 +2543,50 @@
                     </dependency>
                 </dependencies>
             </dependencyManagement>
+        </profile>
+        <profile>
+            <id>build-with-jdk-11</id>
+            <activation>
+                <jdk>11</jdk>
+            </activation>
+            <properties>
+                <project.build.targetJdk>11</project.build.targetJdk>
+                <maven.compiler.source>11</maven.compiler.source>
+                <maven.compiler.target>11</maven.compiler.target>
+                <maven.compiler.release>11</maven.compiler.release>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>3.0.0-M7</version>
+                        <configuration combine.children="append">
+                            <argLine>
+                                --add-opens=java.base/jdk.internal.loader=ALL-UNNAMED
+                                --add-opens=java.base/jdk.internal.math=ALL-UNNAMED
+                                --add-opens=java.base/jdk.internal.module=ALL-UNNAMED
+                                --add-opens=java.base/jdk.internal.perf=ALL-UNNAMED
+                                --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED
+                                --add-opens=java.base/jdk.internal.reflect=ALL-UNNAMED
+                                --add-opens=java.base/jdk.internal.util.jar=ALL-UNNAMED
+                                --add-opens=java.base/java.lang.module=ALL-UNNAMED
+                                --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED
+                                --add-opens=jdk.management.jfr/jdk.management.jfr=ALL-UNNAMED
+                                --illegal-access=warn
+                            </argLine>
+                            <includes>
+                                <include>**/Test*.java</include>
+                                <include>**/Benchmark*.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/*jmhTest*.java</exclude>
+                                <exclude>**/*jmhType*.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
         <profile>
             <id>tests-with-dependencies</id>
