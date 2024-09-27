@@ -1474,48 +1474,28 @@ bool waitForTaskStateChange(
 }
 
 void waitForAllTasksToBeDeleted(uint64_t maxWaitUs) {
-  const uint64_t numCreatedTasks = Task::numCreatedTasks();
-  uint64_t numDeletedTasks = Task::numDeletedTasks();
   uint64_t waitUs = 0;
-  while (numCreatedTasks > numDeletedTasks) {
+  while (Task::numRunningTasks() != 0) {
     constexpr uint64_t kWaitInternalUs = 1'000;
     std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
     waitUs += kWaitInternalUs;
-    numDeletedTasks = Task::numDeletedTasks();
     if (waitUs >= maxWaitUs) {
       break;
     }
   }
-  VELOX_CHECK_EQ(
-      numDeletedTasks,
-      numCreatedTasks,
-      "{} tasks have been created while only {} have been deleted after waiting for {} us",
-      numCreatedTasks,
-      numDeletedTasks,
-      waitUs);
-}
-
-void waitForAllTasksToBeDeleted(
-    uint64_t expectedDeletedTasks,
-    uint64_t maxWaitUs) {
-  uint64_t numDeletedTasks = Task::numDeletedTasks();
-  uint64_t waitUs = 0;
-  while (expectedDeletedTasks > numDeletedTasks) {
-    constexpr uint64_t kWaitInternalUs = 1'000;
-    std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
-    waitUs += kWaitInternalUs;
-    numDeletedTasks = Task::numDeletedTasks();
-    if (waitUs >= maxWaitUs) {
-      break;
-    }
+  std::vector<std::shared_ptr<Task>> pendingTasks = Task::getRunningTasks();
+  if (pendingTasks.empty()) {
+    return;
   }
-  VELOX_CHECK_EQ(
-      numDeletedTasks,
-      expectedDeletedTasks,
-      "expected {} tasks to be deleted but only {} have been deleted after waiting for {} us",
-      expectedDeletedTasks,
-      numDeletedTasks,
-      waitUs);
+  std::vector<std::string> pendingTaskStats;
+  pendingTaskStats.reserve(pendingTasks.size());
+  for (const auto& task : pendingTasks) {
+    pendingTaskStats.push_back(task->toString());
+  }
+  VELOX_FAIL(
+      "{} pending tasks\n{}",
+      pendingTasks.size(),
+      folly::join("\n", pendingTaskStats));
 }
 
 std::shared_ptr<Task> assertQuery(

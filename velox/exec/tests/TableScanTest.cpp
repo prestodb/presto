@@ -1539,7 +1539,7 @@ TEST_F(TableScanTest, preloadingSplitClose) {
       latch.count_down();
     });
   }
-  ASSERT_EQ(Task::numCreatedTasks(), Task::numDeletedTasks());
+  ASSERT_EQ(Task::numRunningTasks(), 0);
   auto task = assertQuery(tableScanNode(), filePaths, "SELECT * FROM tmp", 2);
   auto stats = getTableScanRuntimeStats(task);
 
@@ -1547,9 +1547,8 @@ TEST_F(TableScanTest, preloadingSplitClose) {
   ASSERT_GT(stats.at("preloadedSplits").sum, 1);
 
   task.reset();
-  // Once all task references are cleared, the count of deleted tasks should
-  // promptly match the count of created tasks.
-  ASSERT_EQ(Task::numCreatedTasks(), Task::numDeletedTasks());
+  // Once all task references are cleared, all the tasks should be destroyed.
+  ASSERT_EQ(Task::numRunningTasks(), 0);
   // Clean blocking items in the IO thread pool.
   for (auto& baton : batons) {
     baton.post();

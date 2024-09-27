@@ -466,8 +466,9 @@ class TaskTest : public HiveConnectorTestBase {
       core::PlanFragment plan,
       const std::unordered_map<std::string, std::vector<std::string>>&
           filePaths = {}) {
+    static std::atomic_uint64_t taskId{0};
     auto task = Task::create(
-        "single.execution.task.0",
+        fmt::format("single.execution.task.{}", taskId++),
         plan,
         0,
         core::QueryCtx::create(),
@@ -743,15 +744,11 @@ TEST_F(TaskTest, serialExecution) {
       makeFlatVector<int64_t>(100, [](auto row) { return row + 5; }),
   });
 
-  uint64_t numCreatedTasks = Task::numCreatedTasks();
-  uint64_t numDeletedTasks = Task::numDeletedTasks();
   {
     auto [task, results] = executeSerial(plan);
     assertEqualResults(
         std::vector<RowVectorPtr>{expectedResult, expectedResult}, results);
   }
-  ASSERT_EQ(numCreatedTasks + 1, Task::numCreatedTasks());
-  ASSERT_EQ(numDeletedTasks + 1, Task::numDeletedTasks());
 
   // Project + Aggregation.
   plan = PlanBuilder()
@@ -776,14 +773,10 @@ TEST_F(TaskTest, serialExecution) {
            995 / 2.0 + 4}),
   });
 
-  ++numCreatedTasks;
-  ++numDeletedTasks;
   {
     auto [task, results] = executeSerial(plan);
     assertEqualResults({expectedResult}, results);
   }
-  ASSERT_EQ(numCreatedTasks + 1, Task::numCreatedTasks());
-  ASSERT_EQ(numDeletedTasks + 1, Task::numDeletedTasks());
 
   // Project + Aggregation over TableScan.
   auto filePath = TempFilePath::create();
@@ -806,6 +799,65 @@ TEST_F(TaskTest, serialExecution) {
   // Query failure.
   plan = PlanBuilder().values({data, data}).project({"c0 / 0"}).planFragment();
   VELOX_ASSERT_THROW(executeSerial(plan), "division by zero");
+}
+
+// The purpose of the test is to check the running task list APIs.
+TEST_F(TaskTest, runningTaskList) {
+  const auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  ASSERT_EQ(Task::numRunningTasks(), 0);
+  ASSERT_TRUE(Task::getRunningTasks().empty());
+
+  const auto plan = PlanBuilder()
+                        .values({data, data})
+                        .filter("c0 < 100")
+                        .project({"c0 + 5"})
+                        .planFragment();
+
+  // This is to verify that runningTaskList API returns a completed task which
+  // still has pending references.
+  std::vector<std::shared_ptr<Task>> expectedRunningTasks;
+  expectedRunningTasks.push_back(executeSerial(plan).first);
+  ASSERT_EQ(Task::numRunningTasks(), 1);
+  ASSERT_EQ(Task::getRunningTasks().size(), 1);
+
+  expectedRunningTasks.push_back(executeSerial(plan).first);
+  ASSERT_EQ(Task::numRunningTasks(), 2);
+  ASSERT_EQ(Task::getRunningTasks().size(), 2);
+
+  expectedRunningTasks.push_back(executeSerial(plan).first);
+  ASSERT_EQ(Task::numRunningTasks(), 3);
+  ASSERT_EQ(Task::getRunningTasks().size(), 3);
+
+  std::set<std::string> expectedTaskIdSet;
+  for (const auto& task : expectedRunningTasks) {
+    expectedTaskIdSet.insert(task->taskId());
+  }
+  ASSERT_EQ(expectedTaskIdSet.size(), 3);
+  std::vector<std::shared_ptr<Task>> runningTasks = Task::getRunningTasks();
+  ASSERT_EQ(runningTasks.size(), 3);
+  for (const auto& task : runningTasks) {
+    ASSERT_EQ(expectedTaskIdSet.count(task->taskId()), 1);
+  }
+
+  expectedTaskIdSet.erase(expectedRunningTasks.back()->taskId());
+  expectedRunningTasks.pop_back();
+  ASSERT_EQ(expectedTaskIdSet.size(), 2);
+
+  runningTasks.clear();
+  runningTasks = Task::getRunningTasks();
+  ASSERT_EQ(runningTasks.size(), 2);
+  for (const auto& task : runningTasks) {
+    ASSERT_EQ(expectedTaskIdSet.count(task->taskId()), 1);
+  }
+
+  runningTasks.clear();
+  expectedRunningTasks.clear();
+
+  ASSERT_EQ(Task::numRunningTasks(), 0);
+  ASSERT_TRUE(Task::getRunningTasks().empty());
 }
 
 TEST_F(TaskTest, serialHashJoin) {

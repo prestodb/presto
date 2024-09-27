@@ -209,9 +209,6 @@ std::string taskStateString(TaskState state) {
   }
 }
 
-std::atomic<uint64_t> Task::numCreatedTasks_ = 0;
-std::atomic<uint64_t> Task::numDeletedTasks_ = 0;
-
 bool registerTaskListener(std::shared_ptr<TaskListener> listener) {
   return listeners().withWLock([&](auto& listeners) {
     for (const auto& existingListener : listeners) {
@@ -277,6 +274,7 @@ std::shared_ptr<Task> Task::create(
       std::move(consumerSupplier),
       std::move(onError)));
   task->initTaskPool();
+  task->addToTaskList();
   return task;
 }
 
@@ -310,6 +308,8 @@ Task::Task(
 }
 
 Task::~Task() {
+  removeFromTaskList();
+
   // TODO(spershin): Temporary code designed to reveal what causes SIGABRT in
   // jemalloc when destroying some Tasks.
   std::string clearStage;
@@ -352,6 +352,48 @@ Task::~Task() {
   auto taskDeletionPromises = std::move(taskDeletionPromises_);
   for (auto& promise : taskDeletionPromises) {
     promise.setValue();
+  }
+}
+
+Task::TaskList& Task::taskList() {
+  static TaskList taskList;
+  return taskList;
+}
+
+folly::SharedMutex& Task::taskListLock() {
+  static folly::SharedMutex lock;
+  return lock;
+}
+
+size_t Task::numRunningTasks() {
+  std::shared_lock guard{taskListLock()};
+  return taskList().size();
+}
+
+std::vector<std::shared_ptr<Task>> Task::getRunningTasks() {
+  std::vector<std::shared_ptr<Task>> tasks;
+  std::shared_lock guard(taskListLock());
+  tasks.reserve(taskList().size());
+  for (auto taskEntry : taskList()) {
+    if (auto task = taskEntry.taskPtr.lock()) {
+      tasks.push_back(std::move(task));
+    }
+  }
+  return tasks;
+}
+
+void Task::addToTaskList() {
+  VELOX_CHECK(!taskListEntry_.listHook.is_linked());
+  taskListEntry_.taskPtr = shared_from_this();
+
+  std::unique_lock guard{taskListLock()};
+  taskList().push_back(taskListEntry_);
+}
+
+void Task::removeFromTaskList() {
+  std::unique_lock guard{taskListLock()};
+  if (taskListEntry_.listHook.is_linked()) {
+    taskListEntry_.listHook.unlink();
   }
 }
 
