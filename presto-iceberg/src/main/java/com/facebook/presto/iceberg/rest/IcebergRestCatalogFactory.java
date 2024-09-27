@@ -35,6 +35,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.OAUTH2_SERVER_URI;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 
 public class IcebergRestCatalogFactory
@@ -67,6 +68,11 @@ public class IcebergRestCatalogFactory
 
         catalogConfig.getAuthenticationType().ifPresent(type -> {
             if (type == OAUTH2) {
+                // The oauth2/tokens endpoint of the REST catalog spec has been deprecated and will
+                // be removed in Iceberg 2.0 (https://github.com/apache/iceberg/pull/10603)
+                // TODO auth server URI will eventually need to be made a required property
+                catalogConfig.getAuthenticationServerUri().ifPresent(authServerUri -> properties.put(OAUTH2_SERVER_URI, authServerUri));
+
                 if (!catalogConfig.credentialOrTokenExists()) {
                     throw new IllegalStateException("iceberg.rest.auth.oauth2 requires either a credential or a token");
                 }
