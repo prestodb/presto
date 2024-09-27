@@ -210,6 +210,9 @@ Property Name                                        Description
                                                      Available values are ``NONE`` or ``OAUTH2`` (default: ``NONE``).
                                                      ``OAUTH2`` requires either a credential or token.
 
+``iceberg.rest.auth.oauth2.uri``                     OAUTH2 server endpoint URI.
+                                                     Example: ``https://localhost:9191``
+
 ``iceberg.rest.auth.oauth2.credential``              The credential to use for OAUTH2 authentication.
                                                      Example: ``key:secret``
 

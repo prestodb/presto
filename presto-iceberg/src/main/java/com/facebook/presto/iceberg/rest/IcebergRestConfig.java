@@ -25,6 +25,7 @@ public class IcebergRestConfig
     private String serverUri;
     private SessionType sessionType;
     private AuthenticationType authenticationType;
+    private String authenticationServerUri;
     private String credential;
     private String token;
 
@@ -65,6 +66,19 @@ public class IcebergRestConfig
     public IcebergRestConfig setAuthenticationType(AuthenticationType authenticationType)
     {
         this.authenticationType = authenticationType;
+        return this;
+    }
+
+    public Optional<String> getAuthenticationServerUri()
+    {
+        return Optional.ofNullable(authenticationServerUri);
+    }
+
+    @Config("iceberg.rest.auth.oauth2.uri")
+    @ConfigDescription("The URI to connect to the OAUTH2 server")
+    public IcebergRestConfig setAuthenticationServerUri(String authServerUri)
+    {
+        this.authenticationServerUri = authServerUri;
         return this;
     }
 
