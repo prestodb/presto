@@ -246,6 +246,12 @@ public class ContainerQueryRunner
     }
 
     @Override
+    public void loadNativeFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Lock getExclusiveLock()
     {
         throw new UnsupportedOperationException();

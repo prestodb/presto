@@ -19,6 +19,7 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -218,7 +219,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ServerConfig serverConfig)
     {
         this(metadata,
                 sqlParser,
@@ -233,7 +235,8 @@ public class PlanOptimizers
                 costComparator,
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig);
+                featuresConfig,
+                serverConfig);
     }
 
     @PostConstruct
@@ -264,7 +267,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ServerConfig serverConfig)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -846,7 +850,8 @@ public class PlanOptimizers
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
             builder.add(new CteProjectionAndPredicatePushDown(metadata)); // must run before PhysicalCteOptimizer
             builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(
+                    metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled(), serverConfig.isCoordinatorSidecarEnabled())));
         }
 
         //noinspection UnusedAssignment

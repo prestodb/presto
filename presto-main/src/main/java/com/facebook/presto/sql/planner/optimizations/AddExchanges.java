@@ -160,12 +160,14 @@ public class AddExchanges
     private final Metadata metadata;
     private final PartitioningProviderManager partitioningProviderManager;
     private final boolean nativeExecution;
+    private final boolean coordinatorSidecarEnabled;
 
-    public AddExchanges(Metadata metadata, PartitioningProviderManager partitioningProviderManager, boolean nativeExecution)
+    public AddExchanges(Metadata metadata, PartitioningProviderManager partitioningProviderManager, boolean nativeExecution, boolean coordinatorSidecarEnabled)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.nativeExecution = nativeExecution;
+        this.coordinatorSidecarEnabled = coordinatorSidecarEnabled;
     }
 
     @Override
@@ -770,8 +772,34 @@ public class AddExchanges
             PlanNode child = planChild(node, PreferredProperties.any()).getNode();
 
             ExchangeNode gather;
+
+            // If coordinatorSidecar is enabled, we do not have the necessary metadata to
+            // build an accumulator factory to perform the aggregations, hence we introduce an exchange and
+            // perform the final aggregation in the native execution engine.
+            if (coordinatorSidecarEnabled && (child instanceof TableWriterNode || child instanceof UnionNode)) {
+                ExchangeNode exchangeNode = new ExchangeNode(
+                        child.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        GATHER,
+                        REMOTE_STREAMING,
+                        new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.of()), child.getOutputVariables()),
+                        ImmutableList.of(child),
+                        ImmutableList.of(child.getOutputVariables()),
+                        true,
+                        Optional.empty());
+                gather = ensureSourceOrderingGatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, exchangeNode);
+                node = new TableFinishNode(
+                        node.getSourceLocation(),
+                        node.getId(),
+                        node.getSource(),
+                        node.getTarget(),
+                        node.getRowCountVariable(),
+                        Optional.empty(),
+                        Optional.empty());
+            }
+
             // in case the input is a union (see PushTableWriteThroughUnion), don't add another exchange
-            if (child instanceof ExchangeNode) {
+            else if (child instanceof ExchangeNode) {
                 ExchangeNode exchangeNode = (ExchangeNode) child;
                 gather = new ExchangeNode(
                         exchangeNode.getSourceLocation(),

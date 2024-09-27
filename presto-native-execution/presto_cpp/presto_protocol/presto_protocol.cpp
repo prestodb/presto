@@ -72,6 +72,10 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     j = *std::static_pointer_cast<SqlFunctionHandle>(p);
     return;
   }
+  if (type == "native") {
+    j = *std::static_pointer_cast<SqlFunctionHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type FunctionHandle ");
 }
@@ -92,6 +96,13 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
     return;
   }
   if (type == "json_file") {
+    std::shared_ptr<SqlFunctionHandle> k =
+        std::make_shared<SqlFunctionHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<FunctionHandle>(k);
+    return;
+  }
+  if (type == "native") {
     std::shared_ptr<SqlFunctionHandle> k =
         std::make_shared<SqlFunctionHandle>();
     j.get_to(*k);
@@ -1852,6 +1863,13 @@ void to_json(json& j, const SqlInvokedFunction& p) {
   to_json_key(j, "body", p.body, "SqlInvokedFunction", "String", "body");
   to_json_key(
       j,
+      "variableArity",
+      p.variableArity,
+      "SqlInvokedFunction",
+      "bool",
+      "variableArity");
+  to_json_key(
+      j,
       "signature",
       p.signature,
       "SqlInvokedFunction",
@@ -1889,6 +1907,13 @@ void from_json(const json& j, SqlInvokedFunction& p) {
       "RoutineCharacteristics",
       "routineCharacteristics");
   from_json_key(j, "body", p.body, "SqlInvokedFunction", "String", "body");
+  from_json_key(
+      j,
+      "variableArity",
+      p.variableArity,
+      "SqlInvokedFunction",
+      "bool",
+      "variableArity");
   from_json_key(
       j,
       "signature",
@@ -9310,6 +9335,13 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "schema");
   to_json_key(
       j,
+      "variableArity",
+      p.variableArity,
+      "JsonBasedUdfFunctionMetadata",
+      "bool",
+      "variableArity");
+  to_json_key(
+      j,
       "routineCharacteristics",
       p.routineCharacteristics,
       "JsonBasedUdfFunctionMetadata",
@@ -9322,6 +9354,13 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  to_json_key(
+      j,
+      "typeVariableConstraints",
+      p.typeVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<TypeVariableConstraint>",
+      "typeVariableConstraints");
 }
 
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
@@ -9362,6 +9401,13 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "schema");
   from_json_key(
       j,
+      "variableArity",
+      p.variableArity,
+      "JsonBasedUdfFunctionMetadata",
+      "bool",
+      "variableArity");
+  from_json_key(
+      j,
       "routineCharacteristics",
       p.routineCharacteristics,
       "JsonBasedUdfFunctionMetadata",
@@ -9374,6 +9420,13 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  from_json_key(
+      j,
+      "typeVariableConstraints",
+      p.typeVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<TypeVariableConstraint>",
+      "typeVariableConstraints");
 }
 } // namespace facebook::presto::protocol
 /*
@@ -12217,12 +12270,12 @@ void from_json(const json& j, Specification& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 SqlFunctionHandle::SqlFunctionHandle() noexcept {
-  _type = "json_file";
+  _type = "native";
 }
 
 void to_json(json& j, const SqlFunctionHandle& p) {
   j = json::object();
-  j["@type"] = "json_file";
+  j["@type"] = "native";
   to_json_key(
       j,
       "functionId",

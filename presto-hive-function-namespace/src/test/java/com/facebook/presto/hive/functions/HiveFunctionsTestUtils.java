@@ -21,6 +21,7 @@ import com.google.inject.Key;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 
 public final class HiveFunctionsTestUtils
 {
@@ -37,7 +38,8 @@ public final class HiveFunctionsTestUtils
         functionAndTypeManager.loadFunctionNamespaceManager(
                 "hive-functions",
                 "hive",
-                getNamespaceManagerCreationProperties());
+                getNamespaceManagerCreationProperties(),
+                Optional.empty());
         server.refreshNodes();
         return server;
     }

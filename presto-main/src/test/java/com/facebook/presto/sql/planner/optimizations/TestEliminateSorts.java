@@ -140,7 +140,7 @@ public class TestEliminateSorts
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new AddExchanges(getQueryRunner().getMetadata(), new PartitioningProviderManager(), false),
+                new AddExchanges(getQueryRunner().getMetadata(), new PartitioningProviderManager(), false, false),
                 new AddLocalExchanges(getMetadata(), false),
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
