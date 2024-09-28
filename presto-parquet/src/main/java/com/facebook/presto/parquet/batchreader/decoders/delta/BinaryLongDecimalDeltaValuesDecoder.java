@@ -49,7 +49,7 @@ public class BinaryLongDecimalDeltaValuesDecoder
         BinaryValuesDecoder.ValueBuffer valueBuffer = delegate.readNext(length);
         int bufferSize = valueBuffer.getBufferSize();
         byte[] byteBuffer = new byte[bufferSize];
-        int[] offsets = new int[bufferSize + 1];
+        int[] offsets = new int[length + 1];
         delegate.readIntoBuffer(byteBuffer, 0, offsets, 0, valueBuffer);
 
         for (int i = 0; i < length; i++) {
