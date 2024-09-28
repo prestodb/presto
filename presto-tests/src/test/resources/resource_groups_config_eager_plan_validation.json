@@ -1,0 +1,32 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "subGroups": [
+        {
+          "name": "user-${USER}",
+          "softMemoryLimit": "1MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 3,
+          "subGroups": [
+            {
+              "name": "eager-${USER}",
+              "softMemoryLimit": "1MB",
+              "hardConcurrencyLimit": 1,
+              "maxQueued": 2
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "source": "(?i).*eager.*",
+      "group": "global.user-${USER}.eager-${USER}"
+    }
+  ]
+}
