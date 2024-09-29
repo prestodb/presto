@@ -189,6 +189,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanRenameView(Identity identity, AccessControlContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+    }
+
+    @Override
     public void checkCanDropView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
     }
