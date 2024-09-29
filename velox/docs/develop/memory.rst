@@ -610,10 +610,7 @@ The end-to-end memory arbitration process in *SharedArbitrator* works as follows
       memory reservations from the candidate query pools without actually
       freeing the used memory. It first tries to reclaim from itself and then
       from the candidate pools which have the most free capacity
-      (*MemoryPool::freeBytes*) until it reaches the memory reclaim target. Note
-      that we set the memory reclaim target to a large value
-      (*MemoryManagerOptions::memoryPoolTransferCapacity*) which could be more
-      than the actual needed size, to avoid the frequent memory arbitrations.
+      (*MemoryPool::freeBytes*) until it reaches the memory reclaim target.
 
    d. If the memory arbitrator hasn’t reclaimed enough free memory on fast
       path, it runs the slow path
