@@ -433,6 +433,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void renameView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName)
+    {
+        delegate.renameView(session, existingViewName, newViewName);
+    }
+
+    @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         delegate.dropView(session, viewName);

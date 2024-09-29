@@ -459,6 +459,12 @@ public class TestAccessControlManager
         }
 
         @Override
+        public void checkCanRenameView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName, SchemaTableName newViewName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
