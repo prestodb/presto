@@ -10,6 +10,11 @@
       "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
     },
     {
+      "user": "alice",
+      "schema": "aliceschema",
+      "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+    },
+    {
       "user": "bob",
       "schema": "bobschema",
       "table": "bobtable",
