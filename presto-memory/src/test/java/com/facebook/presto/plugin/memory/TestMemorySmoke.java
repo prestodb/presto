@@ -185,6 +185,24 @@ public class TestMemorySmoke
         assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");
     }
 
+    @Test
+    public void testRenameView()
+    {
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+
+        assertUpdate("CREATE VIEW test_view_to_be_renamed AS " + query);
+        assertQueryFails("ALTER VIEW test_view_to_be_renamed RENAME TO memory.test_schema_not_exist.test_view_renamed", "Schema test_schema_not_exist not found");
+        assertUpdate("ALTER VIEW test_view_to_be_renamed RENAME TO test_view_renamed");
+        assertQuery("SELECT * FROM test_view_renamed", query);
+
+        assertUpdate("CREATE SCHEMA test_different_schema");
+        assertUpdate("ALTER VIEW test_view_renamed RENAME TO test_different_schema.test_view_renamed");
+        assertQuery("SELECT * FROM test_different_schema.test_view_renamed", query);
+
+        assertUpdate("DROP VIEW test_different_schema.test_view_renamed");
+        assertUpdate("DROP SCHEMA test_different_schema");
+    }
+
     private List<QualifiedObjectName> listMemoryTables()
     {
         return getQueryRunner().listTables(getSession(), "memory", "default");

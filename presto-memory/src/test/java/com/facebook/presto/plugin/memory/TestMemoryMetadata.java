@@ -225,6 +225,7 @@ public class TestMemoryMetadata
         ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
                 test2,
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        SchemaTableName test3 = new SchemaTableName("test", "test_view3");
 
         // create schema
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
@@ -265,8 +266,14 @@ public class TestMemoryMetadata
         views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
         assertEquals(views.keySet(), ImmutableSet.of(test2));
 
+        // rename second view
+        metadata.renameView(SESSION, test2, test3);
+
+        Map<?, ?> result = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
+        assertTrue(result.containsKey(test3));
+
         // drop second view
-        metadata.dropView(SESSION, test2);
+        metadata.dropView(SESSION, test3);
 
         views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
         assertTrue(views.isEmpty());
