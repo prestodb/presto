@@ -511,13 +511,11 @@ public class FileHiveMetastore
         requireNonNull(tableName, "tableName is null");
         requireNonNull(newDatabaseName, "newDatabaseName is null");
         requireNonNull(newTableName, "newTableName is null");
-
         Table table = getRequiredTable(metastoreContext, databaseName, tableName);
         getRequiredDatabase(metastoreContext, newDatabaseName);
-        if (isIcebergTable(table)) {
+        if (isIcebergTable(table) && !isIcebergView(table)) {
             throw new PrestoException(NOT_SUPPORTED, "Rename not supported for Iceberg tables");
         }
-
         // verify new table does not exist
         verifyTableNotExists(metastoreContext, newDatabaseName, newTableName);
 
