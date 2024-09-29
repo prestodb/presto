@@ -298,7 +298,7 @@ public class DispatchManager
 
             session = sessionBuilder.build();
             if (sessionContext.getTransactionId().isPresent()) {
-                session = session.beginTransactionId(sessionContext.getTransactionId().get(), transactionManager, accessControl);
+                session = session.beginTransactionId(sessionContext.getTransactionId().get(), isRollBack(query), transactionManager, accessControl);
             }
 
             // mark existing transaction as active
@@ -445,6 +445,11 @@ public class DispatchManager
     {
         queryTracker.tryGetQuery(queryId)
                 .ifPresent(DispatchQuery::cancel);
+    }
+
+    private boolean isRollBack(String sql)
+    {
+        return sql != null && sql.trim().equalsIgnoreCase("rollback");
     }
 
     private static class DispatchQueryCreationFuture

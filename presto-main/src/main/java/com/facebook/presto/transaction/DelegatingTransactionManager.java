@@ -94,6 +94,12 @@ public class DelegatingTransactionManager
     }
 
     @Override
+    public void ignoreTransactionState(TransactionId transactionId)
+    {
+        delegate.ignoreTransactionState(transactionId);
+    }
+
+    @Override
     public CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId)
     {
         return delegate.getCatalogMetadata(transactionId, connectorId);
