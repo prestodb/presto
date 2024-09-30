@@ -81,6 +81,7 @@ jobs:
             export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           fi
           presto-hive-hadoop2/bin/run_hive_tests.sh
+
       - name: Run Hive S3 Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.HIVE_AWS_ACCESSKEY }}
