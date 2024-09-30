@@ -143,6 +143,10 @@ TEST_F(PlanConverterTest, scanAgg) {
   ASSERT_EQ(
       tableHandle->dataColumns()->toString(),
       "ROW<nationkey:BIGINT,name:VARCHAR,regionkey:BIGINT,complex_type:ARRAY<MAP<VARCHAR,ROW<id:BIGINT,description:VARCHAR>>>,comment:VARCHAR>");
+  ASSERT_TRUE(tableHandle->remainingFilter());
+  ASSERT_EQ(
+      tableHandle->remainingFilter()->toString(),
+      "presto.default.lt(presto.default.rand(),0.0001)");
 
   auto tableParameters = tableHandle->tableParameters();
   ASSERT_EQ(tableParameters.size(), 6);
