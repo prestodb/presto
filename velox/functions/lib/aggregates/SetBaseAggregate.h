@@ -24,13 +24,15 @@ namespace facebook::velox::functions::aggregate {
 /// @tparam ignoreNulls Whether null inputs are ignored.
 /// @tparam nullForEmpty When true, nulls are returned for empty groups.
 /// Otherwise, empty arrays.
-template <typename T, bool ignoreNulls = false, bool nullForEmpty = true>
+template <
+    typename T,
+    bool ignoreNulls = false,
+    bool nullForEmpty = true,
+    typename AccumulatorType = velox::aggregate::prestosql::SetAccumulator<T>>
 class SetBaseAggregate : public exec::Aggregate {
  public:
   explicit SetBaseAggregate(const TypePtr& resultType)
       : exec::Aggregate(resultType) {}
-
-  using AccumulatorType = velox::aggregate::prestosql::SetAccumulator<T>;
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(AccumulatorType);
@@ -216,16 +218,20 @@ class SetBaseAggregate : public exec::Aggregate {
   DecodedVector decodedElements_;
 };
 
-template <typename T, bool ignoreNulls = false, bool nullForEmpty = true>
-class SetAggAggregate : public SetBaseAggregate<T, ignoreNulls, nullForEmpty> {
+template <
+    typename T,
+    bool ignoreNulls = false,
+    bool nullForEmpty = true,
+    typename AccumulatorType = velox::aggregate::prestosql::SetAccumulator<T>>
+class SetAggAggregate
+    : public SetBaseAggregate<T, ignoreNulls, nullForEmpty, AccumulatorType> {
  public:
+  using Base = SetBaseAggregate<T, ignoreNulls, nullForEmpty, AccumulatorType>;
+
   explicit SetAggAggregate(
       const TypePtr& resultType,
       const bool throwOnNestedNulls = false)
-      : SetBaseAggregate<T, ignoreNulls, nullForEmpty>(resultType),
-        throwOnNestedNulls_(throwOnNestedNulls) {}
-
-  using Base = SetBaseAggregate<T, ignoreNulls, nullForEmpty>;
+      : Base(resultType), throwOnNestedNulls_(throwOnNestedNulls) {}
 
   bool supportsToIntermediate() const override {
     return true;

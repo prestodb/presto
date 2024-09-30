@@ -16,6 +16,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox::functions::aggregate::test;
@@ -598,6 +599,88 @@ TEST_F(SetUnionTest, nans) {
                    "c"_sv,
                }),
                makeFlatVector<double>({1, 2, kNaN, 1, 2, kNaN})})),
+      makeFlatVector<int32_t>({1, 2}),
+  });
+
+  testAggregations(
+      {data}, {"c1"}, {"set_union(c0)"}, {"array_sort(a0)", "c1"}, {expected});
+}
+
+TEST_F(SetUnionTest, TimestampWithTimeZone) {
+  // Global aggregation, Primitive type.
+  auto data = makeRowVector({
+      makeArrayVector<int64_t>(
+          {
+              {pack(0, 0), pack(1, 1), pack(2, 4)},
+              {pack(3, 0), pack(4, 0), pack(2, 8)},
+              {pack(3, 1), pack(1, 0), pack(2, 2)},
+          },
+          TIMESTAMP_WITH_TIME_ZONE()),
+      makeFlatVector<int32_t>({1, 2, 2}),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<int64_t>(
+          {{pack(0, 0), pack(1, 1), pack(2, 4), pack(3, 0), pack(4, 0)}},
+          TIMESTAMP_WITH_TIME_ZONE()),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
+
+  // Group by aggregation, Primitive type.
+  expected = makeRowVector({
+      makeArrayVector<int64_t>(
+          {
+              {pack(0, 0), pack(1, 1), pack(2, 4)},
+              {pack(1, 0), pack(2, 8), pack(3, 0), pack(4, 0)},
+          },
+          TIMESTAMP_WITH_TIME_ZONE()),
+      makeFlatVector<int32_t>({1, 2}),
+  });
+
+  testAggregations(
+      {data}, {"c1"}, {"set_union(c0)"}, {"array_sort(a0)", "c1"}, {expected});
+
+  // Global aggregation, wrapped in complex type.
+  data = makeRowVector({
+      makeArrayVector(
+          {0, 3, 6},
+          makeRowVector({makeFlatVector<int64_t>(
+              {pack(0, 0),
+               pack(1, 0),
+               pack(2, 0),
+               pack(0, 1),
+               pack(1, 1),
+               pack(2, 1),
+               pack(0, 2),
+               pack(1, 2),
+               pack(2, 2)},
+              TIMESTAMP_WITH_TIME_ZONE())})),
+      makeFlatVector<int32_t>({1, 2, 2}),
+  });
+
+  expected = makeRowVector({makeArrayVector(
+      {0},
+      makeRowVector({makeFlatVector<int64_t>(
+          {pack(0, 0), pack(1, 0), pack(2, 0)},
+          TIMESTAMP_WITH_TIME_ZONE())}))});
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
+
+  // Group by aggregation, wrapped in complex type.
+  expected = makeRowVector({
+      makeArrayVector(
+          {0, 3},
+          makeRowVector({makeFlatVector<int64_t>(
+              {pack(0, 0),
+               pack(1, 0),
+               pack(2, 0),
+               pack(0, 1),
+               pack(1, 1),
+               pack(2, 1)},
+              TIMESTAMP_WITH_TIME_ZONE())})),
       makeFlatVector<int32_t>({1, 2}),
   });
 

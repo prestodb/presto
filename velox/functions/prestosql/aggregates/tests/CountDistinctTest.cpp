@@ -17,6 +17,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox::functions::aggregate::test;
@@ -237,6 +238,38 @@ TEST_F(CountDistinctTest, groupByArray) {
       {"c0"},
       {"\"$internal$count_distinct\"(c1)"},
       {expected});
+}
+
+TEST_F(CountDistinctTest, timestampWithTimeZone) {
+  auto data = makeRowVector({
+      // Keys for non-global aggregations.
+      makeFlatVector<int16_t>({1, 1, 2, 1, 2, 1, 2, 1}),
+      makeFlatVector<int64_t>(
+          {pack(0, 0),
+           pack(1, 0),
+           pack(2, 0),
+           pack(0, 1),
+           pack(1, 1),
+           pack(1, 2),
+           pack(2, 2),
+           pack(3, 3)},
+          TIMESTAMP_WITH_TIME_ZONE()),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int64_t>(std::vector<int64_t>{4}),
+  });
+
+  testAggregations(
+      {data}, {}, {"\"$internal$count_distinct\"(c1)"}, {expected});
+
+  expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeFlatVector<int64_t>({3, 2}),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"\"$internal$count_distinct\"(c1)"}, {expected});
 }
 
 } // namespace
