@@ -1463,11 +1463,14 @@ TEST_F(StringFunctionsTest, replace) {
       {{"123tech123", "123", "tech"}, {"techtechtech"}},
       {{"123tech123", "123", ""}, {"tech"}},
       {{"222tech", "2", "3"}, {"333tech"}},
+      {{"", "", "K"}, {"K"}},
+      {{"", "", ""}, {""}},
   };
 
   replace_input_test_t testsTwoArgs = {
       {{"abcdefabcdef", "cd", ""}, {"abefabef"}},
       {{"123tech123", "123", ""}, {"tech"}},
+      {{"", "K", ""}, {""}},
       {{"", "", ""}, {""}},
   };
 

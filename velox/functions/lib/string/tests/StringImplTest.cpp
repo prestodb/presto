@@ -542,7 +542,7 @@ TEST_F(StringImplTest, replace) {
   runTest("foo", "", "", "foo");
   runTest("foo", "foo", "", "");
   runTest("abc", "", "xx", "xxaxxbxxcxx");
-  runTest("", "", "xx", "");
+  runTest("", "", "xx", "xx");
   runTest("", "", "", "");
 
   runTest(

@@ -377,8 +377,12 @@ inline int64_t findNthInstanceByteIndexFromEnd(
 /// be the same. When replaced is empty and ignoreEmptyReplaced is false,
 /// replacement is added before and after each charecter. When replaced is
 /// empty and ignoreEmptyReplaced is true, the result is the inputString value.
-/// When inputString is empty results is empty.
-/// replace("", "", "x") = ""
+/// When inputString and replaced strings are empty, result is the
+/// replacement string if ignoreEmptyReplaced is false, otherwise the result is
+/// empty.
+///
+/// replace("", "", "x") = "" -- when ignoreEmptyReplaced is true
+/// replace("", "", "x") = "x" -- when ignoreEmptyReplaced is false
 /// replace("aa", "", "x") = "xaxax" -- when ignoreEmptyReplaced is false
 /// replace("aa", "", "x") = "aa" -- when ignoreEmptyReplaced is true
 template <bool ignoreEmptyReplaced = false>
@@ -388,12 +392,16 @@ inline static size_t replace(
     const std::string_view& replaced,
     const std::string_view& replacement,
     bool inPlace = false) {
-  if (inputString.size() == 0) {
+  if (inputString.empty()) {
+    if (!ignoreEmptyReplaced && replaced.empty() && !replacement.empty()) {
+      std::memcpy(outputString, replacement.data(), replacement.size());
+      return replacement.size();
+    }
     return 0;
   }
 
   if constexpr (ignoreEmptyReplaced) {
-    if (replaced.size() == 0) {
+    if (replaced.empty()) {
       if (!inPlace) {
         std::memcpy(outputString, inputString.data(), inputString.size());
       }
@@ -446,8 +454,8 @@ inline static size_t replace(
   };
 
   // Special case when size of replaced is 0
-  if (replaced.size() == 0) {
-    if (replacement.size() == 0) {
+  if (replaced.empty()) {
+    if (replacement.empty()) {
       if (!inPlace) {
         std::memcpy(outputString, inputString.data(), inputString.size());
       }
