@@ -270,7 +270,7 @@ public final class MaterializedViewDefinition
             return columnName;
         }
 
-        @JsonProperty
+        @JsonProperty(value = "isDirectMapped")
         public Optional<Boolean> isDirectMapped()
         {
             return isDirectMapped;
