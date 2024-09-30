@@ -306,6 +306,7 @@
                         <ignoredClassPattern>io.perfmark.*</ignoredClassPattern>
                         <ignoredClassPattern>io.grpc.*</ignoredClassPattern>
                         <ignoredClassPattern>io.opencensus.*</ignoredClassPattern>
+                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                     </ignoredClassPatterns>
                     <ignoredDependencies>
                         <dependency>
