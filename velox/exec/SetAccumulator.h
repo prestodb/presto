@@ -371,6 +371,92 @@ struct SetAccumulatorTypeTraits<ComplexType> {
 };
 } // namespace detail
 
+// A wrapper around SetAccumulator that overrides hash and equal_to functions to
+// use the custom comparisons provided by a custom type.
+template <TypeKind Kind>
+struct CustomComparisonSetAccumulator {
+  using NativeType = typename TypeTraits<Kind>::NativeType;
+
+  struct Hash {
+    const TypePtr& type;
+
+    size_t operator()(const NativeType& value) const {
+      return static_cast<const CanProvideCustomComparisonType<Kind>*>(
+                 type.get())
+          ->hash(value);
+    }
+  };
+
+  struct EqualTo {
+    const TypePtr& type;
+
+    bool operator()(const NativeType& left, const NativeType& right) const {
+      return static_cast<const CanProvideCustomComparisonType<Kind>*>(
+                 type.get())
+                 ->compare(left, right) == 0;
+    }
+  };
+
+  // The underlying SetAccumulator to which all operations are delegated.
+  detail::SetAccumulator<
+      NativeType,
+      CustomComparisonSetAccumulator::Hash,
+      CustomComparisonSetAccumulator::EqualTo>
+      base;
+
+  CustomComparisonSetAccumulator(
+      const TypePtr& type,
+      HashStringAllocator* allocator)
+      : base{
+            CustomComparisonSetAccumulator::Hash{type},
+            CustomComparisonSetAccumulator::EqualTo{type},
+            allocator} {}
+
+  void addValue(
+      const DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* allocator) {
+    base.addValue(decoded, index, allocator);
+  }
+
+  void addValues(
+      const ArrayVector& arrayVector,
+      vector_size_t index,
+      const DecodedVector& values,
+      HashStringAllocator* allocator) {
+    base.addValues(arrayVector, index, values, allocator);
+  }
+
+  void addNonNullValue(
+      const DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* allocator) {
+    base.addNonNullValue(decoded, index, allocator);
+  }
+
+  void addNonNullValues(
+      const ArrayVector& arrayVector,
+      vector_size_t index,
+      const DecodedVector& values,
+      HashStringAllocator* allocator) {
+    base.addNonNullValues(arrayVector, index, values, allocator);
+  }
+
+  size_t size() const {
+    return base.size();
+  }
+
+  vector_size_t extractValues(
+      FlatVector<NativeType>& values,
+      vector_size_t offset) {
+    return base.extractValues(values, offset);
+  }
+
+  void free(HashStringAllocator& allocator) {
+    base.free(allocator);
+  }
+};
+
 template <typename T>
 using SetAccumulator =
     typename detail::SetAccumulatorTypeTraits<T>::AccumulatorType;

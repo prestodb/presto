@@ -17,6 +17,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::functions::aggregate::test;
@@ -270,6 +271,31 @@ TEST_F(CountAggregationTest, distinctMask) {
           "SELECT c0, count(distinct c2) FILTER (WHERE c1) FROM tmp GROUP BY 1");
 }
 
+void testGlobalAggregation(
+    const std::string& col,
+    const RowVectorPtr& input,
+    const RowVectorPtr& expected) {
+  auto globalAggPlan =
+      PlanBuilder()
+          .values({input})
+          .singleAggregation({}, {fmt::format("count(distinct {})", col)})
+          .planNode();
+  AssertQueryBuilder(globalAggPlan).assertResults(expected);
+}
+
+void testSingleAggregation(
+    const std::vector<std::string>& keys,
+    const std::string& col,
+    const RowVectorPtr& input,
+    const RowVectorPtr& expected) {
+  auto groupByPlan =
+      PlanBuilder()
+          .values({input})
+          .singleAggregation(keys, {fmt::format("count(distinct {})", col)})
+          .planNode();
+  AssertQueryBuilder(groupByPlan).assertResults(expected);
+}
+
 TEST_F(CountAggregationTest, nans) {
   // Verify that NaNs with different binary representations are considered
   // equal.
@@ -285,37 +311,66 @@ TEST_F(CountAggregationTest, nans) {
             makeFlatVector<int32_t>({1, 1, 1, 1, 1, 1, 1, 1})})});
 
   // Global aggregation.
-  auto testGlobal = [&](const std::string& col, const RowVectorPtr& expected) {
-    auto globalAggPlan =
-        PlanBuilder()
-            .values({data})
-            .singleAggregation({}, {fmt::format("count(distinct {})", col)})
-            .planNode();
-    AssertQueryBuilder(globalAggPlan).assertResults(expected);
-  };
-
   RowVectorPtr expected = makeRowVector({
       makeFlatVector<int64_t>(std::vector<int64_t>({3})),
   });
-  testGlobal("c1", expected);
-  testGlobal("c2", expected);
+  testGlobalAggregation("c1", data, expected);
+  testGlobalAggregation("c2", data, expected);
 
   // Group by.
-  auto testGroupBy = [&](const std::string& col, const RowVectorPtr& expected) {
-    auto groupByPlan =
-        PlanBuilder()
-            .values({data})
-            .singleAggregation({"c0"}, {fmt::format("count(distinct {})", col)})
-            .planNode();
-    AssertQueryBuilder(groupByPlan).assertResults(expected);
-  };
-
   expected = makeRowVector({
       makeFlatVector<int16_t>({1, 2}),
       makeFlatVector<int64_t>({2, 3}),
   });
-  testGroupBy("c1", expected);
-  testGroupBy("c2", expected);
+  testSingleAggregation({"c0"}, "c1", data, expected);
+  testSingleAggregation({"c0"}, "c2", data, expected);
+}
+
+TEST_F(CountAggregationTest, timestampWithTimeZone) {
+  // Verify that Timestamps with Time Zones with the same timestamp but
+  // different time zones are considered equal.
+  auto data = makeRowVector(
+      {// Keys non-global for aggregations.
+       makeFlatVector<int16_t>({1, 1, 2, 1, 2, 1, 2, 1}),
+       // Column to validate aggregating as a stand alone value.
+       makeFlatVector<int64_t>(
+           {pack(0, 0),
+            pack(1, 0),
+            pack(2, 0),
+            pack(0, 1),
+            pack(1, 1),
+            pack(1, 2),
+            pack(2, 2),
+            pack(3, 3)},
+           TIMESTAMP_WITH_TIME_ZONE()),
+       // Column to validate aggregating as part of a complex value.
+       makeRowVector(
+           {makeFlatVector<int64_t>(
+                {pack(0, 0),
+                 pack(1, 0),
+                 pack(2, 0),
+                 pack(0, 1),
+                 pack(1, 1),
+                 pack(1, 2),
+                 pack(2, 2),
+                 pack(3, 3)},
+                TIMESTAMP_WITH_TIME_ZONE()),
+            makeFlatVector<int32_t>({1, 1, 1, 1, 1, 1, 1, 1})})});
+
+  // Global aggregation.
+  RowVectorPtr expected = makeRowVector({
+      makeFlatVector<int64_t>(std::vector<int64_t>({4})),
+  });
+  testGlobalAggregation("c1", data, expected);
+  testGlobalAggregation("c2", data, expected);
+
+  // Group by.
+  expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeFlatVector<int64_t>({3, 2}),
+  });
+  testSingleAggregation({"c0"}, "c1", data, expected);
+  testSingleAggregation({"c0"}, "c2", data, expected);
 }
 
 } // namespace
