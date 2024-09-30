@@ -32,11 +32,13 @@ template <typename T>
 struct MinMaxTrait : public std::numeric_limits<T> {};
 
 template <typename T>
-class MinMaxAggregate : public SimpleNumericAggregate<T, T, T> {
+class SimpleNumericMinMaxAggregate : public SimpleNumericAggregate<T, T, T> {
   using BaseAggregate = SimpleNumericAggregate<T, T, T>;
 
  public:
-  explicit MinMaxAggregate(TypePtr resultType, TimestampPrecision precision)
+  explicit SimpleNumericMinMaxAggregate(
+      TypePtr resultType,
+      TimestampPrecision precision)
       : BaseAggregate(resultType), timestampPrecision_(precision) {}
 
   int32_t accumulatorFixedWidthSize() const override {
@@ -96,14 +98,14 @@ class MinMaxAggregate : public SimpleNumericAggregate<T, T, T> {
 };
 
 template <typename T>
-class MaxAggregate : public MinMaxAggregate<T> {
+class SimpleNumericMaxAggregate : public SimpleNumericMinMaxAggregate<T> {
   using BaseAggregate = SimpleNumericAggregate<T, T, T>;
 
  public:
-  explicit MaxAggregate(
+  explicit SimpleNumericMaxAggregate(
       TypePtr resultType,
       TimestampPrecision precision = TimestampPrecision::kMilliseconds)
-      : MinMaxAggregate<T>(resultType, precision) {}
+      : SimpleNumericMinMaxAggregate<T>(resultType, precision) {}
 
   void addRawInput(
       char** groups,
@@ -181,26 +183,26 @@ class MaxAggregate : public MinMaxAggregate<T> {
 };
 
 template <typename T>
-const T MaxAggregate<T>::kInitialValue_ = MinMaxTrait<T>::lowest();
+const T SimpleNumericMaxAggregate<T>::kInitialValue_ = MinMaxTrait<T>::lowest();
 
 // Negative INF is the smallest value of floating point type.
 template <>
-const float MaxAggregate<float>::kInitialValue_ =
+const float SimpleNumericMaxAggregate<float>::kInitialValue_ =
     -1 * MinMaxTrait<float>::infinity();
 
 template <>
-const double MaxAggregate<double>::kInitialValue_ =
+const double SimpleNumericMaxAggregate<double>::kInitialValue_ =
     -1 * MinMaxTrait<double>::infinity();
 
 template <typename T>
-class MinAggregate : public MinMaxAggregate<T> {
+class SimpleNumericMinAggregate : public SimpleNumericMinMaxAggregate<T> {
   using BaseAggregate = SimpleNumericAggregate<T, T, T>;
 
  public:
-  explicit MinAggregate(
+  explicit SimpleNumericMinAggregate(
       TypePtr resultType,
       TimestampPrecision precision = TimestampPrecision::kMilliseconds)
-      : MinMaxAggregate<T>(resultType, precision) {}
+      : SimpleNumericMinMaxAggregate<T>(resultType, precision) {}
 
   void addRawInput(
       char** groups,
@@ -278,20 +280,20 @@ class MinAggregate : public MinMaxAggregate<T> {
 };
 
 template <typename T>
-const T MinAggregate<T>::kInitialValue_ = MinMaxTrait<T>::max();
+const T SimpleNumericMinAggregate<T>::kInitialValue_ = MinMaxTrait<T>::max();
 
 // In velox, NaN is considered larger than infinity for floating point types.
 template <>
-const float MinAggregate<float>::kInitialValue_ =
+const float SimpleNumericMinAggregate<float>::kInitialValue_ =
     MinMaxTrait<float>::quiet_NaN();
 
 template <>
-const double MinAggregate<double>::kInitialValue_ =
+const double SimpleNumericMinAggregate<double>::kInitialValue_ =
     MinMaxTrait<double>::quiet_NaN();
 
-class NonNumericMinMaxAggregateBase : public exec::Aggregate {
+class MinMaxAggregateBase : public exec::Aggregate {
  public:
-  explicit NonNumericMinMaxAggregateBase(
+  explicit MinMaxAggregateBase(
       const TypePtr& resultType,
       bool throwOnNestedNulls)
       : exec::Aggregate(resultType), throwOnNestedNulls_(throwOnNestedNulls) {}
@@ -461,12 +463,10 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
 };
 
 template <CompareFlags::NullHandlingMode nullHandlingMode>
-class NonNumericMaxAggregate : public NonNumericMinMaxAggregateBase {
+class MaxAggregate : public MinMaxAggregateBase {
  public:
-  explicit NonNumericMaxAggregate(
-      const TypePtr& resultType,
-      bool throwOnNestedNulls)
-      : NonNumericMinMaxAggregateBase(resultType, throwOnNestedNulls) {}
+  explicit MaxAggregate(const TypePtr& resultType, bool throwOnNestedNulls)
+      : MinMaxAggregateBase(resultType, throwOnNestedNulls) {}
 
   void addRawInput(
       char** groups,
@@ -508,12 +508,10 @@ class NonNumericMaxAggregate : public NonNumericMinMaxAggregateBase {
 };
 
 template <CompareFlags::NullHandlingMode nullHandlingMode>
-class NonNumericMinAggregate : public NonNumericMinMaxAggregateBase {
+class MinAggregate : public MinMaxAggregateBase {
  public:
-  explicit NonNumericMinAggregate(
-      const TypePtr& resultType,
-      bool throwOnNestedNulls)
-      : NonNumericMinMaxAggregateBase(resultType, throwOnNestedNulls) {}
+  explicit MinAggregate(const TypePtr& resultType, bool throwOnNestedNulls)
+      : MinMaxAggregateBase(resultType, throwOnNestedNulls) {}
 
   void addRawInput(
       char** groups,
@@ -556,9 +554,9 @@ class NonNumericMinAggregate : public NonNumericMinMaxAggregateBase {
 
 template <
     template <typename T>
-    class TNumeric,
+    class TSimpleNumericAggregate,
     template <CompareFlags::NullHandlingMode nullHandlingMode>
-    typename TNonNumeric>
+    typename TAggregate>
 exec::AggregateFunctionFactory getMinMaxFunctionFactoryInternal(
     const std::string& name,
     CompareFlags::NullHandlingMode nullHandlingMode,
@@ -570,45 +568,54 @@ exec::AggregateFunctionFactory getMinMaxFunctionFactoryInternal(
                      const core::QueryConfig& /*config*/)
       -> std::unique_ptr<exec::Aggregate> {
     auto inputType = argTypes[0];
+
+    if (inputType->providesCustomComparison()) {
+      return std::make_unique<
+          TAggregate<CompareFlags::NullHandlingMode::kNullAsIndeterminate>>(
+          inputType, false);
+    }
+
     switch (inputType->kind()) {
       case TypeKind::BOOLEAN:
-        return std::make_unique<TNumeric<bool>>(resultType);
+        return std::make_unique<TSimpleNumericAggregate<bool>>(resultType);
       case TypeKind::TINYINT:
-        return std::make_unique<TNumeric<int8_t>>(resultType);
+        return std::make_unique<TSimpleNumericAggregate<int8_t>>(resultType);
       case TypeKind::SMALLINT:
-        return std::make_unique<TNumeric<int16_t>>(resultType);
+        return std::make_unique<TSimpleNumericAggregate<int16_t>>(resultType);
       case TypeKind::INTEGER:
-        return std::make_unique<TNumeric<int32_t>>(resultType);
+        return std::make_unique<TSimpleNumericAggregate<int32_t>>(resultType);
       case TypeKind::BIGINT:
-        return std::make_unique<TNumeric<int64_t>>(resultType);
+        return std::make_unique<TSimpleNumericAggregate<int64_t>>(resultType);
       case TypeKind::REAL:
-        return std::make_unique<TNumeric<float>>(resultType);
+        return std::make_unique<TSimpleNumericAggregate<float>>(resultType);
       case TypeKind::DOUBLE:
-        return std::make_unique<TNumeric<double>>(resultType);
+        return std::make_unique<TSimpleNumericAggregate<double>>(resultType);
       case TypeKind::TIMESTAMP:
-        return std::make_unique<TNumeric<Timestamp>>(resultType, precision);
+        return std::make_unique<TSimpleNumericAggregate<Timestamp>>(
+            resultType, precision);
       case TypeKind::HUGEINT:
-        return std::make_unique<TNumeric<int128_t>>(resultType);
+        return std::make_unique<TSimpleNumericAggregate<int128_t>>(resultType);
       case TypeKind::VARBINARY:
         [[fallthrough]];
       case TypeKind::VARCHAR:
         return std::make_unique<
-            TNonNumeric<CompareFlags::NullHandlingMode::kNullAsIndeterminate>>(
+            TAggregate<CompareFlags::NullHandlingMode::kNullAsIndeterminate>>(
             inputType, false);
       case TypeKind::ARRAY:
         [[fallthrough]];
       case TypeKind::ROW:
         if (nullHandlingMode == CompareFlags::NullHandlingMode::kNullAsValue) {
           return std::make_unique<
-              TNonNumeric<CompareFlags::NullHandlingMode::kNullAsValue>>(
+              TAggregate<CompareFlags::NullHandlingMode::kNullAsValue>>(
               inputType, false);
         } else {
-          return std::make_unique<TNonNumeric<
-              CompareFlags::NullHandlingMode::kNullAsIndeterminate>>(
+          return std::make_unique<
+              TAggregate<CompareFlags::NullHandlingMode::kNullAsIndeterminate>>(
               inputType, true);
         }
       case TypeKind::UNKNOWN:
-        return std::make_unique<TNumeric<UnknownValue>>(resultType);
+        return std::make_unique<TSimpleNumericAggregate<UnknownValue>>(
+            resultType);
       default:
         VELOX_UNREACHABLE(
             "Unknown input type for {} aggregation {}",
@@ -625,15 +632,17 @@ exec::AggregateFunctionFactory getMinFunctionFactory(
     const std::string& name,
     CompareFlags::NullHandlingMode nullHandlingMode,
     TimestampPrecision precision) {
-  return getMinMaxFunctionFactoryInternal<MinAggregate, NonNumericMinAggregate>(
-      name, nullHandlingMode, precision);
+  return getMinMaxFunctionFactoryInternal<
+      SimpleNumericMinAggregate,
+      MinAggregate>(name, nullHandlingMode, precision);
 }
 
 exec::AggregateFunctionFactory getMaxFunctionFactory(
     const std::string& name,
     CompareFlags::NullHandlingMode nullHandlingMode,
     TimestampPrecision precision) {
-  return getMinMaxFunctionFactoryInternal<MaxAggregate, NonNumericMaxAggregate>(
-      name, nullHandlingMode, precision);
+  return getMinMaxFunctionFactoryInternal<
+      SimpleNumericMaxAggregate,
+      MaxAggregate>(name, nullHandlingMode, precision);
 }
 } // namespace facebook::velox::functions::aggregate

@@ -15,6 +15,7 @@
  */
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
@@ -669,6 +670,53 @@ TEST_F(MinMaxTest, failOnUnorderableType) {
       VELOX_ASSERT_THROW(
           builder.singleAggregation({"c1"}, {expr}), kErrorMessage);
     }
+  }
+}
+
+TEST_F(MinMaxTest, TimestampWithTimezone) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(
+          {pack(-1, 2),
+           pack(-3, 1),
+           pack(0, 4),
+           pack(2, 4),
+           pack(3, 1),
+           pack(-4, 5),
+           pack(1, 3),
+           pack(4, 0)},
+          TIMESTAMP_WITH_TIME_ZONE()),
+      // group by column
+      makeFlatVector<int32_t>({1, 2, 2, 1, 1, 1, 2, 2}),
+  });
+
+  // Global aggregation.
+  {
+    auto expected = makeRowVector(
+        {makeFlatVector<int64_t>(
+             std::vector<int64_t>{pack(-4, 5)}, TIMESTAMP_WITH_TIME_ZONE()),
+         makeFlatVector<int64_t>(
+             std::vector<int64_t>{pack(4, 0)}, TIMESTAMP_WITH_TIME_ZONE())});
+
+    testAggregations(
+        {data},
+        {},
+        {
+            "min(c0)",
+            "max(c0)",
+        },
+        {expected});
+  }
+
+  // group-by aggregation.
+  {
+    auto expected = makeRowVector(
+        {makeFlatVector<int32_t>({1, 2}),
+         makeFlatVector<int64_t>(
+             {pack(-4, 5), pack(-3, 1)}, TIMESTAMP_WITH_TIME_ZONE()),
+         makeFlatVector<int64_t>(
+             {pack(3, 1), pack(4, 0)}, TIMESTAMP_WITH_TIME_ZONE())});
+
+    testAggregations({data}, {"c1"}, {"min(c0)", "max(c0)"}, {expected});
   }
 }
 
