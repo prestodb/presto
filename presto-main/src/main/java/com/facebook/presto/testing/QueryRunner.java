@@ -94,6 +94,11 @@ public interface QueryRunner
 
     void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties);
 
+    default void loadSystemSessionPropertyProvider(String sessionPropertyProviderName, Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     Lock getExclusiveLock();
 
     class MaterializedResultWithPlan
