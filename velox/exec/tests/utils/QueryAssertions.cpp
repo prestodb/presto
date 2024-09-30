@@ -22,6 +22,7 @@
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/VectorTypeUtils.h"
 
 using facebook::velox::duckdb::duckdbTimestampToVelox;
@@ -530,6 +531,12 @@ variant variantAt(const VectorPtr& vector, vector_size_t row) {
 
   if (typeKind == TypeKind::MAP) {
     return mapVariantAt(vector, row);
+  }
+
+  if (isTimestampWithTimeZoneType(vector->type())) {
+    return variant::typeWithCustomComparison<TypeKind::BIGINT>(
+        vector->as<SimpleVector<int64_t>>()->valueAt(row),
+        TIMESTAMP_WITH_TIME_ZONE());
   }
 
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(variantAt, typeKind, vector, row);

@@ -128,13 +128,22 @@ struct VariantTypeTraits<TypeKind::OPAQUE> {
 
 class variant {
  private:
-  variant(TypeKind kind, void* ptr) : kind_{kind}, ptr_{ptr} {}
+  variant(
+      TypeKind kind,
+      void* ptr,
+      const TypePtr& typeWithCustomComparison = nullptr)
+      : kind_{kind},
+        ptr_{ptr},
+        typeWithCustomComparison_{typeWithCustomComparison} {}
 
   template <TypeKind KIND>
-  bool lessThan(const variant& a, const variant& b) const;
+  bool lessThan(const variant& other) const;
 
   template <TypeKind KIND>
-  bool equals(const variant& a, const variant& b) const;
+  bool equals(const variant& other) const;
+
+  template <TypeKind KIND>
+  uint64_t hash() const;
 
   template <TypeKind KIND>
   void typedDestroy() {
@@ -179,11 +188,12 @@ class variant {
     }
   };
 
-#define VELOX_VARIANT_SCALAR_MEMBERS(KIND)                     \
-  /* implicit */ variant(                                      \
-      typename detail::VariantTypeTraits<KIND>::native_type v) \
-      : kind_{KIND},                                           \
-        ptr_{new detail::VariantTypeTraits<KIND>::stored_type{v}} {}
+#define VELOX_VARIANT_SCALAR_MEMBERS(KIND)                         \
+  /* implicit */ variant(                                          \
+      typename detail::VariantTypeTraits<KIND>::native_type v)     \
+      : kind_{KIND},                                               \
+        ptr_{new detail::VariantTypeTraits<KIND>::stored_type{v}}, \
+        typeWithCustomComparison_{nullptr} {}
 
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::BOOLEAN)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::TINYINT)
@@ -247,6 +257,16 @@ class variant {
             input}};
   }
 
+  template <TypeKind KIND>
+  static variant typeWithCustomComparison(
+      typename TypeTraits<KIND>::NativeType input,
+      const TypePtr& type) {
+    return {
+        KIND,
+        new typename detail::VariantTypeTraits<KIND>::stored_type{input},
+        type};
+  }
+
   template <class T>
   static variant opaque(const std::shared_ptr<T>& input) {
     VELOX_CHECK(input.get(), "Can't create a variant of nullptr opaque type");
@@ -280,11 +300,18 @@ class variant {
             std::move(inputs)}};
   }
 
-  variant() : kind_{TypeKind::INVALID}, ptr_{nullptr} {}
+  variant()
+      : kind_{TypeKind::INVALID},
+        ptr_{nullptr},
+        typeWithCustomComparison_{nullptr} {}
 
-  /* implicit */ variant(TypeKind kind) : kind_{kind}, ptr_{nullptr} {}
+  /* implicit */ variant(TypeKind kind)
+      : kind_{kind}, ptr_{nullptr}, typeWithCustomComparison_{nullptr} {}
 
-  variant(const variant& other) : kind_{other.kind_}, ptr_{nullptr} {
+  variant(const variant& other)
+      : kind_{other.kind_},
+        ptr_{nullptr},
+        typeWithCustomComparison_{other.typeWithCustomComparison_} {
     auto op = other.ptr_;
     if (op != nullptr) {
       dynamicCopy(other.ptr_, other.kind_);
@@ -296,10 +323,14 @@ class variant {
 
   // Break ties between implicit conversions to StringView/StringPiece.
   /* implicit */ variant(std::string str)
-      : kind_{TypeKind::VARCHAR}, ptr_{new std::string{std::move(str)}} {}
+      : kind_{TypeKind::VARCHAR},
+        ptr_{new std::string{std::move(str)}},
+        typeWithCustomComparison_{nullptr} {}
 
   /* implicit */ variant(const char* str)
-      : kind_{TypeKind::VARCHAR}, ptr_{new std::string{str}} {}
+      : kind_{TypeKind::VARCHAR},
+        ptr_{new std::string{str}},
+        typeWithCustomComparison_{nullptr} {}
 
   template <TypeKind KIND>
   static variant create(
@@ -339,6 +370,7 @@ class variant {
     if (other.ptr_ != nullptr) {
       dynamicCopy(other.ptr_, other.kind_);
     }
+    typeWithCustomComparison_ = other.typeWithCustomComparison_;
     return *this;
   }
 
@@ -351,6 +383,7 @@ class variant {
       ptr_ = other.ptr_;
       other.ptr_ = nullptr;
     }
+    typeWithCustomComparison_ = other.typeWithCustomComparison_;
     return *this;
   }
 
@@ -365,7 +398,10 @@ class variant {
     return dispatchDynamicVariantEquality(*this, other, true);
   }
 
-  variant(variant&& other) noexcept : kind_{other.kind_}, ptr_{other.ptr_} {
+  variant(variant&& other) noexcept
+      : kind_{other.kind_},
+        ptr_{other.ptr_},
+        typeWithCustomComparison_{other.typeWithCustomComparison_} {
     other.ptr_ = nullptr;
   }
 
@@ -537,6 +573,10 @@ class variant {
   TypeKind kind_;
   // TODO: it'd be more efficient to put union here if it ever becomes a problem
   const void* ptr_;
+  // If the variant represents a type that provides custom comparisons, this
+  // holds the Type that provides those operations.
+  // Like kind_ this is not const to support the assignment operator.
+  TypePtr typeWithCustomComparison_;
 };
 
 inline bool operator==(const variant& a, const variant& b) {
