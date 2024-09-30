@@ -258,19 +258,19 @@ public final class MaterializedViewDefinition
             this(tableName, columnName, Optional.of(isDirectMapped));
         }
 
-        @JsonProperty
+        @JsonProperty(value = "tableName")
         public SchemaTableName getTableName()
         {
             return tableName;
         }
 
-        @JsonProperty
+        @JsonProperty(value = "columnName")
         public String getColumnName()
         {
             return columnName;
         }
 
-        @JsonProperty
+        @JsonProperty(value = "isDirectMapped")
         public Optional<Boolean> isDirectMapped()
         {
             return isDirectMapped;

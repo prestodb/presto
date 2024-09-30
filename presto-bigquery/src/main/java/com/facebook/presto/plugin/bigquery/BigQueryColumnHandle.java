@@ -56,14 +56,14 @@ public class BigQueryColumnHandle
         this.description = description;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "name")
     public String getName()
     {
         return name;
     }
 
     @Override
-    @JsonProperty
+    @JsonProperty(value = "bigQueryType")
     public BigQueryType getBigQueryType()
     {
         return bigQueryType;
@@ -76,19 +76,19 @@ public class BigQueryColumnHandle
     }
 
     @Override
-    @JsonProperty
+    @JsonProperty(value = "mode")
     public Mode getMode()
     {
         return mode;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "subColumns")
     public List<BigQueryColumnHandle> getSubColumns()
     {
         return subColumns;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "description")
     public String description()
     {
         return description;

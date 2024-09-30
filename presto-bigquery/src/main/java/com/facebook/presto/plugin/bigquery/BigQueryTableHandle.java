@@ -66,43 +66,43 @@ public class BigQueryTableHandle
         return new BigQueryTableHandle(tableId.getProject(), tableId.getDataset(), tableId.getTable(), type, TupleDomain.none(), Optional.empty(), OptionalLong.empty());
     }
 
-    @JsonProperty
+    @JsonProperty (value = "projectId")
     public String getProjectId()
     {
         return projectId;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "schemaName")
     public String getSchemaName()
     {
         return schemaName;
     }
 
-    @JsonProperty
+    @JsonProperty (value = "tableName")
     public String getTableName()
     {
         return tableName;
     }
 
-    @JsonProperty
+    @JsonProperty (value = "type")
     public String getType()
     {
         return type;
     }
 
-    @JsonProperty
+    @JsonProperty (value = "constraint")
     public TupleDomain<ColumnHandle> getConstraint()
     {
         return constraint;
     }
 
-    @JsonProperty
+    @JsonProperty (value = "projectedColumns")
     public Optional<List<ColumnHandle>> getProjectedColumns()
     {
         return projectedColumns;
     }
 
-    @JsonProperty
+    @JsonProperty (value = "limit")
     public OptionalLong getLimit()
     {
         return limit;

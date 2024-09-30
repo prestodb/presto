@@ -41,7 +41,7 @@ public class JmxSplit
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
     }
 
-    @JsonProperty
+    @JsonProperty(value = "tableHandle")
     public JmxTableHandle getTableHandle()
     {
         return tableHandle;
@@ -53,7 +53,7 @@ public class JmxSplit
         return HARD_AFFINITY;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "addresses")
     public List<HostAddress> getAddresses()
     {
         return addresses;

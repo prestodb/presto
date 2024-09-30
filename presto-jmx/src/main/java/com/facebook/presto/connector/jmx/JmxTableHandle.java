@@ -51,25 +51,25 @@ public class JmxTableHandle
         checkArgument(!objectNames.isEmpty(), "objectsNames is empty");
     }
 
-    @JsonProperty
+    @JsonProperty(value = "tableName")
     public SchemaTableName getTableName()
     {
         return tableName;
     }
 
-    @JsonProperty
+    @JsonProperty (value = "objectNames")
     public List<String> getObjectNames()
     {
         return objectNames;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "columnHandles")
     public List<JmxColumnHandle> getColumnHandles()
     {
         return columnHandles;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "liveData")
     public boolean isLiveData()
     {
         return liveData;
