@@ -581,7 +581,7 @@ endif()
 set_source(xsimd)
 resolve_dependency(xsimd 10.0.0)
 
-set(stemmer_SOURCE BUNDLED)
+set_source(stemmer)
 resolve_dependency(stemmer)
 
 if(VELOX_BUILD_TESTING)
