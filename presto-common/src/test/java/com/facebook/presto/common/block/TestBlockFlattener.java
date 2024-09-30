@@ -76,7 +76,8 @@ public class TestBlockFlattener
     @Test
     public void testNestedDictionaryRleDictionaryLongArray()
     {
-        DictionaryBlock block = createTestDictionaryBlock(createTestRleBlock(createTestDictionaryBlock(createLongArrayBlock(1)), 5));
+        // RLE blocks don't allow more than one entry in the underlying dictionary
+        DictionaryBlock block = createTestDictionaryBlock(createTestRleBlock(createOneToOneDictionaryBlock(createLongArrayBlock(1)), 5));
         assertFlattenNumericTypeBlock(BIGINT, block, 1, LongArrayBlock.class);
     }
 
@@ -278,19 +279,34 @@ public class TestBlockFlattener
         return new ByteArrayBlock(bytes.length, Optional.empty(), bytes);
     }
 
-    private static DictionaryBlock createTestDictionaryBlock(Block block)
+    private static DictionaryBlock createOneToOneDictionaryBlock(Block block)
     {
-        int idsOffset = ThreadLocalRandom.current().nextInt(block.getPositionCount()) + 1;
-        int[] dictionaryIndexes = createTestDictionaryIndexes(block.getPositionCount() + idsOffset);
-        return new DictionaryBlock(idsOffset, block.getPositionCount(), block, dictionaryIndexes, false, randomDictionaryId());
+        int idsOffset = 13;
+        int[] dictionaryIndexes = new int[block.getPositionCount()];
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            dictionaryIndexes[i] = i;
+        }
+        return new DictionaryBlock(block, dictionaryIndexes);
     }
 
-    private static int[] createTestDictionaryIndexes(int valueCount)
+    private static DictionaryBlock createTestDictionaryBlock(Block block)
     {
-        int[] dictionaryIndexes = new int[valueCount * 2];
-        for (int i = 0; i < valueCount; i++) {
-            dictionaryIndexes[i] = valueCount - i - 1;
-            dictionaryIndexes[i + valueCount] = i;
+        int idsOffset = 13;
+        int[] dictionaryIndexes = createTestDictionaryIndexes(idsOffset, block.getPositionCount());
+        return new DictionaryBlock(idsOffset, dictionaryIndexes.length - idsOffset, block, dictionaryIndexes, false, randomDictionaryId());
+    }
+
+    // Build dictionary with twice as many entries as the underlying delegate block
+    // and a negative signal flare value in the unused spaces before the offset
+    private static int[] createTestDictionaryIndexes(int idsOffset, int valueCount)
+    {
+        int[] dictionaryIndexes = new int[idsOffset + valueCount * 2];
+        for (int i = 0; i < idsOffset; i++) {
+            dictionaryIndexes[i] = -167;
+        }
+        for (int i = idsOffset; i < idsOffset + valueCount; i++) {
+            dictionaryIndexes[i] = valueCount - i - 1 + idsOffset;
+            dictionaryIndexes[i + valueCount] = i - idsOffset;
         }
         return dictionaryIndexes;
     }
