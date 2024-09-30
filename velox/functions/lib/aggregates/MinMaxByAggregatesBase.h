@@ -31,48 +31,65 @@ constexpr bool isNumeric() {
       std::is_same_v<T, double> || std::is_same_v<T, Timestamp>;
 }
 
-template <typename T, typename TAccumulator>
+template <typename T>
 void extract(
-    TAccumulator* accumulator,
+    T* accumulator,
     const VectorPtr& vector,
     vector_size_t index,
     T* rawValues,
     uint64_t* rawBoolValues) {
-  if constexpr (isNumeric<T>()) {
-    if constexpr (std::is_same_v<T, bool>) {
-      bits::setBit(rawBoolValues, index, *accumulator);
-    } else {
-      rawValues[index] = *accumulator;
-    }
+  if constexpr (std::is_same_v<T, bool>) {
+    bits::setBit(rawBoolValues, index, *accumulator);
   } else {
-    accumulator->read(vector, index);
+    rawValues[index] = *accumulator;
   }
 }
 
-template <typename T, typename TAccumulator>
+template <typename T>
+void extract(
+    SingleValueAccumulator* accumulator,
+    const VectorPtr& vector,
+    vector_size_t index,
+    T* /* rawValues */,
+    uint64_t* /* rawBoolValues */) {
+  accumulator->read(vector, index);
+}
+
+template <typename T>
 void store(
-    TAccumulator* accumulator,
+    T* accumulator,
     const DecodedVector& decodedVector,
     vector_size_t index,
     HashStringAllocator* allocator) {
-  if constexpr (isNumeric<T>()) {
-    *accumulator = decodedVector.valueAt<T>(index);
-  } else {
-    accumulator->write(
-        decodedVector.base(), decodedVector.index(index), allocator);
-  }
+  *accumulator = decodedVector.valueAt<T>(index);
 }
 
-template <typename T, typename = void>
+template <typename T>
+void store(
+    SingleValueAccumulator* accumulator,
+    const DecodedVector& decodedVector,
+    vector_size_t index,
+    HashStringAllocator* allocator) {
+  accumulator->write(
+      decodedVector.base(), decodedVector.index(index), allocator);
+}
+
+template <typename T, bool useCustomComparison = false, typename = void>
 struct AccumulatorTypeTraits {};
 
-template <typename T>
-struct AccumulatorTypeTraits<T, std::enable_if_t<isNumeric<T>(), void>> {
+template <typename T, bool useCustomComparison>
+struct AccumulatorTypeTraits<
+    T,
+    useCustomComparison,
+    std::enable_if_t<isNumeric<T>() && !useCustomComparison, void>> {
   using AccumulatorType = T;
 };
 
-template <typename T>
-struct AccumulatorTypeTraits<T, std::enable_if_t<!isNumeric<T>(), void>> {
+template <typename T, bool useCustomComparison>
+struct AccumulatorTypeTraits<
+    T,
+    useCustomComparison,
+    std::enable_if_t<!isNumeric<T>() || useCustomComparison, void>> {
   using AccumulatorType = SingleValueAccumulator;
 };
 
@@ -86,14 +103,15 @@ template <
     typename T,
     typename U,
     bool isMaxFunc,
-    template <bool B, typename C1, typename C2>
-    class Comparator>
+    class Comparator,
+    bool compareTypeUsesCustomComparison>
 class MinMaxByAggregateBase : public exec::Aggregate {
  public:
   using ValueAccumulatorType =
       typename AccumulatorTypeTraits<T>::AccumulatorType;
   using ComparisonAccumulatorType =
-      typename AccumulatorTypeTraits<U>::AccumulatorType;
+      typename AccumulatorTypeTraits<U, compareTypeUsesCustomComparison>::
+          AccumulatorType;
 
   explicit MinMaxByAggregateBase(
       TypePtr resultType,
@@ -118,8 +136,9 @@ class MinMaxByAggregateBase : public exec::Aggregate {
             const auto& newComparisons,
             auto index,
             auto isFirstValue) {
-          return Comparator<isMaxFunc, U, ComparisonAccumulatorType>::compare(
-              accumulator, newComparisons, index, isFirstValue);
+          return Comparator::
+              template compare<isMaxFunc, U, ComparisonAccumulatorType>(
+                  accumulator, newComparisons, index, isFirstValue);
         });
   }
 
@@ -136,8 +155,9 @@ class MinMaxByAggregateBase : public exec::Aggregate {
             const auto& newComparisons,
             auto index,
             auto isFirstValue) {
-          return Comparator<isMaxFunc, U, ComparisonAccumulatorType>::compare(
-              accumulator, newComparisons, index, isFirstValue);
+          return Comparator::
+              template compare<isMaxFunc, U, ComparisonAccumulatorType>(
+                  accumulator, newComparisons, index, isFirstValue);
         });
   }
 
@@ -154,8 +174,9 @@ class MinMaxByAggregateBase : public exec::Aggregate {
             const auto& newComparisons,
             auto index,
             auto isFirstValue) {
-          return Comparator<isMaxFunc, U, ComparisonAccumulatorType>::compare(
-              accumulator, newComparisons, index, isFirstValue);
+          return Comparator::
+              template compare<isMaxFunc, U, ComparisonAccumulatorType>(
+                  accumulator, newComparisons, index, isFirstValue);
         });
   }
 
@@ -172,8 +193,9 @@ class MinMaxByAggregateBase : public exec::Aggregate {
             const auto& newComparisons,
             auto index,
             auto isFirstValue) {
-          return Comparator<isMaxFunc, U, ComparisonAccumulatorType>::compare(
-              accumulator, newComparisons, index, isFirstValue);
+          return Comparator::
+              template compare<isMaxFunc, U, ComparisonAccumulatorType>(
+                  accumulator, newComparisons, index, isFirstValue);
         });
   }
 
@@ -185,7 +207,8 @@ class MinMaxByAggregateBase : public exec::Aggregate {
 
     T* rawValues = nullptr;
     uint64_t* rawBoolValues = nullptr;
-    if constexpr (isNumeric<T>()) {
+    if constexpr (!std::
+                      is_same_v<ValueAccumulatorType, SingleValueAccumulator>) {
       auto vector = (*result)->as<FlatVector<T>>();
       VELOX_CHECK(vector != nullptr);
       if constexpr (std::is_same_v<T, bool>) {
@@ -201,8 +224,7 @@ class MinMaxByAggregateBase : public exec::Aggregate {
         (*result)->setNull(i, true);
       } else {
         clearNull(rawNulls, i);
-        extract<T, ValueAccumulatorType>(
-            value(group), *result, i, rawValues, rawBoolValues);
+        extract<T>(value(group), *result, i, rawValues, rawBoolValues);
       }
     }
   }
@@ -218,7 +240,8 @@ class MinMaxByAggregateBase : public exec::Aggregate {
 
     T* rawValues = nullptr;
     uint64_t* rawBoolValues = nullptr;
-    if constexpr (isNumeric<T>()) {
+    if constexpr (!std::
+                      is_same_v<ValueAccumulatorType, SingleValueAccumulator>) {
       auto flatValueVector = valueVector->as<FlatVector<T>>();
       VELOX_CHECK(flatValueVector != nullptr);
       if constexpr (std::is_same_v<T, bool>) {
@@ -229,7 +252,9 @@ class MinMaxByAggregateBase : public exec::Aggregate {
     }
     U* rawComparisonValues = nullptr;
     uint64_t* rawBoolComparisonValues = nullptr;
-    if constexpr (isNumeric<U>()) {
+    if constexpr (!std::is_same_v<
+                      ComparisonAccumulatorType,
+                      SingleValueAccumulator>) {
       auto flatComparisonVector = comparisonVector->as<FlatVector<U>>();
       VELOX_CHECK(flatComparisonVector != nullptr);
       if constexpr (std::is_same_v<U, bool>) {
@@ -250,10 +275,9 @@ class MinMaxByAggregateBase : public exec::Aggregate {
         const bool isValueNull = valueIsNull(group);
         bits::setNull(rawValueNulls, i, isValueNull);
         if (LIKELY(!isValueNull)) {
-          extract<T, ValueAccumulatorType>(
-              value(group), valueVector, i, rawValues, rawBoolValues);
+          extract<T>(value(group), valueVector, i, rawValues, rawBoolValues);
         }
-        extract<U, ComparisonAccumulatorType>(
+        extract<U>(
             comparisonValue(group),
             comparisonVector,
             i,
@@ -470,13 +494,17 @@ class MinMaxByAggregateBase : public exec::Aggregate {
       auto group = groups[i];
       valueIsNull(group) = true;
 
-      if constexpr (!isNumeric<T>()) {
+      if constexpr (std::is_same_v<
+                        ValueAccumulatorType,
+                        SingleValueAccumulator>) {
         new (group + offset_) SingleValueAccumulator();
       } else {
         *value(group) = ValueAccumulatorType();
       }
 
-      if constexpr (isNumeric<U>()) {
+      if constexpr (!std::is_same_v<
+                        ComparisonAccumulatorType,
+                        SingleValueAccumulator>) {
         *comparisonValue(group) = ComparisonAccumulatorType();
       } else {
         new (group + offset_ + sizeof(ValueAccumulatorType))
@@ -488,10 +516,14 @@ class MinMaxByAggregateBase : public exec::Aggregate {
   void destroyInternal(folly::Range<char**> groups) override {
     for (auto group : groups) {
       if (isInitialized(group)) {
-        if constexpr (!isNumeric<T>()) {
+        if constexpr (std::is_same_v<
+                          ValueAccumulatorType,
+                          SingleValueAccumulator>) {
           value(group)->destroy(allocator_);
         }
-        if constexpr (!isNumeric<U>()) {
+        if constexpr (std::is_same_v<
+                          ComparisonAccumulatorType,
+                          SingleValueAccumulator>) {
           comparisonValue(group)->destroy(allocator_);
         }
       }
@@ -513,11 +545,9 @@ class MinMaxByAggregateBase : public exec::Aggregate {
             comparisonValue(group), decodedComparisons, index, isFirstValue)) {
       valueIsNull(group) = isValueNull;
       if (LIKELY(!isValueNull)) {
-        store<T, ValueAccumulatorType>(
-            value(group), decodedValues, index, allocator_);
+        store<T>(value(group), decodedValues, index, allocator_);
       }
-      store<U, ComparisonAccumulatorType>(
-          comparisonValue(group), decodedComparisons, index, allocator_);
+      store<U>(comparisonValue(group), decodedComparisons, index, allocator_);
     }
   }
 
@@ -543,16 +573,11 @@ class MinMaxByAggregateBase : public exec::Aggregate {
 };
 
 template <
-    template <
-        typename U,
-        typename V,
-        bool B1,
-        template <bool B2, typename C1, typename C2>
-        class C>
+    template <typename U, typename V, bool B1, class C, bool B2>
     class Aggregate,
     bool isMaxFunc,
-    template <bool B2, typename C1, typename C2>
     class Comparator,
+    bool compareTypeUsesCustomComparison,
     typename W>
 std::unique_ptr<exec::Aggregate> create(
     TypePtr resultType,
@@ -561,47 +586,95 @@ std::unique_ptr<exec::Aggregate> create(
     bool throwOnNestedNulls = false) {
   switch (compareType->kind()) {
     case TypeKind::BOOLEAN:
-      return std::make_unique<Aggregate<W, bool, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          bool,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::TINYINT:
-      return std::make_unique<Aggregate<W, int8_t, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          int8_t,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::SMALLINT:
-      return std::make_unique<Aggregate<W, int16_t, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          int16_t,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::INTEGER:
-      return std::make_unique<Aggregate<W, int32_t, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          int32_t,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::BIGINT:
-      return std::make_unique<Aggregate<W, int64_t, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          int64_t,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::REAL:
-      return std::make_unique<Aggregate<W, float, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          float,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::DOUBLE:
-      return std::make_unique<Aggregate<W, double, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          double,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::HUGEINT:
-      return std::make_unique<Aggregate<W, int128_t, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          int128_t,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::VARBINARY:
       [[fallthrough]];
     case TypeKind::VARCHAR:
-      return std::make_unique<Aggregate<W, StringView, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          StringView,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::TIMESTAMP:
-      return std::make_unique<Aggregate<W, Timestamp, isMaxFunc, Comparator>>(
-          resultType);
+      return std::make_unique<Aggregate<
+          W,
+          Timestamp,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     case TypeKind::ARRAY:
       [[fallthrough]];
     case TypeKind::MAP:
       [[fallthrough]];
     case TypeKind::ROW:
-      return std::make_unique<Aggregate<W, ComplexType, isMaxFunc, Comparator>>(
-          resultType, throwOnNestedNulls);
+      return std::make_unique<Aggregate<
+          W,
+          ComplexType,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType, throwOnNestedNulls);
     case TypeKind::UNKNOWN:
-      return std::make_unique<
-          Aggregate<W, UnknownValue, isMaxFunc, Comparator>>(resultType);
+      return std::make_unique<Aggregate<
+          W,
+          UnknownValue,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison>>(resultType);
     default:
       VELOX_FAIL("{}", errorMessage);
       return nullptr;
@@ -609,16 +682,11 @@ std::unique_ptr<exec::Aggregate> create(
 }
 
 template <
-    template <
-        typename U,
-        typename V,
-        bool B1,
-        template <bool B2, typename C1, typename C2>
-        class C>
+    template <typename U, typename V, bool B1, class C, bool B2>
     class Aggregate,
-    template <bool B2, typename C1, typename C2>
     class Comparator,
-    bool isMaxFunc>
+    bool isMaxFunc,
+    bool compareTypeUsesCustomComparison = false>
 std::unique_ptr<exec::Aggregate> create(
     TypePtr resultType,
     TypePtr valueType,
@@ -627,46 +695,97 @@ std::unique_ptr<exec::Aggregate> create(
     bool throwOnNestedNulls = false) {
   switch (valueType->kind()) {
     case TypeKind::BOOLEAN:
-      return create<Aggregate, isMaxFunc, Comparator, bool>(
-          resultType, compareType, errorMessage, throwOnNestedNulls);
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          bool>(resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::TINYINT:
-      return create<Aggregate, isMaxFunc, Comparator, int8_t>(
-          resultType, compareType, errorMessage, throwOnNestedNulls);
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          int8_t>(resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::SMALLINT:
-      return create<Aggregate, isMaxFunc, Comparator, int16_t>(
-          resultType, compareType, errorMessage, throwOnNestedNulls);
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          int16_t>(resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::INTEGER:
-      return create<Aggregate, isMaxFunc, Comparator, int32_t>(
-          resultType, compareType, errorMessage, throwOnNestedNulls);
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          int32_t>(resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::BIGINT:
-      return create<Aggregate, isMaxFunc, Comparator, int64_t>(
-          resultType, compareType, errorMessage, throwOnNestedNulls);
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          int64_t>(resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::HUGEINT:
-      return create<Aggregate, isMaxFunc, Comparator, int128_t>(
-          resultType, compareType, errorMessage);
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          int128_t>(resultType, compareType, errorMessage);
     case TypeKind::REAL:
-      return create<Aggregate, isMaxFunc, Comparator, float>(
-          resultType, compareType, errorMessage, throwOnNestedNulls);
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          float>(resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::DOUBLE:
-      return create<Aggregate, isMaxFunc, Comparator, double>(
-          resultType, compareType, errorMessage, throwOnNestedNulls);
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          double>(resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::VARCHAR:
       [[fallthrough]];
     case TypeKind::VARBINARY:
-      return create<Aggregate, isMaxFunc, Comparator, StringView>(
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          StringView>(
           resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::TIMESTAMP:
-      return create<Aggregate, isMaxFunc, Comparator, Timestamp>(
-          resultType, compareType, errorMessage, throwOnNestedNulls);
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          Timestamp>(resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::ARRAY:
       [[fallthrough]];
     case TypeKind::MAP:
       [[fallthrough]];
     case TypeKind::ROW:
-      return create<Aggregate, isMaxFunc, Comparator, ComplexType>(
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          ComplexType>(
           resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::UNKNOWN:
-      return create<Aggregate, isMaxFunc, Comparator, UnknownValue>(
+      return create<
+          Aggregate,
+          isMaxFunc,
+          Comparator,
+          compareTypeUsesCustomComparison,
+          UnknownValue>(
           resultType, compareType, errorMessage, throwOnNestedNulls);
     default:
       VELOX_FAIL(errorMessage);

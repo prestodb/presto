@@ -25,8 +25,8 @@ namespace {
 /// Returns compare result align with Spark's specific behavior,
 /// which returns true if the value in 'index' row of 'newComparisons' is
 /// greater than/equal or less than/equal the value in the 'accumulator'.
-template <bool sparkGreaterThan, typename T, typename TAccumulator>
 struct SparkComparator {
+  template <bool sparkGreaterThan, typename T, typename TAccumulator>
   static bool compare(
       TAccumulator* accumulator,
       const DecodedVector& newComparisons,
@@ -78,12 +78,7 @@ std::string toString(const std::vector<TypePtr>& types) {
 }
 
 template <
-    template <
-        typename U,
-        typename V,
-        bool B1,
-        template <bool B2, typename C1, typename C2>
-        class C>
+    template <typename U, typename V, bool B1, class C, bool B2>
     class Aggregate,
     bool isMaxFunc>
 exec::AggregateRegistrationResult registerMinMaxBy(

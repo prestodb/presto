@@ -21,6 +21,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::functions::aggregate::test;
@@ -2503,6 +2504,119 @@ class MinMaxByTest : public AggregationTestBase {
 TEST_F(MinMaxByTest, nans) {
   testNanFloatValues<float>();
   testNanFloatValues<double>();
+}
+
+TEST_F(MinMaxByTest, TimestampWithTimezone) {
+  auto data = makeRowVector({// output column for min_by/max_by
+                             makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8}),
+                             // group by column
+                             makeFlatVector<int32_t>({1, 2, 2, 1, 1, 1, 2, 2}),
+                             // regular ordering
+                             makeFlatVector<int64_t>(
+                                 {pack(-1, 2),
+                                  pack(-3, 1),
+                                  pack(0, 4),
+                                  pack(2, 4),
+                                  pack(3, 1),
+                                  pack(-4, 5),
+                                  pack(1, 3),
+                                  pack(4, 0)},
+                                 TIMESTAMP_WITH_TIME_ZONE()),
+                             // with nulls
+                             makeNullableFlatVector<int64_t>(
+                                 {pack(-1, 2),
+                                  std::nullopt,
+                                  pack(0, 4),
+                                  pack(2, 4),
+                                  pack(3, 1),
+                                  std::nullopt,
+                                  pack(1, 3),
+                                  pack(4, 0)},
+                                 TIMESTAMP_WITH_TIME_ZONE())});
+
+  // Global aggregation.
+  {
+    auto expected = makeRowVector({
+        makeFlatVector<int32_t>(std::vector<int32_t>({8})),
+        makeFlatVector<int32_t>(std::vector<int32_t>({8})),
+        makeFlatVector<int32_t>(std::vector<int32_t>({6})),
+        makeFlatVector<int32_t>(std::vector<int32_t>({1})),
+    });
+
+    testAggregations(
+        {data},
+        {},
+        {
+            "max_by(c0, c2)",
+            "max_by(c0, c3)",
+            "min_by(c0, c2)",
+            "min_by(c0, c3)",
+        },
+        {expected});
+  }
+
+  // group-by aggregation.
+  {
+    auto expected = makeRowVector({
+        makeFlatVector<int32_t>({1, 2}), // grouping key
+        makeFlatVector<int32_t>({5, 8}),
+        makeFlatVector<int32_t>({5, 8}),
+        makeFlatVector<int32_t>({6, 2}),
+        makeFlatVector<int32_t>({1, 3}),
+    });
+
+    testAggregations(
+        {data},
+        {"c1"},
+        {
+            "max_by(c0, c2)",
+            "max_by(c0, c3)",
+            "min_by(c0, c2)",
+            "min_by(c0, c3)",
+        },
+        {expected});
+  }
+
+  // Test for float point values nested inside complex type.
+  data = makeRowVector({
+      // output column for min_by/max_by
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8}),
+      // group by column
+      makeFlatVector<int32_t>({1, 2, 2, 1, 1, 1, 2, 2}),
+      makeRowVector({makeFlatVector<int64_t>(
+          {pack(-1, 2),
+           pack(-3, 1),
+           pack(0, 4),
+           pack(2, 4),
+           pack(3, 1),
+           pack(-4, 5),
+           pack(1, 3),
+           pack(4, 0)},
+          TIMESTAMP_WITH_TIME_ZONE())}),
+  });
+
+  // Global aggregation.
+  {
+    auto expected = makeRowVector({
+        makeFlatVector<int32_t>(std::vector<int32_t>({8})),
+        makeFlatVector<int32_t>(std::vector<int32_t>({6})),
+    });
+
+    testAggregations(
+        {data}, {}, {"max_by(c0, c2)", "min_by(c0, c2)"}, {expected});
+  }
+
+  // group-by aggregation.
+  {
+    auto expected = makeRowVector({
+        makeFlatVector<int32_t>({1, 2}), // grouping key
+        makeFlatVector<int32_t>({5, 8}),
+        makeFlatVector<int32_t>({6, 2}),
+    });
+
+    testAggregations(
+        {data}, {"c1"}, {"max_by(c0, c2)", "min_by(c0, c2)"}, {expected});
+  }
 }
 } // namespace
 } // namespace facebook::velox::aggregate::test

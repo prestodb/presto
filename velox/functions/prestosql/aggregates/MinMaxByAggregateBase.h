@@ -25,8 +25,12 @@ namespace facebook::velox::aggregate::prestosql {
 
 /// Returns true if the value in 'index' row of 'newComparisons' is strictly
 /// greater than or less than the value in the 'accumulator'.
-template <bool greaterThan, typename T, typename TAccumulator>
 struct Comparator {
+  template <
+      bool greaterThan,
+      typename T,
+      typename TAccumulator,
+      typename std::enable_if_t<std::is_same_v<T, TAccumulator>, int32_t> = 0>
   static bool compare(
       TAccumulator* accumulator,
       const DecodedVector& newComparisons,
@@ -49,24 +53,35 @@ struct Comparator {
         }
         return newComparisons.valueAt<T>(index) < *accumulator;
       }
+    }
+  }
+
+  template <
+      bool greaterThan,
+      typename T,
+      typename TAccumulator,
+      typename std::enable_if_t<!std::is_same_v<T, TAccumulator>, int32_t> = 0>
+  static bool compare(
+      TAccumulator* accumulator,
+      const DecodedVector& newComparisons,
+      vector_size_t index,
+      bool /* isFirstValue */) {
+    // SingleValueAccumulator::compare has the semantics of accumulator value
+    // is less than vector value.
+    if constexpr (greaterThan) {
+      return !accumulator->hasValue() ||
+          functions::aggregate::compare(
+              accumulator,
+              newComparisons,
+              index,
+              CompareFlags::NullHandlingMode::kNullAsIndeterminate) < 0;
     } else {
-      // SingleValueAccumulator::compare has the semantics of accumulator value
-      // is less than vector value.
-      if constexpr (greaterThan) {
-        return !accumulator->hasValue() ||
-            functions::aggregate::compare(
-                accumulator,
-                newComparisons,
-                index,
-                CompareFlags::NullHandlingMode::kNullAsIndeterminate) < 0;
-      } else {
-        return !accumulator->hasValue() ||
-            functions::aggregate::compare(
-                accumulator,
-                newComparisons,
-                index,
-                CompareFlags::NullHandlingMode::kNullAsIndeterminate) > 0;
-      }
+      return !accumulator->hasValue() ||
+          functions::aggregate::compare(
+              accumulator,
+              newComparisons,
+              index,
+              CompareFlags::NullHandlingMode::kNullAsIndeterminate) > 0;
     }
   }
 };
@@ -1112,8 +1127,8 @@ template <
         typename U,
         typename V,
         bool B1,
-        template <bool B2, typename C1, typename C2>
-        class C>
+        class C,
+        bool compareTypeUsesCustomComparison>
     class Aggregate,
     bool isMaxFunc,
     template <typename U, typename V>
@@ -1193,8 +1208,15 @@ exec::AggregateRegistrationResult registerMinMaxBy(
           return createNArg<NAggregate>(
               resultType, argTypes[0], argTypes[1], errorMessage);
         } else {
-          return functions::aggregate::create<Aggregate, Comparator, isMaxFunc>(
-              resultType, argTypes[0], argTypes[1], errorMessage, true);
+          if (argTypes[1]->providesCustomComparison()) {
+            return functions::aggregate::
+                create<Aggregate, Comparator, isMaxFunc, true>(
+                    resultType, argTypes[0], argTypes[1], errorMessage, true);
+          } else {
+            return functions::aggregate::
+                create<Aggregate, Comparator, isMaxFunc, false>(
+                    resultType, argTypes[0], argTypes[1], errorMessage, true);
+          }
         }
       },
       withCompanionFunctions,
