@@ -131,8 +131,7 @@ class PrestoServer {
   virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getAdditionalHttpServerFilters();
 
-  virtual std::vector<std::string> registerConnectors(
-      const fs::path& configDirectoryPath);
+  virtual std::vector<std::string> registerConnectors();
 
   /// Invoked to register the required dwio data sinks which are used by
   /// connectors.
@@ -196,6 +195,8 @@ class PrestoServer {
 
   void registerStatsCounters();
 
+  void loadCatalogConfigs();
+
  protected:
   void updateAnnouncerDetails();
 
@@ -217,6 +218,17 @@ class PrestoServer {
   void registerSystemConnector();
 
   std::unique_ptr<velox::cache::SsdCache> setupSsdCache();
+
+  struct CatalogInfo {
+    std::string name;
+    std::shared_ptr<const velox::config::ConfigBase> configs;
+
+    CatalogInfo& operator=(const CatalogInfo& other) {
+      name = other.name;
+      configs = other.configs;
+      return *this;
+    }
+  };
 
   const std::string configDirectoryPath_;
 
@@ -277,6 +289,11 @@ class PrestoServer {
   std::string address_;
   std::string nodeLocation_;
   folly::SSLContextPtr sslContext_;
+
+  // Map from connector name to list of catalog information, for catalogs
+  // defined in etc/catalog.
+  std::unordered_map<std::string, std::vector<CatalogInfo>>
+      connectorToCatalogInfo_;
 };
 
 } // namespace facebook::presto

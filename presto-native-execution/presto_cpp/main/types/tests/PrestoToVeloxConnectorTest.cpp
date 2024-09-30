@@ -13,6 +13,8 @@
  */
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include <gtest/gtest.h>
+#include "presto_cpp/main/types/HivePrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/IcebergPrestoToVeloxConnector.h"
 #include "velox/common/base/tests/GTestUtils.h"
 
 using namespace facebook::presto;
@@ -23,16 +25,19 @@ class PrestoToVeloxConnectorTest : public ::testing::Test {};
 TEST_F(PrestoToVeloxConnectorTest, registerVariousConnectors) {
   std::vector<std::pair<std::string, std::unique_ptr<PrestoToVeloxConnector>>>
       connectorList;
-  connectorList.emplace_back(
-      std::pair("hive", std::make_unique<HivePrestoToVeloxConnector>("hive")));
+  connectorList.emplace_back(std::pair(
+      "hive",
+      std::make_unique<HivePrestoToVeloxConnector>("hive", std::nullopt)));
   connectorList.emplace_back(std::pair(
       "hive-hadoop2",
 
-      std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2")));
+      std::make_unique<HivePrestoToVeloxConnector>(
+          "hive-hadoop2", std::nullopt)));
   connectorList.emplace_back(std::pair(
       "iceberg", std::make_unique<IcebergPrestoToVeloxConnector>("iceberg")));
-  connectorList.emplace_back(
-      std::pair("tpch", std::make_unique<HivePrestoToVeloxConnector>("tpch")));
+  connectorList.emplace_back(std::pair(
+      "tpch",
+      std::make_unique<HivePrestoToVeloxConnector>("tpch", std::nullopt)));
 
   for (auto& [connectorName, connector] : connectorList) {
     registerPrestoToVeloxConnector(std::move(connector));
@@ -45,10 +50,11 @@ TEST_F(PrestoToVeloxConnectorTest, registerVariousConnectors) {
 
 TEST_F(PrestoToVeloxConnectorTest, addDuplicates) {
   constexpr auto kConnectorName = "hive";
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>(kConnectorName));
+  registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
+      kConnectorName, std::nullopt));
   VELOX_ASSERT_THROW(
       registerPrestoToVeloxConnector(
-          std::make_unique<HivePrestoToVeloxConnector>(kConnectorName)),
+          std::make_unique<HivePrestoToVeloxConnector>(
+              kConnectorName, std::nullopt)),
       fmt::format("Connector {} is already registered", kConnectorName));
 }

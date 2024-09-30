@@ -13,7 +13,7 @@
  */
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include <gtest/gtest.h>
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/HivePrestoToVeloxConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 
 using namespace facebook::velox;
@@ -49,7 +49,7 @@ class PrestoToVeloxSplitTest : public ::testing::Test {
  protected:
   void SetUp() override {
     registerPrestoToVeloxConnector(
-        std::make_unique<HivePrestoToVeloxConnector>("hive"));
+        std::make_unique<HivePrestoToVeloxConnector>("hive", std::nullopt));
   }
 
   void TearDown() override {
