@@ -77,7 +77,7 @@
         <dep.ratis.version>2.2.0</dep.ratis.version>
         <dep.errorprone.version>2.18.0</dep.errorprone.version>
         <dep.guava.version>32.1.0-jre</dep.guava.version>
-        <dep.jackson.version>2.11.0</dep.jackson.version>
+        <dep.jackson.version>2.15.4</dep.jackson.version>
         <dep.j2objc.version>2.8</dep.j2objc.version>
         <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.26.2</dep.commons.compress.version>
@@ -795,6 +795,36 @@
             <dependency>
                 <groupId>com.fasterxml.jackson.module</groupId>
                 <artifactId>jackson-module-afterburner</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-smile</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-yaml</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
                 <version>${dep.jackson.version}</version>
             </dependency>
 
@@ -2277,6 +2307,14 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>3.3.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>extra-enforcer-rules</artifactId>
+                            <version>1.6.2</version>
+                        </dependency>
+                    </dependencies>
                     <configuration>
                         <rules>
                             <requireUpperBoundDeps>
