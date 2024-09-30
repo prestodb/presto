@@ -76,7 +76,7 @@
         <dep.ratis.version>2.2.0</dep.ratis.version>
         <dep.errorprone.version>2.18.0</dep.errorprone.version>
         <dep.guava.version>32.1.0-jre</dep.guava.version>
-        <dep.jackson.version>2.11.0</dep.jackson.version>
+        <dep.jackson.version>2.15.0</dep.jackson.version>
         <dep.j2objc.version>2.8</dep.j2objc.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.commons.compress.version>1.23.0</dep.commons.compress.version>
@@ -2337,10 +2337,48 @@
                 </plugin>
 
                 <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <version>1.2.1</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <phase>verify</phase>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <ignoredClassPatterns>
+                            <ignoredClassPattern>module-info</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        </ignoredClassPatterns>
+                    </configuration>
+                </plugin>
+
+
+                <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>3.3.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>extra-enforcer-rules</artifactId>
+                            <version>1.6.2</version>
+                        </dependency>
+                    </dependencies>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <phase>validate</phase>
+                        </execution>
+                    </executions>
                     <configuration>
                         <rules>
+
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
                                     <!-- TODO: fix this in Airlift resolver -->
@@ -2350,6 +2388,7 @@
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                    <exclude>com.google.api.grpc:proto-google-common-protos</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
