@@ -57,42 +57,27 @@ TEST_F(QueryConfigTest, taskWriterCountConfig) {
   struct {
     std::optional<int> numWriterCounter;
     std::optional<int> numPartitionedWriterCounter;
-    std::optional<int> numBucketedWriterCounter;
     int expectedWriterCounter;
     int expectedPartitionedWriterCounter;
-    int expectedBucketedWriterCounter;
 
     std::string debugString() const {
       return fmt::format(
-          "numWriterCounter[{}] numPartitionedWriterCounter[{}] numBucketedWriterCounter[{}] expectedPartitionedWriterCounter[{}] expectedBucketedWriterCounter[{}]",
+          "numWriterCounter[{}] numPartitionedWriterCounter[{}] expectedWriterCounter[{}] expectedPartitionedWriterCounter[{}]",
           numWriterCounter.value_or(0),
           numPartitionedWriterCounter.value_or(0),
-          numBucketedWriterCounter.value_or(0),
           expectedWriterCounter,
-          expectedPartitionedWriterCounter,
-          expectedBucketedWriterCounter);
+          expectedPartitionedWriterCounter);
     }
   } testSettings[] = {
-      {std::nullopt, std::nullopt, std::nullopt, 4, 4, 4},
-      {std::nullopt, 1, std::nullopt, 4, 1, 4},
-      {std::nullopt, 6, std::nullopt, 4, 6, 4},
-      {2, 4, std::nullopt, 2, 4, 2},
-      {4, 2, std::nullopt, 4, 2, 4},
-      {4, 6, std::nullopt, 4, 6, 4},
-      {6, 5, std::nullopt, 6, 5, 6},
-      {6, 4, std::nullopt, 6, 4, 6},
-      {6, std::nullopt, 6, 6, 6, 6},
-      {6, std::nullopt, 1, 6, 6, 1},
-      {std::nullopt, std::nullopt, 4, 4, 4, 4},
-      {std::nullopt, std::nullopt, 1, 4, 4, 1},
-      {std::nullopt, 1, 1, 4, 1, 1},
-      {std::nullopt, 1, 2, 4, 1, 2},
-      {std::nullopt, 6, 6, 4, 6, 6},
-      {std::nullopt, 6, 3, 4, 6, 3},
-      {2, 4, 3, 2, 4, 3},
-      {4, 2, 1, 4, 2, 1},
-      {4, 6, 7, 4, 6, 7},
-      {6, std::nullopt, 4, 6, 6, 4}};
+      {std::nullopt, std::nullopt, 4, 4},
+      {std::nullopt, 1, 4, 1},
+      {std::nullopt, 6, 4, 6},
+      {2, 4, 2, 4},
+      {4, 2, 4, 2},
+      {4, 6, 4, 6},
+      {6, 5, 6, 5},
+      {6, 4, 6, 4},
+      {6, std::nullopt, 6, 6}};
   for (const auto& testConfig : testSettings) {
     SCOPED_TRACE(testConfig.debugString());
     std::unordered_map<std::string, std::string> configData;
@@ -106,11 +91,6 @@ TEST_F(QueryConfigTest, taskWriterCountConfig) {
           QueryConfig::kTaskPartitionedWriterCount,
           std::to_string(testConfig.numPartitionedWriterCounter.value()));
     }
-    if (testConfig.numBucketedWriterCounter.has_value()) {
-      configData.emplace(
-          QueryConfig::kTaskBucketedWriterCount,
-          std::to_string(testConfig.numBucketedWriterCounter.value()));
-    }
     auto queryCtx =
         QueryCtx::create(nullptr, QueryConfig{std::move(configData)});
     const QueryConfig& config = queryCtx->queryConfig();
@@ -118,9 +98,6 @@ TEST_F(QueryConfigTest, taskWriterCountConfig) {
     ASSERT_EQ(
         config.taskPartitionedWriterCount(),
         testConfig.expectedPartitionedWriterCounter);
-    ASSERT_EQ(
-        config.taskBucketedWriterCount(),
-        testConfig.expectedBucketedWriterCounter);
   }
 }
 

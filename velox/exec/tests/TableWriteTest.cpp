@@ -102,7 +102,6 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> addTableWriter(
     const std::shared_ptr<core::AggregationNode>& aggregationNode,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
     bool hasPartitioningScheme,
-    bool hasBucketProperty,
     connector::CommitStrategy commitStrategy =
         connector::CommitStrategy::kNoCommit) {
   return [=](core::PlanNodeId nodeId,
@@ -114,7 +113,6 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> addTableWriter(
         aggregationNode,
         insertHandle,
         hasPartitioningScheme,
-        hasBucketProperty,
         TableWriteTraits::outputType(aggregationNode),
         commitStrategy,
         std::move(source));
@@ -608,8 +606,7 @@ class TableWriteTest : public HiveConnectorTestBase {
                                     partitionedBy,
                                     bucketProperty,
                                     compressionKind),
-                                !partitionedBy.empty(),
-                                bucketProperty != nullptr,
+                                false,
                                 outputCommitStrategy))
                             .capturePlanNodeId(tableWriteNodeId_);
       if (aggregateResult) {
@@ -633,8 +630,7 @@ class TableWriteTest : public HiveConnectorTestBase {
                                     partitionedBy,
                                     bucketProperty,
                                     compressionKind),
-                                !partitionedBy.empty(),
-                                bucketProperty != nullptr,
+                                false,
                                 outputCommitStrategy))
                             .capturePlanNodeId(tableWriteNodeId_)
                             .localPartition(std::vector<std::string>{})
@@ -675,8 +671,7 @@ class TableWriteTest : public HiveConnectorTestBase {
                       partitionedBy,
                       bucketProperty,
                       compressionKind),
-                  !partitionedBy.empty(),
-                  bucketProperty != nullptr,
+                  false,
                   outputCommitStrategy))
               .capturePlanNodeId(tableWriteNodeId_)
               .localPartition({})
@@ -1603,65 +1598,6 @@ TEST_P(AllTableWriterTest, scanFilterProjectWrite) {
         "SELECT c0, c1, c3, c5, c2 + c3, substr(c5, 1, 1) FROM tmp WHERE c2 <> 0");
     verifyTableWriterOutput(outputDirectory->getPath(), outputType, false);
   }
-}
-
-TEST_P(AllTableWriterTest, writerDriverThreads) {
-  const int batchSize = 1'000;
-  const int numBatches = 20;
-  const std::vector<RowVectorPtr> vectors = makeVectors(numBatches, batchSize);
-
-  createDuckDbTable(vectors);
-
-  auto queryCtx = core::QueryCtx::create(executor_.get());
-  auto outputDirectory = TempDirectoryPath::create();
-  core::PlanNodeId tableWriteNodeId;
-  auto writerPlan =
-      PlanBuilder()
-          .values(vectors, /*parallelizable=*/true)
-          .tableWrite(
-              outputDirectory->getPath(),
-              partitionedBy_,
-              bucketProperty_ != nullptr ? bucketProperty_->bucketCount() : 0,
-              bucketProperty_ != nullptr ? bucketProperty_->bucketedBy()
-                                         : std::vector<std::string>{},
-              bucketProperty_ != nullptr
-                  ? bucketProperty_->sortedBy()
-                  : std::vector<std::shared_ptr<
-                        const connector::hive::HiveSortingColumn>>{})
-          .capturePlanNodeId(tableWriteNodeId)
-          .localPartition({})
-          .tableWriteMerge()
-          .project({TableWriteTraits::rowCountColumnName()})
-          .singleAggregation(
-              {},
-              {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())})
-          .planNode();
-  const int taskWriterCount = 4;
-  const int taskPartitionedWriterCount = 8;
-  const int taskBucketWriterCount = 9;
-  const auto expectedNumWriterDrivers = bucketProperty_ != nullptr
-      ? taskBucketWriterCount
-      : partitionedBy_.empty() ? taskWriterCount
-                               : taskPartitionedWriterCount;
-  const auto expectedNumRows =
-      numBatches * batchSize * expectedNumWriterDrivers;
-  auto task = AssertQueryBuilder(duckDbQueryRunner_)
-                  .queryCtx(queryCtx)
-                  .maxDrivers(10)
-                  .config(
-                      core::QueryConfig::kTaskWriterCount,
-                      std::to_string(taskWriterCount))
-                  .config(
-                      core::QueryConfig::kTaskPartitionedWriterCount,
-                      std::to_string(taskPartitionedWriterCount))
-                  .config(
-                      core::QueryConfig::kTaskBucketedWriterCount,
-                      std::to_string(taskBucketWriterCount))
-                  .plan(std::move(writerPlan))
-                  .assertResults(fmt::format("SELECT {}", expectedNumRows));
-  auto planStats = exec::toPlanStats(task->taskStats());
-  auto& tableWriteStats = planStats.at(tableWriteNodeId);
-  ASSERT_EQ(tableWriteStats.numDrivers, expectedNumWriterDrivers);
 }
 
 TEST_P(AllTableWriterTest, renameAndReorderColumns) {
@@ -2900,7 +2836,6 @@ TEST_P(AllTableWriterTest, columnStatsDataTypes) {
                               partitionedBy_,
                               nullptr,
                               makeLocationHandle(outputDirectory->getPath()))),
-                      !partitionedBy_.empty(),
                       false,
                       CommitStrategy::kNoCommit))
                   .planNode();
@@ -2990,8 +2925,7 @@ TEST_P(AllTableWriterTest, columnStats) {
                               partitionedBy_,
                               bucketProperty_,
                               makeLocationHandle(outputDirectory->getPath()))),
-                      !partitionedBy_.empty(),
-                      bucketProperty_ != nullptr,
+                      false,
                       commitStrategy_))
                   .planNode();
 
@@ -3091,8 +3025,7 @@ TEST_P(AllTableWriterTest, columnStatsWithTableWriteMerge) {
               partitionedBy_,
               bucketProperty_,
               makeLocationHandle(outputDirectory->getPath()))),
-      !partitionedBy_.empty(),
-      bucketProperty_ != nullptr,
+      false,
       commitStrategy_));
 
   auto mergeAggregationNode = generateAggregationNode(

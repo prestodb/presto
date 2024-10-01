@@ -385,10 +385,6 @@ Table Writer
      - integer
      - task_writer_count
      - The number of parallel table writer threads per task for partitioned table writes. If not set, use 'task_writer_count' as default.
-   * - task_bucketed_writer_count
-     - integer
-     - task_writer_count
-     - The number of parallel table writer threads per task for bucketed table writes. If not set, use 'task_writer_count' as default.
 
 Hive Connector
 --------------

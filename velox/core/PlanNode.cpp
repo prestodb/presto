@@ -1853,7 +1853,6 @@ folly::dynamic TableWriteNode::serialize() const {
   obj["connectorInsertTableHandle"] =
       insertTableHandle_->connectorInsertTableHandle()->serialize();
   obj["hasPartitioningScheme"] = hasPartitioningScheme_;
-  obj["hasBucketProperty"] = hasBucketProperty_;
   obj["outputType"] = outputType_->serialize();
   obj["commitStrategy"] = connector::commitStrategyToString(commitStrategy_);
   return obj;
@@ -1876,7 +1875,6 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
           ISerializable::deserialize<connector::ConnectorInsertTableHandle>(
               obj["connectorInsertTableHandle"]));
   const bool hasPartitioningScheme = obj["hasPartitioningScheme"].asBool();
-  const bool hasBucketProperty = obj["hasBucketProperty"].asBool();
   auto outputType = deserializeRowType(obj["outputType"]);
   auto commitStrategy =
       connector::stringToCommitStrategy(obj["commitStrategy"].asString());
@@ -1889,7 +1887,6 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
       std::make_shared<InsertTableHandle>(
           connectorId, connectorInsertTableHandle),
       hasPartitioningScheme,
-      hasBucketProperty,
       outputType,
       commitStrategy,
       source);

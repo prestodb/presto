@@ -471,8 +471,7 @@ PlanBuilder& PlanBuilder::tableWrite(
       rowType->names(),
       aggregationNode,
       insertHandle,
-      !partitionBy.empty(),
-      bucketProperty != nullptr,
+      false,
       TableWriteTraits::outputType(aggregationNode),
       connector::CommitStrategy::kNoCommit,
       planNode_);

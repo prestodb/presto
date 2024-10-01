@@ -238,9 +238,7 @@ uint32_t maxDrivers(
       if (!connectorInsertHandle->supportsMultiThreading()) {
         return 1;
       } else {
-        if (tableWrite->hasBucketProperty()) {
-          return queryConfig.taskBucketedWriterCount();
-        } else if (tableWrite->hasPartitioningScheme()) {
+        if (tableWrite->hasPartitioningScheme()) {
           return queryConfig.taskPartitionedWriterCount();
         } else {
           return queryConfig.taskWriterCount();
