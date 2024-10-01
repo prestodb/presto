@@ -66,12 +66,14 @@ import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.type.DecimalOperators.modulusScalarFunction;
 import static com.facebook.presto.type.DecimalOperators.modulusSignatureBuilder;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.google.common.math.DoubleMath.roundToLong;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Character.MIN_RADIX;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
+import static java.math.RoundingMode.HALF_UP;
 
 public final class MathFunctions
 {
@@ -1101,11 +1103,17 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
-        if (num < 0) {
-            return -(Math.round(-num * factor) / factor);
+        try {
+            if (num < 0) {
+                return -(roundToLong(-num * factor, HALF_UP) / factor);
+            }
+            return roundToLong(num * factor, HALF_UP) / factor;
         }
-
-        return Math.round(num * factor) / factor;
+        catch (ArithmeticException e) {
+            // Use BigDecimal if the value is out of the range of long.
+            BigDecimal bigDecimal = new BigDecimal(num);
+            return bigDecimal.setScale((int) decimals, HALF_UP).doubleValue();
+        }
     }
 
     @Description("round to given number of decimal places")
@@ -1119,11 +1127,17 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
-        if (numInFloat < 0) {
-            return floatToRawIntBits((float) -(Math.round(-numInFloat * factor) / factor));
+        try {
+            if (numInFloat < 0) {
+                return floatToRawIntBits((float) -(roundToLong(-numInFloat * factor, HALF_UP) / factor));
+            }
+            return floatToRawIntBits((float) (roundToLong(numInFloat * factor, HALF_UP) / factor));
         }
-
-        return floatToRawIntBits((float) (Math.round(numInFloat * factor) / factor));
+        catch (ArithmeticException e) {
+            // Use BigDecimal if the value is out of the range of long.
+            BigDecimal bigDecimal = new BigDecimal(numInFloat);
+            return floatToRawIntBits(bigDecimal.setScale((int) decimals, HALF_UP).longValue());
+        }
     }
 
     @ScalarFunction("round")

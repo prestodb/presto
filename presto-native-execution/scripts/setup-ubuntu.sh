@@ -18,7 +18,6 @@ set -eufx -o pipefail
 
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
-export FB_OS_VERSION=v2024.04.01.00
 SUDO="${SUDO:-"sudo --preserve-env"}"
 
 function install_proxygen {

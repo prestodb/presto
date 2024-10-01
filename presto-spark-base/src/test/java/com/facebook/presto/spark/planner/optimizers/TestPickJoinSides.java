@@ -35,12 +35,12 @@ import com.facebook.presto.spark.PrestoSparkSessionProperties;
 import com.facebook.presto.spark.PrestoSparkSessionPropertyManagerProvider;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinType;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -379,7 +379,7 @@ public class TestPickJoinSides
     {
         int aSize = 100;
         int bSize = 10_000;
-        tester.assertThat(new PickJoinSides(tester.getMetadata(), tester.getSqlParser()))
+        tester.assertThat(new PickJoinSides(tester.getMetadata()))
                 .setSystemProperty(ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED, "false")
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setTotalSize(aSize)
@@ -470,7 +470,7 @@ public class TestPickJoinSides
 
     private RuleAssert assertPickJoinSides()
     {
-        return tester.assertThat(new PickJoinSides(tester.getMetadata(), tester.getSqlParser()))
+        return tester.assertThat(new PickJoinSides(tester.getMetadata()))
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
                 .setSystemProperty(ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED, "true");
     }

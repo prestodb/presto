@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.transaction.TransactionManager;
@@ -57,7 +56,7 @@ public class TestResetSessionTask
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new AllowAllAccessControl();
 
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        metadata = createTestMetadataManager(transactionManager);
 
         metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
                 "foo",

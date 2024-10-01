@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
@@ -50,6 +51,7 @@ public class TestLegacyLogFunction
     private static QueryRunner createQueryRunner(boolean legacyLogFunction)
     {
         return new LocalQueryRunner(testSessionBuilder().build(),
-                new FeaturesConfig().setLegacyLogFunction(legacyLogFunction));
+                new FeaturesConfig(),
+                new FunctionsConfig().setLegacyLogFunction(legacyLogFunction));
     }
 }

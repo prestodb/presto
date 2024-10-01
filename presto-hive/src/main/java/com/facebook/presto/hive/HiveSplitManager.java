@@ -78,12 +78,13 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.isInfoColumnHandle;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -303,7 +304,7 @@ public class HiveSplitManager
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
                 hivePartitions,
-                getPathDomain(layout.getDomainPredicate(), layout.getPredicateColumns()),
+                getInfoColumnConstraints(layout.getDomainPredicate(), layout.getPredicateColumns()),
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 hdfsEnvironment,
@@ -424,14 +425,19 @@ public class HiveSplitManager
         return splitSource;
     }
 
-    private static Optional<Domain> getPathDomain(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns)
+    private static Map<Integer, Domain> getInfoColumnConstraints(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns)
     {
         checkArgument(!domainPredicate.isNone(), "Unexpected domain predicate: none");
 
-        return domainPredicate.getDomains().get().entrySet().stream()
-                .filter(entry -> isPathColumnHandle(predicateColumns.get(entry.getKey().getRootName())))
-                .findFirst()
-                .map(Map.Entry::getValue);
+        if (domainPredicate.getDomains().isPresent()) {
+            return domainPredicate.getDomains().get()
+                    .entrySet()
+                    .stream()
+                    .filter(kv -> isInfoColumnHandle(predicateColumns.get(kv.getKey().getRootName())))
+                    .collect(Collectors.toMap(e -> predicateColumns.get(e.getKey().getRootName()).getHiveColumnIndex(), e -> e.getValue()));
+        }
+
+        return ImmutableMap.of();
     }
 
     @Managed

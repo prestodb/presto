@@ -15,6 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -28,23 +29,23 @@ import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.operator.StageExecutionDescriptor;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -97,13 +98,14 @@ public class TestAdaptivePhasedExecutionPolicy
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxStageCountForEagerScheduling(5),
+                new FunctionsConfig(),
                 new NodeMemoryConfig(),
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new SecurityConfig()))).build();
+                new HistoryBasedOptimizationConfig()))).build();
         AdaptivePhasedExecutionPolicy policy = new AdaptivePhasedExecutionPolicy();
         Collection<StageExecutionAndScheduler> schedulers = getStageExecutionAndSchedulers(4);
         assertTrue(policy.createExecutionSchedule(session, schedulers) instanceof AllAtOnceExecutionSchedule);

@@ -22,8 +22,6 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -51,7 +49,7 @@ public class DynamicFiltersChecker
         implements PlanChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         plan.accept(new InternalPlanVisitor<Set<String>, Void>()
         {

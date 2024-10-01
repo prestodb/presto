@@ -49,11 +49,11 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.OutputNode;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -61,7 +61,6 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.transaction.TransactionManager;
@@ -234,7 +233,6 @@ public class PrestoSparkAdaptiveQueryExecution
                 isFragmentFinished,
                 this.metadata,
                 new PlanChecker(this.featuresConfig, forceSingleNode),
-                new SqlParser(),
                 this.idAllocator,
                 new PrestoSparkNodePartitioningManager(this.partitioningProviderManager),
                 this.queryManagerConfig,

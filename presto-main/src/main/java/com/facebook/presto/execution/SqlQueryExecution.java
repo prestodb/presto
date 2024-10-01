@@ -43,6 +43,7 @@ import com.facebook.presto.spi.analyzer.QueryAnalysis;
 import com.facebook.presto.spi.analyzer.QueryAnalyzer;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.plan.OutputNode;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
@@ -53,7 +54,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.OutputExtractor;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanFragmenter;
@@ -88,6 +88,7 @@ import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NA
 import static com.facebook.presto.common.RuntimeMetricName.GET_CANONICAL_INFO_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
+import static com.facebook.presto.execution.QueryStateMachine.pruneHistogramsFromStatsAndCosts;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
@@ -237,7 +238,7 @@ public class SqlQueryExecution
                             stateMachine.setAggregateFunctions(entry.getValue());
                             break;
                         case WINDOW:
-                            stateMachine.setWindowsFunctions(entry.getValue());
+                            stateMachine.setWindowFunctions(entry.getValue());
                             break;
                     }
                 }
@@ -544,7 +545,6 @@ public class SqlQueryExecution
                     metadata,
                     planOptimizers,
                     planChecker,
-                    sqlParser,
                     analyzerContext.getVariableAllocator(),
                     idAllocator,
                     stateMachine.getWarningCollector(),
@@ -745,9 +745,23 @@ public class SqlQueryExecution
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneExpiredQueryInfo()
     {
-        stateMachine.pruneQueryInfo();
+        stateMachine.pruneQueryInfoExpired();
+    }
+
+    @Override
+    public void pruneFinishedQueryInfo()
+    {
+        queryPlan.getAndUpdate(nullablePlan -> Optional.ofNullable(nullablePlan)
+                .map(plan -> new Plan(
+                        plan.getRoot(),
+                        plan.getTypes(),
+                        pruneHistogramsFromStatsAndCosts(plan.getStatsAndCosts())))
+                .orElse(null));
+        // drop the reference to the scheduler since execution is finished
+        queryScheduler.set(null);
+        stateMachine.pruneQueryInfoFinished();
     }
 
     @Override

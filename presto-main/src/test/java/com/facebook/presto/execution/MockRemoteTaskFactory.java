@@ -28,7 +28,6 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
@@ -36,16 +35,17 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
@@ -147,7 +147,8 @@ public class MockRemoteTaskFactory
                 createInitialEmptyOutputBuffers(BROADCAST),
                 nodeStatsTracker,
                 true,
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                SchedulerStatsTracker.NOOP);
     }
 
     @Override
@@ -160,7 +161,8 @@ public class MockRemoteTaskFactory
             OutputBuffers outputBuffers,
             NodeTaskMap.NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            SchedulerStatsTracker schedulerStatsTracker)
     {
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, nodeStatsTracker);
     }

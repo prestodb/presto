@@ -33,7 +33,6 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 
@@ -73,12 +72,10 @@ public class PickJoinSides
                     && !(joinNode.getCriteria().isEmpty() && (joinNode.getType() == LEFT || joinNode.getType() == RIGHT)));
 
     private Metadata metadata;
-    private SqlParser sqlParser;
 
-    public PickJoinSides(Metadata metadata, SqlParser sqlParser)
+    public PickJoinSides(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
     @Override
@@ -104,7 +101,7 @@ public class PickJoinSides
         // if we don't have exact costs for the join, but based on source tables we think the left side
         // is very small or much smaller than the right, then flip the join.
         if (rightSize > leftSize || (isSizeBasedJoinDistributionTypeEnabled(context.getSession()) && (Double.isNaN(leftSize) || Double.isNaN(rightSize)) && isLeftSideSmall(joinNode, context))) {
-            rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, sqlParser, context.getLookup(), context.getSession(), context.getVariableAllocator(), context.getIdAllocator());
+            rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, context.getLookup(), context.getSession(), context.getIdAllocator());
         }
 
         return rewrittenNode.map(Result::ofPlanNode).orElseGet(Result::empty);

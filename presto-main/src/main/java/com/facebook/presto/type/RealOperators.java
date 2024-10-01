@@ -124,7 +124,7 @@ public final class RealOperators
             return DoubleMath.roundToLong(intBitsToFloat((int) value), HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", value), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", intBitsToFloat((int) value)), e);
         }
     }
 
@@ -136,7 +136,7 @@ public final class RealOperators
             return DoubleMath.roundToInt(intBitsToFloat((int) value), HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to integer", value), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to integer", intBitsToFloat((int) value)), e);
         }
     }
 
@@ -148,7 +148,7 @@ public final class RealOperators
             return Shorts.checkedCast(DoubleMath.roundToInt(intBitsToFloat((int) value), HALF_UP));
         }
         catch (ArithmeticException | IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to smallint", value), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to smallint", intBitsToFloat((int) value)), e);
         }
     }
 
@@ -160,7 +160,7 @@ public final class RealOperators
             return SignedBytes.checkedCast(DoubleMath.roundToInt(intBitsToFloat((int) value), HALF_UP));
         }
         catch (ArithmeticException | IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to tinyint", value), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to tinyint", intBitsToFloat((int) value)), e);
         }
     }
 

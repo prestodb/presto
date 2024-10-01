@@ -47,6 +47,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.DenyAllAccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -209,6 +210,7 @@ public class ExpressionAnalyzer
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
 
     private final FunctionAndTypeResolver functionAndTypeResolver;
+    private final FunctionResolution functionResolution;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
@@ -261,6 +263,7 @@ public class ExpressionAnalyzer
             Map<NodeRef<Expression>, Type> outerScopeSymbolTypes)
     {
         this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
+        this.functionResolution = new FunctionResolution(functionAndTypeResolver);
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
@@ -1113,6 +1116,13 @@ public class ExpressionAnalyzer
                     if (!sortKeyType.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
                     }
+                }
+            }
+
+            if (node.isIgnoreNulls() && node.getWindow().isPresent()) {
+                if (!functionResolution.isWindowValueFunction(function)) {
+                    String warningMessage = createWarningMessage(node, "IGNORE NULLS is not used for aggregate and ranking window functions. This will cause queries to fail in future versions.");
+                    warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, warningMessage));
                 }
             }
 

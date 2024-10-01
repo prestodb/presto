@@ -17,7 +17,8 @@ target_link_libraries(presto_exception velox_exception)
 set_property(TARGET presto_exception PROPERTY JOB_POOL_LINK
                                               presto_link_job_pool)
 
-target_link_libraries(presto_common velox_config velox_core velox_exception)
+target_link_libraries(presto_common velox_common_config velox_core
+                      velox_exception)
 set_property(TARGET presto_common PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 if(PRESTO_ENABLE_TESTING)

@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
 import java.util.Optional;
@@ -32,7 +31,6 @@ public interface DispatchQueryFactory
      * This interface API is defined to setting up all preparation works for query before it being executed.
      *
      * @param session the session
-     * @param analyzerProvider the analyzer provider
      * @param query the query
      * @param preparedQuery the prepared query
      * @param slug the unique query slug for each {@code Query} object
@@ -45,7 +43,6 @@ public interface DispatchQueryFactory
      */
     DispatchQuery createDispatchQuery(
             Session session,
-            AnalyzerProvider analyzerProvider,
             String query,
             PreparedQuery preparedQuery,
             String slug,

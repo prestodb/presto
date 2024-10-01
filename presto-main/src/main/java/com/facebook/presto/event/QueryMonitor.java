@@ -46,6 +46,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
@@ -57,6 +58,7 @@ import com.facebook.presto.spi.eventlistener.QueryIOMetadata;
 import com.facebook.presto.spi.eventlistener.QueryInputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
+import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
@@ -65,6 +67,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -115,6 +118,7 @@ public class QueryMonitor
     private final FunctionAndTypeManager functionAndTypeManager;
     private final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
     private final int maxJsonLimit;
+    private final String workerType;
 
     @Inject
     public QueryMonitor(
@@ -127,7 +131,8 @@ public class QueryMonitor
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
             QueryMonitorConfig config,
-            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
+            FeaturesConfig featuresConfig)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
@@ -140,6 +145,7 @@ public class QueryMonitor
         this.functionAndTypeManager = requireNonNull(metadata, "metadata is null").getFunctionAndTypeManager();
         this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getHistoryBasedPlanStatisticsTracker();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
+        this.workerType = requireNonNull(featuresConfig, "featuresConfig is null").isNativeExecutionEnabled() ? "Prestissimo" : "Presto";
     }
 
     public void queryCreatedEvent(BasicQueryInfo queryInfo)
@@ -167,6 +173,30 @@ public class QueryMonitor
     public void queryUpdatedEvent(QueryInfo queryInfo)
     {
         eventListenerManager.queryUpdated(new QueryUpdatedEvent(createQueryMetadata(queryInfo)));
+    }
+
+    public void publishQueryProgressEvent(long monotonicallyIncreasingEventId, BasicQueryInfo queryInfo)
+    {
+        eventListenerManager.publishQueryProgress(new QueryProgressEvent(
+                monotonicallyIncreasingEventId,
+                new QueryMetadata(
+                        queryInfo.getQueryId().toString(),
+                        queryInfo.getSession().getTransactionId().map(TransactionId::toString),
+                        queryInfo.getQuery(),
+                        queryInfo.getQueryHash(),
+                        queryInfo.getPreparedQuery(),
+                        queryInfo.getState().toString(),
+                        queryInfo.getSelf(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        queryInfo.getSession().getTraceToken()),
+                createQueryStatistics(queryInfo),
+                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                queryInfo.getQueryType(),
+                ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis())));
     }
 
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
@@ -283,7 +313,7 @@ public class QueryMonitor
                         queryInfo.getCteInformationList(),
                         queryInfo.getScalarFunctions(),
                         queryInfo.getAggregateFunctions(),
-                        queryInfo.getWindowsFunctions(),
+                        queryInfo.getWindowFunctions(),
                         queryInfo.getPrestoSparkExecutionContext(),
                         getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId()))));
 
@@ -427,6 +457,46 @@ public class QueryMonitor
                 queryStats.getRuntimeStats());
     }
 
+    private QueryStatistics createQueryStatistics(BasicQueryInfo basicQueryInfo)
+    {
+        BasicQueryStats queryStats = basicQueryInfo.getQueryStats();
+
+        return new QueryStatistics(
+                ofMillis(queryStats.getTotalCpuTime().toMillis()),
+                ofMillis(0),
+                ofMillis(queryStats.getElapsedTime().toMillis()),
+                ofMillis(queryStats.getWaitingForPrerequisitesTime().toMillis()),
+                ofMillis(queryStats.getQueuedTime().toMillis()),
+                ofMillis(0),
+                ofMillis(0),
+                ofMillis(0),
+                ofMillis(0),
+                ofMillis(0),
+                Optional.of(ofMillis(0)),
+                ofMillis(queryStats.getExecutionTime().toMillis()),
+                queryStats.getPeakRunningTasks(),
+                queryStats.getPeakUserMemoryReservation().toBytes(),
+                queryStats.getPeakTotalMemoryReservation().toBytes(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                queryStats.getRawInputDataSize().toBytes(),
+                queryStats.getRawInputPositions(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                queryStats.getCumulativeUserMemory(),
+                queryStats.getCumulativeTotalMemory(),
+                queryStats.getCompletedDrivers(),
+                false,
+                new RuntimeStats());
+    }
+
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)
     {
         return new QueryContext(
@@ -444,7 +514,8 @@ public class QueryMonitor
                 session.getResourceEstimates(),
                 serverAddress,
                 serverVersion,
-                environment);
+                environment,
+                workerType);
     }
 
     private Optional<String> createTextQueryPlan(QueryInfo queryInfo)
@@ -760,7 +831,7 @@ public class QueryMonitor
             try {
                 return Optional.of(OBJECT_MAPPER.writeValueAsString(root));
             }
-            catch (JsonProcessingException e) {
+            catch (JsonProcessingException ignored) {
             }
         }
         return Optional.empty();

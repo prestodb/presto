@@ -338,6 +338,7 @@ public final class SessionRepresentation
                 Optional.empty(),
                 // we use NOOP to create a session from the representation as worker does not require warning collectors
                 WarningCollector.NOOP,
-                new RuntimeStats());
+                new RuntimeStats(),
+                Optional.empty());
     }
 }

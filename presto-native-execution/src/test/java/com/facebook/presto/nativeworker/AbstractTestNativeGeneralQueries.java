@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,6 +55,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createTableToTestHiddenColumns;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -71,6 +74,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestNativeGeneralQueries
         extends AbstractTestQueryFramework
@@ -89,6 +93,7 @@ public abstract class AbstractTestNativeGeneralQueries
         createBucketedCustomer(queryRunner);
         createPart(queryRunner);
         createRegion(queryRunner);
+        createTableToTestHiddenColumns(queryRunner);
         createEmptyTable(queryRunner);
         createBucketedLineitemAndOrders(queryRunner);
 
@@ -315,6 +320,33 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testIPAddressIPPrefix() throws InterruptedException
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (ip VARCHAR, prefixSize  BIGINT, ippre VARCHAR)", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES " +
+                    "(VARCHAR '255.255.255.255', BIGINT '8', VARCHAR '255.0.0.0/8'), " +
+                    "(VARCHAR '2001:0db8:85a3:0001:0001:8a2e:0370:7334', BIGINT '48', VARCHAR '2001:db8:85a3::/48')", tmpTableName));
+
+            assertQueryFails(String.format("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), NULL) IS NULL", tmpTableName),
+                    ".*IPAddress type is not supported in Prestissimo.*");
+            assertQueryFails(String.format("SELECT CAST(NULL AS IPADDRESS) IS NULL", tmpTableName),
+                    ".*IPAddress type is not supported in Prestissimo.*");
+
+            assertQueryFails("SELECT * FROM (VALUES (IPADDRESS '192.1.1.10'), (IPADDRESS '192.1.1.1'), (IPADDRESS '192.1.1.11')) as t (ip) ORDER BY ip LIMIT 1",
+                    ".*IPAddress type is not supported in Prestissimo.*");
+
+            assertQueryFails("SELECT CAST('192.168.255.256' AS IPADDRESS)",
+                    ".*IPAddress type is not supported in Prestissimo.*");
+            assertQueryFails("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), 99)",
+                    ".*IPAddress type is not supported in Prestissimo.*");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+    @Test
     public void testTableSample()
     {
         // At best we can check for query success for the TABLESAMPLE based queries as the number of rows returned
@@ -428,6 +460,14 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT CAST(true as VARCHAR), CAST(false as VARCHAR)");
         assertQuery("SELECT CAST(0.0 as VARCHAR)");
 
+        // Cast to varchar(n).
+        assertQuery("SELECT CAST(comment as VARCHAR(1)) FROM orders");
+        assertQuery("SELECT CAST(comment as VARCHAR(1000)) FROM orders WHERE LENGTH(comment) < 1000");
+        assertQuery("SELECT CAST(c0 AS VARCHAR(1)) FROM ( VALUES (NULL) ) t(c0)");
+        assertQuery("SELECT CAST(c0 AS VARCHAR(1)) FROM ( VALUES ('') ) t(c0)");
+        assertQuery("SELECT CAST(is_returned as VARCHAR(1)), CAST(linenumber_as_tinyint as VARCHAR(1)), CAST(linenumber_as_smallint as VARCHAR(1)), " +
+                "CAST(linenumber as VARCHAR(1)), CAST(tax_as_real as VARCHAR(1)), CAST(tax as VARCHAR(1)) FROM lineitem");
+
         assertQuery("SELECT try_cast(linenumber as TINYINT), try_cast(linenumber AS SMALLINT), "
                 + "try_cast(linenumber AS INTEGER), try_cast(linenumber AS BIGINT), try_cast(quantity AS REAL), "
                 + "try_cast(orderkey AS DOUBLE), try_cast(orderkey AS VARCHAR) FROM lineitem");
@@ -520,13 +560,13 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT cast(row(orderkey, comment) as row(\"123\" varchar, \"456\" varchar)) FROM orders");
 
         // Cast timestamp with time zone
-        assertQuery("SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders");
-        assertQuery(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders");
+        assertQueryFails("SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQueryFails(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
         // Cast timestamp with time zone to timestamp
-        assertQuery("SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
-                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
-        assertQuery(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
-                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
+        assertQueryFails("SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
+                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQueryFails(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
+                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
     }
 
     @Test
@@ -1016,31 +1056,49 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test
     public void testPathHiddenColumn()
     {
-        assertQuery("SELECT \"$path\", * from orders");
+        assertQuery("SELECT \"$path\", * from test_hidden_columns");
 
         // Fetch one of the file paths and use it in a filter
-        String path = (String) computeActual("SELECT \"$path\" from orders LIMIT 1").getOnlyValue();
-        assertQuery(format("SELECT * from orders WHERE \"$path\"='%s'", path));
+        String path = (String) computeActual("SELECT \"$path\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from test_hidden_columns WHERE \"$path\"='%s'", path));
+
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$path\"='%s'", path))
+                        .getOnlyValue(),
+                1L);
     }
 
     @Test
     public void testFileSizeHiddenColumn()
     {
-        assertQuery("SELECT \"$file_size\", * from orders");
+        assertQuery("SELECT \"$file_size\", * from test_hidden_columns");
 
         // Fetch one of the file sizes and use it in a filter
-        Long fileSize = (Long) computeActual("SELECT \"$file_size\" from orders LIMIT 1").getOnlyValue();
-        assertQuery(format("SELECT * from orders WHERE \"$file_size\"=%d", fileSize));
+        Long fileSize = (Long) computeActual("SELECT \"$file_size\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from test_hidden_columns WHERE \"$file_size\"=%d", fileSize));
+
+        // A bug used to return all rows even though filters on hidden column were present in the query.
+        // So checking the count here to verify the number of rows returned is correct. Since the bug was present
+        // for both Java and Native Presto for non-$path columns, the assertQuery test above used to pass.
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$file_size\"=%d", fileSize))
+                        .getOnlyValue(),
+                1L);
     }
 
     @Test
     public void testFileModifiedTimeHiddenColumn()
     {
-        assertQuery("SELECT \"$file_modified_time\", * from orders");
+        assertQuery("SELECT \"$file_modified_time\", * from test_hidden_columns");
 
         // Fetch one of the file modified times and use it as a filter.
-        Long fileModifiedTime = (Long) computeActual("SELECT \"$file_modified_time\" from orders LIMIT 1").getOnlyValue();
-        assertQuery(format("SELECT *, \"$file_modified_time\" from orders WHERE \"$file_modified_time\"=%d", fileModifiedTime));
+        Long fileModifiedTime = (Long) computeActual("SELECT \"$file_modified_time\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from test_hidden_columns WHERE \"$file_modified_time\"=%d", fileModifiedTime));
+        assertEquals(
+                (Long) computeActual(
+                        format("SELECT count(*) from " +
+                                "test_hidden_columns WHERE \"$file_modified_time\"=%d", fileModifiedTime)).getOnlyValue(),
+                1L);
     }
 
     @Test
@@ -1052,6 +1110,11 @@ public abstract class AbstractTestNativeGeneralQueries
         Integer bucket = (Integer) computeActual("SELECT \"$bucket\" from customer_bucketed LIMIT 1").getOnlyValue();
 
         assertQuery(format("SELECT * from customer_bucketed WHERE \"$bucket\"=%d", bucket));
+
+        long bucketRowCount = (long) computeActual(format("SELECT count(*) from customer_bucketed WHERE \"$bucket\"=%d", bucket)).getOnlyValue();
+        long tableRowCount = (long) computeActual("SELECT count(*) from customer_bucketed").getOnlyValue();
+
+        assertTrue(bucketRowCount != tableRowCount);
     }
 
     @Test
@@ -1203,22 +1266,27 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test
     public void testTimestampWithTimeZone()
     {
-        assertQuery("SELECT from_unixtime(orderkey, '+01:00'), from_unixtime(orderkey, '-05:00'), from_unixtime(orderkey, 'Europe/Moscow') FROM orders");
-        assertQuery("SELECT from_unixtime(orderkey, '+01:00'), count(1) FROM orders GROUP BY 1");
+        assertQueryFails("SELECT from_unixtime(orderkey, '+01:00'), from_unixtime(orderkey, '-05:00'), from_unixtime(orderkey, 'Europe/Moscow') FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQueryFails("SELECT from_unixtime(orderkey, '+01:00'), count(1) FROM orders GROUP BY 1", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
 
-        assertQuery("SELECT parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar), 'YYYY-MM-dd+HH:mm'), parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar) || '+14:00', 'YYYY-MM-dd+HH:mmZZ') FROM nation");
+        assertQueryFails("SELECT parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar), 'YYYY-MM-dd+HH:mm'), parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar) || '+14:00', 'YYYY-MM-dd+HH:mmZZ') FROM nation", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
 
-        assertQuery("SELECT to_unixtime(from_unixtime(orderkey, '+01:00')), to_unixtime(from_unixtime(orderkey, '-05:00')), to_unixtime(from_unixtime(orderkey, 'Europe/Moscow')) FROM orders");
-        assertQuery("SELECT to_unixtime(from_unixtime(orderkey, '+01:00')), count(1) FROM orders GROUP BY 1");
-        assertQuery("SELECT to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar), 'YYYY-MM-dd+HH:mm')), to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar) || '+14:00', 'YYYY-MM-dd+HH:mmZZ')) FROM nation");
-        assertQuery("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'");
-        assertQuery("SELECT ARRAY[timestamp '2018-02-06 23:00:00.000 Australia/Melbourne', null, timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles']");
+        assertQueryFails("SELECT to_unixtime(from_unixtime(orderkey, '+01:00')), to_unixtime(from_unixtime(orderkey, '-05:00')), to_unixtime(from_unixtime(orderkey, 'Europe/Moscow')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQueryFails("SELECT to_unixtime(from_unixtime(orderkey, '+01:00')), count(1) FROM orders GROUP BY 1", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQueryFails("SELECT to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar), 'YYYY-MM-dd+HH:mm')), to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar) || '+14:00', 'YYYY-MM-dd+HH:mmZZ')) FROM nation", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQueryFails("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQueryFails("SELECT ARRAY[timestamp '2018-02-06 23:00:00.000 Australia/Melbourne', null, timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles']", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
 
-        assertQuery("SELECT orderkey, year(from_unixtime(orderkey, '+01:00')), quarter(from_unixtime(orderkey, '-07:00')), month(from_unixtime(orderkey, '+00:00')), day(from_unixtime(orderkey, '-13:00')), day_of_week(from_unixtime(orderkey, '+03:00')), day_of_year(from_unixtime(orderkey, '-13:00')), year_of_week(from_unixtime(orderkey, '+14:00')), hour(from_unixtime(orderkey, '+01:00')), minute(from_unixtime(orderkey, '+01:00')), second(from_unixtime(orderkey, '-07:00')), millisecond(from_unixtime(orderkey, '+03:00')) FROM orders");
-        assertQuery("SELECT orderkey, date_trunc('year', from_unixtime(orderkey, '-03:00')), date_trunc('quarter', from_unixtime(orderkey, '+14:00')), date_trunc('month', from_unixtime(orderkey, '+03:00')), date_trunc('day', from_unixtime(orderkey, '-07:00')), date_trunc('hour', from_unixtime(orderkey, '-09:30')), date_trunc('minute', from_unixtime(orderkey, '+05:30')), date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders");
+        assertQueryFails("SELECT orderkey, year(from_unixtime(orderkey, '+01:00')), quarter(from_unixtime(orderkey, '-07:00')), month(from_unixtime(orderkey, '+00:00')), day(from_unixtime(orderkey, '-13:00')), day_of_week(from_unixtime(orderkey, '+03:00')), day_of_year(from_unixtime(orderkey, '-13:00')), year_of_week(from_unixtime(orderkey, '+14:00')), hour(from_unixtime(orderkey, '+01:00')), minute(from_unixtime(orderkey, '+01:00')), second(from_unixtime(orderkey, '-07:00')), millisecond(from_unixtime(orderkey, '+03:00')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQueryFails("SELECT orderkey, date_trunc('year', from_unixtime(orderkey, '-03:00')), date_trunc('quarter', from_unixtime(orderkey, '+14:00')), date_trunc('month', from_unixtime(orderkey, '+03:00')), date_trunc('day', from_unixtime(orderkey, '-07:00')), date_trunc('hour', from_unixtime(orderkey, '-09:30')), date_trunc('minute', from_unixtime(orderkey, '+05:30')), date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
 
-        assertQuery("SELECT timezone_hour(from_unixtime(orderkey, 'Asia/Oral')) FROM orders");
-        assertQuery("SELECT timezone_minute(from_unixtime(orderkey, 'Asia/Kolkata')) FROM orders");
+        assertQueryFails("SELECT timezone_hour(from_unixtime(orderkey, 'Asia/Oral')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQueryFails("SELECT timezone_minute(from_unixtime(orderkey, 'Asia/Kolkata')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+
+        Session filterPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
+                .build();
+        assertQueryFails(filterPushdown, "select distinct custkey from orders where date_diff('day', from_unixtime(orderkey), TIMESTAMP '2023-01-01 00:00:00 UTC') = 150", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
     }
 
     @Test
@@ -1625,6 +1693,128 @@ public abstract class AbstractTestNativeGeneralQueries
                 .build();
         // Filter on VARBINARY column.
         assertQuery(session, format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_varbinary = to_ieee754_64(1)", tmpTableName));
+    }
+
+    @Test
+    public void testCorrelatedExistsSubqueries()
+    {
+        // projection
+        assertQuery(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES 1, 1, 1, 2, 2, 3, 4) i(a) WHERE i.a < o.a AND i.a < 4) " +
+                        "FROM (VALUES 0, 3, 3, 5) o(a)",
+                "VALUES false, true, true, true");
+        assertQuery(
+                "SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) " +
+                        "FROM lineitem l LIMIT 1");
+
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 1000 = 0)"); // h2 is slow
+        assertQuery(
+                "SELECT count(*) FROM lineitem l " +
+                        "WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)");
+
+        // order by
+        assertQuery(
+                "SELECT orderkey FROM orders o ORDER BY " +
+                        "EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "LIMIT 1"); // h2 is slow
+        assertQuery(
+                "SELECT orderkey FROM lineitem l ORDER BY " +
+                        "EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)");
+
+        // group by
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey, " +
+                        "EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) " +
+                        "FROM orders o GROUP BY o.orderkey ORDER BY o.orderkey LIMIT 1");
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey " +
+                        "FROM orders o " +
+                        "GROUP BY o.orderkey " +
+                        "HAVING EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey FROM orders o " +
+                        "GROUP BY o.orderkey, EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1"); // h2 is slow
+        assertQuery(
+                "SELECT max(l.quantity), l.orderkey, EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l " +
+                        "GROUP BY l.orderkey");
+        assertQuery(
+                "SELECT max(l.quantity), l.orderkey FROM lineitem l " +
+                        "GROUP BY l.orderkey " +
+                        "HAVING EXISTS (SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)");
+        assertQuery(
+                "SELECT max(l.quantity), l.orderkey FROM lineitem l " +
+                        "GROUP BY l.orderkey, EXISTS (SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)");
+
+        // join
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey AND i.orderkey % 10000 = 0)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
+
+        // subrelation
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)))"); // h2 is slow
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE o.orderkey > 10 OR o.orderkey != 3)))");
+    }
+
+    @Test
+    public void testUnicodeInJson()
+    {
+        // Test casting to JSON returning the same results for all unicode characters in the entire range.
+        List<int[]> unicodeRanges = new ArrayList<int[]>()
+        {{
+                add(new int[] {0, 0x7F});
+                add(new int[] {0x80, 0xD7FF});
+                add(new int[] {0xE000, 0xFFFF});
+            }};
+        for (int start = 0x10000; start < 0x110000; ) {
+            int end = start + 0x10000;
+            unicodeRanges.add(new int[] {start, end - 1});
+            start = end;
+        }
+        List<String> unicodeStrings = unicodeRanges.stream().map(range -> {
+            StringBuilder unicodeString = new StringBuilder();
+            for (int u = range[0]; u <= range[1]; u++) {
+                String hex = Integer.toHexString(u);
+                switch (hex.length()) {
+                    case 1:
+                        unicodeString.append("\\000");
+                        break;
+                    case 2:
+                        unicodeString.append("\\00");
+                        break;
+                    case 3:
+                        unicodeString.append("\\0");
+                        break;
+                    case 4:
+                        unicodeString.append("\\");
+                        break;
+                    case 5:
+                        unicodeString.append("\\+0");
+                        break;
+                    default:
+                        unicodeString.append("\\+");
+                }
+                unicodeString.append(hex);
+            }
+            return unicodeString.toString();
+        }).collect(ImmutableList.toImmutableList());
+
+        for (String unicodeString : unicodeStrings) {
+            assertQuery(String.format("SELECT CAST(a as JSON) FROM ( VALUES(U&'%s') ) t(a)", unicodeString));
+        }
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)

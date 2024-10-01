@@ -20,10 +20,10 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -443,12 +443,11 @@ public class TableWriterNode
         private final List<String> updatedColumns;
         private final List<ColumnHandle> updatedColumnHandles;
 
-        @JsonCreator
         public UpdateTarget(
-                @JsonProperty("handle") TableHandle handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("updatedColumns") List<String> updatedColumns,
-                @JsonProperty("updatedColumnHandles") List<ColumnHandle> updatedColumnHandles)
+                TableHandle handle,
+                SchemaTableName schemaTableName,
+                List<String> updatedColumns,
+                List<ColumnHandle> updatedColumnHandles)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
@@ -457,31 +456,26 @@ public class TableWriterNode
             this.updatedColumnHandles = requireNonNull(updatedColumnHandles, "updatedColumnHandles is null");
         }
 
-        @JsonProperty
         public TableHandle getHandle()
         {
             return handle;
         }
 
-        @Override
         public ConnectorId getConnectorId()
         {
             return handle.getConnectorId();
         }
 
-        @JsonProperty
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
         }
 
-        @JsonProperty
         public List<String> getUpdatedColumns()
         {
             return updatedColumns;
         }
 
-        @JsonProperty
         public List<ColumnHandle> getUpdatedColumnHandles()
         {
             return updatedColumnHandles;

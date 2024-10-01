@@ -38,7 +38,7 @@ class SubfieldTokenizer
     private boolean firstSegment = true;
     private Subfield.PathElement next;
 
-    public SubfieldTokenizer(String path)
+    SubfieldTokenizer(String path)
     {
         this.path = requireNonNull(path, "path is null");
 
@@ -172,15 +172,12 @@ class SubfieldTokenizer
             throw invalidSubfieldPath();
         }
 
-        long index;
         try {
-            index = Long.valueOf(token);
+            return new Subfield.LongSubscript(Long.valueOf(token));
         }
         catch (NumberFormatException e) {
-            throw invalidSubfieldPath();
+            throw invalidSubfieldPath(e);
         }
-
-        return new Subfield.LongSubscript(index);
     }
 
     private static boolean isUnquotedSubscriptCharacter(char c)
@@ -224,11 +221,11 @@ class SubfieldTokenizer
 
         match(QUOTE);
 
-        String index = token.toString();
-        if (index.equals(String.valueOf(WILDCARD))) {
+        String tokenString = token.toString();
+        if (tokenString.equals(String.valueOf(WILDCARD))) {
             return Subfield.allSubscripts();
         }
-        return new Subfield.StringSubscript(index);
+        return new Subfield.StringSubscript(tokenString);
     }
 
     private boolean hasNextCharacter()
@@ -265,6 +262,11 @@ class SubfieldTokenizer
     private InvalidFunctionArgumentException invalidSubfieldPath()
     {
         return new InvalidFunctionArgumentException(format("Invalid subfield path: '%s'", this));
+    }
+
+    private InvalidFunctionArgumentException invalidSubfieldPath(Exception ex)
+    {
+        return new InvalidFunctionArgumentException(format("Invalid subfield path: '%s'", this), ex);
     }
 
     @Override

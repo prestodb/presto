@@ -20,8 +20,8 @@ import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.planPrinter.JsonRenderer;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -1443,8 +1443,8 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult materializedResult = computeActual(session, "explain " + query);
         String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
 
-        checkCTEInfo(explain, "tbl", 2, false);
-        checkCTEInfo(explain, "tbl2", 1, false);
+        checkCTEInfo(explain, "tbl", 2, false, false);
+        checkCTEInfo(explain, "tbl2", 1, false, false);
     }
 
     @Test
@@ -1460,13 +1460,13 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN with cte1 as (select * from v), v as (select 2 as x) select * from cte1, v, v");
         String explainString = (String) resultExplainQuery.getOnlyValue();
 
-        checkCTEInfo(explainString, "cte1", 1, false);
+        checkCTEInfo(explainString, "cte1", 1, false, false);
 
         // view "catalog.schema.v" is referenced once, and the cte "v" twice in the above query
-        checkCTEInfo(explainString, "v", 2, false);
+        checkCTEInfo(explainString, "v", 2, false, false);
 
         String viewName = format("%s.%s.v", getSession().getCatalog().get(), getSession().getSchema().get());
-        checkCTEInfo(explainString, viewName, 1, true);
+        checkCTEInfo(explainString, viewName, 1, true, false);
     }
 
     @Test
@@ -1493,11 +1493,11 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult resultExplainQuery = computeActual(sessionNoCatalog, sql);
         String explainString = (String) resultExplainQuery.getOnlyValue();
 
-        checkCTEInfo(explainString, "cte1", 1, false);
+        checkCTEInfo(explainString, "cte1", 1, false, false);
 
         // view "catalog.schema.v" is referenced once, and the cte "v" twice in the above query
-        checkCTEInfo(explainString, "v", 2, false);
-        checkCTEInfo(explainString, viewName, 1, true);
+        checkCTEInfo(explainString, "v", 2, false, false);
+        checkCTEInfo(explainString, viewName, 1, true, false);
     }
 
     @Test
@@ -1548,7 +1548,7 @@ public abstract class AbstractTestDistributedQueries
                 ".*task_writer_count is invalid.*");
     }
 
-    private void checkCTEInfo(String explain, String name, int frequency, boolean isView)
+    protected void checkCTEInfo(String explain, String name, int frequency, boolean isView, boolean isMaterialized)
     {
         String regex = "CTEInfo.*";
         Pattern pattern = Pattern.compile(regex);
@@ -1556,7 +1556,7 @@ public abstract class AbstractTestDistributedQueries
         assertTrue(matcher.find());
 
         String cteInfo = matcher.group();
-        assertTrue(cteInfo.contains(name + ": " + frequency + " (is_view: " + isView + ")"));
+        assertTrue(cteInfo.contains(name + ": " + frequency + " (is_view: " + isView + ")" + " (is_materialized: " + isMaterialized + ")"));
     }
 
     private String sanitizePlan(String explain)

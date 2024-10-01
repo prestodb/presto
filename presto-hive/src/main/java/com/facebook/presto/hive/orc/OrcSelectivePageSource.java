@@ -111,12 +111,17 @@ public class OrcSelectivePageSource
     public Page getNextPage()
     {
         try {
-            Page page = recordReader.getNextPage();
+            Page page;
+            if (supplyRowIDs) {
+                page = recordReader.getNextPage(true);
+                page = fillInRowIDs(page);
+            }
+            else {
+                page = recordReader.getNextPage();
+            }
+
             if (page == null) {
                 close();
-            }
-            else if (supplyRowIDs) { // If we need a row ID block, synthesize it here.
-                page = fillInRowIDs(page);
             }
             return page;
         }
@@ -140,6 +145,9 @@ public class OrcSelectivePageSource
 
     private Page fillInRowIDs(Page page)
     {
+        if (page == null) {
+            return null;
+        }
         // rowNumbers is always the last block in the page
         Block rowNumbers = page.getBlock(page.getChannelCount() - 1);
         Block rowIDs = coercer.apply(rowNumbers);
@@ -147,7 +155,7 @@ public class OrcSelectivePageSource
         // figure out which block is the row ID and replace it
         page = page.replaceColumn(rowIDColumnIndex.getAsInt(), rowIDs);
 
-        if (!appendRowNumberEnabled) {
+        if (!this.appendRowNumberEnabled) {
             // remove the row number block now that the row IDs have been constructed unless it was also requested
             page = page.dropColumn(page.getChannelCount() - 1);
         }

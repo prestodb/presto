@@ -14,21 +14,31 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergTableVersion
         extends AbstractTestQueryFramework
@@ -187,6 +197,8 @@ public class TestIcebergTableVersion
     {
         // Alias cases - SYSTEM_TIME and SYSTEM_VERSION
         assertQuery("SELECT desc FROM " + tableName1 + " FOR SYSTEM_VERSION AS OF " + tab1VersionId1 + " ORDER BY 1", "VALUES 'aaa'");
+        assertQuery("SELECT count(*) FROM " + tableName1 + " FOR SYSTEM_VERSION AS OF 'main'", "VALUES 3");
+        assertQuery("SELECT desc FROM " + tableName1 + " FOR SYSTEM_VERSION AS OF 'main'" + " ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR SYSTEM_TIME AS OF TIMESTAMP " + "'" + tab1Timestamp1 + "'" + " ORDER BY 1", "VALUES 'aaa'");
         assertQuery("SELECT desc FROM " + tableName1 + " FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP ORDER BY 1", "VALUES ('aaa'), ('bbb'), ('ccc')");
         assertQuery("SELECT SUM(id) FROM " + tableName1 + " FOR SYSTEM_VERSION AS OF " + tab1VersionId2, "VALUES 3");
@@ -269,36 +281,118 @@ public class TestIcebergTableVersion
         assertQuery("SELECT count(*) FROM " + viewName3 + " INNER JOIN " + viewName4 + " ON " + viewName3 + ".id = " + viewName4 + ".id", "VALUES 2");
     }
 
+    @DataProvider(name = "timezones")
+    public Object[][] timezones()
+    {
+        return new Object[][] {
+                {"UTC", true},
+                {"America/Los_Angeles", true},
+                {"Asia/Shanghai", true},
+                {"UTC", false}};
+    }
+
+    @Test(dataProvider = "timezones")
+    public void testTableVersionWithTimestamp(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+        String tableName = schemaName + "." + "table_version_with_timestamp";
+        try {
+            assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, desc varchar) WITH(partitioning = ARRAY['id'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1, 'aaa')", 1);
+            waitUntilAfter(System.currentTimeMillis());
+
+            long timestampMillis1 = System.currentTimeMillis();
+            String timestampWithoutTZ1 = getTimestampString(timestampMillis1, zoneId);
+            waitUntilAfter(timestampMillis1);
+
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, 'bbb')", 1);
+            waitUntilAfter(System.currentTimeMillis());
+
+            long timestampMillis2 = System.currentTimeMillis();
+            String timestampWithoutTZ2 = getTimestampString(timestampMillis2, zoneId);
+            waitUntilAfter(timestampMillis2);
+
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES(3, 'ccc')", 1);
+            waitUntilAfter(System.currentTimeMillis());
+
+            long timestampMillis3 = System.currentTimeMillis();
+            String timestampWithoutTZ3 = getTimestampString(timestampMillis3, zoneId);
+
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + timestampWithoutTZ1 + "'", "VALUES 'aaa'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + timestampWithoutTZ1 + "'", "VALUES 'aaa'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + timestampWithoutTZ2 + "'", "VALUES 'aaa', 'bbb'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + timestampWithoutTZ2 + "'", "VALUES 'aaa', 'bbb'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + timestampWithoutTZ3 + "'", "VALUES 'aaa', 'bbb', 'ccc'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + timestampWithoutTZ3 + "'", "VALUES 'aaa', 'bbb', 'ccc'");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     @Test
     public void testTableVersionErrors()
     {
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is BIGINT");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF 'bad'", ".* Type varchar\\(3\\) is invalid. Supported table version AS OF/BEFORE expression type is BIGINT");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF CURRENT_DATE", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is BIGINT");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF CURRENT_TIMESTAMP", ".* Type timestamp with time zone is invalid. Supported table version AS OF/BEFORE expression type is BIGINT");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is BIGINT or VARCHAR");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF 'bad'", "Could not find Iceberg table branch or tag: bad");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF CURRENT_DATE", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is BIGINT or VARCHAR");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF CURRENT_TIMESTAMP", ".* Type timestamp with time zone is invalid. Supported table version AS OF/BEFORE expression type is BIGINT or VARCHAR");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF id", ".* cannot be resolved");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF (SELECT 10000000)", ".* Constant expression cannot contain a subquery");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF NULL", "Table version AS OF/BEFORE expression cannot be NULL for .*");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF " + tab2VersionId1 + " - " + tab2VersionId1, "Iceberg snapshot ID does not exists: 0");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF CAST (100 AS BIGINT)", "Iceberg snapshot ID does not exists: 100");
 
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF 'bad'", ".* Type varchar\\(3\\) is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF 'bad'", ".* Type varchar\\(3\\) is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF id", ".* cannot be resolved");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF (SELECT CURRENT_TIMESTAMP)", ".* Constant expression cannot contain a subquery");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF NULL", "Table version AS OF/BEFORE expression cannot be NULL for .*");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab2Timestamp1 + "' - INTERVAL '1' MONTH", "No history found based on timestamp for table \"test_tt_schema\".\"test_table_version_tab2\"");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CAST ('2023-01-01' AS TIMESTAMP WITH TIME ZONE)", "No history found based on timestamp for table \"test_tt_schema\".\"test_table_version_tab2\"");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CAST ('2023-01-01' AS TIMESTAMP)", ".* Type timestamp is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CAST ('2023-01-01' AS DATE)", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CURRENT_DATE", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP '2023-01-01 00:00:00.000'", ".* Type timestamp is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CAST ('2023-01-01' AS TIMESTAMP)", "No history found based on timestamp for table \"test_tt_schema\".\"test_table_version_tab2\"");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CAST ('2023-01-01' AS DATE)", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CURRENT_DATE", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP '2023-01-01 00:00:00.000'", "No history found based on timestamp for table \"test_tt_schema\".\"test_table_version_tab2\"");
 
         assertQueryFails("SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId1 + " ORDER BY 1", "No history found based on timestamp for table \"test_tt_schema\".\"test_table_version_tab1\"");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab2Timestamp1 + "' - INTERVAL '1' MONTH", "No history found based on timestamp for table \"test_tt_schema\".\"test_table_version_tab2\"");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION BEFORE 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is BIGINT");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION BEFORE 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is BIGINT or VARCHAR");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION BEFORE " + tab2VersionId1 + " - " + tab2VersionId1, "Iceberg snapshot ID does not exists: 0");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE 'bad'", ".* Type varchar\\(3\\) is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE 'bad'", ".* Type varchar\\(3\\) is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE NULL", "Table version AS OF/BEFORE expression cannot be NULL for .*");
+    }
+
+    private Session sessionForTimezone(String zoneId, boolean legacyTimestamp)
+    {
+        SessionBuilder sessionBuilder = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, String.valueOf(legacyTimestamp));
+        if (legacyTimestamp) {
+            sessionBuilder.setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId));
+        }
+        return sessionBuilder.build();
+    }
+
+    private long waitUntilAfter(long snapshotTimeMillis)
+    {
+        long currentTimeMillis = System.currentTimeMillis();
+        assertTrue(snapshotTimeMillis - currentTimeMillis <= 10,
+                format("Snapshot time %s is greater than the current time %s by more than 10ms", snapshotTimeMillis, currentTimeMillis));
+
+        while (currentTimeMillis <= snapshotTimeMillis) {
+            currentTimeMillis = System.currentTimeMillis();
+        }
+        return currentTimeMillis;
+    }
+
+    private String getTimestampString(long timeMillsUtc, String zoneId)
+    {
+        Instant instant = Instant.ofEpochMilli(timeMillsUtc);
+        LocalDateTime localDateTime = instant
+                .atZone(ZoneId.of(zoneId))
+                .toLocalDateTime();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        formatter = formatter.withZone(ZoneId.of(zoneId));
+        return localDateTime.format(formatter);
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -23,7 +24,6 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAware
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -43,6 +43,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCros
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.tracing.TracingConfig;
@@ -89,6 +90,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
+    public static final String RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION = "retry_query_with_history_based_optimization";
     public static final String SIZE_BASED_JOIN_DISTRIBUTION_TYPE = "size_based_join_distribution_type";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
@@ -146,6 +148,8 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD = "optimize_metadata_queries_call_threshold";
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
+    public static final String CONFIDENCE_BASED_BROADCAST_ENABLED = "confidence_based_broadcast_enabled";
+    public static final String TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED = "treat_low_confidence_zero_estimation_unknown_enabled";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
@@ -273,7 +277,9 @@ public final class SystemSessionProperties
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
     public static final String HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY = "history_based_optimization_plan_canonicalization_strategy";
+    public static final String ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS = "enable_verbose_history_based_optimizer_runtime_stats";
     public static final String LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER = "log_query_plans_used_in_history_based_optimizer";
+    public static final String ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT = "enforce_history_based_optimizer_register_timeout";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
@@ -324,6 +330,7 @@ public final class SystemSessionProperties
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
     public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
+    public static final String REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT = "remove_cross_join_with_constant_single_row_input";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -344,10 +351,20 @@ public final class SystemSessionProperties
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
+    public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_PEELING = "native_debug_disable_expression_with_peeling";
+    public static final String NATIVE_DEBUG_DISABLE_COMMON_SUB_EXPRESSION = "native_debug_disable_common_sub_expressions";
+    public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION = "native_debug_disable_expression_with_memoization";
+    public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS = "native_debug_disable_expression_with_lazy_inputs";
+    public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
+
+    public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
+    public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
+    public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
+    public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -358,13 +375,14 @@ public final class SystemSessionProperties
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig(),
+                new FunctionsConfig(),
                 new NodeMemoryConfig(),
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new SecurityConfig());
+                new HistoryBasedOptimizationConfig());
     }
 
     @Inject
@@ -373,13 +391,14 @@ public final class SystemSessionProperties
             TaskManagerConfig taskManagerConfig,
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
+            FunctionsConfig functionsConfig,
             NodeMemoryConfig nodeMemoryConfig,
             WarningCollectorConfig warningCollectorConfig,
             NodeSchedulerConfig nodeSchedulerConfig,
             NodeSpillConfig nodeSpillConfig,
             TracingConfig tracingConfig,
             CompilerConfig compilerConfig,
-            SecurityConfig securityConfig)
+            HistoryBasedOptimizationConfig historyBasedOptimizationConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -422,6 +441,20 @@ public final class SystemSessionProperties
                         SIZE_BASED_JOIN_DISTRIBUTION_TYPE,
                         "Consider source table size when determining join distribution type when CBO fails",
                         featuresConfig.isSizeBasedJoinDistributionTypeEnabled(),
+                        false),
+                booleanProperty(
+                        CONFIDENCE_BASED_BROADCAST_ENABLED,
+                        "Enable confidence based broadcasting when enabled",
+                        featuresConfig.isConfidenceBasedBroadcastEnabled(),
+                        false),
+                booleanProperty(RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION,
+                        "Automatically retry a query if it fails and HBO can change the query plan",
+                        featuresConfig.isRetryQueryWithHistoryBasedOptimizationEnabled(),
+                        false),
+                booleanProperty(
+                        TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED,
+                        "Treat low confidence zero estimations as unknowns during joins when enabled",
+                        featuresConfig.isTreatLowConfidenceZeroEstimationAsUnknownEnabled(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
@@ -873,12 +906,12 @@ public final class SystemSessionProperties
                 booleanProperty(
                         LEGACY_ROW_FIELD_ORDINAL_ACCESS,
                         "Allow accessing anonymous row field with .field0, .field1, ...",
-                        featuresConfig.isLegacyRowFieldOrdinalAccess(),
+                        functionsConfig.isLegacyRowFieldOrdinalAccess(),
                         false),
                 booleanProperty(
                         LEGACY_MAP_SUBSCRIPT,
                         "Do not fail the query if map key is missing",
-                        featuresConfig.isLegacyMapSubscript(),
+                        functionsConfig.isLegacyMapSubscript(),
                         true),
                 booleanProperty(
                         ITERATIVE_OPTIMIZER,
@@ -921,7 +954,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         LEGACY_TIMESTAMP,
                         "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
-                        featuresConfig.isLegacyTimestamp(),
+                        functionsConfig.isLegacyTimestamp(),
                         true),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
@@ -941,7 +974,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PARSE_DECIMAL_LITERALS_AS_DOUBLE,
                         "Parse decimal literals as DOUBLE instead of DECIMAL",
-                        featuresConfig.isParseDecimalLiteralsAsDouble(),
+                        functionsConfig.isParseDecimalLiteralsAsDouble(),
                         false),
                 booleanProperty(
                         FORCE_SINGLE_NODE_OUTPUT,
@@ -1548,11 +1581,15 @@ public final class SystemSessionProperties
                         "Enable history based optimization only for complex queries, i.e. queries with join and aggregation",
                         true,
                         false),
-                doubleProperty(
+                new PropertyMetadata<>(
                         HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD,
                         "When the size difference between current table and history table exceed this threshold, do not match history statistics",
-                        0.0,
-                        true),
+                        DOUBLE,
+                        Double.class,
+                        historyBasedOptimizationConfig.getHistoryMatchingThreshold(),
+                        true,
+                        value -> validateDoubleValueWithinSelectivityRange(value, HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD),
+                        object -> object),
                 stringProperty(
                         HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY,
                         format("The plan canonicalization strategies used for history based optimization, the strategies will be applied based on the accuracy of the strategies, from more accurate to less accurate. Options are %s",
@@ -1562,9 +1599,19 @@ public final class SystemSessionProperties
                         featuresConfig.getHistoryBasedOptimizerPlanCanonicalizationStrategies(),
                         false),
                 booleanProperty(
+                        ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS,
+                        "Enable recording of verbose runtime stats for history based optimizer",
+                        false,
+                        false),
+                booleanProperty(
                         LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER,
                         "Enable logging of query plans generated and used in history based optimizer",
                         featuresConfig.isLogPlansUsedInHistoryBasedOptimizer(),
+                        false),
+                booleanProperty(
+                        ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT,
+                        "Enforce timeout for query registration in HBO optimizer",
+                        featuresConfig.isEnforceTimeoutForHBOQueryRegistration(),
                         false),
                 new PropertyMetadata<>(
                         MAX_LEAF_NODES_IN_PLAN,
@@ -1679,6 +1726,54 @@ public final class SystemSessionProperties
                         false,
                         true),
                 booleanProperty(
+                        NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_PEELING,
+                        "If set to true, disables optimization in expression evaluation to peel common " +
+                                "dictionary layer from inputs. Should only be used for debugging.",
+                        false,
+                        true),
+                booleanProperty(
+                        NATIVE_DEBUG_DISABLE_COMMON_SUB_EXPRESSION,
+                        "If set to true, disables optimization in expression evaluation to reuse cached " +
+                                "results for common sub-expressions. Should only be used for debugging.",
+                        false,
+                        true),
+                booleanProperty(
+                        NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION,
+                        "If set to true, disables optimization in expression evaluation to reuse cached " +
+                                "results between subsequent input batches that are dictionary encoded and " +
+                                "have the same alphabet(underlying flat vector). Should only be used for " +
+                                "debugging.",
+                        false,
+                        true),
+                booleanProperty(
+                        NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS,
+                        "If set to true, disables optimization in expression evaluation to delay loading " +
+                                "of lazy inputs unless required. Should only be used for debugging.",
+                        false,
+                        true),
+                booleanProperty(
+                        NATIVE_SELECTIVE_NIMBLE_READER_ENABLED,
+                        "Temporary flag to control whether selective Nimble reader should be " +
+                        "used in this query or not.  Will be removed after the selective Nimble " +
+                        "reader is fully rolled out.",
+                        false,
+                        true),
+                longProperty(
+                        NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY,
+                        "The max partial aggregation memory when data reduction is not optimal.",
+                        1L << 24,
+                        false),
+                longProperty(
+                        NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,
+                        "The max partial aggregation memory when data reduction is optimal.",
+                        1L << 26,
+                        false),
+                longProperty(
+                        NATIVE_MAX_SPILL_BYTES,
+                        "The max allowed spill bytes",
+                        100L << 30,
+                        false),
+                booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "(Deprecated) Randomize null join key for outer join",
                         false,
@@ -1749,13 +1844,13 @@ public final class SystemSessionProperties
                 booleanProperty(
                         FIELD_NAMES_IN_JSON_CAST_ENABLED,
                         "Include field names in json output when casting rows",
-                        featuresConfig.isFieldNamesInJsonCastEnabled(),
+                        functionsConfig.isFieldNamesInJsonCastEnabled(),
                         false),
                 booleanProperty(
                         LEGACY_JSON_CAST,
                         "Keep the legacy json cast behavior, do not reserve the case for field names when casting to row type",
-                        featuresConfig.isLegacyJsonCast(),
-                        false),
+                        functionsConfig.isLegacyJsonCast(),
+                        true),
                 booleanProperty(
                         OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,
                         "Optimize join probe at runtime if build side is empty",
@@ -1918,6 +2013,11 @@ public final class SystemSessionProperties
                                 "get stats from a cache that was populated during query optimization rather than recalculating the stats on the final plan.",
                         featuresConfig.isPrintEstimatedStatsFromCache(),
                         false),
+                booleanProperty(
+                        REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT,
+                        "If one input of the cross join is a single row with constant value, remove this cross join and replace with a project node",
+                        featuresConfig.isRemoveCrossJoinWithSingleConstantRow(),
+                        false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
                         format("Set default view security mode. Options are: %s",
@@ -1941,7 +2041,11 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(WARN_ON_COMMON_NAN_PATTERNS,
                         "Whether to give a warning for some common issues relating to NaNs",
-                        featuresConfig.getWarnOnCommonNanPatterns(),
+                        functionsConfig.getWarnOnCommonNanPatterns(),
+                        false),
+                booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
+                        "Whether to evaluate project node on values node",
+                        featuresConfig.getInlineProjectionsOnValues(),
                         false));
     }
 
@@ -2017,6 +2121,21 @@ public final class SystemSessionProperties
     public static boolean isDistributedIndexJoinEnabled(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
+    }
+
+    public static boolean confidenceBasedBroadcastEnabled(Session session)
+    {
+        return session.getSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, Boolean.class);
+    }
+
+    public static boolean treatLowConfidenceZeroEstimationAsUnknownEnabled(Session session)
+    {
+        return session.getSystemProperty(TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean retryQueryWithHistoryBasedOptimizationEnabled(Session session)
+    {
+        return session.getSystemProperty(RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION, Boolean.class);
     }
 
     public static int getHashPartitionCount(Session session)
@@ -3016,9 +3135,19 @@ public final class SystemSessionProperties
         return strategyList;
     }
 
+    public static boolean enableVerboseHistoryBasedOptimizerRuntimeStats(Session session)
+    {
+        return session.getSystemProperty(ENABLE_VERBOSE_HISTORY_BASED_OPTIMIZER_RUNTIME_STATS, Boolean.class);
+    }
+
     public static boolean logQueryPlansUsedInHistoryBasedOptimizer(Session session)
     {
         return session.getSystemProperty(LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER, Boolean.class);
+    }
+
+    public static boolean enforceHistoryBasedOptimizerRegistrationTimeout(Session session)
+    {
+        return session.getSystemProperty(ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT, Boolean.class);
     }
 
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
@@ -3230,6 +3359,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PRINT_ESTIMATED_STATS_FROM_CACHE, Boolean.class);
     }
 
+    public static boolean isRemoveCrossJoinWithConstantSingleRowInputEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, Boolean.class);
+    }
+
     public static boolean shouldOptimizerUseHistograms(Session session)
     {
         return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
@@ -3238,5 +3372,10 @@ public final class SystemSessionProperties
     public static boolean warnOnCommonNanPatterns(Session session)
     {
         return session.getSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, Boolean.class);
+    }
+
+    public static boolean isInlineProjectionsOnValues(Session session)
+    {
+        return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
     }
 }

@@ -108,7 +108,7 @@ public class PushPartialAggregationThroughJoin
     {
         Set<VariableReferenceExpression> inputs = aggregations.values()
                 .stream()
-                .map(aggregation -> extractAggregationUniqueVariables(aggregation, types))
+                .map(aggregation -> extractAggregationUniqueVariables(aggregation))
                 .flatMap(Set::stream)
                 .collect(toImmutableSet());
         return variables.containsAll(inputs);

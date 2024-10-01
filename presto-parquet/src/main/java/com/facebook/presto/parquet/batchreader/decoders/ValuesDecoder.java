@@ -54,7 +54,7 @@ public interface ValuesDecoder
                 throws IOException;
     }
 
-    interface Int64TimestampMicrosValuesDecoder
+    interface Int64TimeAndTimestampMicrosValuesDecoder
             extends ValuesDecoder
     {
         void readNext(long[] values, int offset, int length)
@@ -80,6 +80,26 @@ public interface ValuesDecoder
         void readNext(byte[] values, int offset, int length);
 
         void skip(int length);
+    }
+
+    interface ShortDecimalValuesDecoder
+            extends ValuesDecoder
+    {
+        void readNext(long[] values, int offset, int length)
+                throws IOException;
+
+        void skip(int length)
+                throws IOException;
+    }
+
+    interface LongDecimalValuesDecoder
+            extends ValuesDecoder
+    {
+        void readNext(long[] values, int offset, int length)
+                throws IOException;
+
+        void skip(int length)
+                throws IOException;
     }
 
     public long getRetainedSizeInBytes();

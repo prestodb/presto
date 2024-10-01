@@ -274,6 +274,8 @@ public final class IcebergQueryRunner
         logging.setLevel("org.glassfish.jersey.internal.inject.Providers", ERROR);
         logging.setLevel("parquet.hadoop", WARN);
         logging.setLevel("org.apache.iceberg", WARN);
+        logging.setLevel("com.facebook.airlift.bootstrap", WARN);
+        logging.setLevel("org.apache.hadoop.io.compress", WARN);
     }
 
     public static void main(String[] args)

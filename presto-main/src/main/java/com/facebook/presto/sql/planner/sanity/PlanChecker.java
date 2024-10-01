@@ -18,8 +18,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 
@@ -40,8 +38,8 @@ public final class PlanChecker
 
     public PlanChecker(FeaturesConfig featuresConfig, boolean forceSingleNode)
     {
-        checkers = ImmutableListMultimap.<Stage, Checker>builder()
-                .putAll(
+        ImmutableListMultimap.Builder<Stage, Checker> builder = ImmutableListMultimap.builder();
+        builder.putAll(
                         Stage.INTERMEDIATE,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
@@ -55,7 +53,7 @@ public final class PlanChecker
                         new TypeValidator(),
                         new VerifyNoFilteredAggregations(),
                         new VerifyNoIntermediateFormExpression(),
-                        new ValidateStreamingJoins())
+                        new ValidateStreamingJoins(featuresConfig))
                 .putAll(
                         Stage.FINAL,
                         new CheckUnsupportedExternalFunctions(),
@@ -69,28 +67,32 @@ public final class PlanChecker
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
-                        new WarnOnScanWithoutPartitionPredicate(featuresConfig))
-                .build();
+                        new WarnOnScanWithoutPartitionPredicate(featuresConfig));
+        if (featuresConfig.isNativeExecutionEnabled() && (featuresConfig.isDisableTimeStampWithTimeZoneForNative() ||
+                featuresConfig.isDisableIPAddressForNative())) {
+            builder.put(Stage.INTERMEDIATE, new CheckUnsupportedPrestissimoTypes(featuresConfig));
+        }
+        checkers = builder.build();
     }
 
-    public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types, warningCollector));
+        checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
     }
 
-    public void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types, warningCollector));
+        checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
     }
 
-    public void validatePlanFragment(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validatePlanFragment(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types, warningCollector));
+        checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
     }
 
     public interface Checker
     {
-        void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector);
+        void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector);
     }
 
     private enum Stage

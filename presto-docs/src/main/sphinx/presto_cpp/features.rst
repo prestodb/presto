@@ -22,15 +22,36 @@ HTTP endpoints related to tasks are registered to Proxygen in
 
 Other HTTP endpoints include:
 
-* POST: v1/memory
-  * Reports memory, but no assignments are adjusted unlike in Java workers.
-* GET: v1/info
-* GET: v1/status
+* POST: v1/memory: Reports memory, but no assignments are adjusted unlike in Java workers
+* GET: v1/info/metrics: Returns worker level metrics in Prometheus Data format. Refer section `Worker Metrics Collection <#worker-metrics-collection>`_ for more info. Here is a sample Metrics data returned by this API.
 
-The request/response flow of Presto C++ is identical to Java workers. The
-tasks or new splits are registered via `TaskUpdateRequest`. Resource
-utilization and query progress are sent to the coordinator via task endpoints.
+   .. code-block:: text
 
+      # TYPE presto_cpp_num_http_request counter
+      presto_cpp_num_http_request{cluster="testing",worker=""} 0
+      # TYPE presto_cpp_num_http_request_error counter
+      presto_cpp_num_http_request_error{cluster="testing",worker=""} 0
+      # TYPE presto_cpp_memory_pushback_count counter
+      presto_cpp_memory_pushback_count{cluster="testing",worker=""} 0
+      # TYPE velox_driver_yield_count counter
+      velox_driver_yield_count{cluster="testing",worker=""} 0
+      # TYPE velox_cache_shrink_count counter
+      velox_cache_shrink_count{cluster="testing",worker=""} 0
+      # TYPE velox_memory_cache_num_stale_entries counter
+      velox_memory_cache_num_stale_entries{cluster="testing",worker=""} 0
+      # TYPE velox_arbitrator_requests_count counter
+      velox_arbitrator_requests_count{cluster="testing",worker=""} 0
+
+
+* GET: v1/info: Returns basic information about the worker. Here is an example:
+
+  .. code-block:: text
+
+   {"coordinator":false,"environment":"testing","nodeVersion":{"version":"testversion"},"starting":false,"uptime":"49.00s"}
+
+* GET: v1/status: Returns memory pool information.
+
+The request/response flow of Presto C++ is identical to Java workers. The tasks or new splits are registered via `TaskUpdateRequest`. Resource utilization and query progress are sent to the coordinator via task endpoints.
 
 Remote Function Execution
 -------------------------
@@ -169,7 +190,7 @@ Size of the SSD cache when async data cache is enabled.
 * **Default value:** ``true``
 * **Presto on Spark default value:** ``false``
 
-Enable periodic clean up of old tasks. The default value is ``true`` for Presto C++. 
+Enable periodic clean up of old tasks. The default value is ``true`` for Presto C++.
 For Presto on Spark this property defaults to ``false``, as zombie or stuck tasks
 are handled by Spark by speculative execution.
 
@@ -185,6 +206,18 @@ Old task is defined as a PrestoTask which has not received heartbeat for at leas
 ``old-task-cleanup-ms``, or is not running and has an end time more than
 ``old-task-cleanup-ms`` ago.
 
+Worker metrics collection
+-------------------------
+
+Users can enable collection of worker level metrics by setting the property:
+
+``runtime-metrics-collection-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+  When true, the default behavior is a no-op. There is a prior setup that must be done before enabling this flag. To enable
+  metrics collection in Prometheus Data Format refer `here <https://github.com/prestodb/presto/tree/master/presto-native-execution#build-prestissimo>`_.
 
 Session Properties
 ------------------
@@ -239,6 +272,56 @@ If set to ``true``, then during the execution of tasks, the output vectors of ev
 It can help identify issues where a malformed vector causes failures or crashes, facilitating the debugging of operator output issues.
 
 Note: This is an expensive check and should only be used for debugging purposes.
+
+``native_debug_disable_expression_with_peeling``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, disables the optimization in expression evaluation to peel common dictionary layer from inputs.
+
+This should only be used for debugging purposes.
+
+``native_debug_disable_common_sub_expressions``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, disables the optimization in expression evaluation to reuse cached results for common sub-expressions.
+
+This should only be used for debugging purposes.
+
+``native_debug_disable_expression_with_memoization``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, disables the optimization in expression evaluation to reuse cached results between subsequent
+input batches that are dictionary encoded and have the same alphabet(underlying flat vector).
+
+This should only be used for debugging purposes.
+
+``native_debug_disable_expression_with_lazy_inputs``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, disables the optimization in expression evaluation to delay loading of lazy inputs unless required.
+
+This should only be used for debugging purposes.
+
+``native_selective_nimble_reader_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Temporary flag to control whether selective Nimble reader should be used in this
+query or not.  
 
 ``native_join_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

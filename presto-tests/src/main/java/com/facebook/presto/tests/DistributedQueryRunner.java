@@ -33,6 +33,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.Plugin;
@@ -140,6 +141,7 @@ public class DistributedQueryRunner
                 false,
                 false,
                 false,
+                false,
                 defaultSession,
                 nodeCount,
                 1,
@@ -165,6 +167,7 @@ public class DistributedQueryRunner
             boolean resourceManagerEnabled,
             boolean catalogServerEnabled,
             boolean coordinatorSidecarEnabled,
+            boolean skipLoadingResourceGroupConfigurationManager,
             Session defaultSession,
             int nodeCount,
             int coordinatorCount,
@@ -231,6 +234,7 @@ public class DistributedQueryRunner
                             false,
                             coordinatorSidecarEnabled,
                             false,
+                            skipLoadingResourceGroupConfigurationManager,
                             workerProperties,
                             parserOptions,
                             environment,
@@ -260,6 +264,7 @@ public class DistributedQueryRunner
                             false,
                             false,
                             false,
+                            skipLoadingResourceGroupConfigurationManager,
                             rmProperties,
                             parserOptions,
                             environment,
@@ -280,6 +285,7 @@ public class DistributedQueryRunner
                         false,
                         false,
                         false,
+                        skipLoadingResourceGroupConfigurationManager,
                         catalogServerProperties,
                         parserOptions,
                         environment,
@@ -298,6 +304,7 @@ public class DistributedQueryRunner
                         true,
                         true,
                         false,
+                        skipLoadingResourceGroupConfigurationManager,
                         coordinatorSidecarProperties,
                         parserOptions,
                         environment,
@@ -316,6 +323,7 @@ public class DistributedQueryRunner
                         false,
                         false,
                         true,
+                        skipLoadingResourceGroupConfigurationManager,
                         extraCoordinatorProperties,
                         parserOptions,
                         environment,
@@ -350,7 +358,7 @@ public class DistributedQueryRunner
 
         long start = nanoTime();
         while (!allNodesGloballyVisible()) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(60, SECONDS));
+            Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS));
             MILLISECONDS.sleep(10);
         }
         log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
@@ -413,6 +421,7 @@ public class DistributedQueryRunner
             boolean coordinatorSidecar,
             boolean coordinatorSidecarEnabled,
             boolean coordinator,
+            boolean skipLoadingResourceGroupConfigurationManager,
             Map<String, String> extraProperties,
             SqlParserOptions parserOptions,
             String environment,
@@ -443,6 +452,7 @@ public class DistributedQueryRunner
                 coordinatorSidecar,
                 coordinatorSidecarEnabled,
                 coordinator,
+                skipLoadingResourceGroupConfigurationManager,
                 properties,
                 environment,
                 discoveryUri,
@@ -628,6 +638,12 @@ public class DistributedQueryRunner
     public void installPlugin(Plugin plugin)
     {
         installPlugin(plugin, false);
+    }
+
+    @Override
+    public void installCoordinatorPlugin(CoordinatorPlugin plugin)
+    {
+        installCoordinatorPlugin(plugin, false);
     }
 
     public void createCatalog(String catalogName, String connectorName)
@@ -896,6 +912,18 @@ public class DistributedQueryRunner
         log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
+    private void installCoordinatorPlugin(CoordinatorPlugin plugin, boolean coordinatorOnly)
+    {
+        long start = nanoTime();
+        for (TestingPrestoServer server : servers) {
+            if (coordinatorOnly && !server.isCoordinator()) {
+                continue;
+            }
+            server.installCoordinatorPlugin(plugin);
+        }
+        log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {
@@ -924,6 +952,7 @@ public class DistributedQueryRunner
         private boolean resourceManagerEnabled;
         private boolean catalogServerEnabled;
         private boolean coordinatorSidecarEnabled;
+        private boolean skipLoadingResourceGroupConfigurationManager;
         private List<Module> extraModules = ImmutableList.of();
         private int resourceManagerCount = 1;
 
@@ -1055,6 +1084,12 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setSkipLoadingResourceGroupConfigurationManager(boolean skipLoadingResourceGroupConfigurationManager)
+        {
+            this.skipLoadingResourceGroupConfigurationManager = skipLoadingResourceGroupConfigurationManager;
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
@@ -1062,6 +1097,7 @@ public class DistributedQueryRunner
                     resourceManagerEnabled,
                     catalogServerEnabled,
                     coordinatorSidecarEnabled,
+                    skipLoadingResourceGroupConfigurationManager,
                     defaultSession,
                     nodeCount,
                     coordinatorCount,

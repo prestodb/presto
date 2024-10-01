@@ -27,6 +27,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -40,6 +41,9 @@ public class IcebergTableProperties
     public static final String FORMAT_VERSION = "format_version";
     public static final String COMMIT_RETRIES = "commit_retries";
     public static final String DELETE_MODE = "delete_mode";
+    public static final String METADATA_PREVIOUS_VERSIONS_MAX = "metadata_previous_versions_max";
+    public static final String METADATA_DELETE_AFTER_COMMIT = "metadata_delete_after_commit";
+    public static final String METRICS_MAX_INFERRED_COLUMN = "metrics_max_inferred_column";
     private static final String DEFAULT_FORMAT_VERSION = "2";
 
     private final List<PropertyMetadata<?>> tableProperties;
@@ -93,6 +97,21 @@ public class IcebergTableProperties
                         false,
                         value -> RowLevelOperationMode.fromName((String) value),
                         RowLevelOperationMode::modeName))
+                .add(integerProperty(
+                        METADATA_PREVIOUS_VERSIONS_MAX,
+                        "The max number of old metadata files to keep in metadata log",
+                        icebergConfig.getMetadataPreviousVersionsMax(),
+                        false))
+                .add(booleanProperty(
+                        METADATA_DELETE_AFTER_COMMIT,
+                        "Whether enables to delete the oldest metadata file after commit",
+                        icebergConfig.isMetadataDeleteAfterCommit(),
+                        false))
+                .add(integerProperty(
+                        METRICS_MAX_INFERRED_COLUMN,
+                        "The maximum number of columns for which metrics are collected",
+                        icebergConfig.getMetricsMaxInferredColumn(),
+                        false))
                 .build();
 
         columnProperties = ImmutableList.of(stringProperty(
@@ -142,5 +161,20 @@ public class IcebergTableProperties
     public static RowLevelOperationMode getDeleteMode(Map<String, Object> tableProperties)
     {
         return (RowLevelOperationMode) tableProperties.get(DELETE_MODE);
+    }
+
+    public static Integer getMetadataPreviousVersionsMax(Map<String, Object> tableProperties)
+    {
+        return (Integer) tableProperties.get(METADATA_PREVIOUS_VERSIONS_MAX);
+    }
+
+    public static Boolean isMetadataDeleteAfterCommit(Map<String, Object> tableProperties)
+    {
+        return (Boolean) tableProperties.get(METADATA_DELETE_AFTER_COMMIT);
+    }
+
+    public static Integer getMetricsMaxInferredColumn(Map<String, Object> tableProperties)
+    {
+        return (Integer) tableProperties.get(METRICS_MAX_INFERRED_COLUMN);
     }
 }

@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.transaction.ForTransactionManager;
@@ -126,6 +127,7 @@ public class VerifierModule
 
         // type
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        configBinder(binder).bindConfig(FunctionsConfig.class);
         binder.bind(TypeManager.class).to(FunctionAndTypeManager.class).in(SINGLETON);
         newSetBinder(binder, Type.class);
 

@@ -48,6 +48,7 @@ import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.io.LocationProvider;
 
 import java.time.Instant;
@@ -105,10 +106,10 @@ public class IcebergPageSink
     private long writtenBytes;
     private long systemMemoryUsage;
     private long validationCpuNanos;
+    private Table table;
 
     public IcebergPageSink(
-            Schema outputSchema,
-            PartitionSpec partitionSpec,
+            Table table,
             LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
@@ -121,8 +122,9 @@ public class IcebergPageSink
             int maxOpenWriters)
     {
         requireNonNull(inputColumns, "inputColumns is null");
-        this.outputSchema = requireNonNull(outputSchema, "outputSchema is null");
-        this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
+        this.table = requireNonNull(table, "table is null");
+        this.outputSchema = table.schema();
+        this.partitionSpec = table.spec();
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -322,7 +324,7 @@ public class IcebergPageSink
                 session,
                 hdfsContext,
                 fileFormat,
-                MetricsConfig.getDefault());
+                MetricsConfig.forTable(table));
 
         return new WriteContext(writer, outputPath, partitionData);
     }

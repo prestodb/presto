@@ -16,6 +16,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <velox/type/Filter.h>
+#include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
@@ -26,7 +27,6 @@
 // clang-format on
 
 #include <folly/String.h>
-#include <folly/container/F14Set.h>
 
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
@@ -86,7 +86,7 @@ std::string toJsonString(const T& value) {
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) {
-  auto& connector = getPrestoToVeloxConnector(column->_type);
+  const auto& connector = getPrestoToVeloxConnector(column->_type);
   return connector.toVeloxColumnHandle(column, typeParser);
 }
 
@@ -96,7 +96,7 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     const TypeParser& typeParser,
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
         assignments) {
-  auto& connector =
+  const auto& connector =
       getPrestoToVeloxConnector(tableHandle.connectorHandle->_type);
   return connector.toVeloxTableHandle(
       tableHandle, exprConverter, typeParser, assignments);
@@ -231,7 +231,7 @@ std::vector<core::FieldAccessTypedExprPtr> toFieldExprs(
     const VeloxExprConverter& exprConverter) {
   std::vector<core::FieldAccessTypedExprPtr> fields;
   fields.reserve(expressions.size());
-  for (auto& expr : expressions) {
+  for (const auto& expr : expressions) {
     auto field = std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
         exprConverter.toVeloxExpr(expr));
     VELOX_CHECK_NOT_NULL(
@@ -248,7 +248,7 @@ std::vector<core::TypedExprPtr> toTypedExprs(
     const VeloxExprConverter& exprConverter) {
   std::vector<core::TypedExprPtr> typedExprs;
   typedExprs.reserve(expressions.size());
-  for (auto& expr : expressions) {
+  for (const auto& expr : expressions) {
     auto typedExpr = exprConverter.toVeloxExpr(expr);
     auto field =
         std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);
@@ -1317,6 +1317,12 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
       connectorId, connectorInsertHandle);
+  bool hasBucketProperty{false};
+  if (auto* HiveInsertTableHandle =
+          dynamic_cast<velox::connector::hive::HiveInsertTableHandle*>(
+              connectorInsertHandle.get())) {
+    hasBucketProperty = HiveInsertTableHandle->bucketProperty() != nullptr;
+  }
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1342,6 +1348,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       std::move(aggregationNode),
       std::move(insertTableHandle),
       node->partitioningScheme != nullptr,
+      hasBucketProperty,
       outputType,
       getCommitStrategy(),
       sourceVeloxPlan);
@@ -1803,11 +1810,15 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     // For constant channels create a base vector, add single value to it from
     // our variant and add it to the list of constant expressions.
     if (channel == kConstantChannel) {
-      constValues.emplace_back(
-          velox::BaseVector::create(expr->type(), 1, pool_));
       auto constExpr =
           std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr);
-      setCellFromVariant(constValues.back(), 0, constExpr->value());
+      if (constExpr->hasValueVector()) {
+        constValues.emplace_back(constExpr->valueVector());
+      } else {
+        constValues.emplace_back(
+            velox::BaseVector::create(expr->type(), 1, pool_));
+        setCellFromVariant(constValues.back(), 0, constExpr->value());
+      }
     }
   }
   auto outputType = toRowType(partitioningScheme.outputLayout, typeParser_);

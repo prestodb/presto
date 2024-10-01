@@ -41,6 +41,8 @@ public class HiveCommonSessionProperties
 {
     @VisibleForTesting
     public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
+    @VisibleForTesting
+    public static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
 
     private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -55,7 +57,6 @@ public class HiveCommonSessionProperties
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
     private static final String ORC_TINY_STRIPE_THRESHOLD = "orc_tiny_stripe_threshold";
     private static final String ORC_ZSTD_JNI_DECOMPRESSION_ENABLED = "orc_zstd_jni_decompression_enabled";
-    private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_USE_COLUMN_NAMES = "parquet_use_column_names";

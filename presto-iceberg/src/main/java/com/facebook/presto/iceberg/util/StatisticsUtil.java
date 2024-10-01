@@ -13,29 +13,56 @@
  */
 package com.facebook.presto.iceberg.util;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergTableHandle;
+import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
+import com.facebook.presto.iceberg.TableStatisticsMaker;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Table;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.function.Function.identity;
 
 public final class StatisticsUtil
 {
@@ -131,5 +158,121 @@ public final class StatisticsUtil
                 }
             });
         }).reduce(Estimate.of(0.0), (currentSize, newSize) -> currentSize.flatMap(current -> newSize.map(add -> current + add)))));
+    }
+
+    /**
+     * Used to determine the column set which should be passed to the {@link com.facebook.presto.iceberg.TableStatisticsMaker}.
+     *
+     * @param selectedColumns the columns selected by the query before the {@code FROM} clause.
+     * @param layoutHandle handle containing the predicate on the table scan.
+     * @return the entire set of columns which should be passed to the {@link com.facebook.presto.iceberg.TableStatisticsMaker}
+     */
+    public static List<IcebergColumnHandle> combineSelectedAndPredicateColumns(List<IcebergColumnHandle> selectedColumns, Optional<IcebergTableLayoutHandle> layoutHandle)
+    {
+        Set<Integer> columnIds = selectedColumns.stream()
+                .map(IcebergColumnHandle::getId)
+                .collect(toImmutableSet());
+        return ImmutableList.<IcebergColumnHandle>builder()
+                .addAll(selectedColumns)
+                .addAll(layoutHandle
+                        .map(IcebergTableLayoutHandle.class::cast)
+                        .flatMap(handle -> Optional.of(handle.getPredicateColumns().values()))
+                        .orElse(Collections.emptyList())
+                        .stream()
+                        .filter(predicateHandle -> !columnIds.contains(predicateHandle.getId()))
+                        .iterator())
+                .addAll(layoutHandle
+                        .filter(IcebergTableLayoutHandle::isPushdownFilterEnabled)
+                        .map(IcebergTableLayoutHandle::getPartitionColumnPredicate)
+                        .flatMap(TupleDomain::getDomains)
+                        .map(Map::keySet)
+                        .orElse(ImmutableSet.of())
+                        .stream()
+                        .map(IcebergColumnHandle.class::cast)
+                        .filter(predicateColumn -> !columnIds.contains(predicateColumn.getId()))
+                        .iterator())
+                .build();
+    }
+
+    public static String formatIdentifier(String s)
+    {
+        return '"' + s.replace("\"", "\"\"") + '"';
+    }
+
+    /**
+     * Calculates statistics for a table without considering filters which are pushed down onto a table
+     *
+     * @param metadata connector metadata
+     * @param typeManager type manager
+     * @param session current session
+     * @param tableHandle table handle
+     * @param tableLayoutHandle layout for current table handle
+     * @param columnHandles desired columns
+     * @param constraint constraints
+     * @return statistics from Iceberg table without using the {@link com.facebook.presto.spi.plan.FilterStatsCalculatorService}
+     */
+    public static TableStatistics calculateBaseTableStatistics(
+            ConnectorMetadata metadata,
+            TypeManager typeManager,
+            ConnectorSession session,
+            StatisticsFileCache statisticsFileCache,
+            IcebergTableHandle tableHandle,
+            Optional<ConnectorTableLayoutHandle> tableLayoutHandle,
+            List<ColumnHandle> columnHandles,
+            Constraint<ColumnHandle> constraint)
+    {
+        Table icebergTable = getIcebergTable(metadata, session, tableHandle.getSchemaTableName());
+        List<IcebergColumnHandle> handles = combineSelectedAndPredicateColumns(
+                columnHandles.stream()
+                        .map(IcebergColumnHandle.class::cast)
+                        .collect(toImmutableList()),
+                tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast));
+        return TableStatisticsMaker.getTableStatistics(session, typeManager,
+                statisticsFileCache,
+                tableLayoutHandle
+                        .map(IcebergTableLayoutHandle.class::cast)
+                        .map(IcebergTableLayoutHandle::getValidPredicate),
+                constraint, tableHandle, icebergTable, handles);
+    }
+
+    public static TableStatistics calculateStatisticsConsideringLayout(
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            RowExpressionService rowExpressionService,
+            TableStatistics baseStatistics,
+            ConnectorSession session,
+            Optional<ConnectorTableLayoutHandle> tableLayoutHandle)
+    {
+        return tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast)
+                .filter(unused -> isPushdownFilterEnabled(session))
+                .map(layoutHandle -> {
+                    TupleDomain<VariableReferenceExpression> predicate = layoutHandle.getValidPredicate()
+                            .transform(columnHandle -> new VariableReferenceExpression(Optional.empty(), columnHandle.getName(), columnHandle.getType()));
+                    RowExpression translatedPredicate = rowExpressionService.getDomainTranslator().toPredicate(predicate);
+                    RowExpression combinedPredicate = and(layoutHandle.getRemainingPredicate(), translatedPredicate);
+                    TableStatistics.Builder filteredStatsBuilder = TableStatistics.builder()
+                            .setRowCount(baseStatistics.getRowCount());
+                    Map<ColumnHandle, ColumnStatistics> fullColumnSet = baseStatistics.getColumnStatistics();
+                    for (ColumnHandle colHandle : fullColumnSet.keySet()) {
+                        IcebergColumnHandle icebergHandle = (IcebergColumnHandle) colHandle;
+                        if (fullColumnSet.containsKey(icebergHandle)) {
+                            ColumnStatistics stats = fullColumnSet.get(icebergHandle);
+                            filteredStatsBuilder.setColumnStatistics(icebergHandle, stats);
+                        }
+                    }
+                    return filterStatsCalculatorService.filterStats(
+                            calculateAndSetTableSize(filteredStatsBuilder).setConfidenceLevel(LOW).build(),
+                            combinedPredicate,
+                            session,
+                            fullColumnSet.keySet()
+                                    .stream()
+                                    .map(IcebergColumnHandle.class::cast).collect(toImmutableMap(
+                                            identity(),
+                                            IcebergColumnHandle::getName)),
+                            fullColumnSet.keySet()
+                                    .stream()
+                                    .map(IcebergColumnHandle.class::cast).collect(toImmutableMap(
+                                            IcebergColumnHandle::getName,
+                                            IcebergColumnHandle::getType)));
+                }).orElse(baseStatistics);
     }
 }

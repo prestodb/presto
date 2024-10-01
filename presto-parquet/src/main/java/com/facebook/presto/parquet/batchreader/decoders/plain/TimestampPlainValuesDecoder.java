@@ -23,7 +23,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 public class TimestampPlainValuesDecoder
         implements TimestampValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimestampMicrosPlainValuesDecoder.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampPlainValuesDecoder.class).instanceSize();
 
     private final byte[] byteBuffer;
     private final int bufferEnd;

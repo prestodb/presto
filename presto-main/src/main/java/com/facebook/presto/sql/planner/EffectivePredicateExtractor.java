@@ -60,6 +60,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
@@ -418,15 +419,21 @@ public class EffectivePredicateExtractor
             for (RowExpression conjunct : new EqualityInference.Builder(functionManger).nonInferableConjuncts(expression)) {
                 if (determinismEvaluator.isDeterministic(conjunct)) {
                     RowExpression rewritten = equalityInference.rewriteExpression(conjunct, in(variables));
-                    if (rewritten != null) {
+                    if (rewritten != null && (hasVariableReferences(rewritten) || rewritten.equals(FALSE_CONSTANT))) {
                         effectiveConjuncts.add(rewritten);
                     }
+                    // If equality inference has reduced the predicate to an expression referring to only constants, it does not make sense to pull this predicate up
                 }
             }
 
             effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(in(variables)).getScopeEqualities());
 
             return logicalRowExpressions.combineConjuncts(effectiveConjuncts.build());
+        }
+
+        private static boolean hasVariableReferences(RowExpression rowExpression)
+        {
+            return !VariablesExtractor.extractUnique(rowExpression).isEmpty();
         }
     }
 }

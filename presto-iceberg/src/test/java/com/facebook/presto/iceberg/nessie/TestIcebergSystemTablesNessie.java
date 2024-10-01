@@ -89,11 +89,11 @@ public class TestIcebergSystemTablesNessie
     {
         assertQuery(String.format("SHOW COLUMNS FROM test_schema.\"%s$properties\"", tableName),
                 "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 7");
+        assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 9");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 String.format("SELECT * FROM test_schema.\"%s$properties\"", tableName)).getMaterializedRows();
 
-        assertThat(materializedRows).hasSize(7);
+        assertThat(materializedRows).hasSize(9);
         assertThat(materializedRows)
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.delete.mode", deleteMode)))
@@ -106,7 +106,11 @@ public class TestIcebergSystemTablesNessie
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.delete-after-commit.enabled", "false")))
                 .anySatisfy(row -> assertThat(row)
-                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "commit.retry.num-retries", "4")));
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "commit.retry.num-retries", "4")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.previous-versions-max", "100")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.metrics.max-inferred-column-defaults", "100")));
     }
 
     @Override
@@ -114,11 +118,11 @@ public class TestIcebergSystemTablesNessie
     {
         assertQuery(String.format("SHOW COLUMNS FROM test_schema.\"%s$properties\"", tableName),
                 "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 8");
+        assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 10");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 String.format("SELECT * FROM test_schema.\"%s$properties\"", tableName)).getMaterializedRows();
 
-        assertThat(materializedRows).hasSize(8);
+        assertThat(materializedRows).hasSize(10);
         assertThat(materializedRows)
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.delete.mode", deleteMode)))
@@ -133,6 +137,10 @@ public class TestIcebergSystemTablesNessie
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.delete-after-commit.enabled", "false")))
                 .anySatisfy(row -> assertThat(row)
-                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "commit.retry.num-retries", "4")));
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "commit.retry.num-retries", "4")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.previous-versions-max", "100")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.metrics.max-inferred-column-defaults", "100")));
     }
 }
