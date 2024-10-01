@@ -42,7 +42,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
-import static com.facebook.presto.iceberg.procedure.TestIcebergRegisterProcedure.getMetadataFileLocation;
+import static com.facebook.presto.iceberg.procedure.TestIcebergRegisterAndUnregisterProcedure.getMetadataFileLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -56,7 +56,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class IcebergDistributedSmokeTestBase
+public abstract class IcebergDistributedSmokeTestBase
         extends AbstractTestIntegrationSmokeTest
 {
     private final CatalogType catalogType;
@@ -140,7 +140,10 @@ public class IcebergDistributedSmokeTestBase
                         "   delete_mode = 'merge-on-read',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = '2',\n" +
-                        "   location = '%s'\n" +
+                        "   location = '%s',\n" +
+                        "   metadata_delete_after_commit = false,\n" +
+                        "   metadata_previous_versions_max = 100,\n" +
+                        "   metrics_max_inferred_column = 100\n" +
                         ")", getLocation("tpch", "orders")));
     }
 
@@ -418,6 +421,9 @@ public class IcebergDistributedSmokeTestBase
                         "   format = '" + fileFormat + "',\n" +
                         "   format_version = '2',\n" +
                         "   location = '%s',\n" +
+                        "   metadata_delete_after_commit = false,\n" +
+                        "   metadata_previous_versions_max = 100,\n" +
+                        "   metrics_max_inferred_column = 100,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -617,7 +623,10 @@ public class IcebergDistributedSmokeTestBase
                 "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'ORC',\n" +
                 "   format_version = '2',\n" +
-                "   location = '%s'\n" +
+                "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100,\n" +
+                "   metrics_max_inferred_column = 100\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", getLocation("tpch", "test_table_comments"));
 
@@ -706,6 +715,9 @@ public class IcebergDistributedSmokeTestBase
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100,\n" +
+                "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", getLocation("tpch", "test_create_table_like_original")));
 
@@ -719,7 +731,10 @@ public class IcebergDistributedSmokeTestBase
                 "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
-                "   location = '%s'\n" +
+                "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100,\n" +
+                "   metrics_max_inferred_column = 100\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
 
@@ -728,7 +743,10 @@ public class IcebergDistributedSmokeTestBase
                 "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
-                "   location = '%s'\n" +
+                "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100,\n" +
+                "   metrics_max_inferred_column = 100\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
 
@@ -738,6 +756,9 @@ public class IcebergDistributedSmokeTestBase
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100,\n" +
+                "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
                 getLocation("tpch", "test_create_table_like_original") :
@@ -750,6 +771,9 @@ public class IcebergDistributedSmokeTestBase
                 "   format = 'ORC',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
+                "   metadata_delete_after_commit = false,\n" +
+                "   metadata_previous_versions_max = 100,\n" +
+                "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
                 getLocation("tpch", "test_create_table_like_original") :
@@ -791,7 +815,10 @@ public class IcebergDistributedSmokeTestBase
                         "   delete_mode = '%s',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = '%s',\n" +
-                        "   location = '%s'\n" +
+                        "   location = '%s',\n" +
+                        "   metadata_delete_after_commit = false,\n" +
+                        "   metadata_previous_versions_max = 100,\n" +
+                        "   metrics_max_inferred_column = 100\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),

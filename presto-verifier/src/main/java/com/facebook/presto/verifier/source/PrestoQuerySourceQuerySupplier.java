@@ -51,6 +51,8 @@ public class PrestoQuerySourceQuerySupplier
                             Optional.ofNullable(resultSet.getString("control_session_properties"))
                                     .map(StringToStringMapColumnMapper.CODEC::fromJson),
                             Optional.ofNullable(resultSet.getString("control_client_tags"))
+                                    .map(StringListColumnMapper.CODEC::fromJson),
+                            Optional.ofNullable(resultSet.getString("control_partitions"))
                                     .map(StringListColumnMapper.CODEC::fromJson)),
                     new QueryConfiguration(
                             resultSet.getString("test_catalog"),
@@ -60,6 +62,8 @@ public class PrestoQuerySourceQuerySupplier
                             Optional.ofNullable(resultSet.getString("test_session_properties"))
                                     .map(StringToStringMapColumnMapper.CODEC::fromJson),
                             Optional.ofNullable(resultSet.getString("test_client_tags"))
+                                    .map(StringListColumnMapper.CODEC::fromJson),
+                            Optional.ofNullable(resultSet.getString("test_partitions"))
                                     .map(StringListColumnMapper.CODEC::fromJson))));
 
     private final PrestoAction helperAction;
@@ -73,7 +77,14 @@ public class PrestoQuerySourceQuerySupplier
             PrestoQuerySourceQueryConfig config)
     {
         this.helperAction = helperActionFactory.create(
-                new QueryConfiguration(config.getCatalog(), config.getSchema(), config.getUsername(), config.getPassword(), Optional.empty(), Optional.empty()),
+                new QueryConfiguration(
+                        config.getCatalog(),
+                        config.getSchema(),
+                        config.getUsername(),
+                        config.getPassword(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
                 VerificationContext.create("", ""));
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.query = requireNonNull(config.getQuery(), "query is null");

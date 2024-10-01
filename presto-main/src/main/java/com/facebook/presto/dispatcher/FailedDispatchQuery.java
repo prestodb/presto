@@ -115,7 +115,10 @@ public class FailedDispatchQuery
     public void cancel() {}
 
     @Override
-    public void pruneInfo() {}
+    public void pruneExpiredQueryInfo() {}
+
+    @Override
+    public void pruneFinishedQueryInfo() {}
 
     @Override
     public QueryId getQueryId()
@@ -194,5 +197,5 @@ public class FailedDispatchQuery
 
     @Override
     public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
-    { }
+    {}
 }

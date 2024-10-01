@@ -3,7 +3,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.289-SNAPSHOT</version>
+        <version>0.290-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -177,7 +177,6 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

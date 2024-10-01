@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -76,13 +78,15 @@ public class TestQueryRewriter
             Optional.of("user"),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
     private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
     private static final QueryRewriteConfig QUERY_REWRITE_CONFIG = new QueryRewriteConfig()
             .setTablePrefix("local.tmp")
             .setTableProperties("{\"p_int\": 30, \"p_long\": 4294967297, \"p_double\": 1.5, \"p_varchar\": \"test\", \"p_bool\": true}");
     private static final VerifierConfig VERIFIER_CONFIG = new VerifierConfig();
-    private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     private static StandaloneQueryRunner queryRunner;
     private static PrestoAction prestoAction;
@@ -583,14 +587,11 @@ public class TestQueryRewriter
     @Test
     public void testReuseTableRewrite()
     {
-        String query = "INSERT INTO dest_table SELECT * FROM test_table";
+        String query = "CREATE TABLE dest_table AS SELECT a, b FROM test_table WHERE a = 1 AND b = 'xyz'";
+        queryRunner.execute(query);
+        List<String> partitions = ImmutableList.of("a=1", "b=xyz");
         QueryConfiguration configuration = new QueryConfiguration(
-                CATALOG,
-                SCHEMA,
-                Optional.of("user"),
-                Optional.empty(),
-                Optional.empty(),
-                true);
+                CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty(), true, Optional.of(partitions));
         assertShadowed(
                 getQueryRewriter(new QueryRewriteConfig().setReuseTable(true), VERIFIER_CONFIG),
                 query,
@@ -645,14 +646,14 @@ public class TestQueryRewriter
     {
         assertTrue(statement instanceof CreateTableAsSelect);
         Query query = ((CreateTableAsSelect) statement).getQuery();
-        assertEquals(formatSql(query, Optional.empty()), formatSql(sqlParser.createStatement(selectQuery, PARSING_OPTIONS), Optional.empty()));
+        assertEquals(formatSql(query, Optional.empty()), formatSql(SQL_PARSER.createStatement(selectQuery, PARSING_OPTIONS), Optional.empty()));
     }
 
     private static List<Statement> templateToStatements(List<String> templates, String tableName)
     {
         return templates.stream()
                 .map(template -> format(template, tableName))
-                .map(query -> sqlParser.createStatement(query, PARSING_OPTIONS))
+                .map(query -> SQL_PARSER.createStatement(query, PARSING_OPTIONS))
                 .collect(toImmutableList());
     }
 
@@ -674,6 +675,6 @@ public class TestQueryRewriter
 
     private QueryRewriter getQueryRewriter(QueryRewriteConfig rewriteConfig, VerifierConfig verifierConfig)
     {
-        return new VerificationQueryRewriterFactory(sqlParser, createTypeManager(), rewriteConfig, rewriteConfig, verifierConfig).create(prestoAction);
+        return new VerificationQueryRewriterFactory(SQL_PARSER, createTypeManager(), blockEncodingSerde, rewriteConfig, rewriteConfig, verifierConfig).create(prestoAction);
     }
 }

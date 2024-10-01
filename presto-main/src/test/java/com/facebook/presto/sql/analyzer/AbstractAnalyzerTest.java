@@ -131,7 +131,7 @@ public class AbstractAnalyzerTest
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new TestingAccessControlManager(transactionManager);
 
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        metadata = createTestMetadataManager(transactionManager);
 
         metadata.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
 

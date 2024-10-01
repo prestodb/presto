@@ -34,7 +34,7 @@ import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;

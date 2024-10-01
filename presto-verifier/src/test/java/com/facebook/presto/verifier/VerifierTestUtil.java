@@ -72,6 +72,7 @@ public class VerifierTestUtil
             ImmutableList.of(),
             CONTROL,
             Optional.empty(),
+            Optional.empty(),
             false);
 
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
@@ -140,11 +141,11 @@ public class VerifierTestUtil
     {
         Map<Column.Category, Provider<ColumnValidator>> lazyValidators = new HashMap<>();
         Map<Column.Category, Provider<ColumnValidator>> validators = ImmutableMap.of(
-                Column.Category.SIMPLE, SimpleColumnValidator::new,
+                Column.Category.SIMPLE, () -> new SimpleColumnValidator(verifierConfig, new FloatingPointColumnValidator(verifierConfig)),
                 Column.Category.FLOATING_POINT, () -> new FloatingPointColumnValidator(verifierConfig),
                 Column.Category.ARRAY, () -> new ArrayColumnValidator(verifierConfig, new FloatingPointColumnValidator(verifierConfig)),
                 Column.Category.ROW, () -> new RowColumnValidator(lazyValidators),
-                Column.Category.MAP, MapColumnValidator::new);
+                Column.Category.MAP, () -> new MapColumnValidator(verifierConfig, new FloatingPointColumnValidator(verifierConfig)));
         lazyValidators.putAll(validators);
         return new ChecksumValidator(validators);
     }

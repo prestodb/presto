@@ -224,6 +224,8 @@ public class OrcWriter
                 .setCompressionKind(compressionKind)
                 .setCompressionLevel(options.getCompressionLevel())
                 .setCompressionMaxBufferSize(options.getMaxCompressionBufferSize())
+                .setMinOutputBufferChunkSize(options.getMinOutputBufferChunkSize())
+                .setMaxOutputBufferChunkSize(options.getMaxOutputBufferChunkSize())
                 .setStringStatisticsLimit(options.getMaxStringStatisticsLimit())
                 .setIntegerDictionaryEncodingEnabled(options.isIntegerDictionaryEncodingEnabled())
                 .setStringDictionarySortingEnabled(options.isStringDictionarySortingEnabled())

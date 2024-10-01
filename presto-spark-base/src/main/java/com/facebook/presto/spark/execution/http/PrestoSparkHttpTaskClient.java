@@ -364,7 +364,6 @@ public class PrestoSparkHttpTaskClient
         {
             return new BytesResponse(
                     response.getStatusCode(),
-                    response.getStatusMessage(),
                     response.getHeaders(),
                     readResponseBytes(response));
         }
@@ -388,14 +387,12 @@ public class PrestoSparkHttpTaskClient
             implements BaseResponse<byte[]>
     {
         private final int statusCode;
-        private final String statusMessage;
         private final ListMultimap<HeaderName, String> headers;
         private final byte[] bytes;
 
-        public BytesResponse(int statusCode, String statusMessage, ListMultimap<HeaderName, String> headers, byte[] bytes)
+        public BytesResponse(int statusCode, ListMultimap<HeaderName, String> headers, byte[] bytes)
         {
             this.statusCode = statusCode;
-            this.statusMessage = requireNonNull(statusMessage, "statusMessage is null");
             this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
             this.bytes = bytes;
         }
@@ -404,12 +401,6 @@ public class PrestoSparkHttpTaskClient
         public int getStatusCode()
         {
             return statusCode;
-        }
-
-        @Override
-        public String getStatusMessage()
-        {
-            return statusMessage;
         }
 
         @Override

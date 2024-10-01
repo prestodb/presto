@@ -49,6 +49,7 @@ Contributions should have an associated GitHub issue.
 * Large changes should have an [RFC](https://github.com/prestodb/rfcs). The [RFC](https://github.com/prestodb/rfcs) should be reviewed before patches are submitted.
 * Medium size changes should have an issue. Work from RFCs can be broken down into smaller issues, and those smaller issues should link to the RFC.
 * Smaller changes, such as minor bug fixes and code formatting, may not need an issue and can submit a PR without one.
+* New SQL functions should follow the [Presto function guidelines](https://github.com/prestodb/presto/blob/master/FUNCTIONS.md). 
 
 ## Minimum Expectations for Contributing to Presto
 To commit code, you should:
@@ -81,6 +82,7 @@ To commit code, you should:
     1. User friendliness
         1. Config options have names and descriptions that can be understood by someone configuring Presto
         1. All new language features, new functions, and major features have documentation added
+        1. When adding a new method to [Plugin.java](https://github.com/prestodb/presto/blob/master/presto-spi/src/main/java/com/facebook/presto/spi/Plugin.java), include documentation for the new method in the [Presto Developer Guide](https://prestodb.io/docs/current/develop.html). 
         1. Release notes following the [Release Note Guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines) are added for user visible changes
 * For large features, discuss your design with relevant code owners before you start implementing it.
 
@@ -147,25 +149,25 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
         }
       ```
 
-* **Ordering of class members and methods**
-    * Class members are in front of methods.
-    * Group and order the class members and methods in the order of their access levels in descending order:
+* **Ordering of class members**
+    * Fields are in front of methods.
+    * Group and order the fields and methods in the order of their access levels in descending order:
         1. public
         1. protected
         1. package private
         1. private
-    * Group and order the class members in descending order:
+    * Group and order the fields in descending order:
         1. static final
         1. final
         1. normal
     * Order the methods with the same access level in the order they’re called.
 * **Encourage proper encapsulation**
-    * Do not use public class members. Use lower access levels as much as possible. Exceptions may apply for performance critical paths, in that case discuss your design first with relevant code owners.
-    * Make a function access level as low as possible
-    * If a public class is only used by one caller and the usage is local, consider making it a nested class.
+    * Do not use public class fields for non-constants. Use less visible access levels as much as possible. Exceptions may apply for performance critical paths. In that case, discuss your design first with relevant code owners.
+    * Make a method access level as low as possible
+    * If a class is only used by one caller and the usage is local, consider making it a nested class.
 * **Immutable and thread safe classes**
-    * Whenever possible, class fields should be final
-    * When it's not possible, ensure that accesses to the non-final fields are thread safe by whatever methods are appropriate for the circumstance (Concurrent collections, synchronized access, etc.) if they are in a code path that is multi-threaded
+    * Whenever possible, class fields should be final.
+    * When it's not possible, ensure that accesses to the non-final fields are thread safe by whatever methods are appropriate for the circumstance (concurrent collections, synchronized access, etc.) if they are in a code path that is multi-threaded.
 
 * **Static imports**
   For example, in your code, do not use something like
@@ -265,9 +267,9 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
           }
       ```
 
-    * Recommend to add the “/** */” style comments to important or difficult public methods, with explanation of the parameters and returns.
+    * Add the “/** */” style comments to important or difficult public methods, with explanation of the parameters and returns.
     * Within the method body, use “//” style comments on separate lines for difficult parts.
-    * Use “//” style comments for class members if it can help understanding the code. Can be on the same line or separate lines in front.
+    * Use “//” style comments for class fields if it helps to clarify the code. Can be on the same line or separate lines in front.
 * **Code succinctness**
     * Inline function calls when appropriate. For example, if a function is only called once, we don’t need to create a variable for it.
     * Use reference operator in lambda expressions where possible. For example, instead of doing this:

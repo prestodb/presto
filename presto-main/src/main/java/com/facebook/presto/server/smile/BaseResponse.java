@@ -26,8 +26,6 @@ public interface BaseResponse<T>
 {
     int getStatusCode();
 
-    String getStatusMessage();
-
     String getHeader(String name);
 
     List<String> getHeaders(String name);

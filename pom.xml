@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.289-SNAPSHOT</version>
+    <version>0.290-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.209</dep.airlift.version>
+        <dep.airlift.version>0.215</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -61,7 +61,7 @@
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
-        <dep.asm.version>9.0</dep.asm.version>
+        <dep.asm.version>9.2</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
@@ -72,9 +72,15 @@
         <dep.hudi.version>0.14.0</dep.hudi.version>
         <dep.testcontainers.version>1.18.3</dep.testcontainers.version>
         <dep.docker-java.version>3.3.0</dep.docker-java.version>
-        <dep.jayway.version>2.6.0</dep.jayway.version>
+        <dep.jayway.version>2.9.0</dep.jayway.version>
         <dep.ratis.version>2.2.0</dep.ratis.version>
+        <dep.errorprone.version>2.18.0</dep.errorprone.version>
+        <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.11.0</dep.jackson.version>
+        <dep.j2objc.version>2.8</dep.j2objc.version>
+        <dep.avro.version>1.11.3</dep.avro.version>
+        <dep.commons.compress.version>1.23.0</dep.commons.compress.version>
+
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -192,6 +198,7 @@
         <module>redis-hbo-provider</module>
         <module>presto-singlestore</module>
         <module>presto-hana</module>
+        <module>presto-openapi</module>
     </modules>
 
     <dependencyManagement>
@@ -1219,7 +1226,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.6.0</version>
+                <version>42.6.1</version>
             </dependency>
 
             <dependency>
@@ -2120,18 +2127,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.cassandra</groupId>
-                <artifactId>cassandra-driver</artifactId>
-                <version>3.6.0-1</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>io.netty</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-delta</artifactId>
                 <version>${project.version}</version>
@@ -2240,11 +2235,41 @@
                 <artifactId>datasketches-java</artifactId>
                 <version>5.0.1</version>
             </dependency>
-            
+
+            <dependency>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_annotations</artifactId>
+                <version>${dep.errorprone.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>com.google.j2objc</groupId>
                 <artifactId>j2objc-annotations</artifactId>
-                <version>1.3</version>
+                <version>${dep.j2objc.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro</artifactId>
+                <version>${dep.avro.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${dep.commons.compress.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.datastax.cassandra</groupId>
+                <artifactId>cassandra-driver-core</artifactId>
+                <version>3.11.5</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -2271,7 +2296,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>3.6.0</version>
                 </plugin>
 
                 <plugin>
@@ -2343,7 +2368,8 @@
                     <groupId>org.sonatype.plugins</groupId>
                     <artifactId>nexus-staging-maven-plugin</artifactId>
                     <version>${dep.nexus-staging-plugin.version}</version>
-                    <extensions>true</extensions>
+                    <!-- This plugin is not registered as an extension because it will fail to activate
+                         concurrently with the Maven Provisio plugin, as that has its own deployment lifecycle -->
                     <configuration>
                         <serverId>ossrh</serverId>
                         <nexusUrl>https://oss.sonatype.org/</nexusUrl>
@@ -2370,6 +2396,13 @@
             <plugin>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
+                <version>1.0.18</version>
+                <extensions>true</extensions>
             </plugin>
 
             <plugin>
@@ -2489,7 +2522,9 @@
         <profile>
             <id>ui</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>!skipUI</name>
+                </property>
             </activation>
             <modules>
                 <module>presto-ui</module>
@@ -2550,13 +2585,35 @@
             <build>
                 <plugins>
                     <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-deploy-plugin</artifactId>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
+                    </plugin>
+                    <plugin>
                         <groupId>org.sonatype.plugins</groupId>
                         <artifactId>nexus-staging-maven-plugin</artifactId>
+                        <!-- This plugin must be configured manually ("Maven 2" style in the docs) due to the usage of the
+                             Maven Provisio plugin, which includes its own deployment lifecycle -->
+                        <executions>
+                            <execution>
+                                <id>default-deploy</id>
+                                <phase>deploy</phase>
+                                <goals>
+                                    <goal>deploy</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <serverId>ossrh</serverId>
+                            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                        </configuration>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.6</version>
+                        <version>3.2.4</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>

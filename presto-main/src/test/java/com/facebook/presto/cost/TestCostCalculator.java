@@ -34,6 +34,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinType;
@@ -48,7 +49,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -136,7 +136,7 @@ public class TestCostCalculator
         CatalogManager catalogManager = new CatalogManager();
         catalogManager.registerCatalog(createBogusTestingCatalog("tpch"));
         transactionManager = createTestTransactionManager(catalogManager);
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        metadata = createTestMetadataManager(transactionManager);
 
         finalizerService = new FinalizerService();
         finalizerService.start();
@@ -151,7 +151,7 @@ public class TestCostCalculator
                 new SimpleTtlNodeSelectorConfig());
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
-        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());
+        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new FeaturesConfig());
         translator = new TestingRowExpressionTranslator();
     }
 
@@ -473,18 +473,28 @@ public class TestCostCalculator
                 new PlanNodeId("cteConsumer"),
                 ts1.getOutputVariables(),
                 "test_cte", ts1);
+        // This just symbolizes that the tablescan(original planNode) was more expensive but we used the stats from the stats store
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "cteConsumer", statsEstimate(ts1, 4000),
+                "ts1", statsEstimate(ts1, 10000000));
+        assertCost(cteConsumerNode, ImmutableMap.of(), stats)
+                .cpu(4500)
+                .memory(0)
+                .network(0);
+    }
+
+    @Test
+    public void testCteReferenceCost()
+    {
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+        CteReferenceNode cteReferenceNode = new CteReferenceNode(
+                Optional.empty(),
+                new PlanNodeId("cteReference"),
+                ts1,
+                "test");
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts1", statsEstimate(ts1, 4000));
-        Map<String, PlanCostEstimate> costs = ImmutableMap.of(
-                "ts1", new PlanCostEstimate(1000, 10, 10, 1000));
-        assertCost(cteConsumerNode, costs, stats)
-                .cpu(4500)
-                .memory(0)
-                .network(0);
-        assertCost(cteConsumerNode, costs, stats)
-                .cpu(4500)
-                .memory(0)
-                .network(0);
+        assertCost(cteReferenceNode, ImmutableMap.of(), stats);
     }
 
     @Test

@@ -19,7 +19,6 @@
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "velox/common/time/Timer.h"
 
 namespace facebook::presto {
 
@@ -344,6 +343,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool_);
           planFragment = converter.toVeloxQueryPlan(
               prestoPlan, updateRequest.tableWriteInfo, taskId);
+          planValidator_->validatePlanFragment(planFragment);
         }
 
         return taskManager_.createOrUpdateTask(

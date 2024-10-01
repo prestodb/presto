@@ -136,10 +136,18 @@ TEST_F(ServerOperationTest, buildServerOp) {
 
 TEST_F(ServerOperationTest, taskEndpoint) {
   // Setup environment for TaskManager
+  if (!connector::hasConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
+  }
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector("test-hive", std::make_shared<core::MemConfig>());
+          ->newConnector(
+              "test-hive",
+              std::make_shared<config::ConfigBase>(
+                  std::unordered_map<std::string, std::string>()));
   connector::registerConnector(hiveConnector);
 
   const auto driverExecutor = std::make_shared<folly::CPUThreadPoolExecutor>(

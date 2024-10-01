@@ -17,6 +17,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 
@@ -62,8 +63,13 @@ public class NativeQueryRunnerUtils
      */
     public static void createAllTables(QueryRunner queryRunner)
     {
-        createLineitem(queryRunner);
-        createOrders(queryRunner);
+        createAllTables(queryRunner, true);
+    }
+
+    public static void createAllTables(QueryRunner queryRunner, boolean castDateToVarchar)
+    {
+        createLineitem(queryRunner, castDateToVarchar);
+        createOrders(queryRunner, castDateToVarchar);
         createOrdersEx(queryRunner);
         createOrdersHll(queryRunner);
         createNation(queryRunner);
@@ -73,6 +79,7 @@ public class NativeQueryRunnerUtils
         createPart(queryRunner);
         createPartSupp(queryRunner);
         createRegion(queryRunner);
+        createTableToTestHiddenColumns(queryRunner);
         createSupplier(queryRunner);
         createEmptyTable(queryRunner);
         createBucketedLineitemAndOrders(queryRunner);
@@ -97,17 +104,24 @@ public class NativeQueryRunnerUtils
 
     public static void createLineitem(QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
-            queryRunner.execute("CREATE TABLE lineitem AS " +
-                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                    "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
-                    "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment, " +
-                    "   linestatus = 'O' as is_open, returnflag = 'R' as is_returned, " +
-                    "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
-                    "   cast(linenumber as smallint) as linenumber_as_smallint, " +
-                    "   cast(linenumber as tinyint) as linenumber_as_tinyint " +
-                    "FROM tpch.tiny.lineitem");
-        }
+        createLineitem(queryRunner, true);
+    }
+
+    public static void createLineitem(QueryRunner queryRunner, boolean castDateToVarchar)
+    {
+        queryRunner.execute("DROP TABLE IF EXISTS lineitem");
+        String shipDate = castDateToVarchar ? "cast(shipdate as varchar) as shipdate" : "shipdate";
+        String commitDate = castDateToVarchar ? "cast(commitdate as varchar) as commitdate" : "commitdate";
+        String receiptDate = castDateToVarchar ? "cast(receiptdate as varchar) as receiptdate" : "receiptdate";
+        queryRunner.execute("CREATE TABLE lineitem AS " +
+                "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
+                "   returnflag, linestatus, " + shipDate + ", " + commitDate + ", " + receiptDate + ", " +
+                "   shipinstruct, shipmode, comment, " +
+                "   linestatus = 'O' as is_open, returnflag = 'R' as is_returned, " +
+                "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
+                "   cast(linenumber as smallint) as linenumber_as_smallint, " +
+                "   cast(linenumber as tinyint) as linenumber_as_tinyint " +
+                "FROM tpch.tiny.lineitem");
     }
 
     public static void createLineitemForIceberg(QueryRunner queryRunner)
@@ -123,12 +137,17 @@ public class NativeQueryRunnerUtils
 
     public static void createOrders(QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders")) {
-            queryRunner.execute("CREATE TABLE orders AS " +
-                    "SELECT orderkey, custkey, orderstatus, totalprice, cast(orderdate as varchar) as orderdate, " +
-                    "   orderpriority, clerk, shippriority, comment " +
-                    "FROM tpch.tiny.orders");
-        }
+        createOrders(queryRunner, true);
+    }
+
+    public static void createOrders(QueryRunner queryRunner, boolean castDateToVarchar)
+    {
+        queryRunner.execute("DROP TABLE IF EXISTS orders");
+        String orderDate = castDateToVarchar ? "cast(orderdate as varchar) as orderdate" : "orderdate";
+        queryRunner.execute("CREATE TABLE orders AS " +
+                "SELECT orderkey, custkey, orderstatus, totalprice, " + orderDate + ", " +
+                "   orderpriority, clerk, shippriority, comment " +
+                "FROM tpch.tiny.orders");
     }
 
     public static void createOrdersEx(QueryRunner queryRunner)
@@ -357,6 +376,21 @@ public class NativeQueryRunnerUtils
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "region")) {
             queryRunner.execute("CREATE TABLE region AS SELECT * FROM tpch.tiny.region");
+        }
+    }
+
+    public static void createTableToTestHiddenColumns(QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "test_hidden_columns")) {
+            queryRunner.execute("CREATE TABLE test_hidden_columns (regionkey bigint, name varchar(25), comment varchar(152))");
+
+            // Inserting two rows with 2 seconds delay to have a different modified timestamp for each file.
+            queryRunner.execute("INSERT INTO test_hidden_columns SELECT * FROM region where regionkey = 0");
+            try {
+                TimeUnit.SECONDS.sleep(2);
+            }
+            catch (InterruptedException e) { }
+            queryRunner.execute("INSERT INTO test_hidden_columns SELECT * FROM region where regionkey = 1");
         }
     }
 

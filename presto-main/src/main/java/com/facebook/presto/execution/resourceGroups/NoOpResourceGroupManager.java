@@ -76,4 +76,10 @@ public final class NoOpResourceGroupManager
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean isConfigurationManagerLoaded()
+    {
+        return true;
+    }
 }

@@ -808,6 +808,18 @@ public class TestMathFunctions
         assertFunction("round(REAL '-3.5', 1)", REAL, -3.5f);
         assertFunction("round(REAL '-3.5001', 1)", REAL, -3.5f);
         assertFunction("round(REAL '-3.99', 1)", REAL, -4.0f);
+        assertFunction("round(REAL '9000000000000000000.0')", REAL, 9000000000000000000.0f);
+        assertFunction("round(REAL '300000000.0', 1)", REAL, 300000000.0f);
+        assertFunction("round(REAL '-300000000.0', 1)", REAL, -300000000.0f);
+        assertFunction("round(REAL '90000000.0', 1000)", REAL, 90000000.0f);
+        assertFunction("round(REAL '300000000.0', 100)", REAL, 300000000.0f);
+        assertFunction("round(REAL '-300000000.0', 100)", REAL, -300000000.0f);
+        assertFunction("round(DOUBLE '9223372036854775900.0')", DOUBLE, 9223372036854775900.0d);
+        assertFunction("round(DOUBLE '3574559470676000000.0', 1)", DOUBLE, 3574559470676000000.0d);
+        assertFunction("round(DOUBLE '-3574559470676000000.0', 1)", DOUBLE, -3574559470676000000.0d);
+        assertFunction("round(DOUBLE '92233720368547759.0', 100)", DOUBLE, 92233720368547759.0d);
+        assertFunction("round(DOUBLE '35745594706760000.0', 100)", DOUBLE, 35745594706760000.0d);
+        assertFunction("round(DOUBLE '-35745594706760000.0', 100)", DOUBLE, -35745594706760000.0d);
 
         // ROUND short DECIMAL -> short DECIMAL
         assertFunction("round(DECIMAL '0')", createDecimalType(1, 0), SqlDecimal.of("0"));

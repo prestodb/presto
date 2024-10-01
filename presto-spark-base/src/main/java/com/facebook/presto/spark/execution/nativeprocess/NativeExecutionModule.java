@@ -23,12 +23,12 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTr
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTranslator;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.units.Duration;
-import org.jheaps.annotations.VisibleForTesting;
 
 import java.util.Optional;
 

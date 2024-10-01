@@ -28,7 +28,7 @@ function install_jwt_cpp {
   cmake_install -DBUILD_TESTS=OFF -DJWT_BUILD_EXAMPLES=OFF -DJWT_DISABLE_PICOJSON=ON -DJWT_CMAKE_FILES_INSTALL_DIR="${DEPENDENCY_DIR}/jwt-cpp"
 }
 
-function install_prometheus_cpp() {
+function install_prometheus_cpp {
   github_checkout jupp0r/prometheus-cpp v1.2.4 --depth 1
   git submodule init
   git submodule update

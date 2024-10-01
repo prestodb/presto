@@ -6,10 +6,13 @@ target/
 /*/var/
 /presto-product-tests/**/var/
 pom.xml.versionsBackup
+dependency-reduced-pom.xml
 test-output/
 test-reports/
 /atlassian-ide-plugin.xml
-.idea
+.idea/*
+*/.idea
+!.idea/icon.png
 .run
 .vscode
 .DS_Store
@@ -57,3 +60,7 @@ a.out
 *.pb.h
 *.pb.cc
 *_pb2.py
+
+# Compiled executables used for docker build
+/docker/presto-cli-*-executable.jar
+/docker/presto-server-*.tar.gz

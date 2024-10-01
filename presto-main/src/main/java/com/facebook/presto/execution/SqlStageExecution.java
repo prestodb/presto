@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.ScheduleResult;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.failureDetector.FailureDetector;
@@ -25,10 +26,10 @@ import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -535,7 +536,8 @@ public final class SqlStageExecution
                 outputBuffers,
                 nodeTaskMap.createTaskStatsTracker(node, taskId),
                 summarizeTaskInfo,
-                tableWriteInfo);
+                tableWriteInfo,
+                stateMachine);
 
         completeSources.forEach(task::noMoreSplits);
 
@@ -567,6 +569,22 @@ public final class SqlStageExecution
     public void recordGetSplitTime(long start)
     {
         stateMachine.recordGetSplitTime(start);
+    }
+
+    public void recordSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
+    {
+        if (planFragment.isLeaf()) {
+            stateMachine.recordLeafStageSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
+        }
+        stateMachine.recordSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
+    }
+
+    public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
+    {
+        if (planFragment.isLeaf()) {
+            stateMachine.recordLeafStageSchedulerBlockedTime(reason, nanos);
+        }
+        stateMachine.recordSchedulerBlockedTime(reason, nanos);
     }
 
     private static Split createRemoteSplitFor(TaskId taskId, URI remoteSourceTaskLocation, TaskId remoteSourceTaskId)

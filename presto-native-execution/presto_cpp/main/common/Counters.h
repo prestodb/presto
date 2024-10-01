@@ -39,13 +39,6 @@ constexpr folly::StringPiece kCounterNumHTTPRequestError{
 constexpr folly::StringPiece kCounterHTTPRequestLatencyMs{
     "presto_cpp.http_request_latency_ms"};
 
-/// Number of http client onBody calls in PrestoExchangeSource.
-constexpr folly::StringPiece kCounterHttpClientPrestoExchangeNumOnBody{
-    "presto_cpp.http.client.presto_exchange_source.num_on_body"};
-/// Received IOBuf chain byte size in http client onBody call from
-/// PrestoExchangeSource.
-constexpr folly::StringPiece kCounterHttpClientPrestoExchangeOnBodyBytes{
-    "presto_cpp.http.client.presto_exchange_source.on_body_bytes"};
 constexpr folly::StringPiece kCounterHttpClientNumConnectionsCreated{
     "presto_cpp.http.client.num_connections_created"};
 /// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
@@ -56,6 +49,8 @@ constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
 
 constexpr folly::StringPiece kCounterNumTasks{"presto_cpp.num_tasks"};
+constexpr folly::StringPiece kCounterNumTasksBytesProcessed{
+    "presto_cpp.num_tasks_bytes_processed"};
 constexpr folly::StringPiece kCounterNumTasksRunning{
     "presto_cpp.num_tasks_running"};
 constexpr folly::StringPiece kCounterNumTasksFinished{
@@ -72,6 +67,8 @@ constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
     "presto_cpp.num_zombie_presto_tasks"};
 constexpr folly::StringPiece kCounterNumTasksWithStuckOperator{
     "presto_cpp.num_tasks_with_stuck_operator"};
+constexpr folly::StringPiece kCounterNumCancelledTasksByStuckDriver{
+    "presto_cpp.num_cancelled_tasks_by_stuck_driver"};
 constexpr folly::StringPiece kCounterNumTasksDeadlock{
     "presto_cpp.num_tasks_deadlock"};
 constexpr folly::StringPiece kCounterNumTaskManagerLockTimeOut{
@@ -141,6 +138,7 @@ constexpr folly::StringPiece kCounterOsNumForcedContextSwitches{
     "presto_cpp.os_num_forced_context_switches"};
 
 /// ================== HiveConnector Counters ==================
+
 /// Format template strings use 'constexpr std::string_view' to be 'fmt::format'
 /// compatible.
 constexpr std::string_view kCounterHiveFileHandleCacheNumElementsFormat{
@@ -158,4 +156,14 @@ constexpr std::string_view kCounterHiveFileHandleCacheNumHitsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_hits"};
 constexpr std::string_view kCounterHiveFileHandleCacheNumLookupsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_lookups"};
+
+/// ================== Memory Pushback Counters =================
+
+/// Number of times memory pushback mechanism is triggered.
+constexpr folly::StringPiece kCounterMemoryPushbackCount{
+    "presto_cpp.memory_pushback_count"};
+/// Latency distribution of each memory pushback run in range of [0, 100s] and
+/// reports P50, P90, P99, and P100.
+constexpr folly::StringPiece kCounterMemoryPushbackLatencyMs{
+    "presto_cpp.memory_pushback_latency_ms"};
 } // namespace facebook::presto

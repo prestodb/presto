@@ -39,7 +39,11 @@ public class TestPrometheusConnectorConfig
                 .setQueryChunkSizeDuration(Duration.valueOf("10m"))
                 .setMaxQueryRangeDuration(Duration.valueOf("1h"))
                 .setCacheDuration(Duration.valueOf("30s"))
-                .setBearerTokenFile(null));
+                .setBearerTokenFile(null)
+                .setTlsEnabled(false)
+                .setTruststorePassword(null)
+                .setVerifyHostName(false)
+                .setTrustStorePath(null));
     }
 
     @Test
@@ -51,6 +55,10 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.max-query-duration", "1095d")
                 .put("prometheus.cache-ttl", "60s")
                 .put("prometheus.bearer-token-file", "/tmp/bearer_token.txt")
+                .put("prometheus.tls.enabled", "true")
+                .put("prometheus.tls.truststore-password", "password")
+                .put("prometheus.tls.truststore-path", "/tmp/path/truststore")
+                .put("verify-host-name", "true")
                 .build();
 
         URI uri = URI.create("file://test.json");
@@ -60,6 +68,10 @@ public class TestPrometheusConnectorConfig
         expected.setMaxQueryRangeDuration(Duration.valueOf("1095d"));
         expected.setCacheDuration(Duration.valueOf("60s"));
         expected.setBearerTokenFile(new File("/tmp/bearer_token.txt"));
+        expected.setTlsEnabled(true);
+        expected.setTruststorePassword("password");
+        expected.setTrustStorePath("/tmp/path/truststore");
+        expected.setVerifyHostName(true);
 
         assertFullMapping(properties, expected);
     }

@@ -38,6 +38,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestHiveClientConfig
@@ -123,7 +124,7 @@ public class TestHiveClientConfig
                 .setParquetPushdownFilterEnabled(false)
                 .setAdaptiveFilterReorderingEnabled(true)
                 .setFileStatusCacheExpireAfterWrite(new Duration(0, TimeUnit.SECONDS))
-                .setFileStatusCacheMaxSize(0)
+                .setFileStatusCacheMaxRetainedSize(new DataSize(0, KILOBYTE))
                 .setFileStatusCacheTables("")
                 .setPageFileStripeMaxSize(new DataSize(24, Unit.MEGABYTE))
                 .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE)
@@ -252,7 +253,7 @@ public class TestHiveClientConfig
                 .put("hive.parquet.pushdown-filter-enabled", "true")
                 .put("hive.adaptive-filter-reordering-enabled", "false")
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
-                .put("hive.file-status-cache-size", "1000")
+                .put("hive.file-status-cache.max-retained-size", "500MB")
                 .put("hive.file-status-cache-expire-time", "30m")
                 .put("hive.pagefile.writer.stripe-max-size", "1kB")
                 .put("hive.bucket-function-type-for-exchange", "PRESTO_NATIVE")
@@ -377,7 +378,7 @@ public class TestHiveClientConfig
                 .setParquetPushdownFilterEnabled(true)
                 .setAdaptiveFilterReorderingEnabled(false)
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
-                .setFileStatusCacheMaxSize(1000)
+                .setFileStatusCacheMaxRetainedSize((new DataSize(500, MEGABYTE)))
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
                 .setPageFileStripeMaxSize(new DataSize(1, Unit.KILOBYTE))
                 .setBucketFunctionTypeForExchange(PRESTO_NATIVE)

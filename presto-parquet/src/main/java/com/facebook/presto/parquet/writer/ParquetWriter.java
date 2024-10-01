@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.writer.ColumnWriter.BufferData;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
@@ -27,8 +28,11 @@ import org.apache.parquet.column.ParquetProperties.Builder;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.RowGroup;
+import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -62,6 +66,7 @@ public class ParquetWriter
         implements Closeable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriter.class).instanceSize();
+    private static final ParquetMetadataConverter METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.valueOf("128MB").toBytes());
     private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
@@ -259,14 +264,26 @@ public class ParquetWriter
     {
         FileMetaData fileMetaData = new FileMetaData();
         fileMetaData.setVersion(1);
-        fileMetaData.setSchema(MessageTypeConverter.toParquetSchema(messageType));
         long totalRows = rowGroups.stream().mapToLong(RowGroup::getNum_rows).sum();
         fileMetaData.setNum_rows(totalRows);
         fileMetaData.setRow_groups(ImmutableList.copyOf(rowGroups));
 
+        fileMetaData.setSchema(getParquetSchema(fileMetaData.getCreated_by(), messageType));
+
         DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(40);
         Util.writeFileMetaData(fileMetaData, dynamicSliceOutput);
         return dynamicSliceOutput.slice();
+    }
+
+    private static List<SchemaElement> getParquetSchema(String createdBy, MessageType messageType)
+    {
+        org.apache.parquet.hadoop.metadata.FileMetaData parquetMetaDataInput = new org.apache.parquet.hadoop.metadata.FileMetaData(
+                messageType,
+                ImmutableMap.of(),
+                createdBy);
+
+        FileMetaData parquetMetaData = METADATA_CONVERTER.toParquetMetadata(1, new ParquetMetadata(parquetMetaDataInput, ImmutableList.of()));
+        return parquetMetaData.getSchema();
     }
 
     private void updateRowGroups(List<ColumnMetaData> columnMetaData)

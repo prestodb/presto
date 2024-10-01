@@ -17,13 +17,13 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include "velox/core/Config.h"
+#include "velox/common/config/Config.h"
 
 namespace facebook::presto {
 
 class ConfigBase {
  public:
-  // Setting this to 'true' makes configs modifiable via server operations.
+  /// Setting this to 'true' makes configs modifiable via server operations.
   static constexpr std::string_view kMutableConfig{"mutable-config"};
 
   /// Reads configuration properties from the specified file. Must be called
@@ -38,7 +38,7 @@ class ConfigBase {
       std::unordered_map<std::string, std::string>& values) const {}
 
   /// Uses a config object already materialized.
-  void initialize(std::unique_ptr<velox::Config>&& config) {
+  void initialize(std::unique_ptr<velox::config::ConfigBase>&& config) {
     config_ = std::move(config);
   }
 
@@ -76,7 +76,7 @@ class ConfigBase {
 
   /// Returns a required value of the string type. Fails if no value found.
   std::string requiredProperty(const std::string& propertyName) const {
-    auto propertyValue = config_->get(propertyName);
+    auto propertyValue = config_->get<std::string>(propertyName);
     if (propertyValue.has_value()) {
       return propertyValue.value();
     } else {
@@ -93,15 +93,13 @@ class ConfigBase {
   /// Returns optional value of the requested type. Can return folly::none.
   template <typename T>
   folly::Optional<T> optionalProperty(const std::string& propertyName) const {
-    auto val = config_->get(propertyName);
-    if (!val.hasValue()) {
-      const auto it = registeredProps_.find(propertyName);
-      if (it != registeredProps_.end()) {
-        val = it->second;
-      }
+    auto valOpt = config_->get<T>(propertyName);
+    if (valOpt.hasValue()) {
+      return valOpt.value();
     }
-    if (val.hasValue()) {
-      return folly::to<T>(val.value());
+    const auto it = registeredProps_.find(propertyName);
+    if (it != registeredProps_.end() && it->second.has_value()) {
+      return folly::Optional<T>(folly::to<T>(it->second.value()));
     }
     return folly::none;
   }
@@ -115,14 +113,15 @@ class ConfigBase {
   /// Returns optional value of the string type. Can return folly::none.
   folly::Optional<std::string> optionalProperty(
       const std::string& propertyName) const {
-    auto val = config_->get(propertyName);
-    if (!val.hasValue()) {
-      const auto it = registeredProps_.find(propertyName);
-      if (it != registeredProps_.end()) {
-        return it->second;
-      }
+    auto val = config_->get<std::string>(propertyName);
+    if (val.hasValue()) {
+      return val;
     }
-    return val;
+    const auto it = registeredProps_.find(propertyName);
+    if (it != registeredProps_.end()) {
+      return it->second;
+    }
+    return folly::none;
   }
 
   /// Returns optional value of the string type. Can return folly::none.
@@ -137,19 +136,21 @@ class ConfigBase {
 
   /// Returns copy of the config values map.
   std::unordered_map<std::string, std::string> values() const {
-    return config_->valuesCopy();
+    return config_->rawConfigsCopy();
   }
 
   virtual ~ConfigBase() = default;
 
  protected:
-  ConfigBase();
+  ConfigBase()
+      : config_(std::make_unique<velox::config::ConfigBase>(
+            std::unordered_map<std::string, std::string>())){};
 
   // Check if all properties are registered.
   void checkRegisteredProperties(
       const std::unordered_map<std::string, std::string>& values);
 
-  std::unique_ptr<velox::Config> config_;
+  std::unique_ptr<velox::config::ConfigBase> config_;
   std::string filePath_;
   // Map of registered properties with their default values.
   std::unordered_map<std::string, folly::Optional<std::string>>
@@ -234,6 +235,19 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDriverStuckOperatorThresholdMs{
       "driver.stuck-operator-threshold-ms"};
 
+  /// Immediately cancels any Task when it is detected that it has at least one
+  /// stuck Operator for at least the time specified by this threshold.
+  /// Use zero to disable canceling.
+  static constexpr std::string_view
+      kDriverCancelTasksWithStuckOperatorsThresholdMs{
+          "driver.cancel-tasks-with-stuck-operators-threshold-ms"};
+
+  /// The number of stuck operators (effectively stuck driver threads) when we
+  /// detach the worker from the cluster in an attempt to keep the cluster
+  /// operational.
+  static constexpr std::string_view kDriverNumStuckOperatorsToDetachWorker{
+      "driver.num-stuck-operators-to-detach-worker"};
+
   /// Floating point number used in calculating how many threads we would use
   /// for Spiller CPU executor: hw_concurrency x multiplier.
   /// If 0.0 then spilling is disabled.
@@ -255,27 +269,6 @@ class SystemConfig : public ConfigBase {
 
   /// Indicates if the process is configured as a sidecar.
   static constexpr std::string_view kNativeSidecar{"native-sidecar"};
-  /// Specifies the total memory capacity that can be used by query execution in
-  /// GB. The query memory capacity should be configured less than the system
-  /// memory capacity ('system-memory-gb') to reserve memory for system usage
-  /// such as disk spilling and cache prefetch which are not counted in query
-  /// memory usage.
-  ///
-  /// NOTE: the query memory capacity is enforced by memory arbitrator so that
-  /// this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
-
-  /// Specifies the amount of query memory capacity reserved to ensure that each
-  /// query has minimal memory capacity to run. A query can only allocate from
-  /// the reserved query memory if its current capacity is less than the minimal
-  /// memory capacity as specified by 'memory-pool-reserved-capacity'. The
-  /// exceeding capacity has to allocate from the non-reserved query memory.
-  ///
-  /// NOTE: the reserved query memory capacity is enforced by memory arbitrator
-  /// so that this config only applies if the memory arbitration has been
-  /// enabled.
-  static constexpr std::string_view kQueryReservedMemoryGb{
-      "query-reserved-memory-gb"};
 
   /// If true, enable memory pushback when the server is under low memory
   /// condition. This only applies if 'system-mem-limit-gb' is set.
@@ -322,6 +315,30 @@ class SystemConfig : public ConfigBase {
       "async-cache-ssd-checkpoint-gb"};
   static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
 
+  /// The max ratio of the number of in-memory cache entries being written to
+  /// SSD cache over the total number of cache entries. This is to control SSD
+  /// cache write rate, and once the ratio exceeds this threshold, then we
+  /// stop writing to SSD cache.
+  static constexpr std::string_view kAsyncCacheMaxSsdWriteRatio{
+      "async-cache-max-ssd-write-ratio"};
+
+  /// The min ratio of SSD savable (in-memory) cache space over the total
+  /// cache space. Once the ratio exceeds this limit, we start writing SSD
+  /// savable cache entries into SSD cache.
+  static constexpr std::string_view kAsyncCacheSsdSavableRatio{
+      "async-cache-ssd-savable-ratio"};
+
+  /// Min SSD savable (in-memory) cache space to start writing SSD savable
+  /// cache entries into SSD cache.
+  /// NOTE: we only write to SSD cache when both above conditions are satisfied.
+  static constexpr std::string_view kAsyncCacheMinSsdSavableBytes{
+      "async-cache-min-ssd-savable-bytes"};
+
+  /// The interval for persisting in-memory cache to SSD. Setting this config
+  /// to a non-zero value will activate periodic cache persistence.
+  static constexpr std::string_view kAsyncCachePersistenceInterval{
+      "async-cache-persistence-interval"};
+
   /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
   /// cache can use all ssd space and stop working. To prevent that, use this
   /// option to disable cow for cache files.
@@ -359,41 +376,102 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kEnableRuntimeMetricsCollection{
       "runtime-metrics-collection-enabled"};
 
+  /// Specifies the total amount of memory in GB that the queries can use on a
+  /// single worker node. It should be configured to be less than the total
+  /// system memory capacity ('system-memory-gb') such that there is enough room
+  /// left for the system (as opposed to for the queries), such as disk spilling
+  /// and cache prefetch.
+  ///
+  /// NOTE: the query memory capacity is enforced by memory arbitrator so that
+  /// this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
+
   /// Specifies the memory arbitrator kind. If it is empty, then there is no
   /// memory arbitration.
   static constexpr std::string_view kMemoryArbitratorKind{
       "memory-arbitrator-kind"};
 
-  /// If true, it allows memory arbitrator to reclaim used memory cross query
-  /// memory pools.
-  static constexpr std::string_view kMemoryArbitratorGlobalArbitrationEnabled{
-      "memory-arbitrator-global-arbitration-enabled"};
+  /// Specifies the total amount of memory reserved for the queries on a single
+  /// worker node. A query can only allocate from this reserved space if 1) the
+  /// non-reserved space in "query-memory-gb" is used up; and 2) the amount it
+  /// tries to get is less than
+  /// 'shared-arbitrator.memory-pool-reserved-capacity'.
+  ///
+  /// NOTE: the reserved query memory capacity is enforced by shared arbitrator
+  /// so that this config only applies if memory arbitration is enabled.
+  static constexpr std::string_view kSharedArbitratorReservedCapacity{
+      "shared-arbitrator.reserved-capacity"};
 
   /// The initial memory pool capacity in bytes allocated on creation.
-  ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMemoryPoolInitCapacity{
-      "memory-pool-init-capacity"};
+  static constexpr std::string_view kSharedArbitratorMemoryPoolInitialCapacity{
+      "shared-arbitrator.memory-pool-initial-capacity"};
 
-  /// The minimal amount of memory capacity in bytes reserved for each query
-  /// memory pool.
-  static constexpr std::string_view kMemoryPoolReservedCapacity{
-      "memory-pool-reserved-capacity"};
+  /// If true, it allows shared arbitrator to reclaim used memory across query
+  /// memory pools.
+  static constexpr std::string_view kSharedArbitratorGlobalArbitrationEnabled{
+      "shared-arbitrator.global-arbitration-enabled"};
 
-  /// The minimal memory capacity in bytes transferred between memory pools
-  /// during memory arbitration.
-  ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMemoryPoolTransferCapacity{
-      "memory-pool-transfer-capacity"};
+  /// The amount of memory in bytes reserved for each query memory pool. When
+  /// a query tries to allocate memory from the reserved space whose size is
+  /// specified by 'shared-arbitrator.reserved-capacity', it cannot allocate
+  /// more than the value specified in
+  /// 'shared-arbitrator.memory-pool-reserved-capacity'.
+  static constexpr std::string_view kSharedArbitratorMemoryPoolReservedCapacity{
+      "shared-arbitrator.memory-pool-reserved-capacity"};
 
   /// Specifies the max time to wait for memory reclaim by arbitration. The
   /// memory reclaim might fail if the max wait time has exceeded. If it is
   /// zero, then there is no timeout.
+  static constexpr std::string_view kSharedArbitratorMemoryReclaimMaxWaitTime{
+      "shared-arbitrator.memory-reclaim-max-wait-time"};
+
+  /// When shared arbitrator grows memory pool's capacity, the growth bytes will
+  /// be adjusted in the following way:
+  ///  - If 2 * current capacity is less than or equal to
+  ///    'shared-arbitrator.fast-exponential-growth-capacity-limit', grow
+  ///    through fast path by at least doubling the current capacity, when
+  ///    conditions allow (see below NOTE section).
+  ///  - If 2 * current capacity is greater than
+  ///    'shared-arbitrator.fast-exponential-growth-capacity-limit', grow
+  ///    through slow path by growing capacity by at least
+  ///    'shared-arbitrator.slow-capacity-grow-pct' * current capacity if
+  ///    allowed (see below NOTE section).
   ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMemoryReclaimWaitMs{
-      "memory-reclaim-wait-ms"};
+  /// NOTE: If original requested growth bytes is larger than the adjusted
+  /// growth bytes or adjusted growth bytes reaches max capacity limit, the
+  /// adjusted growth bytes will not be respected.
+  ///
+  /// NOTE: Capacity growth adjust is only enabled if both
+  /// 'shared-arbitrator.fast-exponential-growth-capacity-limit' and
+  /// 'shared-arbitrator.slow-capacity-grow-pct' are set, otherwise it is
+  /// disabled.
+  static constexpr std::string_view
+      kSharedArbitratorFastExponentialGrowthCapacityLimit{
+          "shared-arbitrator.fast-exponential-growth-capacity-limit"};
+  static constexpr std::string_view kSharedArbitratorSlowCapacityGrowPct{
+      "shared-arbitrator.slow-capacity-grow-pct"};
+
+  /// When shared arbitrator shrinks memory pool's capacity, the shrink bytes
+  /// will be adjusted in a way such that AFTER shrink, the stricter (whichever
+  /// is smaller) of the following conditions is met, in order to better fit the
+  /// pool's current memory usage:
+  /// - Free capacity is greater or equal to capacity *
+  /// 'shared-arbitrator.memory-pool-min-free-capacity-pct'
+  /// - Free capacity is greater or equal to
+  /// 'shared-arbitrator.memory-pool-min-free-capacity'
+  ///
+  /// NOTE: In the conditions when original requested shrink bytes ends up
+  /// with more free capacity than above 2 conditions, the adjusted shrink
+  /// bytes is not respected.
+  ///
+  /// NOTE: Capacity shrink adjustment is enabled when both
+  /// 'shared-arbitrator.memory-pool-min-free-capacity-pct' and
+  /// 'shared-arbitrator.memory-pool-min-free-capacity' are set.
+  static constexpr std::string_view kSharedArbitratorMemoryPoolMinFreeCapacity{
+      "shared-arbitrator.memory-pool-min-free-capacity"};
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolMinFreeCapacityPct{
+          "shared-arbitrator.memory-pool-min-free-capacity-pct"};
 
   /// Enables the memory usage tracking for the system memory pool used for
   /// cases such as disk spilling.
@@ -557,6 +635,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSinkMaxBufferSize{"sink.max-buffer-size"};
   static constexpr std::string_view kDriverMaxPagePartitioningBufferSize{
       "driver.max-page-partitioning-buffer-size"};
+  static constexpr std::string_view kPlanValidatorFailOnNestedLoopJoin{
+      "velox-plan-validator-fail-on-nested-loop-join"};
 
   SystemConfig();
 
@@ -574,27 +654,28 @@ class SystemConfig : public ConfigBase {
 
   int httpServerHttpsPort() const;
 
-  // A list of ciphers (comma separated) that are supported by
-  // server and client. Note Java and folly::SSLContext use different names to
-  // refer to the same cipher. For e.g. TLS_RSA_WITH_AES_256_GCM_SHA384 in Java
-  // and AES256-GCM-SHA384 in folly::SSLContext. More details can be found here:
-  // https://www.openssl.org/docs/manmaster/man1/openssl-ciphers.html. The
-  // ciphers enable worker to worker, worker to coordinator and
-  // coordinator to worker communication. At least one cipher needs to be
-  // shared for the above 3 communication to work.
+  /// A list of ciphers (comma separated) that are supported by
+  /// server and client. Note Java and folly::SSLContext use different names to
+  /// refer to the same cipher. For e.g. TLS_RSA_WITH_AES_256_GCM_SHA384 in Java
+  /// and AES256-GCM-SHA384 in folly::SSLContext. More details can be found
+  /// here: https://www.openssl.org/docs/manmaster/man1/openssl-ciphers.html.
+  /// The ciphers enable worker to worker, worker to coordinator and coordinator
+  /// to worker communication. At least one cipher needs to be shared for the
+  /// above 3 communication to work.
   std::string httpsSupportedCiphers() const;
 
-  // Note: Java packages cert and key in combined JKS file. But CPP requires
-  // them separately. The HTTPS provides integrity and not
-  // security(authentication/authorization). But the HTTPS will protect against
-  // data corruption by bad router and man in middle attacks.
+  /// Note: Java packages cert and key in combined JKS file. But CPP requires
+  /// them separately. The HTTPS provides integrity and not
+  /// security(authentication/authorization). But the HTTPS will protect against
+  /// data corruption by bad router and man in middle attacks.
   folly::Optional<std::string> httpsCertPath() const;
 
   folly::Optional<std::string> httpsKeyPath() const;
 
-  // Http client expects the cert and key file to be packed into a single file
-  // (most commonly .pem format) The file should not be password protected. If
-  // required, break this down to 3 configs one for cert,key and password later.
+  /// Http client expects the cert and key file to be packed into a single file
+  /// (most commonly .pem format) The file should not be password protected. If
+  /// required, break this down to 3 configs one for cert,key and password
+  /// later.
   folly::Optional<std::string> httpsClientCertAndKeyPath() const;
 
   bool mutableConfig() const;
@@ -632,6 +713,10 @@ class SystemConfig : public ConfigBase {
 
   size_t driverStuckOperatorThresholdMs() const;
 
+  size_t driverCancelTasksWithStuckOperatorsThresholdMs() const;
+
+  size_t driverNumStuckOperatorsToDetachWorker() const;
+
   double spillerNumCpuThreadsHwMultiplier() const;
 
   std::string spillerFileCreateConfig() const;
@@ -668,6 +753,14 @@ class SystemConfig : public ConfigBase {
 
   std::string asyncCacheSsdPath() const;
 
+  double asyncCacheMaxSsdWriteRatio() const;
+
+  double asyncCacheSsdSavableRatio() const;
+
+  int32_t asyncCacheMinSsdSavableBytes() const;
+
+  std::chrono::duration<double> asyncCachePersistenceInterval() const;
+
   bool asyncCacheSsdDisableFileCow() const;
 
   bool ssdCacheChecksumEnabled() const;
@@ -686,19 +779,25 @@ class SystemConfig : public ConfigBase {
 
   std::string memoryArbitratorKind() const;
 
-  bool memoryArbitratorGlobalArbitrationEnabled() const;
+  std::string sharedArbitratorGlobalArbitrationEnabled() const;
+
+  std::string sharedArbitratorReservedCapacity() const;
+
+  std::string sharedArbitratorMemoryPoolReservedCapacity() const;
+
+  std::string sharedArbitratorMemoryReclaimWaitTime() const;
+
+  std::string sharedArbitratorMemoryPoolInitialCapacity() const;
+
+  std::string sharedArbitratorFastExponentialGrowthCapacityLimit() const;
+
+  std::string sharedArbitratorSlowCapacityGrowPct() const;
+
+  std::string sharedArbitratorMemoryPoolMinFreeCapacity() const;
+
+  std::string sharedArbitratorMemoryPoolMinFreeCapacityPct() const;
 
   int32_t queryMemoryGb() const;
-
-  int32_t queryReservedMemoryGb() const;
-
-  uint64_t memoryPoolInitCapacity() const;
-
-  uint64_t memoryPoolReservedCapacity() const;
-
-  uint64_t memoryPoolTransferCapacity() const;
-
-  uint64_t memoryReclaimWaitMs() const;
 
   bool enableSystemMemoryPoolUsageTracking() const;
 

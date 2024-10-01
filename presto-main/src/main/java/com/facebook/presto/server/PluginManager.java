@@ -27,8 +27,10 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
+import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
+import com.facebook.presto.spi.analyzer.QueryPreparerProvider;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
@@ -45,6 +47,7 @@ import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
 import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
+import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.tracing.TracerProviderManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
@@ -101,8 +104,10 @@ public class PluginManager
             .add("com.facebook.drift.TApplicationException")
             .build();
 
+    //  TODO: To make CoordinatorPlugin loading compulsory when native execution is enabled.
+    private static final String COORDINATOR_PLUGIN_SERVICES_FILE = "META-INF/services/" + CoordinatorPlugin.class.getName();
+    private static final String PLUGIN_SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
     private static final Logger log = Logger.get(PluginManager.class);
-
     private final ConnectorManager connectorManager;
     private final Metadata metadata;
     private final ResourceGroupManager<?> resourceGroupManager;
@@ -124,6 +129,7 @@ public class PluginManager
     private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
     private final TracerProviderManager tracerProviderManager;
     private final AnalyzerProviderManager analyzerProviderManager;
+    private final QueryPreparerProviderManager queryPreparerProviderManager;
     private final NodeStatusNotificationManager nodeStatusNotificationManager;
 
     @Inject
@@ -134,6 +140,7 @@ public class PluginManager
             Metadata metadata,
             ResourceGroupManager<?> resourceGroupManager,
             AnalyzerProviderManager analyzerProviderManager,
+            QueryPreparerProviderManager queryPreparerProviderManager,
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
@@ -175,6 +182,7 @@ public class PluginManager
         this.historyBasedPlanStatisticsManager = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null");
         this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
         this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
+        this.queryPreparerProviderManager = requireNonNull(queryPreparerProviderManager, "queryPreparerProviderManager is null");
         this.nodeStatusNotificationManager = requireNonNull(nodeStatusNotificationManager, "nodeStatusNotificationManager is null");
     }
 
@@ -206,23 +214,32 @@ public class PluginManager
         log.info("-- Loading plugin %s --", plugin);
         URLClassLoader pluginClassLoader = buildClassLoader(plugin);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
-            loadPlugin(pluginClassLoader);
+            loadPlugin(pluginClassLoader, CoordinatorPlugin.class);
+            loadPlugin(pluginClassLoader, Plugin.class);
         }
         log.info("-- Finished loading plugin %s --", plugin);
     }
 
-    private void loadPlugin(URLClassLoader pluginClassLoader)
+    private void loadPlugin(URLClassLoader pluginClassLoader, Class<?> clazz)
     {
-        ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
-        List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
+        ServiceLoader<?> serviceLoader = ServiceLoader.load(clazz, pluginClassLoader);
+        List<?> plugins = ImmutableList.copyOf(serviceLoader);
 
         if (plugins.isEmpty()) {
-            log.warn("No service providers of type %s", Plugin.class.getName());
+            log.warn("No service providers of type %s", clazz.getName());
         }
 
-        for (Plugin plugin : plugins) {
+        for (Object plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
-            installPlugin(plugin);
+            if (plugin instanceof Plugin) {
+                installPlugin((Plugin) plugin);
+            }
+            else if (plugin instanceof CoordinatorPlugin) {
+                installCoordinatorPlugin((CoordinatorPlugin) plugin);
+            }
+            else {
+                log.warn("Unknown plugin type: %s", plugin.getClass().getName());
+            }
         }
     }
 
@@ -322,9 +339,22 @@ public class PluginManager
             analyzerProviderManager.addAnalyzerProvider(analyzerProvider);
         }
 
+        for (QueryPreparerProvider preparerProvider : plugin.getQueryPreparerProviders()) {
+            log.info("Registering query preparer provider %s", preparerProvider.getType());
+            queryPreparerProviderManager.addQueryPreparerProvider(preparerProvider);
+        }
+
         for (NodeStatusNotificationProviderFactory nodeStatusNotificationProviderFactory : plugin.getNodeStatusNotificationProviderFactory()) {
             log.info("Registering node status notification provider %s", nodeStatusNotificationProviderFactory.getName());
             nodeStatusNotificationManager.addNodeStatusNotificationProviderFactory(nodeStatusNotificationProviderFactory);
+        }
+    }
+
+    public void installCoordinatorPlugin(CoordinatorPlugin plugin)
+    {
+        for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
+            log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
+            metadata.getFunctionAndTypeManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
         }
     }
 
@@ -348,10 +378,9 @@ public class PluginManager
         URLClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
 
         Artifact artifact = artifacts.get(0);
-        Set<String> plugins = discoverPlugins(artifact, classLoader);
-        if (!plugins.isEmpty()) {
-            writePluginServices(plugins, artifact.getFile());
-        }
+
+        processPlugins(artifact, classLoader, COORDINATOR_PLUGIN_SERVICES_FILE, CoordinatorPlugin.class.getName());
+        processPlugins(artifact, classLoader, PLUGIN_SERVICES_FILE, Plugin.class.getName());
 
         return classLoader;
     }
@@ -415,5 +444,14 @@ public class PluginManager
         List<Artifact> list = new ArrayList<>(artifacts);
         Collections.sort(list, Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
         return list;
+    }
+
+    private void processPlugins(Artifact artifact, ClassLoader classLoader, String servicesFile, String className)
+            throws IOException
+    {
+        Set<String> plugins = discoverPlugins(artifact, classLoader, servicesFile, className);
+        if (!plugins.isEmpty()) {
+            writePluginServices(plugins, artifact.getFile(), servicesFile);
+        }
     }
 }

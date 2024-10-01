@@ -25,7 +25,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -247,7 +246,7 @@ public class TestRemoveUnsupportedDynamicFilters
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()).optimize(root, session, TypeProvider.empty(), new VariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP).getPlanNode();
-            new DynamicFiltersChecker().validate(rewrittenPlan, session, metadata, new SqlParser(), TypeProvider.empty(), WarningCollector.NOOP);
+            new DynamicFiltersChecker().validate(rewrittenPlan, session, metadata, WarningCollector.NOOP);
             return rewrittenPlan;
         });
     }

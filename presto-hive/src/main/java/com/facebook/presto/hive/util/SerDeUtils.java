@@ -69,38 +69,40 @@ import static java.util.Objects.requireNonNull;
 
 public final class SerDeUtils
 {
+    private static final DateTimeZone JVM_TIME_ZONE = DateTimeZone.getDefault();
+
     private SerDeUtils() {}
 
-    public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector)
+    public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector, DateTimeZone hiveStorageTimeZone)
     {
-        return requireNonNull(serializeObject(type, null, object, objectInspector), "serialized result is null");
+        return requireNonNull(serializeObject(type, null, object, objectInspector, hiveStorageTimeZone), "serialized result is null");
     }
 
-    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
+    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
-        return serializeObject(type, builder, object, inspector, true);
+        return serializeObject(type, builder, object, inspector, true, hiveStorageTimeZone);
     }
 
     // This version supports optionally disabling the filtering of null map key, which should only be used for building test data sets
     // that contain null map keys.  For production, null map keys are not allowed.
     @VisibleForTesting
-    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, boolean filterNullMapKeys)
+    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, boolean filterNullMapKeys, DateTimeZone hiveStorageTimeZone)
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
-                serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector);
+                serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector, hiveStorageTimeZone);
                 return null;
             case LIST:
-                return serializeList(type, builder, object, (ListObjectInspector) inspector);
+                return serializeList(type, builder, object, (ListObjectInspector) inspector, hiveStorageTimeZone);
             case MAP:
-                return serializeMap(type, builder, object, (MapObjectInspector) inspector, filterNullMapKeys);
+                return serializeMap(type, builder, object, (MapObjectInspector) inspector, filterNullMapKeys, hiveStorageTimeZone);
             case STRUCT:
-                return serializeStruct(type, builder, object, (StructObjectInspector) inspector);
+                return serializeStruct(type, builder, object, (StructObjectInspector) inspector, hiveStorageTimeZone);
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
+    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         requireNonNull(builder, "parent builder is null");
 
@@ -146,7 +148,7 @@ public final class SerDeUtils
                 DateType.DATE.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
                 return;
             case TIMESTAMP:
-                TimestampType.TIMESTAMP.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
+                TimestampType.TIMESTAMP.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector, hiveStorageTimeZone));
                 return;
             case BINARY:
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
@@ -165,7 +167,7 @@ public final class SerDeUtils
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }
 
-    private static Block serializeList(Type type, BlockBuilder builder, Object object, ListObjectInspector inspector)
+    private static Block serializeList(Type type, BlockBuilder builder, Object object, ListObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         List<?> list = inspector.getList(object);
         if (list == null) {
@@ -186,7 +188,7 @@ public final class SerDeUtils
         }
 
         for (Object element : list) {
-            serializeObject(elementType, currentBuilder, element, elementInspector);
+            serializeObject(elementType, currentBuilder, element, elementInspector, hiveStorageTimeZone);
         }
 
         if (builder != null) {
@@ -199,7 +201,7 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys)
+    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys, DateTimeZone hiveStorageTimeZone)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
@@ -225,8 +227,8 @@ public final class SerDeUtils
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (!filterNullMapKeys || entry.getKey() != null) {
-                serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector);
-                serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector);
+                serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector, hiveStorageTimeZone);
+                serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector, hiveStorageTimeZone);
             }
         }
 
@@ -239,7 +241,7 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector)
+    private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         if (object == null) {
             requireNonNull(builder, "parent builder is null").appendNull();
@@ -260,7 +262,7 @@ public final class SerDeUtils
 
         for (int i = 0; i < typeParameters.size(); i++) {
             StructField field = allStructFieldRefs.get(i);
-            serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
+            serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), hiveStorageTimeZone);
         }
 
         builder.closeEntry();
@@ -289,10 +291,16 @@ public final class SerDeUtils
         return TimeUnit.MILLISECONDS.toDays(millisUtc);
     }
 
-    private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector)
+    private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         Timestamp timestamp = getTimestamp(object, inspector);
-        return timestamp.getTime();
+        long parsedJvmMillis = timestamp.getTime();
+
+        // remove the JVM time zone correction from the timestamp
+        long hiveMillis = JVM_TIME_ZONE.convertUTCToLocal(parsedJvmMillis);
+
+        // convert to UTC using the real time zone for the underlying data
+        return hiveStorageTimeZone.convertLocalToUTC(hiveMillis, false);
     }
 
     private static Timestamp getTimestamp(Object object, TimestampObjectInspector inspector)

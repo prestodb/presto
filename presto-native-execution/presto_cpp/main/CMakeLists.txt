@@ -30,6 +30,7 @@ add_library(
   ServerOperation.cpp
   SignalHandler.cpp
   SystemConnector.cpp
+  SessionProperties.cpp
   TaskManager.cpp
   TaskResource.cpp
   PeriodicHeartbeatManager.cpp
@@ -107,4 +108,16 @@ set_property(TARGET presto_server PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
+endif()
+
+if(PRESTO_STATS_REPORTER_TYPE)
+  add_compile_definitions(PRESTO_STATS_REPORTER_TYPE)
+  if(PRESTO_STATS_REPORTER_TYPE STREQUAL "PROMETHEUS")
+    add_subdirectory(runtime-metrics)
+    target_link_libraries(presto_server presto_prometheus_reporter)
+  else()
+    message(
+      FATAL_ERROR
+        "${PRESTO_STATS_REPORTER_TYPE} is not a valid stats reporter name")
+  endif()
 endif()

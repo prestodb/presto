@@ -609,6 +609,12 @@ public class PushdownSubfields
                             return Optional.empty();
                         }
                         if (index instanceof Number) {
+                            //Fix for issue https://github.com/prestodb/presto/issues/22690
+                            //Avoid negative index pushdown
+                            if (((Number) index).longValue() < 0) {
+                                return Optional.empty();
+                            }
+
                             elements.add(new Subfield.LongSubscript(((Number) index).longValue()));
                             expression = arguments.get(0);
                             continue;

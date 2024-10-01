@@ -18,9 +18,6 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
-import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
-import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.sql.tree.CreateView;
 import com.google.common.annotations.VisibleForTesting;
@@ -43,7 +40,6 @@ import java.util.List;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
-import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -106,6 +102,7 @@ public class FeaturesConfig
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
     private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
     private boolean logPlansUsedInHistoryBasedOptimizer;
+    private boolean enforceTimeoutForHBOQueryRegistration;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -119,14 +116,6 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
     private boolean exchangeChecksumEnabled;
-    private boolean legacyArrayAgg;
-    private boolean reduceAggForComplexTypesEnabled = true;
-    private boolean legacyLogFunction;
-    private boolean useAlternativeFunctionSignatures;
-    private boolean legacyTimestamp = true;
-    private boolean legacyMapSubscript;
-    private boolean legacyRowFieldOrdinalAccess;
-    private boolean legacyCharToVarcharCoercion;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
@@ -136,13 +125,6 @@ public class FeaturesConfig
     private boolean logInvokedFunctionNamesEnabled;
 
     private boolean dictionaryAggregation;
-
-    private int re2JDfaStatesLimit = Integer.MAX_VALUE;
-    private int re2JDfaRetries = 5;
-    private RegexLibrary regexLibrary = JONI;
-    private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
-    private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
-    private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private boolean joinSpillingEnabled = true;
     private boolean aggregationSpillEnabled = true;
@@ -173,7 +155,6 @@ public class FeaturesConfig
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
-    private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
     private boolean exploitConstraints = true;
     private boolean preferPartialAggregation = true;
@@ -217,6 +198,9 @@ public class FeaturesConfig
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
     private boolean optimizePayloadJoins;
+    private boolean confidenceBasedBroadcastEnabled;
+    private boolean retryQueryWithHistoryBasedOptimizationEnabled;
+    private boolean treatLowConfidenceZeroEstimationAsUnknownEnabled;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
@@ -261,6 +245,8 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
+    private boolean disableTimeStampWithTimeZoneForNative = true;
+    private boolean disableIPAddressForNative = true;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
@@ -276,8 +262,6 @@ public class FeaturesConfig
     private boolean isOptimizeJoinProbeWithEmptyBuildRuntime;
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
-    private boolean fieldNamesInJsonCastEnabled;
-    private boolean legacyJsonCast = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
@@ -304,15 +288,13 @@ public class FeaturesConfig
 
     private boolean removeRedundantCastToVarcharInJoin = true;
     private boolean skipHashGenerationForJoinWithTableScanInput;
-    private long kHyperLogLogAggregationGroupNumberLimit;
-    private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
     private boolean printEstimatedStatsFromCache;
+    private boolean removeCrossJoinWithSingleConstantRow = true;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
 
-    private boolean useNewNanDefinition = true;
-    private boolean warnOnPossibleNans;
+    private boolean isInlineProjectionsOnValuesEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -511,86 +493,6 @@ public class FeaturesConfig
         return this;
     }
 
-    @Config("deprecated.legacy-row-field-ordinal-access")
-    public FeaturesConfig setLegacyRowFieldOrdinalAccess(boolean value)
-    {
-        this.legacyRowFieldOrdinalAccess = value;
-        return this;
-    }
-
-    public boolean isLegacyRowFieldOrdinalAccess()
-    {
-        return legacyRowFieldOrdinalAccess;
-    }
-
-    @Config("deprecated.legacy-char-to-varchar-coercion")
-    public FeaturesConfig setLegacyCharToVarcharCoercion(boolean value)
-    {
-        this.legacyCharToVarcharCoercion = value;
-        return this;
-    }
-
-    public boolean isLegacyCharToVarcharCoercion()
-    {
-        return legacyCharToVarcharCoercion;
-    }
-
-    @Config("deprecated.legacy-array-agg")
-    public FeaturesConfig setLegacyArrayAgg(boolean legacyArrayAgg)
-    {
-        this.legacyArrayAgg = legacyArrayAgg;
-        return this;
-    }
-
-    public boolean isLegacyArrayAgg()
-    {
-        return legacyArrayAgg;
-    }
-
-    @Config("deprecated.legacy-log-function")
-    public FeaturesConfig setLegacyLogFunction(boolean value)
-    {
-        this.legacyLogFunction = value;
-        return this;
-    }
-
-    public boolean isLegacyLogFunction()
-    {
-        return legacyLogFunction;
-    }
-
-    @Config("use-alternative-function-signatures")
-    @ConfigDescription("Override intermediate aggregation type of some aggregation functions to be compatible with Velox")
-    public FeaturesConfig setUseAlternativeFunctionSignatures(boolean value)
-    {
-        this.useAlternativeFunctionSignatures = value;
-        return this;
-    }
-
-    public boolean isUseAlternativeFunctionSignatures()
-    {
-        return useAlternativeFunctionSignatures;
-    }
-
-    @Config("deprecated.legacy-timestamp")
-    public FeaturesConfig setLegacyTimestamp(boolean value)
-    {
-        this.legacyTimestamp = value;
-        return this;
-    }
-
-    public boolean isLegacyTimestamp()
-    {
-        return legacyTimestamp;
-    }
-
-    @Config("deprecated.legacy-map-subscript")
-    public FeaturesConfig setLegacyMapSubscript(boolean value)
-    {
-        this.legacyMapSubscript = value;
-        return this;
-    }
-
     public CteMaterializationStrategy getCteMaterializationStrategy()
     {
         return cteMaterializationStrategy;
@@ -628,47 +530,6 @@ public class FeaturesConfig
     {
         this.cteHeuristicReplicationThreshold = cteHeuristicReplicationThreshold;
         return this;
-    }
-
-    public boolean isLegacyMapSubscript()
-    {
-        return legacyMapSubscript;
-    }
-
-    public boolean isFieldNamesInJsonCastEnabled()
-    {
-        return fieldNamesInJsonCastEnabled;
-    }
-
-    @Config("field-names-in-json-cast-enabled")
-    public FeaturesConfig setFieldNamesInJsonCastEnabled(boolean fieldNamesInJsonCastEnabled)
-    {
-        this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
-        return this;
-    }
-
-    public boolean isLegacyJsonCast()
-    {
-        return legacyJsonCast;
-    }
-
-    @Config("legacy-json-cast")
-    public FeaturesConfig setLegacyJsonCast(boolean legacyJsonCast)
-    {
-        this.legacyJsonCast = legacyJsonCast;
-        return this;
-    }
-
-    @Config("reduce-agg-for-complex-types-enabled")
-    public FeaturesConfig setReduceAggForComplexTypesEnabled(boolean reduceAggForComplexTypesEnabled)
-    {
-        this.reduceAggForComplexTypesEnabled = reduceAggForComplexTypesEnabled;
-        return this;
-    }
-
-    public boolean isReduceAggForComplexTypesEnabled()
-    {
-        return reduceAggForComplexTypesEnabled;
     }
 
     public JoinDistributionType getJoinDistributionType()
@@ -1005,6 +866,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isEnforceTimeoutForHBOQueryRegistration()
+    {
+        return enforceTimeoutForHBOQueryRegistration;
+    }
+
+    @Config("optimizer.enforce-timeout-for-hbo-query-registration")
+    public FeaturesConfig setEnforceTimeoutForHBOQueryRegistration(boolean enforceTimeoutForHBOQueryRegistration)
+    {
+        this.enforceTimeoutForHBOQueryRegistration = enforceTimeoutForHBOQueryRegistration;
+        return this;
+    }
+
     public AggregationPartitioningMergingStrategy getAggregationPartitioningMergingStrategy()
     {
         return aggregationPartitioningMergingStrategy;
@@ -1250,41 +1123,39 @@ public class FeaturesConfig
         return this;
     }
 
-    @Min(2)
-    public int getRe2JDfaStatesLimit()
+    public boolean isConfidenceBasedBroadcastEnabled()
     {
-        return re2JDfaStatesLimit;
+        return confidenceBasedBroadcastEnabled;
     }
 
-    @Config("re2j.dfa-states-limit")
-    public FeaturesConfig setRe2JDfaStatesLimit(int re2JDfaStatesLimit)
+    @Config("optimizer.confidence-based-broadcast")
+    public FeaturesConfig setConfidenceBasedBroadcastEnabled(boolean confidenceBasedBroadcastEnabled)
     {
-        this.re2JDfaStatesLimit = re2JDfaStatesLimit;
+        this.confidenceBasedBroadcastEnabled = confidenceBasedBroadcastEnabled;
         return this;
     }
 
-    @Min(0)
-    public int getRe2JDfaRetries()
+    public boolean isRetryQueryWithHistoryBasedOptimizationEnabled()
     {
-        return re2JDfaRetries;
+        return retryQueryWithHistoryBasedOptimizationEnabled;
     }
 
-    @Config("re2j.dfa-retries")
-    public FeaturesConfig setRe2JDfaRetries(int re2JDfaRetries)
+    @Config("optimizer.retry-query-with-history-based-optimization")
+    public FeaturesConfig setRetryQueryWithHistoryBasedOptimizationEnabled(boolean retryQueryWithHistoryBasedOptimizationEnabled)
     {
-        this.re2JDfaRetries = re2JDfaRetries;
+        this.retryQueryWithHistoryBasedOptimizationEnabled = retryQueryWithHistoryBasedOptimizationEnabled;
         return this;
     }
 
-    public RegexLibrary getRegexLibrary()
+    public boolean isTreatLowConfidenceZeroEstimationAsUnknownEnabled()
     {
-        return regexLibrary;
+        return treatLowConfidenceZeroEstimationAsUnknownEnabled;
     }
 
-    @Config("regex-library")
-    public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
+    @Config("optimizer.treat-low-confidence-zero-estimation-as-unknown")
+    public FeaturesConfig setTreatLowConfidenceZeroEstimationAsUnknownEnabled(boolean treatLowConfidenceZeroEstimationAsUnknownEnabled)
     {
-        this.regexLibrary = regexLibrary;
+        this.treatLowConfidenceZeroEstimationAsUnknownEnabled = treatLowConfidenceZeroEstimationAsUnknownEnabled;
         return this;
     }
 
@@ -1793,18 +1664,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isParseDecimalLiteralsAsDouble()
-    {
-        return parseDecimalLiteralsAsDouble;
-    }
-
-    @Config("parse-decimal-literals-as-double")
-    public FeaturesConfig setParseDecimalLiteralsAsDouble(boolean parseDecimalLiteralsAsDouble)
-    {
-        this.parseDecimalLiteralsAsDouble = parseDecimalLiteralsAsDouble;
-        return this;
-    }
-
     public boolean isForceSingleNodeOutput()
     {
         return forceSingleNodeOutput;
@@ -1852,42 +1711,6 @@ public class FeaturesConfig
     public FeaturesConfig setFilterAndProjectMinOutputPageRowCount(int filterAndProjectMinOutputPageRowCount)
     {
         this.filterAndProjectMinOutputPageRowCount = filterAndProjectMinOutputPageRowCount;
-        return this;
-    }
-
-    @Config("histogram.implementation")
-    public FeaturesConfig setHistogramGroupImplementation(HistogramGroupImplementation groupByMode)
-    {
-        this.histogramGroupImplementation = groupByMode;
-        return this;
-    }
-
-    public HistogramGroupImplementation getHistogramGroupImplementation()
-    {
-        return histogramGroupImplementation;
-    }
-
-    public ArrayAggGroupImplementation getArrayAggGroupImplementation()
-    {
-        return arrayAggGroupImplementation;
-    }
-
-    @Config("arrayagg.implementation")
-    public FeaturesConfig setArrayAggGroupImplementation(ArrayAggGroupImplementation groupByMode)
-    {
-        this.arrayAggGroupImplementation = groupByMode;
-        return this;
-    }
-
-    public MultimapAggGroupImplementation getMultimapAggGroupImplementation()
-    {
-        return multimapAggGroupImplementation;
-    }
-
-    @Config("multimapagg.implementation")
-    public FeaturesConfig setMultimapAggGroupImplementation(MultimapAggGroupImplementation groupByMode)
-    {
-        this.multimapAggGroupImplementation = groupByMode;
         return this;
     }
 
@@ -2588,6 +2411,32 @@ public class FeaturesConfig
         return this.nativeExecutionEnabled;
     }
 
+    @Config("disable-timestamp-with-timezone-for-native-execution")
+    @ConfigDescription("Disable timestamp with timezone type on native engine")
+    public FeaturesConfig setDisableTimeStampWithTimeZoneForNative(boolean disableTimeStampWithTimeZoneForNative)
+    {
+        this.disableTimeStampWithTimeZoneForNative = disableTimeStampWithTimeZoneForNative;
+        return this;
+    }
+
+    public boolean isDisableTimeStampWithTimeZoneForNative()
+    {
+        return this.disableTimeStampWithTimeZoneForNative;
+    }
+
+    @Config("disable-ipaddress-for-native-execution")
+    @ConfigDescription("Disable ipaddress type on native engine")
+    public FeaturesConfig setDisableIPAddressForNative(boolean disableIPAddressForNative)
+    {
+        this.disableIPAddressForNative = disableIPAddressForNative;
+        return this;
+    }
+
+    public boolean isDisableIPAddressForNative()
+    {
+        return this.disableIPAddressForNative;
+    }
+
     @Config("native-execution-executable-path")
     @ConfigDescription("Native execution executable file path")
     public FeaturesConfig setNativeExecutionExecutablePath(String nativeExecutionExecutablePath)
@@ -3030,32 +2879,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public long getKHyperLogLogAggregationGroupNumberLimit()
-    {
-        return kHyperLogLogAggregationGroupNumberLimit;
-    }
-
-    @Config("khyperloglog-agg-group-limit")
-    @ConfigDescription("Maximum number of groups for khyperloglog_agg per task")
-    public FeaturesConfig setKHyperLogLogAggregationGroupNumberLimit(long kHyperLogLogAggregationGroupNumberLimit)
-    {
-        this.kHyperLogLogAggregationGroupNumberLimit = kHyperLogLogAggregationGroupNumberLimit;
-        return this;
-    }
-
-    public boolean getLimitNumberOfGroupsForKHyperLogLogAggregations()
-    {
-        return limitNumberOfGroupsForKHyperLogLogAggregations;
-    }
-
-    @Config("limit-khyperloglog-agg-group-number-enabled")
-    @ConfigDescription("Enable limiting number of groups for khyperloglog_agg and merge of KHyperLogLog states")
-    public FeaturesConfig setLimitNumberOfGroupsForKHyperLogLogAggregations(boolean limitNumberOfGroupsForKHyperLogLogAggregations)
-    {
-        this.limitNumberOfGroupsForKHyperLogLogAggregations = limitNumberOfGroupsForKHyperLogLogAggregations;
-        return this;
-    }
-
     public boolean getGenerateDomainFilters()
     {
         return generateDomainFilters;
@@ -3108,6 +2931,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isRemoveCrossJoinWithSingleConstantRow()
+    {
+        return this.removeCrossJoinWithSingleConstantRow;
+    }
+
+    @Config("optimizer.remove-cross-join-with-single-constant-row")
+    @ConfigDescription("If one input of the cross join is a single row with constant value, remove this cross join and replace with a project node")
+    public FeaturesConfig setRemoveCrossJoinWithSingleConstantRow(boolean removeCrossJoinWithSingleConstantRow)
+    {
+        this.removeCrossJoinWithSingleConstantRow = removeCrossJoinWithSingleConstantRow;
+        return this;
+    }
+
     public boolean isUseHistograms()
     {
         return useHistograms;
@@ -3121,29 +2957,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean getUseNewNanDefinition()
+    public boolean getInlineProjectionsOnValues()
     {
-        return useNewNanDefinition;
+        return isInlineProjectionsOnValuesEnabled;
     }
 
-    @Config("use-new-nan-definition")
-    @ConfigDescription("Enable functions to use the new consistent NaN definition where NaN=NaN and is sorted largest")
-    public FeaturesConfig setUseNewNanDefinition(boolean useNewNanDefinition)
+    @Config("optimizer.inline-projections-on-values")
+    @ConfigDescription("Inline deterministic projections on values input")
+    public FeaturesConfig setInlineProjectionsOnValues(boolean isInlineProjectionsOnValuesEnabled)
     {
-        this.useNewNanDefinition = useNewNanDefinition;
-        return this;
-    }
-
-    public boolean getWarnOnCommonNanPatterns()
-    {
-        return warnOnPossibleNans;
-    }
-
-    @Config("warn-on-common-nan-patterns")
-    @ConfigDescription("Give warnings for operations on DOUBLE/REAL types where NaN issues are common")
-    public FeaturesConfig setWarnOnCommonNanPatterns(boolean warnOnPossibleNans)
-    {
-        this.warnOnPossibleNans = warnOnPossibleNans;
+        this.isInlineProjectionsOnValuesEnabled = isInlineProjectionsOnValuesEnabled;
         return this;
     }
 }

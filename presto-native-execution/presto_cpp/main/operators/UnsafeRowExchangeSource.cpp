@@ -135,4 +135,4 @@ UnsafeRowExchangeSource::createExchangeSource(
           serializedShuffleInfo.value(), destination, pool),
       pool);
 }
-}; // namespace facebook::presto::operators
+} // namespace facebook::presto::operators

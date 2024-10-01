@@ -12,8 +12,8 @@ Metastores
 Iceberg tables store most of the metadata in the metadata files, along with the data on the
 filesystem, but it still requires a central place to find the current location of the
 current metadata pointer for a table. This central place is called the ``Iceberg Catalog``.
-The Presto Iceberg connector supports different types of Iceberg Catalogs : ``Hive Metastore``,
-``GLUE``, ``NESSIE``, ``REST`` and ``HADOOP``.
+The Presto Iceberg connector supports different types of Iceberg Catalogs : ``HIVE``,
+``NESSIE``, ``REST``, and ``HADOOP``.
 
 To configure the Iceberg connector, create a catalog properties file
 ``etc/catalog/iceberg.properties``. To define the catalog type, ``iceberg.catalog.type`` property
@@ -44,6 +44,48 @@ as a Hive connector.
     connector.name=iceberg
     hive.metastore=glue
     iceberg.catalog.type=hive
+
+There are additional configurations available when using the Iceberg connector configured with Hive
+or Glue catalogs.
+
+======================================================== ============================================================= ============
+Property Name                                            Description                                                   Default
+======================================================== ============================================================= ============
+``hive.metastore.uri``                                   The URI(s) of the Hive metastore to connect to using the
+                                                         Thrift protocol. If multiple URIs are provided, the first
+                                                         URI is used by default, and the rest of the URIs are
+                                                         fallback metastores.
+
+                                                         Example: ``thrift://192.0.2.3:9083`` or
+                                                         ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``.
+
+                                                         This property is required if the
+                                                         ``iceberg.catalog.type`` is ``hive`` and ``hive.metastore``
+                                                         is ``thrift``.
+
+``iceberg.hive-statistics-merge-strategy``               Comma separated list of statistics to use from the
+                                                         Hive Metastore to override Iceberg table statistics.
+                                                         The available values are ``NUMBER_OF_DISTINCT_VALUES``
+                                                         and ``TOTAL_SIZE_IN_BYTES``.
+
+                                                         **Note**: Only valid when the Iceberg connector is
+                                                         configured with Hive.
+
+``iceberg.hive.table-refresh.backoff-min-sleep-time``    The minimum amount of time to sleep between retries when      100ms
+                                                         refreshing table metadata.
+
+``iceberg.hive.table-refresh.backoff-max-sleep-time``    The maximum amount of time to sleep between retries when      5s
+                                                         refreshing table metadata.
+
+``iceberg.hive.table-refresh.max-retry-time``            The maximum amount of time to take across all retries before  1min
+                                                         failing a table metadata refresh operation.
+
+``iceberg.hive.table-refresh.retries``                   The number of times to retry after errors when refreshing     20
+                                                         table metadata using the Hive metastore.
+
+``iceberg.hive.table-refresh.backoff-scale-factor``      The multiple used to scale subsequent wait time between       4.0
+                                                         retries.
+======================================================== ============================================================= ============
 
 Nessie catalog
 ^^^^^^^^^^^^^^
@@ -194,35 +236,11 @@ To use a Hadoop catalog, configure the catalog type as
     iceberg.catalog.type=hadoop
     iceberg.catalog.warehouse=hdfs://hostname:port
 
-Configuration Properties
-------------------------
-
-.. note::
-
-    The Iceberg connector supports configuration options for
-    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html##amazon-s3-configuration>`_
-    as a Hive connector.
-
-The following configuration properties are available:
+Hadoop catalog configuration properties:
 
 ======================================================= ============================================================= ============
 Property Name                                           Description                                                   Default
 ======================================================= ============================================================= ============
-``hive.metastore.uri``                                  The URI(s) of the Hive metastore to connect to using the
-                                                        Thrift protocol. If multiple URIs are provided, the first
-                                                        URI is used by default, and the rest of the URIs are
-                                                        fallback metastores.
-
-                                                        Example: ``thrift://192.0.2.3:9083`` or
-                                                        ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``.
-
-                                                        This property is required if the
-                                                        ``iceberg.catalog.type`` is ``hive``. Otherwise, it will
-                                                        be ignored.
-
-``iceberg.catalog.type``                                The catalog type for Iceberg tables. The available values     ``hive``
-                                                        are ``hive``, ``hadoop``, and ``nessie``.
-
 ``iceberg.catalog.warehouse``                           The catalog warehouse root path for Iceberg tables.
 
                                                         Example: ``hdfs://nn:8020/warehouse/path``
@@ -232,6 +250,24 @@ Property Name                                           Description             
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
                                                         Otherwise, it will be ignored.
+======================================================= ============================================================= ============
+
+Configuration Properties
+------------------------
+
+.. note::
+
+    The Iceberg connector supports configuration options for
+    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html##amazon-s3-configuration>`_
+    as a Hive connector.
+
+The following configuration properties are available for all catalog types:
+
+======================================================= ============================================================= ============
+Property Name                                           Description                                                   Default
+======================================================= ============================================================= ============
+``iceberg.catalog.type``                                The catalog type for Iceberg tables. The available values     ``HIVE``
+                                                        are ``HIVE``, ``HADOOP``, and ``NESSIE`` and ``REST``.
 
 ``iceberg.hadoop.config.resources``                     The path(s) for Hadoop configuration resources.
 
@@ -239,7 +275,7 @@ Property Name                                           Description             
                                                         is required if the iceberg.catalog.type is ``hadoop``.
                                                         Otherwise, it will be ignored.
 
-``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``ORC``
+``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``PARQUET``
                                                         values are ``PARQUET`` and ``ORC``.
 
 ``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``
@@ -262,14 +298,6 @@ Property Name                                           Description             
 
 ``iceberg.enable-parquet-dereference-pushdown``         Enable parquet dereference pushdown.                          ``true``
 
-``iceberg.hive-statistics-merge-strategy``              Comma separated list of statistics to use from the
-                                                        Hive Metastore to override Iceberg table statistics.
-                                                        The available values are ``NUMBER_OF_DISTINCT_VALUES``
-                                                        and ``TOTAL_SIZE_IN_BYTES``.
-
-                                                        **Note**: Only valid when the Iceberg connector is
-                                                        configured with Hive.
-
 ``iceberg.statistic-snapshot-record-difference-weight`` The amount that the difference in total record count matters
                                                         when calculating the closest snapshot when picking
                                                         statistics. A value of 1 means a single record is equivalent
@@ -285,7 +313,18 @@ Property Name                                           Description             
 
                                                         Set to ``0`` to disable metadata optimization.
 
-``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.        ``Number of available processors``
+``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.       ``Number of available processors``
+
+``iceberg.metadata-previous-versions-max``              The max number of old metadata files to keep in current       ``100``
+                                                        metadata log.
+
+``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``
+                                                        each commit.
+
+``iceberg.metrics-max-inferred-column``                 The maximum number of columns for which metrics               ``100``
+                                                        are collected.
+``iceberg.max-statistics-file-cache-size``              Maximum size in bytes that should be consumed by the          ``256MB``
+                                                        statistics file cache.
 ======================================================= ============================================================= ============
 
 Table Properties
@@ -327,6 +366,15 @@ Property Name                             Description                           
 ``delete_mode``                            Optionally specifies the write delete mode of the Iceberg        ``merge-on-read``
                                            specification to use for new tables, either ``copy-on-write``
                                            or ``merge-on-read``.
+
+``metadata_previous_versions_max``         Optionally specifies the max number of old metadata files to     ``100``
+                                           keep in current metadata log.
+
+``metadata_delete_after_commit``           Set to ``true`` to delete the oldest metadata file after         ``false``
+                                           each commit.
+
+``metrics_max_inferred_column``            Optionally specifies the maximum number of columns for which     ``100``
+                                           metrics are collected.
 =======================================   ===============================================================   ============
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
@@ -451,14 +499,16 @@ JMX queries to get the metrics and verify the cache usage::
 
     SELECT * FROM jmx.current."com.facebook.presto.hive:name=iceberg_parquetmetadata,type=cachestatsmbean";
 
-Metastore Versioned Cache
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Metastore Cache
+^^^^^^^^^^^^^^^
 
-Metastore cache only caches schema and table names. Other metadata would be fetched from the filesystem.
+Metastore Cache only caches the schema, table, and table statistics. The table object cached in the `tableCache`
+is only used for reading the table metadata location and table properties and, the rest of the table metadata
+is fetched from the filesystem/object storage metadata location.
 
 .. note::
 
-    Metastore Versioned Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
+    Metastore Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
 
 .. code-block:: none
 
@@ -664,30 +714,68 @@ example uses the earliest snapshot ID: ``2423571386296047175``
      INSERT    |       2 |  677209275408372885 | {orderkey=18016, custkey=403, orderstatus=O, totalprice=174070.99, orderdate=1996-03-19, orderpriority=1-URGENT, clerk=Clerk#000000629, shippriority=0, comment=ly. quickly ironic excuses are furiously. carefully ironic pack}
      INSERT    |       2 |  677209275408372885 | {orderkey=18017, custkey=958, orderstatus=F, totalprice=203091.02, orderdate=1993-03-26, orderpriority=1-URGENT, clerk=Clerk#000000830, shippriority=0, comment=sleep quickly bold requests. slyly pending pinto beans haggle in pla}
 
+``$refs`` Table
+^^^^^^^^^^^^^^^^^^^^
+* ``$refs`` : Details about Iceberg references including branches and tags. For more information see `Branching and Tagging <https://iceberg.apache.org/docs/nightly/branching/>`_.
+
+.. code-block:: sql
+
+    SELECT * FROM "ctas_nation$refs";
+
+.. code-block:: text
+
+        name     |  type  |     snapshot_id     | max_reference_age_in_ms | min_snapshots_to_keep | max_snapshot_age_in_ms
+     ------------+--------+---------------------+-------------------------+-----------------------+------------------------
+      main       | BRANCH | 3074797416068623476 | NULL                    | NULL                  | NULL
+      testBranch | BRANCH | 3374797416068698476 | NULL                    | NULL                  | NULL
+      testTag    | TAG    | 4686954189838128572 | 10                      | NULL                  | NULL
+
+
 Procedures
 ----------
 
-Use the CALL statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
+Use the :doc:`/sql/call` statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
 
 Register Table
 ^^^^^^^^^^^^^^
 
 Iceberg tables for which table data and metadata already exist in the
 file system can be registered with the catalog. Use the ``register_table``
-procedure on the catalog's ``system`` schema and supply the target schema,
-desired table name, and the location of the table metadata::
+procedure on the catalog's ``system`` schema to register a table which
+already exists but does not known by the catalog.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to register
+
+``table_name``        ✔️         string          Name of the table to register
+
+``metadata_location`` ✔️         string          The location of the table metadata which is to be registered
+
+``metadata_file``                string          An optionally specified metadata file which is to be registered
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Register a table through supplying the target schema, desired table name, and the location of the table metadata::
 
     CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir')
+
+    CALL iceberg.system.register_table(table_name => 'table_name', schema => 'schema_name', metadata_location => 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir')
 
 .. note::
 
     If multiple metadata files of the same version exist at the specified
     location, the most recently modified one is used.
 
-A metadata file can optionally be included as an argument to ``register_table``
-where a specific metadata file contains the targeted table state::
+* Register a table through additionally supplying a specific metadata file::
 
     CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir', '00000-35a08aed-f4b0-4010-95d2-9d73ef4be01c.metadata.json')
+
+    CALL iceberg.system.register_table(table_name => 'table_name', schema => 'schema_name', metadata_location => 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir', metadata_file => '00000-35a08aed-f4b0-4010-95d2-9d73ef4be01c.metadata.json')
 
 .. note::
 
@@ -710,9 +798,23 @@ Unregister Table
 ^^^^^^^^^^^^^^^^
 
 Iceberg tables can be unregistered from the catalog using the ``unregister_table``
-procedure on the catalog's ``system`` schema::
+procedure on the catalog's ``system`` schema.
+
+The following arguments are available:
+
+===================== ========== =============== ===================================
+Argument Name         required   type            Description
+===================== ========== =============== ===================================
+``schema``            ✔️         string          Schema of the table to unregister
+
+``table_name``        ✔️         string          Name of the table to unregister
+===================== ========== =============== ===================================
+
+Examples::
 
     CALL iceberg.system.unregister_table('schema_name', 'table_name')
+
+    CALL iceberg.system.unregister_table(table_name => 'table_name', schema => 'schema_name')
 
 .. note::
 
@@ -724,19 +826,72 @@ procedure on the catalog's ``system`` schema::
 Rollback to Snapshot
 ^^^^^^^^^^^^^^^^^^^^
 
-Roll back a table to a specific snapshot ID. Iceberg can roll back to a specific snapshot ID by using the ``rollback_to_snapshot`` procedure on Iceberg`s ``system`` schema::
+Rollback a table to a specific snapshot ID. Iceberg can rollback to a specific snapshot ID by using the ``rollback_to_snapshot`` procedure on Iceberg's ``system`` schema::
 
-    CALL iceberg.system.rollback_to_snapshot('table_name', 'snapshot_id');
+    CALL iceberg.system.rollback_to_snapshot('schema_name', 'table_name', snapshot_id);
 
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
 Argument Name         required   type            Description
 ===================== ========== =============== =======================================================================
-``table``             ✔️          string          Name of the table to update
+``schema``            ✔️          string          Schema of the table to update
+
+``table_name``        ✔️          string          Name of the table to update
 
 ``snapshot_id``       ✔️          long            Snapshot ID to rollback to
 ===================== ========== =============== =======================================================================
+
+Rollback to Timestamp
+^^^^^^^^^^^^^^^^^^^^^
+
+Rollback a table to a given point in time. Iceberg can rollback to a specific point in time by using the ``rollback_to_timestamp`` procedure on Iceberg's ``system`` schema.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️          string          Schema of the table to update
+
+``table_name``        ✔️          string          Name of the table to update
+
+``timestamp``         ✔️          timestamp       Timestamp to rollback to
+===================== ========== =============== =======================================================================
+
+Example::
+
+    CALL iceberg.system.rollback_to_timestamp('schema_name', 'table_name', TIMESTAMP '1995-04-26 00:00:00.000');
+
+Set Current Snapshot
+^^^^^^^^^^^^^^^^^^^^
+
+This procedure sets a current snapshot ID for a table by using ``snapshot_id`` or ``ref``.
+Use either ``snapshot_id`` or ``ref``, but do not use both in the same procedure.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update
+
+``table_name``        ✔️         string          Name of the table to update
+
+``snapshot_id``                  long            Snapshot ID to set as current
+
+``ref``                          string          Snapshot Reference (branch or tag) to set as current
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Set current table snapshot ID for the given table to 10000 ::
+
+    CALL iceberg.system.set_current_snapshot('schema_name', 'table_name', 10000);
+
+* Set current table snapshot ID for the given table to snapshot ID of branch1 ::
+
+    CALL iceberg.system.set_current_snapshot(schema => 'schema_name', table_name => 'table_name', ref => 'branch1');
 
 Expire Snapshots
 ^^^^^^^^^^^^^^^^
@@ -772,6 +927,87 @@ Examples:
 
     CALL iceberg.system.expire_snapshots(schema => 'schema_name', table_name => 'table_name', snapshot_ids => ARRAY[10001, 10002]);
 
+Remove Orphan Files
+^^^^^^^^^^^^^^^^^^^
+
+Use to remove files which are not referenced in any metadata files of an Iceberg table.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to clean
+
+``table_name``        ✔️         string          Name of the table to clean
+
+``older_than``                   timestamp       Remove orphan files created before this timestamp (Default: 3 days ago)
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Remove any files which are not known to the table `db.sample` and older than specified timestamp::
+
+    CALL iceberg.system.remove_orphan_files('db', 'sample', TIMESTAMP '2023-08-31 00:00:00.000');
+
+* Remove any files which are not known to the table `db.sample` and created 3 days ago (by default)::
+
+    CALL iceberg.system.remove_orphan_files(schema => 'db', table_name => 'sample');
+
+Fast Forward Branch
+^^^^^^^^^^^^^^^^^^^
+
+This procedure advances the current snapshot of the specified branch to a more recent snapshot from another branch without replaying any intermediate snapshots.
+``branch`` can be fast-forwarded up to the ``to`` snapshot if ``branch`` is an ancestor of ``to``.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update
+
+``table_name``        ✔️         string          Name of the table to update
+
+``branch``            ✔️         string          The branch you want to fast-forward
+
+``to``                ✔️         string          The branch you want to fast-forward to
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Fast-forward the ``dev`` branch to the latest snapshot of the ``main`` branch ::
+
+    CALL iceberg.system.fast_forward('schema_name', 'table_name', 'dev', 'main');
+
+* Given the branch named ``branch1`` does not exist yet, create a new branch named ``branch1``  and set it's current snapshot equal to the latest snapshot of the ``main`` branch ::
+
+    CALL iceberg.system.fast_forward('schema_name', 'table_name', 'branch1', 'main');
+
+Set Table Property
+^^^^^^^^^^^^^^^^^^
+
+Iceberg table property can be set from the catalog using the ``set_table_property`` procedure on the catalog's ``system`` schema.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update
+
+``table_name``        ✔️         string          Name of the table to update
+
+``key``               ✔️         string          Name of the table property
+
+``value``             ✔️         string          Value for the table property
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Set table property ``commit.retry.num-retries`` to ``10`` for a Iceberg table ::
+
+    CALL iceberg.system.set_table_property('schema_name', 'table_name', 'commit.retry.num-retries', '10');
 
 SQL Support
 -----------
@@ -1170,7 +1406,7 @@ Parquet Writer Version
 
 Presto now supports Parquet writer versions V1 and V2 for the Iceberg catalog.
 It can be toggled using the session property ``parquet_writer_version`` and the config property ``hive.parquet.writer.version``.
-Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_2_0``.
+Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_1_0``.
 
 Example Queries
 ^^^^^^^^^^^^^^^
@@ -1255,14 +1491,13 @@ Time Travel
 Iceberg and Presto Iceberg connector support time travel via table snapshots
 identified by unique snapshot IDs. The snapshot IDs are stored in the ``$snapshots``
 metadata table. You can rollback the state of a table to a previous snapshot ID.
-It also supports time travel query using VERSION (SYSTEM_VERSION) and TIMESTAMP (SYSTEM_TIME) options.
+It also supports time travel query using SYSTEM_VERSION (VERSION) and SYSTEM_TIME (TIMESTAMP) options.
 
 Example Queries
 ^^^^^^^^^^^^^^^
 
 Similar to the example queries in `SCHEMA EVOLUTION`_, create an Iceberg
-table named `ctas_nation` from the TPCH `nation` table::
-
+table named `ctas_nation` from the TPCH `nation` table:
 
 .. code-block:: sql
 
@@ -1396,9 +1631,11 @@ In this example, SYSTEM_TIME can be used as an alias for TIMESTAMP.
 
     // In following query, timestamp string is matching with second inserted record.
     SELECT * FROM ctas_nation FOR TIMESTAMP AS OF TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles';
+    SELECT * FROM ctas_nation FOR TIMESTAMP AS OF TIMESTAMP '2023-10-17 13:29:46.822';
 
     // Same example using SYSTEM_TIME as an alias for TIMESTAMP
     SELECT * FROM ctas_nation FOR SYSTEM_TIME AS OF TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles';
+    SELECT * FROM ctas_nation FOR SYSTEM_TIME AS OF TIMESTAMP '2023-10-17 13:29:46.822';
 
 .. code-block:: text
 
@@ -1408,8 +1645,12 @@ In this example, SYSTEM_TIME can be used as an alias for TIMESTAMP.
             20 | canada        |         2 | comment
     (2 rows)
 
-The option following FOR TIMESTAMP AS OF can accept any expression that returns a timestamp with time zone value.
-For example, `TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles'` is a constant string for the expression.
+.. note::
+
+    Timestamp without timezone will be parsed and rendered in the session time zone. See `TIMESTAMP <https://prestodb.io/docs/current/language/types.html#timestamp>`_.
+
+The option following FOR TIMESTAMP AS OF can accept any expression that returns a timestamp or timestamp with time zone value.
+For example, `TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles'` and `TIMESTAMP '2023-10-17 13:29:46.822'` are both valid timestamps. The first specifies the timestamp within the timezone `America/Los_Angeles`. The second will use the timestamp based on the user's session timezone.
 In the following query, the expression CURRENT_TIMESTAMP returns the current timestamp with time zone value.
 
 .. code-block:: sql
@@ -1430,6 +1671,7 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
     // In following query, timestamp string is matching with second inserted record.
     // BEFORE clause returns first record which is less than timestamp of the second record.
     SELECT * FROM ctas_nation FOR TIMESTAMP BEFORE TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles';
+    SELECT * FROM ctas_nation FOR TIMESTAMP BEFORE TIMESTAMP '2023-10-17 13:29:46.822';
 
 .. code-block:: text
 
@@ -1437,6 +1679,40 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
     -----------+---------------+-----------+---------
             10 | united states |         1 | comment
     (1 row)
+
+Querying branches and tags
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg supports branches and tags which are named references to snapshots.
+
+Query Iceberg table by specifying the branch name:
+
+.. code-block:: sql
+
+    SELECT * FROM nation FOR SYSTEM_VERSION AS OF 'testBranch';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+            30 | mexico        |         3 | comment
+    (3 rows)
+
+Query Iceberg table by specifying the tag name:
+
+.. code-block:: sql
+
+    SELECT * FROM nation FOR SYSTEM_VERSION AS OF 'testTag';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+    (3 rows)
 
 Type mapping
 ------------

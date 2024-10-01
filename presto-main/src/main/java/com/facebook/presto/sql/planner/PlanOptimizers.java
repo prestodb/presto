@@ -45,6 +45,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAs
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
+import com.facebook.presto.sql.planner.iterative.rule.InlineProjectionsOnValues;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinWithArrayContainsToEquiJoinCondition;
@@ -97,6 +98,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughA
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughGroupId;
 import com.facebook.presto.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveCrossJoinWithConstantInput;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveIdentityProjectionsBelowProjection;
@@ -352,7 +354,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
-                                .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
+                                .addAll(new InlineSqlFunctions(metadata).rules())
                                 .build()),
                 new IterativeOptimizer(
                         metadata,
@@ -481,6 +483,15 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new InlineProjectionsOnValues(metadata.getFunctionAndTypeManager()))
+                                .addAll(new SimplifyRowExpressions(metadata).rules())
+                                .build()),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarApplyNodes(),
                                 new TransformCorrelatedInPredicateToJoin(metadata.getFunctionAndTypeManager()), // must be run after PruneUnreferencedOutputs
@@ -504,6 +515,13 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder().add(new RemoveRedundantCastToVarcharInJoinClause(metadata.getFunctionAndTypeManager()))
                                 .addAll(new RemoveMapCastRule(metadata.getFunctionAndTypeManager()).rules()).build()));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(new RemoveCrossJoinWithConstantInput(metadata.getFunctionAndTypeManager()))));
 
         builder.add(new IterativeOptimizer(
                 metadata,
@@ -560,7 +578,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new LeftJoinNullFilterToSemiJoin(metadata.getFunctionAndTypeManager()))),
-                new KeyBasedSampler(metadata, sqlParser),
+                new KeyBasedSampler(metadata),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
@@ -648,7 +666,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
-                                .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
+                                .addAll(new InlineSqlFunctions(metadata).rules())
                                 .build()));
 
         builder.add(new JoinPrefilter(metadata));
@@ -828,7 +846,7 @@ public class PlanOptimizers
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
             builder.add(new CteProjectionAndPredicatePushDown(metadata)); // must run before PhysicalCteOptimizer
             builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
         }
 
         //noinspection UnusedAssignment
@@ -864,10 +882,10 @@ public class PlanOptimizers
         // MergeJoinForSortedInputOptimizer can avoid the local exchange for a join operation
         // Should be placed after AddExchanges, but before AddLocalExchange
         // To replace the JoinNode to MergeJoin ahead of AddLocalExchange to avoid adding extra local exchange
-        builder.add(new MergeJoinForSortedInputOptimizer(metadata, sqlParser));
+        builder.add(new MergeJoinForSortedInputOptimizer(metadata));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
-        builder.add(new AddLocalExchanges(metadata, sqlParser, featuresConfig.isNativeExecutionEnabled()));
+        builder.add(new AddLocalExchanges(metadata, featuresConfig.isNativeExecutionEnabled()));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
@@ -926,7 +944,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableList.of(),
-                ImmutableSet.of(new RuntimeReorderJoinSides(metadata, sqlParser))));
+                ImmutableSet.of(new RuntimeReorderJoinSides(metadata))));
         this.runtimeOptimizers = runtimeBuilder.build();
     }
 

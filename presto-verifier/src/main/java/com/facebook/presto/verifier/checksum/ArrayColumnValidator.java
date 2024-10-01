@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.checksum;
 
+import com.facebook.presto.common.type.AbstractVarcharType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
@@ -49,57 +50,45 @@ public class ArrayColumnValidator
 {
     private final FloatingPointColumnValidator floatingPointValidator;
     private final boolean useErrorMarginForFloatingPointArrays;
+    private final boolean validateStringAsDouble;
 
     @Inject
     public ArrayColumnValidator(VerifierConfig config, FloatingPointColumnValidator floatingPointValidator)
     {
         this.floatingPointValidator = requireNonNull(floatingPointValidator, "floatingPointValidator is null");
         this.useErrorMarginForFloatingPointArrays = config.isUseErrorMarginForFloatingPointArrays();
+        this.validateStringAsDouble = config.isValidateStringAsDouble();
     }
 
     @Override
     public List<SingleColumn> generateChecksumColumns(Column column)
     {
         Type columnType = column.getType();
-        boolean useFloatingPointPath = useFloatingPointPath(column);
+        ImmutableList.Builder<SingleColumn> builder = ImmutableList.builder();
 
-        // For arrays of floating point numbers we have a different processing, akin to FloatingPointColumnValidator.
-        if (useFloatingPointPath) {
-            Type elementType = ((ArrayType) columnType).getElementType();
-            Expression expression = elementType.equals(DOUBLE) ? column.getExpression() : new Cast(column.getExpression(), new ArrayType(DOUBLE).getDisplayName());
-
-            Expression sum = functionCall(
-                    "sum",
-                    functionCall("array_sum", functionCall("filter", expression, generateLambdaExpression("is_finite"))));
-            Expression nanCount = functionCall(
-                    "sum",
-                    functionCall("cardinality", functionCall("filter", expression, generateLambdaExpression("is_nan"))));
-            Expression posInfCount = functionCall(
-                    "sum",
-                    functionCall("cardinality", functionCall("filter", expression, generateInfinityLambdaExpression(ArithmeticUnaryExpression.Sign.PLUS))));
-            Expression negInfCount = functionCall(
-                    "sum",
-                    functionCall("cardinality", functionCall("filter", expression, generateInfinityLambdaExpression(ArithmeticUnaryExpression.Sign.MINUS))));
-            Expression arrayCardinalityChecksum = functionCall("checksum", functionCall("cardinality", expression));
-            Expression arrayCardinalitySum = new CoalesceExpression(
-                    functionCall("sum", functionCall("cardinality", expression)), new LongLiteral("0"));
-            return ImmutableList.of(
-                    new SingleColumn(sum, Optional.of(delimitedIdentifier(FloatingPointColumnValidator.getSumColumnAlias(column)))),
-                    new SingleColumn(nanCount, Optional.of(delimitedIdentifier(FloatingPointColumnValidator.getNanCountColumnAlias(column)))),
-                    new SingleColumn(posInfCount, Optional.of(delimitedIdentifier(FloatingPointColumnValidator.getPositiveInfinityCountColumnAlias(column)))),
-                    new SingleColumn(negInfCount, Optional.of(delimitedIdentifier(FloatingPointColumnValidator.getNegativeInfinityCountColumnAlias(column)))),
-                    new SingleColumn(arrayCardinalityChecksum, Optional.of(delimitedIdentifier(getCardinalityChecksumColumnAlias(column)))),
-                    new SingleColumn(arrayCardinalitySum, Optional.of(delimitedIdentifier(getCardinalitySumColumnAlias(column)))));
-        }
-
+        // coalesce(checksum(try(array_sort(array_column))), checksum(array_column))
         Expression checksum = generateArrayChecksum(column.getExpression(), columnType);
+        // checksum(cardinality(array_column))
         Expression arrayCardinalityChecksum = functionCall("checksum", functionCall("cardinality", column.getExpression()));
+        // coalesce(sum(cardinality(array_column)), 0)
         Expression arrayCardinalitySum = new CoalesceExpression(
                 functionCall("sum", functionCall("cardinality", column.getExpression())), new LongLiteral("0"));
-        return ImmutableList.of(
-                new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))),
-                new SingleColumn(arrayCardinalityChecksum, Optional.of(delimitedIdentifier(getCardinalityChecksumColumnAlias(column)))),
-                new SingleColumn(arrayCardinalitySum, Optional.of(delimitedIdentifier(getCardinalitySumColumnAlias(column)))));
+
+        // For arrays of floating point numbers we have a different processing, akin to FloatingPointColumnValidator.
+        if (useFloatingPointPath(column)) {
+            builder.addAll(generateFloatingPointArrayChecksumColumns(column));
+        }
+        else if (useStringAsDoublePath(column)) {
+            builder.add(new SingleColumn(checksum, delimitedIdentifier(getChecksumColumnAlias(column))));
+            builder.addAll(generateStringArrayChecksumColumns(column));
+        }
+        else {
+            builder.add(new SingleColumn(checksum, delimitedIdentifier(getChecksumColumnAlias(column))));
+        }
+        builder.add(new SingleColumn(arrayCardinalityChecksum, delimitedIdentifier(getCardinalityChecksumColumnAlias(column))));
+        builder.add(new SingleColumn(arrayCardinalitySum, delimitedIdentifier(getCardinalitySumColumnAlias(column))));
+
+        return builder.build();
     }
 
     @Override
@@ -112,24 +101,74 @@ public class ArrayColumnValidator
                 controlResult.getRowCount());
 
         boolean useFloatingPointPath = useFloatingPointPath(column);
+        boolean useStringAsDoublePath = useStringAsDoublePath(column) && ColumnValidatorUtil.isStringAsDoubleColumn(column, controlResult, testResult);
 
-        ArrayColumnChecksum controlChecksum = toColumnChecksum(column, controlResult, useFloatingPointPath);
-        ArrayColumnChecksum testChecksum = toColumnChecksum(column, testResult, useFloatingPointPath);
+        ArrayColumnChecksum controlChecksum = toColumnChecksum(column, controlResult, useFloatingPointPath, useStringAsDoublePath);
+        ArrayColumnChecksum testChecksum = toColumnChecksum(column, testResult, useFloatingPointPath, useStringAsDoublePath);
 
-        // Non-floating point case.
-        if (!useFloatingPointPath) {
-            return ImmutableList.of(new ColumnMatchResult<>(Objects.equals(controlChecksum, testChecksum), column, controlChecksum, testChecksum));
-        }
-
-        // Check the non-floating point members first.
         if (!Objects.equals(controlChecksum.getCardinalityChecksum(), testChecksum.getCardinalityChecksum()) ||
                 !Objects.equals(controlChecksum.getCardinalitySum(), testChecksum.getCardinalitySum())) {
             return ImmutableList.of(new ColumnMatchResult<>(false, column, Optional.of("cardinality mismatch"), controlChecksum, testChecksum));
         }
 
-        ColumnMatchResult<FloatingPointColumnChecksum> result =
-                floatingPointValidator.validate(column, controlChecksum.getFloatingPointChecksum(), testChecksum.getFloatingPointChecksum());
-        return ImmutableList.of(new ColumnMatchResult<>(result.isMatched(), column, result.getMessage(), controlChecksum, testChecksum));
+        if (useFloatingPointPath) {
+            ColumnMatchResult<FloatingPointColumnChecksum> result =
+                    floatingPointValidator.validate(column, controlChecksum.getFloatingPointChecksum(), testChecksum.getFloatingPointChecksum());
+            return ImmutableList.of(new ColumnMatchResult<>(result.isMatched(), column, result.getMessage(), controlChecksum, testChecksum));
+        }
+
+        if (useStringAsDoublePath) {
+            Column asDoubleArrayColumn = getAsDoubleArrayColumn(column);
+            ColumnMatchResult<FloatingPointColumnChecksum> result =
+                    floatingPointValidator.validate(asDoubleArrayColumn, controlChecksum.getFloatingPointChecksum(), testChecksum.getFloatingPointChecksum());
+            return ImmutableList.of(new ColumnMatchResult<>(result.isMatched(), column, result.getMessage(), controlChecksum, testChecksum));
+        }
+
+        return ImmutableList.of(new ColumnMatchResult<>(Objects.equals(controlChecksum, testChecksum), column, controlChecksum, testChecksum));
+    }
+
+    public static List<SingleColumn> generateFloatingPointArrayChecksumColumns(Column column)
+    {
+        checkArgument(column.getType() instanceof ArrayType, "Expect ArrayType, found %s", column.getType().getDisplayName());
+        Type elementType = ((ArrayType) column.getType()).getElementType();
+        checkArgument(Column.FLOATING_POINT_TYPES.contains(elementType), "Expect Double or Real, found %s", elementType.getDisplayName());
+
+        Expression expression = elementType.equals(DOUBLE) ? column.getExpression() : new Cast(column.getExpression(), new ArrayType(DOUBLE).getDisplayName());
+
+        // sum(array_sum(filter(array_column, x -> is_finite(x))))
+        Expression sum = functionCall(
+                "sum",
+                functionCall("array_sum", functionCall("filter", expression, generateLambdaExpression("is_finite"))));
+        // sum(cardinality(filter(array_column, x -> is_nan(x))))
+        Expression nanCount = functionCall(
+                "sum",
+                functionCall("cardinality", functionCall("filter", expression, generateLambdaExpression("is_nan"))));
+        // sum(cardinality(filter(array_column, x -> x = Infinite())))
+        Expression posInfCount = functionCall(
+                "sum",
+                functionCall("cardinality", functionCall("filter", expression, generateInfinityLambdaExpression(ArithmeticUnaryExpression.Sign.PLUS))));
+        // sum(cardinality(filter(array_column, x -> x = -Infinite())))
+        Expression negInfCount = functionCall(
+                "sum",
+                functionCall("cardinality", functionCall("filter", expression, generateInfinityLambdaExpression(ArithmeticUnaryExpression.Sign.MINUS))));
+        return ImmutableList.of(
+                new SingleColumn(sum, Optional.of(delimitedIdentifier(FloatingPointColumnValidator.getSumColumnAlias(column)))),
+                new SingleColumn(nanCount, Optional.of(delimitedIdentifier(FloatingPointColumnValidator.getNanCountColumnAlias(column)))),
+                new SingleColumn(posInfCount, Optional.of(delimitedIdentifier(FloatingPointColumnValidator.getPositiveInfinityCountColumnAlias(column)))),
+                new SingleColumn(negInfCount, Optional.of(delimitedIdentifier(FloatingPointColumnValidator.getNegativeInfinityCountColumnAlias(column)))));
+    }
+
+    public static List<SingleColumn> generateStringArrayChecksumColumns(Column column)
+    {
+        checkArgument(column.getType() instanceof ArrayType, "Expect ArrayType, found %s", column.getType().getDisplayName());
+        Type elementType = ((ArrayType) column.getType()).getElementType();
+        checkArgument(elementType instanceof AbstractVarcharType, "Expect VarcharType, found %s", elementType.getDisplayName());
+
+        Column asDoubleArrayColumn = getAsDoubleArrayColumn(column);
+        return ImmutableList.<SingleColumn>builder()
+                .addAll(generateFloatingPointArrayChecksumColumns(asDoubleArrayColumn))
+                .addAll(ColumnValidatorUtil.generateNullCountColumns(column, asDoubleArrayColumn))
+                .build();
     }
 
     public static Expression generateArrayChecksum(Expression column, Type type)
@@ -166,37 +205,37 @@ public class ArrayColumnValidator
                 functionCall(functionName, new Identifier("x")));
     }
 
-    private static ArrayColumnChecksum toColumnChecksum(Column column, ChecksumResult checksumResult, boolean useFloatingPointPath)
+    private static ArrayColumnChecksum toColumnChecksum(Column column, ChecksumResult checksumResult, boolean useFloatingPointPath, boolean useStringAsDoublePath)
     {
-        if (!useFloatingPointPath) {
+        if (checksumResult.getRowCount() == 0) {
             return new ArrayColumnChecksum(
-                    checksumResult.getChecksum(getChecksumColumnAlias(column)),
-                    checksumResult.getChecksum(getCardinalityChecksumColumnAlias(column)),
-                    (long) checksumResult.getChecksum(getCardinalitySumColumnAlias(column)),
-                    Optional.empty());
+                    null, null, 0,
+                    useFloatingPointPath || useStringAsDoublePath ? Optional.of(new FloatingPointColumnChecksum(null, 0, 0, 0, 0)) : Optional.empty());
         }
 
-        // Case for an empty result table, when some aggregation return nulls.
-        Object nanCount = checksumResult.getChecksum(FloatingPointColumnValidator.getNanCountColumnAlias(column));
-        if (Objects.isNull(nanCount)) {
-            return new ArrayColumnChecksum(
-                    null,
-                    null,
-                    0,
-                    Optional.of(new FloatingPointColumnChecksum(null, 0, 0, 0, 0)));
-        }
-
+        Object cardinalityChecksum = checksumResult.getChecksum(getCardinalityChecksumColumnAlias(column));
         long cardinalitySum = (long) checksumResult.getChecksum(getCardinalitySumColumnAlias(column));
-        return new ArrayColumnChecksum(
-                null,
-                checksumResult.getChecksum(getCardinalityChecksumColumnAlias(column)),
-                cardinalitySum,
-                Optional.of(new FloatingPointColumnChecksum(
-                        checksumResult.getChecksum(FloatingPointColumnValidator.getSumColumnAlias(column)),
-                        (long) nanCount,
-                        (long) checksumResult.getChecksum(FloatingPointColumnValidator.getPositiveInfinityCountColumnAlias(column)),
-                        (long) checksumResult.getChecksum(FloatingPointColumnValidator.getNegativeInfinityCountColumnAlias(column)),
-                        cardinalitySum)));
+
+        if (useFloatingPointPath) {
+            return new ArrayColumnChecksum(
+                    null,
+                    cardinalityChecksum,
+                    cardinalitySum,
+                    Optional.of(FloatingPointColumnValidator.toColumnChecksum(column, checksumResult, checksumResult.getRowCount())));
+        }
+
+        Object checksum = checksumResult.getChecksum(getChecksumColumnAlias(column));
+
+        if (useStringAsDoublePath) {
+            Column asDoubleArrayColumn = getAsDoubleArrayColumn(column);
+            return new ArrayColumnChecksum(
+                    null,
+                    cardinalityChecksum,
+                    cardinalitySum,
+                    Optional.of(FloatingPointColumnValidator.toColumnChecksum(asDoubleArrayColumn, checksumResult, checksumResult.getRowCount())));
+        }
+
+        return new ArrayColumnChecksum(checksum, cardinalityChecksum, cardinalitySum, Optional.empty());
     }
 
     private boolean useFloatingPointPath(Column column)
@@ -205,6 +244,26 @@ public class ArrayColumnValidator
         checkArgument(columnType instanceof ArrayType, "Expect ArrayType, found %s", columnType.getDisplayName());
         Type elementType = ((ArrayType) columnType).getElementType();
         return (useErrorMarginForFloatingPointArrays && Column.FLOATING_POINT_TYPES.contains(elementType));
+    }
+
+    private boolean useStringAsDoublePath(Column column)
+    {
+        Type columnType = column.getType();
+        checkArgument(columnType instanceof ArrayType, "Expect ArrayType, found %s", columnType.getDisplayName());
+        Type elementType = ((ArrayType) columnType).getElementType();
+        return (validateStringAsDouble && elementType instanceof AbstractVarcharType);
+    }
+
+    public static Column getAsDoubleArrayColumn(Column column)
+    {
+        return Column.create(column.getName() + "_as_double", getAsDoubleArrayExpression(column), new ArrayType(DOUBLE));
+    }
+
+    private static Expression getAsDoubleArrayExpression(Column column)
+    {
+        // transform(array_column, x -> try_cast(x as double))
+        return functionCall("transform", column.getExpression(), new LambdaExpression(ImmutableList.of(new LambdaArgumentDeclaration(identifier("x"))),
+                new Cast(identifier("x"), DOUBLE.getDisplayName(), true, false)));
     }
 
     private static String getChecksumColumnAlias(Column column)

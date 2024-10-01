@@ -70,7 +70,7 @@ public enum ParquetEncoding
                 case INT96:
                     return new FixedLenByteArrayPlainValuesReader(INT96_TYPE_LENGTH);
                 case FIXED_LEN_BYTE_ARRAY:
-                    return new FixedLenByteArrayPlainValuesReader(descriptor.getTypeLength());
+                    return new FixedLenByteArrayPlainValuesReader(descriptor.getPrimitiveType().getTypeLength());
                 default:
                     throw new ParquetDecodingException("Plain values reader does not support: " + descriptor.getType());
             }

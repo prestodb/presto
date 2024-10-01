@@ -90,7 +90,7 @@ class HttpResponse {
 
   // Invoked to set the error on the first encountered 'exception'.
   void setError(const std::exception& exception) {
-    VELOX_CHECK(!hasError())
+    VELOX_CHECK(!hasError());
     error_ = exception.what();
     freeBuffers();
   }

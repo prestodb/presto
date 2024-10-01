@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -54,6 +55,7 @@ public class TestCanonicalize
                 // This optimization will optimize out the projection below, hence disable it
                 Session.builder(this.getQueryRunner().getDefaultSession())
                         .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "false")
+                        .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "false")
                         .build(),
                 anyTree(
                         join(INNER, ImmutableList.of(), Optional.empty(),
@@ -61,6 +63,19 @@ public class TestCanonicalize
                                         ImmutableMap.of("X", expression("BIGINT '1'")),
                                         values(ImmutableMap.of())),
                                 values(ImmutableMap.of()))));
+
+        assertPlan(
+                "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT EXTRACT(DAY FROM DATE '2017-01-01')\n" +
+                        ") t\n" +
+                        "CROSS JOIN (VALUES 1)",
+                // This optimization will optimize out the projection below, hence disable it
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "false")
+                        .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "true")
+                        .build(),
+                anyTree(values()));
     }
 
     @Test

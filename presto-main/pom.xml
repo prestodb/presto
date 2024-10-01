@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.289-SNAPSHOT</version>
+        <version>0.290-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -134,6 +134,11 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-server</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>security</artifactId>
         </dependency>
 
         <dependency>
@@ -364,7 +369,6 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -576,11 +580,13 @@
     <profiles>
         <profile>
             <!-- Requires the UI as a dependency by default. If the UI is   -->
-            <!-- not required, turn off this profile (-P '!ui') to prevent  -->
+            <!-- not required, turn off this profile (-DskipUI) to prevent  -->
             <!-- building it      -->
             <id>ui</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>!skipUI</name>
+                </property>
             </activation>
             <dependencies>
                 <dependency>

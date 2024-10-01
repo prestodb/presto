@@ -39,6 +39,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
@@ -235,7 +236,8 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                new QueryPrerequisites() {
+                new QueryPrerequisites()
+                {
                     @Override
                     public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context, WarningCollector warningCollector)
                     {
@@ -456,7 +458,8 @@ public class TestLocalDispatchQuery
                 new SessionPropertyManager(),
                 metadata,
                 new QueryMonitorConfig(),
-                new HistoryBasedPlanStatisticsManager(new ObjectMapper(), new SessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), new FeaturesConfig(), new NodeVersion("1")));
+                new HistoryBasedPlanStatisticsManager(new ObjectMapper(), new SessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), new FeaturesConfig(), new NodeVersion("1")),
+                new FeaturesConfig());
     }
 
     private EventListenerManager createEventListenerManager(CountingEventListener countingEventListener)
@@ -518,6 +521,12 @@ public class TestLocalDispatchQuery
         public void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
         {
             fail("Query update events should not be created in this test");
+        }
+
+        @Override
+        public void publishQueryProgress(QueryProgressEvent queryProgressEvent)
+        {
+            fail("Query Progress events should not be created in this test");
         }
 
         @Override

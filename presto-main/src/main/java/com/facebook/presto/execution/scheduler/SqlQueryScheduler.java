@@ -38,6 +38,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -46,15 +47,16 @@ import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.sun.management.ThreadMXBean;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -101,6 +103,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -111,6 +114,8 @@ public class SqlQueryScheduler
         implements SqlQuerySchedulerInterface
 {
     private static final Logger log = Logger.get(SqlQueryScheduler.class);
+
+    private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
 
     private final LocationFactory locationFactory;
     private final ExecutionPolicy executionPolicy;
@@ -137,7 +142,6 @@ public class SqlQueryScheduler
     private final Set<StageId> runtimeOptimizedStages = Collections.synchronizedSet(new HashSet<>());
     private final PlanChecker planChecker;
     private final Metadata metadata;
-    private final SqlParser sqlParser;
 
     private final Map<StageId, StageExecutionAndScheduler> stageExecutions = new ConcurrentHashMap<>();
     private final ExecutorService executor;
@@ -232,7 +236,6 @@ public class SqlQueryScheduler
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
@@ -425,8 +428,10 @@ public class SqlQueryScheduler
                             .collect(toImmutableList());
 
                     for (StageExecutionAndScheduler stageExecutionAndScheduler : executionsToSchedule) {
+                        long startCpuNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+                        long startWallNanos = System.nanoTime();
+
                         SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
-                        StageId stageId = stageExecution.getStageExecutionId().getStageId();
                         stageExecution.beginScheduling();
 
                         // perform some scheduling work
@@ -452,7 +457,8 @@ public class SqlQueryScheduler
                                 .processScheduleResults(stageExecution.getState(), result.getNewTasks());
                         schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
                         if (result.getBlockedReason().isPresent()) {
-                            switch (result.getBlockedReason().get()) {
+                            ScheduleResult.BlockedReason blockedReason = result.getBlockedReason().get();
+                            switch (blockedReason) {
                                 case WRITER_SCALING:
                                     // no-op
                                     break;
@@ -469,9 +475,19 @@ public class SqlQueryScheduler
                                     schedulerStats.getNoActiveDriverGroup().update(1);
                                     break;
                                 default:
-                                    throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
+                                    throw new UnsupportedOperationException("Unknown blocked reason: " + blockedReason);
+                            }
+                            if (!result.getBlocked().isDone()) {
+                                long startBlockedNanos = System.nanoTime();
+                                result.getBlocked().addListener(
+                                        () -> stageExecution.recordSchedulerBlockedTime(blockedReason, System.nanoTime() - startBlockedNanos),
+                                        directExecutor());
                             }
                         }
+
+                        stageExecution.recordSchedulerRunningTime(
+                                THREAD_MX_BEAN.getCurrentThreadCpuTime() - startCpuNanos,
+                                System.nanoTime() - startWallNanos);
                     }
 
                     // make sure to update stage linkage at least once per loop to catch async state changes (e.g., partial cancel)
@@ -578,7 +594,7 @@ public class SqlQueryScheduler
                 .forEach(currentSubPlan -> {
                     Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
                     if (newPlanFragment.isPresent()) {
-                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
+                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, warningCollector);
                         oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
                     }
                 });

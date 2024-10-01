@@ -18,11 +18,13 @@ import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableListMultimap;
@@ -33,7 +35,6 @@ import org.testng.annotations.Test;
 import javax.servlet.http.HttpServletRequest;
 
 import java.util.Locale;
-import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -54,6 +55,7 @@ import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.createFunctionAdd;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.createSqlFunctionIdAdd;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.urlEncode;
+import static com.facebook.presto.server.security.ServletSecurityUtils.AUTHORIZED_IDENTITY_ATTRIBUTE;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -64,6 +66,7 @@ public class TestQuerySessionSupplier
     private static final SqlInvokedFunction SQL_FUNCTION_ADD = createFunctionAdd();
     private static final String SERIALIZED_SQL_FUNCTION_ID_ADD = jsonCodec(SqlFunctionId.class).toJson(SQL_FUNCTION_ID_ADD);
     private static final String SERIALIZED_SQL_FUNCTION_ADD = jsonCodec(SqlInvokedFunction.class).toJson(SQL_FUNCTION_ADD);
+    private static final AuthorizedIdentity AUTHORIZED_IDENTITY = new AuthorizedIdentity("userName", "reasonForSelect", false);
 
     private static final HttpServletRequest TEST_REQUEST = new MockHttpServletRequest(
             ImmutableListMultimap.<String, String>builder()
@@ -81,7 +84,7 @@ public class TestQuerySessionSupplier
                     .put(PRESTO_SESSION_FUNCTION, format("%s=%s", urlEncode(SERIALIZED_SQL_FUNCTION_ID_ADD), urlEncode(SERIALIZED_SQL_FUNCTION_ADD)))
                     .build(),
             "testRemote",
-            ImmutableMap.of());
+            ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, AUTHORIZED_IDENTITY));
 
     @Test
     public void testCreateSession()
@@ -91,7 +94,8 @@ public class TestQuerySessionSupplier
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
                 new SessionPropertyManager(),
-                new SqlEnvironmentConfig());
+                new SqlEnvironmentConfig(),
+                new SecurityConfig());
         WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()
         {
             @Override
@@ -100,7 +104,7 @@ public class TestQuerySessionSupplier
                 return WarningCollector.NOOP;
             }
         };
-        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory, Optional.empty());
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory);
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
@@ -122,6 +126,8 @@ public class TestQuerySessionSupplier
                 .put("query2", "select * from bar")
                 .build());
         assertEquals(session.getSessionFunctions(), ImmutableMap.of(SQL_FUNCTION_ID_ADD, SQL_FUNCTION_ADD));
+        assertEquals(session.getIdentity().getSelectedUser().get(), AUTHORIZED_IDENTITY.getUserName());
+        assertEquals(session.getIdentity().getReasonForSelect(), AUTHORIZED_IDENTITY.getReasonForSelect());
     }
 
     @Test
@@ -162,7 +168,8 @@ public class TestQuerySessionSupplier
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
                 new SessionPropertyManager(),
-                new SqlEnvironmentConfig());
+                new SqlEnvironmentConfig(),
+                new SecurityConfig());
         WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()
         {
             @Override
@@ -171,6 +178,6 @@ public class TestQuerySessionSupplier
                 return WarningCollector.NOOP;
             }
         };
-        sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory, Optional.empty());
+        sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory);
     }
 }

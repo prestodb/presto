@@ -65,6 +65,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -220,18 +221,23 @@ public final class FunctionAssertions
 
     public FunctionAssertions(Session session)
     {
-        this(session, new FeaturesConfig());
+        this(session, new FeaturesConfig(), new FunctionsConfig(), false);
     }
 
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig)
     {
-        this(session, featuresConfig, false);
+        this(session, featuresConfig, new FunctionsConfig(), false);
     }
 
-    public FunctionAssertions(Session session, FeaturesConfig featuresConfig, boolean refreshSession)
+    public FunctionAssertions(Session session, FunctionsConfig functionsConfig)
+    {
+        this(session, new FeaturesConfig(), functionsConfig, false);
+    }
+
+    public FunctionAssertions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, boolean refreshSession)
     {
         requireNonNull(session, "session is null");
-        runner = new LocalQueryRunner(session, featuresConfig);
+        runner = new LocalQueryRunner(session, featuresConfig, functionsConfig);
         if (refreshSession) {
             this.session = runner.getDefaultSession();
         }
@@ -284,7 +290,7 @@ public final class FunctionAssertions
         Object actual = selectSingleValue(projection, expectedType, compiler);
         assertTrue(actual instanceof ArrayList);
         ArrayList<Object> arrayList = (ArrayList) actual;
-        assertTrue(arrayList.size() == expected.size());
+        assertEquals(arrayList.size(), expected.size());
         for (int i = 0; i < arrayList.size(); ++i) {
             assertEquals((double) arrayList.get(i), expected.get(i), delta);
         }
@@ -295,7 +301,7 @@ public final class FunctionAssertions
         Object actual = selectSingleValue(projection, expectedType, compiler);
         assertTrue(actual instanceof ArrayList);
         ArrayList<Object> arrayList = (ArrayList) actual;
-        assertTrue(arrayList.size() == expected.size());
+        assertEquals(arrayList.size(), expected.size());
         for (int i = 0; i < arrayList.size(); ++i) {
             assertEquals((float) arrayList.get(i), expected.get(i), delta);
         }
@@ -350,7 +356,7 @@ public final class FunctionAssertions
         HashSet<Object> resultSet = new HashSet<>(results);
 
         // we should only have a single result
-        assertTrue(resultSet.size() == 1, "Expected only one result unique result, but got " + resultSet);
+        assertEquals(resultSet.size(), 1, "Expected only one result unique result, but got " + resultSet);
 
         return Iterables.getOnlyElement(resultSet);
     }
@@ -733,7 +739,7 @@ public final class FunctionAssertions
         HashSet<Boolean> resultSet = new HashSet<>(results);
 
         // we should only have a single result
-        assertTrue(resultSet.size() == 1, "Expected only [" + expected + "] result unique result, but got " + resultSet);
+        assertEquals(resultSet.size(), 1, "Expected only [" + expected + "] result unique result, but got " + resultSet);
 
         assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
     }
