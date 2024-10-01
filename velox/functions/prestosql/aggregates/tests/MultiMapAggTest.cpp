@@ -16,6 +16,7 @@
 #include <cmath>
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::aggregate::prestosql {
 namespace {
@@ -340,6 +341,134 @@ TEST_F(MultiMapAggTest, doubleKeyGlobal) {
   testAggregations(
       {data},
       {},
+      {"multimap_agg(c0, c1)"},
+      // Sort the result arrays to ensure deterministic results.
+      {"transform_values(a0, (k, v) -> array_sort(v))"},
+      {expected});
+}
+
+TEST_F(MultiMapAggTest, timestampWithTimeZoneGlobal) {
+  auto data = makeRowVector(
+      {makeFlatVector<int64_t>(
+           {pack(0, 0),
+            pack(1, 0),
+            pack(2, 0),
+            pack(0, 1),
+            pack(1, 1),
+            pack(1, 2),
+            pack(2, 2),
+            pack(3, 3),
+            pack(1, 1),
+            pack(3, 0)},
+           TIMESTAMP_WITH_TIME_ZONE()),
+       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10})});
+
+  auto expected = makeRowVector({makeMapVector(
+      {0},
+      makeFlatVector<int64_t>(
+          {pack(0, 0), pack(1, 0), pack(2, 0), pack(3, 3)},
+          TIMESTAMP_WITH_TIME_ZONE()),
+      makeArrayVector<int32_t>({{1, 4}, {2, 5, 6, 9}, {3, 7}, {8, 10}}))});
+
+  testAggregations(
+      {data},
+      {},
+      {"multimap_agg(c0, c1)"},
+      // Sort the result arrays to ensure deterministic results.
+      {"transform_values(a0, (k, v) -> array_sort(v))"},
+      {expected});
+
+  // Input keys are complex type (row).
+  data = makeRowVector(
+      {makeRowVector({makeFlatVector<int64_t>(
+           {pack(0, 0),
+            pack(1, 0),
+            pack(2, 0),
+            pack(0, 1),
+            pack(1, 1),
+            pack(1, 2),
+            pack(2, 2),
+            pack(3, 3),
+            pack(1, 1),
+            pack(3, 0)},
+           TIMESTAMP_WITH_TIME_ZONE())}),
+       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10})});
+
+  expected = makeRowVector({makeMapVector(
+      {0},
+      makeRowVector({makeFlatVector<int64_t>(
+          {pack(0, 0), pack(1, 0), pack(2, 0), pack(3, 3)},
+          TIMESTAMP_WITH_TIME_ZONE())}),
+      makeArrayVector<int32_t>({{1, 4}, {2, 5, 6, 9}, {3, 7}, {8, 10}}))});
+
+  testAggregations(
+      {data},
+      {},
+      {"multimap_agg(c0, c1)"},
+      // Sort the result arrays to ensure deterministic results.
+      {"transform_values(a0, (k, v) -> array_sort(v))"},
+      {expected});
+}
+
+TEST_F(MultiMapAggTest, timestampWithTimeZoneGroupBy) {
+  auto data = makeRowVector(
+      {makeFlatVector<int64_t>(
+           {pack(0, 0),
+            pack(1, 0),
+            pack(1, 0),
+            pack(0, 1),
+            pack(1, 1),
+            pack(1, 2),
+            pack(1, 2),
+            pack(0, 3),
+            pack(1, 1),
+            pack(0, 0)},
+           TIMESTAMP_WITH_TIME_ZONE()),
+       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+       makeFlatVector<int32_t>({1, 1, 1, 1, 1, 2, 2, 2, 2, 2})});
+
+  auto expected = makeRowVector({makeMapVector(
+      {0, 2},
+      makeFlatVector<int64_t>(
+          {pack(0, 0), pack(1, 0), pack(0, 3), pack(1, 2)},
+          TIMESTAMP_WITH_TIME_ZONE()),
+      makeArrayVector<int32_t>({{1, 4}, {2, 3, 5}, {8, 10}, {6, 7, 9}}))});
+
+  testAggregations(
+      {data},
+      {"c2"},
+      {"multimap_agg(c0, c1)"},
+      // Sort the result arrays to ensure deterministic results.
+      {"transform_values(a0, (k, v) -> array_sort(v))"},
+      {expected});
+
+  // Input keys are complex type (row).
+  data = makeRowVector(
+      {makeRowVector({makeFlatVector<int64_t>(
+           {pack(0, 0),
+            pack(1, 0),
+            pack(1, 0),
+            pack(0, 1),
+            pack(1, 1),
+            pack(1, 2),
+            pack(1, 2),
+            pack(0, 3),
+            pack(1, 1),
+            pack(0, 0)},
+           TIMESTAMP_WITH_TIME_ZONE())}),
+       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+       makeFlatVector<int32_t>({1, 1, 1, 1, 1, 2, 2, 2, 2, 2})});
+
+  expected = makeRowVector({makeMapVector(
+      {0, 2},
+      makeRowVector({makeFlatVector<int64_t>(
+          {pack(0, 0), pack(1, 0), pack(0, 3), pack(1, 2)},
+          TIMESTAMP_WITH_TIME_ZONE())}),
+      makeArrayVector<int32_t>({{1, 4}, {2, 3, 5}, {8, 10}, {6, 7, 9}}))});
+
+  testAggregations(
+      {data},
+      {"c2"},
       {"multimap_agg(c0, c1)"},
       // Sort the result arrays to ensure deterministic results.
       {"transform_values(a0, (k, v) -> array_sort(v))"},

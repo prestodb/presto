@@ -228,6 +228,97 @@ struct ComplexTypeMultiMapAccumulator {
   }
 };
 
+// A wrapper around MultiMapAccumulator that overrides hash and equal_to
+// functions to use the custom comparisons provided by a custom type.
+template <TypeKind Kind>
+struct CustomComparisonMultiMapAccumulator {
+  using NativeType = typename TypeTraits<Kind>::NativeType;
+
+  struct Hash {
+    const TypePtr& type;
+
+    size_t operator()(const NativeType& value) const {
+      return static_cast<const CanProvideCustomComparisonType<Kind>*>(
+                 type.get())
+          ->hash(value);
+    }
+  };
+
+  struct EqualTo {
+    const TypePtr& type;
+
+    bool operator()(const NativeType& left, const NativeType& right) const {
+      return static_cast<const CanProvideCustomComparisonType<Kind>*>(
+                 type.get())
+                 ->compare(left, right) == 0;
+    }
+  };
+
+  // The underlying MultiMapAccumulator to which all operations are
+  // delegated.
+  MultiMapAccumulator<
+      NativeType,
+      CustomComparisonMultiMapAccumulator::Hash,
+      CustomComparisonMultiMapAccumulator::EqualTo>
+      base;
+
+  CustomComparisonMultiMapAccumulator(
+      const TypePtr& type,
+      HashStringAllocator* allocator)
+      : base{
+            CustomComparisonMultiMapAccumulator::Hash{type},
+            CustomComparisonMultiMapAccumulator::EqualTo{type},
+            allocator} {}
+
+  size_t size() const {
+    return base.size();
+  }
+
+  size_t numValues() const {
+    return base.numValues();
+  }
+
+  // Adds key-value pair.
+  void insert(
+      const DecodedVector& decodedKeys,
+      const DecodedVector& decodedValues,
+      vector_size_t index,
+      HashStringAllocator& allocator) {
+    base.insert(decodedKeys, decodedValues, index, allocator);
+  }
+
+  // Adds a key with a list of values.
+  void insertMultiple(
+      const DecodedVector& decodedKeys,
+      vector_size_t keyIndex,
+      const DecodedVector& decodedValues,
+      vector_size_t valueIndex,
+      vector_size_t numValues,
+      HashStringAllocator& allocator) {
+    base.insertMultiple(
+        decodedKeys, keyIndex, decodedValues, valueIndex, numValues, allocator);
+  }
+
+  ValueList& insertKey(
+      const DecodedVector& decodedKeys,
+      vector_size_t index,
+      HashStringAllocator& allocator) {
+    return base.insertKey(decodedKeys, index, allocator);
+  }
+
+  void extract(
+      VectorPtr& mapKeys,
+      ArrayVector& mapValueArrays,
+      vector_size_t& keyOffset,
+      vector_size_t& valueOffset) {
+    base.extract(mapKeys, mapValueArrays, keyOffset, valueOffset);
+  }
+
+  void free(HashStringAllocator& allocator) {
+    base.free(allocator);
+  }
+};
+
 template <typename T>
 struct MultiMapAccumulatorTypeTraits {
   using AccumulatorType = MultiMapAccumulator<T>;
@@ -255,14 +346,14 @@ struct MultiMapAccumulatorTypeTraits<ComplexType> {
   using AccumulatorType = ComplexTypeMultiMapAccumulator;
 };
 
-template <typename K>
+template <
+    typename K,
+    typename AccumulatorType =
+        typename MultiMapAccumulatorTypeTraits<K>::AccumulatorType>
 class MultiMapAggAggregate : public exec::Aggregate {
  public:
   explicit MultiMapAggAggregate(TypePtr resultType)
       : exec::Aggregate(std::move(resultType)) {}
-
-  using AccumulatorType =
-      typename MultiMapAccumulatorTypeTraits<K>::AccumulatorType;
 
   bool isFixedSize() const override {
     return false;
@@ -496,6 +587,14 @@ class MultiMapAggAggregate : public exec::Aggregate {
   DecodedVector decodedValueArrays_;
 };
 
+template <TypeKind Kind>
+std::unique_ptr<exec::Aggregate> createMultiMapAggAggregateWithCustomCompare(
+    const TypePtr& resultType) {
+  return std::make_unique<MultiMapAggAggregate<
+      typename TypeTraits<Kind>::NativeType,
+      CustomComparisonMultiMapAccumulator<Kind>>>(resultType);
+}
+
 } // namespace
 
 void registerMultiMapAggAggregate(
@@ -522,7 +621,16 @@ void registerMultiMapAggAggregate(
           const TypePtr& resultType,
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
-        auto typeKind = resultType->childAt(0)->kind();
+        const auto keyType = resultType->childAt(0);
+        const auto typeKind = keyType->kind();
+
+        if (keyType->providesCustomComparison()) {
+          return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+              createMultiMapAggAggregateWithCustomCompare,
+              typeKind,
+              resultType);
+        }
+
         switch (typeKind) {
           case TypeKind::BOOLEAN:
             return std::make_unique<MultiMapAggAggregate<bool>>(resultType);
