@@ -217,12 +217,13 @@ TEST(DateTimeUtilTest, fromDateString) {
     EXPECT_EQ(1, parseDate("1970-1-02", mode));
 
     EXPECT_EQ(1, parseDate("+1970-01-02", mode));
-    EXPECT_EQ(-719893, parseDate("-1-1-1", mode));
 
     EXPECT_EQ(0, parseDate(" 1970-01-01", mode));
     EXPECT_EQ(0, parseDate("1970-01-01 ", mode));
     EXPECT_EQ(0, parseDate(" 1970-01-01 ", mode));
   }
+
+  EXPECT_EQ(-719893, parseDate("-1-1-1", ParseMode::kPrestoCast));
 
   EXPECT_EQ(3789391, parseDate("12345", ParseMode::kSparkCast));
   EXPECT_EQ(16436, parseDate("2015", ParseMode::kSparkCast));
@@ -276,6 +277,9 @@ TEST(DateTimeUtilTest, fromDateStringInvalid) {
     testCastFromDateStringInvalid("20150318", mode);
     testCastFromDateStringInvalid("2015-031-8", mode);
   }
+
+  testCastFromDateStringInvalid("-1-1-1", ParseMode::kSparkCast);
+  testCastFromDateStringInvalid("-111-1-1", ParseMode::kSparkCast);
 
   testCastFromDateStringInvalid("12345", ParseMode::kStrict);
   testCastFromDateStringInvalid("2015", ParseMode::kStrict);
