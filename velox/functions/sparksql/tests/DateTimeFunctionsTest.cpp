@@ -206,6 +206,22 @@ TEST_F(DateTimeFunctionsTest, weekOfYear) {
   EXPECT_EQ(8, weekOfYear("2008-02-20"));
   EXPECT_EQ(15, weekOfYear("2015-04-08"));
   EXPECT_EQ(15, weekOfYear("2013-04-08"));
+
+  // Test various cases where the last week of the previous year extends into
+  // the next year.
+
+  // Leap year that ends on Thursday.
+  EXPECT_EQ(53, weekOfYear("2021-01-01"));
+  // Leap year that ends on Friday.
+  EXPECT_EQ(53, weekOfYear("2005-01-01"));
+  // Leap year that ends on Saturday.
+  EXPECT_EQ(52, weekOfYear("2017-01-01"));
+  // Common year that ends on Thursday.
+  EXPECT_EQ(53, weekOfYear("2016-01-01"));
+  // Common year that ends on Friday.
+  EXPECT_EQ(52, weekOfYear("2022-01-01"));
+  // Common year that ends on Saturday.
+  EXPECT_EQ(52, weekOfYear("2023-01-01"));
 }
 
 TEST_F(DateTimeFunctionsTest, unixDate) {

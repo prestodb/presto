@@ -486,7 +486,7 @@ TEST_F(DateTimeFunctionsTest, week) {
                     VELOX_USER_FAIL("{}", status.message());
                   });
     auto timestamp =
-        std::make_optional(Timestamp(ts.getSeconds() * 100'000'000, 0));
+        std::make_optional(Timestamp(ts.getSeconds() * 100'000, 0));
 
     auto week = evaluateOnce<int64_t>("week(c0)", timestamp).value();
     auto weekOfYear =
@@ -497,11 +497,11 @@ TEST_F(DateTimeFunctionsTest, week) {
   };
 
   EXPECT_EQ(1, weekTimestamp("T00:00:00"));
-  EXPECT_EQ(10, weekTimestamp("T11:59:59"));
-  EXPECT_EQ(51, weekTimestamp("T06:01:01"));
-  EXPECT_EQ(24, weekTimestamp("T06:59:59"));
-  EXPECT_EQ(27, weekTimestamp("T12:00:01"));
-  EXPECT_EQ(7, weekTimestamp("T12:59:59"));
+  EXPECT_EQ(47, weekTimestamp("T11:59:59"));
+  EXPECT_EQ(33, weekTimestamp("T06:01:01"));
+  EXPECT_EQ(44, weekTimestamp("T06:59:59"));
+  EXPECT_EQ(47, weekTimestamp("T12:00:01"));
+  EXPECT_EQ(16, weekTimestamp("T12:59:59"));
 }
 
 TEST_F(DateTimeFunctionsTest, weekTimestampWithTimezone) {

@@ -117,6 +117,9 @@ struct Timestamp {
   /// and the number of nanoseconds.
   static Timestamp fromDaysAndNanos(int32_t days, int64_t nanos);
 
+  // date is the number of days since unix epoch.
+  static Timestamp fromDate(int32_t date);
+
   // Returns the current unix timestamp (ms precision).
   static Timestamp now();
 

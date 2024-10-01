@@ -64,53 +64,8 @@ template <typename T>
 struct WeekFunction : public InitSessionTimezone<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE int32_t getWeek(const std::tm& time) {
-    // The computation of ISO week from date follows the algorithm here:
-    // https://en.wikipedia.org/wiki/ISO_week_date
-    int32_t week = floor(
-                       10 + (time.tm_yday + 1) -
-                       (time.tm_wday ? time.tm_wday : kDaysInWeek)) /
-        kDaysInWeek;
-
-    if (week == 0) {
-      // Distance in days between the first day of the current year and the
-      // Monday of the current week.
-      auto mondayOfWeek =
-          time.tm_yday + 1 - (time.tm_wday + kDaysInWeek - 1) % kDaysInWeek;
-      // Distance in days between the first day and the first Monday of the
-      // current year.
-      auto firstMondayOfYear =
-          1 + (mondayOfWeek + kDaysInWeek - 1) % kDaysInWeek;
-
-      if ((util::isLeapYear(time.tm_year + 1900 - 1) &&
-           firstMondayOfYear == 2) ||
-          firstMondayOfYear == 3 || firstMondayOfYear == 4) {
-        week = 53;
-      } else {
-        week = 52;
-      }
-    } else if (week == 53) {
-      // Distance in days between the first day of the current year and the
-      // Monday of the current week.
-      auto mondayOfWeek =
-          time.tm_yday + 1 - (time.tm_wday + kDaysInWeek - 1) % kDaysInWeek;
-      auto daysInYear = util::isLeapYear(time.tm_year + 1900) ? 366 : 365;
-      if (daysInYear - mondayOfWeek < 3) {
-        week = 1;
-      }
-    }
-
-    return week;
-  }
-
-  FOLLY_ALWAYS_INLINE void call(
-      int32_t& result,
-      const arg_type<Timestamp>& timestamp) {
-    result = getWeek(getDateTime(timestamp, this->timeZone_));
-  }
-
   FOLLY_ALWAYS_INLINE void call(int32_t& result, const arg_type<Date>& date) {
-    result = getWeek(getDateTime(date));
+    result = getWeek(Timestamp::fromDate(date), nullptr, false);
   }
 };
 

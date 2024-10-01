@@ -17,6 +17,8 @@
 
 #include <velox/type/Timestamp.h>
 #include "velox/core/QueryConfig.h"
+#include "velox/external/date/date.h"
+#include "velox/external/date/iso_week.h"
 #include "velox/functions/Macros.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
@@ -90,6 +92,23 @@ FOLLY_ALWAYS_INLINE int32_t getQuarter(const std::tm& time) {
 
 FOLLY_ALWAYS_INLINE int32_t getDayOfYear(const std::tm& time) {
   return time.tm_yday + 1;
+}
+
+FOLLY_ALWAYS_INLINE uint32_t getWeek(
+    const Timestamp& timestamp,
+    const tz::TimeZone* timezone,
+    bool allowOverflow) {
+  // The computation of ISO week from date follows the algorithm here:
+  // https://en.wikipedia.org/wiki/ISO_week_date
+  Timestamp t = timestamp;
+  if (timezone) {
+    t.toTimezone(*timezone);
+  }
+  const auto timePoint = t.toTimePointMs(allowOverflow);
+  const auto daysTimePoint = date::floor<date::days>(timePoint);
+  const date::year_month_day calDate(daysTimePoint);
+  auto weekNum = date::iso_week::year_weeknum_weekday{calDate}.weeknum();
+  return (uint32_t)weekNum;
 }
 
 template <typename T>
