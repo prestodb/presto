@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.common.predicate.TupleDomain;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import static java.util.Collections.unmodifiableList;
@@ -45,5 +46,22 @@ public final class DiscretePredicates
     public Iterable<TupleDomain<ColumnHandle>> getPredicates()
     {
         return predicates;
+    }
+
+    public boolean isSingleAllDomain()
+    {
+        Iterator<TupleDomain<ColumnHandle>> predicateIterator = this.predicates.iterator();
+        if (predicateIterator.hasNext()) {
+            TupleDomain<ColumnHandle> domain = predicateIterator.next();
+            if (domain.equals(TupleDomain.all()) && !predicateIterator.hasNext()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean isEmpty()
+    {
+        return !this.predicates.iterator().hasNext();
     }
 }

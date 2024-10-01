@@ -203,8 +203,12 @@ public class IcebergMetadataOptimizer
 
             DiscretePredicates discretePredicates = layout.getDiscretePredicates().get();
 
+            if (discretePredicates.isSingleAllDomain()) {
+                return context.defaultRewrite(node);
+            }
+
             // the optimization is only valid if there is no filter on non-partition columns
-            if (layout.getPredicate().getColumnDomains().isPresent()) {
+            if (!discretePredicates.isEmpty() && layout.getPredicate().getColumnDomains().isPresent()) {
                 List<ColumnHandle> predicateColumns = layout.getPredicate().getColumnDomains().get().stream()
                         .map(ColumnDomain::getColumn)
                         .collect(toImmutableList());
