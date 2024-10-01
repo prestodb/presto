@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <boost/random/uniform_int_distribution.hpp>
+
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/lib/window/tests/WindowTestBase.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -37,6 +39,7 @@ class NthValueTest : public WindowTestBase {
   void SetUp() override {
     WindowTestBase::SetUp();
     window::prestosql::registerAllWindowFunctions();
+    rng_.seed(std::time(nullptr));
   }
 
   // These tests have all important variations of the (nth|first|last)_value
@@ -140,6 +143,8 @@ class NthValueTest : public WindowTestBase {
     }
   }
 
+  FuzzerGenerator rng_;
+
  private:
   void testWindowFunction(
       const std::vector<RowVectorPtr>& input,
@@ -222,25 +227,29 @@ TEST_F(NthValueTest, invalidOffsets) {
 TEST_F(NthValueTest, invalidFrames) {
   vector_size_t size = 20;
 
+  auto offset =
+      boost::random::uniform_int_distribution<int32_t>(INT32_MIN, -1)(rng_);
   auto vectors = makeRowVector({
       makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
       makeFlatVector<int32_t>(size, [](auto row) { return row % 50; }),
-      makeFlatVector<int64_t>(size, [](auto /* row */) { return -9; }),
+      makeFlatVector<int64_t>(
+          size, [offset](auto /* row */) { return offset; }),
   });
 
   std::string overClause = "partition by c0 order by c1";
+
   assertWindowFunctionError(
       {vectors},
       "nth_value(c0, 5)",
       overClause,
-      "rows between -1 preceding and current row",
-      "Window frame -1 offset must not be negative");
+      fmt::format("rows between {} preceding and current row", offset),
+      fmt::format("Window frame {} offset must not be negative", offset));
   assertWindowFunctionError(
       {vectors},
       "nth_value(c0, 5)",
       overClause,
       "rows between c2 preceding and current row",
-      "Window frame -9 offset must not be negative");
+      fmt::format("Window frame {} offset must not be negative", offset));
 }
 
 TEST_F(NthValueTest, int32FrameOffset) {
