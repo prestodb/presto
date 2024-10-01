@@ -24,12 +24,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class TestPlanCheckerProviderPlugin
+public class TestingPlanCheckerProviderPlugin
         implements Plugin, PlanCheckerProviderFactory, PlanCheckerProvider
 {
     private final AtomicBoolean triggerValidationFailure;
 
-    public TestPlanCheckerProviderPlugin(AtomicBoolean triggerValidationFailure)
+    public TestingPlanCheckerProviderPlugin(AtomicBoolean triggerValidationFailure)
     {
         this.triggerValidationFailure = triggerValidationFailure;
     }

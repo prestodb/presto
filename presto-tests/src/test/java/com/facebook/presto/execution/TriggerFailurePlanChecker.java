@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 
 public class TriggerFailurePlanChecker
-    implements PlanChecker
+        implements PlanChecker
 {
     private final AtomicBoolean triggerValidationFailure;
 

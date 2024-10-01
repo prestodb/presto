@@ -16,16 +16,18 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.sanity.plancheckerprovidermanagers.PlanCheckerProviderManager;
-import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import org.checkerframework.checker.lock.qual.GuardedBy;
 
 import javax.inject.Inject;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,42 +36,39 @@ import java.util.stream.Collectors;
  */
 public final class PlanChecker
 {
-    private final PlanCheckerProviderManager providerMgr;
-    private Multimap<Stage, Checker> checkers;
-    private boolean providedInitialized;
+    @GuardedBy("this")
+    private volatile Multimap<Stage, Checker> checkers;
 
     @Inject
-    public PlanChecker(FeaturesConfig featuresConfig, PlanCheckerProviderManager providerManager)
+    public PlanChecker(FeaturesConfig featuresConfig)
     {
-        this(featuresConfig, false, providerManager);
+        this(featuresConfig, false);
     }
 
     public PlanChecker(FeaturesConfig featuresConfig, boolean forceSingleNode)
     {
-        this(featuresConfig, forceSingleNode, null);
-    }
+        this.checkers = HashMultimap.create();
 
-    public PlanChecker(FeaturesConfig featuresConfig, boolean forceSingleNode, PlanCheckerProviderManager providerManager)
-    {
-        this.providerMgr = providerManager;
-        ImmutableListMultimap.Builder<Stage, Checker> builder = ImmutableListMultimap.builder();
-        builder.putAll(
-                        Stage.INTERMEDIATE,
+        checkers.putAll(
+                Stage.INTERMEDIATE,
+                Arrays.asList(
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),
                         new VerifyOnlyOneOutputNode(),
-                        new VerifyNoUnresolvedSymbolExpression())
-                .putAll(
-                        Stage.FRAGMENT,
+                        new VerifyNoUnresolvedSymbolExpression()));
+        checkers.putAll(
+                Stage.FRAGMENT,
+                Arrays.asList(
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),
                         new VerifyNoFilteredAggregations(),
                         new VerifyNoIntermediateFormExpression(),
-                        new ValidateStreamingJoins(featuresConfig))
-                .putAll(
-                        Stage.FINAL,
+                        new ValidateStreamingJoins(featuresConfig)));
+        checkers.putAll(
+                Stage.FINAL,
+                Arrays.asList(
                         new CheckUnsupportedExternalFunctions(),
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
@@ -81,55 +80,38 @@ public final class PlanChecker
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
-                        new WarnOnScanWithoutPartitionPredicate(featuresConfig));
+                        new WarnOnScanWithoutPartitionPredicate(featuresConfig)));
         if (featuresConfig.isNativeExecutionEnabled() && (featuresConfig.isDisableTimeStampWithTimeZoneForNative() ||
                 featuresConfig.isDisableIPAddressForNative())) {
-            builder.put(Stage.INTERMEDIATE, new CheckUnsupportedPrestissimoTypes(featuresConfig));
+            checkers.put(Stage.INTERMEDIATE, new CheckUnsupportedPrestissimoTypes(featuresConfig));
         }
-        checkers = builder.build();
     }
 
-    public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
+    public synchronized void update(PlanCheckerProvider provider)
     {
-        ensureProvidedInitialized();
+        checkers.putAll(Stage.INTERMEDIATE, fromSpi(provider.getPlanCheckersIntermediate()));
+        checkers.putAll(Stage.FRAGMENT, fromSpi(provider.getPlanCheckersFragment()));
+        checkers.putAll(Stage.FINAL, fromSpi(provider.getPlanCheckersFinal()));
+    }
+
+    public synchronized void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
+    {
         checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
     }
 
-    public void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
+    public synchronized void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        ensureProvidedInitialized();
         checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
     }
 
-    public void validatePlanFragment(PlanFragment planFragment, Session session, Metadata metadata, WarningCollector warningCollector)
+    public synchronized void validatePlanFragment(PlanFragment planFragment, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        ensureProvidedInitialized();
         checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validateFragment(planFragment, session, metadata, warningCollector));
     }
 
     private static List<Checker> fromSpi(List<com.facebook.presto.spi.plan.PlanChecker> checkers)
     {
         return checkers.stream().map(SpiCheckerAdapter::new).collect(Collectors.toList());
-    }
-
-    private void ensureProvidedInitialized()
-    {
-        if (!providedInitialized) {
-            if (providerMgr != null) {
-                checkers = ImmutableListMultimap.<Stage, Checker>builder().putAll(checkers)
-                        .putAll(
-                                Stage.INTERMEDIATE,
-                                fromSpi(providerMgr.getPlanCheckerProvider().getPlanCheckersIntermediate()))
-                        .putAll(
-                                Stage.FRAGMENT,
-                                fromSpi(providerMgr.getPlanCheckerProvider().getPlanCheckersFragment()))
-                        .putAll(
-                                Stage.FINAL,
-                                fromSpi(providerMgr.getPlanCheckerProvider().getPlanCheckersFinal()))
-                        .build();
-            }
-            providedInitialized = true;
-        }
     }
 
     public interface Checker

@@ -16,12 +16,13 @@ package com.facebook.presto.sql.planner.sanity.plancheckerprovidermanagers;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
+import com.facebook.presto.sql.planner.PlanFragmenter;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
@@ -38,7 +39,6 @@ public class PlanCheckerProviderManager
     public PlanCheckerProviderManager(SimplePlanFragmentSerde simplePlanFragmentSerde)
     {
         this.simplePlanFragmentSerde = requireNonNull(simplePlanFragmentSerde, "planNodeSerde is null");
-        this.provider = new EmptyPlanCheckerProvider();
     }
 
     public void addPlanCheckerProviderFactory(PlanCheckerProviderFactory providerFactory)
@@ -49,9 +49,12 @@ public class PlanCheckerProviderManager
         this.providerFactory = requireNonNull(providerFactory, "providerFactory is null");
     }
 
-    public PlanCheckerProvider getPlanCheckerProvider()
+    public void loadPlanCheckerProvider(PlanChecker planChecker, PlanFragmenter planFragmenter)
+            throws IOException
     {
-        return provider;
+        loadPlanCheckerProvider();
+        planChecker.update(provider);
+        planFragmenter.updatePlanCheckers(provider);
     }
 
     public void loadPlanCheckerProvider()
@@ -60,19 +63,31 @@ public class PlanCheckerProviderManager
         if (providerFactory != null) {
             provider = providerFactory.create(getConfig(), simplePlanFragmentSerde);
         }
+        else {
+            provider = new EmptyPlanCheckerProvider();
+        }
+    }
+
+    public PlanCheckerProvider getPlanCheckerProvider()
+    {
+        if (provider == null) {
+            try {
+                loadPlanCheckerProvider();
+            }
+            catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return provider;
     }
 
     private Map<String, String> getConfig()
             throws IOException
     {
-        Map<String, String> properties;
         if (PLAN_CHECKER_PROVIDER_CONFIG.exists()) {
-            properties = Collections.unmodifiableMap(new HashMap<>(loadProperties(PLAN_CHECKER_PROVIDER_CONFIG)));
+            return loadProperties(PLAN_CHECKER_PROVIDER_CONFIG);
         }
-        else {
-            properties = Collections.emptyMap();
-        }
-        return properties;
+        return ImmutableMap.of();
     }
 
     public static class EmptyPlanCheckerProvider
