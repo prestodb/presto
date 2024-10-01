@@ -360,8 +360,8 @@ vector in a dictionary.
 innermost vector of a dictionary, e.g. Dict(Dict(Flat))->wrappedVector() return
 Flat.
 
-**wrappedIndex(index)** virtual method defined in BaseVector translates index into
-the dictionary vector into an index into the innermost vector, e.g.
+**wrappedIndex(index)** virtual method defined in BaseVector translates the index in
+the dictionary vector into the index in the innermost vector, e.g.
 wrappedIndex(3) returns 6 for the dictionary vector above.
 
 Dictionary vector has its own nulls buffer independent of the nulls buffer of
@@ -530,7 +530,7 @@ to a particular row in another vector.
     vector_size_t index_;
 
 The following diagram shows a complex vector of type ARRAY(INTEGER) representing
-an array of 3 integers: [10, 12, -1, 0]. It is defined as a pointer to row 2 in
+an array of 4 integers: [10, 12, -1, 0]. It is defined as a pointer to row 2 in
 some other ArrayVector.
 
 .. image:: images/constant-array-vector.png
@@ -553,7 +553,7 @@ referring to the innermost vector, e.g. wrapInConstant(100, 5, Dict
 **wrappedVector()** virtual method defined in BaseVector provides access to the
 underlying flat vector.
 
-**wrappedIndex(index)** virtual method defined in BaseVector returns the index into
+**wrappedIndex(index)** virtual method defined in BaseVector returns the index in
 the underlying flat vector that identifies the constant value. This method
 returns the same value for all inputs as all rows of the constant vector map to
 the same row of the underlying flat vector.
