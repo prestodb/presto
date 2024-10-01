@@ -303,9 +303,9 @@ public final class ChunkedSliceOutput
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("OutputStreamSliceOutputAdapter{");
+        StringBuilder builder = new StringBuilder("ChunkedSliceOutput{");
         builder.append("position=").append(size());
-        builder.append("bufferSize=").append(slice.length());
+        builder.append(", bufferSize=").append(slice.length());
         builder.append('}');
         return builder.toString();
     }
