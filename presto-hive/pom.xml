@@ -699,5 +699,23 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>test-hive-insert-overwrite-jdk21</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHive2InsertOverwrite.java</include>
+                                <include>**/TestHive3InsertOverwrite.java</include>
+                            </includes>
+                            <argLine>-Djdk.reflect.useDirectMethodHandle=false --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview</argLine>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
