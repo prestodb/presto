@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.delta;
 
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesReader;
@@ -20,6 +21,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 /**
@@ -34,6 +36,8 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
 
     private final DeltaBinaryPackingValuesReader innerReader;
 
+    private boolean withTimezone;
+
     public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
             throws IOException
     {
@@ -42,11 +46,29 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
     }
 
     @Override
+    public boolean isWithTimezone()
+    {
+        return withTimezone;
+    }
+
+    @Override
+    public void setWithTimezone(boolean withTimezone)
+    {
+        this.withTimezone = withTimezone;
+    }
+
+    @Override
     public void readNext(long[] values, int offset, int length)
     {
         int endOffset = offset + length;
         for (int i = offset; i < endOffset; i++) {
-            values[i] = MICROSECONDS.toMillis(innerReader.readLong());
+            long curValue = MICROSECONDS.toMillis(innerReader.readLong());
+            if (isWithTimezone()) {
+                values[i] = packDateTimeWithZone(curValue, TimeZoneKey.UTC_KEY);
+            }
+            else {
+                values[i] = curValue;
+            }
         }
     }
 
