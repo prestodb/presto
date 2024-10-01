@@ -421,9 +421,9 @@ public class OrcOutputBuffer
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("OutputStreamSliceOutputAdapter{");
+        StringBuilder builder = new StringBuilder("OrcOutputBuffer{");
         builder.append("outputStream=").append(compressedOutputStream);
-        builder.append("bufferSize=").append(slice.length());
+        builder.append(", bufferSize=").append(slice.length());
         builder.append('}');
         return builder.toString();
     }
