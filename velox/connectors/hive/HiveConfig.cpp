@@ -143,8 +143,8 @@ std::string HiveConfig::gcsScheme() const {
   return config_->get<std::string>(kGCSScheme, std::string("https"));
 }
 
-std::string HiveConfig::gcsCredentials() const {
-  return config_->get<std::string>(kGCSCredentials, std::string(""));
+std::string HiveConfig::gcsCredentialsPath() const {
+  return config_->get<std::string>(kGCSCredentialsPath, std::string(""));
 }
 
 std::optional<int> HiveConfig::gcsMaxRetryCount() const {

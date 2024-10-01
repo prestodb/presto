@@ -641,10 +641,10 @@ Each query can override the config by setting corresponding query session proper
      - string
      -
      - The GCS storage scheme, https for default credentials.
-   * - hive.gcs.credentials
+   * - hive.gcs.json-key-file-path
      - string
      -
-     - The GCS service account configuration as json string.
+     - The GCS service account configuration JSON key file.
    * - hive.gcs.max-retry-count
      - integer
      -

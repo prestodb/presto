@@ -310,7 +310,7 @@ TEST_F(GCSFileSystemTest, credentialsConfig) {
   // for authentication because the key has been deactivated on the server-side,
   // *and* the account(s) involved are deleted *and* they are not the accounts
   // or projects do not match its contents.
-  configOverride["hive.gcs.credentials"] = R"""({
+  auto creds = R"""({
       "type": "service_account",
       "project_id": "foo-project",
       "private_key_id": "a1a111aa1111a11a11a11aa111a111a1a1111111",
@@ -344,13 +344,17 @@ TEST_F(GCSFileSystemTest, credentialsConfig) {
       "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
       "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/foo-email%40foo-project.iam.gserviceaccount.com"
   })""";
+  auto jsonFile = exec::test::TempFilePath::create();
+  std::ofstream credsOut(jsonFile->getPath());
+  credsOut << creds;
+  credsOut.close();
+  configOverride["hive.gcs.json-key-file-path"] = jsonFile->getPath();
   configOverride["hive.gcs.scheme"] = "http";
   configOverride["hive.gcs.endpoint"] = "localhost:" + testbench_->port();
   std::shared_ptr<const config::ConfigBase> conf =
       std::make_shared<const config::ConfigBase>(std::move(configOverride));
 
   filesystems::GCSFileSystem gcfs(conf);
-
   gcfs.initializeClient();
   try {
     const std::string gcsFile =

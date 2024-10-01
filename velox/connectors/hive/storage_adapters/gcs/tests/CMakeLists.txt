@@ -16,12 +16,13 @@ add_executable(velox_gcsfile_test GCSUtilTest.cpp GCSFileSystemTest.cpp)
 add_test(velox_gcsfile_test velox_gcsfile_test)
 target_link_libraries(
   velox_gcsfile_test
-  velox_file
-  velox_gcs
   velox_core
-  velox_hive_connector
   velox_dwio_common_exception
   velox_exec
+  velox_file
+  velox_gcs
+  velox_hive_connector
+  velox_temp_path
   GTest::gmock
   GTest::gtest
   GTest::gtest_main)

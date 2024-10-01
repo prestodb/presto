@@ -110,8 +110,9 @@ class HiveConfig {
   /// The GCS storage scheme, https for default credentials.
   static constexpr const char* kGCSScheme = "hive.gcs.scheme";
 
-  /// The GCS service account configuration as json string
-  static constexpr const char* kGCSCredentials = "hive.gcs.credentials";
+  /// The GCS service account configuration JSON key file.
+  static constexpr const char* kGCSCredentialsPath =
+      "hive.gcs.json-key-file-path";
 
   /// The GCS maximum retry counter of transient errors.
   static constexpr const char* kGCSMaxRetryCount = "hive.gcs.max-retry-count";
@@ -284,7 +285,7 @@ class HiveConfig {
 
   std::string gcsScheme() const;
 
-  std::string gcsCredentials() const;
+  std::string gcsCredentialsPath() const;
 
   std::optional<int> gcsMaxRetryCount() const;
 

@@ -295,12 +295,21 @@ class GCSFileSystem::Impl {
       options.set<gcs::RestEndpointOption>(scheme + "://" + endpointOverride);
     }
 
-    auto cred = hiveConfig_->gcsCredentials();
-    if (!cred.empty()) {
-      auto credentials = gc::MakeServiceAccountCredentials(cred);
-      options.set<gc::UnifiedCredentialsOption>(credentials);
+    auto credFile = hiveConfig_->gcsCredentialsPath();
+    if (!credFile.empty() && std::filesystem::exists(credFile)) {
+      std::ifstream jsonFile(credFile, std::ios::in);
+      if (!jsonFile.is_open()) {
+        LOG(WARNING) << "Error opening file " << credFile;
+      } else {
+        std::stringstream credsBuffer;
+        credsBuffer << jsonFile.rdbuf();
+        auto creds = credsBuffer.str();
+        auto credentials = gc::MakeServiceAccountCredentials(std::move(creds));
+        options.set<gc::UnifiedCredentialsOption>(credentials);
+      }
     } else {
-      LOG(WARNING) << "Config::gcsCredentials is empty";
+      LOG(WARNING)
+          << "Config hive.gcs.json-key-file-path is empty or key file path not found";
     }
 
     client_ = std::make_shared<gcs::Client>(options);
