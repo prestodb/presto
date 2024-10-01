@@ -26,8 +26,6 @@
 namespace facebook::velox::functions {
 namespace {
 static const char* kNullKeyErrorMessage = "map key cannot be null";
-static const char* kIndeterminateKeyErrorMessage =
-    "map key cannot be indeterminate";
 static const char* kErrorMessageEntryNotNull = "map entry cannot be null";
 
 // See documentation at https://prestodb.io/docs/current/functions/map.html
@@ -154,15 +152,6 @@ class MapFromEntriesFunction : public exec::VectorFunction {
           if (keyVector->isNullAt(keyIndex)) {
             resetSize(row);
             VELOX_USER_FAIL(kNullKeyErrorMessage);
-          }
-
-          // Check nested null in keys.
-          if (keyVector->containsNullAt(keyIndex)) {
-            resetSize(row);
-            VELOX_USER_FAIL(fmt::format(
-                "{}: {}",
-                kIndeterminateKeyErrorMessage,
-                keyVector->toString(keyIndex)));
           }
         }
       });

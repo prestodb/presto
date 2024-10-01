@@ -406,12 +406,27 @@ TEST_F(MapFromEntriesTest, arrayOfConstantNotNulls) {
   }
 }
 
-TEST_F(MapFromEntriesTest, nestedNullInKeys) {
-  VELOX_ASSERT_THROW(
-      evaluate(
-          "map_from_entries(array_constructor(row_constructor(array_constructor(null), null)))",
-          makeRowVector({makeFlatVector<int32_t>(1)})),
-      "map key cannot be indeterminate");
+TEST_F(MapFromEntriesTest, nestedNullInKeysSuccess) {
+  auto arrayVector =
+      makeNullableArrayVector<int32_t>({{2, std::nullopt}, {4, 5}});
+  auto flatVector = makeFlatVector<int32_t>({1, 2});
+  auto input = std::make_shared<ArrayVector>(
+      pool(),
+      /*type=*/ARRAY(ROW({ARRAY(INTEGER()), INTEGER()})),
+      /*nulls=*/nullptr,
+      /*length=*/1,
+      /*offsets=*/makeIndices({0}),
+      /*lengths=*/makeIndices({2}),
+      /*elements=*/makeRowVector({arrayVector, flatVector}));
+
+  VectorPtr result = evaluate("map_from_entries(c0)", makeRowVector({input}));
+
+  assertEqualVectors(
+      result,
+      makeMapVector(
+          /*offsets=*/{0},
+          /*keyVector=*/arrayVector,
+          /*valueVector=*/flatVector));
 }
 
 TEST_F(MapFromEntriesTest, unknownInputs) {
