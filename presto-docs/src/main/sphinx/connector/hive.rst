@@ -200,9 +200,6 @@ Property Name                                      Description                  
                                                    error iterating through empty files.
 
  ``hive.file-status-cache.max-retained-size``      Maximum size in bytes of the directory listing cache          ``0KB``
-
-``hive.orc-use-vector-filter``                     Enable use of vector ORC readers in compilation and          ``false``
-                                                   execution
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
