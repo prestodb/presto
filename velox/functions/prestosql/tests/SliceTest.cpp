@@ -61,11 +61,11 @@ TEST_F(SliceTest, constantInputArray) {
     testSlice("slice(C0, -2, 2)", {arrayVector}, expectedArrayVector);
   }
 
-  // Allow length extends beyond boundary.
+  // Allow length to extend beyond boundary and be a BIGINT.
   {
     auto expectedArrayVector = makeArrayVector<int64_t>(
         {{1, 2, 3, 4, 5, 6, 7}, {1, 2, 7}, {1, 2, 3, 5, 6, 7}});
-    testSlice("slice(C0, 1, 7)", {arrayVector}, expectedArrayVector);
+    testSlice("slice(C0, 1, 2147483648)", {arrayVector}, expectedArrayVector);
   }
 
   // Throw invalid argument when start index = 0.

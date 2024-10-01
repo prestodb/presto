@@ -127,9 +127,7 @@ class SliceFunction : public exec::VectorFunction {
         rawOffsets[row] = start;
         rawSizes[row] = adjustLength(
             start,
-            // Indices are always 32-bit integers, template arguments are used
-            // to accommodate more data types.
-            static_cast<vector_size_t>(decodedLength->valueAt<T>(row)),
+            decodedLength->valueAt<T>(row),
             row,
             baseRawSizes,
             baseRawOffsets,
@@ -198,7 +196,7 @@ class SliceFunction : public exec::VectorFunction {
 
   vector_size_t adjustLength(
       vector_size_t start,
-      vector_size_t length,
+      int64_t length,
       vector_size_t row,
       const vector_size_t* rawSizes,
       const vector_size_t* rawOffsets,
@@ -207,8 +205,8 @@ class SliceFunction : public exec::VectorFunction {
       VELOX_USER_FAIL(
           "The value of length argument of slice() function should not be negative");
     }
-    auto endIndex = rawOffsets[indices[row]] + rawSizes[indices[row]];
-    return std::min(endIndex - start, length);
+    int64_t endIndex = rawOffsets[indices[row]] + rawSizes[indices[row]];
+    return static_cast<vector_size_t>(std::min(endIndex - start, length));
   }
 };
 
