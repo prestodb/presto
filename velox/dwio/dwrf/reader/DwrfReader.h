@@ -79,9 +79,7 @@ class DwrfRowReader : public StrideIndexProvider,
     return selectedSchema_;
   }
 
-  uint64_t rowNumber() const {
-    return previousRow_;
-  }
+  uint64_t rowNumber();
 
   uint64_t seekToRow(uint64_t rowNumber);
 

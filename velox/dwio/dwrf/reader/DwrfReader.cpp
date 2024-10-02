@@ -588,6 +588,17 @@ int64_t DwrfRowReader::nextRowNumber() {
   return kAtEnd;
 }
 
+uint64_t DwrfRowReader::rowNumber() {
+  const auto nextRow = nextRowNumber();
+  if (nextRow != kAtEnd) {
+    return nextRow;
+  }
+  if (isEmptyFile()) {
+    return 0;
+  }
+  return getReader().footer().numberOfRows();
+}
+
 int64_t DwrfRowReader::nextReadSize(uint64_t size) {
   VELOX_DCHECK_GT(size, 0);
   if (nextRowNumber() == kAtEnd) {
