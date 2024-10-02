@@ -326,6 +326,7 @@ public final class SystemSessionProperties
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
+    public static final String SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED = "scalar_function_stats_propagation_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1826,6 +1827,10 @@ public final class SystemSessionProperties
                         "Include values node for connector optimizer",
                         featuresConfig.isIncludeValuesNodeInConnectorOptimizer(),
                         false),
+                booleanProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED,
+                        "whether or not to respect stats propagation annotation for scalar functions (or UDF)",
+                        featuresConfig.isScalarFunctionStatsPropagationEnabled(),
+                        false),
                 integerProperty(
                         NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING,
                         "Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only",
@@ -3095,6 +3100,11 @@ public final class SystemSessionProperties
     public static boolean isRemoveCrossJoinWithConstantSingleRowInputEnabled(Session session)
     {
         return session.getSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, Boolean.class);
+    }
+
+    public static boolean shouldEnableScalarFunctionStatsPropagation(Session session)
+    {
+        return session.getSystemProperty(SCALAR_FUNCTION_STATS_PROPAGATION_ENABLED, Boolean.class);
     }
 
     public static boolean shouldOptimizerUseHistograms(Session session)
