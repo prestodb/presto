@@ -630,7 +630,7 @@ class QueryConfig {
 
   /// Returns the number of bits used to calculate the spill partition number
   /// for hash join and RowNumber. The number of spill partitions will be power
-  /// of tow.
+  /// of two.
   /// NOTE: as for now, we only support up to 8-way spill partitioning.
   uint8_t spillNumPartitionBits() const {
     constexpr uint8_t kDefaultBits = 3;

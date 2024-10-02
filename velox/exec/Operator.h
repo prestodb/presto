@@ -726,7 +726,7 @@ class Operator : public BaseRuntimeStatWriter {
   void maybeSetReclaimer();
 
   /// Returns true if this is a spillable operator and has configured spilling.
-  FOLLY_ALWAYS_INLINE bool canSpill() const {
+  FOLLY_ALWAYS_INLINE virtual bool canSpill() const {
     return spillConfig_.has_value();
   }
 

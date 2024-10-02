@@ -202,7 +202,7 @@ class HashProbe : public Operator {
   void prepareTableSpill(
       const std::optional<SpillPartitionId>& restoredPartitionId);
 
-  bool spillEnabled() const;
+  bool canSpill() const override;
 
   // Indicates if the probe input is read from spilled data or not.
   bool isSpillInput() const;

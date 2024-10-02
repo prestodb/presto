@@ -401,7 +401,7 @@ bool HashProbe::isSpillInput() const {
 
 void HashProbe::prepareForSpillRestore() {
   checkRunning();
-  VELOX_CHECK(spillEnabled());
+  VELOX_CHECK(canSpill());
   VELOX_CHECK(hasMoreSpillData());
 
   // Reset the internal states which are relevant to the previous probe run.
@@ -512,7 +512,7 @@ void HashProbe::spillInput(RowVectorPtr& input) {
 void HashProbe::prepareInputIndicesBuffers(
     vector_size_t numInput,
     const folly::F14FastSet<uint32_t>& spillPartitions) {
-  VELOX_DCHECK(spillEnabled());
+  VELOX_DCHECK(canSpill());
   const auto maxIndicesBufferBytes = numInput * sizeof(vector_size_t);
   if (nonSpillInputIndicesBuffer_ == nullptr ||
       !nonSpillInputIndicesBuffer_->isMutable() ||
@@ -548,7 +548,7 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
       }
       break;
     case ProbeOperatorState::kWaitForPeers:
-      VELOX_CHECK(spillEnabled());
+      VELOX_CHECK(canSpill());
       if (!future_.valid()) {
         setRunning();
       }
@@ -873,17 +873,18 @@ bool HashProbe::skipProbeOnEmptyBuild() const {
       isRightSemiProjectJoin(joinType_);
 }
 
-bool HashProbe::spillEnabled() const {
-  return canSpill() && !operatorCtx_->task()->hasMixedExecutionGroup();
+bool HashProbe::canSpill() const {
+  return Operator::canSpill() &&
+      !operatorCtx_->task()->hasMixedExecutionGroup();
 }
 
 bool HashProbe::hasMoreSpillData() const {
-  VELOX_CHECK(spillPartitionSet_.empty() || spillEnabled());
+  VELOX_CHECK(spillPartitionSet_.empty() || canSpill());
   return !spillPartitionSet_.empty() || needSpillInput();
 }
 
 bool HashProbe::needSpillInput() const {
-  VELOX_CHECK(spillInputPartitionIds_.empty() || spillEnabled());
+  VELOX_CHECK(spillInputPartitionIds_.empty() || canSpill());
   VELOX_CHECK_EQ(spillInputPartitionIds_.empty(), inputSpiller_ == nullptr);
 
   return !spillInputPartitionIds_.empty();
@@ -898,7 +899,7 @@ void HashProbe::checkStateTransition(ProbeOperatorState state) {
   VELOX_CHECK_NE(state_, state);
   switch (state) {
     case ProbeOperatorState::kRunning:
-      if (!spillEnabled()) {
+      if (!canSpill()) {
         VELOX_CHECK_EQ(state_, ProbeOperatorState::kWaitForBuild);
       } else {
         VELOX_CHECK(
@@ -907,7 +908,7 @@ void HashProbe::checkStateTransition(ProbeOperatorState state) {
       }
       break;
     case ProbeOperatorState::kWaitForPeers:
-      VELOX_CHECK(spillEnabled());
+      VELOX_CHECK(canSpill());
       [[fallthrough]];
     case ProbeOperatorState::kWaitForBuild:
       [[fallthrough]];
@@ -965,7 +966,7 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
         prepareForSpillRestore();
         asyncWaitForHashTable();
       } else {
-        if (lastProber_ && spillEnabled()) {
+        if (lastProber_ && canSpill()) {
           joinBridge_->probeFinished();
           wakeupPeerOperators();
         }
@@ -1568,7 +1569,7 @@ void HashProbe::noMoreInputInternal() {
     VELOX_CHECK_EQ(spillStats_.rlock()->spillSortTimeNanos, 0);
   }
 
-  const bool hasSpillEnabled = spillEnabled();
+  const bool hasSpillEnabled = canSpill();
   std::vector<ContinuePromise> promises;
   std::vector<std::shared_ptr<Driver>> peers;
   // The last operator to finish processing inputs is responsible for
@@ -1651,19 +1652,30 @@ void HashProbe::ensureOutputFits() {
 }
 
 bool HashProbe::canReclaim() const {
-  return spillEnabled();
+  return canSpill() && !exceededMaxSpillLevelLimit_;
 }
 
 void HashProbe::reclaim(
     uint64_t /*unused*/,
     memory::MemoryReclaimer::Stats& stats) {
-  VELOX_CHECK(canReclaim());
+  TestValue::adjust("facebook::velox::exec::HashProbe::reclaim", this);
+  VELOX_CHECK(canSpill());
   auto* driver = operatorCtx_->driver();
   VELOX_CHECK_NOT_NULL(driver);
   VELOX_CHECK(!nonReclaimableSection_);
 
-  if (exceededMaxSpillLevelLimit_) {
-    // NOTE: we might have reached to the max spill limit.
+  if (UNLIKELY(exceededMaxSpillLevelLimit_)) {
+    // 'canReclaim()' already checks the spill limit is not exceeding max, there
+    // is only a small chance from the time 'canReclaim()' is checked to the
+    // actual reclaim happens that the operator has spilled such that the spill
+    // level exceeds max.
+    const auto* config = spillConfig();
+    VELOX_CHECK_NOT_NULL(config);
+    LOG(WARNING)
+        << "Can't reclaim from hash probe operator, exceeded maximum spill "
+           "level of "
+        << config->maxSpillLevel << ", " << pool()->name() << ", usage "
+        << succinctBytes(pool()->usedBytes());
     return;
   }
 
@@ -1693,7 +1705,7 @@ void HashProbe::reclaim(
   bool hasMoreProbeInput{false};
   for (auto* probeOp : probeOps) {
     VELOX_CHECK_NOT_NULL(probeOp);
-    VELOX_CHECK(probeOp->canReclaim());
+    VELOX_CHECK(probeOp->canSpill());
     if (probeOp->nonReclaimableState()) {
       RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
       ++stats.numNonReclaimableAttempts;
@@ -1932,7 +1944,7 @@ std::unique_ptr<Spiller> HashProbe::spillTable(RowContainer* subTableRows) {
 
 void HashProbe::prepareTableSpill(
     const std::optional<SpillPartitionId>& restoredPartitionId) {
-  if (!spillEnabled()) {
+  if (!canSpill()) {
     return;
   }
 

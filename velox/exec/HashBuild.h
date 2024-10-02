@@ -113,9 +113,7 @@ class HashBuild final : public Operator {
   // process which will be set by the join probe side.
   void postHashBuildProcess();
 
-  bool spillEnabled() const {
-    return canReclaim();
-  }
+  bool canSpill() const override;
 
   // Indicates if the input is read from spill data or not.
   bool isInputFromSpill() const;

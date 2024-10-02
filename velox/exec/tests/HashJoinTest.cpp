@@ -6836,46 +6836,97 @@ DEBUG_ONLY_TEST_F(HashJoinTest, exceededMaxSpillLevel) {
   auto tempDirectory = exec::test::TempDirectoryPath::create();
   const int exceededMaxSpillLevelCount =
       common::globalSpillStats().spillMaxLevelExceededCount;
+
+  std::atomic_bool noMoreProbeInput{false};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::HashBuild::addInput",
-      std::function<void(exec::HashBuild*)>(([&](exec::HashBuild* hashBuild) {
-        Operator::ReclaimableSectionGuard guard(hashBuild);
-        testingRunArbitration(hashBuild->pool());
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(exec::Operator*)>(([&](exec::Operator* op) {
+        if (op->operatorType() == "HashProbe") {
+          noMoreProbeInput = true;
+        }
       })));
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(1)
-      .planNode(plan)
-      // Always trigger spilling.
-      .injectSpill(false)
-      .maxSpillLevel(0)
-      .spillDirectory(tempDirectory->getPath())
-      .referenceQuery(
-          "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
-      .config(core::QueryConfig::kSpillStartPartitionBit, "29")
-      .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
-        auto opStats = toOperatorStats(task->taskStats());
-        ASSERT_EQ(
-            opStats.at("HashProbe")
-                .runtimeStats[Operator::kExceededMaxSpillLevel]
-                .sum,
-            8);
-        ASSERT_EQ(
-            opStats.at("HashProbe")
-                .runtimeStats[Operator::kExceededMaxSpillLevel]
-                .count,
-            1);
-        ASSERT_EQ(
-            opStats.at("HashBuild")
-                .runtimeStats[Operator::kExceededMaxSpillLevel]
-                .sum,
-            8);
-        ASSERT_EQ(
-            opStats.at("HashBuild")
-                .runtimeStats[Operator::kExceededMaxSpillLevel]
-                .count,
-            1);
-      })
-      .run();
+
+  std::atomic_bool lastProbeReclaimTriggered{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashProbe::reclaim",
+      std::function<void(exec::Operator*)>(([&](exec::Operator* op) {
+        if (!lastProbeReclaimTriggered) {
+          if (noMoreProbeInput) {
+            lastProbeReclaimTriggered = true;
+          }
+        } else {
+          FAIL();
+        }
+      })));
+
+  std::atomic_bool lastBuildReclaimTriggered{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashBuild::reclaim",
+      std::function<void(exec::HashBuild*)>(([&](exec::HashBuild* hashBuild) {
+        if (!lastBuildReclaimTriggered) {
+          if (noMoreProbeInput) {
+            lastBuildReclaimTriggered = true;
+          }
+        } else {
+          FAIL();
+        }
+      })));
+
+  // Always trigger spilling.
+  TestScopedSpillInjection scopedSpillInjection(100);
+  auto task =
+      AssertQueryBuilder(plan, duckDbQueryRunner_)
+          .maxDrivers(1)
+          .config(core::QueryConfig::kSpillEnabled, "true")
+          .config(core::QueryConfig::kJoinSpillEnabled, "true")
+          // Disable write buffering to ease test verification. For example, we
+          // want many spilled vectors in a spilled file to trigger recursive
+          // spilling.
+          .config(core::QueryConfig::kSpillWriteBufferSize, std::to_string(0))
+          .config(core::QueryConfig::kMaxSpillLevel, "0")
+          .config(core::QueryConfig::kSpillStartPartitionBit, "29")
+          .spillDirectory(tempDirectory->getPath())
+          .assertResults(
+              "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1");
+
+  uint64_t totalTaskWaitTimeUs{0};
+  while (task.use_count() != 1) {
+    constexpr uint64_t kWaitInternalUs = 1'000;
+    std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
+    totalTaskWaitTimeUs += kWaitInternalUs;
+    if (totalTaskWaitTimeUs >= 5'000'000) {
+      VELOX_FAIL(
+          "Failed to wait for all the background activities of task {} to finish, pending reference count: {}",
+          task->taskId(),
+          task.use_count());
+    }
+  }
+
+  ASSERT_TRUE(lastBuildReclaimTriggered.load());
+  ASSERT_TRUE(lastProbeReclaimTriggered.load());
+
+  auto opStats = toOperatorStats(task->taskStats());
+  ASSERT_EQ(
+      opStats.at("HashProbe")
+          .runtimeStats[Operator::kExceededMaxSpillLevel]
+          .sum,
+      8);
+  ASSERT_EQ(
+      opStats.at("HashProbe")
+          .runtimeStats[Operator::kExceededMaxSpillLevel]
+          .count,
+      1);
+  ASSERT_EQ(
+      opStats.at("HashBuild")
+          .runtimeStats[Operator::kExceededMaxSpillLevel]
+          .sum,
+      8);
+  ASSERT_EQ(
+      opStats.at("HashBuild")
+          .runtimeStats[Operator::kExceededMaxSpillLevel]
+          .count,
+      1);
+
   ASSERT_EQ(
       common::globalSpillStats().spillMaxLevelExceededCount,
       exceededMaxSpillLevelCount + 16);
