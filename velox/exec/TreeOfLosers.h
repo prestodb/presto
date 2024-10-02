@@ -305,7 +305,7 @@ class TreeOfLosers {
 };
 
 // Array-based merging structure implementing the same interface as
-// TreOfLosers. The streams are sorted on their first value. The
+// TreeOfLosers. The streams are sorted on their first value. The
 // first stream is returned and then reinserted in the array at the
 // position corresponding to the new element after the caller has
 // popped off the previous first value.
