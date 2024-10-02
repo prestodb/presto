@@ -71,7 +71,7 @@ inline void registerArrayHasDuplicatesFunctions(const std::string& prefix) {
   registerFunction<
       ParameterBinder<ArrayHasDuplicatesFunction, T>,
       bool,
-      Array<T>>({prefix + "array_has_duplicates", prefix + "array_has_dupes"});
+      Array<T>>({prefix + "array_has_duplicates"});
 }
 
 template <typename T>
@@ -134,7 +134,6 @@ void registerArrayFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_distinct, prefix + "array_distinct");
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_array_duplicates, prefix + "array_duplicates");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_duplicates, prefix + "array_dupes");
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_array_intersect, prefix + "array_intersect");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_contains, prefix + "contains");
