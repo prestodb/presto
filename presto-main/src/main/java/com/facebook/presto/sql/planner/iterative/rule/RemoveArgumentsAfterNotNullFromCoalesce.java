@@ -3,11 +3,13 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+
+import java.util.List;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
@@ -28,9 +30,16 @@ public class RemoveArgumentsAfterNotNullFromCoalesce
     }
 
     @Override
-    public Result apply(ProjectNode node, Captures captures, Context context) {
-        PlanNode current = node;
-        current.getSources();
-        return null;
+    public Result apply(ProjectNode projectNode, Captures captures, Context context) {
+        JoinNode join = captures.get(JOIN);
+
+        if (!join.getFilter().isPresent()) {
+            return Result.empty();
+        }
+
+        List<RowExpression> notNulls = join.getFilter().get().getChildren();
+        List<VariableReferenceExpression> coalesceArgs = projectNode.getOutputVariables();
+
+        return Result.empty();
     }
 }
