@@ -78,8 +78,8 @@ class WaveOperator {
   /// Returns how many rows of output are available from 'this'. Source
   /// operators and cardinality increasing operators must return a correct
   /// answer if they are ready to produce data. Others should return 0.
-  virtual AdvanceResult canAdvance(WaveStream& stream) {
-    return {.numRows = 0};
+  virtual std::vector<AdvanceResult> canAdvance(WaveStream& stream) {
+    return {};
   }
 
   /// Adds processing for 'this' to 'stream'. If 'maxRows' is given,
@@ -99,6 +99,10 @@ class WaveOperator {
 
   virtual bool isSink() const {
     return false;
+  }
+
+  virtual void callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
+    VELOX_FAIL("Only Project supports callUpdateStatus()");
   }
 
   virtual std::string toString() const;

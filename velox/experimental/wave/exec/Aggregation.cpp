@@ -279,7 +279,7 @@ void Aggregation::flush(bool noMoreInput) {
   flushDone_.record(*flushStream_);
 }
 
-AdvanceResult Aggregation::canAdvance(WaveStream& stream) {
+std::vector<AdvanceResult> Aggregation::canAdvance(WaveStream& stream) {
   if (!noMoreInput_ || finished_) {
     return {};
   }
@@ -287,7 +287,7 @@ AdvanceResult Aggregation::canAdvance(WaveStream& stream) {
     waitFlushDone();
     flush(true);
   }
-  return {.numRows = container_->actualNumGroups};
+  return {{.numRows = container_->actualNumGroups}};
 }
 
 void Aggregation::schedule(WaveStream& waveStream, int32_t maxRows) {

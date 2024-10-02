@@ -165,7 +165,7 @@ HiveConnectorTestBase::makeHiveConnectorSplits(
       filesystems::getFileSystem(filePath, nullptr)->openFileForRead(filePath);
   const int64_t fileSize = file->size();
   // Take the upper bound.
-  const int splitSize = std::ceil((fileSize) / splitCount);
+  const int64_t splitSize = std::ceil((fileSize) / splitCount);
   std::vector<std::shared_ptr<connector::hive::HiveConnectorSplit>> splits;
   // Add all the splits.
   for (int i = 0; i < splitCount; i++) {

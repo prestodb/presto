@@ -86,7 +86,7 @@ __global__ void waveBaseKernel(KernelParams params) {
         aggregateKernel(instruction->_.aggregate, shared, laneStatus);
         break;
       case OpCode::kReadAggregate:
-        readAggregateKernel(instruction->_.aggregate, shared);
+        readAggregateKernel(&instruction->_.aggregate, shared);
         break;
         BINARY_TYPES(OpCode::kPlus_BIGINT, int64_t, +);
         BINARY_TYPES(OpCode::kLT_BIGINT, int64_t, <);
@@ -105,11 +105,15 @@ int32_t instructionSharedMemory(const Instruction& instruction) {
   }
 }
 
-#define CALL_ONE(k, params, pc, base) \
-  k<<<blocksPerExe,                   \
-      kBlockSize,                     \
-      sharedSize,                     \
-      alias ? alias->stream()->stream : stream()->stream>>>(params, pc, base);
+#define CALL_ONE(k, params, pc, base)                          \
+  {                                                            \
+    k<<<blocksPerExe,                                          \
+        kBlockSize,                                            \
+        sharedSize,                                            \
+        alias ? alias->stream()->stream : stream()->stream>>>( \
+        params, pc, base);                                     \
+    CUDA_CHECK(cudaGetLastError());                            \
+  };
 
 void WaveKernelStream::callOne(
     Stream* alias,
@@ -141,18 +145,23 @@ void WaveKernelStream::callOne(
     if (params.startPC) {
       start = params.startPC[programIdx];
     }
+    if (start == ~0) {
+      // No continu in this program.
+      continue;
+    }
+
     for (auto pc = start; pc < program.size(); ++pc) {
       assert(params.programs[0]->instructions != nullptr);
       switch (program[pc]) {
         case OpCode::kFilter:
-          CALL_ONE(oneFilter, params, pc, base)
+          CALL_ONE(oneFilter, params, pc, base);
           ++pc;
           break;
         case OpCode::kAggregate:
-          CALL_ONE(oneAggregate, params, pc, base)
+          CALL_ONE(oneAggregate, params, pc, base);
           break;
         case OpCode::kReadAggregate:
-          CALL_ONE(oneReadAggregate, params, pc, base)
+          CALL_ONE(oneReadAggregate, params, pc, base);
           break;
         case OpCode::kPlus_BIGINT:
           CALL_ONE(onePlusBigint, params, pc, base);
@@ -184,12 +193,20 @@ void WaveKernelStream::call(
       kBlockSize,
       sharedSize,
       alias ? alias->stream()->stream : stream()->stream>>>(params);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 REGISTER_KERNEL("expr", waveBaseKernel);
 
 void __global__ setupAggregationKernel(AggregationControl op) {
-  //    assert(op.maxTableEntries == 0);
+  if (op.oldBuckets) {
+    auto table = op.head->table;
+    reinterpret_cast<GpuHashTable*>(table)->rehash<SumGroupRow>(
+        reinterpret_cast<GpuBucket*>(op.oldBuckets),
+        op.numOldBuckets,
+        SumGroupByOps(nullptr, nullptr));
+    return;
+  }
   auto* data = new (op.head) DeviceAggregation();
   data->rowSize = op.rowSize;
   data->singleRow = reinterpret_cast<char*>(data + 1);
@@ -197,7 +214,15 @@ void __global__ setupAggregationKernel(AggregationControl op) {
 }
 
 void WaveKernelStream::setupAggregation(AggregationControl& op) {
-  setupAggregationKernel<<<1, 1, 0, stream_->stream>>>(op);
+  int32_t numBlocks = 1;
+  int32_t numThreads = 1;
+  if (op.oldBuckets) {
+    // One thread per bucket. Enough TBs for full device.
+    numThreads = kBlockSize;
+    numBlocks = std::min<int64_t>(
+        roundUp(op.numOldBuckets, kBlockSize) / kBlockSize, 640);
+  }
+  setupAggregationKernel<<<numBlocks, numThreads, 0, stream_->stream>>>(op);
   wait();
 }
 

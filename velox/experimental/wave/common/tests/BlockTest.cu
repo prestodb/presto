@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
+#include "velox/experimental/wave/common/ArenaWithFree.cuh"
 #include "velox/experimental/wave/common/Bits.cuh"
 #include "velox/experimental/wave/common/Block.cuh"
 #include "velox/experimental/wave/common/CudaUtil.cuh"
 #include "velox/experimental/wave/common/HashTable.cuh"
+#include "velox/experimental/wave/common/tests/Updates.cuh"
+
 #include "velox/experimental/wave/common/tests/BlockTest.h"
 #include "velox/experimental/wave/common/tests/HashTestUtil.h"
 #include "velox/experimental/wave/common/tests/Updates.cuh"
@@ -278,36 +281,38 @@ ProbeState __device__ arrayAgg64Append(
   return ProbeState::kDone;
 }
 
-/// An mock Ops parameter class to do group by.
+/// A mock Ops parameter class to do group by.
 class MockGroupByOps {
  public:
-  int32_t __device__ blockBase(HashProbe* probe) {
-    return probe->numRowsPerThread * blockDim.x * blockIdx.x;
-  }
+  __device__ MockGroupByOps(HashProbe* probe) : probe_(probe) {}
 
-  int32_t __device__ numRowsInBlock(HashProbe* probe) {
-    return probe->numRows[blockIdx.x];
-  }
-
-  uint64_t __device__ hash(int32_t i, HashProbe* probe) {
-    auto key = reinterpret_cast<int64_t**>(probe->keys)[0];
+  uint64_t __device__ hash(int32_t i) {
+    auto key = reinterpret_cast<int64_t**>(probe_->keys)[0];
     return hashMix(1, key[i]);
   }
 
-  bool __device__
-  compare(GpuHashTable* table, TestingRow* row, int32_t i, HashProbe* probe) {
-    return row->key == reinterpret_cast<int64_t**>(probe->keys)[0][i];
+  uint64_t __device__ hashRow(TestingRow* row) {
+    return hashMix(1, row->key);
+  }
+
+  bool __device__ compare(GpuHashTable* table, TestingRow* row, int32_t i) {
+    return asDeviceAtomic<int64_t>(&row->key)->load(
+               cuda::memory_order_consume) ==
+        reinterpret_cast<int64_t**>(probe_->keys)[0][i];
   }
 
   TestingRow* __device__
-  newRow(GpuHashTable* table, int32_t partition, int32_t i, HashProbe* probe) {
+  newRow(GpuHashTable* table, int32_t partition, int32_t i) {
     auto* allocator = &table->allocators[partition];
     auto row = allocator->allocateRow<TestingRow>();
     if (row) {
-      row->key = reinterpret_cast<int64_t**>(probe->keys)[0][i];
       row->flags = 0;
       row->count = 0;
+
       new (&row->concatenation) ArrayAgg64();
+      asDeviceAtomic<int64_t>(&row->key)->store(
+          reinterpret_cast<int64_t**>(probe_->keys)[0][i],
+          cuda::memory_order_release);
     }
     return row;
   }
@@ -320,10 +325,9 @@ class MockGroupByOps {
       uint32_t oldTags,
       uint32_t tagWord,
       int32_t i,
-      HashProbe* probe,
       TestingRow*& row) {
     if (!row) {
-      row = newRow(table, partition, i, probe);
+      row = newRow(table, partition, i);
       if (!row) {
         return ProbeState::kNeedSpace;
       }
@@ -333,15 +337,19 @@ class MockGroupByOps {
       return ProbeState::kRetry;
     }
     bucket->store(missShift / 8, row);
+    atomicAdd((unsigned long long*)&table->numDistinct, 1);
     return ProbeState::kDone;
+  }
+
+  void __device__ addHostRetry(int32_t i) {
+    assert(false);
   }
 
   TestingRow* __device__ getExclusive(
       GpuHashTable* table,
       GpuBucket* bucket,
       TestingRow* row,
-      int32_t hitIdx,
-      int32_t warp) {
+      int32_t hitIdx) {
     return row;
     int32_t nanos = 1;
     for (;;) {
@@ -353,17 +361,20 @@ class MockGroupByOps {
     }
   }
 
+  void __device__
+  freeInsertable(GpuHashTable* table, TestingRow* row, uint64_t h) {
+    int32_t partition = table->partitionIdx(h);
+    auto* allocator = &table->allocators[partition];
+    allocator->markRowFree(row);
+  }
+
   void __device__ writeDone(TestingRow* row) {
     // atomicUnlock(&row->flags);
   }
 
-  ProbeState __device__ update(
-      GpuHashTable* table,
-      GpuBucket* bucket,
-      TestingRow* row,
-      int32_t i,
-      HashProbe* probe) {
-    auto* keys = reinterpret_cast<int64_t**>(probe->keys);
+  ProbeState __device__
+  update(GpuHashTable* table, GpuBucket* bucket, TestingRow* row, int32_t i) {
+    auto* keys = reinterpret_cast<int64_t**>(probe_->keys);
     atomicAdd((unsigned long long*)&row->count, (unsigned long long)keys[1][i]);
     return ProbeState::kDone;
     int64_t arg = keys[1][i];
@@ -374,6 +385,8 @@ class MockGroupByOps {
     __threadfence();
     return state;
   }
+
+  HashProbe* probe_;
 };
 
 void __global__ __launch_bounds__(1024) hashTestKernel(
@@ -382,7 +395,13 @@ void __global__ __launch_bounds__(1024) hashTestKernel(
     BlockTestStream::HashCase mode) {
   switch (mode) {
     case BlockTestStream::HashCase::kGroup: {
-      table->updatingProbe<TestingRow>(probe, MockGroupByOps());
+      MockGroupByOps ops(probe);
+      int32_t begin = blockIdx.x * probe->numRowsPerThread * blockDim.x;
+      int32_t end = begin + probe->numRows[blockIdx.x];
+
+      for (auto i = begin + threadIdx.x; i < end; i += blockDim.x) {
+        table->updatingProbe<TestingRow>(i, cub::LaneId(), i < end, ops);
+      }
       break;
     }
     case BlockTestStream::HashCase::kBuild:
@@ -402,6 +421,29 @@ void BlockTestStream::hashTest(
   }
   hashTestKernel<<<run.numBlocks, run.blockSize, shared, stream_->stream>>>(
       reinterpret_cast<GpuHashTable*>(table), run.probe, mode);
+  CUDA_CHECK(cudaGetLastError());
+}
+
+void __global__ __launch_bounds__(1024) rehashKernel(
+    GpuHashTable* table,
+    GpuBucket* oldBuckets,
+    int32_t numOldBuckets) {
+  MockGroupByOps ops(nullptr);
+  table->rehash<TestingRow>(oldBuckets, numOldBuckets, ops);
+  __syncthreads();
+}
+
+void BlockTestStream::rehash(
+    GpuHashTableBase* table,
+    GpuBucket* oldBuckets,
+    int32_t numOldBuckets) {
+  constexpr int32_t kBlockSize = 256;
+  int32_t numBlocks = roundUp(numOldBuckets, kBlockSize) / kBlockSize;
+  if (numBlocks > 640) {
+    numBlocks = 640;
+  }
+  rehashKernel<<<numBlocks, kBlockSize, 0, stream_->stream>>>(
+      reinterpret_cast<GpuHashTable*>(table), oldBuckets, numOldBuckets);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -455,7 +497,7 @@ void __global__ allocatorTestKernel(
   __syncthreads();
 }
 
-void __global__ initAllocatorKernel(RowAllocator* allocator) {
+void __global__ initAllocatorKernel(ArenaWithFree* allocator) {
   if (threadIdx.x == 0) {
     if (allocator->freeSet) {
       reinterpret_cast<FreeSet<uint32_t, 1024>*>(allocator->freeSet)->clear();
@@ -469,9 +511,9 @@ int32_t BlockTestStream::freeSetSize() {
   return sizeof(FreeSet<uint32_t, 1024>);
 }
 
-void BlockTestStream::initAllocator(HashPartitionAllocator* allocator) {
+void BlockTestStream::initAllocator(ArenaWithFree* allocator) {
   initAllocatorKernel<<<1, 1, 0, stream_->stream>>>(
-      reinterpret_cast<RowAllocator*>(allocator));
+      reinterpret_cast<ArenaWithFree*>(allocator));
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -507,7 +549,6 @@ UPDATE_CASE(
     updateSum1AtomicCoalesceShmem,
     testSumAtomicCoalesceShmem,
     run.blockSize * sizeof(int64_t));
-UPDATE_CASE(updateSum1Exch, testSumExch, sizeof(ProbeShared));
 UPDATE_CASE(updateSum1Order, testSumOrder, 0);
 
 void __global__ __launch_bounds__(1024) update1PartitionKernel(
@@ -663,11 +704,12 @@ REGISTER_KERNEL("bool256ToIndices", bool256ToIndicesKernel);
 REGISTER_KERNEL("sum64", sum64);
 REGISTER_KERNEL("partitionShorts", partitionShortsKernel);
 REGISTER_KERNEL("hashTest", hashTestKernel);
+REGISTER_KERNEL("rehash", rehashKernel);
+
 REGISTER_KERNEL("allocatorTest", allocatorTestKernel);
 REGISTER_KERNEL("sum1atm", updateSum1AtomicKernel);
 REGISTER_KERNEL("sum1atmCoaShfl", updateSum1AtomicCoalesceShflKernel);
 REGISTER_KERNEL("sum1atmCoaShmem", updateSum1AtomicCoalesceShmemKernel);
-REGISTER_KERNEL("sum1Exch", updateSum1ExchKernel);
 REGISTER_KERNEL("sum1Part", updateSum1PartKernel);
 REGISTER_KERNEL("partSum", update1PartitionKernel);
 REGISTER_KERNEL("scatterBits", scatterBitsKernel);

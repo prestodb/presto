@@ -100,30 +100,32 @@ struct DeviceAggregation {
   RowAllocator* allocator{nullptr};
 
   char* singleRow{nullptr};
+
+  /// Number of int64_t* in groupResultRows. One for each potential
+  /// streamIdx of reading kernel.
+  int32_t numReadStreams{0};
+
+  /// Pointers to group by result row arrays. Subscripts is
+  /// '[streamIdx][row + 1]'. Element 0 is the row count.
+  uintptr_t** resultRowPointers{nullptr};
 };
 
 /// Parameters for creating/updating a group by.
 struct AggregationControl {
-  /// Pointer to uninitialized first buffer in the case of initializing and to
-  /// the previous head in the case of rehashing. Must always be set.
-  void* head;
+  /// Pointer to page-aligned DeviceAggregation.
+  DeviceAggregation* head;
+
   /// Size of block starting at 'head'. Must be set on first setup.
   int64_t headSize{0};
-  /// For a rehashing request, space for a new head and a new HashTable.
-  void* newHead{nullptr};
-  int64_t newHeadSize{0};
-  /// Size of single row allocation. Required on first init.
+
+  /// For a rehashing command, old bucket array.
+  void* oldBuckets{nullptr};
+
+  /// Count of buckets starting at oldBuckets for rehash.
+  int64_t numOldBuckets{0};
+
+  /// Size of single row allocation.
   int32_t rowSize{0};
-  //// Number of slots in HashTable, must be a powr of two. 0 means no hash
-  /// table (aggregation without grouping keys).
-  int32_t maxTableEntries{0};
-  /// Number of allocators for the hash table, if any. Must be a powr of two.
-  int32_t numPartitions{1};
-  /// Uninitialized space to be added to the allocators of an existing
-  /// HashTable.
-  char* extraSpace{nullptr};
-  /// Usable bytes starting at extraSpace.
-  int64_t extraSpaceSize{0};
 };
 
 struct IUpdateAgg {
@@ -146,8 +148,13 @@ struct IAggregate {
   uint8_t stateIndex;
   /// Position of status return block in operator status returned to host.
   InstructionStatus status;
-  //  'numAggre gates' Updates followed by key 'numKeys' key operand indices.
+  //  'numAggregates' Updates followed by key 'numKeys' key operand indices.
   IUpdateAgg* aggregates;
+};
+
+struct AggregateReturn {
+  /// Count of rows in the table. Triggers rehash when high enough.
+  int64_t numDistinct;
 };
 
 struct Instruction {
@@ -177,10 +184,31 @@ struct WaveShared {
   BlockStatus* status;
   Operand** operands;
   void** states;
+
+  /// True if continuing the first instruction. The instructoin will
+  /// pick up its lane status from blockStatus or an
+  /// instruction-specific source. The instruction must clear this
+  /// before executing the next instruction.
+  bool isContinue;
+
+  /// True if some lane needs a continue. Used inside a kernel to
+  /// indicate that the grid level status should be set to indicate
+  /// continue. Reset before end of instruction.
+  bool hasContinue;
+
   /// If true, all threads in block return before starting next instruction.
   bool stop;
   int32_t blockBase;
   int32_t numRows;
+  /// Number of blocks for the program. Return statuses are at
+  /// '&blockStatus[numBlocks']
+  int32_t numBlocks;
+
+  /// Number of items in blockStatus covered by each TB.
+  int16_t numRowsPerThread;
+
+  int16_t streamIdx;
+
   // Scratch data area. Size depends on shared memory size for instructions.
   // Align 8.
   int64_t data;
@@ -212,9 +240,21 @@ struct KernelParams {
   // the status return block for each TB. The subscript is blockIdx.x -
   // (blockBase[blockIdx.x] / kBlockSize). Shared between all programs.
   BlockStatus* status{nullptr};
+
   // Address of global states like hash tables. Subscript is 'programIdx' and
   // next subscript is state id in the instruction.
   void*** operatorStates;
+
+  /// Number of blocks in each program. gridDim.x can be a multiple if many
+  /// programs in launch.
+  int32_t numBlocks{0};
+
+  /// Number of elements of blockStatus covered by each TB.
+  int16_t numRowsPerThread{1};
+
+  /// Id of stream <stream ordinal within WaveDriver> + (<driverId of
+  /// WaveDriver> * <number of Drivers>.
+  int16_t streamIdx{0};
 };
 
 /// Returns the shared memory size for instruction for kBlockSize.

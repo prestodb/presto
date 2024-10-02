@@ -91,7 +91,6 @@ struct WriterOptions : public dwio::common::WriterOptions {
   bool enableDictionary = true;
   int64_t dataPageSize = 1'024 * 1'024;
   int64_t dictionaryPageSizeLimit = 1'024 * 1'024;
-
   // Growth ratio passed to ArrowDataBufferSink. The default value is a
   // heuristic borrowed from
   // folly/FBVector(https://github.com/facebook/folly/blob/main/folly/docs/FBVector.md#memory-handling).

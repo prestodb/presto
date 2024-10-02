@@ -143,36 +143,32 @@ void setupGpuTable(
     GpuArena* arena,
     GpuHashTableBase*& table,
     WaveBufferPtr& buffer) {
-  using FreeSetType = FreeSetBase<void*, 1024>;
   // GPU cache lines are 128 bytes divided in 4 separately loadable 32 byte
   // sectors.
   constexpr int32_t kAlignment = 128;
   int32_t numBuckets = bits::nextPowerOfTwo(numSlots / 4);
   int64_t bytes = sizeof(GpuHashTableBase) + sizeof(HashPartitionAllocator) +
-      sizeof(FreeSetType) + sizeof(GpuBucketMembers) * numBuckets +
-      maxRows * rowSize;
+      sizeof(GpuBucketMembers) * numBuckets + maxRows * rowSize;
   buffer = arena->allocate<char>(bytes + kAlignment);
   table = buffer->as<GpuHashTableBase>();
-  new (table) GpuHashTableBase();
-  table->sizeMask = numBuckets - 1;
   char* data = reinterpret_cast<char*>(table + 1);
-  table->allocators = reinterpret_cast<RowAllocator*>(data);
-  auto allocatorBase =
-      reinterpret_cast<HashPartitionAllocator*>(table->allocators);
+  auto allocatorBase = reinterpret_cast<HashPartitionAllocator*>(data);
   data += sizeof(HashPartitionAllocator);
-  auto freeSet = reinterpret_cast<FreeSetType*>(data);
-  new (freeSet) FreeSetType();
-  data += sizeof(FreeSetType);
   // The buckets start at aligned address.
   data = reinterpret_cast<char*>(
       bits::roundUp(reinterpret_cast<uint64_t>(data), kAlignment));
-  table->buckets = reinterpret_cast<GpuBucket*>(data);
+
+  new (table) GpuHashTableBase(
+      reinterpret_cast<GpuBucket*>(data),
+      numBuckets - 1,
+      0,
+      reinterpret_cast<RowAllocator*>(allocatorBase));
+
   data += sizeof(GpuBucketMembers) * numBuckets;
   auto allocator = reinterpret_cast<HashPartitionAllocator*>(table->allocators);
-  new (allocator)
-      HashPartitionAllocator(data, maxRows * rowSize, rowSize, freeSet);
+  new (allocator) HashPartitionAllocator(
+      data, maxRows * rowSize, maxRows * rowSize, rowSize);
   table->partitionMask = 0;
-  table->partitionShift = 0;
   memset(table->buckets, 0, sizeof(GpuBucketMembers) * (table->sizeMask + 1));
 }
 

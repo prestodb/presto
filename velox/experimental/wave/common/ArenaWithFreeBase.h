@@ -14,23 +14,32 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/wave/exec/ExprKernel.h"
+#pragma once
 
-#include <gflags/gflags.h>
-#include "velox/experimental/wave/common/Block.cuh"
-#include "velox/experimental/wave/common/CudaUtil.cuh"
-#include "velox/experimental/wave/exec/Aggregate.cuh"
-#include "velox/experimental/wave/exec/WaveCore.cuh"
-
-DECLARE_bool(kernel_gdb);
+#include <cstdint>
 
 namespace facebook::velox::wave {
 
-__global__ void
-oneReadAggregate(KernelParams params, int32_t pc, int32_t base) {
-  PROGRAM_PREAMBLE(base);
-  readAggregateKernel(&instruction[pc]._.aggregate, shared);
-  PROGRAM_EPILOGUE();
-}
+/// A device arena for device side allocation.
+struct ArenaWithFreeBase {
+  static constexpr uint32_t kEmpty = ~0;
 
+  ArenaWithFreeBase(char* data, uint32_t size, uint32_t rowSize, void* freeSet)
+      : rowSize(rowSize),
+        base(reinterpret_cast<uint64_t>(data)),
+        capacity(size),
+        stringOffset(capacity),
+        freeSet(freeSet) {}
+
+  const int32_t rowSize{0};
+  const uint64_t base{0};
+  uint32_t rowOffset{0};
+  const uint32_t capacity{0};
+  uint32_t stringOffset{0};
+  void* freeSet{nullptr};
+  int32_t numFromFree{0};
+  int32_t numFull{0};
+};
+
+struct ArenaWithFree;
 } // namespace facebook::velox::wave

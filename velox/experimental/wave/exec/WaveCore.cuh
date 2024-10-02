@@ -28,11 +28,11 @@ namespace facebook::velox::wave {
 template <typename T>
 inline T* __device__
 gridStatus(const WaveShared* shared, const InstructionStatus& status) {
-  int32_t numBlocks = roundUp(shared->numRows, kBlockSize) / kBlockSize;
   return reinterpret_cast<T*>(
       roundUp(
-          reinterpret_cast<uintptr_t>(shared->status) +
-              numBlocks * sizeof(BlockStatus),
+          reinterpret_cast<uintptr_t>(
+              &shared->status
+                   [shared->numBlocks - (shared->blockBase / kBlockSize)]),
           8) +
       status.gridState);
 }
@@ -42,13 +42,12 @@ inline T* __device__ laneStatus(
     const WaveShared* shared,
     const InstructionStatus& status,
     int32_t nthBlock) {
-  int32_t numBlocks = roundUp(shared->numRows, kBlockSize) / kBlockSize;
   return reinterpret_cast<T*>(
       roundUp(
           reinterpret_cast<uintptr_t>(shared->status) +
-              numBlocks * sizeof(BlockStatus),
+              shared->numBlocks * sizeof(BlockStatus),
           8) +
-      status.gridStateSize + status.blockState * numBlocks);
+      status.gridStateSize + status.blockState * shared->numBlocks);
 }
 
 inline bool __device__ laneActive(ErrorCode code) {
@@ -178,6 +177,11 @@ __device__ inline T& flatResult(Operand* op, int32_t blockBase) {
                          params.blockBase[blockIdx.x + blockOffset]) *         \
         blockDim.x;                                                            \
     shared->states = params.operatorStates[programIndex];                      \
+    shared->numBlocks = params.numBlocks;                                      \
+    shared->numRowsPerThread = params.numRowsPerThread;                        \
+    shared->streamIdx = params.streamIdx;                                      \
+    shared->isContinue = params.startPC != nullptr;                            \
+    shared->hasContinue = false;                                               \
     shared->stop = false;                                                      \
   }                                                                            \
   __syncthreads();                                                             \
@@ -185,12 +189,16 @@ __device__ inline T& flatResult(Operand* op, int32_t blockBase) {
   auto operands = shared->operands;                                            \
   ErrorCode laneStatus;                                                        \
   Instruction* instruction;                                                    \
-  if (params.startPC == nullptr) {                                             \
+  if (!shared->isContinue) {                                                   \
     instruction = program->instructions;                                       \
     laneStatus =                                                               \
         threadIdx.x < shared->numRows ? ErrorCode::kOk : ErrorCode::kInactive; \
   } else {                                                                     \
-    instruction = program->instructions + params.startPC[programIndex];        \
+    auto start = params.startPC[programIndex];                                 \
+    if (start == ~0) {                                                         \
+      return; /* no continue in this program*/                                 \
+    }                                                                          \
+    instruction = program->instructions + start;                               \
     laneStatus = shared->status->errors[threadIdx.x];                          \
   }
 

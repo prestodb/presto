@@ -24,6 +24,11 @@
 
 #include <iostream>
 
+DEFINE_int32(
+    hash_num_rows_per_thread,
+    32,
+    "Number of rows per thread in hash table tests");
+
 namespace facebook::velox::wave {
 
 class CpuMockGroupByOps {
@@ -150,11 +155,7 @@ class HashTableTest : public testing::Test {
         UPDATE_CASE("sum1Mtx", updateSum1Mtx, true, 1);
         UPDATE_CASE("sum1MtxCoa", updateSum1MtxCoalesce, true, 0);
         UPDATE_CASE("sum1Part", updateSum1Part, true, 0);
-        // Commenting out Order and Exch functions as they are too slow.
-        // (for case when only 1 distinct element).
-
         // UPDATE_CASE("sum1Order", updateSum1Order, true, 0);
-        // UPDATE_CASE("sum1Exch", updateSum1Exch, false, 0);
 
         break;
       default:
@@ -210,7 +211,7 @@ class HashTableTest : public testing::Test {
       run.numSlots = bits::nextPowerOfTwo(numDistinct);
     }
     run.numColumns = 2;
-    run.numRowsPerThread = 32;
+    run.numRowsPerThread = FLAGS_hash_num_rows_per_thread;
 
     initializeHashTestInput(run, arena_.get());
     fillHashTestInput(
@@ -262,6 +263,16 @@ class HashTableTest : public testing::Test {
     }
     run.addScore("gpu", micros);
     checkGroupBy(reference, gpuTable);
+    auto size = gpuTable->sizeMask + 1;
+    auto oldBuckets = gpuTable->buckets;
+    WaveBufferPtr newBuckets = arena_->allocate<GpuBucketMembers>(size);
+    gpuTable->buckets = newBuckets->as<GpuBucket>();
+
+    streams_[0]->prefetch(getDevice(), gpuTable, sizeof(GpuHashTableBase));
+    streams_[0]->memset(newBuckets->as<char>(), 0, newBuckets->size());
+    streams_[0]->rehash(gpuTable, oldBuckets, size);
+    streams_[0]->wait();
+    checkGroupBy(reference, gpuTable);
   }
 
   void checkGroupBy(const CpuHashTable& reference, GpuHashTableBase* table) {
@@ -294,24 +305,24 @@ TEST_F(HashTableTest, allocator) {
   constexpr int32_t kNumThreads = 256;
   constexpr int32_t kTotal = 1 << 22;
   WaveBufferPtr data = arena_->allocate<char>(kTotal);
-  auto* allocator = data->as<HashPartitionAllocator>();
+  auto* allocator = data->as<ArenaWithFreeBase>();
   auto freeSetSize = BlockTestStream::freeSetSize();
-  new (allocator) HashPartitionAllocator(
-      data->as<char>() + sizeof(HashPartitionAllocator) + freeSetSize,
-      kTotal - sizeof(HashPartitionAllocator) - freeSetSize,
+  new (allocator) ArenaWithFreeBase(
+      data->as<char>() + sizeof(ArenaWithFreeBase) + freeSetSize,
+      kTotal - sizeof(ArenaWithFreeBase) - freeSetSize,
       16,
       allocator + 1);
   memset(allocator->freeSet, 0, freeSetSize);
   WaveBufferPtr allResults = arena_->allocate<AllocatorTestResult>(kNumThreads);
   auto results = allResults->as<AllocatorTestResult>();
   for (auto i = 0; i < kNumThreads; ++i) {
-    results[i].allocator = reinterpret_cast<RowAllocator*>(allocator);
+    results[i].allocator = reinterpret_cast<ArenaWithFree*>(allocator);
     results[i].numRows = 0;
     results[i].numStrings = 0;
   }
   auto stream1 = std::make_unique<BlockTestStream>();
   auto stream2 = std::make_unique<BlockTestStream>();
-  stream1->initAllocator(allocator);
+  stream1->initAllocator(reinterpret_cast<ArenaWithFree*>(allocator));
   stream1->wait();
   stream1->rowAllocatorTest(2, 4, 3, 2, results);
   stream2->rowAllocatorTest(2, 4, 3, 2, results + 128);

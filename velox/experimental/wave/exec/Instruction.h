@@ -91,15 +91,23 @@ struct AbstractOperand {
   std::string toString() const;
 };
 
+class WaveStream;
+struct OperatorState;
+struct LaunchControl;
+struct AbstractInstruction;
+
 struct AdvanceResult {
   bool empty() const {
     return numRows == 0 && !isRetry;
   }
 
+  std::string toString() const;
+
   ///  Max number of result rows.
   int32_t numRows{0};
 
-  /// The sequence number of kernel launch that needs continue.
+  /// The sequence number of kernel launch that needs continue. (level idx in
+  /// Project).
   int32_t nthLaunch{0};
 
   /// The ordinal of the program in the launch.
@@ -110,13 +118,25 @@ struct AdvanceResult {
 
   /// True if continuing execution of a partially executed instruction. false if
   /// getting a new batch from a source. If true, the kernel launch must specify
-  /// continuable lanes in BlockStatus.
+  /// continue in the next kernel launch.
   bool isRetry{false};
-};
 
-class WaveStream;
-struct OperatorState;
-struct LaunchControl;
+  /// Stop all Drivers in Task pipeline for the time of 'statusUpdate'. Use this
+  /// for e.g. rehashing a table shared between all WaveDrivers.
+  bool syncDrivers{false};
+
+  /// Stop all streams in WaveDriver for the time of updateStatus(). Use
+  bool syncStreams{false};
+
+  /// Action to run before continue. If the update is visible between
+  /// streams/Drivers, use the right sync flag above. No sync needed if e.g.
+  /// adding space to a string buffer on the 'stream's' vectors.
+  std::function<void(WaveStream&, AbstractInstruction&)> updateStatus;
+
+  /// Extra token to mark reason for 'syncDrivers', e.g. the host side
+  /// handle to a device hash table to rehash.
+  void* reason{nullptr};
+};
 
 struct AbstractInstruction {
   AbstractInstruction(OpCode opCode) : opCode(opCode) {}
@@ -146,7 +166,7 @@ struct AbstractInstruction {
       WaveStream& stream,
       LaunchControl* control,
       OperatorState* state,
-      int32_t programIdx) const {
+      int32_t instructionIdx) const {
     return {};
   }
 
@@ -380,7 +400,7 @@ struct AbstractAggregation : public AbstractOperator {
       WaveStream& stream,
       LaunchControl* control,
       OperatorState* state,
-      int32_t programIdx) const override;
+      int32_t instructionIdx) const override;
 
   InstructionStatus instructionStatus;
 
@@ -393,8 +413,11 @@ struct AbstractAggregation : public AbstractOperator {
 
   int32_t literalBytes{0};
   // The data area of the physical instruction. Copied by the reading
-  // istruction.
+  // instruction.
   IUpdateAgg* literal{nullptr};
+
+  /// Prepare up to this many result reading streams.
+  int16_t maxReadStreams{1};
 };
 
 struct AbstractReadAggregation : public AbstractOperator {
@@ -410,7 +433,7 @@ struct AbstractReadAggregation : public AbstractOperator {
       WaveStream& stream,
       LaunchControl* control,
       OperatorState* state,
-      int32_t programIdx) const override;
+      int32_t instructionIdx) const override;
 
   AbstractAggregation* aggregation;
   int32_t literalOffset{0};

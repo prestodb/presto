@@ -487,11 +487,7 @@ bool WaveStream::isArrived(
     int32_t timeoutMicro) {
   OperandSet waitSet;
   if (hostReturnEvent_) {
-    bool done = hostReturnEvent_->query();
-    if (done) {
-      releaseStreamsAndEvents();
-    }
-    return done;
+    return hostReturnEvent_->query();
   }
   ids.forEach([&](int32_t id) {
     auto exe = operandToExecutable_[id];
@@ -828,7 +824,12 @@ LaunchControl* WaveStream::prepareProgramLaunch(
   for (auto i = 0; i < exes.size(); ++i) {
     control.params.programs[i] = exes[i]->program;
     if (isContinue) {
-      control.params.startPC[i] = control.programInfo[i].advance.instructionIdx;
+      if (control.programInfo[i].advance.empty()) {
+        control.params.startPC[i] = -1;
+      } else {
+        control.params.startPC[i] =
+            control.programInfo[i].advance.instructionIdx;
+      }
     }
     auto operandPtrs = fillOperands(*exes[i], operandStart, info[i]);
     control.params.operands[i] = operandPtrs;
@@ -855,6 +856,8 @@ LaunchControl* WaveStream::prepareProgramLaunch(
       ++stateFill;
     }
   }
+  control.params.numBlocks = blocksPerExe;
+  control.params.streamIdx = streamIdx_;
   if (!exes.empty()) {
     ++stats_.numKernels;
   }
@@ -900,19 +903,67 @@ int32_t WaveStream::getOutput(
   return vectors[0]->size();
 }
 
+void AggregateOperatorState::allocateAggregateHeader(
+    int32_t size,
+    GpuArena& arena) {
+  // Size and alignment of page of unified memory. Swappable host-device at page
+  // granularity.
+  constexpr size_t kUnifiedPageSize = 4096;
+  int32_t alignedSize =
+      bits::roundUp(size, kUnifiedPageSize) + kUnifiedPageSize;
+  WaveBufferPtr head = arena.allocate<char>(alignedSize);
+  VELOX_CHECK(buffers.empty());
+  buffers.push_back(head);
+  auto address = reinterpret_cast<uintptr_t>(head->as<char>());
+  alignedHead = reinterpret_cast<DeviceAggregation*>(
+      bits::roundUp(address, kUnifiedPageSize));
+  alignedHeadSize = size;
+  new (alignedHead) DeviceAggregation();
+}
+
 void WaveStream::makeAggregate(
     AbstractAggregation& inst,
     AggregateOperatorState& state) {
-  VELOX_CHECK(inst.keys.empty());
-  int32_t size = inst.rowSize();
-  auto stream = streamFromReserve();
-  auto buffer = arena_.allocate<char>(size + sizeof(DeviceAggregation));
-  state.buffers.push_back(buffer);
   AggregationControl control;
-  control.head = buffer->as<char>();
-  control.headSize = buffer->size();
-  control.rowSize = size;
-  reinterpret_cast<WaveKernelStream*>(stream.get())->setupAggregation(control);
+  auto stream = streamFromReserve();
+  if (inst.keys.empty()) {
+    int32_t size = inst.rowSize() + sizeof(DeviceAggregation);
+    state.allocateAggregateHeader(size, arena_);
+    control.head = state.alignedHead;
+    control.headSize = size;
+    control.rowSize = inst.rowSize();
+    reinterpret_cast<WaveKernelStream*>(stream.get())
+        ->setupAggregation(control);
+  } else {
+    const int32_t numPartitions = 1;
+    int32_t size = sizeof(DeviceAggregation) + sizeof(GpuHashTableBase) +
+        sizeof(HashPartitionAllocator) * numPartitions;
+    state.allocateAggregateHeader(size, arena_);
+    auto* header = state.alignedHead;
+    auto* hashTable = reinterpret_cast<GpuHashTableBase*>(header + 1);
+    HashPartitionAllocator* allocators =
+        reinterpret_cast<HashPartitionAllocator*>(hashTable + 1);
+    int32_t numBuckets = 2048;
+    header->table = hashTable;
+    WaveBufferPtr table =
+        arena_.allocate<char>(sizeof(GpuBucketMembers) * numBuckets);
+    state.buffers.push_back(table);
+
+    new (hashTable) GpuHashTableBase(
+        table->as<GpuBucket>(),
+        numBuckets - 1,
+        0,
+        reinterpret_cast<RowAllocator*>(allocators));
+    auto rowSize = inst.rowSize();
+    auto numRows = numBuckets * GpuBucketMembers::kNumSlots;
+    WaveBufferPtr rows = arena_.allocate<char>(rowSize * numRows);
+    state.buffers.push_back(rows);
+    new (allocators) HashPartitionAllocator(
+        rows->as<char>(), rows->size(), rows->size(), rowSize);
+    state.setSizesToSafe();
+    stream->prefetch(getDevice(), state.alignedHead, state.alignedHeadSize);
+    stream->memset(table->as<char>(), 0, table->size());
+  }
   releaseStream(std::move(stream));
 }
 
@@ -950,7 +1001,7 @@ void Program::getOperatorStates(WaveStream& stream, std::vector<void*>& ptrs) {
       VELOX_CHECK_NOT_NULL(operatorState.create);
       state = stream.newState(operatorState);
     }
-    ptrs[i] = state->buffers[0]->as<char>();
+    ptrs[i] = state->devicePtr();
   }
 }
 
@@ -974,12 +1025,19 @@ AdvanceResult Program::canAdvance(
     if (stateId.has_value()) {
       state = stream.operatorState(stateId.value());
     }
-    auto result = instruction->canAdvance(stream, control, state, programIdx);
+    auto result = instruction->canAdvance(stream, control, state, i);
     if (!result.empty()) {
+      result.programIdx = programIdx;
       return result;
     }
   }
   return {};
+}
+
+void Program::callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
+  if (advance.updateStatus) {
+    advance.updateStatus(stream, *instructions_[advance.instructionIdx]);
+  }
 }
 
 #define IN_HEAD(abstract, physical, _op)             \

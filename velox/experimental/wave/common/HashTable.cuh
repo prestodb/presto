@@ -47,61 +47,84 @@ template <typename T>
 inline void __device__ atomicUnlock(T* lock) {
   asDeviceAtomic<int32_t>(lock)->store(0, cuda::memory_order_release);
 }
+namespace detail {
+template <typename T>
+inline __device__ T* allocateFixed(AllocationRange& range, int32_t size) {
+  if (range.fixedFull) {
+    return nullptr;
+  }
+  auto offset = atomicAdd(&range.rowOffset, size);
+  if (offset + size <= range.rowLimit) {
+    return reinterpret_cast<T*>(range.base + offset);
+  }
+  range.fixedFull = true;
+  return nullptr;
+}
+
+template <typename T>
+inline __device__ T* allocate(AllocationRange& range, int32_t count) {
+  if (range.variableFull) {
+    return nullptr;
+  }
+  auto size = sizeof(T) * count;
+  auto offset = atomicAdd(&range.stringOffset, -size);
+  if (offset - size >= range.rowLimit) {
+    return reinterpret_cast<T*>(range.base + offset);
+  }
+  range.variableFull = true;
+  return nullptr;
+}
+} // namespace detail
 
 /// Allocator subclass that defines device member functions.
 struct RowAllocator : public HashPartitionAllocator {
   template <typename T>
   T* __device__ allocateRow() {
-    auto fromFree = getFromFree();
-    if (fromFree != kEmpty) {
-      ++numFromFree;
-      return reinterpret_cast<T*>(base + fromFree);
-    }
-    auto offset = atomicAdd(&rowOffset, rowSize);
-
-    if (offset + rowSize < cub::ThreadLoad<cub::LOAD_CG>(&stringOffset)) {
-      if (!inRange(base + offset)) {
-        GPF();
+    if (!ranges[0].fixedFull) {
+      auto ptr = detail::allocateFixed<T>(ranges[0], rowSize);
+      if (ptr) {
+        return ptr;
       }
-      return reinterpret_cast<T*>(base + offset);
+      if (ranges[1].fixedFull) {
+        return nullptr;
+      }
     }
-    return nullptr;
-  }
-
-  uint32_t __device__ getFromFree() {
-    uint32_t item = reinterpret_cast<FreeSet<uint32_t, 1024>*>(freeSet)->get();
-    if (item != kEmpty) {
-      ++numFromFree;
-    }
-    return item;
-  }
-
-  void __device__ freeRow(void* row) {
-    if (!inRange(row)) {
-      GPF();
-    }
-    uint32_t offset = reinterpret_cast<uint64_t>(row) - base;
-    numFull += reinterpret_cast<FreeSet<uint32_t, 1024>*>(freeSet)->put(
-                   offset) == false;
+    return detail::allocateFixed<T>(ranges[1], rowSize);
   }
 
   template <typename T>
-  T* __device__ allocate(int32_t cnt) {
-    uint32_t size = sizeof(T) * cnt;
-    auto offset = atomicSub(&stringOffset, size);
-    if (offset - size > cub::ThreadLoad<cub::LOAD_CG>(&rowOffset)) {
-      if (!inRange(base + offset - size)) {
-        GPF();
+  T* __device__ allocate(int32_t count) {
+    if (!ranges[0].variableFull) {
+      auto ptr = detail::allocate<T>(ranges[0], count);
+      if (ptr) {
+        return ptr;
       }
-      return reinterpret_cast<T*>(base + offset - size);
+      if (ranges[1].variableFull) {
+        return nullptr;
+      }
     }
-    return nullptr;
+    return detail::allocate<T>(ranges[1], count);
   }
 
   template <typename T>
-  bool __device__ inRange(T ptr) {
-    return reinterpret_cast<uint64_t>(ptr) >= base &&
-        reinterpret_cast<uint64_t>(ptr) < base + capacity;
+  bool __device__ markRowFree(T* row) {
+    auto ptr = reinterpret_cast<uintptr_t>(row);
+    AllocationRange* rowRange;
+    if (ptr >= ranges[0].base + ranges[0].firstRowOffset &&
+        ptr < ranges[0].base + ranges[0].rowLimit) {
+      rowRange = &ranges[0];
+    } else if (
+        ptr >= ranges[1].base + ranges[1].firstRowOffset &&
+        ptr < ranges[1].base + ranges[1].rowLimit) {
+      rowRange = &ranges[1];
+    } else {
+      return false;
+    }
+    int32_t idx = (ptr - (rowRange->base + rowRange->firstRowOffset)) / rowSize;
+    atomicOr(
+        reinterpret_cast<uint32_t*>(rowRange->base) + (idx >> 5),
+        1 << (idx & 31));
+    return true;
   }
 };
 
@@ -156,55 +179,12 @@ struct GpuBucket : public GpuBucketMembers {
   }
 };
 
-/// Shared memory state for an updating probe.
-struct ProbeShared {
-  int32_t* inputRetries;
-  int32_t* outputRetries;
-  uint32_t numKernelRetries;
-  uint32_t numHostRetries;
-  int32_t blockBase;
-  int32_t blockEnd;
-  int32_t numRounds;
-  int32_t toDo;
-  int32_t done;
-  int32_t numUpdated;
-  int32_t numTried;
-
-  /// Initializes a probe. Sets outputRetries and clears inputRetries and other
-  /// state.
-  void __device__ init(HashProbe* probe, int32_t base) {
-    inputRetries = nullptr;
-    outputRetries = probe->kernelRetries1;
-    numKernelRetries = 0;
-    numHostRetries = 0;
-    blockBase = base;
-    toDo = 0;
-    done = 0;
-    numRounds = 0;
-  }
-
-  // Resets retrry count and swaps input and output retries.
-  void __device__ nextRound(HashProbe* probe) {
-    numKernelRetries = 0;
-    if (!inputRetries) {
-      // This is after the initial round where there are no input retries.
-      inputRetries = outputRetries;
-      outputRetries = probe->kernelRetries2;
-    } else {
-      // swap input and output retries.
-      auto temp = outputRetries;
-      outputRetries = inputRetries;
-      inputRetries = temp;
-    }
-  }
-};
-
 class GpuHashTable : public GpuHashTableBase {
  public:
   static constexpr int32_t kExclusive = 1;
 
   static int32_t updatingProbeSharedSize() {
-    return sizeof(ProbeShared);
+    return 0;
   }
 
   template <typename RowType, typename Ops>
@@ -241,128 +221,124 @@ class GpuHashTable : public GpuHashTableBase {
   }
 
   template <typename RowType, typename Ops>
-  void __device__ updatingProbe(HashProbe* probe, Ops ops) {
-    extern __shared__ __align__(16) char smem[];
-    auto* sharedState = reinterpret_cast<ProbeShared*>(smem);
-    if (threadIdx.x == 0) {
-      sharedState->init(probe, ops.blockBase(probe));
+  void __device__
+  updatingProbe(int32_t i, int32_t lane, bool isLaneActive, Ops& ops) {
+    uint32_t laneMask = __ballot_sync(0xffffffff, isLaneActive);
+    if (!isLaneActive) {
+      return;
     }
-    __syncthreads();
-    auto lane = cub::LaneId();
-    constexpr int32_t kWarpThreads = 1 << CUB_LOG_WARP_THREADS(0);
-    auto warp = threadIdx.x / kWarpThreads;
-    int32_t end = ops.numRowsInBlock(probe) + sharedState->blockBase;
-    for (auto i = threadIdx.x + sharedState->blockBase; i < end;
-         i += blockDim.x) {
-      auto start = i & ~(kWarpThreads - 1);
-      uint32_t laneMask =
-          start + kWarpThreads <= end ? ~0 : lowMask<uint32_t>(end - start);
-      auto h = ops.hash(i, probe);
-      uint32_t tagWord = hashTag(h);
-      tagWord |= tagWord << 8;
-      tagWord = tagWord | tagWord << 16;
-      auto bucketIdx = h & sizeMask;
-      uint32_t misses = 0;
-      RowType* hit = nullptr;
-      RowType* toInsert = nullptr;
-      int32_t hitIdx;
-      GpuBucket* bucket;
-      uint32_t tags;
-      for (;;) {
-        bucket = buckets + bucketIdx;
-      reprobe:
-        tags = asDeviceAtomic<uint32_t>(&bucket->tags)
-                   ->load(cuda::memory_order_consume);
-        auto hits = __vcmpeq4(tags, tagWord) & 0x01010101;
-        while (hits) {
-          hitIdx = (__ffs(hits) - 1) / 8;
-          auto candidate = bucket->loadWithWait<RowType>(hitIdx);
-          if (ops.compare(this, candidate, i, probe)) {
-            if (toInsert) {
-              freeInsertable(toInsert, h);
-            }
-            hit = candidate;
-            break;
+    auto h = ops.hash(i);
+    uint32_t tagWord = hashTag(h);
+    tagWord |= tagWord << 8;
+    tagWord = tagWord | tagWord << 16;
+    auto bucketIdx = h & sizeMask;
+    uint32_t misses = 0;
+    RowType* hit = nullptr;
+    RowType* toInsert = nullptr;
+    int32_t hitIdx;
+    GpuBucket* bucket;
+    uint32_t tags;
+    for (;;) {
+      bucket = buckets + bucketIdx;
+    reprobe:
+      tags = asDeviceAtomic<uint32_t>(&bucket->tags)
+                 ->load(cuda::memory_order_consume);
+      auto hits = __vcmpeq4(tags, tagWord) & 0x01010101;
+      while (hits) {
+        hitIdx = (__ffs(hits) - 1) / 8;
+        auto candidate = bucket->loadWithWait<RowType>(hitIdx);
+        if (ops.compare(this, candidate, i)) {
+          if (toInsert) {
+            ops.freeInsertable(this, toInsert, h);
           }
-          hits = hits & (hits - 1);
-        }
-        if (hit) {
+          hit = candidate;
           break;
         }
-        misses = __vcmpeq4(tags, 0);
-        if (misses) {
-          auto success = ops.insert(
-              this,
-              partitionIdx(h),
-              bucket,
-              misses,
-              tags,
-              tagWord,
-              i,
-              probe,
-              toInsert);
-          if (success == ProbeState::kRetry) {
-            goto reprobe;
-          }
-          if (success == ProbeState::kNeedSpace) {
-            addHostRetry(sharedState, i, probe);
-          }
-          hit = toInsert;
-          break;
-        }
-        bucketIdx = (bucketIdx + 1) & sizeMask;
+        hits = hits & (hits - 1);
       }
-      // Every lane has a hit, or a nullptr if out of space.
-      uint32_t peers =
-          __match_any_sync(laneMask, reinterpret_cast<int64_t>(hit));
       if (hit) {
-        int32_t leader = (kWarpThreads - 1) - __clz(peers);
-        RowType* writable = nullptr;
+        break;
+      }
+      misses = __vcmpeq4(tags, 0);
+      if (misses) {
+        auto success = ops.insert(
+            this, partitionIdx(h), bucket, misses, tags, tagWord, i, toInsert);
+        if (success == ProbeState::kRetry) {
+          goto reprobe;
+        }
+        if (success == ProbeState::kNeedSpace) {
+          ops.addHostRetry(i);
+          hit = nullptr;
+          break;
+        }
+        hit = toInsert;
+        break;
+      }
+      bucketIdx = (bucketIdx + 1) & sizeMask;
+    }
+    // Every lane has a hit, or a nullptr if out of space.
+    uint32_t peers = __match_any_sync(laneMask, reinterpret_cast<int64_t>(hit));
+    if (hit) {
+      int32_t leader = (kWarpThreads - 1) - __clz(peers);
+      RowType* writable = nullptr;
+      if (lane == leader) {
+        writable = ops.getExclusive(this, bucket, hit, hitIdx);
+      }
+      auto toUpdate = peers;
+      while (toUpdate) {
+        auto peer = __ffs(toUpdate) - 1;
+        auto idxToUpdate = __shfl_sync(peers, i, peer);
         if (lane == leader) {
-          writable = ops.getExclusive(this, bucket, hit, hitIdx, warp);
+          ops.update(this, bucket, writable, idxToUpdate);
         }
-        auto toUpdate = peers;
-        ProbeState success = ProbeState::kDone;
-        while (toUpdate) {
-          auto peer = __ffs(toUpdate) - 1;
-          auto idxToUpdate = __shfl_sync(peers, i, peer);
-          if (lane == leader) {
-            if (success == ProbeState::kDone) {
-              success = ops.update(this, bucket, writable, idxToUpdate, probe);
-            }
-            if (success == ProbeState::kNeedSpace) {
-              addHostRetry(sharedState, idxToUpdate, probe);
-            }
-            if (success != ProbeState::kDone) {
-              printf("");
-            }
-          }
-          toUpdate &= toUpdate - 1;
-        }
-        if (lane == leader) {
-          ops.writeDone(writable);
-        }
-      } else {
-        printf("");
+        toUpdate &= toUpdate - 1;
+      }
+      if (lane == leader) {
+        ops.writeDone(writable);
       }
     }
   }
 
-  template <typename RowType>
-  void __device__ freeInsertable(RowType*& row, uint64_t h) {
-    allocators[partitionIdx(h)].freeRow(row);
-    row = nullptr;
+  template <typename RowType, typename Ops>
+  void __device__
+  rehash(GpuBucket* oldBuckets, int32_t numOldBuckets, Ops ops) {
+    int32_t stride = blockDim.x * gridDim.x;
+    for (auto idx = threadIdx.x + blockDim.x * blockIdx.x; idx < numOldBuckets;
+         idx += stride) {
+      for (auto slot = 0; slot < GpuBucketMembers::kNumSlots; ++slot) {
+        auto* row = oldBuckets[idx].load<RowType>(slot);
+        if (row) {
+          uint64_t h = ops.hashRow(row);
+          auto bucketIdx = h & sizeMask;
+          uint32_t tagWord = hashTag(h);
+          tagWord |= tagWord << 8;
+          tagWord = tagWord | tagWord << 16;
+
+          for (;;) {
+            GpuBucket* bucket = buckets + bucketIdx;
+          reprobe:
+            uint32_t tags = asDeviceAtomic<uint32_t>(&bucket->tags)
+                                ->load(cuda::memory_order_consume);
+            auto misses = __vcmpeq4(tags, 0) & 0x01010101;
+            while (misses) {
+              auto missShift = __ffs(misses) - 1;
+              if (!bucket->addNewTag(tagWord, tags, missShift)) {
+                goto reprobe;
+              }
+              bucket->store(missShift / 8, row);
+              goto next;
+            }
+            bucketIdx = (bucketIdx + 1) & sizeMask;
+          }
+        }
+      next:;
+      }
+    }
+    __syncthreads();
   }
 
   int32_t __device__ partitionIdx(uint64_t h) const {
-    return (h & partitionMask) >> partitionShift;
-  }
-
- private:
-  static void __device__
-  addHostRetry(ProbeShared* shared, int32_t i, HashProbe* probe) {
-    probe->hostRetries
-        [shared->blockBase + atomicAdd(&shared->numHostRetries, 1)] = i;
+    return partitionMask == 0 ? 0 : (h >> 41) & partitionMask;
   }
 };
 } // namespace facebook::velox::wave

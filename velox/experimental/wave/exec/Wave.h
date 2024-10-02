@@ -213,48 +213,90 @@ class WaveStream;
 class Program;
 
 /// Represents a device side operator state, like a join/group by hash table or
-/// repartition output. Can be scoped to a WaveStream or to a Program.
+/// repartition output. Can be scoped to a Task pipeline (all Drivers),
+/// WaveStream or to a Program.
 struct OperatorState {
-  /// Marks that 'stream' will enqueue a program touching 'this'. Blocks until
-  /// 'this' is available. Throws an error if 'this' has entered an error state,
-  /// e.g. out of memory.
-  void enter(WaveStream* stream);
+  virtual ~OperatorState() = default;
 
-  /// Marks that 'stream' has completed a program touching 'this'.
-  void leave(WaveStream* stream);
-
-  /// Acquires a process-wide exclusive hold on 'this' This is done
-  /// e.g. to rehash a hash table. 'stream' must have called enter()
-  /// on 'this' previously. If successful returns true after waiting
-  /// for the caller to be the only stream holding this. Returns false
-  /// If another stream called this before, returns false after
-  /// waiting for the exclusive owner to finish. If 'this' is in an
-  /// error state, throws the error. In any return except true, the
-  /// caller is not an owner of 'this'. After completing the activity,
-  /// the caller must call leave() when done.
-  bool enterExclusive(WaveStream* stream);
+  template <typename T>
+  T* as() {
+    return reinterpret_cast<T*>(this);
+  }
 
   /// Sets an error. Any thread calling enter() or enterExclusive() will throw
   /// the error. The caller must have successfully called enterExclusive()
   /// first.
-  void setError(WaveStream* stream, std::exception_ptr error);
+  void setError(std::exception_ptr _error) {
+    error = _error;
+  }
+
+  /// Device readable pointer to the state. If unified memory, should be aligned
+  /// to page boundary.
+  virtual void* devicePtr() const = 0;
 
   int32_t id;
+
   /// Owns the device side data. Starting address of first is passed to the
   /// kernel. Layout depends on operator.
   std::vector<WaveBufferPtr> buffers;
 
-  std::mutex mutex_;
-  // Count of streams with programs touching this enqueued.
-  int32_t numStreams_{0};
-  // The stream with exclusive access via enterExclusive().
-  WaveStream* owner{nullptr};
+  std::exception_ptr error;
 };
 
 struct AggregateOperatorState : public OperatorState {
-  AbstractAggregation* instruction;
-  // True after first created.
+  void allocateAggregateHeader(int32_t size, GpuArena& arena);
+
+  /// Sets the sizes in allocators so that the rows run out before the
+  /// table is full. In this way there is no need for a separate
+  /// rehash check or atomic rehash needed flag.
+  void setSizesToSafe();
+
+  void* devicePtr() const override {
+    return alignedHead;
+  }
+
+  AbstractAggregation* instruction{nullptr};
+
+  /// Mutex to serialize allocating row ranges to different Drivers in a
+  /// multi-driver read.
+  std::mutex mutex;
+
+  // 4K aligned header. Must be full pages, pageable in unified memory without
+  // affecting surrounding data.
+  DeviceAggregation* alignedHead;
+
+  // Used bytes counting from 'alignedHead'.
+  int32_t alignedHeadSize;
+
+  /// True after first created.
   bool isNew{true};
+
+  /// Number of allocators after hash GpuHashTable.
+  int32_t numPartitions{1};
+
+  /// Row ranges from filled allocators.
+  std::vector<AllocationRange> ranges;
+
+  /// Number of rows in 'ranges'.
+  int64_t numRows{0};
+
+  /// Device side bytes in the hash table and rows.
+  int64_t bytes{0};
+
+  /// Next range to be prepared for return.
+  int32_t rangeIdx{0};
+
+  /// Next row to return.
+  int32_t rowIdx{0};
+
+  /// Device side array of per-stream result rows.
+  WaveBufferPtr resultRowPointers;
+
+  /// Array of result rows for each streamId.
+  std::vector<WaveBufferPtr> resultRows;
+
+  /// A host pinned buffer for copying row pointer arrays to device.
+  WaveBufferPtr temp;
 };
 
 struct OperatorStateMap {
@@ -412,14 +454,16 @@ struct ContinuePoint {
 struct ProgramLaunch {
   Program* program{nullptr};
   bool isStaged{false};
+#if 0
   /// Device side buffer for status returning instructions.
   std::vector<void*> returnBuffers;
   /// Host side address 1:1 to 'returnBuffers'.
   std::vector<void*> hostReturnBuffers;
   /// Device side temp status for instructions.
   std::vector<void*> deviceBuffers;
-
-  /// Where to continue if previous execution was incomplete.
+#endif
+  /// Where to continue if previous execution was incomplete. The last advances
+  /// first and is popped off.
   AdvanceResult advance;
 };
 
@@ -515,7 +559,17 @@ class Program : public std::enable_shared_from_this<Program> {
   /// output vectors,, synced on 'hostReturnEvent_'.
   bool isSink() const;
 
+  /// Records instruction return status. The status os accessed by canAdvance().
+  void interpretReturn(
+      WaveStream& stream,
+      LaunchControl* control,
+      int32_t programIdx);
+
   void registerStatus(WaveStream& stream);
+
+  /// Runs the update callback in 'advance' with the right instruction.  E.g.
+  /// rehash device side table,. Caller synchronizes.
+  void callUpdateStatus(WaveStream& stream, AdvanceResult& result);
 
   std::string toString() const;
 
@@ -633,12 +687,14 @@ class WaveStream {
       GpuArena& deviceArena,
       const std::vector<std::unique_ptr<AbstractOperand>>* operands,
       OperatorStateMap* stateMap,
-      InstructionStatus state)
+      InstructionStatus state,
+      int16_t streamIdx)
       : arena_(arena),
         deviceArena_(deviceArena),
         operands_(operands),
         taskStateMap_(stateMap),
-        instructionStatus_(state) {
+        instructionStatus_(state),
+        streamIdx_(streamIdx) {
     operandNullable_.resize(operands_->size(), true);
   }
 
@@ -895,6 +951,30 @@ class WaveStream {
     return instructionStatus_;
   }
 
+  /// Returns the grid level return status for instruction with 'status' or
+  /// nullptr if no status in place.
+  template <typename T>
+  T* gridStatus(const InstructionStatus& status) {
+    if (!hostBlockStatus_) {
+      return nullptr;
+    }
+    auto numBlocks = bits::roundUp(numRows_, kBlockSize) / kBlockSize;
+    return reinterpret_cast<T*>(
+        bits::roundUp(
+            reinterpret_cast<uintptr_t>(
+                &hostBlockStatus_->as<BlockStatus>()[numBlocks]),
+            8) +
+        status.gridState);
+  }
+
+  BlockStatus* hostBlockStatus() const {
+    return hostBlockStatus_->as<BlockStatus>();
+  }
+
+  int16_t streamIdx() const {
+    return streamIdx_;
+  }
+
  private:
   // true if 'op' is nullable in the context of 'this'.
   bool isNullable(const AbstractOperand& op) const;
@@ -937,6 +1017,10 @@ class WaveStream {
 
   // Space reserved for per-instruction return state above BlockStatus array.
   InstructionStatus instructionStatus_;
+
+  // Identifies 'this' within parallel streams in the same WaveDriver or
+  // parallll WaveDrivers in other Driver pipelines.
+  const int16_t streamIdx_;
 
   // Number of rows to allocate for top level vectors for the next kernel
   // launch.
