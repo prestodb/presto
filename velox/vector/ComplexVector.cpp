@@ -856,13 +856,14 @@ bool ArrayVectorBase::hasOverlappingRanges(
     vector_size_t size,
     const uint64_t* nulls,
     const vector_size_t* offsets,
-    const vector_size_t* sizes) {
+    const vector_size_t* sizes,
+    std::vector<vector_size_t>& indices) {
   if (!(nulls
             ? maybeHaveOverlappingRanges<true>(size, nulls, offsets, sizes)
             : maybeHaveOverlappingRanges<false>(size, nulls, offsets, sizes))) {
     return false;
   }
-  std::vector<vector_size_t> indices;
+  indices.clear();
   indices.reserve(size);
   for (vector_size_t i = 0; i < size; ++i) {
     const bool isNull = nulls && bits::isBitNull(nulls, i);
