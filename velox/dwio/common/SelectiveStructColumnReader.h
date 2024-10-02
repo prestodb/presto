@@ -133,9 +133,15 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
     return hasDeletion_;
   }
 
-  // Returns true if we'll return a constant for that childSpec (i.e. we don't
-  // need to read it).
-  bool isChildConstant(const velox::common::ScanSpec& childSpec) const;
+  // Returns true if the file doesn't have this child (in which case it will be
+  // treated as null).
+  bool isChildMissing(const velox::common::ScanSpec& childSpec) const;
+
+  bool isChildConstant(const velox::common::ScanSpec& childSpec) const {
+    return childSpec.isConstant() ||
+        childSpec.subscript() == kConstantChildSpecSubscript ||
+        isChildMissing(childSpec);
+  }
 
   void fillOutputRowsFromMutation(vector_size_t size);
 

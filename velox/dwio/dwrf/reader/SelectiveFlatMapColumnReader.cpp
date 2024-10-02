@@ -183,6 +183,9 @@ class SelectiveFlatMapAsStructReader : public SelectiveStructColumnReaderBase {
         !keyNodes_.empty(),
         "For struct encoding, keys to project must be configured");
     children_.resize(keyNodes_.size());
+    for (auto& childSpec : scanSpec.children()) {
+      childSpec->setSubscript(kConstantChildSpecSubscript);
+    }
     for (int i = 0; i < keyNodes_.size(); ++i) {
       keyNodes_[i].reader->scanSpec()->setSubscript(i);
       children_[i] = keyNodes_[i].reader.get();

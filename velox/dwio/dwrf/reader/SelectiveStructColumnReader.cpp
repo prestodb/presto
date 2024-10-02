@@ -53,7 +53,7 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
     if (childSpec->isExplicitRowNumber()) {
       continue;
     }
-    if (isChildConstant(*childSpec)) {
+    if (childSpec->isConstant() || isChildMissing(*childSpec)) {
       childSpec->setSubscript(kConstantChildSpecSubscript);
       continue;
     }

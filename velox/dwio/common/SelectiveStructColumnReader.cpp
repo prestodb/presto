@@ -271,11 +271,9 @@ void SelectiveStructColumnReaderBase::recordParentNullsInChildren(
   }
 }
 
-bool SelectiveStructColumnReaderBase::isChildConstant(
+bool SelectiveStructColumnReaderBase::isChildMissing(
     const velox::common::ScanSpec& childSpec) const {
-  // Returns true if the child has a constant set in the ScanSpec, or if the
-  // file doesn't have this child (in which case it will be treated as null).
-  return childSpec.isConstant() ||
+  return
       // The below check is trying to determine if this is a missing field in a
       // struct that should be constant null.
       (!isRoot_ && // If we're in the root struct channel is meaningless in this

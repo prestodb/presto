@@ -4737,13 +4737,14 @@ TEST_F(TableScanTest, partitionKeyNotMatchPartitionKeysHandle) {
 TEST_F(TableScanTest, readFlatMapAsStruct) {
   constexpr int kSize = 10;
   std::vector<std::string> keys = {"1", "2", "3"};
-  auto vector = makeRowVector({makeRowVector(
+  auto c0 = makeRowVector(
       keys,
       {
           makeFlatVector<int64_t>(kSize, folly::identity),
           makeFlatVector<int64_t>(kSize, folly::identity, nullEvery(5)),
           makeFlatVector<int64_t>(kSize, folly::identity, nullEvery(7)),
-      })});
+      });
+  auto vector = makeRowVector({c0});
   auto config = std::make_shared<dwrf::Config>();
   config->set(dwrf::Config::FLATTEN_MAP, true);
   config->set<const std::vector<uint32_t>>(dwrf::Config::MAP_FLAT_COLS, {0});
@@ -4757,6 +4758,18 @@ TEST_F(TableScanTest, readFlatMapAsStruct) {
       PlanBuilder().tableScan(readSchema, {}, "", writeSchema).planNode();
   auto split = makeHiveConnectorSplit(file->getPath());
   AssertQueryBuilder(plan).split(split).assertResults(vector);
+  readSchema =
+      ROW({"c0"}, {ROW({"1", "4", "2"}, {BIGINT(), BIGINT(), BIGINT()})});
+  plan = PlanBuilder().tableScan(readSchema, {}, "", writeSchema).planNode();
+  split = makeHiveConnectorSplit(file->getPath());
+  auto expected = makeRowVector({makeRowVector(
+      {"1", "4", "2"},
+      {
+          c0->childAt(0),
+          makeNullConstant(TypeKind::BIGINT, kSize),
+          c0->childAt(1),
+      })});
+  AssertQueryBuilder(plan).split(split).assertResults(expected);
 }
 
 TEST_F(TableScanTest, dynamicFilters) {
