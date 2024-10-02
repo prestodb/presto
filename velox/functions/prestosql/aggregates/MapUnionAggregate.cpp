@@ -20,12 +20,11 @@ namespace facebook::velox::aggregate::prestosql {
 namespace {
 // See documentation at
 // https://prestodb.io/docs/current/functions/aggregate.html
-template <typename K, typename AccumulatorType = MapAccumulator<K>>
-class MapUnionAggregate : public MapAggregateBase<K, AccumulatorType> {
+template <typename K>
+class MapUnionAggregate : public MapAggregateBase<K> {
  public:
-  using Base = MapAggregateBase<K, AccumulatorType>;
-
-  explicit MapUnionAggregate(TypePtr resultType) : Base(resultType) {}
+  explicit MapUnionAggregate(TypePtr resultType)
+      : MapAggregateBase<K>(resultType) {}
 
   bool supportsToIntermediate() const override {
     return true;
@@ -38,7 +37,7 @@ class MapUnionAggregate : public MapAggregateBase<K, AccumulatorType> {
     if (rows.isAllSelected()) {
       result = args[0];
     } else {
-      auto* pool = Base::allocator_->pool();
+      auto* pool = MapAggregateBase<K>::allocator_->pool();
       const auto numRows = rows.size();
 
       // Set nulls for rows not present in 'rows'.
@@ -61,7 +60,7 @@ class MapUnionAggregate : public MapAggregateBase<K, AccumulatorType> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    Base::addMapInputToAccumulator(groups, rows, args, false);
+    MapAggregateBase<K>::addMapInputToAccumulator(groups, rows, args, false);
   }
 
   void addSingleGroupRawInput(
@@ -69,17 +68,10 @@ class MapUnionAggregate : public MapAggregateBase<K, AccumulatorType> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    Base::addSingleGroupMapInputToAccumulator(group, rows, args, false);
+    MapAggregateBase<K>::addSingleGroupMapInputToAccumulator(
+        group, rows, args, false);
   }
 };
-
-template <TypeKind Kind>
-std::unique_ptr<exec::Aggregate> createMapUnionAggregateWithCustomCompare(
-    const TypePtr& resultType) {
-  return std::make_unique<MapUnionAggregate<
-      typename TypeTraits<Kind>::NativeType,
-      CustomComparisonMapAccumulator<Kind>>>(resultType);
-}
 
 } // namespace
 
@@ -108,15 +100,6 @@ void registerMapUnionAggregate(
           -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_EQ(
             argTypes.size(), 1, "{}: unexpected number of arguments", name);
-
-        const auto keyType = resultType->childAt(0);
-
-        if (keyType->providesCustomComparison()) {
-          return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-              createMapUnionAggregateWithCustomCompare,
-              keyType->kind(),
-              resultType);
-        }
 
         return createMapAggregate<MapUnionAggregate>(resultType);
       },

@@ -22,13 +22,14 @@ namespace facebook::velox::aggregate::prestosql {
 namespace {
 // See documentation at
 // https://prestodb.io/docs/current/functions/aggregate.html
-template <typename K, typename AccumulatorType = MapAccumulator<K>>
-class MapAggAggregate : public MapAggregateBase<K, AccumulatorType> {
+template <typename K>
+class MapAggAggregate : public MapAggregateBase<K> {
  public:
-  using Base = MapAggregateBase<K, AccumulatorType>;
-
   explicit MapAggAggregate(TypePtr resultType, bool throwOnNestedNulls = false)
-      : Base(std::move(resultType)), throwOnNestedNulls_(throwOnNestedNulls) {}
+      : MapAggregateBase<K>(std::move(resultType)),
+        throwOnNestedNulls_(throwOnNestedNulls) {}
+
+  using Base = MapAggregateBase<K>;
 
   bool supportsToIntermediate() const override {
     return true;
@@ -144,14 +145,6 @@ class MapAggAggregate : public MapAggregateBase<K, AccumulatorType> {
   const bool throwOnNestedNulls_;
 };
 
-template <TypeKind Kind>
-std::unique_ptr<exec::Aggregate> createMapAggAggregateWithCustomCompare(
-    const TypePtr& resultType) {
-  return std::make_unique<MapAggAggregate<
-      typename TypeTraits<Kind>::NativeType,
-      CustomComparisonMapAccumulator<Kind>>>(resultType);
-}
-
 } // namespace
 
 void registerMapAggAggregate(
@@ -185,15 +178,7 @@ void registerMapAggAggregate(
             "{}: unexpected number of arguments",
             name);
         const bool throwOnNestedNulls = rawInput;
-
-        const auto keyType = resultType->childAt(0);
-        const auto typeKind = keyType->kind();
-
-        if (keyType->providesCustomComparison()) {
-          return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-              createMapAggAggregateWithCustomCompare, typeKind, resultType);
-        }
-
+        const auto typeKind = resultType->childAt(0)->kind();
         switch (typeKind) {
           case TypeKind::BOOLEAN:
             return std::make_unique<MapAggAggregate<bool>>(resultType);

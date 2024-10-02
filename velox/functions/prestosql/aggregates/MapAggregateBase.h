@@ -22,10 +22,12 @@
 
 namespace facebook::velox::aggregate::prestosql {
 
-template <typename K, typename AccumulatorType>
+template <typename K>
 class MapAggregateBase : public exec::Aggregate {
  public:
   explicit MapAggregateBase(TypePtr resultType) : Aggregate(resultType) {}
+
+  using AccumulatorType = MapAccumulator<K>;
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(AccumulatorType);
@@ -200,8 +202,7 @@ class MapAggregateBase : public exec::Aggregate {
   DecodedVector decodedMaps_;
 };
 
-template <template <typename K, typename Accumulator = MapAccumulator<K>>
-          class TAggregate>
+template <template <typename K> class TAggregate>
 std::unique_ptr<exec::Aggregate> createMapAggregate(const TypePtr& resultType) {
   auto typeKind = resultType->childAt(0)->kind();
   switch (typeKind) {
