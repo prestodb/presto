@@ -880,6 +880,17 @@ Enable treating ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins
 
 The corresponding session property is :ref:`admin/properties-session:\`\`treat-low-confidence-zero-estimation-as-unknown\`\``. 
 
+``optimizer.scalar-function-stats-propagation-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable scalar functions stats propagation using annotations. Annotations define the behavior of the scalar
+function's stats characteristics. When set to ``true``, this property enables the stats propagation through annotations.
+This can also be specified on a per-query basis using the ``scalar_function_stats_propagation_enabled`` session property.
+
 ``optimizer.retry-query-with-history-based-optimization``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
