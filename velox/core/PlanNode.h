@@ -1221,7 +1221,7 @@ class PartitionedOutputNode : public PlanNode {
     kArbitrary,
   };
   static std::string kindString(Kind kind);
-  static Kind stringToKind(std::string str);
+  static Kind stringToKind(const std::string& str);
 
   PartitionedOutputNode(
       const PlanNodeId& id,

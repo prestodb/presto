@@ -535,10 +535,10 @@ TEST_F(OutputBufferManagerTest, outputType) {
       PartitionedOutputNode::kindString(
           PartitionedOutputNode::Kind::kBroadcast),
       "BROADCAST");
-  ASSERT_EQ(
+  EXPECT_THROW(
       PartitionedOutputNode::kindString(
           static_cast<PartitionedOutputNode::Kind>(100)),
-      "INVALID OUTPUT KIND 100");
+      std::out_of_range);
 }
 
 TEST_F(OutputBufferManagerTest, destinationBuffer) {

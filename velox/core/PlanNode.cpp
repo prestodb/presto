@@ -1971,17 +1971,6 @@ PlanNodePtr LocalPartitionNode::create(
       deserializeSources(obj, context));
 }
 
-// static
-const char* LocalPartitionNode::typeName(Type type) {
-  switch (type) {
-    case Type::kGather:
-      return "GATHER";
-    case Type::kRepartition:
-      return "REPARTITION";
-  }
-  VELOX_UNREACHABLE();
-}
-
 namespace {
 std::unordered_map<LocalPartitionNode::Type, std::string>
 localPartitionTypeNames() {
@@ -1991,6 +1980,12 @@ localPartitionTypeNames() {
   };
 }
 } // namespace
+
+// static
+const char* LocalPartitionNode::typeName(Type type) {
+  static const auto kLocalPartitionTypeNames = localPartitionTypeNames();
+  return kLocalPartitionTypeNames.at(type).c_str();
+}
 
 // static
 LocalPartitionNode::Type LocalPartitionNode::typeFromName(
@@ -2016,32 +2011,29 @@ PlanNodePtr EnforceSingleRowNode::create(
       deserializePlanNodeId(obj), deserializeSingleSource(obj, context));
 }
 
+namespace {
+std::unordered_map<PartitionedOutputNode::Kind, std::string>
+partitionKindNames() {
+  return {
+      {PartitionedOutputNode::Kind::kPartitioned, "PARTITIONED"},
+      {PartitionedOutputNode::Kind::kBroadcast, "BROADCAST"},
+      {PartitionedOutputNode::Kind::kArbitrary, "ARBITRARY"},
+  };
+}
+
+} // namespace
+
 // static
 std::string PartitionedOutputNode::kindString(Kind kind) {
-  switch (kind) {
-    case Kind::kPartitioned:
-      return "PARTITIONED";
-    case Kind::kBroadcast:
-      return "BROADCAST";
-    case Kind::kArbitrary:
-      return "ARBITRARY";
-    default:
-      return fmt::format("INVALID OUTPUT KIND {}", static_cast<int>(kind));
-  }
+  static const auto kPartitionNames = partitionKindNames();
+  return kPartitionNames.at(kind);
 }
 
 // static
 PartitionedOutputNode::Kind PartitionedOutputNode::stringToKind(
-    std::string str) {
-  if (str == "PARTITIONED") {
-    return Kind::kPartitioned;
-  } else if (str == "BROADCAST") {
-    return Kind::kBroadcast;
-  } else if (str == "ARBITRARY") {
-    return Kind::kArbitrary;
-  } else {
-    VELOX_FAIL("Unknown output buffer type: {}", str);
-  }
+    const std::string& name) {
+  static const auto kPartitionKinds = invertMap(partitionKindNames());
+  return kPartitionKinds.at(name);
 }
 
 void PartitionedOutputNode::addDetails(std::stringstream& stream) const {
