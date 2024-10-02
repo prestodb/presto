@@ -17,23 +17,32 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.scalar.ParametricScalar;
+import com.facebook.presto.operator.scalar.ScalarHeader;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
 import com.facebook.presto.spi.function.CodegenScalarFunction;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
+import com.facebook.presto.spi.function.ScalarStatsHeader;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
@@ -99,11 +108,38 @@ public final class ScalarFromAnnotationsParser
         return builder.build();
     }
 
+    private static Optional<ScalarStatsHeader> getScalarStatsHeader(Method annotated)
+    {
+        Optional<ScalarStatsHeader> scalarStatsHeader;
+        ScalarFunctionConstantStats constantStatsAnnotation =
+                annotated.getAnnotation(ScalarFunctionConstantStats.class);
+        List<Parameter> params =
+                Arrays.stream(annotated.getParameters())
+                        .filter(param -> param.getAnnotation(SqlType.class) != null)
+                        .collect(Collectors.toList());
+        // Map of (function argument position index) -> (ScalarPropagateSourceStats annotation)
+        ImmutableMap.Builder<Integer, ScalarPropagateSourceStats> argumentIndexToStatsAnnotationMapBuilder = new ImmutableMap.Builder<>();
+
+        IntStream.range(0, params.size())
+                .filter(paramIndex -> params.get(paramIndex).getAnnotation(ScalarPropagateSourceStats.class) != null)
+                .forEachOrdered(paramIndex -> argumentIndexToStatsAnnotationMapBuilder.put(paramIndex,
+                        params.get(paramIndex).getAnnotation(ScalarPropagateSourceStats.class)));
+
+        Map<Integer, ScalarPropagateSourceStats> argumentIndexToStatsAnnotation = argumentIndexToStatsAnnotationMapBuilder.build();
+        scalarStatsHeader = Optional.ofNullable(constantStatsAnnotation)
+                .map(statsAnnotation -> new ScalarStatsHeader(statsAnnotation, argumentIndexToStatsAnnotation));
+        if (!argumentIndexToStatsAnnotation.isEmpty() && !scalarStatsHeader.isPresent()) {
+            scalarStatsHeader = Optional.of(new ScalarStatsHeader(argumentIndexToStatsAnnotation));
+        }
+        return scalarStatsHeader;
+    }
+
     private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor)
     {
         ScalarImplementationHeader header = scalar.getHeader();
 
         Map<SpecializedSignature, ParametricScalarImplementation.Builder> signatures = new HashMap<>();
+        ImmutableMap.Builder<Signature, ScalarStatsHeader> signatureToStatsHeaderMapBuilder = new ImmutableMap.Builder<>();
         for (Method method : scalar.getMethods()) {
             ParametricScalarImplementation implementation = ParametricScalarImplementation.Parser.parseImplementation(header, method, constructor);
             if (!signatures.containsKey(implementation.getSpecializedSignature())) {
@@ -119,6 +155,8 @@ public final class ScalarFromAnnotationsParser
                 ParametricScalarImplementation.Builder builder = signatures.get(implementation.getSpecializedSignature());
                 builder.addChoices(implementation);
             }
+            Optional<ScalarStatsHeader> scalarStatsHeader = getScalarStatsHeader(method);
+            scalarStatsHeader.ifPresent(statsHeader -> signatureToStatsHeaderMapBuilder.put(implementation.getSignature().canonicalization(), statsHeader));
         }
 
         ParametricImplementationsGroup.Builder<ParametricScalarImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
@@ -131,7 +169,11 @@ public final class ScalarFromAnnotationsParser
         header.getOperatorType().ifPresent(operatorType ->
                 validateOperator(operatorType, scalarSignature.getReturnType(), scalarSignature.getArgumentTypes()));
 
-        return new ParametricScalar(scalarSignature, header.getHeader(), implementations);
+        ScalarHeader scalarHeader = header.getHeader();
+        ScalarHeader headerWithStats =
+                new ScalarHeader(scalarHeader.getDescription(), scalarHeader.getVisibility(), scalarHeader.isDeterministic(),
+                        scalarHeader.isCalledOnNullInput(), signatureToStatsHeaderMapBuilder.build());
+        return new ParametricScalar(scalarSignature, headerWithStats, implementations);
     }
 
     private static class ScalarHeaderAndMethods
