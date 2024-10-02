@@ -65,6 +65,10 @@
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #endif
 
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+#include "presto_cpp/main/connectors/tpcds/TpcdsConnector.h"
+#endif
+
 #ifdef __linux__
 // Required by BatchThreadFactory
 #include <pthread.h>
@@ -269,6 +273,10 @@ void PrestoServer::run() {
       std::make_unique<SystemPrestoToVeloxConnector>("system"));
   registerPrestoToVeloxConnector(
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+  registerPrestoToVeloxConnector(
+      std::make_unique<TpcdsPrestoToVeloxConnector>("tpcds"));
+#endif
 
   initializeVeloxMemory();
   initializeThreadPools();

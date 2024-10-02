@@ -991,6 +991,36 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
  * limitations under the License.
  */
 
+// TpcdsTransactionHandle is special since
+// the corresponding class in Java is an enum.
+
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const TpcdsTransactionHandle& p) {
+  j = json::array();
+  j.push_back(p._type);
+  j.push_back(p.instance);
+}
+
+void from_json(const json& j, TpcdsTransactionHandle& p) {
+  j[0].get_to(p._type);
+  j[1].get_to(p.instance);
+}
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // TpchTransactionHandle is special since
 // the corresponding class in Java is an enum.
 
@@ -1022,6 +1052,7 @@ void from_json(const json& j, TpchTransactionHandle& p) {
  */
 
 // dependency TpchTransactionHandle
+// dependency TpcdsTransactionHandle
 
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
@@ -13842,6 +13873,178 @@ void from_json(const json& j, TopNRowNumberNode& p) {
       "TopNRowNumberNode",
       "VariableReferenceExpression",
       "hashVariable");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpcdsColumnHandle::TpcdsColumnHandle() noexcept {
+  _type = "tpcds";
+}
+
+void to_json(json& j, const TpcdsColumnHandle& p) {
+  j = json::object();
+  j["@type"] = "tpcds";
+  to_json_key(
+      j,
+      "columnName",
+      p.columnName,
+      "TpcdsColumnHandle",
+      "String",
+      "columnName");
+  to_json_key(j, "type", p.type, "TpcdsColumnHandle", "Type", "type");
+}
+
+void from_json(const json& j, TpcdsColumnHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "columnName",
+      p.columnName,
+      "TpcdsColumnHandle",
+      "String",
+      "columnName");
+  from_json_key(j, "type", p.type, "TpcdsColumnHandle", "Type", "type");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpcdsPartitioningHandle::TpcdsPartitioningHandle() noexcept {
+  _type = "tpcds";
+}
+
+void to_json(json& j, const TpcdsPartitioningHandle& p) {
+  j = json::object();
+  j["@type"] = "tpcds";
+  to_json_key(
+      j, "table", p.table, "TpcdsPartitioningHandle", "String", "table");
+  to_json_key(
+      j,
+      "totalRows",
+      p.totalRows,
+      "TpcdsPartitioningHandle",
+      "int64_t",
+      "totalRows");
+}
+
+void from_json(const json& j, TpcdsPartitioningHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j, "table", p.table, "TpcdsPartitioningHandle", "String", "table");
+  from_json_key(
+      j,
+      "totalRows",
+      p.totalRows,
+      "TpcdsPartitioningHandle",
+      "int64_t",
+      "totalRows");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpcdsTableHandle::TpcdsTableHandle() noexcept {
+  _type = "tpcds";
+}
+
+void to_json(json& j, const TpcdsTableHandle& p) {
+  j = json::object();
+  j["@type"] = "tpcds";
+  to_json_key(
+      j, "tableName", p.tableName, "TpcdsTableHandle", "String", "tableName");
+  to_json_key(
+      j,
+      "scaleFactor",
+      p.scaleFactor,
+      "TpcdsTableHandle",
+      "double",
+      "scaleFactor");
+}
+
+void from_json(const json& j, TpcdsTableHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j, "tableName", p.tableName, "TpcdsTableHandle", "String", "tableName");
+  from_json_key(
+      j,
+      "scaleFactor",
+      p.scaleFactor,
+      "TpcdsTableHandle",
+      "double",
+      "scaleFactor");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpcdsSplit::TpcdsSplit() noexcept {
+  _type = "tpcds";
+}
+
+void to_json(json& j, const TpcdsSplit& p) {
+  j = json::object();
+  j["@type"] = "tpcds";
+  to_json_key(
+      j,
+      "tableHandle",
+      p.tableHandle,
+      "TpcdsSplit",
+      "TpcdsTableHandle",
+      "tableHandle");
+  to_json_key(j, "partNumber", p.partNumber, "TpcdsSplit", "int", "partNumber");
+  to_json_key(j, "totalParts", p.totalParts, "TpcdsSplit", "int", "totalParts");
+  to_json_key(
+      j,
+      "addresses",
+      p.addresses,
+      "TpcdsSplit",
+      "List<HostAddress>",
+      "addresses");
+  to_json_key(j, "noSexism", p.noSexism, "TpcdsSplit", "bool", "noSexism");
+}
+
+void from_json(const json& j, TpcdsSplit& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "tableHandle",
+      p.tableHandle,
+      "TpcdsSplit",
+      "TpcdsTableHandle",
+      "tableHandle");
+  from_json_key(
+      j, "partNumber", p.partNumber, "TpcdsSplit", "int", "partNumber");
+  from_json_key(
+      j, "totalParts", p.totalParts, "TpcdsSplit", "int", "totalParts");
+  from_json_key(
+      j,
+      "addresses",
+      p.addresses,
+      "TpcdsSplit",
+      "List<HostAddress>",
+      "addresses");
+  from_json_key(j, "noSexism", p.noSexism, "TpcdsSplit", "bool", "noSexism");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpcdsTableLayoutHandle::TpcdsTableLayoutHandle() noexcept {
+  _type = "tpcds";
+}
+
+void to_json(json& j, const TpcdsTableLayoutHandle& p) {
+  j = json::object();
+  j["@type"] = "tpcds";
+  to_json_key(
+      j,
+      "table",
+      p.table,
+      "TpcdsTableLayoutHandle",
+      "TpcdsTableHandle",
+      "table");
+}
+
+void from_json(const json& j, TpcdsTableLayoutHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "table",
+      p.table,
+      "TpcdsTableLayoutHandle",
+      "TpcdsTableHandle",
+      "table");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
