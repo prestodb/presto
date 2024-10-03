@@ -18,6 +18,7 @@
 #include "velox/exec/RowContainer.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
@@ -207,6 +208,32 @@ TEST_F(HistogramTest, groupByString) {
   testGlobalHistogramWithDuck(data);
 }
 
+TEST_F(HistogramTest, groupByTimestampWithTimezones) {
+  auto vector = makeFlatVector<int64_t>(
+      {pack(0, 0),
+       pack(1, 0),
+       pack(2, 0),
+       pack(0, 1),
+       pack(1, 1),
+       pack(1, 2),
+       pack(2, 2),
+       pack(3, 3),
+       pack(1, 1),
+       pack(3, 0)},
+      TIMESTAMP_WITH_TIME_ZONE());
+
+  auto keys = makeFlatVector<int16_t>(10, [](auto row) { return row % 2; });
+
+  auto expected = makeRowVector(
+      {makeFlatVector<int16_t>({0, 1}),
+       makeMapVector<int64_t, int64_t>(
+           {{{pack(0, 0), 1}, {pack(1, 1), 2}, {pack(2, 0), 2}},
+            {{pack(0, 1), 1}, {pack(1, 0), 2}, {pack(3, 3), 2}}},
+           MAP(TIMESTAMP_WITH_TIME_ZONE(), BIGINT()))});
+
+  testHistogram("histogram(c1)", {"c0"}, keys, vector, expected);
+}
+
 TEST_F(HistogramTest, globalInteger) {
   vector_size_t num = 29;
   auto vector = makeFlatVector<int32_t>(
@@ -315,6 +342,25 @@ TEST_F(HistogramTest, globalNaNs) {
   auto expected = makeRowVector({makeMapVectorFromJson<double, int64_t>({
       "{1: 1, 2: 1, 3: 2, NaN: 4}",
   })});
+
+  testHistogram("histogram(c1)", {}, vector, vector, expected);
+}
+
+TEST_F(HistogramTest, globalTimestampWithTimezones) {
+  auto vector = makeFlatVector<int64_t>(
+      {pack(0, 0),
+       pack(1, 0),
+       pack(2, 0),
+       pack(0, 1),
+       pack(1, 1),
+       pack(1, 2),
+       pack(2, 2),
+       pack(3, 3)},
+      TIMESTAMP_WITH_TIME_ZONE());
+
+  auto expected = makeRowVector({makeMapVector<int64_t, int64_t>(
+      {{{pack(0, 0), 2}, {pack(1, 0), 3}, {pack(2, 0), 2}, {pack(3, 3), 1}}},
+      MAP(TIMESTAMP_WITH_TIME_ZONE(), BIGINT()))});
 
   testHistogram("histogram(c1)", {}, vector, vector, expected);
 }

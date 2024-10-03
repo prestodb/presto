@@ -89,6 +89,77 @@ struct Accumulator {
   }
 };
 
+// A wrapper around Accumulator that overrides hash and equal_to functions to
+// use the custom comparisons provided by a custom type.
+template <TypeKind Kind>
+struct CustomComparisonAccumulator {
+  using NativeType = typename TypeTraits<Kind>::NativeType;
+
+  struct Hash {
+    const TypePtr& type;
+
+    size_t operator()(const NativeType& value) const {
+      return static_cast<const CanProvideCustomComparisonType<Kind>*>(
+                 type.get())
+          ->hash(value);
+    }
+  };
+
+  struct EqualTo {
+    const TypePtr& type;
+
+    bool operator()(const NativeType& left, const NativeType& right) const {
+      return static_cast<const CanProvideCustomComparisonType<Kind>*>(
+                 type.get())
+                 ->compare(left, right) == 0;
+    }
+  };
+
+  // The underlying Accumulator to which all operations are delegated.
+  Accumulator<
+      NativeType,
+      CustomComparisonAccumulator::Hash,
+      CustomComparisonAccumulator::EqualTo>
+      base;
+
+  CustomComparisonAccumulator(
+      const TypePtr& type,
+      HashStringAllocator* allocator)
+      : base{
+            CustomComparisonAccumulator::Hash{type},
+            CustomComparisonAccumulator::EqualTo{type},
+            allocator} {}
+
+  size_t size() const {
+    return base.size();
+  }
+
+  void addValue(
+      DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* allocator) {
+    base.addValue(decoded, index, allocator);
+  }
+
+  void addValueWithCount(
+      NativeType value,
+      int64_t count,
+      HashStringAllocator* allocator) {
+    base.addValueWithCount(value, count, allocator);
+  }
+
+  void extractValues(
+      FlatVector<NativeType>& keys,
+      FlatVector<int64_t>& counts,
+      vector_size_t offset) {
+    base.extractValues(keys, counts, offset);
+  }
+
+  void free(HashStringAllocator& allocator) {
+    base.free(allocator);
+  }
+};
+
 struct StringViewAccumulator {
   /// A map of unique StringViews pointing to storage managed by 'strings'.
   Accumulator<StringView> base;
@@ -269,13 +340,14 @@ FOLLY_ALWAYS_INLINE void addToFinalAggregation(
   }
 }
 
-template <typename T>
+template <
+    typename T,
+    typename AccumulatorType =
+        typename AccumulatorTypeTraits<T>::AccumulatorType>
 class HistogramAggregate : public exec::Aggregate {
  public:
   explicit HistogramAggregate(TypePtr resultType)
       : Aggregate(std::move(resultType)) {}
-
-  using AccumulatorType = typename AccumulatorTypeTraits<T>::AccumulatorType;
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(AccumulatorType);
@@ -480,6 +552,14 @@ class HistogramAggregate : public exec::Aggregate {
   DecodedVector decodedIntermediate_;
 };
 
+template <TypeKind Kind>
+std::unique_ptr<exec::Aggregate> createHistogramAggregateWithCustomCompare(
+    const TypePtr& resultType) {
+  return std::make_unique<HistogramAggregate<
+      typename TypeTraits<Kind>::NativeType,
+      CustomComparisonAccumulator<Kind>>>(resultType);
+}
+
 } // namespace
 
 void registerHistogramAggregate(
@@ -508,9 +588,17 @@ void registerHistogramAggregate(
         VELOX_CHECK_EQ(
             argTypes.size(), 1, "{}: unexpected number of arguments", name);
 
-        auto inputType = argTypes[0];
-        switch (exec::isRawInput(step) ? inputType->kind()
-                                       : inputType->childAt(0)->kind()) {
+        auto inputType =
+            exec::isRawInput(step) ? argTypes[0] : argTypes[0]->childAt(0);
+
+        if (inputType->providesCustomComparison()) {
+          return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+              createHistogramAggregateWithCustomCompare,
+              inputType->kind(),
+              resultType);
+        }
+
+        switch (inputType->kind()) {
           case TypeKind::BOOLEAN:
             return std::make_unique<HistogramAggregate<bool>>(resultType);
           case TypeKind::TINYINT:
