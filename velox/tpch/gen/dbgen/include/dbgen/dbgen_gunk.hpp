@@ -10,7 +10,11 @@
  */
 #pragma once
 
+namespace facebook::velox::tpch::dbgen {
+
 struct DBGenContext;
 
 void load_dists(long textBufferSize, DBGenContext* ctx);
 void cleanup_dists(void);
+
+} // namespace facebook::velox::tpch::dbgen

@@ -67,6 +67,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+namespace facebook::velox::tpch::dbgen {
+
 void dss_random64(DSS_HUGE* tgt, DSS_HUGE nLow, DSS_HUGE nHigh, seed_t* seed) {
   DSS_HUGE nTemp;
 
@@ -138,3 +140,5 @@ DSS_HUGE AdvanceRand64(DSS_HUGE nSeed, DSS_HUGE nCount) {
   nSeed = nSeed * Apow + Dsum * c;
   return nSeed;
 }
+
+} // namespace facebook::velox::tpch::dbgen

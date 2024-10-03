@@ -103,6 +103,9 @@ static char alpha_num[65] =
 #ifndef WIN32
 char* getenv PROTO((const char* name));
 #endif
+
+namespace facebook::velox::tpch::dbgen {
+
 void usage();
 void permute_dist(distribution* d, seed_t* seed);
 
@@ -218,7 +221,11 @@ long julian(long date) {
   return (result + offset);
 }
 
+} // namespace facebook::velox::tpch::dbgen
+
 #include "dbgen/dists_dss.h" // @manual
+
+namespace facebook::velox::tpch::dbgen {
 
 static char
 read_line_into_buffer(char* buffer, size_t bufsiz, const char** src) {
@@ -444,3 +451,5 @@ set_state(
 
   return (result);
 }
+
+} // namespace facebook::velox::tpch::dbgen

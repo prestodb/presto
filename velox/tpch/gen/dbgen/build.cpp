@@ -22,6 +22,8 @@
 #include <math.h>
 #include "dbgen/rng64.h" // @manual
 
+namespace facebook::velox::tpch::dbgen {
+
 #define LEAP_ADJ(yr, mnth) ((LEAP(yr) && (mnth) >= 2) ? 1 : 0)
 #define JDAY_BASE 8035 /* start from 1/1/70 a la unix */
 #define JMNTH_BASE (-70 * 12) /* start from 1/1/70 a la unix */
@@ -363,3 +365,5 @@ int mk_region(DSS_HUGE index, code_t* c, DBGenContext* ctx) {
   c->clen = (int)strlen(c->comment);
   return (0);
 }
+
+} // namespace facebook::velox::tpch::dbgen

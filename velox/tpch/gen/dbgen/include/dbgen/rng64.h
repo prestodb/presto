@@ -13,6 +13,10 @@
 #include "dbgen/config.h" // @manual
 #include "dbgen/dss.h" // @manual
 
+namespace facebook::velox::tpch::dbgen {
+
 DSS_HUGE AdvanceRand64(DSS_HUGE nSeed, DSS_HUGE nCount);
 void dss_random64(DSS_HUGE* tgt, DSS_HUGE nLow, DSS_HUGE nHigh, seed_t* seed);
 DSS_HUGE NextRand64(DSS_HUGE nSeed);
+
+} // namespace facebook::velox::tpch::dbgen

@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+namespace facebook::velox::tpch::dbgen {
+
 /*  _tal long RandSeed = "Random^SeedFromTimestamp" (void); */
 
 #define ADVANCE_STREAM(stream, num_calls) advanceStream(stream, num_calls, 0)
@@ -213,3 +215,5 @@ long sd_region(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
 
   return (0L);
 }
+
+} // namespace facebook::velox::tpch::dbgen

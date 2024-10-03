@@ -15,6 +15,8 @@
 
 #pragma once
 
+namespace facebook::velox::tpch::dbgen {
+
 /*
  * typedefs
  */
@@ -163,3 +165,5 @@ long sd_supp(int child, DSS_HUGE skip_count, DBGenContext* ctx);
 long sd_part(int child, DSS_HUGE skip_count, DBGenContext* ctx);
 long sd_psupp(int child, DSS_HUGE skip_count, DBGenContext* ctx);
 long sd_cust(int child, DSS_HUGE skip_count, DBGenContext* ctx);
+
+} // namespace facebook::velox::tpch::dbgen

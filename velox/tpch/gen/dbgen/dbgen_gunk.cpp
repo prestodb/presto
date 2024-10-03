@@ -12,6 +12,8 @@
 
 #include "dbgen/dss.h" // @manual
 
+namespace facebook::velox::tpch::dbgen {
+
 void load_dists(long textBufferSize, DBGenContext* ctx) {
   read_dist(tpch_env_config(DIST_TAG, DIST_DFLT), "p_cntr", &p_cntr_set);
   read_dist(tpch_env_config(DIST_TAG, DIST_DFLT), "colors", &colors);
@@ -83,3 +85,5 @@ void cleanup_dists(void) {
 
   free_text_pool();
 }
+
+} // namespace facebook::velox::tpch::dbgen

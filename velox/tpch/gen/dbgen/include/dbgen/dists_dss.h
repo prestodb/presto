@@ -8,6 +8,9 @@
  *
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
+
+namespace facebook::velox::tpch::dbgen {
+
 const char* dists_dss =
     "#\n"
     "# $Id: dists.dss,v 1.2 2005/01/03 20:08:58 jms Exp $\n"
@@ -849,3 +852,5 @@ const char* dists_dss =
     "accounts|40\n"
     "deposits|40\n"
     "END Q13b";
+
+} // namespace facebook::velox::tpch::dbgen

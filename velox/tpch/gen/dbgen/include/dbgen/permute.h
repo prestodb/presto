@@ -8,6 +8,9 @@
  *
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
+
+namespace facebook::velox::tpch::dbgen {
+
 long permutation[41][22] = {
     {14, 2,  9, 20, 6,  17, 18, 8,  21, 13, 3,
      22, 16, 4, 11, 15, 1,  10, 19, 5,  7,  12},
@@ -91,3 +94,5 @@ long permutation[41][22] = {
      16, 19, 1,  13, 9, 8, 17, 11, 12, 22, 2},
     {13, 15, 17, 1, 22, 11, 3, 4,  7,  20, 14,
      21, 9,  8,  2, 18, 16, 6, 10, 12, 5,  19}};
+
+} // namespace facebook::velox::tpch::dbgen

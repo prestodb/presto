@@ -64,6 +64,8 @@
 
 #include "dbgen/dss.h" // @manual
 
+namespace facebook::velox::tpch::dbgen {
+
 static char* gen_text(char* dest, seed_t* seed, distribution* s) {
   long i = 0;
   DSS_HUGE j;
@@ -271,3 +273,5 @@ void dbg_text(char* tgt, int min, int max, seed_t* seed) {
 
   return;
 }
+
+} // namespace facebook::velox::tpch::dbgen

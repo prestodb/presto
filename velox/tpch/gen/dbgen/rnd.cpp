@@ -27,6 +27,8 @@
 #include "dbgen/dss.h" // @manual
 #include "dbgen/rnd.h" // @manual
 
+namespace facebook::velox::tpch::dbgen {
+
 const char* tpch_env_config PROTO((const char* tag, const char* dflt));
 void NthElement(DSS_HUGE, DSS_HUGE*);
 
@@ -151,3 +153,5 @@ UnifInt(DSS_HUGE nLow, DSS_HUGE nHigh, seed_t* seed)
   nTemp = (DSS_HUGE)(((double)seed->value / DBGenContext::dM) * (dRange));
   return (nLow + nTemp);
 }
+
+} // namespace facebook::velox::tpch::dbgen

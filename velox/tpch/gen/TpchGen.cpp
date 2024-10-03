@@ -20,8 +20,9 @@
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::tpch {
-
 namespace {
+
+using namespace dbgen;
 
 // The cardinality of the LINEITEM table is not a strict multiple of SF since
 // the number of lineitems in an order is chosen at random with an average of

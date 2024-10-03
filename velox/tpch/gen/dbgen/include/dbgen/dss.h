@@ -118,6 +118,8 @@
 #define RANDOM(tgt, lower, upper, seed) dss_random(&tgt, lower, upper, seed)
 #define RANDOM64(tgt, lower, upper, seed) dss_random64(&tgt, lower, upper, seed)
 
+namespace facebook::velox::tpch::dbgen {
+
 typedef struct {
   long weight;
   char* text;
@@ -577,5 +579,7 @@ struct DBGenContext {
 
   long scale_factor = 1;
 };
+
+} // namespace facebook::velox::tpch::dbgen
 
 #endif /* DSS_H */

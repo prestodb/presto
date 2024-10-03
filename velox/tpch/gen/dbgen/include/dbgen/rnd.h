@@ -15,6 +15,8 @@
 
 #pragma once
 
+namespace facebook::velox::tpch::dbgen {
+
 /* function protypes */
 DSS_HUGE NextRand PROTO((DSS_HUGE));
 DSS_HUGE UnifInt PROTO((DSS_HUGE, DSS_HUGE, long));
@@ -28,3 +30,5 @@ DSS_HUGE UnifInt PROTO((DSS_HUGE, DSS_HUGE, long));
  * preferred solution, but not initializing correctly
  */
 #define VSTR_MAX(len) (long)(len / 5 + (len % 5 == 0) ? 0 : 1 + 1)
+
+} // namespace facebook::velox::tpch::dbgen

@@ -15,6 +15,8 @@
 #include "dbgen/config.h" // @manual
 #include "dbgen/dss.h" // @manual
 
+namespace facebook::velox::tpch::dbgen {
+
 DSS_HUGE NextRand(DSS_HUGE seed);
 void permute(long* set, int cnt, seed_t* seed);
 void permute_dist(distribution* d, seed_t* seed);
@@ -58,3 +60,5 @@ void permute_dist(distribution* d, seed_t* seed) {
 
   return;
 }
+
+} // namespace facebook::velox::tpch::dbgen
