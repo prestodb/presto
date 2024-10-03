@@ -575,6 +575,17 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
 
 #undef VELOX_FLUENT_CAST
 
+template <TypeKind KIND, typename = void>
+struct kindCanProvideCustomComparison : std::false_type {};
+
+template <TypeKind KIND>
+struct kindCanProvideCustomComparison<
+    KIND,
+    std::enable_if_t<
+        TypeTraits<KIND>::isPrimitiveType && TypeTraits<KIND>::isFixedWidth>> {
+  static constexpr bool value = true;
+};
+
 template <TypeKind KIND>
 class TypeBase : public Type {
  public:
@@ -584,7 +595,7 @@ class TypeBase : public Type {
       : Type{KIND, providesCustomComparison} {
     if (providesCustomComparison) {
       VELOX_CHECK(
-          isPrimitiveType() && isFixedWidth(),
+          kindCanProvideCustomComparison<KIND>::value,
           "Custom comparisons are only supported for primite types that are fixed width.");
     }
   }

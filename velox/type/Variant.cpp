@@ -670,39 +670,55 @@ variant variant::create(const folly::dynamic& variantobj) {
 }
 
 template <TypeKind KIND>
-bool variant::lessThan(const variant& a, const variant& b) const {
+bool variant::lessThan(const variant& other) const {
   using namespace facebook::velox::util::floating_point;
-  if (a.isNull() && !b.isNull()) {
+  if (isNull() && !other.isNull()) {
     return true;
   }
-  if (a.isNull() || b.isNull()) {
+  if (isNull() || other.isNull()) {
     return false;
   }
   using T = typename TypeTraits<KIND>::NativeType;
-  if constexpr (std::is_floating_point_v<T>) {
-    return NaNAwareLessThan<T>{}(a.value<KIND>(), b.value<KIND>());
+
+  if constexpr (kindCanProvideCustomComparison<KIND>::value) {
+    if (usesCustomComparison_) {
+      return customComparisonType<KIND>()->compare(
+                 value<KIND>(), other.value<KIND>()) < 0;
+    }
   }
-  return a.value<KIND>() < b.value<KIND>();
+
+  if constexpr (std::is_floating_point_v<T>) {
+    return NaNAwareLessThan<T>{}(value<KIND>(), other.value<KIND>());
+  }
+  return value<KIND>() < other.value<KIND>();
 }
 
 bool variant::operator<(const variant& other) const {
   if (other.kind_ != this->kind_) {
     return other.kind_ < this->kind_;
   }
-  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(lessThan, kind_, *this, other);
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(lessThan, kind_, other);
 }
 
 template <TypeKind KIND>
-bool variant::equals(const variant& a, const variant& b) const {
+bool variant::equals(const variant& other) const {
   using namespace facebook::velox::util::floating_point;
-  if (a.isNull() || b.isNull()) {
+  if (isNull() || other.isNull()) {
     return false;
   }
   using T = typename TypeTraits<KIND>::NativeType;
-  if constexpr (std::is_floating_point_v<T>) {
-    return NaNAwareEquals<T>{}(a.value<KIND>(), b.value<KIND>());
+
+  if constexpr (kindCanProvideCustomComparison<KIND>::value) {
+    if (usesCustomComparison_) {
+      return customComparisonType<KIND>()->compare(
+                 value<KIND>(), other.value<KIND>()) == 0;
+    }
   }
-  return a.value<KIND>() == b.value<KIND>();
+
+  if constexpr (std::is_floating_point_v<T>) {
+    return NaNAwareEquals<T>{}(value<KIND>(), other.value<KIND>());
+  }
+  return value<KIND>() == other.value<KIND>();
 }
 
 bool variant::equals(const variant& other) const {
@@ -712,80 +728,87 @@ bool variant::equals(const variant& other) const {
   if (other.isNull()) {
     return this->isNull();
   }
-  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(equals, kind_, *this, other);
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(equals, kind_, other);
+}
+
+template <TypeKind KIND>
+uint64_t variant::hash() const {
+  using namespace facebook::velox::util::floating_point;
+  using T = typename TypeTraits<KIND>::NativeType;
+
+  if constexpr (kindCanProvideCustomComparison<KIND>::value) {
+    if (usesCustomComparison_) {
+      return customComparisonType<KIND>()->hash(value<KIND>());
+    }
+  }
+
+  if constexpr (std::is_floating_point_v<T>) {
+    return NaNAwareHash<T>{}(value<KIND>());
+  }
+
+  return folly::Hash{}(value<KIND>());
+}
+
+template <>
+uint64_t variant::hash<TypeKind::ARRAY>() const {
+  auto& arrayVariant = value<TypeKind::ARRAY>();
+  auto hasher = folly::Hash{};
+  uint64_t hash = 0;
+  for (int32_t i = 0; i < arrayVariant.size(); i++) {
+    hash =
+        folly::hash::hash_combine_generic(hasher, hash, arrayVariant[i].hash());
+  }
+  return hash;
+}
+
+template <>
+uint64_t variant::hash<TypeKind::ROW>() const {
+  auto hasher = folly::Hash{};
+  uint64_t hash = 0;
+  auto& rowVariant = value<TypeKind::ROW>();
+  for (int32_t i = 0; i < rowVariant.size(); i++) {
+    hash =
+        folly::hash::hash_combine_generic(hasher, hash, rowVariant[i].hash());
+  }
+  return hash;
+}
+
+template <>
+uint64_t variant::hash<TypeKind::TIMESTAMP>() const {
+  auto timestampValue = value<TypeKind::TIMESTAMP>();
+  return folly::Hash{}(timestampValue.getSeconds(), timestampValue.getNanos());
+}
+
+template <>
+uint64_t variant::hash<TypeKind::MAP>() const {
+  auto hasher = folly::Hash{};
+  auto& mapVariant = value<TypeKind::MAP>();
+  uint64_t combinedKeyHash = 0, combinedValueHash = 0;
+  uint64_t singleKeyHash = 0, singleValueHash = 0;
+  for (auto it = mapVariant.begin(); it != mapVariant.end(); ++it) {
+    singleKeyHash = it->first.hash();
+    singleValueHash = it->second.hash();
+    combinedKeyHash = folly::hash::commutative_hash_combine_value_generic(
+        combinedKeyHash, hasher, singleKeyHash);
+    combinedValueHash = folly::hash::commutative_hash_combine_value_generic(
+        combinedValueHash, hasher, singleValueHash);
+  }
+
+  return folly::hash::hash_combine_generic(
+      folly::Hash{}, combinedKeyHash, combinedValueHash);
+}
+
+template <>
+uint64_t variant::hash<TypeKind::OPAQUE>() const {
+  VELOX_NYI();
 }
 
 uint64_t variant::hash() const {
-  using namespace facebook::velox::util::floating_point;
-  uint64_t hash = 0;
   if (isNull()) {
     return folly::Hash{}(static_cast<int32_t>(kind_));
   }
 
-  switch (kind_) {
-    case TypeKind::BIGINT:
-      return folly::Hash{}(value<TypeKind::BIGINT>());
-    case TypeKind::HUGEINT:
-      return folly::Hash{}(value<TypeKind::HUGEINT>());
-    case TypeKind::INTEGER:
-      return folly::Hash{}(value<TypeKind::INTEGER>());
-    case TypeKind::SMALLINT:
-      return folly::Hash{}(value<TypeKind::SMALLINT>());
-    case TypeKind::TINYINT:
-      return folly::Hash{}(value<TypeKind::TINYINT>());
-    case TypeKind::BOOLEAN:
-      return folly::Hash{}(value<TypeKind::BOOLEAN>());
-    case TypeKind::REAL:
-      return NaNAwareHash<float>{}(value<TypeKind::REAL>());
-    case TypeKind::DOUBLE:
-      return NaNAwareHash<double>{}(value<TypeKind::DOUBLE>());
-    case TypeKind::VARBINARY:
-      return folly::Hash{}(value<TypeKind::VARBINARY>());
-    case TypeKind::VARCHAR:
-      return folly::Hash{}(value<TypeKind::VARCHAR>());
-    case TypeKind::ARRAY: {
-      auto& arrayVariant = value<TypeKind::ARRAY>();
-      auto hasher = folly::Hash{};
-      for (int32_t i = 0; i < arrayVariant.size(); i++) {
-        hash = folly::hash::hash_combine_generic(
-            hasher, hash, arrayVariant[i].hash());
-      }
-      return hash;
-    }
-    case TypeKind::ROW: {
-      auto hasher = folly::Hash{};
-      auto& rowVariant = value<TypeKind::ROW>();
-      for (int32_t i = 0; i < rowVariant.size(); i++) {
-        hash = folly::hash::hash_combine_generic(
-            hasher, hash, rowVariant[i].hash());
-      }
-      return hash;
-    }
-    case TypeKind::TIMESTAMP: {
-      auto timestampValue = value<TypeKind::TIMESTAMP>();
-      return folly::Hash{}(
-          timestampValue.getSeconds(), timestampValue.getNanos());
-    }
-    case TypeKind::MAP: {
-      auto hasher = folly::Hash{};
-      auto& mapVariant = value<TypeKind::MAP>();
-      uint64_t combinedKeyHash = 0, combinedValueHash = 0;
-      uint64_t singleKeyHash = 0, singleValueHash = 0;
-      for (auto it = mapVariant.begin(); it != mapVariant.end(); ++it) {
-        singleKeyHash = it->first.hash();
-        singleValueHash = it->second.hash();
-        combinedKeyHash = folly::hash::commutative_hash_combine_value_generic(
-            combinedKeyHash, hasher, singleKeyHash);
-        combinedValueHash = folly::hash::commutative_hash_combine_value_generic(
-            combinedValueHash, hasher, singleValueHash);
-      }
-
-      return folly::hash::hash_combine_generic(
-          folly::Hash{}, combinedKeyHash, combinedValueHash);
-    }
-    default:
-      VELOX_NYI();
-  }
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(hash, kind_);
 }
 
 namespace {
@@ -853,7 +876,7 @@ bool variant::lessThanWithEpsilon(const variant& other) const {
     return *this < other;
   }
 
-  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(lessThan, kind_, *this, other);
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(lessThan, kind_, other);
 }
 
 namespace {
@@ -918,7 +941,7 @@ bool variant::equalsWithEpsilon(const variant& other) const {
     case TypeKind::ROW:
       return compareComplexTypeWithEpsilon<TypeKind::ROW>(*this, other);
     default:
-      return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(equals, kind_, *this, other);
+      return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(equals, kind_, other);
   }
 }
 
