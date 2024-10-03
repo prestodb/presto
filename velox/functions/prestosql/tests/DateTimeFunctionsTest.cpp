@@ -85,20 +85,21 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
   // Helper class to manipulate timestamp with timezone types in tests. Provided
   // only for convenience.
   struct TimestampWithTimezone {
-    TimestampWithTimezone(int64_t milliSeconds, int16_t timezoneId)
-        : milliSeconds_(milliSeconds), timezoneId_(timezoneId) {}
-
     TimestampWithTimezone(int64_t milliSeconds, std::string_view timezoneName)
-        : TimestampWithTimezone{milliSeconds, tz::getTimeZoneID(timezoneName)} {
-    }
+        : milliSeconds_(milliSeconds),
+          timezone_(tz::locateZone(timezoneName)) {}
+
+    TimestampWithTimezone(int64_t milliSeconds, const tz::TimeZone* timezone)
+        : milliSeconds_(milliSeconds), timezone_(timezone) {}
 
     int64_t milliSeconds_{0};
-    int16_t timezoneId_{0};
+    const tz::TimeZone* timezone_;
 
     static std::optional<int64_t> pack(
         std::optional<TimestampWithTimezone> zone) {
       if (zone.has_value()) {
-        return facebook::velox::pack(zone->milliSeconds_, zone->timezoneId_);
+        return facebook::velox::pack(
+            zone->milliSeconds_, zone->timezone_->id());
       }
       return std::nullopt;
     }
@@ -107,7 +108,8 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
         std::optional<int64_t> input) {
       if (input.has_value()) {
         return TimestampWithTimezone(
-            unpackMillisUtc(input.value()), unpackZoneKeyId(input.value()));
+            unpackMillisUtc(input.value()),
+            tz::getTimeZoneName(unpackZoneKeyId(input.value())));
       }
       return std::nullopt;
     }
@@ -117,7 +119,7 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
         std::ostream& os,
         const TimestampWithTimezone& in) {
       return os << "TimestampWithTimezone(milliSeconds: " << in.milliSeconds_
-                << ", timezoneId: " << in.timezoneId_ << ")";
+                << ", timezone: " << *in.timezone_ << ")";
     }
   };
 
@@ -189,7 +191,8 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
 bool operator==(
     const DateTimeFunctionsTest::TimestampWithTimezone& a,
     const DateTimeFunctionsTest::TimestampWithTimezone& b) {
-  return a.milliSeconds_ == b.milliSeconds_ && a.timezoneId_ == b.timezoneId_;
+  return a.milliSeconds_ == b.milliSeconds_ &&
+      a.timezone_->id() == b.timezone_->id();
 }
 
 TEST_F(DateTimeFunctionsTest, dateTruncSignatures) {
@@ -320,17 +323,6 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
   // Nan.
   static const double kNan = std::numeric_limits<double>::quiet_NaN();
   EXPECT_EQ(fromUnixtime(kNan, "-04:36"), TimestampWithTimezone(0, "-04:36"));
-
-  // Test some hard coded pairs of timezone names and internal ids.
-  std::vector<TimeZoneKey> timezoneIds = {900, 960, 1020, 1080, 1140};
-  std::vector<std::string> timezoneNames = {
-      "+01:00", "+02:00", "+03:00", "+04:00", "+05:00"};
-
-  for (size_t i = 0; i < timezoneIds.size(); ++i) {
-    EXPECT_EQ(
-        fromUnixtime(1'000, timezoneNames[i]),
-        TimestampWithTimezone(1'000'000, timezoneIds[i]));
-  }
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtimeTzOffset) {
@@ -2820,12 +2812,12 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestampWithTimezone) {
       std::nullopt,
       dateDiff(
           std::nullopt,
-          TimestampWithTimezone(0, 0),
-          TimestampWithTimezone(0, 0)));
+          TimestampWithTimezone(0, "UTC"),
+          TimestampWithTimezone(0, "UTC")));
 
   EXPECT_EQ(
       std::nullopt,
-      dateDiff("asdf", std::nullopt, TimestampWithTimezone(0, 0)));
+      dateDiff("asdf", std::nullopt, TimestampWithTimezone(0, "UTC")));
 
   // timestamp1: 1970-01-01 00:00:00.000 +00:00 (0)
   // timestamp2: 2020-08-25 16:30:10.123 -08:00 (1'598'373'010'123)
@@ -2939,21 +2931,26 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
   // Simple tests. More exhaustive tests are provided as part of Joda's
   // implementation.
   EXPECT_EQ(
-      TimestampWithTimezone(0, 0), parseDatetime("1970-01-01", "YYYY-MM-dd"));
+      TimestampWithTimezone(0, "UTC"),
+      parseDatetime("1970-01-01", "YYYY-MM-dd"));
   EXPECT_EQ(
-      TimestampWithTimezone(86400000, 0),
+      TimestampWithTimezone(86400000, "UTC"),
       parseDatetime("1970-01-02", "YYYY-MM-dd"));
   EXPECT_EQ(
-      TimestampWithTimezone(86400000, 0),
+      TimestampWithTimezone(86400000, "UTC"),
       parseDatetime("19700102", "YYYYMMdd"));
   EXPECT_EQ(
-      TimestampWithTimezone(86400000, 0), parseDatetime("19700102", "YYYYMdd"));
+      TimestampWithTimezone(86400000, "UTC"),
+      parseDatetime("19700102", "YYYYMdd"));
   EXPECT_EQ(
-      TimestampWithTimezone(86400000, 0), parseDatetime("19700102", "YYYYMMd"));
+      TimestampWithTimezone(86400000, "UTC"),
+      parseDatetime("19700102", "YYYYMMd"));
   EXPECT_EQ(
-      TimestampWithTimezone(86400000, 0), parseDatetime("19700102", "YYYYMd"));
+      TimestampWithTimezone(86400000, "UTC"),
+      parseDatetime("19700102", "YYYYMd"));
   EXPECT_EQ(
-      TimestampWithTimezone(86400000, 0), parseDatetime("19700102", "YYYYMd"));
+      TimestampWithTimezone(86400000, "UTC"),
+      parseDatetime("19700102", "YYYYMd"));
 
   // 118860000 is the number of milliseconds since epoch at 1970-01-02
   // 09:01:00.000 UTC.
@@ -3710,23 +3707,22 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
 
   // Partial strings with different session time zones.
   struct {
-    std::string name;
+    const tz::TimeZone* timezone;
     int32_t offset;
   } timezones[] = {
-      {"America/New_York", -5 * kMillisInHour},
-      {"Asia/Kolkata", 5 * kMillisInHour + 30 * kMillisInMinute},
+      {tz::locateZone("America/New_York"), -5 * kMillisInHour},
+      {tz::locateZone("Asia/Kolkata"),
+       5 * kMillisInHour + 30 * kMillisInMinute},
   };
 
   for (const auto& timezone : timezones) {
-    setQueryTimeZone(timezone.name);
-
-    const auto timezoneId = tz::getTimeZoneID(timezone.name);
+    setQueryTimeZone(timezone.timezone->name());
 
     EXPECT_EQ(
         TimestampWithTimezone(
             kMillisInDay + 11 * kMillisInHour + 38 * kMillisInMinute +
                 56 * kMillisInSecond + 123 - timezone.offset,
-            timezoneId),
+            timezone.timezone),
         fromIso("1970-01-02T11:38:56.123"));
 
     // Comma separator between seconds and microseconds.
@@ -3734,72 +3730,76 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
         TimestampWithTimezone(
             kMillisInDay + 11 * kMillisInHour + 38 * kMillisInMinute +
                 56 * kMillisInSecond + 123 - timezone.offset,
-            timezoneId),
+            timezone.timezone),
         fromIso("1970-01-02T11:38:56,123"));
 
     EXPECT_EQ(
         TimestampWithTimezone(
             kMillisInDay + 11 * kMillisInHour + 38 * kMillisInMinute +
                 56 * kMillisInSecond - timezone.offset,
-            timezoneId),
+            timezone.timezone),
         fromIso("1970-01-02T11:38:56"));
 
     EXPECT_EQ(
         TimestampWithTimezone(
             kMillisInDay + 11 * kMillisInHour + 38 * kMillisInMinute -
                 timezone.offset,
-            timezoneId),
+            timezone.timezone),
         fromIso("1970-01-02T11:38"));
 
     EXPECT_EQ(
         TimestampWithTimezone(
-            kMillisInDay + 11 * kMillisInHour - timezone.offset, timezoneId),
+            kMillisInDay + 11 * kMillisInHour - timezone.offset,
+            timezone.timezone),
         fromIso("1970-01-02T11"));
 
     // No time.
     EXPECT_EQ(
-        TimestampWithTimezone(kMillisInDay - timezone.offset, timezoneId),
+        TimestampWithTimezone(
+            kMillisInDay - timezone.offset, timezone.timezone),
         fromIso("1970-01-02"));
 
     EXPECT_EQ(
-        TimestampWithTimezone(-timezone.offset, timezoneId),
+        TimestampWithTimezone(-timezone.offset, timezone.timezone),
         fromIso("1970-01-01"));
     EXPECT_EQ(
-        TimestampWithTimezone(-timezone.offset, timezoneId),
+        TimestampWithTimezone(-timezone.offset, timezone.timezone),
         fromIso("1970-01"));
     EXPECT_EQ(
-        TimestampWithTimezone(-timezone.offset, timezoneId), fromIso("1970"));
+        TimestampWithTimezone(-timezone.offset, timezone.timezone),
+        fromIso("1970"));
 
     // No date.
     EXPECT_EQ(
         TimestampWithTimezone(
             11 * kMillisInHour + 38 * kMillisInMinute + 56 * kMillisInSecond +
                 123 - timezone.offset,
-            timezoneId),
+            timezone.timezone),
         fromIso("T11:38:56.123"));
 
     EXPECT_EQ(
         TimestampWithTimezone(
             11 * kMillisInHour + 38 * kMillisInMinute + 56 * kMillisInSecond +
                 123 - timezone.offset,
-            timezoneId),
+            timezone.timezone),
         fromIso("T11:38:56,123"));
 
     EXPECT_EQ(
         TimestampWithTimezone(
             11 * kMillisInHour + 38 * kMillisInMinute + 56 * kMillisInSecond -
                 timezone.offset,
-            timezoneId),
+            timezone.timezone),
         fromIso("T11:38:56"));
 
     EXPECT_EQ(
         TimestampWithTimezone(
             11 * kMillisInHour + 38 * kMillisInMinute - timezone.offset,
-            timezoneId),
+            timezone.timezone),
         fromIso("T11:38"));
 
     EXPECT_EQ(
-        TimestampWithTimezone(11 * kMillisInHour - timezone.offset, timezoneId),
+        TimestampWithTimezone(
+            11 * kMillisInHour - timezone.offset, timezone.timezone),
         fromIso("T11"));
   }
 

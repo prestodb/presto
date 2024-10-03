@@ -108,6 +108,10 @@ class TimeZone {
   TimeZone(const TimeZone&) = delete;
   TimeZone& operator=(const TimeZone&) = delete;
 
+  friend std::ostream& operator<<(std::ostream& os, const TimeZone& timezone) {
+    return os << timezone.name();
+  }
+
   using seconds = std::chrono::seconds;
 
   /// Converts a local time (the time as perceived in the user time zone
