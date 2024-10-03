@@ -16,6 +16,7 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Comparisons.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::functions {
@@ -27,6 +28,8 @@ void registerNonSimdizableScalar(const std::vector<std::string>& aliases) {
   registerFunction<T, TReturn, Varbinary, Varbinary>(aliases);
   registerFunction<T, TReturn, bool, bool>(aliases);
   registerFunction<T, TReturn, Timestamp, Timestamp>(aliases);
+  registerFunction<T, TReturn, TimestampWithTimezone, TimestampWithTimezone>(
+      aliases);
 }
 } // namespace
 
@@ -38,52 +41,22 @@ void registerComparisonFunctions(const std::string& prefix) {
   registerNonSimdizableScalar<EqFunction, bool>({prefix + "eq"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_eq, prefix + "eq");
   registerFunction<EqFunction, bool, Generic<T1>, Generic<T1>>({prefix + "eq"});
-  registerFunction<
-      EqFunctionTimestampWithTimezone,
-      bool,
-      TimestampWithTimezone,
-      TimestampWithTimezone>({prefix + "eq"});
 
   registerNonSimdizableScalar<NeqFunction, bool>({prefix + "neq"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_neq, prefix + "neq");
   registerFunction<NeqFunction, bool, Generic<T1>, Generic<T1>>(
       {prefix + "neq"});
-  registerFunction<
-      NeqFunctionTimestampWithTimezone,
-      bool,
-      TimestampWithTimezone,
-      TimestampWithTimezone>({prefix + "neq"});
 
   registerNonSimdizableScalar<LtFunction, bool>({prefix + "lt"});
-  registerFunction<
-      LtFunctionTimestampWithTimezone,
-      bool,
-      TimestampWithTimezone,
-      TimestampWithTimezone>({prefix + "lt"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lt, prefix + "lt");
 
   registerNonSimdizableScalar<GtFunction, bool>({prefix + "gt"});
-  registerFunction<
-      GtFunctionTimestampWithTimezone,
-      bool,
-      TimestampWithTimezone,
-      TimestampWithTimezone>({prefix + "gt"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_gt, prefix + "gt");
 
   registerNonSimdizableScalar<LteFunction, bool>({prefix + "lte"});
-  registerFunction<
-      LteFunctionTimestampWithTimezone,
-      bool,
-      TimestampWithTimezone,
-      TimestampWithTimezone>({prefix + "lte"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lte, prefix + "lte");
 
   registerNonSimdizableScalar<GteFunction, bool>({prefix + "gte"});
-  registerFunction<
-      GteFunctionTimestampWithTimezone,
-      bool,
-      TimestampWithTimezone,
-      TimestampWithTimezone>({prefix + "gte"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_gte, prefix + "gte");
 
   registerFunction<DistinctFromFunction, bool, Generic<T1>, Generic<T1>>(
@@ -132,7 +105,7 @@ void registerComparisonFunctions(const std::string& prefix) {
       IntervalYearMonth,
       IntervalYearMonth>({prefix + "between"});
   registerFunction<
-      BetweenFunctionTimestampWithTimezone,
+      BetweenFunction,
       bool,
       TimestampWithTimezone,
       TimestampWithTimezone,
