@@ -21,19 +21,27 @@ import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Map;
+import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.google.common.collect.Maps.fromProperties;
 import static java.util.Objects.requireNonNull;
 
 public class NativePlanCheckerProviderFactory
         implements PlanCheckerProviderFactory
 {
+    private static final File NATIVE_PLAN_CHECKER_PROVIDER_CONFIG = new File("etc/native-plan-checker-provider.properties");
     private final ClassLoader classLoader;
 
     public NativePlanCheckerProviderFactory(ClassLoader classLoader)
@@ -48,7 +56,7 @@ public class NativePlanCheckerProviderFactory
     }
 
     @Override
-    public PlanCheckerProvider create(Map<String, String> config, NodeManager nodeManager, SimplePlanFragmentSerde simplePlanFragmentSerde)
+    public PlanCheckerProvider create(SimplePlanFragmentSerde simplePlanFragmentSerde, NodeManager nodeManager)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
@@ -65,11 +73,33 @@ public class NativePlanCheckerProviderFactory
             Injector injector = app
                     .noStrictConfig()
                     .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
+                    .setRequiredConfigurationProperties(getConfig())
                     .quiet()
                     .initialize();
 
             return injector.getInstance(PlanCheckerProvider.class);
         }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Map<String, String> getConfig()
+            throws IOException
+    {
+        if (NATIVE_PLAN_CHECKER_PROVIDER_CONFIG.exists()) {
+            return loadProperties(NATIVE_PLAN_CHECKER_PROVIDER_CONFIG);
+        }
+        return ImmutableMap.of();
+    }
+
+    static Map<String, String> loadProperties(File file)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        try (InputStream in = Files.newInputStream(file.toPath())) {
+            properties.load(in);
+        }
+        return fromProperties(properties);
     }
 }

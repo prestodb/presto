@@ -52,13 +52,13 @@ public class TestPlanCheckerProvider
         NativePlanCheckerConfig config = new NativePlanCheckerConfig();
         assertTrue(config.isPlanValidationEnabled());
         NativePlanCheckerProvider provider = new NativePlanCheckerProvider(new TestNodeManager(), PLAN_FRAGMENT_JSON_CODEC, config);
-        assertTrue(provider.getPlanCheckersIntermediate().isEmpty());
-        assertTrue(provider.getPlanCheckersFinal().isEmpty());
-        assertFalse(provider.getPlanCheckersFragment().isEmpty());
+        assertTrue(provider.getIntermediatePlanCheckers().isEmpty());
+        assertTrue(provider.getFinalPlanCheckers().isEmpty());
+        assertFalse(provider.getFragmentPlanCheckers().isEmpty());
 
         // Disable the native plan checker entirely
         config.setPlanValidationEnabled(false);
-        assertTrue(provider.getPlanCheckersFragment().isEmpty());
+        assertTrue(provider.getFragmentPlanCheckers().isEmpty());
     }
 
     @Test

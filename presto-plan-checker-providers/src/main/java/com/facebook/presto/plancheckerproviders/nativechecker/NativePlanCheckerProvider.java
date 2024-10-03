@@ -42,7 +42,7 @@ public class NativePlanCheckerProvider
     }
 
     @Override
-    public List<PlanChecker> getPlanCheckersFragment()
+    public List<PlanChecker> getFragmentPlanCheckers()
     {
         return config.isPlanValidationEnabled() ?
                 Collections.singletonList(new NativePlanChecker(nodeManager, planFragmentJsonCodec, config)) :
