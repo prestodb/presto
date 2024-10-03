@@ -710,6 +710,19 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testRoundForUnderlyingValueOutOfRange()
+    {
+        // Round data of `REAL` type with underlying value out of long range should work well.
+        // See issue https://github.com/prestodb/presto/issues/23763
+        assertFunction("round(REAL '1.0E19', 1)", REAL, 1.0E19f);
+        assertFunction("round(REAL '1.0E19', 10)", REAL, 1.0E19f);
+        assertFunction("round(REAL '1.0E19', 100)", REAL, 1.0E19f);
+        assertFunction("round(REAL '9999999999999999999.9', 1)", REAL, 9999999999999999999.9f);
+        assertFunction("round(REAL '9999999999999999999.99', 10)", REAL, 9999999999999999999.99f);
+        assertFunction("round(REAL '9999999999999999999.999', 100)", REAL, 9999999999999999999.999f);
+    }
+
+    @Test
     public void testRound()
     {
         assertFunction("round(TINYINT '3')", TINYINT, (byte) 3);
