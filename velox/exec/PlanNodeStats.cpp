@@ -48,6 +48,7 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   cpuWallTiming.add(stats.addInputTiming);
   cpuWallTiming.add(stats.getOutputTiming);
   cpuWallTiming.add(stats.finishTiming);
+  cpuWallTiming.add(stats.isBlockedTiming);
 
   backgroundTiming.add(stats.backgroundTiming);
 

@@ -119,6 +119,8 @@ struct OperatorStats {
   /// read.
   int64_t numSplits{0};
 
+  CpuWallTiming isBlockedTiming;
+
   /// Bytes read from raw source, e.g. compressed file or network connection.
   uint64_t rawInputBytes = 0;
   uint64_t rawInputPositions = 0;

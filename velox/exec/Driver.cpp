@@ -556,11 +556,14 @@ StopReason Driver::runInternal(
           return blockDriver(self, i, std::move(future), blockingState, guard);
         }
 
-        CALL_OPERATOR(
-            blockingReason_ = op->isBlocked(&future),
-            op,
-            curOperatorId_,
-            kOpMethodIsBlocked);
+        withDeltaCpuWallTimer(op, &OperatorStats::isBlockedTiming, [&]() {
+          CALL_OPERATOR(
+              blockingReason_ = op->isBlocked(&future),
+              op,
+              curOperatorId_,
+              kOpMethodIsBlocked);
+        });
+
         if (blockingReason_ != BlockingReason::kNotBlocked) {
           return blockDriver(self, i, std::move(future), blockingState, guard);
         }
@@ -568,11 +571,13 @@ StopReason Driver::runInternal(
         if (i < numOperators - 1) {
           Operator* nextOp = operators_[i + 1].get();
 
-          CALL_OPERATOR(
-              blockingReason_ = nextOp->isBlocked(&future),
-              nextOp,
-              curOperatorId_ + 1,
-              kOpMethodIsBlocked);
+          withDeltaCpuWallTimer(op, &OperatorStats::isBlockedTiming, [&]() {
+            CALL_OPERATOR(
+                blockingReason_ = nextOp->isBlocked(&future),
+                nextOp,
+                curOperatorId_ + 1,
+                kOpMethodIsBlocked);
+          });
           if (blockingReason_ != BlockingReason::kNotBlocked) {
             return blockDriver(
                 self, i + 1, std::move(future), blockingState, guard);
@@ -587,27 +592,24 @@ StopReason Driver::runInternal(
           if (needsInput) {
             uint64_t resultBytes = 0;
             RowVectorPtr intermediateResult;
-            {
-              withDeltaCpuWallTimer(op, &OperatorStats::getOutputTiming, [&]() {
-                TestValue::adjust(
-                    "facebook::velox::exec::Driver::runInternal::getOutput",
-                    op);
-                CALL_OPERATOR(
-                    intermediateResult = op->getOutput(),
-                    op,
-                    curOperatorId_,
-                    kOpMethodGetOutput);
-                if (intermediateResult) {
-                  validateOperatorOutputResult(intermediateResult, *op);
-                  resultBytes = intermediateResult->estimateFlatSize();
-                  {
-                    auto lockedStats = op->stats().wlock();
-                    lockedStats->addOutputVector(
-                        resultBytes, intermediateResult->size());
-                  }
+            withDeltaCpuWallTimer(op, &OperatorStats::getOutputTiming, [&]() {
+              TestValue::adjust(
+                  "facebook::velox::exec::Driver::runInternal::getOutput", op);
+              CALL_OPERATOR(
+                  intermediateResult = op->getOutput(),
+                  op,
+                  curOperatorId_,
+                  kOpMethodGetOutput);
+              if (intermediateResult) {
+                validateOperatorOutputResult(intermediateResult, *op);
+                resultBytes = intermediateResult->estimateFlatSize();
+                {
+                  auto lockedStats = op->stats().wlock();
+                  lockedStats->addOutputVector(
+                      resultBytes, intermediateResult->size());
                 }
-              });
-            }
+              }
+            });
             pushdownFilters(i);
             if (intermediateResult) {
               withDeltaCpuWallTimer(op, &OperatorStats::addInputTiming, [&]() {
@@ -643,21 +645,26 @@ StopReason Driver::runInternal(
               // is not blocked and empty, this is finished. If this is
               // not the source, just try to get output from the one
               // before.
-              CALL_OPERATOR(
-                  blockingReason_ = op->isBlocked(&future),
-                  op,
-                  curOperatorId_,
-                  kOpMethodIsBlocked);
+              withDeltaCpuWallTimer(op, &OperatorStats::isBlockedTiming, [&]() {
+                CALL_OPERATOR(
+                    blockingReason_ = op->isBlocked(&future),
+                    op,
+                    curOperatorId_,
+                    kOpMethodIsBlocked);
+              });
               if (blockingReason_ != BlockingReason::kNotBlocked) {
                 return blockDriver(
                     self, i, std::move(future), blockingState, guard);
               }
+
               bool finished{false};
-              CALL_OPERATOR(
-                  finished = op->isFinished(),
-                  op,
-                  curOperatorId_,
-                  kOpMethodIsFinished);
+              withDeltaCpuWallTimer(op, &OperatorStats::finishTiming, [&]() {
+                CALL_OPERATOR(
+                    finished = op->isFinished(),
+                    op,
+                    curOperatorId_,
+                    kOpMethodIsFinished);
+              });
               if (finished) {
                 withDeltaCpuWallTimer(
                     op, &OperatorStats::finishTiming, [this, &nextOp]() {
@@ -704,11 +711,13 @@ StopReason Driver::runInternal(
           }
 
           bool finished{false};
-          CALL_OPERATOR(
-              finished = op->isFinished(),
-              op,
-              curOperatorId_,
-              kOpMethodIsFinished);
+          withDeltaCpuWallTimer(op, &OperatorStats::finishTiming, [&]() {
+            CALL_OPERATOR(
+                finished = op->isFinished(),
+                op,
+                curOperatorId_,
+                kOpMethodIsFinished);
+          });
           if (finished) {
             guard.notThrown();
             close();

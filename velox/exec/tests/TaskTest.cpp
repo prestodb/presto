@@ -1210,6 +1210,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
     EXPECT_EQ(32 * i, operatorStats.outputBytes);
     EXPECT_EQ(3 * i, operatorStats.outputPositions);
     EXPECT_EQ(i, operatorStats.outputVectors);
+    EXPECT_EQ(2 * (i + 1), operatorStats.isBlockedTiming.count);
     EXPECT_EQ(0, operatorStats.finishTiming.count);
     EXPECT_EQ(0, operatorStats.backgroundTiming.count);
 
@@ -1236,7 +1237,9 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   EXPECT_EQ(32 * numBatches, operatorStats.outputBytes);
   EXPECT_EQ(3 * numBatches, operatorStats.outputPositions);
   EXPECT_EQ(numBatches, operatorStats.outputVectors);
-  EXPECT_EQ(1, operatorStats.finishTiming.count);
+  // isBlocked() should be called at least twice for each batch
+  EXPECT_LE(2 * numBatches, operatorStats.isBlockedTiming.count);
+  EXPECT_EQ(2, operatorStats.finishTiming.count);
   // No operators with background CPU time yet.
   EXPECT_EQ(0, operatorStats.backgroundTiming.count);
 
