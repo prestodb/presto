@@ -160,5 +160,5 @@ jobs:
             ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-insert-overwrite-jdk21 -DskipUI
           else
             export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-            ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-insert-overwrite
+            ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-insert-overwrite -DskipUI
           fi
