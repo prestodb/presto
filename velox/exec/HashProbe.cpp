@@ -320,10 +320,13 @@ void HashProbe::asyncWaitForHashTable() {
   checkRunning();
   VELOX_CHECK_NULL(table_);
 
+  // Release any reserved memory before wait for next round of hash join in case
+  // of disk spilling has been triggered.
+  pool()->release();
+
   auto hashBuildResult = joinBridge_->tableOrFuture(&future_);
   if (!hashBuildResult.has_value()) {
     VELOX_CHECK(future_.valid());
-    pool()->release();
     setState(ProbeOperatorState::kWaitForBuild);
     return;
   }
@@ -922,6 +925,10 @@ void HashProbe::checkStateTransition(ProbeOperatorState state) {
 }
 
 RowVectorPtr HashProbe::getOutput() {
+  // Release the extra unused memory reserved for output processing.
+  SCOPE_EXIT {
+    pool()->release();
+  };
   return getOutputInternal(/*toSpillOutput=*/false);
 }
 
@@ -944,35 +951,36 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
   clearIdentityProjectedOutput();
 
   if (!input_) {
-    if (!hasMoreInput()) {
-      if (needLastProbe() && lastProber_) {
-        auto output = getBuildSideOutput();
-        if (output != nullptr) {
-          return output;
-        }
-      }
-
-      // NOTE: if getOutputInternal() is called from memory arbitration to spill
-      // the produced output from pending 'input_', then we should not proceed
-      // with the rest of procedure, and let the next driver getOutput() call to
-      // handle the probe finishing process properly.
-      if (toSpillOutput) {
-        VELOX_CHECK(memory::underMemoryArbitration());
-        VELOX_CHECK(canReclaim());
-        return nullptr;
-      }
-
-      if (hasMoreSpillData()) {
-        prepareForSpillRestore();
-        asyncWaitForHashTable();
-      } else {
-        if (lastProber_ && canSpill()) {
-          joinBridge_->probeFinished();
-          wakeupPeerOperators();
-        }
-        setState(ProbeOperatorState::kFinish);
-      }
+    if (hasMoreInput()) {
       return nullptr;
+    }
+
+    if (needLastProbe() && lastProber_) {
+      auto output = getBuildSideOutput();
+      if (output != nullptr) {
+        return output;
+      }
+    }
+
+    // NOTE: if getOutputInternal() is called from memory arbitration to spill
+    // the produced output from pending 'input_', then we should not proceed
+    // with the rest of procedure, and let the next driver getOutput() call to
+    // handle the probe finishing process properly.
+    if (toSpillOutput) {
+      VELOX_CHECK(memory::underMemoryArbitration());
+      VELOX_CHECK(canReclaim());
+      return nullptr;
+    }
+
+    if (hasMoreSpillData()) {
+      prepareForSpillRestore();
+      asyncWaitForHashTable();
+    } else {
+      if (lastProber_ && canSpill()) {
+        joinBridge_->probeFinished();
+        wakeupPeerOperators();
+      }
+      setState(ProbeOperatorState::kFinish);
     }
     return nullptr;
   }
@@ -1628,6 +1636,12 @@ void HashProbe::ensureOutputFits() {
     return;
   }
 
+  // We only need to reserve memory for output if need.
+  if (input_ == nullptr &&
+      (hasMoreInput() || !(needLastProbe() && lastProber_))) {
+    return;
+  }
+
   if (testingTriggerSpill(pool()->name())) {
     Operator::ReclaimableSectionGuard guard(this);
     memory::testingRunArbitration(pool());
@@ -1680,7 +1694,6 @@ void HashProbe::reclaim(
   }
 
   if (nonReclaimableState()) {
-    // TODO: reduce the log frequency if it is too verbose.
     RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     ++stats.numNonReclaimableAttempts;
     FB_LOG_EVERY_MS(WARNING, 1'000)

@@ -72,6 +72,10 @@ class HashProbe : public Operator {
     return inputSpiller_ != nullptr;
   }
 
+  bool testingExceededMaxSpillLevelLimit() const {
+    return exceededMaxSpillLevelLimit_;
+  }
+
  private:
   // Indicates if the join type includes misses from the left side in the
   // output.

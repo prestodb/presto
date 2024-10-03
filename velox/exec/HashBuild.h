@@ -88,6 +88,10 @@ class HashBuild final : public Operator {
 
   void close() override;
 
+  bool testingExceededMaxSpillLevelLimit() const {
+    return exceededMaxSpillLevelLimit_;
+  }
+
  private:
   void setState(State state);
   void checkStateTransition(State state);
