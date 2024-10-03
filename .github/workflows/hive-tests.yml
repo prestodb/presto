@@ -77,11 +77,11 @@ jobs:
         run: |
           if [ "${{ matrix.java-version }}" == "21.0.3" ]; then
             export MAVEN_OPTS="-Xmx2G -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED --add-opens java.base/java.awt.font=ALL-UNNAMED --add-opens java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector --enable-preview"
+            presto-hive-hadoop2/bin/run_hive_tests_java21.sh
           else
             export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+            presto-hive-hadoop2/bin/run_hive_tests.sh
           fi
-          presto-hive-hadoop2/bin/run_hive_tests.sh
-
       - name: Run Hive S3 Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.HIVE_AWS_ACCESSKEY }}
