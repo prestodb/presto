@@ -21,7 +21,6 @@ import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestingPlanCheckerProviderPlugin
@@ -47,7 +46,7 @@ public class TestingPlanCheckerProviderPlugin
     }
 
     @Override
-    public PlanCheckerProvider create(Map<String, String> config, SimplePlanFragmentSerde simplePlanFragmentSerde)
+    public PlanCheckerProvider create(SimplePlanFragmentSerde simplePlanFragmentSerde)
     {
         return this;
     }

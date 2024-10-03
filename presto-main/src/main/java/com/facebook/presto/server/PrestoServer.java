@@ -49,7 +49,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
-import com.facebook.presto.sql.planner.sanity.plancheckerprovidermanagers.PlanCheckerProviderManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.storage.TempStorageModule;
 import com.facebook.presto.tracing.TracerProviderManager;
@@ -180,8 +180,10 @@ public class PrestoServer
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
-            injector.getInstance(PlanCheckerProviderManager.class)
-                    .loadPlanCheckerProvider(injector.getInstance(PlanChecker.class), injector.getInstance(PlanFragmenter.class));
+            PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
+            planCheckerProviderManager.loadPlanCheckerProviders();
+            planCheckerProviderManager.updatePlanCheckerProviders(injector.getInstance(PlanChecker.class));
+            planCheckerProviderManager.updatePlanCheckerProviders(injector.getInstance(PlanFragmenter.class));
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

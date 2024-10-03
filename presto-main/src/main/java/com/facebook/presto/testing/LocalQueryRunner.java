@@ -189,7 +189,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
-import com.facebook.presto.sql.planner.sanity.plancheckerprovidermanagers.PlanCheckerProviderManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -436,13 +436,9 @@ public class LocalQueryRunner
                 new AnalyzePropertyManager(),
                 transactionManager);
         this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSchedulerConfig);
-        this.planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(jsonCodec(SimplePlanFragment.class)));
         this.distributedPlanChecker = new PlanChecker(featuresConfig, false);
-        distributedPlanChecker.update(planCheckerProviderManager.getPlanCheckerProvider());
         this.singleNodePlanChecker = new PlanChecker(featuresConfig, true);
-        singleNodePlanChecker.update(planCheckerProviderManager.getPlanCheckerProvider());
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), featuresConfig);
-        planFragmenter.updatePlanCheckers(planCheckerProviderManager.getPlanCheckerProvider());
         this.joinCompiler = new JoinCompiler(metadata);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
         this.statsNormalizer = new StatsNormalizer();
@@ -460,6 +456,12 @@ public class LocalQueryRunner
         this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
         this.expressionCompiler = new ExpressionCompiler(metadata, pageFunctionCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
+
+        this.planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(jsonCodec(SimplePlanFragment.class)));
+        planCheckerProviderManager.loadPlanCheckerProviders();
+        planCheckerProviderManager.updatePlanCheckerProviders(distributedPlanChecker);
+        planCheckerProviderManager.updatePlanCheckerProviders(singleNodePlanChecker);
+        planCheckerProviderManager.updatePlanCheckerProviders(planFragmenter);
 
         NodeInfo nodeInfo = new NodeInfo("test");
         NodeVersion nodeVersion = new NodeVersion("testversion");
