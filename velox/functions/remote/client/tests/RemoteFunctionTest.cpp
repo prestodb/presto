@@ -25,6 +25,7 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/CheckedArithmetic.h"
 #include "velox/functions/prestosql/Arithmetic.h"
+#include "velox/functions/prestosql/Fail.h"
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/remote/client/Remote.h"
@@ -62,6 +63,13 @@ class RemoteFunctionTest
                                .build()};
     registerRemoteFunction("remote_plus", plusSignatures, metadata);
 
+    auto failSignatures = {exec::FunctionSignatureBuilder()
+                               .returnType("unknown")
+                               .argumentType("integer")
+                               .argumentType("varchar")
+                               .build()};
+    registerRemoteFunction("remote_fail", failSignatures, metadata);
+
     RemoteVectorFunctionMetadata wrongMetadata = metadata;
     wrongMetadata.location = folly::SocketAddress(); // empty address.
     registerRemoteFunction("remote_wrong_port", plusSignatures, wrongMetadata);
@@ -84,6 +92,8 @@ class RemoteFunctionTest
     // needed for tests since the thrift service runs in the same process.
     registerFunction<PlusFunction, int64_t, int64_t, int64_t>(
         {remotePrefix_ + ".remote_plus"});
+    registerFunction<FailFunction, UnknownValue, int32_t, Varchar>(
+        {remotePrefix_ + ".remote_fail"});
     registerFunction<CheckedDivideFunction, double, double, double>(
         {remotePrefix_ + ".remote_divide"});
     registerFunction<SubstrFunction, Varchar, Varchar, int32_t>(
@@ -159,6 +169,53 @@ TEST_P(RemoteFunctionTest, string) {
 
   auto expected = makeFlatVector<StringView>({"ello", "my", "mote", "d"});
   assertEqualVectors(expected, results);
+}
+
+TEST_P(RemoteFunctionTest, tryException) {
+  // remote_divide throws if denominator is 0.
+  auto numeratorVector = makeFlatVector<double>({0, 1, 4, 9, 16});
+  auto denominatorVector = makeFlatVector<double>({0, 1, 2, 3, 4});
+  auto data = makeRowVector({numeratorVector, denominatorVector});
+  auto results =
+      evaluate<SimpleVector<double>>("TRY(remote_divide(c0, c1))", data);
+
+  ASSERT_EQ(results->size(), 5);
+  auto expected = makeFlatVector<double>({0 /* doesn't matter*/, 1, 2, 3, 4});
+  expected->setNull(0, true);
+
+  assertEqualVectors(expected, results);
+}
+
+TEST_P(RemoteFunctionTest, conditionalConjunction) {
+  // conditional conjunction disables throwing on error.
+  auto inputVector0 = makeFlatVector<bool>({true, true});
+  auto inputVector1 = makeFlatVector<int32_t>({1, 2});
+  auto data = makeRowVector({inputVector0, inputVector1});
+  auto results = evaluate<SimpleVector<StringView>>(
+      "case when (c0 OR remote_fail(c1, 'error')) then 'hello' else 'world' end",
+      data);
+
+  ASSERT_EQ(results->size(), 2);
+  auto expected = makeFlatVector<StringView>({"hello", "hello"});
+  assertEqualVectors(expected, results);
+}
+
+TEST_P(RemoteFunctionTest, tryErrorCode) {
+  // remote_fail doesn't throw, but returns error code.
+  auto errorCodesVector = makeFlatVector<int32_t>({1, 2});
+  auto errorMessagesVector =
+      makeFlatVector<StringView>({"failed 1", "failed 2"});
+  auto data = makeRowVector({errorCodesVector, errorMessagesVector});
+  exec::ExprSet exprSet(
+      {makeTypedExpr("TRY(remote_fail(c0, c1))", asRowType(data->type()))},
+      &execCtx_);
+  std::optional<SelectivityVector> rows;
+  exec::EvalCtx context(&execCtx_, &exprSet, data.get());
+  std::vector<VectorPtr> results(1);
+  SelectivityVector defaultRows(data->size());
+  exprSet.eval(defaultRows, context, results);
+
+  ASSERT_EQ(results[0]->size(), 2);
 }
 
 TEST_P(RemoteFunctionTest, connectionError) {

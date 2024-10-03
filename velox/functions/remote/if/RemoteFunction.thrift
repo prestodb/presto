@@ -52,6 +52,9 @@ struct RemoteFunctionPage {
 
   /// The number of logical rows in this page.
   3: i64 rowCount;
+
+  /// Serialized errors.
+  4: optional IOBuf errorPayload;
 }
 
 /// The parameters passed to the remote thrift call.

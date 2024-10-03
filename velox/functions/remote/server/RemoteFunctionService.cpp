@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/remote/server/RemoteFunctionService.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/remote/if/GetSerde.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
@@ -66,6 +67,45 @@ std::vector<core::TypedExprPtr> getExpressions(
       returnType, std::move(inputs), functionName)};
 }
 
+void RemoteFunctionServiceHandler::handleErrors(
+    apache::thrift::field_ref<remote::RemoteFunctionPage&> result,
+    exec::EvalErrors* evalErrors,
+    const std::unique_ptr<VectorSerde>& serde) const {
+  const std::int64_t numRows = result->get_rowCount();
+  BufferPtr dataBuffer =
+      AlignedBuffer::allocate<StringView>(numRows, pool_.get());
+
+  auto flatVector = std::make_shared<FlatVector<StringView>>(
+      pool_.get(),
+      VARCHAR(),
+      nullptr, // null vectors
+      numRows,
+      std::move(dataBuffer),
+      std::vector<BufferPtr>{});
+
+  for (vector_size_t i = 0; i < numRows; ++i) {
+    if (evalErrors->hasErrorAt(i)) {
+      auto exceptionPtr = *evalErrors->errorAt(i);
+      try {
+        std::rethrow_exception(*exceptionPtr);
+      } catch (const std::exception& ex) {
+        flatVector->set(i, ex.what());
+      }
+    } else {
+      flatVector->set(i, StringView());
+      flatVector->setNull(i, true);
+    }
+  }
+  auto errorRowVector = std::make_shared<RowVector>(
+      pool_.get(),
+      ROW({VARCHAR()}),
+      BufferPtr(),
+      numRows,
+      std::vector<VectorPtr>{flatVector});
+  result->errorPayload_ref() =
+      rowVectorToIOBuf(errorRowVector, *pool_, serde.get());
+}
+
 void RemoteFunctionServiceHandler::invokeFunction(
     remote::RemoteFunctionResponse& response,
     std::unique_ptr<remote::RemoteFunctionRequest> request) {
@@ -74,10 +114,6 @@ void RemoteFunctionServiceHandler::invokeFunction(
 
   LOG(INFO) << "Got a request for '" << functionHandle.get_name()
             << "': " << inputs.get_rowCount() << " input rows.";
-
-  if (!request->get_throwOnError()) {
-    VELOX_NYI("throwOnError not implemented yet on remote server.");
-  }
 
   // Deserialize types and data.
   auto inputType = deserializeArgTypes(functionHandle.get_argumentTypes());
@@ -102,7 +138,11 @@ void RemoteFunctionServiceHandler::invokeFunction(
           outputType,
           getFunctionName(functionPrefix_, functionHandle.get_name())),
       &execCtx};
+
   exec::EvalCtx evalCtx(&execCtx, &exprSet, inputVector.get());
+  if (!request->get_throwOnError()) {
+    *evalCtx.mutableThrowOnError() = false;
+  }
 
   std::vector<VectorPtr> expressionResult;
   exprSet.eval(rows, evalCtx, expressionResult);
@@ -116,6 +156,11 @@ void RemoteFunctionServiceHandler::invokeFunction(
   result->pageFormat_ref() = serdeFormat;
   result->payload_ref() =
       rowVectorToIOBuf(outputRowVector, rows.end(), *pool_, serde.get());
+
+  auto evalErrors = evalCtx.errors();
+  if (evalErrors != nullptr && evalErrors->hasError()) {
+    handleErrors(result, evalErrors, serde);
+  }
 }
 
 } // namespace facebook::velox::functions

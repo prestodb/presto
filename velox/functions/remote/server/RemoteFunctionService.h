@@ -19,6 +19,11 @@
 #include <thrift/lib/cpp2/server/ThriftServer.h>
 #include "velox/common/memory/Memory.h"
 #include "velox/functions/remote/if/gen-cpp2/RemoteFunctionService.h"
+#include "velox/vector/VectorStream.h"
+
+namespace facebook::velox::exec {
+class EvalErrors;
+}
 
 namespace facebook::velox::functions {
 
@@ -35,6 +40,13 @@ class RemoteFunctionServiceHandler
       std::unique_ptr<remote::RemoteFunctionRequest> request) override;
 
  private:
+  /// Add evalErrors to result by serializing them to a vector of strings and
+  /// converting the result to a Velox flat vector.
+  void handleErrors(
+      apache::thrift::field_ref<remote::RemoteFunctionPage&> result,
+      exec::EvalErrors* evalErrors,
+      const std::unique_ptr<VectorSerde>& serde) const;
+
   std::shared_ptr<memory::MemoryPool> pool_{
       memory::memoryManager()->addLeafPool()};
   const std::string functionPrefix_;
