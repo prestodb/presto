@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.PlanChecker;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
@@ -46,7 +47,7 @@ public class TestingPlanCheckerProviderPlugin
     }
 
     @Override
-    public PlanCheckerProvider create(SimplePlanFragmentSerde simplePlanFragmentSerde)
+    public PlanCheckerProvider create(SimplePlanFragmentSerde simplePlanFragmentSerde, NodeManager nodeManager)
     {
         return this;
     }

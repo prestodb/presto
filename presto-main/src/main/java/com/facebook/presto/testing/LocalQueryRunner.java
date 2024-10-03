@@ -25,6 +25,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.connector.system.AnalyzePropertiesSystemTable;
@@ -458,7 +459,8 @@ public class LocalQueryRunner
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
         this.planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(jsonCodec(SimplePlanFragment.class)));
-        planCheckerProviderManager.loadPlanCheckerProviders();
+
+        planCheckerProviderManager.loadPlanCheckerProviders(new ConnectorAwareNodeManager(nodeManager, "", new ConnectorId("<NA>")));
         planCheckerProviderManager.updatePlanCheckerProviders(distributedPlanChecker);
         planCheckerProviderManager.updatePlanCheckerProviders(singleNodePlanChecker);
         planCheckerProviderManager.updatePlanCheckerProviders(planFragmenter);

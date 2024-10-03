@@ -30,6 +30,7 @@ import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -389,7 +390,7 @@ public class TestQueues
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
         queryRunner.installPlugin(new TestingPlanCheckerProviderPlugin(triggerValidationFailure));
         PlanCheckerProviderManager planCheckerProviderManager = queryRunner.getCoordinator().getInstance(Key.get(PlanCheckerProviderManager.class));
-        planCheckerProviderManager.loadPlanCheckerProviders();
+        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager());
         planCheckerProviderManager.updatePlanCheckerProviders(queryRunner.getCoordinator().getInstance(Key.get(PlanChecker.class)));
         planCheckerProviderManager.updatePlanCheckerProviders(queryRunner.getCoordinator().getInstance(Key.get(PlanFragmenter.class)));
         queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_eager_plan_validation.json")));

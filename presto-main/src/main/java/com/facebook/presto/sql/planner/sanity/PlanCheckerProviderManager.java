@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
@@ -49,10 +50,10 @@ public class PlanCheckerProviderManager
         }
     }
 
-    public void loadPlanCheckerProviders()
+    public void loadPlanCheckerProviders(NodeManager nodeManager)
     {
         if (!providerFactories.isEmpty()) {
-            providers = providerFactories.values().stream().map(pc -> pc.create(simplePlanFragmentSerde)).collect(Collectors.toList());
+            providers = providerFactories.values().stream().map(pc -> pc.create(simplePlanFragmentSerde, nodeManager)).collect(Collectors.toList());
         }
         else {
             providers = ImmutableList.of(new EmptyPlanCheckerProvider());
