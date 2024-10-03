@@ -21,7 +21,7 @@ HADOOP_MASTER_IP=$(hadoop_master_ip)
 # run product tests
 pushd ${PROJECT_ROOT}
 set +e
-./mvnw -B -pl presto-hive-hadoop2 test -P test-hive-hadoop2 \
+./mvnw -B -pl presto-hive-hadoop2 test -P test-hive-hadoop2 -DskipUI \
   -Dhive.hadoop2.timeZone=UTC \
   -DHADOOP_USER_NAME=hive \
   -Dhive.hadoop2.metastoreHost=localhost \
