@@ -16,6 +16,7 @@
 #pragma once
 
 #include <string_view>
+#include "velox/expression/ComplexViewTypes.h"
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/lib/TimeUtils.h"
 #include "velox/functions/prestosql/DateTimeImpl.h"
@@ -39,7 +40,7 @@ struct ToUnixtimeFunction {
   FOLLY_ALWAYS_INLINE void call(
       double& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
-    const auto milliseconds = unpackMillisUtc(timestampWithTimezone);
+    const auto milliseconds = unpackMillisUtc(*timestampWithTimezone);
     result = (double)milliseconds / kMillisecondsInSecond;
   }
 };
@@ -114,10 +115,10 @@ struct TimestampWithTimezoneSupport {
   Timestamp toTimestamp(
       const arg_type<TimestampWithTimezone>& timestampWithTimezone,
       bool asGMT = false) {
-    auto timestamp = unpackTimestampUtc(timestampWithTimezone);
+    auto timestamp = unpackTimestampUtc(*timestampWithTimezone);
     if (!asGMT) {
       timestamp.toTimezone(
-          *tz::locateZone(unpackZoneKeyId(timestampWithTimezone)));
+          *tz::locateZone(unpackZoneKeyId(*timestampWithTimezone)));
     }
 
     return timestamp;
@@ -130,7 +131,8 @@ struct TimestampWithTimezoneSupport {
     Timestamp inputTimeStamp = this->toTimestamp(timestampWithTimezone);
     // Create a copy of inputTimeStamp and convert it to GMT
     auto gmtTimeStamp = inputTimeStamp;
-    gmtTimeStamp.toGMT(*tz::locateZone(unpackZoneKeyId(timestampWithTimezone)));
+    gmtTimeStamp.toGMT(
+        *tz::locateZone(unpackZoneKeyId(*timestampWithTimezone)));
 
     // Get offset in seconds with GMT and convert to hour
     return (inputTimeStamp.getSeconds() - gmtTimeStamp.getSeconds());
@@ -468,7 +470,7 @@ struct TimestampMinusFunction {
       out_type<IntervalDayTime>& result,
       const arg_type<TimestampWithTimezone>& a,
       const arg_type<TimestampWithTimezone>& b) {
-    result = unpackMillisUtc(a) - unpackMillisUtc(b);
+    result = unpackMillisUtc(*a) - unpackMillisUtc(*b);
   }
 };
 
@@ -512,7 +514,7 @@ struct TimestampPlusInterval {
       const arg_type<TimestampWithTimezone>& timestampWithTimezone,
       const arg_type<IntervalDayTime>& interval) {
     result = addToTimestampWithTimezone(
-        timestampWithTimezone, DateTimeUnit::kMillisecond, interval);
+        *timestampWithTimezone, DateTimeUnit::kMillisecond, interval);
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -520,7 +522,7 @@ struct TimestampPlusInterval {
       const arg_type<TimestampWithTimezone>& timestampWithTimezone,
       const arg_type<IntervalYearMonth>& interval) {
     result = addToTimestampWithTimezone(
-        timestampWithTimezone, DateTimeUnit::kMonth, interval);
+        *timestampWithTimezone, DateTimeUnit::kMonth, interval);
   }
 
  private:
@@ -568,7 +570,7 @@ struct IntervalPlusTimestamp {
       const arg_type<IntervalDayTime>& interval,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     result = addToTimestampWithTimezone(
-        timestampWithTimezone, DateTimeUnit::kMillisecond, interval);
+        *timestampWithTimezone, DateTimeUnit::kMillisecond, interval);
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -576,7 +578,7 @@ struct IntervalPlusTimestamp {
       const arg_type<IntervalYearMonth>& interval,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     result = addToTimestampWithTimezone(
-        timestampWithTimezone, DateTimeUnit::kMonth, interval);
+        *timestampWithTimezone, DateTimeUnit::kMonth, interval);
   }
 
  private:
@@ -624,7 +626,7 @@ struct TimestampMinusInterval {
       const arg_type<TimestampWithTimezone>& timestampWithTimezone,
       const arg_type<IntervalDayTime>& interval) {
     result = addToTimestampWithTimezone(
-        timestampWithTimezone, DateTimeUnit::kMillisecond, -interval);
+        *timestampWithTimezone, DateTimeUnit::kMillisecond, -interval);
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -632,7 +634,7 @@ struct TimestampMinusInterval {
       const arg_type<TimestampWithTimezone>& timestampWithTimezone,
       const arg_type<IntervalYearMonth>& interval) {
     result = addToTimestampWithTimezone(
-        timestampWithTimezone, DateTimeUnit::kMonth, -interval);
+        *timestampWithTimezone, DateTimeUnit::kMonth, -interval);
   }
 
  private:
@@ -1156,10 +1158,10 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     }
 
     if (unit == DateTimeUnit::kSecond) {
-      auto utcTimestamp = unpackTimestampUtc(timestampWithTimezone);
+      auto utcTimestamp = unpackTimestampUtc(*timestampWithTimezone);
       result = pack(
           utcTimestamp.getSeconds() * 1000,
-          unpackZoneKeyId(timestampWithTimezone));
+          unpackZoneKeyId(*timestampWithTimezone));
       return;
     }
 
@@ -1168,9 +1170,9 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     adjustDateTime(dateTime, unit);
     timestamp =
         Timestamp::fromMillis(Timestamp::calendarUtcToEpoch(dateTime) * 1000);
-    timestamp.toGMT(*tz::locateZone(unpackZoneKeyId(timestampWithTimezone)));
+    timestamp.toGMT(*tz::locateZone(unpackZoneKeyId(*timestampWithTimezone)));
 
-    result = pack(timestamp, unpackZoneKeyId(timestampWithTimezone));
+    result = pack(timestamp, unpackZoneKeyId(*timestampWithTimezone));
   }
 
  private:
@@ -1266,8 +1268,8 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
       VELOX_UNSUPPORTED("integer overflow");
     }
 
-    result =
-        addToTimestampWithTimezone(timestampWithTimezone, unit, (int32_t)value);
+    result = addToTimestampWithTimezone(
+        *timestampWithTimezone, unit, (int32_t)value);
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -1384,7 +1386,7 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
     // correct as calculations may cross daylight savings boundaries.
     auto timestamp1 = this->toTimestamp(timestampWithTz1, false);
     auto timestamp2 = this->toTimestamp(timestampWithTz2, true);
-    timestamp2.toTimezone(*tz::locateZone(unpackZoneKeyId(timestampWithTz1)));
+    timestamp2.toTimezone(*tz::locateZone(unpackZoneKeyId(*timestampWithTz1)));
 
     result = diffTimestamp(unit, timestamp1, timestamp2);
   }
@@ -1585,8 +1587,8 @@ struct FormatDateTimeFunction {
       const arg_type<Varchar>& formatString) {
     ensureFormatter(formatString);
 
-    const auto timestamp = unpackTimestampUtc(timestampWithTimezone);
-    const auto timeZoneId = unpackZoneKeyId(timestampWithTimezone);
+    const auto timestamp = unpackTimestampUtc(*timestampWithTimezone);
+    const auto timeZoneId = unpackZoneKeyId(*timestampWithTimezone);
     auto* timezonePtr = tz::locateZone(tz::getTimeZoneName(timeZoneId));
 
     const auto maxResultSize = jodaDateTime_->maxResultSize(timezonePtr);
@@ -1753,8 +1755,8 @@ struct ToISO8601Function {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Varchar>& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
-    const auto timestamp = unpackTimestampUtc(timestampWithTimezone);
-    const auto timeZoneId = unpackZoneKeyId(timestampWithTimezone);
+    const auto timestamp = unpackTimestampUtc(*timestampWithTimezone);
+    const auto timeZoneId = unpackZoneKeyId(*timestampWithTimezone);
     const auto* timeZone = tz::locateZone(tz::getTimeZoneName(timeZoneId));
 
     toIso8601(timestamp, timeZone, result);
@@ -1798,7 +1800,7 @@ struct AtTimezoneFunction : public TimestampWithTimezoneSupport<T> {
       out_type<TimestampWithTimezone>& result,
       const arg_type<TimestampWithTimezone>& tsWithTz,
       const arg_type<Varchar>& timezone) {
-    const auto inputMs = unpackMillisUtc(tsWithTz);
+    const auto inputMs = unpackMillisUtc(*tsWithTz);
     const auto targetTimezoneID = targetTimezoneID_.has_value()
         ? targetTimezoneID_.value()
         : tz::getTimeZoneID(std::string_view(timezone.data(), timezone.size()));

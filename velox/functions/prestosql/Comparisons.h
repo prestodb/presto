@@ -66,22 +66,10 @@ VELOX_GEN_BINARY_EXPR(
     lhs >= rhs,
     util::floating_point::NaNAwareGreaterThanEqual<TInput>{}(lhs, rhs));
 
-VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
-    LtFunction,
-    unpackMillisUtc(lhs) < unpackMillisUtc(rhs),
-    bool);
-VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
-    GtFunction,
-    unpackMillisUtc(lhs) > unpackMillisUtc(rhs),
-    bool);
-VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
-    LteFunction,
-    unpackMillisUtc(lhs) <= unpackMillisUtc(rhs),
-    bool);
-VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
-    GteFunction,
-    unpackMillisUtc(lhs) >= unpackMillisUtc(rhs),
-    bool);
+VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(LtFunction, lhs < rhs, bool);
+VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(GtFunction, lhs > rhs, bool);
+VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(LteFunction, lhs <= rhs, bool);
+VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(GteFunction, lhs >= rhs, bool);
 
 #undef VELOX_GEN_BINARY_EXPR
 #undef VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE
@@ -148,7 +136,7 @@ struct EqFunctionTimestampWithTimezone {
       bool& result,
       const arg_type<TimestampWithTimezone>& lhs,
       const arg_type<TimestampWithTimezone>& rhs) {
-    result = unpackMillisUtc(lhs) == unpackMillisUtc(rhs);
+    result = lhs == rhs;
   }
 };
 
@@ -188,7 +176,7 @@ struct NeqFunctionTimestampWithTimezone {
       bool& result,
       const arg_type<TimestampWithTimezone>& lhs,
       const arg_type<TimestampWithTimezone>& rhs) {
-    result = unpackMillisUtc(lhs) != unpackMillisUtc(rhs);
+    result = lhs != rhs;
   }
 };
 
@@ -216,9 +204,7 @@ struct BetweenFunctionTimestampWithTimezone {
       const arg_type<TimestampWithTimezone>& value,
       const arg_type<TimestampWithTimezone>& low,
       const arg_type<TimestampWithTimezone>& high) {
-    const auto millis = unpackMillisUtc(value);
-    result =
-        (millis >= unpackMillisUtc(low)) && (millis <= unpackMillisUtc(high));
+    result = value >= low && value <= high;
   }
 };
 

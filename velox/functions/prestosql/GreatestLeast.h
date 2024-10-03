@@ -100,10 +100,10 @@ struct ExtremeValueFunctionTimestampWithTimezone {
       out_type<TimestampWithTimezone>& result,
       const arg_type<TimestampWithTimezone>& firstElement,
       const arg_type<Variadic<TimestampWithTimezone>>& remainingElement) {
-    auto currentValue = firstElement;
+    auto currentValue = *firstElement;
 
     for (auto element : remainingElement) {
-      auto candidateValue = element.value();
+      auto candidateValue = *element.value();
 
       if constexpr (isLeast) {
         if (unpackMillisUtc(candidateValue) < unpackMillisUtc(currentValue)) {

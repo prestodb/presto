@@ -1208,12 +1208,70 @@ class GenericView {
   vector_size_t index_;
 };
 
+template <typename T>
+class CustomTypeWithCustomComparisonView {
+ public:
+  CustomTypeWithCustomComparisonView(
+      const T& value,
+      const std::shared_ptr<
+          const CanProvideCustomComparisonType<SimpleTypeTrait<T>::typeKind>>&
+          type)
+      : value_(value), type_(type) {}
+
+  bool operator!=(const CustomTypeWithCustomComparisonView<T>& other) const {
+    return type_->compare(value_, other.value_) != 0;
+  }
+
+  bool operator==(const CustomTypeWithCustomComparisonView<T>& other) const {
+    return type_->compare(value_, other.value_) == 0;
+  }
+
+  bool operator<(const CustomTypeWithCustomComparisonView<T>& other) const {
+    return type_->compare(value_, other.value_) < 0;
+  }
+
+  bool operator>(const CustomTypeWithCustomComparisonView<T>& other) const {
+    return type_->compare(value_, other.value_) > 0;
+  }
+
+  bool operator<=(const CustomTypeWithCustomComparisonView<T>& other) const {
+    return type_->compare(value_, other.value_) <= 0;
+  }
+
+  bool operator>=(const CustomTypeWithCustomComparisonView<T>& other) const {
+    return type_->compare(value_, other.value_) >= 0;
+  }
+
+  uint64_t hash() const {
+    return type_->hash(value_);
+  }
+
+  T operator*() const {
+    return value_;
+  }
+
+ private:
+  const T value_;
+  const std::shared_ptr<
+      const CanProvideCustomComparisonType<SimpleTypeTrait<T>::typeKind>>
+      type_;
+};
+
 } // namespace facebook::velox::exec
 
 namespace std {
 template <>
 struct hash<facebook::velox::exec::GenericView> {
   size_t operator()(const facebook::velox::exec::GenericView& x) const {
+    return x.hash();
+  }
+};
+
+template <typename T>
+struct hash<facebook::velox::exec::CustomTypeWithCustomComparisonView<T>> {
+  size_t operator()(
+      const facebook::velox::exec::CustomTypeWithCustomComparisonView<T>& x)
+      const {
     return x.hash();
   }
 };

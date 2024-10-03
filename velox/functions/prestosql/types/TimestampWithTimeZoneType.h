@@ -147,7 +147,7 @@ struct TimestampWithTimezoneT {
   static constexpr const char* typeName = "timestamp with time zone";
 };
 
-using TimestampWithTimezone = CustomType<TimestampWithTimezoneT>;
+using TimestampWithTimezone = CustomType<TimestampWithTimezoneT, true>;
 
 class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
  public:

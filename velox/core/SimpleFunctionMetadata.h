@@ -365,8 +365,8 @@ struct TypeAnalysis<Row<T...>> {
   }
 };
 
-template <typename T>
-struct TypeAnalysis<CustomType<T>> {
+template <typename T, bool providesCustomComparison>
+struct TypeAnalysis<CustomType<T, providesCustomComparison>> {
   void run(TypeAnalysisResults& results) {
     results.stats.concreteCount++;
     results.out << T::typeName;

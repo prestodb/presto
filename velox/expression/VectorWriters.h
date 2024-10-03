@@ -765,7 +765,8 @@ struct VectorWriter<DynamicRow, void> : public VectorWriterBase {
   vector_t* rowVector_ = nullptr;
 };
 
-template <typename T>
-struct VectorWriter<CustomType<T>> : public VectorWriter<typename T::type> {};
+template <typename T, bool providesCustomComparison>
+struct VectorWriter<CustomType<T, providesCustomComparison>>
+    : public VectorWriter<typename T::type> {};
 
 } // namespace facebook::velox::exec

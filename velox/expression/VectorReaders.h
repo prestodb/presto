@@ -763,10 +763,88 @@ struct VectorReader<DynamicRow> {
   std::vector<std::unique_ptr<VectorReader<Any>>> childReaders_;
 };
 
-template <typename T>
-struct VectorReader<CustomType<T>> : public VectorReader<typename T::type> {
+template <typename T, bool providesCustomComparison>
+struct VectorReader<CustomType<T, providesCustomComparison>>
+    : public VectorReader<typename T::type> {
   explicit VectorReader(const DecodedVector* decoded)
       : VectorReader<typename T::type>(decoded) {}
+};
+
+template <typename T>
+struct VectorReader<CustomType<T, true>> {
+  using exec_underlying_in_t =
+      typename VectorExec::template resolver<typename T::type>::in_type;
+  using exec_in_t = CustomTypeWithCustomComparisonView<exec_underlying_in_t>;
+  // Only custom types around primitive types can provide custom comparison
+  // operators, so they cannot contain null, they can only be null, so they're
+  // in_type is already null_free.
+  using exec_null_free_in_t = exec_in_t;
+
+  explicit VectorReader(const DecodedVector* decoded)
+      : decoded_(*decoded),
+        customComparisonType_(
+            std::dynamic_pointer_cast<const CanProvideCustomComparisonType<
+                SimpleTypeTrait<exec_underlying_in_t>::typeKind>>(
+                decoded_.base()->type())) {}
+
+  explicit VectorReader(const VectorReader<CustomType<T, true>>&) = delete;
+  CustomType<T, true>& operator=(const CustomType<T, true>&) = delete;
+
+  exec_in_t operator[](size_t offset) const {
+    return exec_in_t(
+        decoded_.template valueAt<exec_underlying_in_t>(offset),
+        customComparisonType_);
+  }
+
+  exec_null_free_in_t readNullFree(size_t offset) const {
+    return exec_null_free_in_t(
+        decoded_.template valueAt<exec_underlying_in_t>(offset),
+        customComparisonType_);
+  }
+
+  bool isSet(size_t offset) const {
+    return !decoded_.isNullAt(offset);
+  }
+
+  bool mayHaveNulls() const {
+    return decoded_.mayHaveNulls();
+  }
+
+  // These functions can be used to check if any elements in a given row are
+  // NULL. They are not especially fast, so they should only be used when
+  // necessary, and other options, e.g. calling mayHaveNullsRecursive() on the
+  // vector, have already been exhausted.
+  inline bool containsNull(vector_size_t index) const {
+    return decoded_.isNullAt(index);
+  }
+
+  bool containsNull(vector_size_t startIndex, vector_size_t endIndex) const {
+    // Note: This can be optimized for the special case where the underlying
+    // vector is flat using bit operations on the nulls buffer.
+    for (auto index = startIndex; index < endIndex; ++index) {
+      if (containsNull(index)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  inline bool mayHaveNullsRecursive() const {
+    return decoded_.mayHaveNulls();
+  }
+
+  // Scalars don't have children, so this is a no-op.
+  void setChildrenMayHaveNulls() {}
+
+  const BaseVector* baseVector() const {
+    return decoded_.base();
+  }
+
+  const DecodedVector& decoded_;
+  const std::shared_ptr<const CanProvideCustomComparisonType<
+      SimpleTypeTrait<exec_underlying_in_t>::typeKind>>
+      customComparisonType_;
 };
 
 } // namespace facebook::velox::exec
