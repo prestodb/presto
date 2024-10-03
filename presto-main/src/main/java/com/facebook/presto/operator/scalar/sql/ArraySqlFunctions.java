@@ -69,7 +69,7 @@ public class ArraySqlFunctions
                 "m -> m)";
     }
 
-    @SqlInvokedScalarFunction(value = "array_duplicates", alias = {"array_dupes"}, deterministic = true, calledOnNullInput = false)
+    @SqlInvokedScalarFunction(value = "array_duplicates", deterministic = true, calledOnNullInput = false)
     @Description("Returns set of elements that have duplicates")
     @SqlParameter(name = "input", type = "array(T)")
     @TypeParameter("T")
@@ -81,7 +81,7 @@ public class ArraySqlFunctions
                 "map_keys(map_filter(array_frequency(input), (k, v) -> v > 1)))";
     }
 
-    @SqlInvokedScalarFunction(value = "array_has_duplicates", alias = {"array_has_dupes"}, deterministic = true, calledOnNullInput = false)
+    @SqlInvokedScalarFunction(value = "array_has_duplicates", deterministic = true, calledOnNullInput = false)
     @Description("Returns whether array has any duplicate element")
     @TypeParameter("T")
     @SqlParameter(name = "input", type = "array(T)")

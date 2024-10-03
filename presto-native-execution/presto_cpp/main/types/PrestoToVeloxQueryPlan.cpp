@@ -16,7 +16,6 @@
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <velox/type/Filter.h>
-#include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
@@ -605,6 +604,29 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
             left,
             right,
             left->outputType()));
+  }
+
+  // For ScanFilter and ScanFilterProject, the planner sometimes put the
+  // remaining filter in a FilterNode after the TableScan.  We need to put it
+  // back to TableScan so that Velox can leverage it to do stripe level
+  // skipping.  Otherwise we only get row level skipping and lose some
+  // optimization opportunity in case of very low selectivity.
+  if (auto tableScan = std::dynamic_pointer_cast<const protocol::TableScanNode>(
+          node->source)) {
+    if (auto* tableLayout = dynamic_cast<protocol::HiveTableLayoutHandle*>(
+            tableScan->table.connectorTableLayout.get())) {
+      auto remainingFilter =
+          exprConverter_.toVeloxExpr(tableLayout->remainingPredicate);
+      if (auto* constant = dynamic_cast<const core::ConstantTypedExpr*>(
+              remainingFilter.get())) {
+        bool value = constant->value().value<bool>();
+        // We should get empty values node instead of table scan if the
+        // remaining filter is constantly false.
+        VELOX_CHECK(value, "Unexpected always-false remaining predicate");
+        tableLayout->remainingPredicate = node->predicate;
+        return toVeloxQueryPlan(tableScan, tableWriteInfo, taskId);
+      }
+    }
   }
 
   return std::make_shared<core::FilterNode>(
@@ -1317,12 +1339,6 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
       connectorId, connectorInsertHandle);
-  bool hasBucketProperty{false};
-  if (auto* HiveInsertTableHandle =
-          dynamic_cast<velox::connector::hive::HiveInsertTableHandle*>(
-              connectorInsertHandle.get())) {
-    hasBucketProperty = HiveInsertTableHandle->bucketProperty() != nullptr;
-  }
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1348,7 +1364,6 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       std::move(aggregationNode),
       std::move(insertTableHandle),
       node->partitioningScheme != nullptr,
-      hasBucketProperty,
       outputType,
       getCommitStrategy(),
       sourceVeloxPlan);

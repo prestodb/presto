@@ -29,6 +29,8 @@
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/Values.h"
@@ -215,6 +217,8 @@ class TaskManagerTest : public testing::Test {
     functions::prestosql::registerAllScalarFunctions();
     aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();
+    dwrf::registerDwrfWriterFactory();
+    dwrf::registerDwrfReaderFactory();
     exec::ExchangeSource::registerFactory(
         [cpuExecutor = exchangeCpuExecutor_,
          ioExecutor = exchangeIoExecutor_,
@@ -289,6 +293,8 @@ class TaskManagerTest : public testing::Test {
     connector::unregisterConnector(kHiveConnectorId);
     unregisterPrestoToVeloxConnector(
         connector::hive::HiveConnectorFactory::kHiveConnectorName);
+    dwrf::unregisterDwrfWriterFactory();
+    dwrf::unregisterDwrfReaderFactory();
   }
 
   std::vector<RowVectorPtr> makeVectors(int count, int rowsPerVector) {

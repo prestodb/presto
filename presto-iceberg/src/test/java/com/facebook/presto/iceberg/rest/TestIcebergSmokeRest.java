@@ -29,6 +29,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.rest.RESTCatalog;
 import org.assertj.core.util.Files;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -42,12 +43,15 @@ import static com.facebook.presto.iceberg.CatalogType.REST;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
+import static com.facebook.presto.iceberg.rest.AuthenticationType.OAUTH2;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.OAUTH2_SERVER_URI;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 @Test
 public class TestIcebergSmokeRest
@@ -106,12 +110,11 @@ public class TestIcebergSmokeRest
                 Optional.of(warehouseLocation.toPath()));
     }
 
-    protected IcebergNativeCatalogFactory getCatalogFactory()
+    protected IcebergNativeCatalogFactory getCatalogFactory(IcebergRestConfig restConfig)
     {
         IcebergConfig icebergConfig = new IcebergConfig()
                 .setCatalogType(REST)
-                .setCatalogWarehouse(warehouseLocation.getAbsolutePath().toString());
-        IcebergRestConfig restConfig = new IcebergRestConfig().setServerUri(serverUri);
+                .setCatalogWarehouse(warehouseLocation.getAbsolutePath());
 
         return new IcebergRestCatalogFactory(
                 icebergConfig,
@@ -125,7 +128,8 @@ public class TestIcebergSmokeRest
     @Override
     protected Table getIcebergTable(ConnectorSession session, String schema, String tableName)
     {
-        return getNativeIcebergTable(getCatalogFactory(),
+        IcebergRestConfig restConfig = new IcebergRestConfig().setServerUri(serverUri);
+        return getNativeIcebergTable(getCatalogFactory(restConfig),
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
     }
@@ -191,5 +195,21 @@ public class TestIcebergSmokeRest
             // v2 succeeds
             super.testMetadataDeleteOnTableWithUnsupportedSpecsWhoseDataAllDeleted(version, mode);
         }
+    }
+
+    @Test
+    public void testSetOauth2ServerUriPropertyI()
+    {
+        String authEndpoint = "http://localhost:8888";
+        IcebergRestConfig restConfig = new IcebergRestConfig()
+                .setServerUri(serverUri)
+                .setAuthenticationType(OAUTH2)
+                .setToken("SXVLUXUhIExFQ0tFUiEK")
+                .setAuthenticationServerUri(authEndpoint);
+
+        IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
+        RESTCatalog catalog = (RESTCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
+
+        assertEquals(catalog.properties().get(OAUTH2_SERVER_URI), authEndpoint);
     }
 }
