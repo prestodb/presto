@@ -57,21 +57,11 @@ public class RemoveArgumentsAfterNotNullFromCoalesce
         }
 
         List<RowExpression> notNulls = join.getFilter().get().getChildren();
-        List<VariableReferenceExpression> coalesceArgs = projectNode.getAssignments().getOutputs();
-        ImmutableList.Builder<VariableReferenceExpression> newArgsBuilder = ImmutableList.builder();
-
-        for (VariableReferenceExpression arg : coalesceArgs) {
-            newArgsBuilder.add(arg);
-            if (notNulls.contains(arg)) {
-                break;
-            }
-        }
-
-        List<VariableReferenceExpression> newArgs = newArgsBuilder.build();
         Map<VariableReferenceExpression, RowExpression> oldAssignmentsMap = projectNode.getAssignments().getMap();
-        Map<VariableReferenceExpression, RowExpression> newAssignmentsMap = newArgs
-                .stream().collect(Collectors.toMap(Function.identity(), oldAssignmentsMap::get));
 
+        Map<VariableReferenceExpression, RowExpression> newAssignmentsMap = oldAssignmentsMap.keySet().stream()
+                .filter(notNulls::contains)
+                .collect(Collectors.toMap(Function.identity(), oldAssignmentsMap::get));
         Assignments newAssignments = Assignments.builder().putAll(newAssignmentsMap).build();
 
         ProjectNode rewrittenCoalesce = new ProjectNode(
