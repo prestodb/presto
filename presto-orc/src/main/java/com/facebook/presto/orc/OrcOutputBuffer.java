@@ -290,11 +290,13 @@ public class OrcOutputBuffer
         // write maxBufferSize chunks directly to output
         if (length >= maxBufferSize) {
             flushBufferToOutputStream();
+            int bytesOffsetBefore = bytesOffset;
             while (length >= maxBufferSize) {
                 writeChunkToOutputStream(bytes, bytesOffset, maxBufferSize);
                 length -= maxBufferSize;
                 bytesOffset += maxBufferSize;
             }
+            bufferOffset += bytesOffset - bytesOffsetBefore;
         }
 
         // write the tail smaller than maxBufferSize to the buffer

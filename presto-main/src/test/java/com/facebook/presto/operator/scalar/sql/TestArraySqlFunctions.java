@@ -196,9 +196,6 @@ public class TestArraySqlFunctions
         assertFunction("array_has_duplicates(array[0, null])", BOOLEAN, false);
         assertFunction("array_has_duplicates(array[0, null, null])", BOOLEAN, true);
 
-        // Test legacy name.
-        assertFunction("array_has_dupes(array[varchar 'a', varchar 'b', varchar 'a'])", BOOLEAN, true);
-
         assertFunction("array_has_duplicates(array[array[1], array[2], array[]])", BOOLEAN, false);
         assertFunction("array_has_duplicates(array[array[1], array[2], array[2]])", BOOLEAN, true);
         assertFunction("array_has_duplicates(array[(1, 2), (1, 2)])", BOOLEAN, true);
@@ -223,9 +220,6 @@ public class TestArraySqlFunctions
 
         assertFunction("array_duplicates(array[0, null])", new ArrayType(INTEGER), ImmutableList.of());
         assertFunction("array_duplicates(array[0, null, null])", new ArrayType(INTEGER), singletonList(null));
-
-        // Test legacy name.
-        assertFunction("array_dupes(array[1, 2, 1])", new ArrayType(INTEGER), ImmutableList.of(1));
 
         RowType rowType = RowType.from(ImmutableList.of(RowType.field(INTEGER), RowType.field(INTEGER)));
         assertFunction("array_duplicates(array[array[1], array[2], array[]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of());

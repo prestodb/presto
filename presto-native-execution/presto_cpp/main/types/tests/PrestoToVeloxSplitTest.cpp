@@ -157,6 +157,8 @@ TEST_F(PrestoToVeloxSplitTest, bucketConversion) {
   ASSERT_EQ(veloxHiveSplit.bucketConversion->tableBucketCount, 4096);
   ASSERT_EQ(veloxHiveSplit.bucketConversion->partitionBucketCount, 512);
   ASSERT_EQ(veloxHiveSplit.bucketConversion->bucketColumnHandles.size(), 1);
+  ASSERT_EQ(veloxHiveSplit.infoColumns.at("$path"), hiveSplit.fileSplit.path);
+  ASSERT_EQ(veloxHiveSplit.infoColumns.at("$bucket"), "42");
   auto& veloxColumn = veloxHiveSplit.bucketConversion->bucketColumnHandles[0];
   ASSERT_EQ(veloxColumn->name(), "c0");
   ASSERT_EQ(*veloxColumn->dataType(), *BIGINT());
