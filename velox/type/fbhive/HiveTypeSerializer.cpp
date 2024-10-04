@@ -59,7 +59,7 @@ std::string HiveTypeSerializer::visit(const Type& type) const {
     case TypeKind::ROW:
       return "struct<" + visitChildren(type.asRow()) + ">";
     default:
-      throw std::logic_error("unknown batch type");
+      VELOX_UNSUPPORTED("unsupported type: " + type.toString());
   }
 }
 
