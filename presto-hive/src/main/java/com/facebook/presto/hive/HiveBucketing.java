@@ -176,7 +176,7 @@ public final class HiveBucketing
                         long millisSinceEpoch = prestoType.getLong(block, position);
                         return getHashForTimestamp(millisSinceEpoch, useLegacyTimestampBucketing);
                     default:
-                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
+                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory + ".");
                 }
             }
             case LIST: {
@@ -233,7 +233,7 @@ public final class HiveBucketing
                         long millisSinceEpoch = (long) value;
                         return getHashForTimestamp(millisSinceEpoch, useLegacyTimestampBucketing);
                     default:
-                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
+                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory + ".");
                 }
             }
             case LIST: {
