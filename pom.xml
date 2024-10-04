@@ -2330,6 +2330,7 @@
                         <violationsFiles>
                             <violationsFile>${air.main.basedir}/src/modernizer/violations.xml</violationsFile>
                         </violationsFiles>
+                        <violationLogLevel>error</violationLogLevel>
                         <exclusionPatterns>
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
                         </exclusionPatterns>
