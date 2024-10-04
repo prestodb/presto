@@ -13,8 +13,13 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.log4j.version>2.17.1</dep.log4j.version>
-        <dep.elasticsearch.version>6.0.0</dep.elasticsearch.version>
+        <dep.elasticsearch.version>7.17.23</dep.elasticsearch.version>
+        <dep.httpasyncclient.version>4.1.4</dep.httpasyncclient.version>
+        <dep.httpclient.version>4.5.14</dep.httpclient.version>
+        <dep.httpcore.version>4.4.16</dep.httpcore.version>
+        <dep.httpcore-nio.version>4.4.12</dep.httpcore-nio.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
+        <dep.lucene-analyzers-common.version>8.11.3</dep.lucene-analyzers-common.version>
     </properties>
 
     <dependencies>
@@ -32,6 +37,13 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-analyzers-common</artifactId>
+            <version>${dep.lucene-analyzers-common.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -57,6 +69,13 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
+            <exclusions>
+                <!-- com.facebook.airlift:json:0.209 brings in jackson-dataformat-smile 2.10.0 vs (2.11.0) -->
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.dataformat</groupId>
+                    <artifactId>jackson-dataformat-smile</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -102,6 +121,30 @@
         </dependency>
 
         <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch-x-content</artifactId>
+            <version>${dep.elasticsearch.version}</version>
+            <exclusions>
+                <!-- org.elasticsearch:elasticsearch-x-content: 7.17.23 brings in jackson-dataformat-yaml 2.14.2 vs (2.11.0) -->
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.dataformat</groupId>
+                    <artifactId>jackson-dataformat-yaml</artifactId>
+                </exclusion>
+                <!-- org.elasticsearch:elasticsearch-x-content: 7.17.23 brings in jackson-dataformat-smile 2.14.2 vs (2.11.0) -->
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.dataformat</groupId>
+                    <artifactId>jackson-dataformat-smile</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch-core</artifactId>
+            <version>${dep.elasticsearch.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-high-level-client</artifactId>
             <version>${dep.elasticsearch.version}</version>
@@ -122,22 +165,16 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore-nio</artifactId>
-            <version>4.4.5</version>
+            <version>${dep.httpcore-nio.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.2</version>
+            <version>${dep.httpclient.version}</version>
 
             <exclusions>
-                <!-- elasticsearch-rest-high-level-client 6.0.0 brings in httpcore 4.4.5 vs (4.4.4) -->
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpcore</artifactId>
-                </exclusion>
-
-                    <!-- elasticsearch-rest-high-level-client 6.0.0 brings in commons-codec 1.10 vs (1.9) -->
+                    <!-- elasticsearch-rest-high-level-client 7.17.23 brings in commons-codec 1.10 vs (1.9) -->
                 <exclusion>
                     <groupId>commons-codec</groupId>
                     <artifactId>commons-codec</artifactId>
@@ -152,13 +189,13 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
-            <version>4.4.5</version>
+            <version>${dep.httpcore.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpasyncclient</artifactId>
-            <version>4.1.2</version>
+            <version>${dep.httpasyncclient.version}</version>
 
             <exclusions>
                 <exclusion>
@@ -280,6 +317,12 @@
             <artifactId>presto-main</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
+           <exclusions>
+                <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-analyzers-common</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -292,6 +335,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-analyzers-common</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -366,6 +415,10 @@
             <artifactId>elasticsearch</artifactId>
             <version>${dep.elasticsearch.version}</version>
             <exclusions>
+                <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-analyzers-common</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>org.elasticsearch</groupId>
                     <artifactId>jna</artifactId>
