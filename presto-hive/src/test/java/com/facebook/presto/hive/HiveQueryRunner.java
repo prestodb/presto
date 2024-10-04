@@ -477,7 +477,7 @@ public final class HiveQueryRunner
             dataDirectory = Optional.of(dataDirectoryFile.toPath());
         }
 
-        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8080"), dataDirectory);
+        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8083"), dataDirectory);
 
         try {
             queryRunner.installPlugin(new Plugin()

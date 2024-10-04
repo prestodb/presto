@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.drift.TException;
+import com.facebook.drift.client.DriftClient;
+import com.facebook.drift.client.DriftClientFactory;
+import com.facebook.drift.client.address.AddressSelector;
+import com.facebook.drift.client.address.SimpleAddressSelector;
+import com.facebook.drift.codec.ThriftCodecManager;
+import com.facebook.drift.transport.netty.client.DriftNettyClientConfig;
+import com.facebook.drift.transport.netty.client.DriftNettyMethodInvokerFactory;
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -34,6 +42,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -123,6 +132,31 @@ public final class ConcatFunction
     @UsedByGeneratedCode
     public static Slice concat(Slice... slices)
     {
+        // server address
+        List<HostAndPort> addresses = ImmutableList.of(HostAndPort.fromParts("localhost", 7777));
+
+// expensive services that should only be created once
+        ThriftCodecManager codecManager = new ThriftCodecManager();
+        AddressSelector addressSelector = new SimpleAddressSelector(addresses, true);
+        DriftNettyClientConfig config = new DriftNettyClientConfig();
+
+// methodInvokerFactory must be closed
+        DriftNettyMethodInvokerFactory<?> methodInvokerFactory = DriftNettyMethodInvokerFactory
+                .createStaticDriftNettyMethodInvokerFactory(config);
+
+// client factory
+        DriftClientFactory clientFactory = new DriftClientFactory(codecManager, methodInvokerFactory, addressSelector);
+
+        // create a client (also only create this once)
+        DriftClient<EchoService> scribe = clientFactory.createDriftClient(EchoService.class);
+
+// use client
+        try {
+            System.out.println(scribe.get().echo("feilong liu thrift test"));
+        } catch (TException e) {
+            throw new RuntimeException(e);
+        }
+
         int i;
         for (i = 0; i < slices.length; i++) {
             if (slices[i].length() > 0) {
