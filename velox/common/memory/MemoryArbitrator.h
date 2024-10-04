@@ -153,51 +153,40 @@ class MemoryArbitrator {
   struct Stats {
     /// The number of arbitration requests.
     uint64_t numRequests{0};
+    /// The number of running arbitration requests.
+    uint64_t numRunning{0};
     /// The number of succeeded arbitration requests.
     uint64_t numSucceeded{0};
     /// The number of aborted arbitration requests.
     uint64_t numAborted{0};
     /// The number of arbitration request failures.
     uint64_t numFailures{0};
-    /// The sum of all the arbitration request queue times in microseconds.
-    uint64_t queueTimeUs{0};
-    /// The sum of all the arbitration run times in microseconds.
-    uint64_t arbitrationTimeUs{0};
-    /// The amount of memory bytes freed by reducing the memory pool's capacity
-    /// without actually freeing memory.
-    uint64_t numShrunkBytes{0};
-    /// The amount of memory bytes freed by memory reclamation.
-    uint64_t numReclaimedBytes{0};
+    /// The number of reclaimed unused free bytes.
+    uint64_t reclaimedFreeBytes{0};
+    /// The number of reclaimed used bytes.
+    uint64_t reclaimedUsedBytes{0};
     /// The max memory capacity in bytes.
     uint64_t maxCapacityBytes{0};
     /// The free memory capacity in bytes.
     uint64_t freeCapacityBytes{0};
     /// The free reserved memory capacity in bytes.
     uint64_t freeReservedCapacityBytes{0};
-    /// The sum of all reclaim operation durations during arbitration in
-    /// microseconds.
-    uint64_t reclaimTimeUs{0};
     /// The total number of times of the reclaim attempts that end up failing
     /// due to reclaiming at non-reclaimable stage.
     uint64_t numNonReclaimableAttempts{0};
-    /// The total number of memory capacity shrinks.
-    uint64_t numShrinks{0};
 
     Stats(
         uint64_t _numRequests,
+        uint64_t _numRunning,
         uint64_t _numSucceeded,
         uint64_t _numAborted,
         uint64_t _numFailures,
-        uint64_t _queueTimeUs,
-        uint64_t _arbitrationTimeUs,
-        uint64_t _numShrunkBytes,
-        uint64_t _numReclaimedBytes,
+        uint64_t _reclaimedFreeBytes,
+        uint64_t _reclaimedUsedBytes,
         uint64_t _maxCapacityBytes,
         uint64_t _freeCapacityBytes,
         uint64_t _freeReservedCapacityBytes,
-        uint64_t _reclaimTimeUs,
-        uint64_t _numNonReclaimableAttempts,
-        uint64_t _numShrinks);
+        uint64_t _numNonReclaimableAttempts);
 
     Stats() = default;
 
@@ -411,7 +400,25 @@ class NonReclaimableSectionGuard {
 /// the memory reservations during memory arbitration should come from the
 /// spilling memory pool.
 struct MemoryArbitrationContext {
-  const MemoryPool* requestor;
+  /// Defines the type of memory arbitration.
+  enum class Type {
+    /// Indicates the memory arbitration is triggered by a memory pool for its
+    /// own capacity growth.
+    kLocal,
+    /// Indicates the memory arbitration is triggered by the memory arbitrator
+    /// to free up memory for the system.
+    kGlobal,
+  };
+  static std::string typeName(Type type);
+
+  const Type type;
+  /// The name of the request memory pool for local arbitration. It is empty for
+  /// global memory arbitration type.
+  const std::string requestorName;
+
+  explicit MemoryArbitrationContext(const MemoryPool* requestor);
+
+  MemoryArbitrationContext() : type(Type::kGlobal) {}
 };
 
 /// Object used to set/restore the memory arbitration context when a thread is
@@ -419,6 +426,9 @@ struct MemoryArbitrationContext {
 class ScopedMemoryArbitrationContext {
  public:
   explicit ScopedMemoryArbitrationContext(const MemoryPool* requestor);
+  ScopedMemoryArbitrationContext();
+  explicit ScopedMemoryArbitrationContext(
+      const MemoryArbitrationContext* context);
 
   ~ScopedMemoryArbitrationContext();
 
@@ -427,12 +437,12 @@ class ScopedMemoryArbitrationContext {
   MemoryArbitrationContext currentArbitrationCtx_;
 };
 
-/// Object used to setup arbitration context for a memory pool.
-class ScopedMemoryPoolArbitrationCtx {
+/// Object used to setup arbitration section for a memory pool.
+class MemoryPoolArbitrationSection {
  public:
-  explicit ScopedMemoryPoolArbitrationCtx(MemoryPool* pool);
+  explicit MemoryPoolArbitrationSection(MemoryPool* pool);
 
-  ~ScopedMemoryPoolArbitrationCtx();
+  ~MemoryPoolArbitrationSection();
 
  private:
   MemoryPool* const pool_;
@@ -458,8 +468,7 @@ std::shared_ptr<AsyncSource<Item>> createAsyncMemoryReclaimTask(
         std::unique_ptr<ScopedMemoryArbitrationContext> restoreArbitrationCtx;
         if (arbitrationCtx != nullptr) {
           restoreArbitrationCtx =
-              std::make_unique<ScopedMemoryArbitrationContext>(
-                  arbitrationCtx->requestor);
+              std::make_unique<ScopedMemoryArbitrationContext>(arbitrationCtx);
         }
         return asyncTask();
       });

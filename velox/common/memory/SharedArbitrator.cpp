@@ -81,7 +81,7 @@ T getConfig(
 }
 } // namespace
 
-int64_t SharedArbitrator::ExtraConfig::getReservedCapacity(
+int64_t SharedArbitrator::ExtraConfig::reservedCapacity(
     const std::unordered_map<std::string, std::string>& configs) {
   return config::toCapacity(
       getConfig<std::string>(
@@ -89,7 +89,7 @@ int64_t SharedArbitrator::ExtraConfig::getReservedCapacity(
       config::CapacityUnit::BYTE);
 }
 
-uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolInitialCapacity(
+uint64_t SharedArbitrator::ExtraConfig::memoryPoolInitialCapacity(
     const std::unordered_map<std::string, std::string>& configs) {
   return config::toCapacity(
       getConfig<std::string>(
@@ -99,7 +99,7 @@ uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolInitialCapacity(
       config::CapacityUnit::BYTE);
 }
 
-uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(
+uint64_t SharedArbitrator::ExtraConfig::memoryPoolReservedCapacity(
     const std::unordered_map<std::string, std::string>& configs) {
   return config::toCapacity(
       getConfig<std::string>(
@@ -109,7 +109,7 @@ uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(
       config::CapacityUnit::BYTE);
 }
 
-uint64_t SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(
+uint64_t SharedArbitrator::ExtraConfig::memoryReclaimMaxWaitTimeMs(
     const std::unordered_map<std::string, std::string>& configs) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
              config::toDuration(getConfig<std::string>(
@@ -119,7 +119,7 @@ uint64_t SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(
       .count();
 }
 
-uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolMinFreeCapacity(
+uint64_t SharedArbitrator::ExtraConfig::memoryPoolMinFreeCapacity(
     const std::unordered_map<std::string, std::string>& configs) {
   return config::toCapacity(
       getConfig<std::string>(
@@ -129,7 +129,7 @@ uint64_t SharedArbitrator::ExtraConfig::getMemoryPoolMinFreeCapacity(
       config::CapacityUnit::BYTE);
 }
 
-double SharedArbitrator::ExtraConfig::getMemoryPoolMinFreeCapacityPct(
+double SharedArbitrator::ExtraConfig::memoryPoolMinFreeCapacityPct(
     const std::unordered_map<std::string, std::string>& configs) {
   return getConfig<double>(
       configs,
@@ -137,19 +137,18 @@ double SharedArbitrator::ExtraConfig::getMemoryPoolMinFreeCapacityPct(
       kDefaultMemoryPoolMinFreeCapacityPct);
 }
 
-bool SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(
+bool SharedArbitrator::ExtraConfig::globalArbitrationEnabled(
     const std::unordered_map<std::string, std::string>& configs) {
   return getConfig<bool>(
       configs, kGlobalArbitrationEnabled, kDefaultGlobalArbitrationEnabled);
 }
 
-bool SharedArbitrator::ExtraConfig::getCheckUsageLeak(
+bool SharedArbitrator::ExtraConfig::checkUsageLeak(
     const std::unordered_map<std::string, std::string>& configs) {
   return getConfig<bool>(configs, kCheckUsageLeak, kDefaultCheckUsageLeak);
 }
 
-uint64_t
-SharedArbitrator::ExtraConfig::getFastExponentialGrowthCapacityLimitBytes(
+uint64_t SharedArbitrator::ExtraConfig::fastExponentialGrowthCapacityLimitBytes(
     const std::unordered_map<std::string, std::string>& configs) {
   return config::toCapacity(
       getConfig<std::string>(
@@ -159,7 +158,7 @@ SharedArbitrator::ExtraConfig::getFastExponentialGrowthCapacityLimitBytes(
       config::CapacityUnit::BYTE);
 }
 
-double SharedArbitrator::ExtraConfig::getSlowCapacityGrowPct(
+double SharedArbitrator::ExtraConfig::slowCapacityGrowPct(
     const std::unordered_map<std::string, std::string>& configs) {
   return getConfig<double>(
       configs, kSlowCapacityGrowPct, kDefaultSlowCapacityGrowPct);
@@ -167,25 +166,25 @@ double SharedArbitrator::ExtraConfig::getSlowCapacityGrowPct(
 
 SharedArbitrator::SharedArbitrator(const Config& config)
     : MemoryArbitrator(config),
-      reservedCapacity_(ExtraConfig::getReservedCapacity(config.extraConfigs)),
+      reservedCapacity_(ExtraConfig::reservedCapacity(config.extraConfigs)),
       memoryPoolInitialCapacity_(
-          ExtraConfig::getMemoryPoolInitialCapacity(config.extraConfigs)),
+          ExtraConfig::memoryPoolInitialCapacity(config.extraConfigs)),
       memoryPoolReservedCapacity_(
-          ExtraConfig::getMemoryPoolReservedCapacity(config.extraConfigs)),
+          ExtraConfig::memoryPoolReservedCapacity(config.extraConfigs)),
       memoryReclaimWaitMs_(
-          ExtraConfig::getMemoryReclaimMaxWaitTimeMs(config.extraConfigs)),
+          ExtraConfig::memoryReclaimMaxWaitTimeMs(config.extraConfigs)),
       globalArbitrationEnabled_(
-          ExtraConfig::getGlobalArbitrationEnabled(config.extraConfigs)),
-      checkUsageLeak_(ExtraConfig::getCheckUsageLeak(config.extraConfigs)),
+          ExtraConfig::globalArbitrationEnabled(config.extraConfigs)),
+      checkUsageLeak_(ExtraConfig::checkUsageLeak(config.extraConfigs)),
       fastExponentialGrowthCapacityLimit_(
-          ExtraConfig::getFastExponentialGrowthCapacityLimitBytes(
+          ExtraConfig::fastExponentialGrowthCapacityLimitBytes(
               config.extraConfigs)),
       slowCapacityGrowPct_(
-          ExtraConfig::getSlowCapacityGrowPct(config.extraConfigs)),
+          ExtraConfig::slowCapacityGrowPct(config.extraConfigs)),
       memoryPoolMinFreeCapacity_(
-          ExtraConfig::getMemoryPoolMinFreeCapacity(config.extraConfigs)),
+          ExtraConfig::memoryPoolMinFreeCapacity(config.extraConfigs)),
       memoryPoolMinFreeCapacityPct_(
-          ExtraConfig::getMemoryPoolMinFreeCapacityPct(config.extraConfigs)),
+          ExtraConfig::memoryPoolMinFreeCapacityPct(config.extraConfigs)),
       freeReservedCapacity_(reservedCapacity_),
       freeNonReservedCapacity_(capacity_ - freeReservedCapacity_) {
   VELOX_CHECK_EQ(kind_, config.kind);
@@ -467,7 +466,6 @@ uint64_t SharedArbitrator::shrinkCapacity(
     MemoryPool* pool,
     uint64_t requestBytes) {
   std::lock_guard<std::mutex> l(stateLock_);
-  ++numShrinks_;
   const uint64_t freedBytes = shrinkPool(
       pool,
       requestBytes == 0 ? 0 : getCapacityShrinkTarget(*pool, requestBytes));
@@ -488,8 +486,6 @@ uint64_t SharedArbitrator::shrinkCapacity(
   getCandidates(&op);
 
   uint64_t reclaimedBytes{0};
-  RECORD_METRIC_VALUE(kMetricArbitratorSlowGlobalArbitrationCount);
-
   if (allowSpill) {
     uint64_t freedBytes{0};
     reclaimUsedMemoryFromCandidatesBySpill(&op, freedBytes);
@@ -816,7 +812,6 @@ bool SharedArbitrator::arbitrateMemory(ArbitrationOperation* op) {
   }
   VELOX_CHECK_LT(freedBytes, maxGrowTarget);
 
-  RECORD_METRIC_VALUE(kMetricArbitratorSlowGlobalArbitrationCount);
   reclaimUsedMemoryFromCandidatesBySpill(op, freedBytes);
   checkIfAborted(op);
 
@@ -956,7 +951,6 @@ uint64_t SharedArbitrator::reclaim(
   }
   reclaimedUsedBytes_ += reclaimedUsedBytes;
   reclaimedFreeBytes_ += reclaimedFreeBytes;
-  reclaimTimeUs_ += reclaimDurationUs;
   numNonReclaimableAttempts_ += reclaimerStats.numNonReclaimableAttempts;
   VELOX_MEM_LOG(INFO) << "Reclaimed from memory pool " << pool->name()
                       << " with target of " << succinctBytes(targetBytes)
@@ -1022,18 +1016,15 @@ MemoryArbitrator::Stats SharedArbitrator::stats() const {
 MemoryArbitrator::Stats SharedArbitrator::statsLocked() const {
   Stats stats;
   stats.numRequests = numRequests_;
+  stats.numRunning = numPending_;
   stats.numAborted = numAborted_;
   stats.numFailures = numFailures_;
-  stats.queueTimeUs = waitTimeUs_;
-  stats.arbitrationTimeUs = arbitrationTimeUs_;
-  stats.numShrunkBytes = reclaimedFreeBytes_;
-  stats.numReclaimedBytes = reclaimedUsedBytes_;
+  stats.reclaimedFreeBytes = reclaimedFreeBytes_;
+  stats.reclaimedUsedBytes = reclaimedUsedBytes_;
   stats.maxCapacityBytes = capacity_;
   stats.freeCapacityBytes = freeNonReservedCapacity_ + freeReservedCapacity_;
   stats.freeReservedCapacityBytes = freeReservedCapacity_;
-  stats.reclaimTimeUs = reclaimTimeUs_;
   stats.numNonReclaimableAttempts = numNonReclaimableAttempts_;
-  stats.numShrinks = numShrinks_;
   return stats;
 }
 
@@ -1056,7 +1047,11 @@ SharedArbitrator::ScopedArbitration::ScopedArbitration(
     ArbitrationOperation* operation)
     : operation_(operation),
       arbitrator_(arbitrator),
-      arbitrationCtx_(operation->requestPool),
+      arbitrationCtx_(
+          operation->requestPool == nullptr
+              ? std::make_unique<ScopedMemoryArbitrationContext>()
+              : std::make_unique<ScopedMemoryArbitrationContext>(
+                    operation->requestPool)),
       startTime_(std::chrono::steady_clock::now()) {
   VELOX_CHECK_NOT_NULL(arbitrator_);
   VELOX_CHECK_NOT_NULL(operation_);
@@ -1076,7 +1071,7 @@ SharedArbitrator::ScopedArbitration::~ScopedArbitration() {
           std::chrono::steady_clock::now() - operation_->startTime)
           .count();
   RECORD_HISTOGRAM_METRIC_VALUE(
-      kMetricArbitratorArbitrationTimeMs, arbitrationTimeUs / 1'000);
+      kMetricArbitratorOpExecTimeMs, arbitrationTimeUs / 1'000);
   addThreadLocalRuntimeStat(
       kMemoryArbitrationWallNanos,
       RuntimeCounter(arbitrationTimeUs * 1'000, RuntimeCounter::Unit::kNanos));
@@ -1100,14 +1095,6 @@ SharedArbitrator::ScopedArbitration::~ScopedArbitration() {
         RuntimeCounter(
             operation_->globalArbitrationLockWaitTimeUs * 1'000,
             RuntimeCounter::Unit::kNanos));
-  }
-  arbitrator_->arbitrationTimeUs_ += arbitrationTimeUs;
-
-  const uint64_t waitTimeUs = operation_->waitTimeUs();
-  if (waitTimeUs != 0) {
-    RECORD_HISTOGRAM_METRIC_VALUE(
-        kMetricArbitratorWaitTimeMs, waitTimeUs / 1'000);
-    arbitrator_->waitTimeUs_ += waitTimeUs;
   }
 }
 

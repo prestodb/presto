@@ -191,9 +191,9 @@ uint64_t MemoryReclaimer::run(
   stats.reclaimExecTimeUs += execTimeUs;
   stats.reclaimedBytes += reclaimedBytes;
   RECORD_HISTOGRAM_METRIC_VALUE(
-      kMetricMemoryReclaimExecTimeMs, execTimeUs / 1'000);
-  RECORD_HISTOGRAM_METRIC_VALUE(kMetricMemoryReclaimedBytes, reclaimedBytes);
-  RECORD_METRIC_VALUE(kMetricMemoryReclaimCount);
+      kMetricOpMemoryReclaimTimeMs, execTimeUs / 1'000);
+  RECORD_HISTOGRAM_METRIC_VALUE(kMetricOpMemoryReclaimedBytes, reclaimedBytes);
+  RECORD_METRIC_VALUE(kMetricOpMemoryReclaimCount);
   addThreadLocalRuntimeStat(
       "memoryReclaimWallNanos",
       RuntimeCounter(execTimeUs * 1'000, RuntimeCounter::Unit::kNanos));
@@ -323,50 +323,39 @@ MemoryReclaimer::Stats& MemoryReclaimer::Stats::operator+=(
 
 MemoryArbitrator::Stats::Stats(
     uint64_t _numRequests,
+    uint64_t _numRunning,
     uint64_t _numSucceeded,
     uint64_t _numAborted,
     uint64_t _numFailures,
-    uint64_t _queueTimeUs,
-    uint64_t _arbitrationTimeUs,
-    uint64_t _numShrunkBytes,
-    uint64_t _numReclaimedBytes,
+    uint64_t _reclaimedFreeBytes,
+    uint64_t _reclaimedUsedBytes,
     uint64_t _maxCapacityBytes,
     uint64_t _freeCapacityBytes,
     uint64_t _freeReservedCapacityBytes,
-    uint64_t _reclaimTimeUs,
-    uint64_t _numNonReclaimableAttempts,
-    uint64_t _numShrinks)
+    uint64_t _numNonReclaimableAttempts)
     : numRequests(_numRequests),
+      numRunning(_numRunning),
       numSucceeded(_numSucceeded),
       numAborted(_numAborted),
       numFailures(_numFailures),
-      queueTimeUs(_queueTimeUs),
-      arbitrationTimeUs(_arbitrationTimeUs),
-      numShrunkBytes(_numShrunkBytes),
-      numReclaimedBytes(_numReclaimedBytes),
+      reclaimedFreeBytes(_reclaimedFreeBytes),
+      reclaimedUsedBytes(_reclaimedUsedBytes),
       maxCapacityBytes(_maxCapacityBytes),
       freeCapacityBytes(_freeCapacityBytes),
       freeReservedCapacityBytes(_freeReservedCapacityBytes),
-      reclaimTimeUs(_reclaimTimeUs),
-      numNonReclaimableAttempts(_numNonReclaimableAttempts),
-      numShrinks(_numShrinks) {}
+      numNonReclaimableAttempts(_numNonReclaimableAttempts) {}
 
 std::string MemoryArbitrator::Stats::toString() const {
   return fmt::format(
-      "STATS[numRequests {} numAborted {} numFailures {} "
-      "numNonReclaimableAttempts {} numShrinks {} "
-      "queueTime {} arbitrationTime {} reclaimTime {} shrunkMemory {} "
-      "reclaimedMemory {} maxCapacity {} freeCapacity {} freeReservedCapacity {}]",
+      "numRequests {} numRunning {} numSucceded {} numAborted {} numFailures {} numNonReclaimableAttempts {} reclaimedFreeCapacity {} reclaimedUsedCapacity {} maxCapacity {} freeCapacity {} freeReservedCapacity {}",
       numRequests,
+      numRunning,
+      numSucceeded,
       numAborted,
       numFailures,
       numNonReclaimableAttempts,
-      numShrinks,
-      succinctMicros(queueTimeUs),
-      succinctMicros(arbitrationTimeUs),
-      succinctMicros(reclaimTimeUs),
-      succinctBytes(numShrunkBytes),
-      succinctBytes(numReclaimedBytes),
+      succinctBytes(reclaimedFreeBytes),
+      succinctBytes(reclaimedUsedBytes),
       succinctBytes(maxCapacityBytes),
       succinctBytes(freeCapacityBytes),
       succinctBytes(freeReservedCapacityBytes));
@@ -379,17 +368,13 @@ MemoryArbitrator::Stats MemoryArbitrator::Stats::operator-(
   result.numSucceeded = numSucceeded - other.numSucceeded;
   result.numAborted = numAborted - other.numAborted;
   result.numFailures = numFailures - other.numFailures;
-  result.queueTimeUs = queueTimeUs - other.queueTimeUs;
-  result.arbitrationTimeUs = arbitrationTimeUs - other.arbitrationTimeUs;
-  result.numShrunkBytes = numShrunkBytes - other.numShrunkBytes;
-  result.numReclaimedBytes = numReclaimedBytes - other.numReclaimedBytes;
+  result.reclaimedFreeBytes = reclaimedFreeBytes - other.reclaimedFreeBytes;
+  result.reclaimedUsedBytes = reclaimedUsedBytes - other.reclaimedUsedBytes;
   result.maxCapacityBytes = maxCapacityBytes;
   result.freeCapacityBytes = freeCapacityBytes;
   result.freeReservedCapacityBytes = freeReservedCapacityBytes;
-  result.reclaimTimeUs = reclaimTimeUs - other.reclaimTimeUs;
   result.numNonReclaimableAttempts =
       numNonReclaimableAttempts - other.numNonReclaimableAttempts;
-  result.numShrinks = numShrinks - other.numShrinks;
   return result;
 }
 
@@ -399,31 +384,23 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              numSucceeded,
              numAborted,
              numFailures,
-             queueTimeUs,
-             arbitrationTimeUs,
-             numShrunkBytes,
-             numReclaimedBytes,
+             reclaimedFreeBytes,
+             reclaimedUsedBytes,
              maxCapacityBytes,
              freeCapacityBytes,
              freeReservedCapacityBytes,
-             reclaimTimeUs,
-             numNonReclaimableAttempts,
-             numShrinks) ==
+             numNonReclaimableAttempts) ==
       std::tie(
              other.numRequests,
              other.numSucceeded,
              other.numAborted,
              other.numFailures,
-             other.queueTimeUs,
-             other.arbitrationTimeUs,
-             other.numShrunkBytes,
-             other.numReclaimedBytes,
+             other.reclaimedFreeBytes,
+             other.reclaimedUsedBytes,
              other.maxCapacityBytes,
              other.freeCapacityBytes,
              other.freeReservedCapacityBytes,
-             other.reclaimTimeUs,
-             other.numNonReclaimableAttempts,
-             other.numShrinks);
+             other.numNonReclaimableAttempts);
 }
 
 bool MemoryArbitrator::Stats::operator!=(const Stats& other) const {
@@ -446,13 +423,9 @@ bool MemoryArbitrator::Stats::operator<(const Stats& other) const {
   UPDATE_COUNTER(numSucceeded);
   UPDATE_COUNTER(numAborted);
   UPDATE_COUNTER(numFailures);
-  UPDATE_COUNTER(queueTimeUs);
-  UPDATE_COUNTER(arbitrationTimeUs);
-  UPDATE_COUNTER(numShrunkBytes);
-  UPDATE_COUNTER(numReclaimedBytes);
-  UPDATE_COUNTER(reclaimTimeUs);
+  UPDATE_COUNTER(reclaimedFreeBytes);
+  UPDATE_COUNTER(reclaimedUsedBytes);
   UPDATE_COUNTER(numNonReclaimableAttempts);
-  UPDATE_COUNTER(numShrinks);
 #undef UPDATE_COUNTER
   VELOX_CHECK(
       !((gtCount > 0) && (ltCount > 0)),
@@ -474,10 +447,35 @@ bool MemoryArbitrator::Stats::operator<=(const Stats& other) const {
   return !(*this > other);
 }
 
+MemoryArbitrationContext::MemoryArbitrationContext(const MemoryPool* requestor)
+    : type(Type::kLocal), requestorName(requestor->name()) {}
+
+std::string MemoryArbitrationContext::typeName(
+    MemoryArbitrationContext::Type type) {
+  switch (type) {
+    case MemoryArbitrationContext::Type::kLocal:
+      return "LOCAL";
+    case MemoryArbitrationContext::Type::kGlobal:
+      return "GLOBAL";
+    default:
+      return fmt::format("UNKNOWN {}", static_cast<int>(type));
+  }
+}
+
 ScopedMemoryArbitrationContext::ScopedMemoryArbitrationContext(
     const MemoryPool* requestor)
-    : savedArbitrationCtx_(arbitrationCtx),
-      currentArbitrationCtx_({.requestor = requestor}) {
+    : savedArbitrationCtx_(arbitrationCtx), currentArbitrationCtx_(requestor) {
+  arbitrationCtx = &currentArbitrationCtx_;
+}
+
+ScopedMemoryArbitrationContext::ScopedMemoryArbitrationContext(
+    const MemoryArbitrationContext* context)
+    : savedArbitrationCtx_(arbitrationCtx), currentArbitrationCtx_(*context) {
+  arbitrationCtx = &currentArbitrationCtx_;
+}
+
+ScopedMemoryArbitrationContext::ScopedMemoryArbitrationContext()
+    : savedArbitrationCtx_(arbitrationCtx), currentArbitrationCtx_() {
   arbitrationCtx = &currentArbitrationCtx_;
 }
 
@@ -489,13 +487,13 @@ const MemoryArbitrationContext* memoryArbitrationContext() {
   return arbitrationCtx;
 }
 
-ScopedMemoryPoolArbitrationCtx::ScopedMemoryPoolArbitrationCtx(MemoryPool* pool)
+MemoryPoolArbitrationSection::MemoryPoolArbitrationSection(MemoryPool* pool)
     : pool_(pool) {
   VELOX_CHECK_NOT_NULL(pool_);
   pool_->enterArbitration();
 }
 
-ScopedMemoryPoolArbitrationCtx::~ScopedMemoryPoolArbitrationCtx() {
+MemoryPoolArbitrationSection::~MemoryPoolArbitrationSection() {
   pool_->leaveArbitration();
 }
 
@@ -518,7 +516,7 @@ void testingRunArbitration(
     uint64_t targetBytes,
     bool allowSpill) {
   {
-    ScopedMemoryPoolArbitrationCtx arbitrationCtx{pool};
+    MemoryPoolArbitrationSection arbitrationSection{pool};
     static_cast<MemoryPoolImpl*>(pool)->testingManager()->shrinkPools(
         targetBytes, allowSpill);
   }

@@ -42,7 +42,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     /// capacity of 'memoryPoolReservedCapacity' to run.
     static constexpr std::string_view kReservedCapacity{"reserved-capacity"};
     static constexpr std::string_view kDefaultReservedCapacity{"0B"};
-    static int64_t getReservedCapacity(
+    static int64_t reservedCapacity(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// The initial memory capacity to reserve for a newly created query memory
@@ -51,14 +51,14 @@ class SharedArbitrator : public memory::MemoryArbitrator {
         "memory-pool-initial-capacity"};
     static constexpr std::string_view kDefaultMemoryPoolInitialCapacity{
         "256MB"};
-    static uint64_t getMemoryPoolInitialCapacity(
+    static uint64_t memoryPoolInitialCapacity(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// The minimal amount of memory capacity reserved for each query to run.
     static constexpr std::string_view kMemoryPoolReservedCapacity{
         "memory-pool-reserved-capacity"};
     static constexpr std::string_view kDefaultMemoryPoolReservedCapacity{"0B"};
-    static uint64_t getMemoryPoolReservedCapacity(
+    static uint64_t memoryPoolReservedCapacity(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// Specifies the max time to wait for memory reclaim by arbitration. The
@@ -69,7 +69,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     static constexpr std::string_view kMemoryReclaimMaxWaitTime{
         "memory-reclaim-max-wait-time"};
     static constexpr std::string_view kDefaultMemoryReclaimMaxWaitTime{"0ms"};
-    static uint64_t getMemoryReclaimMaxWaitTimeMs(
+    static uint64_t memoryReclaimMaxWaitTimeMs(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// When shrinking capacity, the shrink bytes will be adjusted in a way such
@@ -90,13 +90,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
         "memory-pool-min-free-capacity"};
     static constexpr std::string_view kDefaultMemoryPoolMinFreeCapacity{
         "128MB"};
-    static uint64_t getMemoryPoolMinFreeCapacity(
+    static uint64_t memoryPoolMinFreeCapacity(
         const std::unordered_map<std::string, std::string>& configs);
 
     static constexpr std::string_view kMemoryPoolMinFreeCapacityPct{
         "memory-pool-min-free-capacity-pct"};
     static constexpr double kDefaultMemoryPoolMinFreeCapacityPct{0.25};
-    static double getMemoryPoolMinFreeCapacityPct(
+    static double memoryPoolMinFreeCapacityPct(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// If true, it allows memory arbitrator to reclaim used memory cross query
@@ -104,7 +104,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     static constexpr std::string_view kGlobalArbitrationEnabled{
         "global-arbitration-enabled"};
     static constexpr bool kDefaultGlobalArbitrationEnabled{false};
-    static bool getGlobalArbitrationEnabled(
+    static bool globalArbitrationEnabled(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// When growing capacity, the growth bytes will be adjusted in the
@@ -129,13 +129,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
         "fast-exponential-growth-capacity-limit"};
     static constexpr std::string_view
         kDefaultFastExponentialGrowthCapacityLimit{"512MB"};
-    static uint64_t getFastExponentialGrowthCapacityLimitBytes(
+    static uint64_t fastExponentialGrowthCapacityLimitBytes(
         const std::unordered_map<std::string, std::string>& configs);
 
     static constexpr std::string_view kSlowCapacityGrowPct{
         "slow-capacity-grow-pct"};
     static constexpr double kDefaultSlowCapacityGrowPct{0.25};
-    static double getSlowCapacityGrowPct(
+    static double slowCapacityGrowPct(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// If true, do sanity check on the arbitrator state on destruction.
@@ -144,7 +144,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     /// have been fixed.
     static constexpr std::string_view kCheckUsageLeak{"check-usage-leak"};
     static constexpr bool kDefaultCheckUsageLeak{true};
-    static bool getCheckUsageLeak(
+    static bool checkUsageLeak(
         const std::unordered_map<std::string, std::string>& configs);
   };
 
@@ -269,9 +269,9 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     ~ScopedArbitration();
 
    private:
-    ArbitrationOperation* const operation_;
+    ArbitrationOperation* const operation_{nullptr};
     SharedArbitrator* const arbitrator_;
-    const ScopedMemoryArbitrationContext arbitrationCtx_;
+    const std::unique_ptr<ScopedMemoryArbitrationContext> arbitrationCtx_;
     const std::chrono::steady_clock::time_point startTime_;
   };
 
@@ -536,12 +536,8 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   std::atomic_uint32_t numPending_{0};
   tsan_atomic<uint64_t> numAborted_{0};
   std::atomic_uint64_t numFailures_{0};
-  std::atomic_uint64_t waitTimeUs_{0};
-  tsan_atomic<uint64_t> arbitrationTimeUs_{0};
   tsan_atomic<uint64_t> reclaimedFreeBytes_{0};
   tsan_atomic<uint64_t> reclaimedUsedBytes_{0};
-  tsan_atomic<uint64_t> reclaimTimeUs_{0};
   tsan_atomic<uint64_t> numNonReclaimableAttempts_{0};
-  tsan_atomic<uint64_t> numShrinks_{0};
 };
 } // namespace facebook::velox::memory

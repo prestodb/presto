@@ -623,8 +623,8 @@ DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, reclaimToOrderBy) {
     memThread.join();
     waitForAllTasksToBeDeleted();
     const auto newStats = arbitrator_->stats();
-    ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
-    ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
+    ASSERT_GT(newStats.reclaimedUsedBytes, oldStats.reclaimedUsedBytes);
+
     ASSERT_GT(orderByQueryCtx->pool()->stats().numCapacityGrowths, 0);
   }
 }
@@ -729,8 +729,7 @@ DEBUG_ONLY_TEST_P(
     waitForAllTasksToBeDeleted();
 
     const auto newStats = arbitrator_->stats();
-    ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
-    ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
+    ASSERT_GT(newStats.reclaimedUsedBytes, oldStats.reclaimedUsedBytes);
   }
 }
 
@@ -845,8 +844,7 @@ DEBUG_ONLY_TEST_P(
     waitForAllTasksToBeDeleted();
 
     const auto newStats = arbitrator_->stats();
-    ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
-    ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
+    ASSERT_GT(newStats.reclaimedUsedBytes, oldStats.reclaimedUsedBytes);
   }
 }
 
@@ -1428,9 +1426,7 @@ TEST_P(SharedArbitrationTestWithThreadingModes, reserveReleaseCounters) {
       for (auto& queryThread : threads) {
         queryThread.join();
       }
-      ASSERT_EQ(arbitrator_->stats().numShrinks, 0);
     }
-    ASSERT_EQ(arbitrator_->stats().numShrinks, numRootPools);
   }
 }
 

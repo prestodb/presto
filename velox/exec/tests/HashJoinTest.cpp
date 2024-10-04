@@ -7052,7 +7052,7 @@ TEST_F(HashJoinTest, reclaimFromJoinBuilderWithMultiDrivers) {
   // the scope
   waitForAllTasksToBeDeleted();
   ASSERT_GT(arbitrator->stats().numRequests, 0);
-  ASSERT_GT(arbitrator->stats().numReclaimedBytes, 0);
+  ASSERT_GT(arbitrator->stats().reclaimedUsedBytes, 0);
 }
 
 DEBUG_ONLY_TEST_F(
@@ -7689,7 +7689,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpill) {
 
           const auto* arbitrator = memory::memoryManager()->arbitrator();
           ASSERT_GT(arbitrator->stats().numRequests, 0);
-          ASSERT_GT(arbitrator->stats().numReclaimedBytes, 0);
+          ASSERT_GT(arbitrator->stats().reclaimedUsedBytes, 0);
         })
         .run();
   }

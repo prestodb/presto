@@ -866,7 +866,7 @@ bool MemoryPoolImpl::growCapacity(MemoryPool* requestor, uint64_t size) {
 
   bool success{false};
   {
-    ScopedMemoryPoolArbitrationCtx arbitrationCtx(requestor);
+    MemoryPoolArbitrationSection arbitrationSection(requestor);
     success = arbitrator_->growCapacity(this, size);
   }
   // The memory pool might have been aborted during the time it leaves the

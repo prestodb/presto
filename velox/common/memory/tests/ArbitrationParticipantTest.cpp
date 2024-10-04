@@ -409,6 +409,7 @@ static ArbitrationParticipant::Config arbitrationConfig(
     uint64_t minFreeCapacity = kMemoryPoolMinFreeCapacity,
     double minFreeCapacityRatio = kMemoryPoolMinFreeCapacityRatio) {
   return ArbitrationParticipant::Config{
+      0,
       minCapacity,
       fastExponentialGrowthCapacityLimit,
       slowCapacityGrowRatio,
@@ -418,6 +419,7 @@ static ArbitrationParticipant::Config arbitrationConfig(
 
 TEST_F(ArbitrationParticipantTest, config) {
   struct {
+    uint64_t initCapacity;
     uint64_t minCapacity;
     uint64_t fastExponentialGrowthCapacityLimit;
     double slowCapacityGrowRatio;
@@ -428,7 +430,8 @@ TEST_F(ArbitrationParticipantTest, config) {
 
     std::string debugString() const {
       return fmt::format(
-          "minCapacity {}, fastExponentialGrowthCapacityLimit: {}, slowCapacityGrowRatio: {}, minFreeCapacity: {}, minFreeCapacityRatio: {}, expectedError: {}, expectedToString: {}",
+          "initCapacity {}, minCapacity {}, fastExponentialGrowthCapacityLimit: {}, slowCapacityGrowRatio: {}, minFreeCapacity: {}, minFreeCapacityRatio: {}, expectedError: {}, expectedToString: {}",
+          succinctBytes(initCapacity),
           succinctBytes(minCapacity),
           succinctBytes(fastExponentialGrowthCapacityLimit),
           slowCapacityGrowRatio,
@@ -440,79 +443,89 @@ TEST_F(ArbitrationParticipantTest, config) {
   } testSettings[] = {
       {1,
        1,
+       1,
        0.1,
        1,
        0.1,
        false,
-       "minCapacity 1, fastExponentialGrowthCapacityLimit 1, slowCapacityGrowRatio 0.1, minFreeCapacity 1, minFreeCapacityRatio 0.1"},
+       "initCapacity 1B, minCapacity 1B, fastExponentialGrowthCapacityLimit 1B, slowCapacityGrowRatio 0.1, minFreeCapacity 1B, minFreeCapacityRatio 0.1"},
+      {0,
+       1,
+       0,
+       0,
+       1,
+       0.1,
+       false,
+       "initCapacity 0B, minCapacity 1B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1"},
+      {0,
+       1,
+       0,
+       0,
+       0,
+       0,
+       false,
+       "initCapacity 0B, minCapacity 1B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 0B, minFreeCapacityRatio 0"},
+      {1,
+       1,
+       0,
+       0,
+       1,
+       0.1,
+       false,
+       "initCapacity 1B, minCapacity 1B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1"},
+      {1,
+       0,
+       1,
+       0.1,
+       1,
+       0.1,
+       false,
+       "initCapacity 1B, minCapacity 0B, fastExponentialGrowthCapacityLimit 1B, slowCapacityGrowRatio 0.1, minFreeCapacity 1B, minFreeCapacityRatio 0.1"},
       {1,
        0,
        0,
+       0,
        1,
        0.1,
        false,
-       "minCapacity 1, fastExponentialGrowthCapacityLimit 0, slowCapacityGrowRatio 0, minFreeCapacity 1, minFreeCapacityRatio 0.1"},
+       "initCapacity 1B, minCapacity 0B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1"},
+      {0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       false,
+       "initCapacity 0B, minCapacity 0B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 0B, minFreeCapacityRatio 0"},
+      {0,
+       0,
+       0,
+       0,
+       1,
+       0.1,
+       false,
+       "initCapacity 0B, minCapacity 0B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1"},
+      {0, 1, 0, 0.1, 1, 0.1, true, ""},
+      {0, 1, 1, 0.1, 0, 0.1, true, ""},
+      {0, 1, 1, 0.1, 1, 0, true, ""},
       {1,
-       0,
-       0,
-       0,
-       0,
-       false,
-       "minCapacity 1, fastExponentialGrowthCapacityLimit 0, slowCapacityGrowRatio 0, minFreeCapacity 0, minFreeCapacityRatio 0"},
-      {1,
-       0,
-       0,
        1,
-       0.1,
-       false,
-       "minCapacity 1, fastExponentialGrowthCapacityLimit 0, slowCapacityGrowRatio 0, minFreeCapacity 1, minFreeCapacityRatio 0.1"},
-      {0,
-       1,
-       0.1,
-       1,
-       0.1,
-       false,
-       "minCapacity 0, fastExponentialGrowthCapacityLimit 1, slowCapacityGrowRatio 0.1, minFreeCapacity 1, minFreeCapacityRatio 0.1"},
-      {0,
-       0,
-       0,
-       1,
-       0.1,
-       false,
-       "minCapacity 0, fastExponentialGrowthCapacityLimit 0, slowCapacityGrowRatio 0, minFreeCapacity 1, minFreeCapacityRatio 0.1"},
-      {0,
-       0,
-       0,
-       0,
-       0,
-       false,
-       "minCapacity 0, fastExponentialGrowthCapacityLimit 0, slowCapacityGrowRatio 0, minFreeCapacity 0, minFreeCapacityRatio 0"},
-      {0,
-       0,
-       0,
-       1,
-       0.1,
-       false,
-       "minCapacity 0, fastExponentialGrowthCapacityLimit 0, slowCapacityGrowRatio 0, minFreeCapacity 1, minFreeCapacityRatio 0.1"},
-      {1, 0, 0.1, 1, 0.1, true, ""},
-      {1, 1, 0.1, 0, 0.1, true, ""},
-      {1, 1, 0.1, 1, 0, true, ""},
-      {1,
        1,
        2,
        1,
        0.1,
        false,
-       "minCapacity 1, fastExponentialGrowthCapacityLimit 1, slowCapacityGrowRatio 2, minFreeCapacity 1, minFreeCapacityRatio 0.1"},
-      {1, 1, -1, 1, 0.1, true, ""},
-      {1, 1, 0.1, 1, 2, true, ""},
-      {1, 1, 0.1, 1, -1, true, ""}};
+       "initCapacity 1B, minCapacity 1B, fastExponentialGrowthCapacityLimit 1B, slowCapacityGrowRatio 2, minFreeCapacity 1B, minFreeCapacityRatio 0.1"},
+      {0, 1, 1, -1, 1, 0.1, true, ""},
+      {0, 1, 1, 0.1, 1, 2, true, ""},
+      {0, 1, 1, 0.1, 1, -1, true, ""}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     if (testData.expectedError) {
       VELOX_ASSERT_THROW(
           ArbitrationParticipant::Config(
+              testData.initCapacity,
               testData.minCapacity,
               testData.fastExponentialGrowthCapacityLimit,
               testData.slowCapacityGrowRatio,
@@ -522,11 +535,13 @@ TEST_F(ArbitrationParticipantTest, config) {
       continue;
     }
     const auto config = ArbitrationParticipant::Config(
+        testData.initCapacity,
         testData.minCapacity,
         testData.fastExponentialGrowthCapacityLimit,
         testData.slowCapacityGrowRatio,
         testData.minFreeCapacity,
         testData.minFreeCapacityRatio);
+    ASSERT_EQ(testData.initCapacity, config.initCapacity);
     ASSERT_EQ(testData.minCapacity, config.minCapacity);
     ASSERT_EQ(
         testData.fastExponentialGrowthCapacityLimit,
@@ -881,7 +896,7 @@ TEST_F(ArbitrationParticipantTest, reclaimableUsedCapacityAndReclaim) {
       {128 << 20, 0, 0.0, 128 << 20, 0, 0, 0, 0, 0},
       {128 << 20, 0, 0.0, 128 << 20, 0, 32 << 20, 0, 0, 0},
       {128 << 20, 0, 0.0, 128 << 20, 32 << 20, 0, 0, 0, 32 << 20},
-      {64 << 20, 0, 0.0, 128 << 20, 96 << 20, 0, 64 << 20, 64 << 20, 32 << 20},
+      {64 << 20, 0, 0.0, 128 << 20, 96 << 20, 0, 64 << 20, 96 << 20, 32 << 20},
       {64 << 20, 0, 0.0, 128 << 20, 128 << 20, 0, 64 << 20, 64 << 20, 64 << 20},
       {0, 32 << 20, 0.25, 128 << 20, 0, 0, 0, 0},
       {0, 64 << 20, 0.25, 128 << 20, 0, 0, 0, 0},
@@ -925,7 +940,7 @@ TEST_F(ArbitrationParticipantTest, reclaimableUsedCapacityAndReclaim) {
        64 << 20,
        64 << 20,
        32 << 20,
-       32 << 20,
+       96 << 20,
        32 << 20},
       {32 << 20,
        32 << 20,
@@ -934,7 +949,7 @@ TEST_F(ArbitrationParticipantTest, reclaimableUsedCapacityAndReclaim) {
        256 << 20,
        0,
        224 << 20,
-       192 << 20,
+       224 << 20,
        32 << 20},
       {32 << 20,
        64 << 20,
@@ -943,7 +958,7 @@ TEST_F(ArbitrationParticipantTest, reclaimableUsedCapacityAndReclaim) {
        256 << 20,
        0,
        224 << 20,
-       192 << 20,
+       224 << 20,
        32 << 20}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -1549,34 +1564,30 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperation) {
       participant->lock().value(), requestBytes, opTimeoutMs);
   VELOX_ASSERT_THROW(
       ArbitrationOperation(participant->lock().value(), 0, opTimeoutMs), "");
+  VELOX_ASSERT_THROW(op.stats(), "(init vs. finished)");
   ASSERT_EQ(op.requestBytes(), requestBytes);
   ASSERT_FALSE(op.aborted());
   ASSERT_FALSE(op.hasTimeout());
-  ASSERT_EQ(op.allocatedBytes(), 0);
   ASSERT_LE(op.timeoutMs(), opTimeoutMs);
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(1'000)); // NOLINT
-  ASSERT_GE(op.executionTimeMs(), 1'000);
-  ASSERT_LE(op.timeoutMs(), opTimeoutMs - 1'000);
+  std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
+  ASSERT_GE(op.executionTimeMs(), 200);
+  ASSERT_LE(op.timeoutMs(), opTimeoutMs - 200);
   ASSERT_EQ(op.maxGrowBytes(), 0);
   ASSERT_EQ(op.minGrowBytes(), 0);
-  ASSERT_EQ(op.localArbitrationWaitTimeUs(), 0);
-  ASSERT_EQ(op.globalArbitrationWaitTimeUs(), 0);
   ASSERT_FALSE(op.hasTimeout());
   VELOX_ASSERT_THROW(op.setGrowTargets(), "");
   ASSERT_EQ(op.requestBytes(), requestBytes);
   ASSERT_EQ(op.maxGrowBytes(), 0);
   ASSERT_EQ(op.minGrowBytes(), 0);
 
-  ASSERT_EQ(op.localArbitrationWaitTimeUs(), 0);
-  ASSERT_EQ(op.globalArbitrationWaitTimeUs(), 0);
-
   ASSERT_EQ(op.state(), ArbitrationOperation::State::kInit);
   ASSERT_FALSE(scopedParticipant->hasRunningOp());
   ASSERT_EQ(scopedParticipant->numWaitingOps(), 0);
-  VELOX_ASSERT_THROW(op.setLocalArbitrationWaitTimeUs(2'000), "");
-  VELOX_ASSERT_THROW(op.setGlobalArbitrationWaitTimeUs(2'000), "");
+  VELOX_ASSERT_THROW(op.finish(), "");
   op.start();
+  ASSERT_EQ(op.state(), ArbitrationOperation::State::kRunning);
+  VELOX_ASSERT_THROW(op.stats(), "(running vs. finished)");
   op.setGrowTargets();
   ASSERT_EQ(op.requestBytes(), requestBytes);
   ASSERT_EQ(op.maxGrowBytes(), requestBytes);
@@ -1590,24 +1601,26 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperation) {
   ASSERT_EQ(scopedParticipant->numWaitingOps(), 0);
   ASSERT_EQ(op.state(), ArbitrationOperation::State::kRunning);
 
-  VELOX_ASSERT_THROW(op.setLocalArbitrationWaitTimeUs(2'000), "");
-  ASSERT_EQ(op.localArbitrationWaitTimeUs(), 0);
-  op.setGlobalArbitrationWaitTimeUs(2'000);
-  ASSERT_EQ(op.globalArbitrationWaitTimeUs(), 2'000);
-  VELOX_ASSERT_THROW(op.setGlobalArbitrationWaitTimeUs(2'000), "");
-  op.allocatedBytes() = op.maxGrowBytes();
+  std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
+  op.startGlobalArbitration();
+  VELOX_ASSERT_THROW(op.startGlobalArbitration(), "");
+  VELOX_ASSERT_THROW(op.stats(), "(running vs. finished)");
+  std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
 
   op.finish();
   ASSERT_EQ(op.state(), ArbitrationOperation::State::kFinished);
   ASSERT_FALSE(scopedParticipant->hasRunningOp());
   ASSERT_EQ(scopedParticipant->numWaitingOps(), 0);
-  VELOX_ASSERT_THROW(op.setLocalArbitrationWaitTimeUs(2'000), "");
-  VELOX_ASSERT_THROW(op.setGlobalArbitrationWaitTimeUs(2'000), "");
+  VELOX_ASSERT_THROW(op.startGlobalArbitration(), "");
   ASSERT_FALSE(op.hasTimeout());
   const auto execTimeMs = op.executionTimeMs();
-  std::this_thread::sleep_for(std::chrono::milliseconds(1'000)); // NOLINT
+  std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
   ASSERT_EQ(op.executionTimeMs(), execTimeMs);
   ASSERT_FALSE(op.hasTimeout());
+  ASSERT_GE(op.stats().localArbitrationWaitTimeMs, 200);
+  ASSERT_GE(op.stats().localArbitrationExecTimeMs, 200);
+  ASSERT_GE(op.stats().globalArbitrationWaitTimeMs, 200);
+  ASSERT_GE(op.stats().executionTimeMs, 600);
 
   // Operation timeout.
   {
@@ -1637,6 +1650,56 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperation) {
     ArbitrationOperation abortCheckOp(
         participant->lock().value(), 1 << 20, 100);
     ASSERT_TRUE(abortCheckOp.aborted());
+  }
+}
+
+TEST_F(ArbitrationParticipantTest, arbitrationOperationStats) {
+  auto task = createTask(kMemoryCapacity);
+  const auto config = arbitrationConfig(0, 0, 0.0, 0, 0.0);
+  const int participantId{10};
+  auto participant =
+      ArbitrationParticipant::create(participantId, task->pool(), &config);
+  auto scopedParticipant = participant->lock().value();
+  const int requestBytes = 1 << 20;
+  const int opTimeoutMs = 1'000'000;
+  // Operation stats without global arbitration.
+  {
+    ArbitrationOperation op(
+        participant->lock().value(), requestBytes, opTimeoutMs);
+    std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
+    op.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
+    op.finish();
+    const auto stats = op.stats();
+    ASSERT_GE(stats.localArbitrationWaitTimeMs, 200);
+    ASSERT_GE(stats.localArbitrationExecTimeMs, 200);
+    ASSERT_GE(stats.globalArbitrationWaitTimeMs, 0);
+    ASSERT_GE(stats.executionTimeMs, 400);
+  }
+  // Operation stats with global arbitration.
+  {
+    ArbitrationOperation op(
+        participant->lock().value(), requestBytes, opTimeoutMs);
+    std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
+    op.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
+    op.startGlobalArbitration();
+    std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
+    op.finish();
+    const auto stats = op.stats();
+    ASSERT_GE(stats.localArbitrationWaitTimeMs, 200);
+    ASSERT_GE(stats.localArbitrationExecTimeMs, 200);
+    ASSERT_GE(stats.globalArbitrationWaitTimeMs, 200);
+    ASSERT_GE(stats.executionTimeMs, 600);
+  }
+
+  // Operation stats not started.
+  {
+    ArbitrationOperation op(
+        participant->lock().value(), requestBytes, opTimeoutMs);
+    std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
+    VELOX_ASSERT_THROW(op.finish(), "");
+    VELOX_ASSERT_THROW(op.stats(), "");
   }
 }
 

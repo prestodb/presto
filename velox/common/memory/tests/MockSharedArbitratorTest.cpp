@@ -42,7 +42,6 @@ using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::memory {
 namespace {
-
 // Class to write runtime stats in the tests to the stats container.
 class TestRuntimeStatWriter : public BaseRuntimeStatWriter {
  public:
@@ -515,13 +514,11 @@ void verifyArbitratorStats(
     uint64_t numRequests = 0,
     uint64_t numFailures = 0,
     uint64_t numReclaimedBytes = 0,
-    uint64_t numShrunkBytes = 0,
-    uint64_t arbitrationTimeUs = 0) {
+    uint64_t numShrunkBytes = 0) {
   ASSERT_EQ(stats.numRequests, numRequests);
   ASSERT_EQ(stats.numFailures, numFailures);
-  ASSERT_EQ(stats.numReclaimedBytes, numReclaimedBytes);
-  ASSERT_EQ(stats.numShrunkBytes, numShrunkBytes);
-  ASSERT_GE(stats.arbitrationTimeUs, arbitrationTimeUs);
+  ASSERT_EQ(stats.reclaimedUsedBytes, numReclaimedBytes);
+  ASSERT_EQ(stats.reclaimedFreeBytes, numShrunkBytes);
   ASSERT_EQ(stats.freeReservedCapacityBytes, freeReservedCapacityBytes);
   ASSERT_EQ(stats.freeCapacityBytes, freeCapacityBytes);
   ASSERT_EQ(stats.maxCapacityBytes, maxCapacityBytes);
@@ -543,22 +540,19 @@ void verifyReclaimerStats(
 TEST_F(MockSharedArbitrationTest, extraConfigs) {
   // Testing default values
   std::unordered_map<std::string, std::string> emptyConfigs;
+  ASSERT_EQ(SharedArbitrator::ExtraConfig::reservedCapacity(emptyConfigs), 0);
+  ASSERT_EQ(SharedArbitrator::ExtraConfig::reservedCapacity(emptyConfigs), 0);
   ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getReservedCapacity(emptyConfigs), 0);
-  ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getReservedCapacity(emptyConfigs), 0);
-  ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getMemoryPoolInitialCapacity(emptyConfigs),
+      SharedArbitrator::ExtraConfig::memoryPoolInitialCapacity(emptyConfigs),
       256 << 20);
   ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(
-          emptyConfigs),
+      SharedArbitrator::ExtraConfig::memoryReclaimMaxWaitTimeMs(emptyConfigs),
       0);
   ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(emptyConfigs),
+      SharedArbitrator::ExtraConfig::globalArbitrationEnabled(emptyConfigs),
       SharedArbitrator::ExtraConfig::kDefaultGlobalArbitrationEnabled);
   ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getCheckUsageLeak(emptyConfigs),
+      SharedArbitrator::ExtraConfig::checkUsageLeak(emptyConfigs),
       SharedArbitrator::ExtraConfig::kDefaultCheckUsageLeak);
 
   // Testing custom values
@@ -575,19 +569,16 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
       SharedArbitrator::ExtraConfig::kGlobalArbitrationEnabled)] = "true";
   configs[std::string(SharedArbitrator::ExtraConfig::kCheckUsageLeak)] =
       "false";
-  ASSERT_EQ(SharedArbitrator::ExtraConfig::getReservedCapacity(configs), 100);
+  ASSERT_EQ(SharedArbitrator::ExtraConfig::reservedCapacity(configs), 100);
   ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getMemoryPoolInitialCapacity(configs),
+      SharedArbitrator::ExtraConfig::memoryPoolInitialCapacity(configs),
       512 << 20);
   ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(configs),
-      200);
+      SharedArbitrator::ExtraConfig::memoryPoolReservedCapacity(configs), 200);
   ASSERT_EQ(
-      SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(configs),
-      5000);
-  ASSERT_TRUE(
-      SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(configs));
-  ASSERT_FALSE(SharedArbitrator::ExtraConfig::getCheckUsageLeak(configs));
+      SharedArbitrator::ExtraConfig::memoryReclaimMaxWaitTimeMs(configs), 5000);
+  ASSERT_TRUE(SharedArbitrator::ExtraConfig::globalArbitrationEnabled(configs));
+  ASSERT_FALSE(SharedArbitrator::ExtraConfig::checkUsageLeak(configs));
 
   // Testing invalid values
   configs[std::string(SharedArbitrator::ExtraConfig::kReservedCapacity)] =
@@ -603,22 +594,22 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
   configs[std::string(SharedArbitrator::ExtraConfig::kCheckUsageLeak)] =
       "invalid";
   VELOX_ASSERT_THROW(
-      SharedArbitrator::ExtraConfig::getReservedCapacity(configs),
+      SharedArbitrator::ExtraConfig::reservedCapacity(configs),
       "Invalid capacity string 'invalid'");
   VELOX_ASSERT_THROW(
-      SharedArbitrator::ExtraConfig::getMemoryPoolInitialCapacity(configs),
+      SharedArbitrator::ExtraConfig::memoryPoolInitialCapacity(configs),
       "Invalid capacity string 'invalid'");
   VELOX_ASSERT_THROW(
-      SharedArbitrator::ExtraConfig::getMemoryPoolReservedCapacity(configs),
+      SharedArbitrator::ExtraConfig::memoryPoolReservedCapacity(configs),
       "Invalid capacity string 'invalid'");
   VELOX_ASSERT_THROW(
-      SharedArbitrator::ExtraConfig::getMemoryReclaimMaxWaitTimeMs(configs),
+      SharedArbitrator::ExtraConfig::memoryReclaimMaxWaitTimeMs(configs),
       "Invalid duration 'invalid'");
   VELOX_ASSERT_THROW(
-      SharedArbitrator::ExtraConfig::getGlobalArbitrationEnabled(configs),
+      SharedArbitrator::ExtraConfig::globalArbitrationEnabled(configs),
       "Failed while parsing SharedArbitrator configs");
   VELOX_ASSERT_THROW(
-      SharedArbitrator::ExtraConfig::getCheckUsageLeak(configs),
+      SharedArbitrator::ExtraConfig::checkUsageLeak(configs),
       "Failed while parsing SharedArbitrator configs");
 }
 
@@ -1151,15 +1142,8 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        0);
     ++allocationCount;
   });
 
@@ -1173,25 +1157,9 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        1);
-    ASSERT_GT(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationLockWaitWallNanos]
-            .count,
-        1);
-    ASSERT_GT(
-        runtimeStats[SharedArbitrator::kLocalArbitrationLockWaitWallNanos].sum,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].sum, 1);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        0);
     ++allocationCount;
   });
 
@@ -1254,15 +1222,8 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        0);
     ++allocationCount;
   });
 
@@ -1276,15 +1237,8 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        0);
     ++allocationCount;
   });
 
@@ -1353,15 +1307,8 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        0);
     ++allocationCount;
   });
 
@@ -1375,22 +1322,8 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationLockWaitWallNanos]
-            .count,
-        1);
-    ASSERT_GT(
-        runtimeStats[SharedArbitrator::kLocalArbitrationLockWaitWallNanos].sum,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        0);
     ++allocationCount;
   });
 
@@ -1444,15 +1377,8 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        0);
     ++allocationCount;
   });
 
@@ -1466,19 +1392,9 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].sum, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        1);
-    ASSERT_GT(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos].sum,
-        0);
     ++allocationCount;
   });
 
@@ -1535,19 +1451,9 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, multipleGlobalRuns) {
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].sum, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        1);
-    ASSERT_GT(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos].sum,
-        0);
     ++allocations;
   });
 
@@ -1560,9 +1466,6 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, multipleGlobalRuns) {
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].sum, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
@@ -1669,15 +1572,8 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        0);
     ++allocations;
   });
 
@@ -1690,9 +1586,6 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].sum, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
@@ -1757,15 +1650,8 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        0);
     ++allocationCount;
   });
 
@@ -1779,18 +1665,8 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kLocalArbitrationQueueWallNanos].count,
-        0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationCount].count, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos]
-            .count,
-        1);
-    ASSERT_GT(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationLockWaitWallNanos].sum,
-        0);
     ++allocationCount;
   });
 
@@ -2152,9 +2028,9 @@ TEST_F(MockSharedArbitrationTest, ensureMemoryPoolMaxCapacity) {
         (((testData.allocatedBytes + testData.requestBytes) >
           testData.poolMaxCapacity) ||
          testData.hasOtherTask)) {
-      ASSERT_GT(arbitrator_->stats().numReclaimedBytes, 0);
+      ASSERT_GT(arbitrator_->stats().reclaimedUsedBytes, 0);
     } else {
-      ASSERT_EQ(arbitrator_->stats().numReclaimedBytes, 0);
+      ASSERT_EQ(arbitrator_->stats().reclaimedUsedBytes, 0);
     }
     ASSERT_EQ(arbitrator_->stats().numRequests, numRequests + 1);
   }
@@ -2209,9 +2085,9 @@ TEST_F(MockSharedArbitrationTest, ensureNodeMaxCapacity) {
           "Exceeded memory pool cap");
     }
     if (testData.expectedSuccess) {
-      ASSERT_GT(arbitrator_->stats().numReclaimedBytes, 0);
+      ASSERT_GT(arbitrator_->stats().reclaimedUsedBytes, 0);
     } else {
-      ASSERT_EQ(arbitrator_->stats().numReclaimedBytes, 0);
+      ASSERT_EQ(arbitrator_->stats().reclaimedUsedBytes, 0);
     }
     ASSERT_EQ(arbitrator_->stats().numRequests, numRequests + 1);
   }
@@ -2239,7 +2115,6 @@ TEST_F(MockSharedArbitrationTest, failedArbitration) {
   verifyReclaimerStats(arbitrateOp->reclaimer()->stats(), 0, 1);
   verifyArbitratorStats(
       arbitrator_->stats(), memCapacity, 260046848, 0, 1, 1, 8388608, 8388608);
-  ASSERT_GE(arbitrator_->stats().queueTimeUs, 0);
 }
 
 TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
@@ -2319,12 +2194,12 @@ TEST_F(MockSharedArbitrationTest, arbitrateWithCapacityShrink) {
     ASSERT_EQ(arbitrator_->stats().freeCapacityBytes, freeCapacity);
 
     auto* arbitrateOp = addMemoryOp(nullptr, isLeafReclaimable);
-    while (arbitrator_->stats().numShrunkBytes == 0) {
+    while (arbitrator_->stats().reclaimedFreeBytes == 0) {
       arbitrateOp->allocate(allocateSize);
     }
     const auto arbitratorStats = arbitrator_->stats();
-    ASSERT_GT(arbitratorStats.numShrunkBytes, 0);
-    ASSERT_EQ(arbitratorStats.numReclaimedBytes, 0);
+    ASSERT_GT(arbitratorStats.reclaimedFreeBytes, 0);
+    ASSERT_EQ(arbitratorStats.reclaimedUsedBytes, 0);
 
     verifyReclaimerStats(reclaimedOp->reclaimer()->stats(), 0, 8);
     verifyReclaimerStats(arbitrateOp->reclaimer()->stats(), 0, 1);
@@ -2409,10 +2284,8 @@ TEST_F(MockSharedArbitrationTest, arbitrateBySelfMemoryReclaim) {
       memOp->allocate(memCapacity / 2);
       ASSERT_EQ(oldNumRequests + 1, arbitrator_->stats().numRequests);
       ASSERT_EQ(arbitrator_->stats().numFailures, 0);
-      ASSERT_EQ(arbitrator_->stats().numShrunkBytes, 14811136);
-      ASSERT_GT(arbitrator_->stats().numReclaimedBytes, 0);
+      ASSERT_GT(arbitrator_->stats().reclaimedUsedBytes, 0);
     }
-    ASSERT_GE(arbitrator_->stats().queueTimeUs, 0);
   }
 }
 
@@ -2529,7 +2402,7 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, orderedArbitration) {
     for (auto* memOp : memOps) {
       ASSERT_GE(memOp->capacity(), 0) << memOp->pool()->name();
     }
-    ASSERT_GE(arbitrator_->stats().queueTimeUs, 0);
+
     clearTasks();
   }
 }
@@ -2562,8 +2435,7 @@ TEST_F(MockSharedArbitrationTest, enterArbitrationException) {
   ASSERT_EQ(arbitrateOp->capacity(), allocationSize);
   verifyReclaimerStats(arbitrateOp->reclaimer()->stats(), 0, 1);
   verifyReclaimerStats(reclaimedOp->reclaimer()->stats(), 1);
-  ASSERT_EQ(arbitrator_->stats().numShrunkBytes, 0);
-  ASSERT_EQ(arbitrator_->stats().numReclaimedBytes, allocationSize);
+  ASSERT_EQ(arbitrator_->stats().reclaimedUsedBytes, allocationSize);
   ASSERT_EQ(arbitrator_->stats().numRequests, 1);
   ASSERT_EQ(arbitrator_->stats().numFailures, 0);
 }
@@ -3109,8 +2981,7 @@ DEBUG_ONLY_TEST_F(
   ASSERT_EQ(stats.numAborted, 0);
   ASSERT_EQ(stats.numRequests, oldStats.numRequests + 1);
   // We count the freed capacity in reclaimed bytes.
-  ASSERT_EQ(stats.numShrunkBytes, oldStats.numShrunkBytes + allocationSize);
-  ASSERT_EQ(stats.numReclaimedBytes, 0);
+  ASSERT_EQ(stats.reclaimedUsedBytes, 0);
   ASSERT_EQ(reclaimedTaskOp->capacity(), kMemoryCapacity - allocationSize);
   ASSERT_EQ(arbitrationTaskOp->capacity(), allocationSize);
 }
@@ -3382,6 +3253,5 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
   }
   controlThread.join();
 }
-
 } // namespace
 } // namespace facebook::velox::memory

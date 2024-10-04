@@ -103,10 +103,8 @@ TEST_F(MemoryManagerTest, ctor) {
         "Memory Allocator[MALLOC capacity 4.00GB allocated bytes 0 "
         "allocated pages 0 mapped pages 0]\n"
         "ARBITRATOR[SHARED CAPACITY[4.00GB] PENDING[0] "
-        "STATS[numRequests 0 numAborted 0 numFailures 0 "
-        "numNonReclaimableAttempts 0 numShrinks 0 queueTime 0us "
-        "arbitrationTime 0us reclaimTime 0us shrunkMemory 0B "
-        "reclaimedMemory 0B maxCapacity 4.00GB freeCapacity 4.00GB freeReservedCapacity 0B]]]");
+        "numRequests 0 numRunning 0 numSucceded 0 numAborted 0 numFailures 0 numNonReclaimableAttempts 0 "
+        "reclaimedFreeCapacity 0B reclaimedUsedCapacity 0B maxCapacity 4.00GB freeCapacity 4.00GB freeReservedCapacity 0B]]");
   }
 }
 

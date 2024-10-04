@@ -52,28 +52,20 @@ TEST_F(MemoryArbitrationTest, stats) {
   stats.numRequests = 2;
   stats.numAborted = 3;
   stats.numFailures = 100;
-  stats.queueTimeUs = 230'000;
-  stats.arbitrationTimeUs = 1020;
-  stats.numShrunkBytes = 100'000'000;
-  stats.numReclaimedBytes = 10'000;
+  stats.reclaimedFreeBytes = 100'000'000;
+  stats.reclaimedUsedBytes = 10'000;
   stats.freeReservedCapacityBytes = 1000;
   stats.freeCapacityBytes = 2000;
-  stats.reclaimTimeUs = 1'000;
-  stats.numNonReclaimableAttempts = 5;
   ASSERT_EQ(
       stats.toString(),
-      "STATS[numRequests 2 numAborted 3 numFailures 100 "
-      "numNonReclaimableAttempts 5 numShrinks 0 "
-      "queueTime 230.00ms arbitrationTime 1.02ms reclaimTime 1.00ms "
-      "shrunkMemory 95.37MB reclaimedMemory 9.77KB "
-      "maxCapacity 0B freeCapacity 1.95KB freeReservedCapacity 1000B]");
+      "numRequests 2 numRunning 0 numSucceded 0 numAborted 3 numFailures 100 numNonReclaimableAttempts 0 "
+      "reclaimedFreeCapacity 95.37MB reclaimedUsedCapacity 9.77KB "
+      "maxCapacity 0B freeCapacity 1.95KB freeReservedCapacity 1000B");
   ASSERT_EQ(
       fmt::format("{}", stats),
-      "STATS[numRequests 2 numAborted 3 numFailures 100 "
-      "numNonReclaimableAttempts 5 numShrinks 0 "
-      "queueTime 230.00ms arbitrationTime 1.02ms reclaimTime 1.00ms "
-      "shrunkMemory 95.37MB reclaimedMemory 9.77KB "
-      "maxCapacity 0B freeCapacity 1.95KB freeReservedCapacity 1000B]");
+      "numRequests 2 numRunning 0 numSucceded 0 numAborted 3 numFailures 100 numNonReclaimableAttempts 0 "
+      "reclaimedFreeCapacity 95.37MB reclaimedUsedCapacity 9.77KB "
+      "maxCapacity 0B freeCapacity 1.95KB freeReservedCapacity 1000B");
 }
 
 TEST_F(MemoryArbitrationTest, create) {
@@ -301,11 +293,9 @@ TEST_F(MemoryArbitrationTest, reservedCapacityFreeByPoolRelease) {
 TEST_F(MemoryArbitrationTest, arbitratorStats) {
   const MemoryArbitrator::Stats emptyStats;
   ASSERT_TRUE(emptyStats.empty());
-  const MemoryArbitrator::Stats anchorStats(
-      5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5);
+  const MemoryArbitrator::Stats anchorStats(5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5);
   ASSERT_FALSE(anchorStats.empty());
-  const MemoryArbitrator::Stats largeStats(
-      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8);
+  const MemoryArbitrator::Stats largeStats(8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8);
   ASSERT_FALSE(largeStats.empty());
   ASSERT_TRUE(!(anchorStats == largeStats));
   ASSERT_TRUE(anchorStats != largeStats);
@@ -313,12 +303,11 @@ TEST_F(MemoryArbitrationTest, arbitratorStats) {
   ASSERT_TRUE(!(anchorStats > largeStats));
   ASSERT_TRUE(anchorStats <= largeStats);
   ASSERT_TRUE(!(anchorStats >= largeStats));
-  const auto delta = largeStats - anchorStats;
-  ASSERT_EQ(
-      delta, MemoryArbitrator::Stats(3, 3, 3, 3, 3, 3, 3, 3, 8, 8, 8, 3, 3, 3));
 
-  const MemoryArbitrator::Stats smallStats(
-      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
+  const auto delta = largeStats - anchorStats;
+  ASSERT_EQ(delta, MemoryArbitrator::Stats(3, 0, 3, 3, 3, 3, 3, 8, 8, 8, 3));
+
+  const MemoryArbitrator::Stats smallStats(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
   ASSERT_TRUE(!(anchorStats == smallStats));
   ASSERT_TRUE(anchorStats != smallStats);
   ASSERT_TRUE(!(anchorStats < smallStats));
@@ -326,8 +315,7 @@ TEST_F(MemoryArbitrationTest, arbitratorStats) {
   ASSERT_TRUE(!(anchorStats <= smallStats));
   ASSERT_TRUE(anchorStats >= smallStats);
 
-  const MemoryArbitrator::Stats invalidStats(
-      2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 2, 8, 2);
+  const MemoryArbitrator::Stats invalidStats(2, 2, 2, 8, 8, 8, 8, 2, 8, 2, 2);
   ASSERT_TRUE(!(anchorStats == invalidStats));
   ASSERT_TRUE(anchorStats != invalidStats);
   VELOX_ASSERT_THROW(anchorStats < invalidStats, "");
@@ -1004,13 +992,13 @@ TEST_F(MemoryReclaimerTest, arbitrationContext) {
   {
     ScopedMemoryArbitrationContext arbitrationContext(leafChild1.get());
     ASSERT_TRUE(memoryArbitrationContext() != nullptr);
-    ASSERT_EQ(memoryArbitrationContext()->requestor, leafChild1.get());
+    ASSERT_EQ(memoryArbitrationContext()->requestorName, leafChild1->name());
   }
   ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   {
     ScopedMemoryArbitrationContext arbitrationContext(leafChild2.get());
     ASSERT_TRUE(memoryArbitrationContext() != nullptr);
-    ASSERT_EQ(memoryArbitrationContext()->requestor, leafChild2.get());
+    ASSERT_EQ(memoryArbitrationContext()->requestorName, leafChild2->name());
   }
   ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   std::thread nonAbitrationThread([&]() {
@@ -1018,13 +1006,13 @@ TEST_F(MemoryReclaimerTest, arbitrationContext) {
     {
       ScopedMemoryArbitrationContext arbitrationContext(leafChild1.get());
       ASSERT_TRUE(memoryArbitrationContext() != nullptr);
-      ASSERT_EQ(memoryArbitrationContext()->requestor, leafChild1.get());
+      ASSERT_EQ(memoryArbitrationContext()->requestorName, leafChild1->name());
     }
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
     {
       ScopedMemoryArbitrationContext arbitrationContext(leafChild2.get());
       ASSERT_TRUE(memoryArbitrationContext() != nullptr);
-      ASSERT_EQ(memoryArbitrationContext()->requestor, leafChild2.get());
+      ASSERT_EQ(memoryArbitrationContext()->requestorName, leafChild2->name());
     }
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   });
@@ -1044,7 +1032,7 @@ TEST_F(MemoryReclaimerTest, scopedMemoryPoolArbitrationCtx) {
           totalUsedBytes, true, &underArbitration));
   ASSERT_FALSE(underArbitration);
   {
-    ScopedMemoryPoolArbitrationCtx arbitrationCtx(leafChild.get());
+    MemoryPoolArbitrationSection arbitrationCtx(leafChild.get());
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
     ASSERT_TRUE(underArbitration);
   }
@@ -1054,7 +1042,7 @@ TEST_F(MemoryReclaimerTest, scopedMemoryPoolArbitrationCtx) {
   std::thread abitrationThread([&]() {
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
     {
-      ScopedMemoryPoolArbitrationCtx arbitrationCtx(leafChild.get());
+      MemoryPoolArbitrationSection arbitrationCtx(leafChild.get());
       ASSERT_TRUE(memoryArbitrationContext() == nullptr);
       ASSERT_TRUE(underArbitration);
     }

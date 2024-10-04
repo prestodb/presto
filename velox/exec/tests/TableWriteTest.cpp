@@ -3714,7 +3714,6 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
     const int numPrevArbitrationFailures = arbitrator->stats().numFailures;
     const int numPrevNonReclaimableAttempts =
         arbitrator->stats().numNonReclaimableAttempts;
-    const int numPrevShrinks = arbitrator->stats().numShrinks;
     auto queryCtx = core::QueryCtx::create(
         executor_.get(), QueryConfig{{}}, {}, nullptr, std::move(queryPool));
     ASSERT_EQ(queryCtx->pool()->capacity(), kQueryMemoryCapacity);
@@ -3792,10 +3791,9 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
     ASSERT_EQ(
         arbitrator->stats().numNonReclaimableAttempts,
         numPrevNonReclaimableAttempts);
-    ASSERT_GE(arbitrator->stats().numReclaimedBytes, testParam.bytesToReserve);
+    ASSERT_GE(arbitrator->stats().reclaimedUsedBytes, testParam.bytesToReserve);
     waitForAllTasksToBeDeleted(3'000'000);
     queryCtx.reset();
-    ASSERT_EQ(arbitrator->stats().numShrinks, numPrevShrinks + 1);
   }
 }
 
@@ -3908,7 +3906,7 @@ DEBUG_ONLY_TEST_F(
   const int numPrevArbitrationFailures = arbitrator->stats().numFailures;
   const int numPrevNonReclaimableAttempts =
       arbitrator->stats().numNonReclaimableAttempts;
-  const int numPrevReclaimedBytes = arbitrator->stats().numReclaimedBytes;
+  const int numPrevReclaimedBytes = arbitrator->stats().reclaimedUsedBytes;
   auto queryCtx = core::QueryCtx::create(
       executor_.get(), QueryConfig{{}}, {}, nullptr, std::move(queryPool));
   ASSERT_EQ(queryCtx->pool()->capacity(), kQueryMemoryCapacity);
@@ -3979,7 +3977,7 @@ DEBUG_ONLY_TEST_F(
       arbitrator->stats().numNonReclaimableAttempts,
       numPrevArbitrationFailures);
   ASSERT_EQ(arbitrator->stats().numFailures, numPrevNonReclaimableAttempts);
-  ASSERT_GT(arbitrator->stats().numReclaimedBytes, numPrevReclaimedBytes);
+  ASSERT_GT(arbitrator->stats().reclaimedUsedBytes, numPrevReclaimedBytes);
   waitForAllTasksToBeDeleted();
 }
 

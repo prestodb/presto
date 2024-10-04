@@ -31,21 +31,24 @@ using namespace facebook::velox::memory;
 
 std::string ArbitrationParticipant::Config::toString() const {
   return fmt::format(
-      "minCapacity {}, fastExponentialGrowthCapacityLimit {}, slowCapacityGrowRatio {}, minFreeCapacity {}, minFreeCapacityRatio {}",
-      minCapacity,
-      fastExponentialGrowthCapacityLimit,
+      "initCapacity {}, minCapacity {}, fastExponentialGrowthCapacityLimit {}, slowCapacityGrowRatio {}, minFreeCapacity {}, minFreeCapacityRatio {}",
+      succinctBytes(initCapacity),
+      succinctBytes(minCapacity),
+      succinctBytes(fastExponentialGrowthCapacityLimit),
       slowCapacityGrowRatio,
-      minFreeCapacity,
+      succinctBytes(minFreeCapacity),
       minFreeCapacityRatio);
 }
 
 ArbitrationParticipant::Config::Config(
+    uint64_t _initCapacity,
     uint64_t _minCapacity,
     uint64_t _fastExponentialGrowthCapacityLimit,
     double _slowCapacityGrowRatio,
     uint64_t _minFreeCapacity,
     double _minFreeCapacityRatio)
-    : minCapacity(_minCapacity),
+    : initCapacity(_initCapacity),
+      minCapacity(_minCapacity),
       fastExponentialGrowthCapacityLimit(_fastExponentialGrowthCapacityLimit),
       slowCapacityGrowRatio(_slowCapacityGrowRatio),
       minFreeCapacity(_minFreeCapacity),
@@ -224,12 +227,7 @@ void ArbitrationParticipant::startArbitration(ArbitrationOperation* op) {
       this);
 
   if (waitPromise.valid()) {
-    uint64_t waitTimeUs{0};
-    {
-      MicrosecondTimer timer(&waitTimeUs);
-      waitPromise.wait();
-    }
-    op->setLocalArbitrationWaitTimeUs(waitTimeUs);
+    waitPromise.wait();
   }
 }
 
@@ -265,13 +263,12 @@ uint64_t ArbitrationParticipant::reclaim(
   try {
     ++numReclaims_;
     pool_->reclaim(targetBytes, maxWaitTimeMs, reclaimStats);
-    reclaimedBytes = shrink();
   } catch (const std::exception& e) {
     VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "
                          << pool_->name() << ", aborting it: " << e.what();
     abortLocked(std::current_exception());
-    reclaimedBytes = shrink(/*reclaimAll=*/true);
   }
+  reclaimedBytes = shrink(/*reclaimAll=*/true);
   return reclaimedBytes;
 }
 
@@ -365,9 +362,9 @@ std::string ArbitrationParticipant::Stats::toString() const {
 
 ScopedArbitrationParticipant::ScopedArbitrationParticipant(
     std::shared_ptr<ArbitrationParticipant> ArbitrationParticipant,
-    std::shared_ptr<MemoryPool> memPool)
+    std::shared_ptr<MemoryPool> pool)
     : ArbitrationParticipant_(std::move(ArbitrationParticipant)),
-      pool_(std::move(memPool)) {
+      pool_(std::move(pool)) {
   VELOX_CHECK_NOT_NULL(ArbitrationParticipant_);
   VELOX_CHECK_NOT_NULL(pool_);
 }
@@ -376,6 +373,7 @@ ArbitrationCandidate::ArbitrationCandidate(
     ScopedArbitrationParticipant&& _participant,
     bool freeCapacityOnly)
     : participant(std::move(_participant)),
+      currentCapacity(participant->capacity()),
       reclaimableUsedCapacity(
           freeCapacityOnly ? 0 : participant->reclaimableUsedCapacity()),
       reclaimableFreeCapacity(participant->reclaimableFreeCapacity()) {}

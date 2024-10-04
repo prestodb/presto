@@ -563,7 +563,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   friend class MemoryManager;
   friend class MemoryArbitrator;
   friend class velox::memory::TestArbitrator;
-  friend class ScopedMemoryPoolArbitrationCtx;
+  friend class MemoryPoolArbitrationSection;
   friend class ArbitrationParticipant;
 
   VELOX_FRIEND_TEST(MemoryPoolTest, shrinkAndGrowAPIs);

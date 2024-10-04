@@ -93,11 +93,6 @@ class ArbitrationOperation {
     return minGrowBytes_;
   }
 
-  /// Returns the allocated bytes by this arbitration operation.
-  uint64_t& allocatedBytes() {
-    return allocatedBytes_;
-  }
-
   /// Returns the remaining execution time for this operation before time out.
   /// If the operation has already finished, this returns zero.
   size_t timeoutMs() const;
@@ -108,27 +103,24 @@ class ArbitrationOperation {
   /// Returns the execution time of this arbitration operation since creation.
   size_t executionTimeMs() const;
 
-  /// Getters/Setters of the wait time in (local) arbitration paritcipant wait
-  /// queue or (global) arbitrator request wait queue.
-  void setLocalArbitrationWaitTimeUs(uint64_t waitTimeUs) {
-    VELOX_CHECK_EQ(localArbitrationWaitTimeUs_, 0);
-    VELOX_CHECK_EQ(state_, State::kWaiting);
-    localArbitrationWaitTimeUs_ = waitTimeUs;
-  }
-
-  uint64_t localArbitrationWaitTimeUs() const {
-    return localArbitrationWaitTimeUs_;
-  }
-
-  void setGlobalArbitrationWaitTimeUs(uint64_t waitTimeUs) {
-    VELOX_CHECK_EQ(globalArbitrationWaitTimeUs_, 0);
+  /// Invoked to mark the start of global arbitration. This is used to measure
+  /// how much time spent in waiting for global arbitration.
+  void startGlobalArbitration() {
+    VELOX_CHECK_EQ(globalArbitrationStartTimeMs_, 0);
     VELOX_CHECK_EQ(state_, State::kRunning);
-    globalArbitrationWaitTimeUs_ = waitTimeUs;
+    globalArbitrationStartTimeMs_ = getCurrentTimeMs();
   }
 
-  uint64_t globalArbitrationWaitTimeUs() const {
-    return globalArbitrationWaitTimeUs_;
-  }
+  /// The execution stats of this arbitration operation after completion.
+  struct Stats {
+    uint64_t localArbitrationWaitTimeMs{0};
+    uint64_t localArbitrationExecTimeMs{0};
+    uint64_t globalArbitrationWaitTimeMs{0};
+    uint64_t executionTimeMs{0};
+  };
+
+  /// NOTE: should only called after this arbitration operation finishes.
+  Stats stats() const;
 
  private:
   void setState(State state);
@@ -142,21 +134,14 @@ class ArbitrationOperation {
 
   State state_{State::kInit};
 
+  uint64_t startTimeMs_{0};
   uint64_t finishTimeMs_{0};
 
   uint64_t maxGrowBytes_{0};
   uint64_t minGrowBytes_{0};
 
-  // The actual bytes allocated from arbitrator based on the request bytes and
-  // grow targets. It is either zero on failure or between 'requestBytes_' and
-  // 'maxGrowBytes_' on success.
-  uint64_t allocatedBytes_{0};
-
-  // The time that waits in local arbitration queue.
-  uint64_t localArbitrationWaitTimeUs_{0};
-
-  // The time that waits for global arbitration queue.
-  uint64_t globalArbitrationWaitTimeUs_{0};
+  // The time that starts global arbitration wait
+  uint64_t globalArbitrationStartTimeMs_{};
 
   friend class ArbitrationParticipant;
 };

@@ -44,11 +44,6 @@ ArbitrationOperation::~ArbitrationOperation() {
       state_,
       State::kRunning,
       "Unexpected arbitration operation state on destruction");
-  VELOX_CHECK(
-      allocatedBytes_ == 0 || allocatedBytes_ >= requestBytes_,
-      "Unexpected allocatedBytes_ {} vs requestBytes_ {}",
-      succinctBytes(allocatedBytes_),
-      succinctBytes(requestBytes_));
 }
 
 std::string ArbitrationOperation::stateName(State state) {
@@ -89,6 +84,8 @@ void ArbitrationOperation::start() {
   VELOX_CHECK_EQ(state_, State::kInit);
   participant_->startArbitration(this);
   setState(ArbitrationOperation::State::kRunning);
+  VELOX_CHECK_EQ(startTimeMs_, 0);
+  startTimeMs_ = getCurrentTimeMs();
 }
 
 void ArbitrationOperation::finish() {
@@ -138,6 +135,32 @@ void ArbitrationOperation::setGrowTargets() {
       succinctBytes(minGrowBytes_));
   participant_->getGrowTargets(requestBytes_, maxGrowBytes_, minGrowBytes_);
   VELOX_CHECK_LE(requestBytes_, maxGrowBytes_);
+}
+
+ArbitrationOperation::Stats ArbitrationOperation::stats() const {
+  VELOX_CHECK_EQ(state_, State::kFinished);
+  VELOX_CHECK_NE(startTimeMs_, 0);
+
+  const uint64_t executionTimeMs = this->executionTimeMs();
+
+  VELOX_CHECK_GE(startTimeMs_, createTimeMs_);
+  const uint64_t localArbitrationWaitTimeMs = startTimeMs_ - createTimeMs_;
+  if (globalArbitrationStartTimeMs_ == 0) {
+    return {
+        localArbitrationWaitTimeMs,
+        finishTimeMs_ - startTimeMs_,
+        0,
+        executionTimeMs};
+  }
+
+  VELOX_CHECK_GE(globalArbitrationStartTimeMs_, startTimeMs_);
+  const uint64_t localArbitrationExecTimeMs =
+      globalArbitrationStartTimeMs_ - startTimeMs_;
+  return {
+      localArbitrationWaitTimeMs,
+      localArbitrationExecTimeMs,
+      finishTimeMs_ - globalArbitrationStartTimeMs_,
+      executionTimeMs};
 }
 
 std::ostream& operator<<(std::ostream& out, ArbitrationOperation::State state) {

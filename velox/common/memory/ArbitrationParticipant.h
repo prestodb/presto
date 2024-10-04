@@ -35,6 +35,9 @@ class ArbitrationParticipant
     : public std::enable_shared_from_this<ArbitrationParticipant> {
  public:
   struct Config {
+    /// The initial capacity of a query memory pool.
+    uint64_t initCapacity;
+
     /// The minimum capacity of a query memory pool.
     uint64_t minCapacity;
 
@@ -77,6 +80,7 @@ class ArbitrationParticipant
     double minFreeCapacityRatio;
 
     Config(
+        uint64_t _initCapacity,
         uint64_t _minCapacity,
         uint64_t _fastExponentialGrowthCapacityLimit,
         double _slowCapacityGrowRatio,
@@ -339,6 +343,7 @@ class ScopedArbitrationParticipant {
 /// decisions.
 struct ArbitrationCandidate {
   ScopedArbitrationParticipant participant;
+  int64_t currentCapacity{0};
   int64_t reclaimableUsedCapacity{0};
   int64_t reclaimableFreeCapacity{0};
 
