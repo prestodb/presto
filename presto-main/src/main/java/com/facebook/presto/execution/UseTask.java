@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
@@ -25,7 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
@@ -69,9 +68,7 @@ public class UseTask
     {
         if (statement.getCatalog().isPresent()) {
             String catalog = statement.getCatalog().get().getValueLowerCase();
-            if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
-                throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
-            }
+            getConnectorIdOrThrow(session, metadata, catalog);
             stateMachine.setSetCatalog(catalog);
         }
     }
