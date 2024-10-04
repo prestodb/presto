@@ -66,7 +66,9 @@ SessionProperties::SessionProperties() {
 
   addSessionProperty(
       kMaxPartialAggregationMemory,
-      "The max partial aggregation memory when data reduction is not optimal.",
+      "The initial partial aggregation memory limit. The aggregation operator "
+      "might bump up the limit if the partial aggregation has seen good "
+      "reduction in output.",
       BIGINT(),
       false,
       QueryConfig::kMaxPartialAggregationMemory,
@@ -74,7 +76,8 @@ SessionProperties::SessionProperties() {
 
   addSessionProperty(
       kMaxExtendedPartialAggregationMemory,
-      "The max partial aggregation memory when data reduction is optimal.",
+      "The max partial aggregation memory limit. The aggregation operator won't"
+      " exceed this limit even though it has seen good reduction in output.",
       BIGINT(),
       false,
       QueryConfig::kMaxExtendedPartialAggregationMemory,

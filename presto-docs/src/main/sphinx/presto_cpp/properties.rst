@@ -166,9 +166,9 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Type:** ``integer``
 * **Default value:** ``100UL << 30``
 
-  Specifies the max spill bytes limit set for each query. This is used to cap the
-  storage used for spilling. If it is zero, then there is no limit and spilling
-  might exhaust the storage or takes too long to run.
+  Specifies the max spill bytes limit set for each query on a Prestissimo worker.
+  This is used to cap the storage used for spilling. If this is set to zero, then
+  there is no limit and spilling might exhaust the storage or take too long to run.
 
 ``shared-arbitrator.reserved-capacity``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
