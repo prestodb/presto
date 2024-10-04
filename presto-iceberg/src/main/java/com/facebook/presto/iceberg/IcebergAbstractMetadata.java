@@ -84,7 +84,9 @@ import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.types.Type;
@@ -123,6 +125,7 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.COMMIT_RETRIES;
 import static com.facebook.presto.iceberg.IcebergTableProperties.DELETE_MODE;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
@@ -995,6 +998,28 @@ public abstract class IcebergAbstractMetadata
 
         TupleDomain<IcebergColumnHandle> domainPredicate = layoutHandle.getValidPredicate();
         return removeScanFiles(icebergTable, domainPredicate);
+    }
+
+    @Override
+    public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        transaction = icebergTable.newTransaction();
+
+        UpdateProperties updateProperties = transaction.updateProperties();
+        for (Map.Entry<String, Object> entry : properties.entrySet()) {
+            switch (entry.getKey()) {
+                case COMMIT_RETRIES:
+                    updateProperties.set(TableProperties.COMMIT_NUM_RETRIES, String.valueOf(entry.getValue()));
+                    break;
+                default:
+                    throw new PrestoException(NOT_SUPPORTED, "Updating property " + entry.getKey() + " is not supported currently");
+            }
+        }
+
+        updateProperties.commit();
+        transaction.commitTransaction();
     }
 
     /**
