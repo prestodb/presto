@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
 
@@ -84,5 +85,9 @@ struct TypeToFlatVector {
   using type = typename KindToFlatVector<SimpleTypeTrait<T>::typeKind>::type;
 };
 
+template <typename T, bool comparable, bool orderable>
+struct TypeToFlatVector<Generic<T, comparable, orderable>> {
+  using type = BaseVector;
+};
 } // namespace velox
 } // namespace facebook

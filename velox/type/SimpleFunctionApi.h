@@ -332,7 +332,7 @@ struct SimpleTypeTrait<IntervalYearMonth> : public SimpleTypeTrait<int32_t> {
 
 template <typename T, bool comparable, bool orderable>
 struct SimpleTypeTrait<Generic<T, comparable, orderable>> {
-  static constexpr TypeKind typeKind = TypeKind::UNKNOWN;
+  static constexpr TypeKind typeKind = TypeKind::INVALID;
   static constexpr bool isPrimitiveType = false;
   static constexpr bool isFixedWidth = false;
 };
