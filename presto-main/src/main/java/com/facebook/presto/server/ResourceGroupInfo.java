@@ -56,6 +56,7 @@ public class ResourceGroupInfo
     // Summaries do not include the following fields
     private final List<ResourceGroupInfo> subGroups;
     private final List<QueryStateInfo> runningQueries;
+    private final List<String> tags;
 
     @ThriftConstructor
     @JsonCreator
@@ -74,7 +75,8 @@ public class ResourceGroupInfo
             @JsonProperty("numEligibleSubGroups") int numEligibleSubGroups,
             @JsonProperty("subGroups") List<ResourceGroupInfo> subGroups,
             @JsonProperty("runningQueries") List<QueryStateInfo> runningQueries,
-            @JsonProperty("workersPerQueryLimit") int workersPerQueryLimit)
+            @JsonProperty("workersPerQueryLimit") int workersPerQueryLimit,
+            @JsonProperty("tags") List<String> tags)
     {
         this.id = requireNonNull(id, "id is null");
         this.state = requireNonNull(state, "state is null");
@@ -97,6 +99,7 @@ public class ResourceGroupInfo
         this.runningQueries = runningQueries;
 
         this.subGroups = subGroups;
+        this.tags = tags;
     }
 
     @JsonProperty
@@ -226,5 +229,12 @@ public class ResourceGroupInfo
     public int getWorkersPerQueryLimit()
     {
         return workersPerQueryLimit;
+    }
+
+    @JsonProperty
+    @ThriftField(18)
+    public List<String> getTags()
+    {
+        return tags;
     }
 }
