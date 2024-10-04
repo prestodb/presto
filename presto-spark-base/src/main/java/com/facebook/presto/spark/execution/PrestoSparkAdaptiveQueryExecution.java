@@ -238,7 +238,8 @@ public class PrestoSparkAdaptiveQueryExecution
                 this.queryManagerConfig,
                 this.session,
                 this.warningCollector,
-                forceSingleNode);
+                forceSingleNode,
+                this.featuresConfig.isNativeExecutionEnabled());
     }
 
     @Override

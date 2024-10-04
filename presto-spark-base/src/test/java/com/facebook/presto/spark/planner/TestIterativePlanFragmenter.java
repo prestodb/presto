@@ -230,6 +230,7 @@ public class TestIterativePlanFragmenter
                 new QueryManagerConfig(),
                 session,
                 WarningCollector.NOOP,
+                false,
                 false);
 
         PlanAndFragments nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, node);

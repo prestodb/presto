@@ -52,6 +52,7 @@ public class PlanFragmenter
     private final QueryManagerConfig config;
     private final PlanChecker distributedPlanChecker;
     private final PlanChecker singleNodePlanChecker;
+    private final boolean nativeExecution;
 
     @Inject
     public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, FeaturesConfig featuresConfig)
@@ -61,6 +62,7 @@ public class PlanFragmenter
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.distributedPlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), false);
         this.singleNodePlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), true);
+        this.nativeExecution = featuresConfig.isNativeExecutionEnabled();
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
@@ -90,7 +92,7 @@ public class PlanFragmenter
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
-        return finalizeSubPlan(subPlan, config, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector, subPlan.getFragment().getPartitioning());
+        return finalizeSubPlan(subPlan, config, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector, subPlan.getFragment().getPartitioning(), nativeExecution);
     }
 
     private static class Fragmenter
