@@ -14,6 +14,7 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name ADD [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] } ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED } ]
     ALTER TABLE [ IF EXISTS ] name DROP CONSTRAINT [ IF EXISTS ] constraint_name
     ALTER TABLE [ IF EXISTS ] name ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
+    ALTER TABLE [ IF EXISTS ] name SET PROPERTIES (property_name=value, [, ...])
 
 Description
 -----------
@@ -88,6 +89,10 @@ Add not null constraint to column ``zip`` in the ``users`` table if  table ``use
 Drop not null constraint from column ``zip`` in the ``users`` table::
 
     ALTER TABLE users ALTER COLUMN zip DROP NOT NULL;
+
+Set table property (``x=y``) to table ``users``::
+
+    ALTER TABLE users SET PROPERTIES (x='y');
 
 See Also
 --------
