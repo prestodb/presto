@@ -20,9 +20,10 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 
-using namespace facebook::velox;
+namespace facebook::velox::connector::hive::test {
+namespace {
+
 using namespace facebook::velox::exec;
-using namespace facebook::velox::connector::hive;
 
 class HiveConnectorSerDeTest : public exec::test::HiveConnectorTestBase {
  protected:
@@ -34,6 +35,8 @@ class HiveConnectorSerDeTest : public exec::test::HiveConnectorTestBase {
     HiveColumnHandle::registerSerDe();
     LocationHandle::registerSerDe();
     HiveInsertTableHandle::registerSerDe();
+    HiveBucketProperty::registerSerDe();
+    HiveSortingColumn::registerSerDe();
   }
 
   template <typename T>
@@ -121,12 +124,38 @@ TEST_F(HiveConnectorSerDeTest, hiveInsertTableHandle) {
   tableColumnTypes.emplace_back(rowType);
   tableColumnTypes.emplace_back(arrType);
   tableColumnTypes.emplace_back(varcharType);
+
   auto locationHandle = exec::test::HiveConnectorTestBase::makeLocationHandle(
       "targetDirectory",
       std::optional("writeDirectory"),
       LocationHandle::TableType::kNew);
+
+  auto bucketProperty = std::make_shared<HiveBucketProperty>(
+      HiveBucketProperty::Kind::kPrestoNative,
+      1024,
+      std::vector<std::string>{"id", "row"},
+      std::vector<TypePtr>{VARCHAR(), BOOLEAN()},
+      std::vector<std::shared_ptr<const HiveSortingColumn>>{
+          std::make_shared<HiveSortingColumn>(
+              "id", core::SortOrder{true, true})});
+
+  std::unordered_map<std::string, std::string> serdeParameters = {
+      {"key1", "value1"},
+      {"key2", "value2"},
+  };
+
   auto hiveInsertTableHandle =
       exec::test::HiveConnectorTestBase::makeHiveInsertTableHandle(
-          tableColumnNames, tableColumnTypes, {"loc"}, locationHandle);
+          tableColumnNames,
+          tableColumnTypes,
+          {"loc"},
+          bucketProperty,
+          locationHandle,
+          dwio::common::FileFormat::NIMBLE,
+          common::CompressionKind::CompressionKind_SNAPPY,
+          serdeParameters);
   testSerde(*hiveInsertTableHandle);
 }
+
+} // namespace
+} // namespace facebook::velox::connector::hive::test

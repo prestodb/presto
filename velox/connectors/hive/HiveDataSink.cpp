@@ -25,6 +25,7 @@
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/ITypedExpr.h"
+#include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/SortingWriter.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/SortBuffer.h"
@@ -36,8 +37,8 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::connector::hive {
-
 namespace {
+
 // Returns the type of non-partition data columns.
 RowTypePtr getNonPartitionTypes(
     const std::vector<column_index_t>& dataCols,
@@ -953,6 +954,21 @@ folly::dynamic HiveInsertTableHandle::serialize() const {
 
   obj["inputColumns"] = arr;
   obj["locationHandle"] = locationHandle_->serialize();
+  obj["tableStorageFormat"] = dwio::common::toString(tableStorageFormat_);
+
+  if (bucketProperty_) {
+    obj["bucketProperty"] = bucketProperty_->serialize();
+  }
+
+  if (compressionKind_.has_value()) {
+    obj["compressionKind"] = common::compressionKindToString(*compressionKind_);
+  }
+
+  folly::dynamic params = folly::dynamic::object;
+  for (const auto& [key, value] : serdeParameters_) {
+    params[key] = value;
+  }
+  obj["serdeParameters"] = params;
   return obj;
 }
 
@@ -962,7 +978,33 @@ HiveInsertTableHandlePtr HiveInsertTableHandle::create(
       obj["inputColumns"]);
   auto locationHandle =
       ISerializable::deserialize<LocationHandle>(obj["locationHandle"]);
-  return std::make_shared<HiveInsertTableHandle>(inputColumns, locationHandle);
+  auto storageFormat =
+      dwio::common::toFileFormat(obj["tableStorageFormat"].asString());
+
+  std::optional<common::CompressionKind> compressionKind = std::nullopt;
+  if (obj.count("compressionKind") > 0) {
+    compressionKind =
+        common::stringToCompressionKind(obj["compressionKind"].asString());
+  }
+
+  std::shared_ptr<const HiveBucketProperty> bucketProperty;
+  if (obj.count("bucketProperty") > 0) {
+    bucketProperty =
+        ISerializable::deserialize<HiveBucketProperty>(obj["bucketProperty"]);
+  }
+
+  std::unordered_map<std::string, std::string> serdeParameters;
+  for (const auto& pair : obj["serdeParameters"].items()) {
+    serdeParameters.emplace(pair.first.asString(), pair.second.asString());
+  }
+
+  return std::make_shared<HiveInsertTableHandle>(
+      inputColumns,
+      locationHandle,
+      storageFormat,
+      bucketProperty,
+      compressionKind,
+      serdeParameters);
 }
 
 void HiveInsertTableHandle::registerSerDe() {
@@ -986,6 +1028,13 @@ std::string HiveInsertTableHandle::toString() const {
   out << " ], locationHandle: " << locationHandle_->toString();
   if (bucketProperty_) {
     out << ", bucketProperty: " << bucketProperty_->toString();
+  }
+
+  if (serdeParameters_.size() > 0) {
+    out << ", serdeParameters: ";
+    for (const auto& [key, value] : serdeParameters_) {
+      out << "[" << key << ", " << value << "] ";
+    }
   }
   out << "]";
   return out.str();

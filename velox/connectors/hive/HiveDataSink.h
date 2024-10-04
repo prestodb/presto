@@ -203,7 +203,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
       std::shared_ptr<const LocationHandle> locationHandle,
       dwio::common::FileFormat tableStorageFormat =
           dwio::common::FileFormat::DWRF,
-      std::shared_ptr<HiveBucketProperty> bucketProperty = nullptr,
+      std::shared_ptr<const HiveBucketProperty> bucketProperty = nullptr,
       std::optional<common::CompressionKind> compressionKind = {},
       const std::unordered_map<std::string, std::string>& serdeParameters = {},
       const std::shared_ptr<dwio::common::WriterOptions>& writerOptions =
@@ -273,7 +273,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
   const std::vector<std::shared_ptr<const HiveColumnHandle>> inputColumns_;
   const std::shared_ptr<const LocationHandle> locationHandle_;
   const dwio::common::FileFormat tableStorageFormat_;
-  const std::shared_ptr<HiveBucketProperty> bucketProperty_;
+  const std::shared_ptr<const HiveBucketProperty> bucketProperty_;
   const std::optional<common::CompressionKind> compressionKind_;
   const std::unordered_map<std::string, std::string> serdeParameters_;
   const std::shared_ptr<dwio::common::WriterOptions> writerOptions_;

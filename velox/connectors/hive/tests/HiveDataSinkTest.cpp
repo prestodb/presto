@@ -157,6 +157,7 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
             connector::hive::LocationHandle::TableType::kNew),
         fileFormat,
         CompressionKind::CompressionKind_ZSTD,
+        {},
         writerOptions);
   }
 

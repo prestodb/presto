@@ -173,6 +173,7 @@ class HiveConnectorTestBase : public OperatorTestBase {
   /// table.
   /// @param locationHandle Location handle for the table write.
   /// @param compressionKind compression algorithm to use for table write.
+  /// @param serdeParameters Table writer configuration parameters.
   static std::shared_ptr<connector::hive::HiveInsertTableHandle>
   makeHiveInsertTableHandle(
       const std::vector<std::string>& tableColumnNames,
@@ -183,6 +184,7 @@ class HiveConnectorTestBase : public OperatorTestBase {
       const dwio::common::FileFormat tableStorageFormat =
           dwio::common::FileFormat::DWRF,
       const std::optional<common::CompressionKind> compressionKind = {},
+      const std::unordered_map<std::string, std::string>& serdeParameters = {},
       const std::shared_ptr<dwio::common::WriterOptions>& writerOptions =
           nullptr);
 

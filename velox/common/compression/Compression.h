@@ -37,9 +37,7 @@ std::unique_ptr<folly::io::Codec> compressionKindToCodec(CompressionKind kind);
 
 CompressionKind codecTypeToCompressionKind(folly::io::CodecType type);
 
-/**
- * Get the name of the CompressionKind.
- */
+/// Get the name of the CompressionKind.
 std::string compressionKindToString(CompressionKind kind);
 
 CompressionKind stringToCompressionKind(const std::string& kind);
