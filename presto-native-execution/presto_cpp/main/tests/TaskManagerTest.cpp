@@ -656,12 +656,13 @@ class TaskManagerTest : public testing::Test {
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
-      const core::PlanFragment& planFragment) {
+      const core::PlanFragment& planFragment,
+      bool summarize = true) {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, updateRequest.session);
     return taskManager_->createOrUpdateTask(
-        taskId, updateRequest, planFragment, std::move(queryCtx), 0);
+        taskId, updateRequest, planFragment, summarize, std::move(queryCtx), 0);
   }
 
   std::shared_ptr<memory::MemoryPool> rootPool_;
@@ -868,7 +869,8 @@ TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
           .getVia(folly::EventBaseManager::get()->getEventBase());
 
   std::exception e;
-  taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
+  taskManager_->createOrUpdateErrorTask(
+      taskId, std::make_exception_ptr(e), true, 0);
   taskManager_->deleteTask(taskId, true);
   for (int i = 0; i < 10; ++i) {
     // 'results' holds a reference on the presto task which prevents the old
@@ -916,12 +918,13 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
 
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
-    taskManager_->createOrUpdateTask(taskId, updateRequest, {}, nullptr, 0);
+    taskManager_->createOrUpdateTask(
+        taskId, updateRequest, {}, true, nullptr, 0);
   }
 
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(makeSource("0", {}, true, splitSequenceId));
-  taskManager_->createOrUpdateTask(taskId, updateRequest, {}, nullptr, 0);
+  taskManager_->createOrUpdateTask(taskId, updateRequest, {}, true, nullptr, 0);
 
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 1");
 }
@@ -1321,7 +1324,8 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
 TEST_F(TaskManagerTest, getResultsFromFailedTask) {
   const protocol::TaskId taskId = "error-task.0.0.0.0";
   std::exception e;
-  taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
+  taskManager_->createOrUpdateErrorTask(
+      taskId, std::make_exception_ptr(e), true, 0);
 
   // We expect to get empty results, rather than an exception.
   const uint64_t startTimeUs = velox::getCurrentTimeMicro();
@@ -1494,7 +1498,7 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
       taskManager_->getQueryContextManager()->findOrCreateQueryCtx(taskId, {});
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, {}, planFragment, queryCtx, 0),
+          taskId, {}, planFragment, true, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes");
 
   // Splits for scan node on the probe side.
@@ -1503,7 +1507,7 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
       makeSource(probeId, {}, true));
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, batchRequest, planFragment, queryCtx, 0),
+          taskId, batchRequest, planFragment, true, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes: " +
           buildId);
 
@@ -1513,13 +1517,13 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
       makeSource(buildId, {}, false));
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, batchRequest, planFragment, queryCtx, 0),
+          taskId, batchRequest, planFragment, true, queryCtx, 0),
       "Expected no-more-splits message for plan node " + buildId);
 
   // All splits.
   batchRequest.taskUpdateRequest.sources.back().noMoreSplits = true;
   ASSERT_NO_THROW(taskManager_->createOrUpdateBatchTask(
-      taskId, batchRequest, planFragment, queryCtx, 0));
+      taskId, batchRequest, planFragment, true, queryCtx, 0));
   auto resultOrFailure = fetchAllResults(taskId, ROW({BIGINT()}), {});
   ASSERT_EQ(resultOrFailure.status, nullptr);
 }
@@ -1579,6 +1583,70 @@ TEST_F(TaskManagerTest, buildSpillDirectoryFailure) {
     velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
     ASSERT_TRUE(taskManager_->tasks().empty());
   }
+}
+
+// Runs "select * from t where c0 % 5 = 0" query.
+// Creates one task with summarize.
+TEST_F(TaskManagerTest, createOrUpdateTaskWithSummarize) {
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .planFragment();
+
+  long splitSequenceId{0};
+
+  protocol::TaskId taskId = "scan.0.0.1.0";
+
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, true, splitSequenceId));
+  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  ASSERT_TRUE(taskInfo->stats.pipelines.empty());
+}
+
+// Runs "select * from t where c0 % 5 = 0" query.
+// Creates one task and getTaskInfo with summarize.
+TEST_F(TaskManagerTest, getTaskInfoWithSummarize) {
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .planFragment();
+
+  long splitSequenceId{0};
+
+  protocol::TaskId taskId = "scan.0.0.1.0";
+
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, true, splitSequenceId));
+  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  auto infoRequestState = http::CallbackRequestHandlerState::create();
+
+  const auto finalTaskInfo =
+      taskManager_
+          ->getTaskInfo(
+              taskId, true, std::nullopt, std::nullopt, infoRequestState)
+          .get();
+
+  ASSERT_TRUE(finalTaskInfo->stats.pipelines.empty());
 }
 
 // TODO: add disk spilling test for order by and hash join later.

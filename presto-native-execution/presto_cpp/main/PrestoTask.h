@@ -82,6 +82,8 @@ struct ResultRequest {
         maxSize(_maxSize) {}
 };
 
+bool isFinalState(protocol::TaskState state);
+
 struct PrestoTask {
   const PrestoTaskId id;
   const long startProcessCpuTime;
@@ -161,9 +163,9 @@ struct PrestoTask {
     return updateStatusLocked();
   }
 
-  protocol::TaskInfo updateInfo() {
+  protocol::TaskInfo updateInfo(bool summarize = false) {
     std::lock_guard<std::mutex> l(mutex);
-    return updateInfoLocked();
+    return updateInfoLocked(summarize);
   }
 
   /// Turns the task numbers (per state) into a string.
@@ -172,7 +174,7 @@ struct PrestoTask {
 
   /// Invoked to update presto task status from the updated velox task stats.
   protocol::TaskStatus updateStatusLocked();
-  protocol::TaskInfo updateInfoLocked();
+  protocol::TaskInfo updateInfoLocked(bool summarize = false);
 
   folly::dynamic toJson() const;
 
@@ -191,7 +193,8 @@ struct PrestoTask {
   void updateExecutionInfoLocked(
       const velox::exec::TaskStats& veloxTaskStats,
       const protocol::TaskStatus& prestoTaskStatus,
-      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats,
+      bool stripPipelines);
 
   void updateMemoryInfoLocked(
       const velox::exec::TaskStats& veloxTaskStats,
@@ -207,7 +210,5 @@ using TaskMap =
 protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
     const facebook::velox::RuntimeMetric& metric);
-
-bool isFinalState(protocol::TaskState state);
 
 } // namespace facebook::presto
