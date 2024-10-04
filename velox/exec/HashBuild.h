@@ -217,7 +217,7 @@ class HashBuild final : public Operator {
 
   std::shared_ptr<HashJoinBridge> joinBridge_;
 
-  bool exceededMaxSpillLevelLimit_{false};
+  tsan_atomic<bool> exceededMaxSpillLevelLimit_{false};
 
   State state_{State::kRunning};
 

@@ -620,7 +620,7 @@ class HashProbe : public Operator {
   // Indicates if this hash probe has exceeded max spill limit which is not
   // allowed to spill. This is reset when hash probe operator starts to probe
   // the next previously spilled hash table partition.
-  bool exceededMaxSpillLevelLimit_{false};
+  tsan_atomic<bool> exceededMaxSpillLevelLimit_{false};
 
   // The partition bits used to spill the hash table.
   HashBitRange tableSpillHashBits_;
