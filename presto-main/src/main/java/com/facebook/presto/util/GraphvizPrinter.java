@@ -129,6 +129,7 @@ public final class GraphvizPrinter
         UNNEST,
         ANALYZE_FINISH,
         EXPLAIN_ANALYZE,
+        DELETE
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -159,6 +160,7 @@ public final class GraphvizPrinter
             .put(NodeType.SAMPLE, "goldenrod4")
             .put(NodeType.ANALYZE_FINISH, "plum")
             .put(NodeType.EXPLAIN_ANALYZE, "cadetblue1")
+            .put(NodeType.DELETE, "darkgrey")
             .build());
 
     static {
@@ -330,6 +332,13 @@ public final class GraphvizPrinter
         {
             printNode(node, format("MetadataDeleteNode[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.METADATA_DELETE));
             return null;
+        }
+
+        @Override
+        public Void visitDelete(DeleteNode node, Void context)
+        {
+            printNode(node, format("DeleteNode[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.DELETE));
+            return node.getSource().accept(this, context);
         }
 
         @Override
