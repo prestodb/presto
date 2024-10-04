@@ -52,6 +52,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -1807,5 +1808,47 @@ public abstract class IcebergDistributedSmokeTestBase
             sessionBuilder.setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId));
         }
         return sessionBuilder.build();
+    }
+
+    @Test
+    public void testUpdatingInvalidProperty()
+    {
+        Session session = getSession();
+        String tableName = "test_invalid_property_update";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(commit_retries = 4)");
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (format = 'PARQUET')"))
+                .hasMessage("Updating property format is not supported currently");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUpdatingRandomProperty()
+    {
+        Session session = getSession();
+        String tableName = "test_random_property_update";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(commit_retries = 4)");
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (some_config = 2)"))
+                .hasMessage("Catalog 'iceberg' does not support table property 'some_config'");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUpdatingCommitRetries()
+    {
+        Session session = getSession();
+        String tableName = "test_commit_retries_update";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(commit_retries = 4)");
+        assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'commit.retry.num-retries'", "VALUES 4");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (commit_retries = 5)");
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " SET PROPERTIES (commit_retries = 6)");
+        assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'commit.retry.num-retries'", "VALUES 6");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUpdateNonExistentTable()
+    {
+        assertQuerySucceeds("ALTER TABLE IF EXISTS non_existent_test_table1 SET PROPERTIES (commit_retries = 6)");
+        assertQueryFails("ALTER TABLE non_existent_test_table2 SET PROPERTIES (commit_retries = 6)", "Table does not exist: iceberg.tpch.non_existent_test_table2");
     }
 }
