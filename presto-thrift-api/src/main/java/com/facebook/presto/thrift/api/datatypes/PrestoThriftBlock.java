@@ -43,6 +43,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
 public final class PrestoThriftBlock
@@ -352,7 +353,7 @@ public final class PrestoThriftBlock
                 result = data;
             }
         }
-        checkArgument(result != null, "no types are present");
+        requireNonNull(result, "no types are present");
         return result;
     }
 }

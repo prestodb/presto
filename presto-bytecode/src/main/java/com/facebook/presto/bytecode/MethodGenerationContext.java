@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class MethodGenerationContext
@@ -84,7 +85,7 @@ public class MethodGenerationContext
     public int getVariableSlot(Variable variable)
     {
         Integer slot = variableSlots.get(variable);
-        checkArgument(slot != null, "Variable '%s' has not been assigned a slot", variable);
+        checkNotNull(slot, "Variable '%s' has not been assigned a slot", variable);
         return slot;
     }
 

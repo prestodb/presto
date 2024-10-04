@@ -38,7 +38,7 @@ import java.util.Set;
 import static com.facebook.presto.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.singletonMap;
@@ -118,7 +118,7 @@ public class SystemTablesMetadata
         String columnName = ((SystemColumnHandle) columnHandle).getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
-        checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
+        checkNotNull(columnMetadata, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
         return columnMetadata;
     }
 
