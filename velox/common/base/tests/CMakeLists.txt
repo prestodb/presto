@@ -14,6 +14,7 @@
 
 add_executable(
   velox_base_test
+  AdmissionControllerTest.cpp
   AsyncSourceTest.cpp
   BitUtilTest.cpp
   BloomFilterTest.cpp

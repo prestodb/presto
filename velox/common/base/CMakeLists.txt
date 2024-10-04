@@ -25,6 +25,7 @@ velox_link_libraries(
 
 velox_add_library(
   velox_common_base
+  AdmissionController.cpp
   BitUtil.cpp
   Counters.cpp
   Fs.cpp
