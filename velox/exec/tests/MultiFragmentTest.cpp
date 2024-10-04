@@ -1891,7 +1891,7 @@ DEBUG_ONLY_TEST_F(MultiFragmentTest, exchangeStatsOnFailure) {
   });
 
   auto producerPlan = PlanBuilder()
-                          .values({data}, false, 100)
+                          .values({data}, false, 30)
                           .partitionedOutput({}, 1)
                           .planNode();
 

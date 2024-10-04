@@ -70,6 +70,8 @@ void ExchangeClient::noMoreRemoteTasks() {
 
 void ExchangeClient::close() {
   std::vector<std::shared_ptr<ExchangeSource>> sources;
+  std::queue<ProducingSource> producingSources;
+  std::queue<std::shared_ptr<ExchangeSource>> emptySources;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     if (closed_) {
@@ -77,6 +79,8 @@ void ExchangeClient::close() {
     }
     closed_ = true;
     sources = std::move(sources_);
+    producingSources = std::move(producingSources_);
+    emptySources = std::move(emptySources_);
   }
 
   // Outside of mutex.
