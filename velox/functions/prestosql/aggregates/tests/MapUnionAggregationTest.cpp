@@ -16,6 +16,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
@@ -411,6 +412,86 @@ TEST_F(MapUnionTest, nans) {
                {makeFlatVector<double>({1, 2, kNaN, 3, kNaN}),
                 makeFlatVector<int32_t>({1, 4, 2, 5, 2})}),
            makeFlatVector<int32_t>({1, 3, 2, 4, 5})),
+       makeFlatVector<int32_t>({1, 2})});
+
+  testAggregations(
+      {data}, {"c1"}, {"map_union(c0)"}, {"a0", "c1"}, {expectedResult});
+}
+
+TEST_F(MapUnionTest, timestampWithTimeZone) {
+  // Global Aggregation, Primitive type
+  auto data = makeRowVector(
+      {makeMapVector<int64_t, int32_t>(
+           {{{pack(0, 0), 1}},
+            {{pack(1, 0), 2}},
+            {{pack(2, 0), 3}},
+            {{pack(0, 1), 4}},
+            {{pack(1, 1), 5}},
+            {{pack(1, 2), 6}},
+            {{pack(2, 2), 7}},
+            {{pack(3, 3), 8}},
+            {{pack(1, 1), 9}},
+            {{pack(3, 0), 10}}},
+           MAP(TIMESTAMP_WITH_TIME_ZONE(), INTEGER())),
+       makeFlatVector<int32_t>({1, 1, 1, 1, 1, 2, 2, 2, 2, 2})});
+
+  auto expectedResult = makeRowVector({makeMapVector<int64_t, int32_t>(
+      {{{pack(0, 0), 1}, {pack(1, 0), 2}, {pack(2, 0), 3}, {pack(3, 3), 8}}},
+      MAP(TIMESTAMP_WITH_TIME_ZONE(), INTEGER()))});
+
+  testAggregations({data}, {}, {"map_union(c0)"}, {expectedResult});
+
+  // Group by Aggregation, Primitive type
+  expectedResult = makeRowVector(
+      {makeMapVector<int64_t, int32_t>(
+           {{{pack(0, 0), 1}, {pack(1, 0), 2}, {pack(2, 0), 3}},
+            {{pack(1, 2), 6}, {pack(2, 2), 7}, {pack(3, 3), 8}}},
+           MAP(TIMESTAMP_WITH_TIME_ZONE(), INTEGER())),
+       makeFlatVector<int32_t>({1, 2})});
+
+  testAggregations(
+      {data}, {"c1"}, {"map_union(c0)"}, {"a0", "c1"}, {expectedResult});
+
+  // Global Aggregation, Complex type(Row)
+  data = makeRowVector(
+      {makeMapVector(
+           {0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+           makeRowVector({makeFlatVector<int64_t>(
+               {pack(0, 0),
+                pack(1, 0),
+                pack(2, 0),
+                pack(0, 1),
+                pack(1, 1),
+                pack(1, 2),
+                pack(2, 2),
+                pack(3, 3),
+                pack(1, 1),
+                pack(3, 0)},
+               TIMESTAMP_WITH_TIME_ZONE())}),
+           makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10})),
+       makeFlatVector<int32_t>({1, 1, 1, 1, 1, 2, 2, 2, 2, 2})});
+
+  expectedResult = makeRowVector({makeMapVector(
+      {0},
+      makeRowVector({makeFlatVector<int64_t>(
+          {pack(0, 0), pack(1, 0), pack(2, 0), pack(3, 3)},
+          TIMESTAMP_WITH_TIME_ZONE())}),
+      makeFlatVector<int32_t>({1, 2, 3, 8}))});
+
+  testAggregations({data}, {}, {"map_union(c0)"}, {expectedResult});
+
+  expectedResult = makeRowVector(
+      {makeMapVector(
+           {0, 3},
+           makeRowVector({makeFlatVector<int64_t>(
+               {pack(0, 0),
+                pack(1, 0),
+                pack(2, 0),
+                pack(1, 2),
+                pack(2, 2),
+                pack(3, 3)},
+               TIMESTAMP_WITH_TIME_ZONE())}),
+           makeFlatVector<int32_t>({1, 2, 3, 6, 7, 8})),
        makeFlatVector<int32_t>({1, 2})});
 
   testAggregations(
