@@ -46,6 +46,7 @@ EvalCtx::EvalCtx(core::ExecCtx* execCtx, ExprSet* exprSet, const RowVector* row)
 EvalCtx::EvalCtx(core::ExecCtx* execCtx)
     : execCtx_(execCtx), exprSet_(nullptr), row_(nullptr) {
   VELOX_CHECK_NOT_NULL(execCtx);
+  inputFlatNoNulls_ = false;
 }
 
 void EvalCtx::saveAndReset(ContextSaver& saver, const SelectivityVector& rows) {

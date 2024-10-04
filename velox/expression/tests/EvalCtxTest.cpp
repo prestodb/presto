@@ -228,3 +228,8 @@ TEST_F(EvalCtxTest, localSingleRow) {
     }
   }
 }
+
+TEST_F(EvalCtxTest, inputFlatNoNulls) {
+  EvalCtx context(&execCtx_);
+  ASSERT_FALSE(context.inputFlatNoNulls());
+}
