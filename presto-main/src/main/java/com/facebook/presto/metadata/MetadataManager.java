@@ -675,6 +675,14 @@ public class MetadataManager
     }
 
     @Override
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.setTableProperties(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), properties);
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();

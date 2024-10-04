@@ -213,6 +213,11 @@ public interface Metadata
     void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName);
 
     /**
+     * Set properties to the specified table.
+     */
+    void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties);
+
+    /**
      * Rename the specified column.
      */
     void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);

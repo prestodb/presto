@@ -40,6 +40,7 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
@@ -82,6 +83,12 @@ public final class MetadataUtil
     public static SchemaTableName toSchemaTableName(QualifiedObjectName qualifiedObjectName)
     {
         return new SchemaTableName(qualifiedObjectName.getSchemaName(), qualifiedObjectName.getObjectName());
+    }
+
+    public static ConnectorId getConnectorIdOrThrow(Session session, Metadata metadata, String catalogName)
+    {
+        return metadata.getCatalogHandle(session, catalogName)
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
     }
 
     public static String checkLowerCase(String value, String name)

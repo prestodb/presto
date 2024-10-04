@@ -239,6 +239,11 @@ public abstract class DelegatingMetadataManager
         delegate.renameTable(session, tableHandle, newTableName);
     }
 
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        delegate.setTableProperties(session, tableHandle, properties);
+    }
+
     @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
