@@ -40,6 +40,8 @@ cmake-build-*/
 *.swp
 *~
 a.out
+presto-native-execution/deps-download
+presto-native-execution/deps-install
 
 # Compiled Object files
 *.slo
