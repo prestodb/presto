@@ -26,10 +26,19 @@ available inside `presto/presto-native-execution/scripts`.
 * CentOS Stream 9: `setup-centos.sh`
 * Ubuntu: `setup-ubuntu.sh`
 
-Create a directory say `dependencies` and invoke one of these scripts from
-this folder. All the dependencies are installed in the system default location eg: `/usr/local`.
-To change the installation location specify a path using the `INSTALL_PREFIX` environment variable.
-For example, change the location if the default location cannot be written to by the user running the setup script.
+The above setup scripts use the `DEPENDENCY_DIR` environment variable to set the
+location to download and build packages. This defaults to `deps-download` in the current
+working directory.
+
+Use `INSTALL_PREFIX` to set the install directory of the packages. This defaults to
+`deps-install` in the current working directory on macOS and to the default install
+location (for example, `/usr/local`) on linux.
+Using the default install location `/usr/local` on macOS is discouraged because this
+location is used by certain Homebrew versions.
+
+Manually add the `INSTALL_PREFIX` value in the IDE or bash environment, so subsequent
+Prestissimo builds can use the installed packages. Say
+`export INSTALL_PREFIX=/Users/$USERNAME/presto/presto-native-execution/deps-install` to `~/.zshrc`.
 
 The following libraries are installed by the above setup scripts.
 The Velox library installs other
@@ -70,7 +79,7 @@ Compilers (and versions) not mentioned are known to not work or have not been tr
 | MacOS | `clang14` |
 
 ### Build Prestissimo
-#### Parquet and S3 Supprt
+#### Parquet and S3 Support
 To enable Parquet and S3 support, set `PRESTO_ENABLE_PARQUET = "ON"`,
 `PRESTO_ENABLE_S3 = "ON"` in the environment.
 
