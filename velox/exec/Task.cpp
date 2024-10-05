@@ -30,8 +30,8 @@
 #include "velox/exec/NestedLoopJoinBuild.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/OutputBufferManager.h"
+#include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/Task.h"
-#include "velox/exec/trace/QueryTraceUtil.h"
 
 using facebook::velox::common::testutil::TestValue;
 

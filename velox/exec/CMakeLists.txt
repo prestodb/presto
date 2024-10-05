@@ -57,6 +57,13 @@ velox_add_library(
   OrderBy.cpp
   OutputBuffer.cpp
   OutputBufferManager.cpp
+  QueryDataReader.cpp
+  QueryDataWriter.cpp
+  QueryMetadataReader.cpp
+  QueryMetadataWriter.cpp
+  QueryTraceConfig.cpp
+  QueryTraceScan.cpp
+  QueryTraceUtil.cpp
   PartitionedOutput.cpp
   PartitionFunction.cpp
   PartitionStreamingWindowBuild.cpp

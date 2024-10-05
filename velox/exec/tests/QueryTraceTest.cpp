@@ -21,14 +21,14 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/PartitionFunction.h"
+#include "velox/exec/QueryDataReader.h"
+#include "velox/exec/QueryDataWriter.h"
+#include "velox/exec/QueryMetadataReader.h"
+#include "velox/exec/QueryMetadataWriter.h"
+#include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/exec/trace/QueryDataReader.h"
-#include "velox/exec/trace/QueryDataWriter.h"
-#include "velox/exec/trace/QueryMetadataReader.h"
-#include "velox/exec/trace/QueryMetadataWriter.h"
-#include "velox/exec/trace/QueryTraceUtil.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -158,7 +158,7 @@ TEST_F(QueryTracerTest, traceData) {
       continue;
     }
 
-    const auto reader = QueryDataReader(outputDir->getPath(), pool());
+    const auto reader = QueryDataReader(outputDir->getPath(), rowType, pool());
     RowVectorPtr actual;
     size_t numOutputVectors{0};
     while (reader.read(actual)) {
@@ -502,7 +502,7 @@ TEST_F(QueryTracerTest, traceTableWriter) {
         obj[QueryTraceTraits::kTraceLimitExceededKey].asBool(),
         testData.limitExceeded);
 
-    const auto reader = trace::QueryDataReader(dataDir, pool());
+    const auto reader = trace::QueryDataReader(dataDir, rowType, pool());
     RowVectorPtr actual;
     size_t numOutputVectors{0};
     while (reader.read(actual)) {
@@ -518,12 +518,3 @@ TEST_F(QueryTracerTest, traceTableWriter) {
   }
 }
 } // namespace facebook::velox::exec::trace::test
-
-// This main is needed for some tests on linux.
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  // Signal handler required for ThreadDebugInfoTest
-  facebook::velox::process::addDefaultFatalSignalHandler();
-  folly::Init init(&argc, &argv, false);
-  return RUN_ALL_TESTS();
-}

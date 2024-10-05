@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(query_trace_replayer_base QueryTraceReplayer.cpp)
+velox_add_library(velox_query_trace_replayer_base OperatorReplayerBase.cpp
+                  TableWriterReplayer.cpp)
 velox_link_libraries(
-  query_trace_replayer_base
+  velox_query_trace_replayer_base
   velox_query_trace_retrieve
   velox_aggregates
   velox_type
@@ -28,7 +29,13 @@ velox_link_libraries(
   glog::glog
   gflags::gflags)
 
-add_executable(query_replayer QueryReplayer.cpp)
+add_executable(velox_query_replayer QueryReplayer.cpp)
 
 target_link_libraries(
-  query_replayer query_trace_replayer_base)
+  velox_query_replayer
+  velox_query_trace_replayer_base
+  velox_exec
+  velox_exec_test_lib
+  velox_tpch_connector)
+
+add_subdirectory(test)

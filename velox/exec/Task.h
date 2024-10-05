@@ -21,11 +21,11 @@
 #include "velox/exec/LocalPartition.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/MergeSource.h"
+#include "velox/exec/QueryMetadataWriter.h"
+#include "velox/exec/QueryTraceConfig.h"
 #include "velox/exec/Split.h"
 #include "velox/exec/TaskStats.h"
 #include "velox/exec/TaskStructs.h"
-#include "velox/exec/trace/QueryMetadataWriter.h"
-#include "velox/exec/trace/QueryTraceConfig.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec {

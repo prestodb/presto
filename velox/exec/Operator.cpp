@@ -21,8 +21,8 @@
 #include "velox/exec/Driver.h"
 #include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/OperatorUtils.h"
+#include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/Task.h"
-#include "velox/exec/trace/QueryTraceUtil.h"
 #include "velox/expression/Expr.h"
 
 using facebook::velox::common::testutil::TestValue;

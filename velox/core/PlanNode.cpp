@@ -2355,6 +2355,18 @@ folly::dynamic PlanNode::serialize() const {
   return obj;
 }
 
+const std::vector<PlanNodePtr>& QueryTraceScanNode::sources() const {
+  return kEmptySources;
+}
+
+std::string QueryTraceScanNode::traceDir() const {
+  return traceDir_;
+}
+
+void QueryTraceScanNode::addDetails(std::stringstream& stream) const {
+  stream << "Trace dir: " << traceDir_;
+}
+
 folly::dynamic FilterNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["filter"] = filter_->serialize();

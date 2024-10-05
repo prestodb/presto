@@ -19,7 +19,7 @@
 #include "QueryTraceConfig.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/exec/trace/QueryTraceTraits.h"
+#include "velox/exec/QueryTraceTraits.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/VectorStream.h"
 

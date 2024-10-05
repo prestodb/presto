@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "velox/exec/trace/QueryMetadataWriter.h"
+#include "velox/exec/QueryMetadataWriter.h"
 #include "velox/common/config/Config.h"
 #include "velox/common/file/File.h"
 #include "velox/core/PlanNode.h"
 #include "velox/core/QueryCtx.h"
-#include "velox/exec/trace/QueryTraceTraits.h"
+#include "velox/exec/QueryTraceTraits.h"
 
 namespace facebook::velox::exec::trace {
 

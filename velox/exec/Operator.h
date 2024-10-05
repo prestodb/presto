@@ -15,14 +15,13 @@
  */
 #pragma once
 
-#include "velox/exec/trace/QueryDataWriter.h"
-
 #include <folly/Synchronized.h>
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/JoinBridge.h"
+#include "velox/exec/QueryDataWriter.h"
 #include "velox/exec/Spiller.h"
 #include "velox/type/Filter.h"
 

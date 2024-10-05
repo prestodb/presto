@@ -96,6 +96,18 @@ AssertQueryBuilder& AssertQueryBuilder::connectorSessionProperty(
   return *this;
 }
 
+AssertQueryBuilder& AssertQueryBuilder::connectorSessionProperties(
+    const std::unordered_map<
+        std::string,
+        std::unordered_map<std::string, std::string>>& properties) {
+  for (const auto& [connectorId, values] : properties) {
+    for (const auto& [key, value] : values) {
+      connectorSessionProperty(connectorId, key, value);
+    }
+  }
+  return *this;
+}
+
 AssertQueryBuilder& AssertQueryBuilder::split(Split split) {
   this->split(getOnlyLeafPlanNodeId(params_.planNode), std::move(split));
   return *this;

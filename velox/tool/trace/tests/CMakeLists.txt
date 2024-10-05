@@ -12,37 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(
+add_executable(velox_tool_trace_test TableWriterReplayerTest.cpp)
+
+add_test(
+  NAME velox_tool_trace_test
+  COMMAND velox_tool_trace_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+set_tests_properties(velox_tool_trace_test PROPERTIES TIMEOUT 3000)
+
+target_link_libraries(
+  velox_tool_trace_test
+  velox_exec
+  velox_exec_test_lib
+  velox_memory
   velox_query_trace_exec
-  QueryMetadataWriter.cpp
-  QueryTraceConfig.cpp
-  QueryDataWriter.cpp
-  QueryTraceUtil.cpp)
-
-velox_link_libraries(
-  velox_query_trace_exec
-  PRIVATE
-    velox_common_io
-    velox_file
-    velox_core
-    velox_vector
-    velox_connector
-    velox_common_base
-    velox_presto_serializer)
-
-velox_add_library(velox_query_trace_retrieve QueryDataReader.cpp
-                  QueryMetadataReader.cpp QueryTraceUtil.cpp)
-
-velox_link_libraries(
   velox_query_trace_retrieve
-  velox_common_io
-  velox_file
-  velox_core
-  velox_vector
-  velox_connector
-  velox_common_base
-  velox_hive_connector)
-
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(test)
-endif()
+  velox_query_trace_replayer_base
+  velox_vector_fuzzer
+  GTest::gtest_main
+  GTest::gmock
+  Folly::folly
+  gflags::gflags
+  glog::glog
+  fmt::fmt
+  ${FILESYSTEM})

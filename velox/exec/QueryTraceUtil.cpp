@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include "velox/exec/trace/QueryTraceUtil.h"
+#include "velox/exec/QueryTraceUtil.h"
 
 #include <folly/json.h>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/exec/QueryTraceTraits.h"
 
 namespace facebook::velox::exec::trace {
 
@@ -73,6 +74,38 @@ folly::dynamic getMetadata(
         metadataFile,
         e.what());
   }
+}
+
+RowTypePtr getDataType(
+    const core::PlanNodePtr& tracedPlan,
+    const std::string& tracedNodeId,
+    size_t sourceIndex) {
+  const auto* traceNode = core::PlanNode::findFirstNode(
+      tracedPlan.get(), [&tracedNodeId](const core::PlanNode* node) {
+        return node->id() == tracedNodeId;
+      });
+  VELOX_CHECK_NOT_NULL(
+      traceNode,
+      "traced node id {} not found in the traced plan",
+      tracedNodeId);
+  return traceNode->sources().at(sourceIndex)->outputType();
+}
+
+uint8_t getNumDrivers(
+    const std::string& rootDir,
+    const std::string& taskId,
+    const std::string& nodeId,
+    int32_t pipelineId,
+    const std::shared_ptr<filesystems::FileSystem>& fs) {
+  const auto traceDir =
+      fmt::format("{}/{}/{}/{}", rootDir, taskId, nodeId, pipelineId);
+  const auto driverDirs = fs->list(traceDir);
+  return driverDirs.size();
+}
+
+std::string
+getDataDir(const std::string& traceDir, int pipelineId, int driverId) {
+  return fmt::format("{}/{}/{}/data", traceDir, pipelineId, driverId);
 }
 
 } // namespace facebook::velox::exec::trace

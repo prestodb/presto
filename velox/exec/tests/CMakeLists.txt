@@ -66,6 +66,7 @@ add_executable(
   PlanNodeToStringTest.cpp
   PrefixSortTest.cpp
   PrintPlanWithStatsTest.cpp
+  QueryTraceTest.cpp
   ProbeOperatorStateTest.cpp
   RoundRobinPartitionFunctionTest.cpp
   RowContainerTest.cpp

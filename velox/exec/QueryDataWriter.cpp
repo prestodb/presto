@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "velox/exec/trace/QueryDataWriter.h"
+#include "velox/exec/QueryDataWriter.h"
 
 #include <utility>
 #include "velox/common/base/SpillStats.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/exec/trace/QueryTraceTraits.h"
+#include "velox/exec/QueryTraceTraits.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 namespace facebook::velox::exec::trace {

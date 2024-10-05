@@ -308,6 +308,14 @@ class PlanBuilder {
       bool parallelizable = false,
       size_t repeatTimes = 1);
 
+  /// Adds a QueryReplayNode for query tracing.
+  ///
+  /// @param traceNodeDir The trace directory for a given plan node.
+  /// @param outputType The type of the tracing data.
+  PlanBuilder& traceScan(
+      const std::string& traceNodeDir,
+      const RowTypePtr& outputType);
+
   /// Add an ExchangeNode.
   ///
   /// Use capturePlanNodeId method to capture the node ID needed for adding

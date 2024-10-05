@@ -16,34 +16,51 @@
 
 #include <folly/json.h>
 
-#include "velox/exec/trace/QueryTraceTraits.h"
-#include "velox/exec/trace/QueryTraceUtil.h"
-#include "velox/tool/trace/QueryTraceReplayer.h"
-
 #include "velox/common/serialization/Serializable.h"
 #include "velox/core/PlanNode.h"
-
-DEFINE_bool(usage, false, "Show the usage");
-DEFINE_string(root, "", "Root dir of the query tracing");
-DEFINE_bool(summary, false, "Show the summary of the tracing");
-DEFINE_bool(short_summary, false, "Only show number of tasks and task ids");
-DEFINE_string(
-    task_id,
-    "",
-    "Specify the target task id, if empty, show the summary of all the traced query task.");
+#include "velox/exec/QueryMetadataReader.h"
+#include "velox/exec/QueryTraceTraits.h"
+#include "velox/exec/QueryTraceUtil.h"
+#include "velox/tool/trace/OperatorReplayerBase.h"
 
 using namespace facebook::velox;
 
 namespace facebook::velox::tool::trace {
 
-QueryTraceReplayer::QueryTraceReplayer()
-    : rootDir_(FLAGS_root), taskId_(FLAGS_task_id) {}
+OperatorReplayerBase::OperatorReplayerBase(
+    std::string rootDir,
+    std::string taskId,
+    std::string nodeId,
+    int32_t pipelineId,
+    std::string operatorType)
+    : rootDir_(std::move(rootDir)),
+      taskId_(std::move(taskId)),
+      nodeId_(std::move(nodeId)),
+      pipelineId_(pipelineId),
+      operatorType_(std::move(operatorType)) {
+  VELOX_USER_CHECK(!rootDir_.empty());
+  VELOX_USER_CHECK(!taskId_.empty());
+  VELOX_USER_CHECK(!nodeId_.empty());
+  VELOX_USER_CHECK_GE(pipelineId_, 0);
+  VELOX_USER_CHECK(!operatorType_.empty());
+  const auto traceTaskDir = fmt::format("{}/{}", rootDir_, taskId_);
+  const auto metadataReader = exec::trace::QueryMetadataReader(
+      traceTaskDir, memory::MemoryManager::getInstance()->tracePool());
+  metadataReader.read(queryConfigs_, connectorConfigs_, planFragment_);
+  queryConfigs_[core::QueryConfig::kQueryTraceEnabled] = "false";
+  fs_ = filesystems::getFileSystem(rootDir_, nullptr);
+  maxDrivers_ =
+      exec::trace::getNumDrivers(rootDir_, taskId_, nodeId_, pipelineId_, fs_);
+}
 
-void QueryTraceReplayer::printSummary() const {
-  const auto fs = filesystems::getFileSystem(rootDir_, nullptr);
-  const auto taskIds = exec::trace::getTaskIds(rootDir_, fs);
+void OperatorReplayerBase::printSummary(
+    const std::string& rootDir,
+    const std::string& taskId,
+    bool shortSummary) {
+  const auto fs = filesystems::getFileSystem(rootDir, nullptr);
+  const auto taskIds = exec::trace::getTaskIds(rootDir, fs);
   if (taskIds.empty()) {
-    LOG(ERROR) << "No traced query task under " << rootDir_;
+    LOG(ERROR) << "No traced query task under " << rootDir;
     return;
   }
 
@@ -52,17 +69,17 @@ void QueryTraceReplayer::printSummary() const {
   summary << "Number of tasks: " << taskIds.size() << "\n";
   summary << "Task ids: " << folly::join(",", taskIds);
 
-  if (FLAGS_short_summary) {
+  if (shortSummary) {
     LOG(INFO) << summary.str();
     return;
   }
 
   const auto summaryTaskIds =
-      taskId_.empty() ? taskIds : std::vector<std::string>{taskId_};
+      taskId.empty() ? taskIds : std::vector<std::string>{taskId};
   for (const auto& taskId : summaryTaskIds) {
     summary << "\n++++++Query configs and plan of task " << taskId
             << ":++++++\n";
-    const auto traceTaskDir = fmt::format("{}/{}", rootDir_, taskId);
+    const auto traceTaskDir = fmt::format("{}/{}", rootDir, taskId);
     const auto queryMetaFile = fmt::format(
         "{}/{}",
         traceTaskDir,
@@ -81,7 +98,7 @@ void QueryTraceReplayer::printSummary() const {
   LOG(INFO) << summary.str();
 }
 
-std::string QueryTraceReplayer::usage() {
+std::string OperatorReplayerBase::usage() {
   std::ostringstream usage;
   usage
       << "++++++Query Trace Tool Usage++++++\n"

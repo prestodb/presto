@@ -17,6 +17,8 @@
 
 #include <fmt/format.h>
 
+#include <utility>
+
 #include "velox/connectors/Connector.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/QueryConfig.h"
@@ -310,6 +312,39 @@ class ArrowStreamNode : public PlanNode {
 
   const RowTypePtr outputType_;
   std::shared_ptr<ArrowArrayStream> arrowStream_;
+};
+
+class QueryTraceScanNode final : public PlanNode {
+ public:
+  QueryTraceScanNode(
+      const PlanNodeId& id,
+      const std::string& traceDir,
+      const RowTypePtr& outputType)
+      : PlanNode(id), traceDir_(traceDir), outputType_(outputType) {}
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<PlanNodePtr>& sources() const override;
+
+  std::string_view name() const override {
+    return "QueryReplayScan";
+  }
+
+  folly::dynamic serialize() const override {
+    VELOX_UNSUPPORTED("QueryReplayScanNode is not serializable");
+    return nullptr;
+  }
+
+  std::string traceDir() const;
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  // Directory of traced data, which is $traceRoot/$taskId/$nodeId.
+  const std::string traceDir_;
+  const RowTypePtr outputType_;
 };
 
 class FilterNode : public PlanNode {

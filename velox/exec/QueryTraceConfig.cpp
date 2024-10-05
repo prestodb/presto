@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/exec/trace/QueryTraceConfig.h"
+#include "velox/exec/QueryTraceConfig.h"
 
 #include <utility>
 

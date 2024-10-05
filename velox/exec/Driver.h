@@ -27,7 +27,7 @@
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/QueryCtx.h"
-#include "velox/exec/trace/QueryTraceConfig.h"
+#include "velox/exec/QueryTraceConfig.h"
 
 namespace facebook::velox::exec {
 

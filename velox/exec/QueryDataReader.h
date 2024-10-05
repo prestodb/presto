@@ -27,25 +27,26 @@ namespace facebook::velox::exec::trace {
 
 class QueryDataReader {
  public:
-  explicit QueryDataReader(std::string path, memory::MemoryPool* pool);
+  explicit QueryDataReader(
+      std::string traceDir,
+      RowTypePtr dataType,
+      memory::MemoryPool* pool);
 
   /// Reads from 'dataStream_' and deserializes to 'batch'. Returns false if
   /// reaches to end of the stream and 'batch' is set to nullptr.
   bool read(RowVectorPtr& batch) const;
 
  private:
-  RowTypePtr getTraceDataType() const;
-
   std::unique_ptr<common::FileInputStream> getDataInputStream() const;
 
-  const std::string path_;
+  const std::string traceDir_;
   const serializer::presto::PrestoVectorSerde::PrestoOptions readOptions_{
       true,
       common::CompressionKind_ZSTD, // TODO: Use trace config.
       /*nullsFirst=*/true};
   const std::shared_ptr<filesystems::FileSystem> fs_;
-  memory::MemoryPool* const pool_;
   const RowTypePtr dataType_;
+  memory::MemoryPool* const pool_;
   const std::unique_ptr<common::FileInputStream> dataStream_;
 };
 } // namespace facebook::velox::exec::trace

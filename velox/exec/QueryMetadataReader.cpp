@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "velox/exec/trace/QueryMetadataReader.h"
+#include "velox/exec/QueryMetadataReader.h"
 
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/PlanNode.h"
-#include "velox/exec/trace/QueryTraceTraits.h"
-#include "velox/exec/trace/QueryTraceUtil.h"
+#include "velox/exec/QueryTraceTraits.h"
+#include "velox/exec/QueryTraceUtil.h"
 
 namespace facebook::velox::exec::trace {
 

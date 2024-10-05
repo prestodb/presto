@@ -65,6 +65,11 @@ class AssertQueryBuilder {
       const std::string& key,
       const std::string& value);
 
+  AssertQueryBuilder& connectorSessionProperties(
+      const std::unordered_map<
+          std::string,
+          std::unordered_map<std::string, std::string>>& properties);
+
   // Methods to add splits.
 
   /// Add a single split for the specified plan node.
