@@ -26,8 +26,6 @@ target_link_libraries(
   velox_exec
   velox_exec_test_lib
   velox_memory
-  velox_query_trace_exec
-  velox_query_trace_retrieve
   velox_query_trace_replayer_base
   velox_vector_fuzzer
   GTest::gtest_main

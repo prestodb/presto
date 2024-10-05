@@ -16,7 +16,6 @@ velox_add_library(velox_query_trace_replayer_base OperatorReplayerBase.cpp
                   TableWriterReplayer.cpp)
 velox_link_libraries(
   velox_query_trace_replayer_base
-  velox_query_trace_retrieve
   velox_aggregates
   velox_type
   velox_vector
@@ -38,4 +37,4 @@ target_link_libraries(
   velox_exec_test_lib
   velox_tpch_connector)
 
-add_subdirectory(test)
+add_subdirectory(tests)

@@ -106,8 +106,7 @@ velox_link_libraries(
   velox_common_base
   velox_test_util
   velox_arrow_bridge
-  velox_common_compression
-  velox_query_trace_exec)
+  velox_common_compression)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(fuzzer)
@@ -121,4 +120,3 @@ if(${VELOX_ENABLE_BENCHMARKS})
 endif()
 
 add_subdirectory(prefixsort)
-add_subdirectory(trace)
