@@ -308,6 +308,11 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayFrequencyFunctions<Date>(prefix);
   registerArrayFrequencyFunctions<Varchar>(prefix);
 
+  registerArrayNormalizeFunctions<int8_t>(prefix);
+  registerArrayNormalizeFunctions<int16_t>(prefix);
+  registerArrayNormalizeFunctions<int32_t>(prefix);
+  registerArrayNormalizeFunctions<int64_t>(prefix);
+  registerArrayNormalizeFunctions<int128_t>(prefix);
   registerArrayNormalizeFunctions<float>(prefix);
   registerArrayNormalizeFunctions<double>(prefix);
 }
