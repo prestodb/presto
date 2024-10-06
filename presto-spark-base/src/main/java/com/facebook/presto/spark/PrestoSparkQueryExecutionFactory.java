@@ -133,6 +133,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -609,28 +610,26 @@ public class PrestoSparkQueryExecutionFactory
                 credentialsProviders,
                 authenticatorProviders);
 
-        Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory);
-        session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
+        SessionBuilder sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
+        sessionPropertyDefaults.applyDefaultProperties(sessionBuilder, Optional.empty(), Optional.empty());
 
         if (!executionStrategies.isEmpty()) {
             log.info("Going to run with following strategies: %s", executionStrategies);
-            PrestoSparkExecutionSettings prestoSparkExecutionSettings = getExecutionSettings(executionStrategies, session);
+            PrestoSparkExecutionSettings prestoSparkExecutionSettings = getExecutionSettings(executionStrategies, sessionBuilder.build());
 
             // Update Spark setting in SparkConf, if present
             prestoSparkExecutionSettings.getSparkConfigProperties().forEach(sparkContext.conf()::set);
 
             // Update Presto settings in Session, if present
-            Session.SessionBuilder sessionBuilder = Session.builder(session);
             transferSessionPropertiesToSession(sessionBuilder, prestoSparkExecutionSettings.getPrestoSessionProperties());
 
-            Set<String> clientTags = new HashSet<>(session.getClientTags());
+            Set<String> clientTags = new HashSet<>(sessionBuilder.getClientTags());
             executionStrategies.forEach(s -> clientTags.add(s.name()));
             sessionBuilder.setClientTags(clientTags);
-
-            session = sessionBuilder.build();
         }
 
-        WarningCollector warningCollector = session.getWarningCollector();
+        WarningCollector warningCollector = sessionBuilder.getWarningCollector();
+        Session session = sessionBuilder.build();
 
         PlanAndMore planAndMore = null;
         try {

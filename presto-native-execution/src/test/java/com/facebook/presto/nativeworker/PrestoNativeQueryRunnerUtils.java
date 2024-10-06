@@ -466,7 +466,7 @@ public class PrestoNativeQueryRunnerUtils
                         }
                         else {
                             Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                    format("connector.name=hive").getBytes());
+                                    "connector.name=hive".getBytes());
                         }
                         // Add catalog with caching always enabled.
                         Files.write(catalogDirectoryPath.resolve(format("%scached.properties", catalogName)),

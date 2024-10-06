@@ -87,7 +87,7 @@ import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
-import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -812,7 +812,7 @@ public class TestHiveMaterializedViewLogicalPlanner
             // from sampled table and full table
             String viewHalfQuery = format("SELECT * from %s ORDER BY nationkey", viewHalf);
             MaterializedResult viewHalfTable = computeActual(viewHalfQuery);
-            assertFalse(viewFullTable.equals(viewHalfTable));
+            assertNotEquals(viewFullTable, viewHalfTable);
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + viewFull);

@@ -170,7 +170,7 @@ public class Decoders
             switch (type) {
                 case INT32:
                 case FLOAT: {
-                    if (isDecimalType(columnDescriptor) && isShortDecimalType(columnDescriptor)) {
+                    if (isShortDecimalType(columnDescriptor)) {
                         return new Int32ShortDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (IntegerDictionary) dictionary);
                     }
                     return new Int32RLEDictionaryValuesDecoder(bitWidth, inputStream, (IntegerDictionary) dictionary);
@@ -179,7 +179,7 @@ public class Decoders
                     if (isTimeStampMicrosType(columnDescriptor) || isTimeMicrosType(columnDescriptor)) {
                         return new Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
                     }
-                    if (isDecimalType(columnDescriptor) && isShortDecimalType(columnDescriptor)) {
+                    if (isShortDecimalType(columnDescriptor)) {
                         return new Int64RLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
                     }
                 }

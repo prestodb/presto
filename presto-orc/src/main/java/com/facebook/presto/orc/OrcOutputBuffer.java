@@ -53,10 +53,9 @@ public class OrcOutputBuffer
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize();
     private static final int PAGE_HEADER_SIZE = 3; // ORC spec 3 byte header
     private static final int INITIAL_BUFFER_SIZE = 256;
-    private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 4 * 1024;
-    private static final int MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 1024 * 1024;
-
     private final int maxBufferSize;
+    private final int minOutputBufferChunkSize;
+    private final int maxOutputBufferChunkSize;
     private final int minCompressibleSize;
 
     private final CompressionBufferPool compressionBufferPool;
@@ -86,6 +85,8 @@ public class OrcOutputBuffer
 
         CompressionKind compressionKind = columnWriterOptions.getCompressionKind();
         this.maxBufferSize = compressionKind == CompressionKind.NONE ? maxBufferSize : maxBufferSize - PAGE_HEADER_SIZE;
+        this.minOutputBufferChunkSize = columnWriterOptions.getMinOutputBufferChunkSize();
+        this.maxOutputBufferChunkSize = columnWriterOptions.getMaxOutputBufferChunkSize();
         this.minCompressibleSize = compressionKind.getMinCompressibleSize();
 
         this.buffer = new byte[INITIAL_BUFFER_SIZE];
@@ -289,11 +290,13 @@ public class OrcOutputBuffer
         // write maxBufferSize chunks directly to output
         if (length >= maxBufferSize) {
             flushBufferToOutputStream();
+            int bytesOffsetBefore = bytesOffset;
             while (length >= maxBufferSize) {
                 writeChunkToOutputStream(bytes, bytesOffset, maxBufferSize);
                 length -= maxBufferSize;
                 bytesOffset += maxBufferSize;
             }
+            bufferOffset += bytesOffset - bytesOffsetBefore;
         }
 
         // write the tail smaller than maxBufferSize to the buffer
@@ -420,9 +423,9 @@ public class OrcOutputBuffer
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("OutputStreamSliceOutputAdapter{");
+        StringBuilder builder = new StringBuilder("OrcOutputBuffer{");
         builder.append("outputStream=").append(compressedOutputStream);
-        builder.append("bufferSize=").append(slice.length());
+        builder.append(", bufferSize=").append(slice.length());
         builder.append('}');
         return builder.toString();
     }
@@ -470,7 +473,7 @@ public class OrcOutputBuffer
     private void initCompressedOutputStream()
     {
         checkState(compressedOutputStream == null, "compressedOutputStream is already initialized");
-        compressedOutputStream = new ChunkedSliceOutput(MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE, MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE);
+        compressedOutputStream = new ChunkedSliceOutput(minOutputBufferChunkSize, maxOutputBufferChunkSize);
     }
 
     private void writeChunkToOutputStream(byte[] chunk, int offset, int length)

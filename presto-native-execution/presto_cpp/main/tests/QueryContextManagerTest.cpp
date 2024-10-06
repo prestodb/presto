@@ -56,6 +56,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
           {"native_debug_disable_common_sub_expressions", "true"},
           {"native_debug_disable_expression_with_memoization", "true"},
           {"native_debug_disable_expression_with_lazy_inputs", "true"},
+          {"native_selective_nimble_reader_enabled", "true"},
           {"aggregation_spill_all", "true"}}};
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
       taskId, session);
@@ -67,6 +68,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_TRUE(queryCtx->queryConfig().debugDisableCommonSubExpressions());
   EXPECT_TRUE(queryCtx->queryConfig().debugDisableExpressionsWithMemoization());
   EXPECT_TRUE(queryCtx->queryConfig().debugDisableExpressionsWithLazyInputs());
+  EXPECT_TRUE(queryCtx->queryConfig().selectiveNimbleReaderEnabled());
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1024);
 }
 

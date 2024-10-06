@@ -32,6 +32,7 @@ public class TestIcebergRestConfig
         assertRecordedDefaults(ConfigAssertions.recordDefaults(IcebergRestConfig.class)
                 .setServerUri(null)
                 .setAuthenticationType(null)
+                .setAuthenticationServerUri(null)
                 .setCredential(null)
                 .setToken(null)
                 .setSessionType(null));
@@ -43,6 +44,7 @@ public class TestIcebergRestConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.rest.uri", "http://localhost:xxx")
                 .put("iceberg.rest.auth.type", "OAUTH2")
+                .put("iceberg.rest.auth.oauth2.uri", "http://localhost:yyy")
                 .put("iceberg.rest.auth.oauth2.credential", "key:secret")
                 .put("iceberg.rest.auth.oauth2.token", "SXVLUXUhIExFQ0tFUiEK")
                 .put("iceberg.rest.session.type", "USER")
@@ -51,6 +53,7 @@ public class TestIcebergRestConfig
         IcebergRestConfig expected = new IcebergRestConfig()
                 .setServerUri("http://localhost:xxx")
                 .setAuthenticationType(OAUTH2)
+                .setAuthenticationServerUri("http://localhost:yyy")
                 .setCredential("key:secret")
                 .setToken("SXVLUXUhIExFQ0tFUiEK")
                 .setSessionType(USER);
