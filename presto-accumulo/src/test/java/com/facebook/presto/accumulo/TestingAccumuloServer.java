@@ -36,7 +36,7 @@ public class TestingAccumuloServer
     }
     private TestingAccumuloServer()
     {
-        accumuloContainer = new FixedHostPortGenericContainer<>("prestodev/accumulo:35");
+        accumuloContainer = new FixedHostPortGenericContainer<>("gchq/accumulo");
         accumuloContainer.withFixedExposedPort(ACCUMULO_MASTER_PORT, ACCUMULO_MASTER_PORT);
         accumuloContainer.withFixedExposedPort(ACCUMULO_TSERVER_PORT, ACCUMULO_TSERVER_PORT);
         accumuloContainer.withExposedPorts(ZOOKEEPER_PORT);
