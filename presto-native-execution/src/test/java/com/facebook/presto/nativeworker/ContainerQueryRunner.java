@@ -38,6 +38,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
@@ -58,7 +59,7 @@ public class ContainerQueryRunner
     private static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
     private static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
     private static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
-    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
+    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10000");
     private static final String BASE_DIR = System.getProperty("user.dir");
     private static final int DEFAULT_COORDINATOR_PORT = 8080;
     private static final String TPCH_CATALOG = "tpch";
@@ -110,6 +111,7 @@ public class ContainerQueryRunner
         try {
             Connection connection = DriverManager.getConnection(url, "test", null);
             statement = connection.createStatement();
+            statement.execute("set session remote_functions_enabled=true");
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -131,6 +133,7 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
         ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
+        ContainerQueryRunnerUtils.createFunctionNamespaceRemoteProperties();
 
         return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(coordinatorPort)
@@ -297,9 +300,9 @@ public class ContainerQueryRunner
     public MaterializedResult execute(Session session, String sql)
     {
         try {
+            ResultSet resultSet = statement.executeQuery(sql);
             return ContainerQueryRunnerUtils
-                    .toMaterializedResult(
-                            statement.executeQuery(sql));
+                    .toMaterializedResult(resultSet);
         }
         catch (SQLException e) {
             e.printStackTrace();
