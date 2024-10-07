@@ -35,12 +35,19 @@ import static java.util.stream.Stream.concat;
 @ThriftStruct
 public final class Signature
 {
+    @JsonProperty("name")
     private final QualifiedObjectName name;
+    @JsonProperty("kind")
     private final FunctionKind kind;
+    @JsonProperty("typeVariableConstraints")
     private final List<TypeVariableConstraint> typeVariableConstraints;
+    @JsonProperty("longVariableConstraints")
     private final List<LongVariableConstraint> longVariableConstraints;
+    @JsonProperty("returnType")
     private final TypeSignature returnType;
+    @JsonProperty("argumentTypes")
     private final List<TypeSignature> argumentTypes;
+    @JsonProperty("variableArity")
     private final boolean variableArity;
 
     @ThriftConstructor
