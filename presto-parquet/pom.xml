@@ -223,8 +223,17 @@
                     <ignoredClassPatterns>
                         <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
-                        <ignoredClassPattern>com.facebook.presto.parquet.batchreader.*BatchReader</ignoredClassPattern>
+                        <ignoredClassPattern>com.facebook.presto.parquet.*</ignoredClassPattern>
+                        <ignoredClassPattern>org.apache.parquet.io.*</ignoredClassPattern>
+                        <ignoredClassPattern>org.apache.parquet.crypto.*</ignoredClassPattern>
                     </ignoredClassPatterns>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <configuration>
+                    <excludes>**/com/facebook/presto/parquet/batchreader/*FlatBatchReader.java,**/com/facebook/presto/parquet/batchreader/*NestedBatchReader.java</excludes>
                 </configuration>
             </plugin>
         </plugins>
@@ -241,6 +250,38 @@
                         <configuration>
                             <excludes combine.self="override" />
                         </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>generateParquetReaders</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.googlecode.fmpp-maven-plugin</groupId>
+                        <artifactId>fmpp-maven-plugin</artifactId>
+                        <version>1.0</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>net.sourceforge.fmpp</groupId>
+                                <artifactId>fmpp</artifactId>
+                                <version>0.9.15</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <cfgFile>${project.basedir}/src/main/resources/freemarker/config.fmpp</cfgFile>
+                            <outputDirectory>${project.build.sourceDirectory}</outputDirectory>
+                            <templateDirectory>${project.basedir}/src/main/resources/freemarker/templates</templateDirectory>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
