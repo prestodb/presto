@@ -13,18 +13,27 @@
  */
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-#include "presto_cpp/main/common/Utils.h"
 #include <boost/algorithm/string/case_conv.hpp>
+#include <unordered_map>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/functions/remote/PrestoToVeloxRemoteFunctionExpr.h"
+#include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
+#include "presto_cpp/main/functions/remote/client/VeloxRemoteFunction.h"
+#endif
 
 using namespace facebook::velox::core;
 using facebook::velox::TypeKind;
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+using facebook::velox::functions::remote::PageFormat;
+#endif
 
 namespace facebook::presto {
 namespace {
@@ -131,6 +140,66 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
   return nameEnd != std::string::npos ? functionId.substr(0, nameEnd)
                                       : functionId;
 }
+
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+void registerRestRemoteFunction(
+    const protocol::RestFunctionHandle& restFunctionHandle,
+    const std::string& remoteFunctionServerRestURL) {
+  static std::unordered_map<std::string, std::string> registeredFunctionHandles;
+  static std::unordered_map<std::string, functions::rest::RestRemoteClientPtr>
+      remoteClients;
+
+  const std::string functionName =
+      getFunctionName(restFunctionHandle.functionId);
+
+  json functionHandleJson;
+  to_json(functionHandleJson, restFunctionHandle);
+  functionHandleJson["url"] = remoteFunctionServerRestURL;
+  const std::string serializedFunctionHandle = functionHandleJson.dump();
+
+  auto it = registeredFunctionHandles.find(functionName);
+  if (it != registeredFunctionHandles.end() &&
+      it->second == serializedFunctionHandle) {
+    return;
+  }
+
+  // Get or create shared RestRemoteClient for this server URL
+  auto clientIt = remoteClients.find(remoteFunctionServerRestURL);
+  if (clientIt == remoteClients.end()) {
+    remoteClients[remoteFunctionServerRestURL] =
+        std::make_shared<functions::rest::RestRemoteClient>(
+            remoteFunctionServerRestURL);
+  }
+  auto remoteClient = remoteClients[remoteFunctionServerRestURL];
+
+  functions::rest::VeloxRemoteFunctionMetadata metadata;
+
+  const std::string functionLocation = fmt::format(
+      "{}/v1/functions/{}/{}/{}/{}",
+      remoteFunctionServerRestURL,
+      functions::remote::rest::getSchemaName(restFunctionHandle.functionId),
+      functions::remote::rest::extractFunctionName(
+          getFunctionName(restFunctionHandle.functionId)),
+      functions::remote::rest::urlEncode(restFunctionHandle.functionId),
+      restFunctionHandle.version);
+  metadata.location = functionLocation;
+  metadata.serdeFormat = PageFormat::PRESTO_PAGE;
+
+  auto veloxSignature =
+      functions::remote::rest::buildVeloxSignatureFromPrestoSignature(
+          restFunctionHandle.signature);
+  std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {
+      veloxSignature};
+
+  functions::rest::registerVeloxRemoteFunction(
+      getFunctionName(restFunctionHandle.functionId),
+      veloxSignatures,
+      metadata,
+      remoteClient);
+
+  registeredFunctionHandles[functionName] = serializedFunctionHandle;
+}
+#endif
 
 } // namespace
 
@@ -514,6 +583,25 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+  else if (
+      auto restFunctionHandle =
+          std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
+              pexpr.functionHandle)) {
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto returnType = typeParser_->parse(pexpr.returnType);
+
+    if (remoteFunctionSerde_ != "presto_page") {
+      VELOX_FAIL(
+          "presto_page serde is expected by remote function server but got : '{}'",
+          remoteFunctionSerde_);
+    }
+    registerRestRemoteFunction(
+        *restFunctionHandle, remoteFunctionServerRestURL_);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(restFunctionHandle->functionId));
+  }
+#endif
 
   VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
 }
