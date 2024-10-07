@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
@@ -38,6 +39,7 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -50,46 +52,50 @@ import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static java.sql.DriverManager.getConnection;
 
 public class ContainerQueryRunner
         implements QueryRunner
 {
-    private static final Network network = Network.newNetwork();
-    private static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
-    private static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
-    private static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
-    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
-    private static final String BASE_DIR = System.getProperty("user.dir");
-    private static final int DEFAULT_COORDINATOR_PORT = 8080;
-    private static final String TPCH_CATALOG = "tpch";
-    private static final String TINY_SCHEMA = "tiny";
-    private static final int DEFAULT_NUMBER_OF_WORKERS = 4;
-    private static final Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
-    private final GenericContainer<?> coordinator;
-    private final List<GenericContainer<?>> workers = new ArrayList<>();
-    private final int coordinatorPort;
-    private final String catalog;
-    private final String schema;
-    private final int numberOfWorkers;
-    private Connection connection;
+    protected static final Network network = Network.newNetwork();
+    protected static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
+    protected static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
+    protected static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
+    protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
+    protected static final String BASE_DIR = System.getProperty("user.dir");
+    protected static final int DEFAULT_COORDINATOR_PORT = 8080;
+    protected static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
+    protected static final String TPCH_CATALOG = "tpch";
+    protected static final String TINY_SCHEMA = "tiny";
+    protected static final int DEFAULT_NUMBER_OF_WORKERS = 4;
+
+    protected static final Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
+
+    protected final GenericContainer<?> coordinator;
+    protected final List<GenericContainer<?>> workers = new ArrayList<>();
+
+    protected final int coordinatorPort;
+    protected final String catalog;
+    protected final String schema;
+    protected int functionServerPort;
+    protected boolean enableFunctionServer;
+    protected Connection connection;
 
     public ContainerQueryRunner()
             throws InterruptedException, IOException
     {
-        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS);
+        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, DEFAULT_FUNCTION_SERVER_PORT, false);
     }
 
-    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers)
+    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, int functionServerPort, boolean enableFunctionServer)
             throws InterruptedException, IOException
     {
         this.coordinatorPort = coordinatorPort;
         this.catalog = catalog;
         this.schema = schema;
-        this.numberOfWorkers = numberOfWorkers;
+        this.functionServerPort = functionServerPort;
+        this.enableFunctionServer = enableFunctionServer;
 
-        // The container details can be added as properties in VM options for testing in IntelliJ.
-        coordinator = createCoordinator();
+        this.coordinator = createCoordinator();
         for (int i = 0; i < numberOfWorkers; i++) {
             workers.add(createNativeWorker(7777 + i, "native-worker-" + i));
         }
@@ -107,10 +113,15 @@ public class ContainerQueryRunner
                 coordinator.getMappedPort(coordinatorPort),
                 catalog,
                 schema,
-                "timeZoneId=UTC");
+                enableFunctionServer ? "timeZoneId=UTC&sessionProperties=remote_functions_enabled:true" : "timeZoneId=UTC");
 
+        postStartContainers(url);
+    }
+
+    protected void postStartContainers(String url)
+    {
         try {
-            connection = getConnection(url, "test", null);
+            this.connection = DriverManager.getConnection(url, "test", null);
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
@@ -118,12 +129,13 @@ public class ContainerQueryRunner
 
         // Delete the temporary files once the containers are started.
         ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
-        for (int i = 0; i < numberOfWorkers; i++) {
-            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/native-worker-" + i);
+        for (GenericContainer<?> worker : workers) {
+            String alias = worker.getNetworkAliases().get(1);
+            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/" + alias);
         }
     }
 
-    private GenericContainer<?> createCoordinator()
+    protected GenericContainer<?> createCoordinator()
             throws IOException
     {
         ContainerQueryRunnerUtils.createCoordinatorTpchProperties();
@@ -133,21 +145,29 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
         ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
+        if (enableFunctionServer) {
+            ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort);
+            ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
+        }
 
-        return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
+        GenericContainer<?> container = new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(coordinatorPort)
                 .withNetwork(network)
                 .withNetworkAliases("presto-coordinator")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc"), "/opt/presto-server/etc")
-                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh"), "/opt/entrypoint.sh")
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh"), "/opt/entrypoint.sh");
+        if (enableFunctionServer) {
+            container.withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc/function-server/etc"), "/opt/function-server/etc");
+        }
+        return container
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
     }
 
-    private GenericContainer<?> createNativeWorker(int port, String nodeId)
+    protected GenericContainer<?> createNativeWorker(int port, String nodeId)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, nodeId);
+        ContainerQueryRunnerUtils.createNativeWorkerConfigPropertiesWithFunctionServer(coordinatorPort, functionServerPort, nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
@@ -248,7 +268,27 @@ public class ContainerQueryRunner
     @Override
     public MaterializedResult execute(Session session, String sql, List<? extends Type> resultTypes)
     {
-        throw new UnsupportedOperationException();
+        // Added logic similar to H2QueryRunner.
+        try {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+            MaterializedResult rawResult = ContainerQueryRunnerUtils.toMaterializedResult(resultSet);
+
+            // Coerce the raw result to the requested resultTypes
+            List<MaterializedRow> coercedRows = new ArrayList<>();
+            for (MaterializedRow row : rawResult.getMaterializedRows()) {
+                List<Object> coercedValues = new ArrayList<>();
+                for (int i = 0; i < resultTypes.size(); i++) {
+                    Object value = row.getField(i);
+                    coercedValues.add(value);
+                }
+                coercedRows.add(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, coercedValues));
+            }
+            return new MaterializedResult(coercedRows, resultTypes);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Error executing query: " + sql, e);
+        }
     }
 
     @Override
