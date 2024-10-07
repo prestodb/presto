@@ -41,7 +41,7 @@ public class OrcWriterOptions
     public static final DataSize DEFAULT_MAX_STRING_STATISTICS_LIMIT = new DataSize(64, BYTE);
     public static final DataSize DEFAULT_MAX_COMPRESSION_BUFFER_SIZE = new DataSize(256, KILOBYTE);
     public static final DataSize DEFAULT_MIN_OUTPUT_BUFFER_CHUNK_SIZE = new DataSize(8, KILOBYTE);
-    public static final DataSize DEFAULT_MAX_OUTPUT_BUFFER_CHUNK_SIZE = new DataSize(1024, KILOBYTE);
+    public static final DataSize DEFAULT_MAX_OUTPUT_BUFFER_CHUNK_SIZE = new DataSize(16, MEGABYTE);
     public static final DataSize DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE = new DataSize(8, MEGABYTE);
     public static final DwrfStripeCacheMode DEFAULT_DWRF_STRIPE_CACHE_MODE = INDEX_AND_FOOTER;
     public static final int DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT = 0;
