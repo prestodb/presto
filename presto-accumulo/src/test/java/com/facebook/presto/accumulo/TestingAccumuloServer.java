@@ -19,7 +19,9 @@ import org.apache.accumulo.core.client.ZooKeeperInstance;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
+
 import java.time.Duration;
+
 import static java.lang.String.format;
 public class TestingAccumuloServer
 {
