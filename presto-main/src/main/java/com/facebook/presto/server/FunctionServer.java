@@ -22,7 +22,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
@@ -47,7 +49,9 @@ public class FunctionServer
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
 
-        Logger log = Logger.get(FunctionServer.class);
+        Map<String, String> configMap = new HashMap<>();
+        configMap.put("http-server.http.enabled", "true");
+        configMap.put("http-server.http.port", "8085");
 
         List<Module> modules = ImmutableList.of(
                 new FunctionServerModule(),
@@ -55,13 +59,16 @@ public class FunctionServer
                 new JaxrsModule());
 
         try {
-            Bootstrap app = new Bootstrap(modules);
+            Bootstrap app = new Bootstrap(modules)
+                    .setRequiredConfigurationProperties(configMap);  // Set the configuration map
             Injector injector = app.initialize();
 
             HttpServerInfo serverInfo = injector.getInstance(HttpServerInfo.class);
+            String httpUrl = serverInfo.getHttpUri().toString();  // This will give you the HTTP URL
+            System.out.println(httpUrl);
             log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
 
-            Thread.currentThread().join();
+            Thread.currentThread().join();  // Keep the server running
         }
         catch (Throwable e) {
             log.error(e);
