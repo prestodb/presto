@@ -312,7 +312,6 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayNormalizeFunctions<int16_t>(prefix);
   registerArrayNormalizeFunctions<int32_t>(prefix);
   registerArrayNormalizeFunctions<int64_t>(prefix);
-  registerArrayNormalizeFunctions<int128_t>(prefix);
   registerArrayNormalizeFunctions<float>(prefix);
   registerArrayNormalizeFunctions<double>(prefix);
 }
