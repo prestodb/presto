@@ -65,4 +65,15 @@ public class DoubleInputStream
             type.writeDouble(builder, next());
         }
     }
+
+    public byte[] readDoubleDataInBytes(int count)
+            throws IOException
+    {
+        return input.getDataInBytes(count);
+    }
+
+    public boolean isDataCompressedOrEncrypted()
+    {
+        return input.isDataCompressedOrEncrypted();
+    }
 }
