@@ -46,6 +46,9 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.TestProcedureRegistry;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -63,6 +66,7 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -79,6 +83,8 @@ import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.spi.procedure.DistributedProcedure.SCHEMA;
+import static com.facebook.presto.spi.procedure.DistributedProcedure.TABLE_NAME;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -130,8 +136,7 @@ public class AbstractAnalyzerTest
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new TestingAccessControlManager(transactionManager);
-
-        metadata = createTestMetadataManager(transactionManager);
+        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig(), new TestProcedureRegistry());
 
         metadata.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
 
@@ -145,6 +150,18 @@ public class AbstractAnalyzerTest
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         metadata.getFunctionAndTypeManager().createFunction(SQL_FUNCTION_SQUARE, true);
+
+        List<Procedure.Argument> arguments = new ArrayList<>();
+        arguments.add(new Procedure.Argument(SCHEMA, StandardTypes.VARCHAR));
+        arguments.add(new Procedure.Argument(TABLE_NAME, StandardTypes.VARCHAR));
+
+        List<Procedure> procedures = new ArrayList<>();
+        procedures.add(new Procedure("system", "procedure", arguments));
+        procedures.add(new DistributedProcedure("system", "distributed_procedure",
+                arguments,
+                (session, transactionContext, procedureHandle, fragments) -> null,
+                (transactionContext, procedureHandle, fragments) -> {}));
+        metadata.getProcedureRegistry().addProcedures(SECOND_CONNECTOR_ID, procedures);
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
         catalogManager.registerCatalog(tpchTestCatalog);
