@@ -254,6 +254,7 @@ public class TestFeaturesConfig
                 .setCteHeuristicReplicationThreshold(4)
                 .setPrintEstimatedStatsFromCache(false)
                 .setRemoveCrossJoinWithSingleConstantRow(true)
+                .setHistoryBasedOptimizerInputStatisticsCheckStrategy(FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.ALWAYS)
                 .setUseHistograms(false)
                 .setInlineProjectionsOnValues(false));
     }
@@ -458,6 +459,7 @@ public class TestFeaturesConfig
                 .put("cte-heuristic-replication-threshold", "2")
                 .put("optimizer.print-estimated-stats-from-cache", "true")
                 .put("optimizer.remove-cross-join-with-single-constant-row", "false")
+                .put("optimizer.history-based-optimizer-input-statistics-check-strategy", "NEVER")
                 .put("optimizer.use-histograms", "true")
                 .put("optimizer.inline-projections-on-values", "true")
                 .build();
@@ -660,6 +662,7 @@ public class TestFeaturesConfig
                 .setCteHeuristicReplicationThreshold(2)
                 .setPrintEstimatedStatsFromCache(true)
                 .setRemoveCrossJoinWithSingleConstantRow(false)
+                .setHistoryBasedOptimizerInputStatisticsCheckStrategy(FeaturesConfig.HistoryBasedOptimizerInputStatisticsCheckStrategy.NEVER)
                 .setUseHistograms(true)
                 .setInlineProjectionsOnValues(true);
         assertFullMapping(properties, expected);

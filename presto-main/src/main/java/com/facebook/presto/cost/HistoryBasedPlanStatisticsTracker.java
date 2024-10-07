@@ -40,6 +40,7 @@ import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.facebook.presto.sql.planner.CanonicalPlan;
+import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanNodeCanonicalInfo;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -82,6 +83,7 @@ public class HistoryBasedPlanStatisticsTracker
 
     private final Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider;
     private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
+    private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
     private final SessionPropertyManager sessionPropertyManager;
     private final HistoryBasedOptimizationConfig config;
     private final boolean isNativeExecution;
@@ -90,6 +92,7 @@ public class HistoryBasedPlanStatisticsTracker
     public HistoryBasedPlanStatisticsTracker(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
             HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager,
+            PlanCanonicalInfoProvider planCanonicalInfoProvider,
             SessionPropertyManager sessionPropertyManager,
             HistoryBasedOptimizationConfig config,
             boolean isNativeExecution,
@@ -97,6 +100,7 @@ public class HistoryBasedPlanStatisticsTracker
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
         this.historyBasedStatisticsCacheManager = requireNonNull(historyBasedStatisticsCacheManager, "historyBasedStatisticsCacheManager is null");
+        this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.config = requireNonNull(config, "config is null");
         this.isNativeExecution = isNativeExecution;
@@ -225,7 +229,15 @@ public class HistoryBasedPlanStatisticsTracker
                             canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, strategy)));
                     if (planNodeCanonicalInfo.isPresent()) {
                         String hash = planNodeCanonicalInfo.get().getHash();
-                        List<PlanStatistics> inputTableStatistics = planNodeCanonicalInfo.get().getInputTableStatistics();
+                        List<PlanStatistics> inputTableStatistics;
+                        if (planNodeCanonicalInfo.get().getInputTableStatistics().isPresent()) {
+                            inputTableStatistics = planNodeCanonicalInfo.get().getInputTableStatistics().get();
+                        }
+                        else {
+                            Optional<List<PlanStatistics>> optionalPlanStatistics = planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode, strategy, true, true);
+                            checkState(optionalPlanStatistics.isPresent(), "HBO: Input table statistics does not exist");
+                            inputTableStatistics = optionalPlanStatistics.get();
+                        }
                         PlanNodeWithHash planNodeWithHash = new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(hash));
                         // Plan node added after HistoricalStatisticsEquivalentPlanMarkingOptimizer will have the same hash as its source node. If the source node is not join or
                         // table writer node, the newly added node will have the same hash but no join/table writer statistics, hence we need to overwrite in this case.
