@@ -3,6 +3,7 @@ FROM quay.io/centos/centos:stream9
 ARG PRESTO_VERSION
 ARG PRESTO_PKG=presto-server-$PRESTO_VERSION.tar.gz
 ARG PRESTO_CLI_JAR=presto-cli-$PRESTO_VERSION-executable.jar
+ARG PRESTO_REMOTE_SERVER_JAR=presto-function-server-executable.jar
 ARG JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
 
 ENV PRESTO_HOME="/opt/presto-server"
@@ -14,6 +15,7 @@ RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
     && mv /etc/yum/protected.d/systemd.conf /etc/yum/protected.d/systemd.conf.bak
 
 COPY --chmod=755 $PRESTO_CLI_JAR /opt/presto-cli
+COPY --chmod=755 $PRESTO_REMOTE_SERVER_JAR /opt/presto-remote-server
 
 RUN --mount=type=bind,source=$PRESTO_PKG,target=/$PRESTO_PKG \
     # Download Presto and move \
