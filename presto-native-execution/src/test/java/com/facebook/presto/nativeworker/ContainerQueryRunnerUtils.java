@@ -95,6 +95,19 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
+    public static void createNativeWorkerConfigPropertiesWithFunctionServer(int coordinatorPort, int functionServerPort, String nodeId)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("http-server.http.port", "7777");
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
+        properties.setProperty("system-memory-gb", "2");
+        properties.setProperty("native.sidecar", "false");
+        properties.setProperty("remote-function-server.rest.url", "http://presto-coordinator:" + functionServerPort);
+        createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
+    }
+
     public static void createCoordinatorConfigProperties(int port)
             throws IOException
     {
