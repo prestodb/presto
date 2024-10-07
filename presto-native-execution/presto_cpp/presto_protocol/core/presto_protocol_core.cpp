@@ -112,6 +112,10 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     j = *std::static_pointer_cast<SqlFunctionHandle>(p);
     return;
   }
+  if (type == "rest") {
+    j = *std::static_pointer_cast<RestFunctionHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type FunctionHandle ");
 }
@@ -134,6 +138,13 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
   if (type == "json_file") {
     std::shared_ptr<SqlFunctionHandle> k =
         std::make_shared<SqlFunctionHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<FunctionHandle>(k);
+    return;
+  }
+  if (type == "rest") {
+    std::shared_ptr<RestFunctionHandle> k =
+        std::make_shared<RestFunctionHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<FunctionHandle>(k);
     return;
@@ -5863,6 +5874,20 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  to_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "JsonBasedUdfFunctionMetadata",
+      "SqlFunctionId",
+      "functionId");
+  to_json_key(
+      j,
+      "version",
+      p.version,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "version");
 }
 
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
@@ -5915,6 +5940,20 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  from_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "JsonBasedUdfFunctionMetadata",
+      "SqlFunctionId",
+      "functionId");
+  from_json_key(
+      j,
+      "version",
+      p.version,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "version");
 }
 } // namespace facebook::presto::protocol
 /*
@@ -8272,6 +8311,52 @@ void from_json(const json& j, RemoteTransactionHandle& p) {
   p._type = j["@type"];
   from_json_key(
       j, "dummy", p.dummy, "RemoteTransactionHandle", "String", "dummy");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+RestFunctionHandle::RestFunctionHandle() noexcept {
+  _type = "rest";
+}
+
+void to_json(json& j, const RestFunctionHandle& p) {
+  j = json::object();
+  j["@type"] = "rest";
+  to_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "RestFunctionHandle",
+      "SqlFunctionId",
+      "functionId");
+  to_json_key(
+      j, "version", p.version, "RestFunctionHandle", "String", "version");
+  to_json_key(
+      j,
+      "signature",
+      p.signature,
+      "RestFunctionHandle",
+      "Signature",
+      "signature");
+}
+
+void from_json(const json& j, RestFunctionHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "RestFunctionHandle",
+      "SqlFunctionId",
+      "functionId");
+  from_json_key(
+      j, "version", p.version, "RestFunctionHandle", "String", "version");
+  from_json_key(
+      j,
+      "signature",
+      p.signature,
+      "RestFunctionHandle",
+      "Signature",
+      "signature");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
