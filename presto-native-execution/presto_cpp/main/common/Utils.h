@@ -48,6 +48,12 @@ void installSignalHandler();
 std::string extractMessageBody(
     const std::vector<std::unique_ptr<folly::IOBuf>>& body);
 
+/// The keys in velox function maps are of the format
+/// `catalog.schema.function_name`. This utility function extracts the
+/// three parts, {catalog, schema, function_name}, from the registered function.
+std::vector<std::string> getFunctionNameParts(
+    const std::string& registeredFunction);
+
 inline std::string addDefaultNamespacePrefix(
     const std::string& prestoDefaultNamespacePrefix,
     const std::string& functionName) {
