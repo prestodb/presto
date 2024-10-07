@@ -321,33 +321,11 @@ public final class SystemSessionProperties
     public static final String REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT = "remove_cross_join_with_constant_single_row_input";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
-    public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
-    public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
-    public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
-    public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
-    public static final String NATIVE_SPILL_WRITE_BUFFER_SIZE = "native_spill_write_buffer_size";
-    public static final String NATIVE_SPILL_FILE_CREATE_CONFIG = "native_spill_file_create_config";
-    public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
-    public static final String NATIVE_WINDOW_SPILL_ENABLED = "native_window_spill_enabled";
-    public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
-    public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
-    public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
-    public static final String NATIVE_SPILLER_NUM_PARTITION_BITS = "native_spiller_num_partition_bits";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
-    public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
-    public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_PEELING = "native_debug_disable_expression_with_peeling";
-    public static final String NATIVE_DEBUG_DISABLE_COMMON_SUB_EXPRESSION = "native_debug_disable_common_sub_expressions";
-    public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION = "native_debug_disable_expression_with_memoization";
-    public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS = "native_debug_disable_expression_with_lazy_inputs";
-    public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
-
-    public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
-    public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
-    public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
@@ -1550,28 +1528,12 @@ public final class SystemSessionProperties
                         featuresConfig.isOptimizeMultipleApproxPercentileOnSameFieldEnabled(),
                         false),
                 booleanProperty(
-                        NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
-                        "Native Execution only. Enable simplified path in expression evaluation",
-                        false,
-                        false),
-                booleanProperty(
                         NATIVE_AGGREGATION_SPILL_ALL,
                         "Native Execution only. If true and spilling has been triggered during the input " +
                                 "processing, the spiller will spill all the remaining in-memory state to disk before " +
                                 "output processing. This is to simplify the aggregation query OOM prevention in " +
                                 "output processing stage.",
                         true,
-                        false),
-                integerProperty(
-                        NATIVE_MAX_SPILL_LEVEL,
-                        "Native Execution only. The maximum allowed spilling level for hash join build.\n" +
-                                "0 is the initial spilling level, -1 means unlimited.",
-                        4,
-                        false),
-                integerProperty(
-                        NATIVE_MAX_SPILL_FILE_SIZE,
-                        "The max allowed spill file size. If it is zero, then there is no limit.",
-                        0,
                         false),
                 booleanProperty(
                         NATIVE_EXECUTION_ENABLED,
@@ -1583,112 +1545,10 @@ public final class SystemSessionProperties
                         "The native engine executable file path for native engine execution",
                         featuresConfig.getNativeExecutionExecutablePath(),
                         true),
-                stringProperty(
-                        NATIVE_SPILL_COMPRESSION_CODEC,
-                        "Native Execution only. The compression algorithm type to compress the spilled data.\n " +
-                                "Supported compression codecs are: ZLIB, SNAPPY, LZO, ZSTD, LZ4 and GZIP. NONE means no compression.",
-                        "zstd",
-                        false),
-                longProperty(
-                        NATIVE_SPILL_WRITE_BUFFER_SIZE,
-                        "Native Execution only. The maximum size in bytes to buffer the serialized spill data before writing to disk for IO efficiency.\n" +
-                                "If set to zero, buffering is disabled.",
-                        1024L * 1024L,
-                        false),
-                stringProperty(
-                        NATIVE_SPILL_FILE_CREATE_CONFIG,
-                        "Native Execution only. Config used to create spill files. This config is \n" +
-                                "provided to underlying file system and the config is free form. The form should be\n" +
-                                "defined by the underlying file system.",
-                        "",
-                        false),
-                booleanProperty(
-                        NATIVE_JOIN_SPILL_ENABLED,
-                        "Native Execution only. Enable join spilling on native engine",
-                        false,
-                        false),
-                booleanProperty(
-                        NATIVE_WINDOW_SPILL_ENABLED,
-                        "Native Execution only. Enable window spilling on native engine",
-                        false,
-                        false),
-                booleanProperty(
-                        NATIVE_WRITER_SPILL_ENABLED,
-                        "Native Execution only. Enable writer spilling on native engine",
-                        false,
-                        false),
-                booleanProperty(
-                        NATIVE_ROW_NUMBER_SPILL_ENABLED,
-                        "Native Execution only. Enable row number spilling on native engine",
-                        false,
-                        false),
-                booleanProperty(
-                        NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED,
-                        "Native Execution only. Enable topN row number spilling on native engine",
-                        false,
-                        false),
-                integerProperty(
-                        NATIVE_SPILLER_NUM_PARTITION_BITS,
-                        "Native Execution only. The number of bits (N) used to calculate the " +
-                                "spilling partition number for hash join and RowNumber: 2 ^ N",
-                        3,
-                        false),
                 booleanProperty(
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
                         "Enable reuse the native process within the same JVM",
                         true,
-                        false),
-                booleanProperty(
-                        NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS,
-                        "If set to true, then during execution of tasks, the output vectors of " +
-                                "every operator are validated for consistency. This is an expensive check " +
-                                "so should only be used for debugging. It can help debug issues where " +
-                                "malformed vector cause failures or crashes by helping identify which " +
-                                "operator is generating them.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_PEELING,
-                        "If set to true, disables optimization in expression evaluation to peel common " +
-                                "dictionary layer from inputs. Should only be used for debugging.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_DEBUG_DISABLE_COMMON_SUB_EXPRESSION,
-                        "If set to true, disables optimization in expression evaluation to reuse cached " +
-                                "results for common sub-expressions. Should only be used for debugging.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION,
-                        "If set to true, disables optimization in expression evaluation to reuse cached " +
-                                "results between subsequent input batches that are dictionary encoded and " +
-                                "have the same alphabet(underlying flat vector). Should only be used for " +
-                                "debugging.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS,
-                        "If set to true, disables optimization in expression evaluation to delay loading " +
-                                "of lazy inputs unless required. Should only be used for debugging.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_SELECTIVE_NIMBLE_READER_ENABLED,
-                        "Temporary flag to control whether selective Nimble reader should be " +
-                                "used in this query or not.  Will be removed after the selective Nimble " +
-                                "reader is fully rolled out.",
-                        false,
-                        true),
-                longProperty(
-                        NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY,
-                        "The max partial aggregation memory when data reduction is not optimal.",
-                        1L << 24,
-                        false),
-                longProperty(
-                        NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,
-                        "The max partial aggregation memory when data reduction is optimal.",
-                        1L << 26,
                         false),
                 stringProperty(
                         NATIVE_EXECUTION_PROGRAM_ARGUMENTS,
@@ -1705,11 +1565,6 @@ public final class SystemSessionProperties
                                 "d. Print VLOG(0) and lower messages from elsewhere",
                         featuresConfig.getNativeExecutionProgramArguments(),
                         true),
-                longProperty(
-                        NATIVE_MAX_SPILL_BYTES,
-                        "The max allowed spill bytes",
-                        100L << 30,
-                        false),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "(Deprecated) Randomize null join key for outer join",
