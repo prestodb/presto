@@ -63,3 +63,4 @@ a.out
 
 # Compiled executables used for docker build
 /docker/presto-server-*.tar.gz
+/docker/presto-remote-function-server-executable.jar

@@ -57,7 +57,7 @@ public class ContainerQueryRunner
     private static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
     private static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
     private static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
-    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
+    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10000");
     private static final String BASE_DIR = System.getProperty("user.dir");
     private static final int DEFAULT_COORDINATOR_PORT = 8080;
     private static final String TPCH_CATALOG = "tpch";
@@ -124,6 +124,7 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
         ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
+        ContainerQueryRunnerUtils.createFunctionNamespaceRemoteProperties();
 
         return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(coordinatorPort)
