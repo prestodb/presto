@@ -17,6 +17,7 @@ namespace facebook::presto::http {
 const uint16_t kHttpOk = 200;
 const uint16_t kHttpAccepted = 202;
 const uint16_t kHttpNoContent = 204;
+const uint16_t kHttpMultipleChoices = 300;
 const uint16_t kHttpBadRequest = 400;
 const uint16_t kHttpUnauthorized = 401;
 const uint16_t kHttpNotFound = 404;
