@@ -469,16 +469,7 @@ void PrestoServer::run() {
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 
   if (systemConfig->prestoNativeSidecar()) {
-    httpServer_->registerGet(
-        "/v1/properties/session",
-        [this](
-            proxygen::HTTPMessage* /*message*/,
-            const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-            proxygen::ResponseHandler* downstream) {
-          auto sessionProperties =
-              taskManager_->getQueryContextManager()->getSessionProperties();
-          http::sendOkResponse(downstream, sessionProperties.serialize());
-        });
+    registerSidecarEndpoints(httpServer_);
   }
 
   std::string taskUri;
@@ -1430,6 +1421,30 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nonHeapUsed};
 
   return nodeStatus;
+}
+
+void PrestoServer::registerSidecarEndpoints(
+    std::unique_ptr<http::HttpServer>& server) {
+  server->registerGet(
+      "/v1/properties/session",
+      [this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        auto sessionProperties =
+            taskManager_->getQueryContextManager()->getSessionProperties();
+        http::sendOkResponse(downstream, sessionProperties.serialize());
+      });
+
+  rowExpressionEvaluator_ =
+      std::make_unique<expression::RowExpressionEvaluator>();
+  server->registerPost(
+      "/v1/expressions",
+      [&](proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        return rowExpressionEvaluator_->evaluate(body, downstream);
+      });
 }
 
 } // namespace facebook::presto
