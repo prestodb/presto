@@ -64,5 +64,4 @@ presto-native-execution/deps-install
 *_pb2.py
 
 # Compiled executables used for docker build
-/docker/presto-cli-*-executable.jar
 /docker/presto-server-*.tar.gz
