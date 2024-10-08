@@ -20,6 +20,7 @@
 #include <folly/lang/Bits.h>
 
 #include "velox/common/base/Crc.h"
+#include "velox/common/base/IOUtils.h"
 #include "velox/common/base/RawVector.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/vector/BiasVector.h"
@@ -4220,12 +4221,12 @@ void PrestoVectorSerde::deserialize(
     auto compressBuf = folly::IOBuf::create(header.compressedSize);
     source->readBytes(compressBuf->writableData(), header.compressedSize);
     compressBuf->append(header.compressedSize);
+
+    // Process chained uncompressed results IOBufs.
     auto uncompress =
         codec->uncompress(compressBuf.get(), header.uncompressedSize);
-    ByteRange byteRange{
-        uncompress->writableData(), (int32_t)uncompress->length(), 0};
-    auto uncompressedSource =
-        std::make_unique<BufferInputStream>(std::vector<ByteRange>{byteRange});
+    auto uncompressedSource = std::make_unique<BufferInputStream>(
+        byteRangesFromIOBuf(uncompress.get()));
     readTopColumns(
         *uncompressedSource, type, pool, *result, resultOffset, prestoOptions);
   }

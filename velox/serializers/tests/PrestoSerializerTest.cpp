@@ -775,6 +775,15 @@ TEST_P(PrestoSerializerTest, basic) {
   testRoundTrip(rowVector);
 }
 
+TEST_P(PrestoSerializerTest, basicLarge) {
+  const vector_size_t numRows = 80'000;
+  auto rowVector = makeRowVector(
+      {makeFlatVector<int64_t>(numRows, [](vector_size_t row) { return row; }),
+       makeFlatVector<std::string>(
+           numRows, [](vector_size_t row) { return std::string(1024, 'x'); })});
+  testRoundTrip(rowVector);
+}
+
 /// Test serialization of a dictionary vector that adds nulls to the base
 /// vector.
 TEST_P(PrestoSerializerTest, dictionaryWithExtraNulls) {

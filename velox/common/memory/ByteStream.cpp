@@ -18,6 +18,20 @@
 
 namespace facebook::velox {
 
+std::vector<ByteRange> byteRangesFromIOBuf(folly::IOBuf* iobuf) {
+  if (iobuf == nullptr) {
+    return {};
+  }
+  std::vector<ByteRange> byteRanges;
+  auto* current = iobuf;
+  do {
+    byteRanges.push_back(
+        {current->writableData(), (int32_t)current->length(), 0});
+    current = current->next();
+  } while (current != iobuf);
+  return byteRanges;
+}
+
 uint32_t ByteRange::availableBytes() const {
   return std::max(0, size - position);
 }

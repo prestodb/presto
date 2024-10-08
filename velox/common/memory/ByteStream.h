@@ -41,6 +41,8 @@ struct ByteRange {
   std::string toString() const;
 };
 
+std::vector<ByteRange> byteRangesFromIOBuf(folly::IOBuf* iobuf);
+
 class OutputStreamListener {
  public:
   virtual void onWrite(const char* /* s */, std::streamsize /* count */) {}
