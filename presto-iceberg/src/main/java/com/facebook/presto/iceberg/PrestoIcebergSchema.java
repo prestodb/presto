@@ -45,7 +45,7 @@ public class PrestoIcebergSchema
         this.schemaId = schemaId;
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.columnNameToIdMapping = ImmutableMap.copyOf(requireNonNull(columnNameToIdMapping, "columnNameToIdMapping is null"));
-        this.aliases = aliases != null ? ImmutableMap.copyOf(aliases) : null;
+        this.aliases = aliases != null ? ImmutableMap.copyOf(aliases) : ImmutableMap.of();
         this.identifierFieldIds = ImmutableSet.copyOf(requireNonNull(identifierFieldIds, "identifierFieldIds is null"));
     }
 

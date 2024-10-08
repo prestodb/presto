@@ -91,7 +91,6 @@ import com.facebook.presto.spi.prestospark.PrestoSparkExecutionContext;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
@@ -134,13 +133,12 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
-import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isAdaptiveQueryExecutionEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.MALFORMED_QUERY_FILE;
@@ -612,34 +610,26 @@ public class PrestoSparkQueryExecutionFactory
                 credentialsProviders,
                 authenticatorProviders);
 
-        // check permissions if needed
-        checkPermissions(accessControl, securityConfig, queryId, sessionContext);
-
-        // get authorized identity if possible
-        Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, sessionContext);
-
-        Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
-        session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
+        SessionBuilder sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
+        sessionPropertyDefaults.applyDefaultProperties(sessionBuilder, Optional.empty(), Optional.empty());
 
         if (!executionStrategies.isEmpty()) {
             log.info("Going to run with following strategies: %s", executionStrategies);
-            PrestoSparkExecutionSettings prestoSparkExecutionSettings = getExecutionSettings(executionStrategies, session);
+            PrestoSparkExecutionSettings prestoSparkExecutionSettings = getExecutionSettings(executionStrategies, sessionBuilder.build());
 
             // Update Spark setting in SparkConf, if present
             prestoSparkExecutionSettings.getSparkConfigProperties().forEach(sparkContext.conf()::set);
 
             // Update Presto settings in Session, if present
-            Session.SessionBuilder sessionBuilder = Session.builder(session);
             transferSessionPropertiesToSession(sessionBuilder, prestoSparkExecutionSettings.getPrestoSessionProperties());
 
-            Set<String> clientTags = new HashSet<>(session.getClientTags());
+            Set<String> clientTags = new HashSet<>(sessionBuilder.getClientTags());
             executionStrategies.forEach(s -> clientTags.add(s.name()));
             sessionBuilder.setClientTags(clientTags);
-
-            session = sessionBuilder.build();
         }
 
-        WarningCollector warningCollector = session.getWarningCollector();
+        WarningCollector warningCollector = sessionBuilder.getWarningCollector();
+        Session session = sessionBuilder.build();
 
         PlanAndMore planAndMore = null;
         try {

@@ -151,7 +151,7 @@ public class TupleDomainFilterUtils
     }
 
     /**
-     * Returns true is ranges represent != or NOT IN filter for double, float or string column.
+     * Returns true if ranges represent != or NOT IN filter for double, float or string column.
      * <p>
      * The logic is to return true if ranges are next to each other, but don't include the touch value.
      */

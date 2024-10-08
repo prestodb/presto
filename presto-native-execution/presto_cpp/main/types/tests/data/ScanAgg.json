@@ -7,166 +7,209 @@
       "@type":".ProjectNode",
       "id":"1",
       "source":{
-        "@type":".TableScanNode",
-        "id":"0",
-        "table":{
-          "connectorId":"hive",
-          "connectorHandle":{
-            "@type":"hive",
-            "schemaName":"tpch",
-            "tableName":"nation"
-          },
-          "transaction":{
-            "@type":"hive",
-            "uuid":"7cc96264-a0fa-45e4-9042-62754ac3a5a0"
-          },
-          "connectorTableLayout":{
-            "@type":"hive",
-            "schemaTableName":{
-              "schema":"tpch",
-              "table":"nation"
+        "@type" : ".FilterNode",
+        "id" : "449",
+        "source":{
+          "@type":".TableScanNode",
+          "id":"0",
+          "table":{
+            "connectorId":"hive",
+            "connectorHandle":{
+              "@type":"hive",
+              "schemaName":"tpch",
+              "tableName":"nation"
             },
-            "tablePath":"a/path/to/a/table",
-            "partitionColumns":[
+            "transaction":{
+              "@type":"hive",
+              "uuid":"7cc96264-a0fa-45e4-9042-62754ac3a5a0"
+            },
+            "connectorTableLayout":{
+              "@type":"hive",
+              "schemaTableName":{
+                "schema":"tpch",
+                "table":"nation"
+              },
+              "tablePath":"a/path/to/a/table",
+              "partitionColumns":[
 
-            ],
-            "dataColumns":[
-              {
-                "name":"nationkey",
-                "type":"bigint"
-              },
-              {
-                "name":"name",
-                "type":"varchar(25)"
-              },
-              {
-                "name":"regionkey",
-                "type":"bigint"
-              },
-              {
-                "name":"complex_type",
-                "type":"array<map<string, row<id:bigint, description:string>>>"
-              },
-              {
-                "name":"comment",
-                "type":"varchar(152)"
-              }
-            ],
-            "tableParameters":{
-              "presto_version":"testversion",
-              "presto_query_id":"20200908_214711_00000_7xpqg",
-              "numFiles":"1",
-              "numRows":"25",
-              "rawDataSize":"2734",
-              "totalSize":"1451"
-            },
-            "domainPredicate":{
-              "columnDomains":[
+              ],
+              "dataColumns":[
                 {
-                  "column":"psudo_bool_column",
-                  "domain":{
-                    "values":{
-                      "@type":"sortable",
-                      "type":"boolean",
-                      "ranges":[
-                        {
-                          "low":{
-                            "type":"boolean",
-                            "bound":"ABOVE"
-                          },
-                          "high":{
-                            "type":"boolean",
-                            "valueBlock":"CgAAAEJZVEVfQVJSQVkBAAAAAAE=",
-                            "bound":"BELOW"
-                          }
-                        },
-                        {
-                          "low":{
-                            "type":"boolean",
-                            "valueBlock":"CgAAAEJZVEVfQVJSQVkBAAAAAAE=",
-                            "bound":"ABOVE"
-                          },
-                          "high":{
-                            "type":"boolean",
-                            "bound":"BELOW"
-                          }
-                        }
-                      ]
-                    },
-                    "nullAllowed":false
-                  }
+                  "name":"nationkey",
+                  "type":"bigint"
+                },
+                {
+                  "name":"name",
+                  "type":"varchar(25)"
+                },
+                {
+                  "name":"regionkey",
+                  "type":"bigint"
+                },
+                {
+                  "name":"complex_type",
+                  "type":"array<map<string, row<id:bigint, description:string>>>"
+                },
+                {
+                  "name":"comment",
+                  "type":"varchar(152)"
                 }
-              ]
-            },
-            "remainingPredicate":{
-              "@type":"constant",
-              "valueBlock":"CgAAAEJZVEVfQVJSQVkBAAAAAAE=",
-              "type":"boolean"
-            },
-            "predicateColumns":{
+              ],
+              "tableParameters":{
+                "presto_version":"testversion",
+                "presto_query_id":"20200908_214711_00000_7xpqg",
+                "numFiles":"1",
+                "numRows":"25",
+                "rawDataSize":"2734",
+                "totalSize":"1451"
+              },
+              "domainPredicate":{
+                "columnDomains":[
+                  {
+                    "column":"psudo_bool_column",
+                    "domain":{
+                      "values":{
+                        "@type":"sortable",
+                        "type":"boolean",
+                        "ranges":[
+                          {
+                            "low":{
+                              "type":"boolean",
+                              "bound":"ABOVE"
+                            },
+                            "high":{
+                              "type":"boolean",
+                              "valueBlock":"CgAAAEJZVEVfQVJSQVkBAAAAAAE=",
+                              "bound":"BELOW"
+                            }
+                          },
+                          {
+                            "low":{
+                              "type":"boolean",
+                              "valueBlock":"CgAAAEJZVEVfQVJSQVkBAAAAAAE=",
+                              "bound":"ABOVE"
+                            },
+                            "high":{
+                              "type":"boolean",
+                              "bound":"BELOW"
+                            }
+                          }
+                        ]
+                      },
+                      "nullAllowed":false
+                    }
+                  }
+                ]
+              },
+              "remainingPredicate":{
+                "@type":"constant",
+                "valueBlock":"CgAAAEJZVEVfQVJSQVkBAAAAAAE=",
+                "type":"boolean"
+              },
+              "predicateColumns":{
 
-            },
-            "partitionColumnPredicate":{
-              "columnDomains":[
-
-              ]
-            },
-            "pushdownFilterEnabled":true,
-            "layoutString":"tpch.nation{}",
-            "requestedColumns":[
-              {
-                "@type":"hive",
-                "name":"regionkey",
-                "hiveType":"bigint",
-                "typeSignature":"bigint",
-                "hiveColumnIndex":2,
-                "columnType":"REGULAR",
-                "requiredSubfields":[
+              },
+              "partitionColumnPredicate":{
+                "columnDomains":[
 
                 ]
-              }
-            ],
-            "partialAggregationsPushedDown":false,
-            "appendRowNumber":false,
-            "footerStatsUnreliable":false
+              },
+              "pushdownFilterEnabled":true,
+              "layoutString":"tpch.nation{}",
+              "requestedColumns":[
+                {
+                  "@type":"hive",
+                  "name":"regionkey",
+                  "hiveType":"bigint",
+                  "typeSignature":"bigint",
+                  "hiveColumnIndex":2,
+                  "columnType":"REGULAR",
+                  "requiredSubfields":[
+
+                  ]
+                }
+              ],
+              "partialAggregationsPushedDown":false,
+              "appendRowNumber":false,
+              "footerStatsUnreliable":false
+            }
+          },
+          "outputVariables":[
+            {
+              "@type":"variable",
+              "name":"regionkey",
+              "type":"bigint"
+            },
+            {
+              "@type":"variable",
+              "name":"complex_type",
+              "type":"array(map(varchar, row(id bigint, description varchar)))"
+            }
+          ],
+          "assignments":{
+            "regionkey<bigint>":{
+              "@type":"hive",
+              "name":"regionkey",
+              "hiveType":"bigint",
+              "typeSignature":"bigint",
+              "hiveColumnIndex":2,
+              "columnType":"REGULAR",
+              "requiredSubfields":[
+
+              ]
+            },
+            "complex_type<array(map(varchar, row(id bigint, description varchar)))>":{
+              "@type":"hive",
+              "name":"complex_type",
+              "hiveType":"array<map<string, struct<id:bigint, description:string>>>",
+              "typeSignature":"array(map(varchar, row(id bigint, description varchar)))",
+              "hiveColumnIndex":3,
+              "columnType":"REGULAR",
+              "requiredSubfields":[
+                "complex_type[1][\"foo\"].id",
+                "complex_type[2][\"bar\"].id"
+              ]
+            }
           }
         },
-        "outputVariables":[
-          {
-            "@type":"variable",
-            "name":"regionkey",
-            "type":"bigint"
+        "predicate": {
+          "@type" : "call",
+          "displayName" : "LESS_THAN",
+          "functionHandle" : {
+            "@type" : "$static",
+            "signature" : {
+              "name" : "presto.default.$operator$less_than",
+              "kind" : "SCALAR",
+              "typeVariableConstraints" : [ ],
+              "longVariableConstraints" : [ ],
+              "returnType" : "boolean",
+              "argumentTypes" : [ "double", "double" ],
+              "variableArity" : false
+            }
           },
-          {
-            "@type":"variable",
-            "name":"complex_type",
-            "type":"array(map(varchar, row(id bigint, description varchar)))"
-          }
-        ],
-        "assignments":{
-          "regionkey<bigint>":{
-            "@type":"hive",
-            "name":"regionkey",
-            "hiveType":"bigint",
-            "typeSignature":"bigint",
-            "hiveColumnIndex":2,
-            "columnType":"REGULAR",
-            "requiredSubfields":[
-
-            ]
-          },
-          "complex_type<array(map(varchar, row(id bigint, description varchar)))>":{
-            "@type":"hive",
-            "name":"complex_type",
-            "hiveType":"array<map<string, struct<id:bigint, description:string>>>",
-            "typeSignature":"array(map(varchar, row(id bigint, description varchar)))",
-            "hiveColumnIndex":3,
-            "columnType":"REGULAR",
-            "requiredSubfields":[
-              "complex_type[1][\"foo\"].id",
-              "complex_type[2][\"bar\"].id"
-            ]
-          }
+          "returnType" : "boolean",
+          "arguments" : [ {
+            "@type" : "call",
+            "displayName" : "rand",
+            "functionHandle" : {
+              "@type" : "$static",
+              "signature" : {
+                "name" : "presto.default.rand",
+                "kind" : "SCALAR",
+                "typeVariableConstraints" : [ ],
+                "longVariableConstraints" : [ ],
+                "returnType" : "double",
+                "argumentTypes" : [ ],
+                "variableArity" : false
+              }
+            },
+            "returnType" : "double",
+            "arguments" : [ ]
+          }, {
+            "@type" : "constant",
+            "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAC1DHOviNho/",
+            "type" : "double"
+          } ]
         }
       },
       "assignments":{

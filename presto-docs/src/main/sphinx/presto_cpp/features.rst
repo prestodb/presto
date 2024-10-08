@@ -273,6 +273,56 @@ It can help identify issues where a malformed vector causes failures or crashes,
 
 Note: This is an expensive check and should only be used for debugging purposes.
 
+``native_debug_disable_expression_with_peeling``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, disables the optimization in expression evaluation to peel common dictionary layer from inputs.
+
+This should only be used for debugging purposes.
+
+``native_debug_disable_common_sub_expressions``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, disables the optimization in expression evaluation to reuse cached results for common sub-expressions.
+
+This should only be used for debugging purposes.
+
+``native_debug_disable_expression_with_memoization``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, disables the optimization in expression evaluation to reuse cached results between subsequent
+input batches that are dictionary encoded and have the same alphabet(underlying flat vector).
+
+This should only be used for debugging purposes.
+
+``native_debug_disable_expression_with_lazy_inputs``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, disables the optimization in expression evaluation to delay loading of lazy inputs unless required.
+
+This should only be used for debugging purposes.
+
+``native_selective_nimble_reader_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Temporary flag to control whether selective Nimble reader should be used in this
+query or not.  
+
 ``native_join_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

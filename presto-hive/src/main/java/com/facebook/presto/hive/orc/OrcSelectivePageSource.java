@@ -145,6 +145,9 @@ public class OrcSelectivePageSource
 
     private Page fillInRowIDs(Page page)
     {
+        if (page == null) {
+            return null;
+        }
         // rowNumbers is always the last block in the page
         Block rowNumbers = page.getBlock(page.getChannelCount() - 1);
         Block rowIDs = coercer.apply(rowNumbers);

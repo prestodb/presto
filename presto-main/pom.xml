@@ -138,6 +138,11 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
+            <artifactId>security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>jaxrs</artifactId>
         </dependency>
 
@@ -364,7 +369,6 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>

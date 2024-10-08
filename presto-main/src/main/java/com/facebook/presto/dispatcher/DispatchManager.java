@@ -31,7 +31,6 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.SessionSupplier;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
@@ -39,7 +38,6 @@ import com.facebook.presto.spi.analyzer.QueryPreparerProvider;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -56,9 +54,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
-import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
-import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -93,7 +90,6 @@ public class DispatchManager
 
     private final QueryManagerStats stats = new QueryManagerStats();
 
-    private final SecurityConfig securityConfig;
     private final QueryPreparerProviderManager queryPreparerProviderManager;
 
     /**
@@ -130,7 +126,6 @@ public class DispatchManager
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor,
             ClusterStatusSender clusterStatusSender,
-            SecurityConfig securityConfig,
             Optional<ClusterQueryTrackerService> clusterQueryTrackerService)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
@@ -152,8 +147,6 @@ public class DispatchManager
         this.clusterStatusSender = requireNonNull(clusterStatusSender, "clusterStatusSender is null");
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor(), clusterQueryTrackerService);
-
-        this.securityConfig = requireNonNull(securityConfig, "securityConfig is null");
     }
 
     /**
@@ -267,6 +260,7 @@ public class DispatchManager
     private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
+        SessionBuilder sessionBuilder = null;
         PreparedQuery preparedQuery;
         try {
             if (query.length() > maxQueryLength) {
@@ -275,23 +269,19 @@ public class DispatchManager
                 throw new PrestoException(QUERY_TEXT_TOO_LARGE, format("Query text length (%s) exceeds the maximum length (%s)", queryLength, maxQueryLength));
             }
 
-            // check permissions if needed
-            checkPermissions(accessControl, securityConfig, queryId, sessionContext);
-
-            // get authorized identity if possible
-            Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, sessionContext);
-
             // decode session
-            session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
+            sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
+            session = sessionBuilder.build();
 
             // prepare query
-            AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, session.getWarningCollector());
+            AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, sessionBuilder.getWarningCollector());
             QueryPreparerProvider queryPreparerProvider = queryPreparerProviderManager.getQueryPreparerProvider(getAnalyzerType(session));
-            preparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
+            preparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, sessionBuilder.getPreparedStatements(), sessionBuilder.getWarningCollector());
             query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group
             Optional<QueryType> queryType = preparedQuery.getQueryType();
+            sessionBuilder.setQueryType(queryType);
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
@@ -304,7 +294,12 @@ public class DispatchManager
                     sessionContext.getIdentity().getPrincipal().map(Principal::getName)));
 
             // apply system default session properties (does not override user set properties)
-            session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType.map(Enum::name), Optional.of(selectionContext.getResourceGroupId()));
+            sessionPropertyDefaults.applyDefaultProperties(sessionBuilder, queryType.map(Enum::name), Optional.of(selectionContext.getResourceGroupId()));
+
+            session = sessionBuilder.build();
+            if (sessionContext.getTransactionId().isPresent()) {
+                session = session.beginTransactionId(sessionContext.getTransactionId().get(), transactionManager, accessControl);
+            }
 
             // mark existing transaction as active
             transactionManager.activateTransaction(session, preparedQuery.isTransactionControlStatement(), accessControl);

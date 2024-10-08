@@ -106,7 +106,7 @@ public class FeaturesConfig
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
-    private boolean optimizedScaleWriterProducerBuffer;
+    private boolean optimizedScaleWriterProducerBuffer = true;
     private boolean optimizeMetadataQueries;
     private boolean optimizeMetadataQueriesIgnoreStats;
     private int optimizeMetadataQueriesCallThreshold = 100;

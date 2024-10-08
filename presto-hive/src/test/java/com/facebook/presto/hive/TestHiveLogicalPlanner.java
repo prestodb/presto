@@ -148,6 +148,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -2126,7 +2127,7 @@ public class TestHiveLogicalPlanner
         for (ColumnHandle columnHandle : tableScan.getAssignments().values()) {
             assertTrue(columnHandle instanceof HiveColumnHandle);
             HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
-            assertFalse(hiveColumnHandle.getColumnType() == HiveColumnHandle.ColumnType.AGGREGATED);
+            assertNotSame(hiveColumnHandle.getColumnType(), HiveColumnHandle.ColumnType.AGGREGATED);
             assertFalse(hiveColumnHandle.getPartialAggregation().isPresent());
         }
     }

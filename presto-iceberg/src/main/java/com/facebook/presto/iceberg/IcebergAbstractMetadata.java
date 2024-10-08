@@ -19,6 +19,7 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
@@ -979,6 +980,11 @@ public abstract class IcebergAbstractMetadata
         if (tableVersion.getVersionType() == VersionType.TIMESTAMP) {
             if (tableVersion.getVersionExpressionType() instanceof TimestampWithTimeZoneType) {
                 long millisUtc = new SqlTimestampWithTimeZone((long) tableVersion.getTableVersion()).getMillisUtc();
+                return getSnapshotIdTimeOperator(table, millisUtc, tableVersion.getVersionOperator());
+            }
+            else if (tableVersion.getVersionExpressionType() instanceof TimestampType) {
+                long timestampValue = (long) tableVersion.getTableVersion();
+                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).getPrecision().toMillis(timestampValue);
                 return getSnapshotIdTimeOperator(table, millisUtc, tableVersion.getVersionOperator());
             }
             throw new PrestoException(NOT_SUPPORTED, "Unsupported table version expression type: " + tableVersion.getVersionExpressionType());

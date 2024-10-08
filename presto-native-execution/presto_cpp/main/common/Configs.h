@@ -235,6 +235,19 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDriverStuckOperatorThresholdMs{
       "driver.stuck-operator-threshold-ms"};
 
+  /// Immediately cancels any Task when it is detected that it has at least one
+  /// stuck Operator for at least the time specified by this threshold.
+  /// Use zero to disable canceling.
+  static constexpr std::string_view
+      kDriverCancelTasksWithStuckOperatorsThresholdMs{
+          "driver.cancel-tasks-with-stuck-operators-threshold-ms"};
+
+  /// The number of stuck operators (effectively stuck driver threads) when we
+  /// detach the worker from the cluster in an attempt to keep the cluster
+  /// operational.
+  static constexpr std::string_view kDriverNumStuckOperatorsToDetachWorker{
+      "driver.num-stuck-operators-to-detach-worker"};
+
   /// Floating point number used in calculating how many threads we would use
   /// for Spiller CPU executor: hw_concurrency x multiplier.
   /// If 0.0 then spilling is disabled.
@@ -321,10 +334,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kAsyncCacheMinSsdSavableBytes{
       "async-cache-min-ssd-savable-bytes"};
 
-  /// The interval for persisting full memory cache to SSD. Setting this config
+  /// The interval for persisting in-memory cache to SSD. Setting this config
   /// to a non-zero value will activate periodic cache persistence.
-  static constexpr std::string_view kAsyncCacheFullPersistenceInterval{
-      "async-cache-full-persistence-interval"};
+  static constexpr std::string_view kAsyncCachePersistenceInterval{
+      "async-cache-persistence-interval"};
 
   /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
   /// cache can use all ssd space and stop working. To prevent that, use this
@@ -405,11 +418,6 @@ class SystemConfig : public ConfigBase {
   /// 'shared-arbitrator.memory-pool-reserved-capacity'.
   static constexpr std::string_view kSharedArbitratorMemoryPoolReservedCapacity{
       "shared-arbitrator.memory-pool-reserved-capacity"};
-
-  /// The minimal memory capacity in bytes transferred between memory pools
-  /// during memory arbitration.
-  static constexpr std::string_view kSharedArbitratorMemoryPoolTransferCapacity{
-      "shared-arbitrator.memory-pool-transfer-capacity"};
 
   /// Specifies the max time to wait for memory reclaim by arbitration. The
   /// memory reclaim might fail if the max wait time has exceeded. If it is
@@ -705,6 +713,10 @@ class SystemConfig : public ConfigBase {
 
   size_t driverStuckOperatorThresholdMs() const;
 
+  size_t driverCancelTasksWithStuckOperatorsThresholdMs() const;
+
+  size_t driverNumStuckOperatorsToDetachWorker() const;
+
   double spillerNumCpuThreadsHwMultiplier() const;
 
   std::string spillerFileCreateConfig() const;
@@ -747,7 +759,7 @@ class SystemConfig : public ConfigBase {
 
   int32_t asyncCacheMinSsdSavableBytes() const;
 
-  std::chrono::duration<double> asyncCacheFullPersistenceInterval() const;
+  std::chrono::duration<double> asyncCachePersistenceInterval() const;
 
   bool asyncCacheSsdDisableFileCow() const;
 
@@ -772,8 +784,6 @@ class SystemConfig : public ConfigBase {
   std::string sharedArbitratorReservedCapacity() const;
 
   std::string sharedArbitratorMemoryPoolReservedCapacity() const;
-
-  std::string sharedArbitratorMemoryPoolTransferCapacity() const;
 
   std::string sharedArbitratorMemoryReclaimWaitTime() const;
 

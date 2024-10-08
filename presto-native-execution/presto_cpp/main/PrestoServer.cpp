@@ -127,11 +127,11 @@ bool isCacheTtlEnabled() {
   return false;
 }
 
-bool isCachePeriodicFullPersistenceEnabled() {
+bool cachePeriodicPersistenceEnabled() {
   const auto* systemConfig = SystemConfig::instance();
   return systemConfig->asyncDataCacheEnabled() &&
       systemConfig->asyncCacheSsdGb() > 0 &&
-      systemConfig->asyncCacheFullPersistenceInterval() >
+      systemConfig->asyncCachePersistenceInterval() >
       std::chrono::seconds::zero();
 }
 
@@ -739,7 +739,7 @@ void PrestoServer::initializeThreadPools() {
 #ifdef __linux__
     threadFactory = std::make_shared<BatchThreadFactory>("Driver");
 #else
-    VELOX_FAIL("Batch scheduling policy can only be enabled on Linux")
+    VELOX_FAIL("Batch scheduling policy can only be enabled on Linux");
 #endif
   } else {
     threadFactory = std::make_shared<folly::NamedThreadFactory>("Driver");
@@ -834,8 +834,6 @@ void PrestoServer::initializeVeloxMemory() {
          systemConfig->sharedArbitratorMemoryPoolInitialCapacity()},
         {std::string(SharedArbitratorConfig::kMemoryPoolReservedCapacity),
          systemConfig->sharedArbitratorMemoryPoolReservedCapacity()},
-        {std::string(SharedArbitratorConfig::kMemoryPoolTransferCapacity),
-         systemConfig->sharedArbitratorMemoryPoolTransferCapacity()},
         {std::string(SharedArbitratorConfig::kMemoryReclaimMaxWaitTime),
          systemConfig->sharedArbitratorMemoryReclaimWaitTime()},
         {std::string(SharedArbitratorConfig::kMemoryPoolMinFreeCapacity),
@@ -1008,7 +1006,7 @@ void PrestoServer::addServerPeriodicTasks() {
         "cache_ttl");
   }
 
-  if (isCachePeriodicFullPersistenceEnabled()) {
+  if (cachePeriodicPersistenceEnabled()) {
     PRESTO_STARTUP_LOG(INFO)
         << "Initializing cache periodic full persistence task...";
     auto* cache = velox::cache::AsyncDataCache::getInstance();
@@ -1018,31 +1016,18 @@ void PrestoServer::addServerPeriodicTasks() {
     const auto* systemConfig = SystemConfig::instance();
     const int64_t cacheFullPersistenceIntervalUs =
         std::chrono::duration_cast<std::chrono::microseconds>(
-            systemConfig->asyncCacheFullPersistenceInterval())
+            systemConfig->asyncCachePersistenceInterval())
             .count();
-    const auto asyncCacheSsdCheckpointGb =
-        systemConfig->asyncCacheSsdCheckpointGb();
     periodicTaskManager_->addTask(
-        [asyncCacheSsdCheckpointGb, cache, ssdCache]() {
+        [cache, ssdCache]() {
           try {
             if (!ssdCache->startWrite()) {
               return;
             }
-            LOG(INFO) << "Persisting full cache to SSD...";
-            cache->saveToSsd(true);
+            LOG(INFO) << "Flush in-memory cache to SSD...";
+            cache->saveToSsd();
             ssdCache->waitForWriteToFinish();
-            LOG(INFO) << "Cache full persistence completed.";
-
-            if (asyncCacheSsdCheckpointGb == 0) {
-              return;
-            }
-
-            if (!ssdCache->startWrite()) {
-              return;
-            }
-
-            ssdCache->checkpoint();
-            ssdCache->waitForWriteToFinish();
+            LOG(INFO) << "Flushing in-memory cache to SSD completed.";
           } catch (const std::exception& e) {
             LOG(ERROR) << "Failed to persistent cache to SSD: " << e.what();
           }

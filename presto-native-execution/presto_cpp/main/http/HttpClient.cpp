@@ -145,7 +145,7 @@ std::unique_ptr<folly::IOBuf> HttpResponse::consumeBody(
 
 void HttpResponse::freeBuffers() {
   if (pool_ != nullptr) {
-    for (auto& iobuf : bodyChain_) {
+    for (const auto& iobuf : bodyChain_) {
       if (iobuf != nullptr) {
         pool_->free(iobuf->writableData(), iobuf->capacity());
       }
@@ -170,7 +170,7 @@ std::string HttpResponse::dumpBodyChain() const {
   std::string responseBody;
   if (!bodyChain_.empty()) {
     std::ostringstream oss;
-    for (auto& buf : bodyChain_) {
+    for (const auto& buf : bodyChain_) {
       oss << std::string((const char*)buf->data(), buf->length());
     }
     responseBody = oss.str();

@@ -72,6 +72,7 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -90,6 +91,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -222,6 +224,66 @@ public class TestHttpRemoteTask
         assertTrue(httpRemoteTaskFactory.getTaskUpdateRequestSize() > 0);
     }
 
+    @Test(timeOut = 50000)
+    public void testHTTPRemoteBadTaskSize()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+        boolean useThriftEncoding = false;
+        DataSize maxDataSize = DataSize.succinctBytes(1024);
+        InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig()
+                .setThriftTransportEnabled(useThriftEncoding)
+                .setMaxTaskUpdateSize(maxDataSize);
+
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, useThriftEncoding, internalCommunicationConfig);
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+        waitUntilIdle(lastActivityNanos);
+        httpRemoteTaskFactory.stop();
+
+        assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
+        assertEquals(getOnlyElement(remoteTask.getTaskStatus().getFailures()).getMessage(), "TaskUpdate size of 1.97kB has exceeded the limit of 1kB");
+    }
+
+    @Test(dataProvider = "getUpdateSize")
+    public void testGetExceededTaskUpdateSizeListMessage(int updateSizeInBytes, int maxDataSizeInBytes,
+                                                         String expectedMessage) throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+        boolean useThriftEncoding = false;
+        DataSize maxDataSize = DataSize.succinctBytes(maxDataSizeInBytes);
+        InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig()
+                .setThriftTransportEnabled(useThriftEncoding)
+                .setMaxTaskUpdateSize(maxDataSize);
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, useThriftEncoding, internalCommunicationConfig);
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+
+        Method targetMethod = HttpRemoteTask.class.getDeclaredMethod("getExceededTaskUpdateSizeMessage", new Class[]{byte[].class});
+        targetMethod.setAccessible(true);
+        byte[] taskUpdateRequestJson = new byte[updateSizeInBytes];
+        String message = (String) targetMethod.invoke(remoteTask, new Object[]{taskUpdateRequestJson});
+        assertEquals(message, expectedMessage);
+    }
+
+    @DataProvider(name = "getUpdateSize")
+    protected Object[][] getUpdateSize()
+    {
+        return new Object[][] {
+                {2000, 1000, "TaskUpdate size of 1.95kB has exceeded the limit of 1000B"},
+                {2000, 1024, "TaskUpdate size of 1.95kB has exceeded the limit of 1kB"},
+                {5000, 4 * 1024, "TaskUpdate size of 4.88kB has exceeded the limit of 4kB"},
+                {2 * 1024, 1024, "TaskUpdate size of 2kB has exceeded the limit of 1kB"},
+                {1024 * 1024, 512 * 1024, "TaskUpdate size of 1MB has exceeded the limit of 512kB"},
+                {16 * 1024 * 1024, 8 * 1024 * 1024, "TaskUpdate size of 16MB has exceeded the limit of 8MB"},
+                {485 * 1000 * 1000, 1024 * 1024 * 512, "TaskUpdate size of 462.53MB has exceeded the limit of 512MB"},
+                {1024 * 1024 * 1024, 1024 * 1024 * 512, "TaskUpdate size of 1GB has exceeded the limit of 512MB"},
+                {860492511, 524288000, "TaskUpdate size of 820.63MB has exceeded the limit of 500MB"}};
+    }
+
     private void runTest(FailureScenario failureScenario, boolean useThriftEncoding)
             throws Exception
     {
@@ -271,6 +333,13 @@ public class TestHttpRemoteTask
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, boolean useThriftEncoding)
+            throws Exception
+    {
+        InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig().setThriftTransportEnabled(useThriftEncoding);
+        return createHttpRemoteTaskFactory(testingTaskResource, useThriftEncoding, internalCommunicationConfig);
+    }
+
+    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, boolean useThriftEncoding, InternalCommunicationConfig internalCommunicationConfig)
             throws Exception
     {
         Bootstrap app = new Bootstrap(
@@ -347,7 +416,7 @@ public class TestHttpRemoteTask
                                 metadataUpdatesJsonCodec,
                                 metadataUpdatesSmileCodec,
                                 new RemoteTaskStats(),
-                                new InternalCommunicationConfig().setThriftTransportEnabled(useThriftEncoding),
+                                internalCommunicationConfig,
                                 createTestMetadataManager(),
                                 new TestQueryManager(),
                                 new HandleResolver(),

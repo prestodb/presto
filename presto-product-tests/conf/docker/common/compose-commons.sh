@@ -33,7 +33,7 @@ export HADOOP_BASE_IMAGE=${HADOOP_BASE_IMAGE:-"prestodb/hdp2.6-hive"}
 
 if [[ -z "${PRESTO_SERVER_DIR:-}" ]]; then
     source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
-    PRESTO_SERVER_DIR="${PROJECT_ROOT}/presto-server/target/presto-server-${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}/"
+    PRESTO_SERVER_DIR="${PROJECT_ROOT}/presto-server/target/presto-server-${PRESTO_VERSION}/"
 fi
 export_canonical_path PRESTO_SERVER_DIR
 

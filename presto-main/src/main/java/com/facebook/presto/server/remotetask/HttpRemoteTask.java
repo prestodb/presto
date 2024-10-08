@@ -75,6 +75,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.sun.management.ThreadMXBean;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.joda.time.DateTime;
@@ -226,6 +227,7 @@ public final class HttpRemoteTask
     private final HandleResolver handleResolver;
     private final int maxTaskUpdateSizeInBytes;
     private final int maxUnacknowledgedSplits;
+    private final DataSize maxTaskUpdateDataSize;
 
     private final TableWriteInfo tableWriteInfo;
 
@@ -325,6 +327,7 @@ public final class HttpRemoteTask
             this.handleResolver = handleResolver;
             this.tableWriteInfo = tableWriteInfo;
             this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
+            this.maxTaskUpdateDataSize = DataSize.succinctBytes(this.maxTaskUpdateSizeInBytes);
             this.maxUnacknowledgedSplits = getMaxUnacknowledgedSplitsPerTask(session);
             checkArgument(maxUnacknowledgedSplits > 0, "maxUnacknowledgedSplits must be > 0, found: %s", maxUnacknowledgedSplits);
 
@@ -882,7 +885,7 @@ public final class HttpRemoteTask
         taskUpdateRequestSize.add(taskUpdateRequestJson.length);
 
         if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
-            failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, format("TaskUpdate size of %d Bytes has exceeded the limit of %d Bytes", taskUpdateRequestJson.length, maxTaskUpdateSizeInBytes)));
+            failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, getExceededTaskUpdateSizeMessage(taskUpdateRequestJson)));
         }
 
         if (fragment.isPresent()) {
@@ -926,6 +929,12 @@ public final class HttpRemoteTask
                 future,
                 new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
                 executor);
+    }
+
+    private String getExceededTaskUpdateSizeMessage(byte[] taskUpdateRequestJson)
+    {
+        DataSize taskUpdateSize = DataSize.succinctBytes(taskUpdateRequestJson.length);
+        return format("TaskUpdate size of %s has exceeded the limit of %s", taskUpdateSize.toString(), this.maxTaskUpdateDataSize.toString());
     }
 
     private synchronized List<TaskSource> getSources()

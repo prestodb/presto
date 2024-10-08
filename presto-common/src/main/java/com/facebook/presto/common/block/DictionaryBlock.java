@@ -36,6 +36,20 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A dictionary holds positionCount values of arbitrary types. Usually some of these values are repeated,
+ * and the block wraps an underlying delegate block with fewer or no repeated values.
+ * This delegate block is called the "dictionary".
+ * The ids array contains positionCount indexes into the underlying delegate block.
+ * When value N is requested from this block instead of returning the value directly,
+ * it looks up the index of value N at ids[N]; then it returns the value in dictionary[ids[N]].
+ * This compresses data when the same value repeats at multiple locations.
+ *
+ * Not every id in the ids array is a valid position in the block.
+ * Specify an offset in the ids array to indicate that IDs are only stored from that position forward.
+ * If the ids array is longer than offset+positionCount, then extra values to the right are not valid.
+ * That is, IDs are stored in a range of the array from offset to offset+positionCount-1 (inclusive).
+ */
 public class DictionaryBlock
         implements Block
 {
@@ -509,6 +523,10 @@ public class DictionaryBlock
         return ids;
     }
 
+    /**
+     * @param position the position of the desired value in this block
+     * @return the position of the desired value in the underlying block this block wraps
+     */
     public int getId(int position)
     {
         checkValidPosition(position, positionCount);

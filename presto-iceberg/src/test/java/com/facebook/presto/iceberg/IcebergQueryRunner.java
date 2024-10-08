@@ -38,7 +38,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.TpchTable;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -51,6 +50,7 @@ import java.util.function.BiFunction;
 
 import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.WARN;
+import static com.facebook.presto.hive.HiveTestUtils.getDataDirectoryPath;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -274,44 +274,25 @@ public final class IcebergQueryRunner
         logging.setLevel("org.glassfish.jersey.internal.inject.Providers", ERROR);
         logging.setLevel("parquet.hadoop", WARN);
         logging.setLevel("org.apache.iceberg", WARN);
+        logging.setLevel("com.facebook.airlift.bootstrap", WARN);
+        logging.setLevel("org.apache.hadoop.io.compress", WARN);
     }
 
     public static void main(String[] args)
             throws Exception
     {
         setupLogging();
-        Optional<Path> dataDirectory = Optional.empty();
+        Optional<Path> dataDirectory;
         if (args.length > 0) {
             if (args.length != 1) {
                 log.error("usage: IcebergQueryRunner [dataDirectory]\n");
                 log.error("       [dataDirectory] is a local directory under which you want the iceberg_data directory to be created.]\n");
                 System.exit(1);
             }
-
-            File dataDirectoryFile = new File(args[0]);
-            if (dataDirectoryFile.exists()) {
-                if (!dataDirectoryFile.isDirectory()) {
-                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
-                    System.exit(1);
-                }
-                else if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
-                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
-                    System.exit(1);
-                }
-            }
-            else {
-                // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
-                // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
-                while (!dataDirectoryFile.exists()) {
-                    dataDirectoryFile = dataDirectoryFile.getParentFile();
-                }
-                if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
-                    log.error("Error: The ancestor directory " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
-                    System.exit(1);
-                }
-            }
-
-            dataDirectory = Optional.of(dataDirectoryFile.toPath());
+            dataDirectory = getDataDirectoryPath(Optional.of(args[0]));
+        }
+        else {
+            dataDirectory = getDataDirectoryPath(Optional.empty());
         }
 
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");

@@ -19,6 +19,7 @@ import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -39,6 +40,8 @@ import java.util.Optional;
 import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.WARNING_HANDLING;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
+import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 
@@ -52,44 +55,40 @@ public class QuerySessionSupplier
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
     private final Optional<TimeZoneKey> forcedSessionTimeZone;
+    private final SecurityConfig securityConfig;
 
     @Inject
     public QuerySessionSupplier(
             TransactionManager transactionManager,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
-            SqlEnvironmentConfig config)
+            SqlEnvironmentConfig sqlEnvironmentConfig,
+            SecurityConfig securityConfig)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        requireNonNull(config, "config is null");
-        this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
+        requireNonNull(sqlEnvironmentConfig, "sqlEnvironmentConfig is null");
+        this.forcedSessionTimeZone = requireNonNull(sqlEnvironmentConfig.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
+        this.securityConfig = requireNonNull(securityConfig, "securityConfig is null");
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity)
+    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
     {
-        Identity identity = context.getIdentity();
-        if (authorizedIdentity.isPresent()) {
-            identity = new Identity(
-                    identity.getUser(),
-                    identity.getPrincipal(),
-                    identity.getRoles(),
-                    identity.getExtraCredentials(),
-                    identity.getExtraAuthenticators(),
-                    Optional.of(authorizedIdentity.get().getUserName()),
-                    authorizedIdentity.get().getReasonForSelect());
-            log.info(String.format(
-                    "For query %s, given user is %s, authorized user is %s",
-                    queryId.getId(),
-                    identity.getUser(),
-                    authorizedIdentity.get().getUserName()));
+        Session session = createSessionBuilder(queryId, context, warningCollectorFactory).build();
+        if (context.getTransactionId().isPresent()) {
+            session = session.beginTransactionId(context.getTransactionId().get(), transactionManager, accessControl);
         }
+        return session;
+    }
 
+    @Override
+    public SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
+    {
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
-                .setIdentity(identity)
+                .setIdentity(authenticateIdentity(queryId, context))
                 .setSource(context.getSource())
                 .setCatalog(context.getCatalog())
                 .setSchema(context.getSchema())
@@ -139,10 +138,22 @@ public class QuerySessionSupplier
         WarningCollector warningCollector = warningCollectorFactory.create(sessionBuilder.getSystemProperty(WARNING_HANDLING, WarningHandlingLevel.class));
         sessionBuilder.setWarningCollector(warningCollector);
 
-        Session session = sessionBuilder.build();
-        if (context.getTransactionId().isPresent()) {
-            session = session.beginTransactionId(context.getTransactionId().get(), transactionManager, accessControl);
-        }
-        return session;
+        return sessionBuilder;
+    }
+
+    private Identity authenticateIdentity(QueryId queryId, SessionContext context)
+    {
+        checkPermissions(accessControl, securityConfig, queryId, context);
+        Optional<AuthorizedIdentity> authorizedIdentity = context.getAuthorizedIdentity();
+        authorizedIdentity = authorizedIdentity.isPresent() ? authorizedIdentity : getAuthorizedIdentity(accessControl, securityConfig, queryId, context);
+
+        return authorizedIdentity.map(identity -> new Identity(
+                context.getIdentity().getUser(),
+                context.getIdentity().getPrincipal(),
+                context.getIdentity().getRoles(),
+                context.getIdentity().getExtraCredentials(),
+                context.getIdentity().getExtraAuthenticators(),
+                Optional.of(identity.getUserName()),
+                identity.getReasonForSelect())).orElseGet(context::getIdentity);
     }
 }

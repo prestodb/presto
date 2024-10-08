@@ -22,6 +22,7 @@ class PrometheusReporterTest : public testing::Test {
   void SetUp() override {
     reporter = std::make_shared<PrometheusStatsReporter>(testLabels);
   }
+
   void verifySerializedResult(
       const std::string& fullSerializedResult,
       std::vector<std::string>& expected) {
@@ -32,6 +33,7 @@ class PrometheusReporterTest : public testing::Test {
       EXPECT_EQ(line, expected[i++]);
     }
   }
+
   const std::map<std::string, std::string> testLabels = {
       {"cluster", "test_cluster"},
       {"worker", "test_worker_pod"}};
@@ -62,24 +64,29 @@ TEST_F(PrometheusReporterTest, testCountAndGauge) {
       facebook::velox::StatType::RATE,
       reporter->registeredMetricsMap_.find("test.key4")->second.statType);
 
-  std::vector<size_t> testData = {10, 11, 15};
+  std::vector<size_t> testData = {10, 12, 14};
   for (auto i : testData) {
     reporter->addMetricValue("test.key1", i);
     reporter->addMetricValue("test.key2", i + 1000);
+    reporter->addMetricValue("test.key3", i + 2000);
+    reporter->addMetricValue("test.key4", i + 3000);
   }
+
   // Uses default value of 1 for second parameter.
   reporter->addMetricValue("test.key1");
+  reporter->addMetricValue("test.key3");
+
   auto fullSerializedResult = reporter->fetchMetrics();
 
   std::vector<std::string> expected = {
       "# TYPE test_key1 counter",
       "test_key1{" + labelsSerialized + "} 37",
       "# TYPE test_key2 gauge",
-      "test_key2{" + labelsSerialized + "} 1015",
+      "test_key2{" + labelsSerialized + "} 1014",
       "# TYPE test_key3 gauge",
-      "test_key3{" + labelsSerialized + "} 0",
+      "test_key3{" + labelsSerialized + "} 6037",
       "# TYPE test_key4 gauge",
-      "test_key4{" + labelsSerialized + "} 0"};
+      "test_key4{" + labelsSerialized + "} 3014"};
 
   verifySerializedResult(fullSerializedResult, expected);
 };

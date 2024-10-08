@@ -939,6 +939,23 @@ public abstract class AbstractTestParquetReader
         }
     }
 
+    @Test
+    public void testRLEDecimalBackedByINT64()
+            throws Exception
+    {
+        int[] scales = {9, 9, 9, 9, 9, 9, 9, 9, 9};
+        for (int precision = MAX_PRECISION_INT32 + 1; precision <= MAX_PRECISION_INT64; precision++) {
+            int scale = scales[precision - MAX_PRECISION_INT32 - 1];
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, scale));
+            ContiguousSet<Long> longValues = longsBetween(1, 1_000);
+            ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(SqlDecimal.of(value, precision, scale));
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
+        }
+    }
+
     private void testDecimal(int precision, int scale, Optional<MessageType> parquetSchema)
             throws Exception
     {

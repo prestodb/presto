@@ -144,6 +144,33 @@ class SessionProperties {
   static constexpr const char* kValidateOutputFromOperators =
       "native_debug_validate_output_from_operators";
 
+  /// Disable optimization in expression evaluation to peel common dictionary
+  /// layer from inputs.
+  static constexpr const char* kDebugDisableExpressionWithPeeling =
+      "native_debug_disable_expression_with_peeling";
+
+  /// Disable optimization in expression evaluation to reuse cached results for
+  /// common sub-expressions.
+  static constexpr const char* kDebugDisableCommonSubExpressions =
+      "native_debug_disable_common_sub_expressions";
+
+  /// Disable optimization in expression evaluation to reuse cached results
+  /// between subsequent input batches that are dictionary encoded and have the
+  /// same alphabet(underlying flat vector).
+  static constexpr const char* kDebugDisableExpressionWithMemoization =
+      "native_debug_disable_expression_with_memoization";
+
+  /// Disable optimization in expression evaluation to delay loading of lazy
+  /// inputs unless required.
+  static constexpr const char* kDebugDisableExpressionWithLazyInputs =
+      "native_debug_disable_expression_with_lazy_inputs";
+
+  /// Temporary flag to control whether selective Nimble reader should be used
+  /// in this query or not.  Will be removed after the selective Nimble reader
+  /// is fully rolled out.
+  static constexpr const char* kSelectiveNimbleReaderEnabled =
+      "native_selective_nimble_reader_enabled";
+
   /// Enable timezone-less timestamp conversions.
   static constexpr const char* kLegacyTimestamp = "legacy_timestamp";
 

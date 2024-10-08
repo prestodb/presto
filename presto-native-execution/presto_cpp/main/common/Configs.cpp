@@ -157,6 +157,9 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
           BOOL_PROP(kDriverThreadsBatchSchedulingEnabled, false),
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
+          NUM_PROP(
+              kDriverCancelTasksWithStuckOperatorsThresholdMs, 40 * 60 * 1000),
+          NUM_PROP(kDriverNumStuckOperatorsToDetachWorker, 8),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
@@ -178,7 +181,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAsyncCacheMaxSsdWriteRatio, 0.7),
           NUM_PROP(kAsyncCacheSsdSavableRatio, 0.125),
           NUM_PROP(kAsyncCacheMinSsdSavableBytes, 1 << 24 /*16MB*/),
-          STR_PROP(kAsyncCacheFullPersistenceInterval, "0s"),
+          STR_PROP(kAsyncCachePersistenceInterval, "0s"),
           BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
           BOOL_PROP(kSsdCacheChecksumEnabled, false),
           BOOL_PROP(kSsdCacheReadVerificationEnabled, false),
@@ -189,7 +192,6 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSharedArbitratorReservedCapacity, "4GB"),
           STR_PROP(kSharedArbitratorMemoryPoolInitialCapacity, "128MB"),
           STR_PROP(kSharedArbitratorMemoryPoolReservedCapacity, "64MB"),
-          STR_PROP(kSharedArbitratorMemoryPoolTransferCapacity, "32MB"),
           STR_PROP(kSharedArbitratorMemoryReclaimMaxWaitTime, "5m"),
           STR_PROP(kSharedArbitratorGlobalArbitrationEnabled, "false"),
           NUM_PROP(kLargestSizeClassPages, 256),
@@ -377,6 +379,17 @@ size_t SystemConfig::driverStuckOperatorThresholdMs() const {
   return optionalProperty<size_t>(kDriverStuckOperatorThresholdMs).value();
 }
 
+size_t SystemConfig::driverCancelTasksWithStuckOperatorsThresholdMs() const {
+  return optionalProperty<size_t>(
+             kDriverCancelTasksWithStuckOperatorsThresholdMs)
+      .value();
+}
+
+size_t SystemConfig::driverNumStuckOperatorsToDetachWorker() const {
+  return optionalProperty<size_t>(kDriverNumStuckOperatorsToDetachWorker)
+      .value();
+}
+
 double SystemConfig::spillerNumCpuThreadsHwMultiplier() const {
   return optionalProperty<double>(kSpillerNumCpuThreadsHwMultiplier).value();
 }
@@ -465,10 +478,10 @@ int32_t SystemConfig::asyncCacheMinSsdSavableBytes() const {
   return optionalProperty<int32_t>(kAsyncCacheMinSsdSavableBytes).value();
 }
 
-std::chrono::duration<double> SystemConfig::asyncCacheFullPersistenceInterval()
+std::chrono::duration<double> SystemConfig::asyncCachePersistenceInterval()
     const {
   return velox::config::toDuration(
-      optionalProperty(kAsyncCacheFullPersistenceInterval).value());
+      optionalProperty(kAsyncCachePersistenceInterval).value());
 }
 
 bool SystemConfig::asyncCacheSsdDisableFileCow() const {
@@ -537,15 +550,6 @@ std::string SystemConfig::sharedArbitratorMemoryPoolReservedCapacity() const {
              kSharedArbitratorMemoryPoolReservedCapacity)
       .value_or(
           std::string(kSharedArbitratorMemoryPoolReservedCapacityDefault));
-}
-
-std::string SystemConfig::sharedArbitratorMemoryPoolTransferCapacity() const {
-  static constexpr std::string_view
-      kSharedArbitratorMemoryPoolTransferCapacityDefault = "32MB";
-  return optionalProperty<std::string>(
-             kSharedArbitratorMemoryPoolTransferCapacity)
-      .value_or(
-          std::string(kSharedArbitratorMemoryPoolTransferCapacityDefault));
 }
 
 std::string SystemConfig::sharedArbitratorMemoryReclaimWaitTime() const {
@@ -853,6 +857,9 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           BOOL_PROP(
               QueryConfig::kPrestoArrayAggIgnoreNulls,
               c.prestoArrayAggIgnoreNulls()),
+          BOOL_PROP(
+              QueryConfig::kSelectiveNimbleReaderEnabled,
+              c.selectiveNimbleReaderEnabled()),
           NUM_PROP(QueryConfig::kMaxOutputBufferSize, c.maxOutputBufferSize()),
       };
 }

@@ -392,7 +392,7 @@ public class TestIcebergRegisterAndUnregisterProcedure
     @Test
     public void testUnregisterTable()
     {
-        String tableName = "unregister";
+        String tableName = "unregister_positional_args";
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
 
         // Unregister table with procedure
@@ -403,7 +403,7 @@ public class TestIcebergRegisterAndUnregisterProcedure
     @Test
     public void testUnregisterTableWithNamedArguments()
     {
-        String tableName = "unregister";
+        String tableName = "unregister_named_args";
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
 
         // Unregister table with procedure
