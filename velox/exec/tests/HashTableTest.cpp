@@ -632,7 +632,7 @@ TEST_P(HashTableTest, mixed6Sparse) {
 }
 
 // It should be safe to call clear() before we insert any data into HashTable
-TEST_P(HashTableTest, clear) {
+TEST_P(HashTableTest, clearBeforeInsert) {
   std::vector<std::unique_ptr<VectorHasher>> keyHashers;
   keyHashers.push_back(std::make_unique<VectorHasher>(BIGINT(), 0 /*channel*/));
   core::QueryConfig config({});
@@ -644,9 +644,46 @@ TEST_P(HashTableTest, clear) {
       config);
 
   for (const bool clearTable : {false, true}) {
-    auto table = HashTable<true>::createForAggregation(
+    const auto table = HashTable<true>::createForAggregation(
         std::move(keyHashers), {Accumulator{aggregate.get(), nullptr}}, pool());
     ASSERT_NO_THROW(table->clear(clearTable));
+    if (clearTable) {
+      ASSERT_EQ(reinterpret_cast<uint64_t>(table->testingTable()), 0);
+      ASSERT_EQ(table->capacity(), 0);
+    } else {
+      ASSERT_EQ(reinterpret_cast<uint64_t>(table->testingTable()), 0);
+      ASSERT_EQ(table->capacity(), 0);
+    }
+  }
+}
+
+TEST_P(HashTableTest, clearAfterInsert) {
+  const auto rowType =
+      ROW({"a", "b", "c", "d"}, {BIGINT(), BIGINT(), BIGINT(), BIGINT()});
+  const auto numKeys = 4;
+
+  const int numBatches = 5;
+  std::vector<RowVectorPtr> inputBatches;
+  for (int i = 0; i < numBatches; ++i) {
+    VectorFuzzer fuzzer({}, pool());
+    inputBatches.push_back(fuzzer.fuzzRow(rowType));
+  }
+  for (const bool clearTable : {false, true}) {
+    const auto table = createHashTableForAggregation(rowType, numKeys);
+    auto lookup = std::make_unique<HashLookup>(table->hashers());
+    for (const auto& batch : inputBatches) {
+      lookup->reset(batch->size());
+      insertGroups(*batch, *lookup, *table);
+    }
+    const uint64_t capacityBeforeInsert = table->capacity();
+    ASSERT_NO_THROW(table->clear(clearTable));
+    if (clearTable) {
+      ASSERT_EQ(reinterpret_cast<uint64_t>(table->testingTable()), 0);
+      ASSERT_EQ(table->capacity(), 0);
+    } else {
+      ASSERT_NE(reinterpret_cast<uint64_t>(table->testingTable()), 0);
+      ASSERT_EQ(table->capacity(), capacityBeforeInsert);
+    }
   }
 }
 

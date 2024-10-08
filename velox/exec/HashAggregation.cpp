@@ -412,7 +412,7 @@ void HashAggregation::reclaim(
     }
     if (isDistinct_) {
       // Since we have seen all the input, we can safely reset the hash table.
-      groupingSet_->resetTable();
+      groupingSet_->resetTable(/*freeTable=*/true);
       // Release the minimum reserved memory.
       pool()->release();
       return;

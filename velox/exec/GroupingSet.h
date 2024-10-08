@@ -78,8 +78,9 @@ class GroupingSet {
 
   /// Resets the hash table inside the grouping set when partial aggregation
   /// is full or reclaims memory from distinct aggregation after it has received
-  /// all the inputs.
-  void resetTable();
+  /// all the inputs. If 'freeTable' is false, then hash table itself is not
+  /// freed but only table content.
+  void resetTable(bool freeTable = false);
 
   /// Returns true if 'this' should start producing partial
   /// aggregation results. Checks the memory consumption against

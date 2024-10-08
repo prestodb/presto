@@ -643,6 +643,10 @@ class HashTable : public BaseHashTable {
     return rehashSize();
   }
 
+  char** testingTable() const {
+    return table_;
+  }
+
   void extractColumn(
       folly::Range<char* const*> rows,
       int32_t columnIndex,

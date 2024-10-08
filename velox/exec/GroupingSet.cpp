@@ -742,7 +742,7 @@ bool GroupingSet::getOutput(
       : 0;
   if (numGroups == 0) {
     if (table_ != nullptr) {
-      table_->clear();
+      table_->clear(/*freeTable=*/true);
     }
     return false;
   }
@@ -789,9 +789,9 @@ void GroupingSet::extractGroups(
   }
 }
 
-void GroupingSet::resetTable() {
+void GroupingSet::resetTable(bool freeTable) {
   if (table_ != nullptr) {
-    table_->clear();
+    table_->clear(freeTable);
   }
 }
 
@@ -1012,7 +1012,7 @@ void GroupingSet::spill() {
   if (sortedAggregations_) {
     sortedAggregations_->clear();
   }
-  table_->clear();
+  table_->clear(/*freeTable=*/true);
 }
 
 void GroupingSet::spill(const RowContainerIterator& rowIterator) {
@@ -1038,7 +1038,7 @@ void GroupingSet::spill(const RowContainerIterator& rowIterator) {
   // guarantee we don't accidentally enter an unsafe situation.
   rows->stringAllocator().freezeAndExecute(
       [&]() { spiller_->spill(rowIterator); });
-  table_->clear();
+  table_->clear(/*freeTable=*/true);
 }
 
 bool GroupingSet::getOutputWithSpill(

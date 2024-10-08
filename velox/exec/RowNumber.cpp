@@ -327,7 +327,7 @@ RowVectorPtr RowNumber::getOutput() {
       addInput(std::move(unspilledInput));
     } else {
       spillInputReader_ = nullptr;
-      table_->clear();
+      table_->clear(/*freeTable=*/true);
       restoreNextSpillPartition();
     }
   }
@@ -412,7 +412,7 @@ SpillPartitionNumSet RowNumber::spillHashTable() {
   hashTableSpiller->spill();
   hashTableSpiller->finishSpill(spillHashTablePartitionSet_);
 
-  table_->clear();
+  table_->clear(/*freeTable=*/true);
   pool()->release();
   return hashTableSpiller->state().spilledPartitionSet();
 }
@@ -454,6 +454,10 @@ void RowNumber::spill() {
   if (input_ != nullptr) {
     spillInput(input_, memory::spillMemoryPool());
     input_ = nullptr;
+  }
+  if (generateRowNumber_) {
+    results_.clear();
+    results_.resize(1);
   }
 }
 

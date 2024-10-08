@@ -2028,6 +2028,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
     }
   } testSettings[] = {
       {0, true, true}, {0, false, false}, {1, true, true}, {1, false, false}};
+
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
@@ -2045,12 +2046,12 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
             .copyResults(pool_.get());
 
     folly::EventCount driverWait;
-    auto driverWaitKey = driverWait.prepareWait();
+    std::atomic_bool driverWaitFlag{true};
     folly::EventCount testWait;
-    auto testWaitKey = testWait.prepareWait();
+    std::atomic_bool testWaitFlag{true};
 
     std::atomic_int numInputs{0};
-    Operator* op;
+    Operator* op{nullptr};
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::addInput",
         std::function<void(Operator*)>(([&](Operator* testOp) {
@@ -2079,8 +2080,9 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
           } else {
             ASSERT_EQ(reclaimableBytes, 0);
           }
-          testWait.notify();
-          driverWait.wait(driverWaitKey);
+          testWaitFlag = false;
+          testWait.notifyAll();
+          driverWait.await([&] { return !driverWaitFlag.load(); });
         })));
 
     std::thread taskThread([&]() {
@@ -2108,11 +2110,13 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
       }
     });
 
-    testWait.wait(testWaitKey);
+    testWait.await([&]() { return !testWaitFlag.load(); });
     ASSERT_TRUE(op != nullptr);
     auto task = op->testingOperatorCtx()->task();
     auto taskPauseWait = task->requestPause();
-    driverWait.notify();
+
+    driverWaitFlag = false;
+    driverWait.notifyAll();
     taskPauseWait.wait();
 
     uint64_t reclaimableBytes{0};
@@ -2126,7 +2130,6 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
     }
 
     if (testData.expectedReclaimable) {
-      const auto usedMemory = op->pool()->usedBytes();
       {
         memory::ScopedMemoryArbitrationContext ctx(op->pool());
         op->pool()->reclaim(
@@ -2137,9 +2140,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
       ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
       ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
       reclaimerStats_.reset();
-      // The hash table itself in the grouping set is not cleared so it still
-      // uses some memory.
-      ASSERT_LT(op->pool()->usedBytes(), usedMemory);
+      // We expect all the memory has been freed from the hash table.
+      ASSERT_EQ(op->pool()->usedBytes(), 0);
     } else {
       {
         memory::ScopedMemoryArbitrationContext ctx(op->pool());
@@ -3140,7 +3142,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
           ASSERT_GT(stats.reclaimExecTimeUs, 0);
-          ASSERT_EQ(stats.reclaimedBytes, 0);
+          // We expect to reclaim the memory from the hash table.
+          ASSERT_GT(stats.reclaimedBytes, 0);
           ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
       })));

@@ -728,7 +728,7 @@ void HashTable<ignoreNullKeys>::allocateTables(
       memory::AllocationTraits::numPages(size * tableSlotSize());
   rows_->pool()->allocateContiguous(numPages, tableAllocation_);
   table_ = tableAllocation_.data<char*>();
-  memset(table_, 0, capacity_ * sizeof(char*));
+  ::memset(table_, 0, capacity_ * sizeof(char*));
 }
 
 template <bool ignoreNullKeys>
@@ -743,6 +743,7 @@ void HashTable<ignoreNullKeys>::clear(bool freeTable) {
     } else {
       rows_->pool()->freeContiguous(tableAllocation_);
       table_ = nullptr;
+      capacity_ = 0;
     }
   }
   numDistinct_ = 0;
