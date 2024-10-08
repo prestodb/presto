@@ -78,7 +78,7 @@
         <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.11.0</dep.jackson.version>
         <dep.j2objc.version>2.8</dep.j2objc.version>
-        <dep.avro.version>1.11.3</dep.avro.version>
+        <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.23.0</dep.commons.compress.version>
 
         <!--
