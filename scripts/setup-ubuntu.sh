@@ -54,7 +54,7 @@ function install_clang15 {
   ${SUDO} apt install ${CLANG_PACKAGE_LIST} -y
 }
 
-FB_OS_VERSION="v2024.05.20.00"
+FB_OS_VERSION="v2024.07.01.00"
 FMT_VERSION="10.1.1"
 BOOST_VERSION="boost-1.84.0"
 ARROW_VERSION="15.0.0"
