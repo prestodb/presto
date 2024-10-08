@@ -1031,8 +1031,10 @@ std::string HiveInsertTableHandle::toString() const {
   }
 
   if (serdeParameters_.size() > 0) {
+    std::map<std::string, std::string> sortedSerdeParams(
+        serdeParameters_.begin(), serdeParameters_.end());
     out << ", serdeParameters: ";
-    for (const auto& [key, value] : serdeParameters_) {
+    for (const auto& [key, value] : sortedSerdeParams) {
       out << "[" << key << ", " << value << "] ";
     }
   }
