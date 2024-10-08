@@ -66,6 +66,22 @@ TEST_F(MapTopNTest, basic) {
       "n must be greater than or equal to 0");
 }
 
+TEST_F(MapTopNTest, nestedNullFailure) {
+  auto data = makeMapVector(
+      /*offsets=*/{0},
+      /*keyVector=*/makeFlatVector<int32_t>({1, 2, 3}),
+      /*valueVector=*/
+      makeNullableArrayVector<int32_t>({{std::nullopt}, {2}, {5}}));
+
+  // Nested nulls present inhibit the orderbility of values. Expect an error.
+  VELOX_ASSERT_THROW(
+      evaluate("map_top_n(c0, 1)", makeRowVector({data})), // n < map size
+      "Ordering nulls is not supported");
+  VELOX_ASSERT_THROW(
+      evaluate("map_top_n(c0, 10)", makeRowVector({data})), // n > map size
+      "Ordering nulls is not supported");
+}
+
 // Test to ensure we use keys to break ties if values are
 // equal.
 TEST_F(MapTopNTest, equalValues) {

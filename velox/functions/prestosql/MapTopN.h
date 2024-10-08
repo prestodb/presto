@@ -60,11 +60,6 @@ struct MapTopNFunction {
       return;
     }
 
-    if (n >= inputMap.size()) {
-      out.copy_from(inputMap);
-      return;
-    }
-
     using It = typename arg_type<Map<Orderable<T1>, Orderable<T2>>>::Iterator;
 
     Compare<It> comparator;
