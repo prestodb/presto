@@ -31,7 +31,7 @@ set -x # Print commands that are executed.
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 export INSTALL_PREFIX=${INSTALL_PREFIX:-"$(pwd)/deps-install"}
 source $SCRIPTDIR/setup-helper-functions.sh
-PYTHON_VENV=${PYHTON_VENV:-"${SCRIPTDIR}/../.venv"}
+PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
 # Allow installed package headers to be picked up before brew package headers
 # by tagging the brew packages to be system packages.
 # This is used during package builds.
