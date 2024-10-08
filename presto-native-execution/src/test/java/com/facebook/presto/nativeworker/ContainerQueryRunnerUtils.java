@@ -13,29 +13,35 @@
  */
 package com.facebook.presto.nativeworker;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.stream.Collectors;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ContainerQueryRunnerUtils
 {
@@ -77,7 +83,7 @@ public class ContainerQueryRunnerUtils
         Properties properties = new Properties();
         properties.setProperty("coordinator", "true");
         properties.setProperty("presto.version", "testversion");
-        properties.setProperty("node-scheduler.include-coordinator", "false");
+        properties.setProperty("node-scheduler.include-coordinator", "true");
         properties.setProperty("http-server.http.port", Integer.toString(port));
         properties.setProperty("discovery-server.enabled", "true");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
@@ -224,92 +230,129 @@ public class ContainerQueryRunnerUtils
         file.setExecutable(true);
     }
 
-    public static MaterializedResult toMaterializedResult(String csvData)
-            throws IOException
+    public static MaterializedResult toMaterializedResult(ResultSet resultSet)
+            throws SQLException
     {
-        List<List<String>> allRows = parseCsvData(csvData);
+        // Extract metadata from the ResultSet
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
 
-        // Infer column types based on the maximum columns found
-        int maxColumns = allRows.stream().mapToInt(row -> row.size()).max().orElse(0);
-        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
-        for (int i = 0; i < maxColumns; i++) {
-            final int columnIndex = i;
-            columnTypesBuilder.add(inferType(allRows.stream()
-                    .map(row -> columnIndex < row.size() ? row.get(columnIndex) : "")
-                    .collect(Collectors.toList())));
-        }
-        List<Type> columnTypes = columnTypesBuilder.build();
+        // List to hold column types
+        List<Type> types = new ArrayList<>();
 
-        // Convert all rows to MaterializedRow
-        ImmutableList.Builder<MaterializedRow> rowsBuilder = ImmutableList.builder();
-        for (List<String> columns : allRows) {
-            ImmutableList.Builder<Object> valuesBuilder = ImmutableList.builder();
-            for (int i = 0; i < columnTypes.size(); i++) {
-                valuesBuilder.add(i < columns.size() ? convertToType(columns.get(i), columnTypes.get(i)) : null);
+        // Map SQL types to your application's Type class
+        for (int i = 1; i <= columnCount; i++) {
+            int sqlType = metaData.getColumnType(i);
+            if (sqlType == java.sql.Types.ARRAY) {
+                // Get the base type name of the array elements
+                String arrayBaseTypeName = metaData.getColumnTypeName(i);
+                Type elementType = mapSqlTypeNameToType(arrayBaseTypeName);
+                types.add(new ArrayType(elementType));
             }
-            rowsBuilder.add(new MaterializedRow(5, valuesBuilder.build()));
+            else {
+                types.add(mapSqlTypeToType(sqlType));
+            }
         }
-        List<MaterializedRow> rows = rowsBuilder.build();
 
-        // Create and return the MaterializedResult
-        return new MaterializedResult(rows, columnTypes);
+        // Create a list to store the rows of the MaterializedResult
+        List<MaterializedRow> rows = new ArrayList<>();
+
+        // Iterate over the ResultSet and convert each row to MaterializedRow
+        while (resultSet.next()) {
+            List<Object> rowData = new ArrayList<>();
+
+            for (int i = 1; i <= columnCount; i++) {
+                Object value;
+                int sqlType = metaData.getColumnType(i);
+
+                if (sqlType == java.sql.Types.ARRAY) {
+                    java.sql.Array array = resultSet.getArray(i);
+                    if (array != null) {
+                        // Retrieve the array elements as an Object[]
+                        Object[] javaArray = (Object[]) array.getArray();
+                        // Convert Object[] to List<Object>
+                        value = Arrays.asList(javaArray);
+                    }
+                    else {
+                        value = null;
+                    }
+                }
+                else {
+                    value = resultSet.getObject(i);
+                }
+                rowData.add(value);
+            }
+
+            // Use the constructor that accepts precision and List<Object>
+            rows.add(new MaterializedRow(5, rowData));
+        }
+
+        // Return the MaterializedResult
+        return new MaterializedResult(rows, types);
     }
 
-    private static List<List<String>> parseCsvData(String csvData)
-            throws IOException
+    private static Type mapSqlTypeNameToType(String typeName)
     {
-        CSVReader reader = new CSVReader(new StringReader(csvData));
-        return reader.readAll().stream().map(ImmutableList::copyOf).collect(toImmutableList());
+        switch (typeName.toUpperCase()) {
+            case "INTEGER":
+            case "INT":
+            case "INT4":
+                return IntegerType.INTEGER;
+            case "BIGINT":
+            case "INT8":
+                return BigintType.BIGINT;
+            case "VARCHAR":
+            case "TEXT":
+                return VarcharType.VARCHAR;
+            case "DOUBLE":
+            case "FLOAT8":
+                return DoubleType.DOUBLE;
+            case "BOOLEAN":
+                return BooleanType.BOOLEAN;
+            case "FLOAT":
+            case "REAL":
+                return DoubleType.DOUBLE;
+            case "TIMESTAMP":
+                return TimestampType.TIMESTAMP;
+            case "DATE":
+                return DateType.DATE;
+            case "TIME":
+                return TimeType.TIME;
+            case "DECIMAL":
+            case "NUMERIC":
+                return DecimalType.createDecimalType();
+            default:
+                // Log unknown type name
+                System.out.println("Unknown SQL type name: " + typeName);
+                return UnknownType.UNKNOWN;
+        }
     }
 
-    private static Type inferType(List<String> values)
+    private static Type mapSqlTypeToType(int sqlType)
     {
-        boolean isBigint = true;
-        boolean isDouble = true;
-        boolean isBoolean = true;
-
-        for (String value : values) {
-            if (!value.matches("^-?\\d+$")) {
-                isBigint = false;
-            }
-            if (!value.matches("^-?\\d+\\.\\d+$")) {
-                isDouble = false;
-            }
-            if (!value.equalsIgnoreCase("true") && !value.equalsIgnoreCase("false")) {
-                isBoolean = false;
-            }
-        }
-
-        if (isBigint) {
-            return BigintType.BIGINT;
-        }
-        else if (isDouble) {
-            return DoubleType.DOUBLE;
-        }
-        else if (isBoolean) {
-            return BooleanType.BOOLEAN;
-        }
-        else {
-            return VarcharType.VARCHAR;
-        }
-    }
-
-    private static Object convertToType(String value, Type type)
-    {
-        if (type.equals(VarcharType.VARCHAR)) {
-            return value;
-        }
-        else if (type.equals(BigintType.BIGINT)) {
-            return Long.parseLong(value);
-        }
-        else if (type.equals(DoubleType.DOUBLE)) {
-            return Double.parseDouble(value);
-        }
-        else if (type.equals(BooleanType.BOOLEAN)) {
-            return Boolean.parseBoolean(value);
-        }
-        else {
-            throw new UnsupportedOperationException("Unsupported type: " + type);
+        switch (sqlType) {
+            case java.sql.Types.INTEGER:
+                return IntegerType.INTEGER;
+            case java.sql.Types.BIGINT:
+                return BigintType.BIGINT;
+            case java.sql.Types.VARCHAR:
+                return VarcharType.VARCHAR;
+            case java.sql.Types.DOUBLE:
+                return DoubleType.DOUBLE;
+            case java.sql.Types.BOOLEAN:
+                return BooleanType.BOOLEAN;
+            case java.sql.Types.FLOAT:
+                return DoubleType.DOUBLE;
+            case java.sql.Types.TIMESTAMP:
+                return TimestampType.TIMESTAMP;
+            case java.sql.Types.DATE:
+                return DateType.DATE;
+            case java.sql.Types.TIME:
+                return TimeType.TIME;
+            case java.sql.Types.DECIMAL:
+                return DecimalType.createDecimalType();
+            default:
+                return UnknownType.UNKNOWN;
         }
     }
 }

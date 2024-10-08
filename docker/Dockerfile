@@ -2,13 +2,11 @@ FROM quay.io/centos/centos:stream9
 
 ARG PRESTO_VERSION
 ARG PRESTO_PKG=presto-server-$PRESTO_VERSION.tar.gz
-ARG PRESTO_CLI_JAR=presto-cli-$PRESTO_VERSION-executable.jar
 ARG JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
 
 ENV PRESTO_HOME="/opt/presto-server"
 
 COPY $PRESTO_PKG .
-COPY $PRESTO_CLI_JAR /opt/presto-cli
 
 RUN dnf install -y java-11-openjdk less procps python3 \
     && ln -s $(which python3) /usr/bin/python \
@@ -17,8 +15,7 @@ RUN dnf install -y java-11-openjdk less procps python3 \
     && mv ./presto-server-$PRESTO_VERSION $PRESTO_HOME \
     && rm -rf $PRESTO_PKG \
     && rm -rf ./presto-server-$PRESTO_VERSION \
-    && chmod +x /opt/presto-cli \
-    && ln -s /opt/presto-cli /usr/local/bin/ \
+
     # clean cache jobs
     && mv /etc/yum/protected.d/systemd.conf /etc/yum/protected.d/systemd.conf.bak \
     && dnf clean all \
