@@ -24,6 +24,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h" // @manual
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/external/date/tz.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 #include "velox/type/tz/TimeZoneMap.h"
@@ -904,6 +905,242 @@ TEST_F(ParquetTableScanTest, testColumnNotExists) {
       {"a", "b", "not_exists", "not_exists_array", "not_exists_map"},
       rowType,
       "SELECT a, b, NULL, NULL, NULL FROM tmp");
+}
+
+TEST_F(ParquetTableScanTest, readParquetColumnsByIndexMixedType) {
+  vector_size_t size = 100;
+  auto valuesVector = makeRowVector(
+      {"aa", "bb"},
+      {makeFlatVector<int64_t>(size * 4, [](auto row) { return row; }),
+       makeFlatVector<int32_t>(size * 4, [](auto row) { return row; })});
+  auto keysVector =
+      makeFlatVector<int64_t>(size * 4, [](auto row) { return row % 4; });
+  std::vector<vector_size_t> offsets;
+  for (auto i = 0; i < size; i++) {
+    offsets.push_back(i * 4);
+  }
+  auto mapVector = makeMapVector(offsets, keysVector, valuesVector);
+  auto arrayVector = makeArrayVector(offsets, valuesVector);
+  auto primitiveVector = makeFlatVector(offsets);
+
+  std::shared_ptr<memory::MemoryPool> leafPool =
+      rootPool_->addLeafChild("ParquetTableScanTest");
+  facebook::velox::test::VectorMaker vectorMaker{leafPool.get()};
+  RowVectorPtr dataFileVectors = makeRowVector(
+      {"p", "m", "a"},
+      {primitiveVector, mapVector, arrayVector}); // columns in data file
+
+  const std::shared_ptr<exec::test::TempDirectoryPath> dataFileFolder =
+      exec::test::TempDirectoryPath::create();
+  auto filePath = dataFileFolder->getPath() + "/" + "nested_data.parquet";
+  writeToParquetFile(filePath, {dataFileVectors}, false);
+
+  // Create a row type with columns having different names than in the file.
+  auto structType = ROW({"aa1", "bb1"}, {BIGINT(), BIGINT()});
+  auto rowType =
+      ROW({"p1", "m1", "a1"},
+          {{BIGINT(),
+            MAP(BIGINT(), structType),
+            ARRAY(structType)}}); // column names in table metadata
+
+  auto op =
+      PlanBuilder()
+          .startTableScan()
+          .outputType(rowType)
+          .dataColumns(rowType)
+          .endTableScan()
+          .project({"p1", "m1[0].aa1", "m1[1].bb1", "a1[1].aa1", "a1[2].bb1"})
+          .planNode();
+
+  auto split = makeSplit(filePath);
+  auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
+
+  ASSERT_EQ(result->size(), size);
+  auto rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 5);
+
+  // The fields that exist in the data should be present and correct.
+  // check for column p1
+  auto val = rows->childAt(0)->as<SimpleVector<int64_t>>();
+  ASSERT_TRUE(val);
+  ASSERT_EQ(val->size(), size);
+  for (auto j = 0; j < size; j++) {
+    ASSERT_FALSE(val->isNullAt(j));
+    ASSERT_EQ(val->valueAt(j), j * 4);
+  }
+
+  // check for rest of the selected columns
+  for (int i = 1; i < 5; i += 2) {
+    val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+    ASSERT_TRUE(val);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_FALSE(val->isNullAt(j));
+      ASSERT_EQ(val->valueAt(j), j * 4);
+    }
+  }
+  for (int i = 2; i < 5; i += 2) {
+    val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+    ASSERT_TRUE(val);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_FALSE(val->isNullAt(j));
+      ASSERT_EQ(val->valueAt(j), j * 4 + 1);
+    }
+  }
+
+  // Now run query with column mapping using names - we should not be able to
+  // find any names.
+  result = AssertQueryBuilder(op)
+               .connectorSessionProperty(
+                   kHiveConnectorId,
+                   connector::hive::HiveConfig::kParquetUseColumnNamesSession,
+                   "true")
+               .split(split)
+               .copyResults(pool());
+
+  ASSERT_EQ(result->size(), size);
+  rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 5);
+
+  // check for column p1
+  val = rows->childAt(0)->as<SimpleVector<int64_t>>();
+  ASSERT_TRUE(val);
+  ASSERT_EQ(val->size(), size);
+  for (auto j = 0; j < size; j++) {
+    ASSERT_TRUE(val->isNullAt(j));
+  }
+
+  // check for rest of the selected columns
+  for (int i = 1; i < 5; i++) {
+    auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+    ASSERT_TRUE(val != nullptr);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_TRUE(val->isNullAt(j));
+    }
+  }
+}
+
+TEST_F(ParquetTableScanTest, readParquetColumnsByIndex) {
+  vector_size_t size = 100;
+
+  std::vector<int64_t> c1Vector;
+  std::vector<int64_t> c2Vector;
+  for (auto i = 0; i < size; i++) {
+    c1Vector.push_back(i);
+    c2Vector.push_back(i * 4);
+  }
+
+  std::shared_ptr<memory::MemoryPool> leafPool =
+      rootPool_->addLeafChild("ParquetTableScanTest");
+  facebook::velox::test::VectorMaker vectorMaker{leafPool.get()};
+  RowVectorPtr dataFileVectors = vectorMaker.rowVector(
+      {"c1", "c2"},
+      {vectorMaker.flatVector<int64_t>(c1Vector),
+       vectorMaker.flatVector<int64_t>(c2Vector)});
+
+  const std::shared_ptr<exec::test::TempDirectoryPath> dataFileFolder =
+      exec::test::TempDirectoryPath::create();
+  auto filePath = dataFileFolder->getPath() + "/" + "data.parquet";
+  writeToParquetFile(filePath, {dataFileVectors}, false);
+
+  auto rowType = ROW({"c2", "c3"}, {BIGINT(), BIGINT()});
+
+  auto op = PlanBuilder()
+                .startTableScan()
+                .outputType(rowType)
+                .dataColumns(rowType)
+                .endTableScan()
+                .planNode();
+
+  auto split = makeSplit(filePath);
+  auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
+
+  ASSERT_EQ(result->size(), size);
+  auto rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 2);
+
+  for (int i = 0; i < 2; i++) {
+    auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+    ASSERT_TRUE(val);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_FALSE(val->isNullAt(j));
+      if (i == 0) {
+        ASSERT_EQ(val->valueAt(j), j);
+      } else {
+        ASSERT_EQ(val->valueAt(j), j * 4);
+      }
+    }
+  }
+
+  // test when schema has same column name as file schema but different data
+  // type for column c3 as varchar
+  auto rowType1 = ROW({"c2", "c3"}, {BIGINT(), VARCHAR()});
+  op = PlanBuilder()
+           .startTableScan()
+           .outputType(rowType1)
+           .dataColumns(rowType1)
+           .endTableScan()
+           .planNode();
+  EXPECT_THROW(
+      AssertQueryBuilder(op).split(split).copyResults(pool()),
+      VeloxRuntimeError);
+
+  // Now run query with column mapping using names, now c2 columns will match in
+  // fileschema & tableschema
+  op = PlanBuilder()
+           .startTableScan()
+           .outputType(rowType)
+           .dataColumns(rowType)
+           .endTableScan()
+           .planNode();
+
+  result = AssertQueryBuilder(op)
+               .connectorSessionProperty(
+                   kHiveConnectorId,
+                   connector::hive::HiveConfig::kParquetUseColumnNamesSession,
+                   "true")
+               .split(split)
+               .copyResults(pool());
+
+  ASSERT_EQ(result->size(), size);
+  rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 2);
+
+  for (int i = 0; i < 2; i++) {
+    auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+    ASSERT_TRUE(val);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      if (i == 0) {
+        ASSERT_FALSE(val->isNullAt(j));
+        ASSERT_EQ(val->valueAt(j), j * 4);
+      } else {
+        ASSERT_TRUE(val->isNullAt(j));
+      }
+    }
+  }
+
+  // Scan with type mismatch in the 1st item (BIGINT vs REAL)
+  rowType = ROW({"c1", "c2"}, {{REAL(), BIGINT()}});
+
+  op = PlanBuilder()
+           .startTableScan()
+           .outputType(rowType)
+           .dataColumns(rowType)
+           .endTableScan()
+           .project({"c1"})
+           .planNode();
+
+  EXPECT_THROW(
+      AssertQueryBuilder(op).split(split).copyResults(pool()),
+      VeloxRuntimeError);
 }
 
 int main(int argc, char** argv) {

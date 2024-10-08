@@ -115,6 +115,18 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
     expectedSerDe = SerDeOptions{};
   };
 
+  auto checkUseColumnNamesForColumnMapping = [&]() {
+    if (fileFormat == FileFormat::DWRF || fileFormat == FileFormat::ORC) {
+      EXPECT_EQ(
+          readerOptions.useColumnNamesForColumnMapping(),
+          hiveConfig->isOrcUseColumnNames(&sessionProperties));
+    } else if (fileFormat == FileFormat::PARQUET) {
+      EXPECT_EQ(
+          readerOptions.useColumnNamesForColumnMapping(),
+          hiveConfig->isParquetUseColumnNames(&sessionProperties));
+    }
+  };
+
   // Default.
   performConfigure();
   EXPECT_EQ(readerOptions.fileFormat(), fileFormat);
@@ -127,9 +139,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   EXPECT_EQ(
       readerOptions.fileColumnNamesReadAsLowerCase(),
       hiveConfig->isFileColumnNamesReadAsLowerCase(&sessionProperties));
-  EXPECT_EQ(
-      readerOptions.useColumnNamesForColumnMapping(),
-      hiveConfig->isOrcUseColumnNames(&sessionProperties));
+  checkUseColumnNamesForColumnMapping();
   EXPECT_EQ(
       readerOptions.footerEstimatedSize(), hiveConfig->footerEstimatedSize());
   EXPECT_EQ(
@@ -237,13 +247,16 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
       readerOptions.fileColumnNamesReadAsLowerCase(),
       hiveConfig->isFileColumnNamesReadAsLowerCase(&sessionProperties));
   EXPECT_EQ(
-      readerOptions.useColumnNamesForColumnMapping(),
-      hiveConfig->isOrcUseColumnNames(&sessionProperties));
-  EXPECT_EQ(
       readerOptions.footerEstimatedSize(), hiveConfig->footerEstimatedSize());
   EXPECT_EQ(
       readerOptions.filePreloadThreshold(), hiveConfig->filePreloadThreshold());
   EXPECT_EQ(readerOptions.prefetchRowGroups(), hiveConfig->prefetchRowGroups());
+  clearDynamicParameters(FileFormat::ORC);
+  performConfigure();
+  checkUseColumnNamesForColumnMapping();
+  clearDynamicParameters(FileFormat::PARQUET);
+  performConfigure();
+  checkUseColumnNamesForColumnMapping();
 }
 
 TEST_F(HiveConnectorUtilTest, configureRowReaderOptions) {

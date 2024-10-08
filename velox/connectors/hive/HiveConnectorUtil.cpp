@@ -557,7 +557,13 @@ void configureReaderOptions(
   readerOptions.setFileColumnNamesReadAsLowerCase(
       hiveConfig->isFileColumnNamesReadAsLowerCase(sessionProperties));
   readerOptions.setUseColumnNamesForColumnMapping(
-      hiveConfig->isOrcUseColumnNames(sessionProperties));
+      (hiveSplit->fileFormat == dwio::common::FileFormat::DWRF ||
+       hiveSplit->fileFormat == dwio::common::FileFormat::ORC)
+          ? hiveConfig->isOrcUseColumnNames(sessionProperties)
+          : (hiveSplit->fileFormat == dwio::common::FileFormat::PARQUET)
+          ? hiveConfig->isParquetUseColumnNames(sessionProperties)
+          : false // or some default value if none of the conditions are met
+  );
   readerOptions.setFileSchema(fileSchema);
   readerOptions.setFooterEstimatedSize(hiveConfig->footerEstimatedSize());
   readerOptions.setFilePreloadThreshold(hiveConfig->filePreloadThreshold());

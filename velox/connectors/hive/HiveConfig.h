@@ -127,6 +127,12 @@ class HiveConfig {
   static constexpr const char* kOrcUseColumnNamesSession =
       "hive_orc_use_column_names";
 
+  /// Maps table field names to file field names using names, not indices.
+  static constexpr const char* kParquetUseColumnNames =
+      "hive.parquet.use-column-names";
+  static constexpr const char* kParquetUseColumnNamesSession =
+      "parquet_use_column_names";
+
   /// Reads the source file column name as lower case.
   static constexpr const char* kFileColumnNamesReadAsLowerCase =
       "file-column-names-read-as-lower-case";
@@ -292,6 +298,8 @@ class HiveConfig {
   std::optional<std::string> gcsMaxRetryTime() const;
 
   bool isOrcUseColumnNames(const config::ConfigBase* session) const;
+
+  bool isParquetUseColumnNames(const config::ConfigBase* session) const;
 
   bool isFileColumnNamesReadAsLowerCase(
       const config::ConfigBase* session) const;

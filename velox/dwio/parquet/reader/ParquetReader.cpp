@@ -16,13 +16,36 @@
 
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 
-#include <boost/algorithm/string.hpp>
 #include <thrift/protocol/TCompactProtocol.h> //@manual
 
 #include "velox/dwio/parquet/reader/ParquetColumnReader.h"
-#include "velox/dwio/parquet/reader/SemanticVersion.h"
 #include "velox/dwio/parquet/reader/StructColumnReader.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
+
+namespace {
+
+bool isParquetReservedKeyword(
+    std::string name,
+    uint32_t parentSchemaIdx,
+    uint32_t curSchemaIdx) {
+  return ((parentSchemaIdx == 0 && curSchemaIdx == 0) || name == "key_value" ||
+          name == "key" || name == "value" || name == "list" ||
+          name == "element")
+      ? true
+      : false;
+}
+
+facebook::velox::TypePtr getUpdatedTableSchema(
+    const facebook::velox::TypePtr& tableSchema,
+    uint32_t i,
+    uint32_t parentSchemaIdx,
+    uint32_t curSchemaIdx,
+    std::string name) {
+  return (tableSchema == nullptr || (parentSchemaIdx == 0 && curSchemaIdx != 0))
+      ? tableSchema
+      : tableSchema->childAt(i);
+}
+} // namespace
 
 namespace facebook::velox::parquet {
 
@@ -108,7 +131,9 @@ class ReaderBase {
       uint32_t& schemaIdx,
       uint32_t& columnIdx,
       const TypePtr& requestedType,
-      const TypePtr& parentRequestedType) const;
+      const TypePtr& parentRequestedType,
+      const TypePtr& tableSchema,
+      std::vector<std::string>& columnNames) const;
 
   TypePtr convertType(
       const thrift::SchemaElement& schemaElement,
@@ -228,6 +253,7 @@ void ReaderBase::initializeSchema() {
   uint32_t schemaIdx = 0;
   uint32_t columnIdx = 0;
   uint32_t maxSchemaElementIdx = fileMetaData_->schema.size() - 1;
+  std::vector<std::string> columnNames;
   // Setting the parent schema index of the root("hive_schema") to be 0, which
   // is the root itself. This is ok because it's never required to check the
   // parent of the root in getParquetColumnInfo().
@@ -239,7 +265,9 @@ void ReaderBase::initializeSchema() {
       schemaIdx,
       columnIdx,
       options_.fileSchema(),
-      nullptr);
+      nullptr,
+      options_.fileSchema(),
+      columnNames);
   schema_ = createRowType(
       schemaWithId_->getChildren(), isFileColumnNamesReadAsLowerCase());
 }
@@ -256,7 +284,9 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
     uint32_t& schemaIdx,
     uint32_t& columnIdx,
     const TypePtr& requestedType,
-    const TypePtr& parentRequestedType) const {
+    const TypePtr& parentRequestedType,
+    const TypePtr& tableSchema,
+    std::vector<std::string>& columnNames) const {
   VELOX_CHECK(fileMetaData_ != nullptr);
   VELOX_CHECK_LT(schemaIdx, fileMetaData_->schema.size());
 
@@ -286,6 +316,16 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
   if (isFileColumnNamesReadAsLowerCase()) {
     folly::toLowerAscii(name);
   }
+
+  if ((!options_.useColumnNamesForColumnMapping()) &&
+      (options_.fileSchema() != nullptr)) {
+    if (isParquetReservedKeyword(name, parentSchemaIdx, curSchemaIdx)) {
+      columnNames.push_back(name);
+    }
+  } else {
+    columnNames.push_back(name);
+  }
+
   if (!schemaElement.__isset.type) { // inner node
     VELOX_CHECK(
         schemaElement.__isset.num_children && schemaElement.num_children > 0,
@@ -328,6 +368,14 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
         }
       }
 
+      if ((!options_.useColumnNamesForColumnMapping()) &&
+          (options_.fileSchema() != nullptr) &&
+          (tableSchema->kind() == TypeKind::ROW)) {
+        columnNames.push_back(
+            std::dynamic_pointer_cast<const velox::RowType>(tableSchema)
+                ->nameOf(i));
+      }
+
       auto child = getParquetColumnInfo(
           maxSchemaElementIdx,
           maxRepeat,
@@ -336,10 +384,14 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           schemaIdx,
           columnIdx,
           childRequestedType,
-          requestedType);
+          requestedType,
+          getUpdatedTableSchema(
+              tableSchema, i, parentSchemaIdx, curSchemaIdx, name),
+          columnNames);
       children.push_back(std::move(child));
     }
     VELOX_CHECK(!children.empty());
+    name = columnNames.at(curSchemaIdx);
 
     if (schemaElement.__isset.converted_type) {
       switch (schemaElement.converted_type) {
@@ -436,7 +488,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           VELOX_UNREACHABLE(
               "Invalid SchemaElement converted_type: {}, name: {}",
               schemaElement.converted_type,
-              schemaElement.name);
+              name);
       }
     } else {
       if (schemaElement.repetition_type ==
@@ -590,6 +642,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
       }
     }
   } else { // leaf node
+    name = columnNames.at(curSchemaIdx);
     const auto veloxType = convertType(schemaElement, requestedType);
     int32_t precision =
         schemaElement.__isset.precision ? schemaElement.precision : 0;
@@ -864,6 +917,7 @@ class ParquetRowReader::Impl {
         currentRowGroupPtr_{nullptr},
         rowsInCurrentRowGroup_{0},
         currentRowInGroup_{0} {
+    const auto& fileSchema = readerBase_->schema();
     // Validate the requested type is compatible with what's in the file
     std::function<std::string()> createExceptionContext = [&]() {
       std::string exceptionMessageContext = fmt::format(
