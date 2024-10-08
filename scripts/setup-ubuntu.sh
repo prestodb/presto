@@ -214,7 +214,8 @@ function install_arrow {
     -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
     -DCMAKE_BUILD_TYPE=Release \
     -DARROW_BUILD_STATIC=ON \
-    -DThrift_SOURCE=BUNDLED
+    -DThrift_SOURCE=BUNDLED \
+    -DBOOST_ROOT=${INSTALL_PREFIX}
 
   (
     # Install thrift.
