@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -141,6 +142,66 @@ TEST_F(ArrayMaxTest, longVarcharNoNulls) {
        "red shiny car ahead"_sv});
 
   testArrayMax(input, expected);
+}
+
+TEST_F(ArrayMaxTest, timestampWithTimezone) {
+  auto testArrayMax = [this](
+                          const std::vector<std::optional<int64_t>>& inputArray,
+                          std::optional<int64_t> expectedValue) {
+    // Test with primitive types.
+    auto input = makeRowVector({makeArrayVector(
+        {0}, makeNullableFlatVector(inputArray, TIMESTAMP_WITH_TIME_ZONE()))});
+    VectorPtr expected = makeNullableFlatVector<int64_t>(
+        {expectedValue}, TIMESTAMP_WITH_TIME_ZONE());
+
+    auto result = evaluate<BaseVector>("array_max(C0)", input);
+    assertEqualVectors(expected, result);
+
+    // array_max does not support nulls inside complex types. To exclude these
+    // we exclude tests where the expected result is null.  However, the result
+    // can also be null when the input is empty, so we add an exception for that
+    // case.
+    if (expectedValue.has_value() || inputArray.empty()) {
+      // Test wrapped in complex type.
+      input = makeRowVector({makeArrayVector(
+          {0},
+          makeRowVector({makeNullableFlatVector(
+              inputArray, TIMESTAMP_WITH_TIME_ZONE())}))});
+      expected = makeRowVector(
+          {expected}, [&](vector_size_t) { return inputArray.empty(); });
+
+      result = evaluate<BaseVector>("array_max(C0)", input);
+      assertEqualVectors(expected, result);
+    }
+  };
+
+  testArrayMax(
+      {pack(-1, 0), pack(0, 1), pack(1, 2), pack(2, 3), pack(3, 4), pack(4, 5)},
+      pack(4, 5));
+  testArrayMax(
+      {pack(4, 0),
+       pack(3, 1),
+       pack(2, 2),
+       pack(1, 3),
+       pack(0, 4),
+       pack(-1, 5),
+       pack(-2, 6)},
+      pack(4, 0));
+  testArrayMax(
+      {pack(-5, 3), pack(-4, 2), pack(-3, 1), pack(-2, 0), pack(-1, 4)},
+      pack(-1, 4));
+  testArrayMax(
+      {pack(101, 4), pack(102, 0), pack(103, 1), pack(104, 2), pack(105, 3)},
+      pack(105, 3));
+  testArrayMax({}, std::nullopt);
+  testArrayMax(
+      {pack(101, 4), pack(102, 0), pack(103, 1), pack(104, 2), std::nullopt},
+      std::nullopt);
+  testArrayMax(
+      {std::nullopt, pack(-1, 4), pack(-2, 5), pack(-3, 1), pack(-4, 0)},
+      std::nullopt);
+  testArrayMax({std::nullopt}, std::nullopt);
+  testArrayMax({pack(1, 0), pack(1, 1), pack(1, 2)}, pack(1, 0));
 }
 
 // Test documented example.
