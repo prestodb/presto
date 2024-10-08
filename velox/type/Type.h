@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "velox/common/base/ClassName.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/serialization/Serializable.h"
 #include "velox/type/HugeInt.h"
 #include "velox/type/StringView.h"
@@ -492,12 +493,10 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
   /// equivalent if the typeKind matches, but the typeIndex could be different.
   virtual bool equivalent(const Type& other) const = 0;
 
-  /// Types are strongly matched.
-  /// Examples: Two RowTypes are == if the children types and the children names
-  /// are same. Two OpaqueTypes are == if the typeKind and the typeIndex are
-  /// same. Same as equivalent for most types except for Row, Opaque types.
+  /// For Complex types (Row, Array, Map, Opaque): types are strongly matched.
+  /// For primitive types: same as equivalent.
   virtual bool operator==(const Type& other) const {
-    return this->equivalent(other);
+    return this->equals(other);
   }
 
   inline bool operator!=(const Type& other) const {
@@ -564,6 +563,16 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
  protected:
   FOLLY_ALWAYS_INLINE bool hasSameTypeId(const Type& other) const {
     return typeid(*this) == typeid(other);
+  }
+
+  /// For Complex types (Row, Array, Map, Opaque): types are strongly matched.
+  /// Examples: Two RowTypes are == if the children types and the children names
+  /// are same. Two OpaqueTypes are == if the typeKind and the typeIndex are
+  /// same.
+  /// For primitive types: same as equivalent.
+  virtual bool equals(const Type& other) const {
+    VELOX_CHECK(this->isPrimitiveType());
+    return this->equivalent(other);
   }
 
  private:
@@ -914,6 +923,8 @@ class ArrayType : public TypeBase<TypeKind::ARRAY> {
   }
 
  protected:
+  bool equals(const Type& other) const override;
+
   TypePtr child_;
   const std::vector<TypeParameter> parameters_;
 };
@@ -965,6 +976,9 @@ class MapType : public TypeBase<TypeKind::MAP> {
     return parameters_;
   }
 
+ protected:
+  bool equals(const Type& other) const override;
+
  private:
   TypePtr keyType_;
   TypePtr valueType_;
@@ -1005,10 +1019,6 @@ class RowType : public TypeBase<TypeKind::ROW> {
 
   bool equivalent(const Type& other) const override;
 
-  bool equals(const Type& other) const;
-  bool operator==(const Type& other) const override;
-  bool operator==(const RowType& other) const;
-
   std::string toString() const override;
 
   /// Print child names and types separated by 'delimiter'.
@@ -1036,6 +1046,9 @@ class RowType : public TypeBase<TypeKind::ROW> {
     }
     return *parameters;
   }
+
+ protected:
+  bool equals(const Type& other) const override;
 
  private:
   std::unique_ptr<std::vector<TypeParameter>> makeParameters() const;
@@ -1090,6 +1103,9 @@ class FunctionType : public TypeBase<TypeKind::FUNCTION> {
     return parameters_;
   }
 
+ protected:
+  bool equals(const Type& other) const override;
+
  private:
   static std::vector<std::shared_ptr<const Type>> allChildren(
       std::vector<std::shared_ptr<const Type>>&& argumentTypes,
@@ -1123,8 +1139,6 @@ class OpaqueType : public TypeBase<TypeKind::OPAQUE> {
   std::string toString() const override;
 
   bool equivalent(const Type& other) const override;
-
-  bool operator==(const Type& other) const override;
 
   const std::type_index& typeIndex() const {
     return typeIndex_;
@@ -1185,6 +1199,9 @@ class OpaqueType : public TypeBase<TypeKind::OPAQUE> {
         serializeTypeErased,
         deserializeTypeErased);
   }
+
+ protected:
+  bool equals(const Type& other) const override;
 
  private:
   const std::type_index typeIndex_;

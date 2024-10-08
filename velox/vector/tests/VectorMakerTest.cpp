@@ -596,7 +596,9 @@ TEST_F(VectorMakerTest, arrayOfRowVectorFromTuples) {
   auto expected = maker_.arrayVector(offsets, elements);
 
   ASSERT_EQ(expected->size(), arrayVector->size());
-  ASSERT_EQ(*expected->type(), *arrayVector->type());
+  // check equivalent because arrayVector's row type doesn't have name for each
+  // column ('', '' ..) whereas expected's row type have names ('c0', 'c1' ..)
+  ASSERT_TRUE((*expected->type()).equivalent((*arrayVector->type())));
   for (auto i = 0; i < expected->size(); i++) {
     ASSERT_TRUE(expected->equalValueAt(arrayVector.get(), i, i));
   }

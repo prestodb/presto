@@ -244,6 +244,17 @@ bool ArrayType::equivalent(const Type& other) const {
   return child_->equivalent(*otherArray.child_);
 }
 
+bool ArrayType::equals(const Type& other) const {
+  if (&other == this) {
+    return true;
+  }
+  if (!Type::hasSameTypeId(other)) {
+    return false;
+  }
+  auto& otherArray = other.asArray();
+  return *child_ == *otherArray.child_;
+}
+
 folly::dynamic ArrayType::serialize() const {
   folly::dynamic obj = folly::dynamic::object;
   obj["name"] = "Type";
@@ -476,14 +487,6 @@ bool RowType::equals(const Type& other) const {
   return true;
 }
 
-bool RowType::operator==(const Type& other) const {
-  return this->equals(other);
-}
-
-bool RowType::operator==(const RowType& other) const {
-  return this->equals(other);
-}
-
 void RowType::printChildren(std::stringstream& ss, std::string_view delimiter)
     const {
   bool any = false;
@@ -569,6 +572,17 @@ bool MapType::equivalent(const Type& other) const {
       valueType_->equivalent(*otherMap.valueType_);
 }
 
+bool MapType::equals(const Type& other) const {
+  if (&other == this) {
+    return true;
+  }
+  if (!Type::hasSameTypeId(other)) {
+    return false;
+  }
+  auto& otherMap = other.asMap();
+  return *keyType_ == *otherMap.keyType_ && *valueType_ == *otherMap.valueType_;
+}
+
 FunctionType::FunctionType(
     std::vector<std::shared_ptr<const Type>>&& argumentTypes,
     std::shared_ptr<const Type> returnType)
@@ -591,6 +605,29 @@ bool FunctionType::equivalent(const Type& other) const {
 
   for (auto i = 0; i < children_.size(); ++i) {
     if (!children_.at(i)->equivalent(*otherTyped.children_.at(i))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool FunctionType::equals(const Type& other) const {
+  if (&other == this) {
+    return true;
+  }
+
+  if (!Type::hasSameTypeId(other)) {
+    return false;
+  }
+
+  auto& otherTyped = *reinterpret_cast<const FunctionType*>(&other);
+  if (children_.size() != otherTyped.size()) {
+    return false;
+  }
+
+  for (auto i = 0; i < children_.size(); ++i) {
+    if (*children_.at(i) != *otherTyped.children_.at(i)) {
       return false;
     }
   }
@@ -629,10 +666,7 @@ bool OpaqueType::equivalent(const Type& other) const {
   return true;
 }
 
-bool OpaqueType::operator==(const Type& other) const {
-  if (&other == this) {
-    return true;
-  }
+bool OpaqueType::equals(const Type& other) const {
   if (!this->equivalent(other)) {
     return false;
   }
