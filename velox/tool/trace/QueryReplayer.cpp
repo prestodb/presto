@@ -16,20 +16,21 @@
 
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <gflags/gflags.h>
+
+#include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
-#include "velox/core/PlanNode.h"
-#include "velox/exec/PartitionFunction.h"
-#include "velox/type/Type.h"
-
-#include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
+#include "velox/core/PlanNode.h"
+#include "velox/exec/PartitionFunction.h"
+#include "velox/tool/trace/AggregationReplayer.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
 #include "velox/tool/trace/TableWriterReplayer.h"
+#include "velox/type/Type.h"
 
 DEFINE_bool(usage, false, "Show the usage");
 DEFINE_string(root, "", "Root dir of the query tracing");
@@ -96,6 +97,13 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer(
         FLAGS_pipeline_id,
         FLAGS_operator_type,
         FLAGS_table_writer_output_dir);
+  } else if (operatorType == "Aggregation") {
+    replayer = std::make_unique<tool::trace::AggregationReplayer>(
+        FLAGS_root,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        FLAGS_pipeline_id,
+        FLAGS_operator_type);
   } else {
     VELOX_FAIL("Unsupported opeartor type: {}", FLAGS_operator_type);
   }

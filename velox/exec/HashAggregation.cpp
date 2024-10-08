@@ -117,6 +117,7 @@ bool HashAggregation::abandonPartialAggregationEarly(int64_t numOutput) const {
 }
 
 void HashAggregation::addInput(RowVectorPtr input) {
+  traceInput(input);
   if (!pushdownChecked_) {
     mayPushdown_ = operatorCtx_->driver()->mayPushdownAggregation(this);
     pushdownChecked_ = true;

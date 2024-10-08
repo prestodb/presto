@@ -21,12 +21,13 @@
 #include "velox/exec/QueryMetadataReader.h"
 #include "velox/exec/QueryTraceTraits.h"
 #include "velox/exec/QueryTraceUtil.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
 
 using namespace facebook::velox;
 
 namespace facebook::velox::tool::trace {
-
 OperatorReplayerBase::OperatorReplayerBase(
     std::string rootDir,
     std::string taskId,
@@ -51,6 +52,36 @@ OperatorReplayerBase::OperatorReplayerBase(
   fs_ = filesystems::getFileSystem(rootDir_, nullptr);
   maxDrivers_ =
       exec::trace::getNumDrivers(rootDir_, taskId_, nodeId_, pipelineId_, fs_);
+}
+
+RowVectorPtr OperatorReplayerBase::run() const {
+  const auto restoredPlanNode = createPlan();
+  return exec::test::AssertQueryBuilder(restoredPlanNode)
+      .maxDrivers(maxDrivers_)
+      .configs(queryConfigs_)
+      .connectorSessionProperties(connectorConfigs_)
+      .copyResults(memory::MemoryManager::getInstance()->tracePool());
+}
+
+core::PlanNodePtr OperatorReplayerBase::createPlan() const {
+  const auto* replayNode = core::PlanNode::findFirstNode(
+      planFragment_.get(),
+      [this](const core::PlanNode* node) { return node->id() == nodeId_; });
+  const auto traceDir = fmt::format("{}/{}", rootDir_, taskId_);
+  return exec::test::PlanBuilder()
+      .traceScan(
+          fmt::format("{}/{}", traceDir, nodeId_),
+          exec::trace::getDataType(planFragment_, nodeId_))
+      .addNode(addReplayNode(replayNode))
+      .planNode();
+}
+
+std::function<core::PlanNodePtr(std::string, core::PlanNodePtr)>
+OperatorReplayerBase::addReplayNode(const core::PlanNode* node) const {
+  return [=](const core::PlanNodeId& nodeId,
+             const core::PlanNodePtr& source) -> core::PlanNodePtr {
+    return createPlanNode(node, nodeId, source);
+  };
 }
 
 void OperatorReplayerBase::printSummary(

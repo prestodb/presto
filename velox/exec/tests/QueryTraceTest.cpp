@@ -288,6 +288,7 @@ TEST_F(QueryTracerTest, task) {
     }
   } testSettings[]{{".*", 1}, {"test_cursor .*", 1}, {"xxx_yyy \\d+", 0}};
   for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
     const auto outputDir = TempDirectoryPath::create();
     const auto expectedQueryConfigs =
         std::unordered_map<std::string, std::string>{

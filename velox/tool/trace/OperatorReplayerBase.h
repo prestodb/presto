@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <gflags/gflags.h>
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/PlanNode.h"
 
@@ -37,17 +36,25 @@ class OperatorReplayerBase {
   OperatorReplayerBase& operator=(OperatorReplayerBase&& other) noexcept =
       delete;
 
+  RowVectorPtr run() const;
+
   static void printSummary(
       const std::string& rootDir,
       const std::string& taskId,
       bool shortSummary);
 
-  virtual RowVectorPtr run() const = 0;
-
   static std::string usage();
 
  protected:
-  virtual core::PlanNodePtr createPlan() const = 0;
+  virtual core::PlanNodePtr createPlan() const;
+
+  virtual std::function<core::PlanNodePtr(std::string, core::PlanNodePtr)>
+  addReplayNode(const core::PlanNode* node) const;
+
+  virtual core::PlanNodePtr createPlanNode(
+      const core::PlanNode* node,
+      const core::PlanNodeId& nodeId,
+      const core::PlanNodePtr& source) const = 0;
 
   const std::string rootDir_;
   const std::string taskId_;

@@ -15,9 +15,6 @@
  */
 
 #include "velox/tool/trace/TableWriterReplayer.h"
-
-#include <folly/executors/IOThreadPoolExecutor.h>
-#include "velox/common/memory/Memory.h"
 #include "velox/exec/QueryDataReader.h"
 #include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/TableWriter.h"
@@ -72,58 +69,22 @@ std::shared_ptr<core::InsertTableHandle> createInsertTableHanlde(
 
 } // namespace
 
-RowVectorPtr TableWriterReplayer::run() const {
-  const auto restoredPlanNode = createPlan();
-
-  return AssertQueryBuilder(restoredPlanNode)
-      .maxDrivers(maxDrivers_)
-      .configs(queryConfigs_)
-      .connectorSessionProperties(connectorConfigs_)
-      .copyResults(memory::MemoryManager::getInstance()->tracePool());
-}
-
-core::PlanNodePtr TableWriterReplayer::createPlan() const {
-  const auto* tableWriterNode = core::PlanNode::findFirstNode(
-      planFragment_.get(),
-      [this](const core::PlanNode* node) { return node->id() == nodeId_; });
-  const auto traceRoot = fmt::format("{}/{}", rootDir_, taskId_);
-  return PlanBuilder()
-      .traceScan(
-          fmt::format("{}/{}", traceRoot, nodeId_),
-          exec::trace::getDataType(planFragment_, nodeId_))
-      .addNode(addTableWriter(
-          dynamic_cast<const core::TableWriteNode*>(tableWriterNode),
-          replayOutputDir_))
-      .planNode();
-}
-
-core::PlanNodePtr TableWriterReplayer::createTableWrtierNode(
-    const core::TableWriteNode* node,
-    const std::string& targetDir,
+core::PlanNodePtr TableWriterReplayer::createPlanNode(
+    const core::PlanNode* node,
     const core::PlanNodeId& nodeId,
-    const core::PlanNodePtr& source) {
+    const core::PlanNodePtr& source) const {
+  const auto* tableWriterNode = dynamic_cast<const core::TableWriteNode*>(node);
   const auto insertTableHandle =
-      createInsertTableHanlde("test-hive", node, targetDir);
+      createInsertTableHanlde("test-hive", tableWriterNode, replayOutputDir_);
   return std::make_shared<core::TableWriteNode>(
       nodeId,
-      node->columns(),
-      node->columnNames(),
-      node->aggregationNode(),
+      tableWriterNode->columns(),
+      tableWriterNode->columnNames(),
+      tableWriterNode->aggregationNode(),
       insertTableHandle,
-      node->hasPartitioningScheme(),
-      TableWriteTraits::outputType(node->aggregationNode()),
-      node->commitStrategy(),
+      tableWriterNode->hasPartitioningScheme(),
+      TableWriteTraits::outputType(tableWriterNode->aggregationNode()),
+      tableWriterNode->commitStrategy(),
       source);
 }
-
-std::function<core::PlanNodePtr(std::string, core::PlanNodePtr)>
-TableWriterReplayer::addTableWriter(
-    const core::TableWriteNode* node,
-    const std::string& targetDir) {
-  return [=](const core::PlanNodeId& nodeId,
-             const core::PlanNodePtr& source) -> core::PlanNodePtr {
-    return createTableWrtierNode(node, targetDir, nodeId, source);
-  };
-}
-
 } // namespace facebook::velox::tool::trace

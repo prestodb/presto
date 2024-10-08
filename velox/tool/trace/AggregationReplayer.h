@@ -16,34 +16,30 @@
 
 #pragma once
 
-#include <utility>
-
 #include "velox/core/PlanNode.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
 
 namespace facebook::velox::tool::trace {
-/// The replayer to replay the traced 'TableWriter' operator.
-class TableWriterReplayer final : public OperatorReplayerBase {
+/// The replayer to replay the traced 'HashAggregation' operator.
+class AggregationReplayer : public OperatorReplayerBase {
  public:
-  TableWriterReplayer(
+  AggregationReplayer(
       const std::string& rootDir,
       const std::string& taskId,
       const std::string& nodeId,
       const int32_t pipelineId,
-      const std::string& operatorType,
-      const std::string& replayOutputDir)
-      : OperatorReplayerBase(rootDir, taskId, nodeId, pipelineId, operatorType),
-        replayOutputDir_(replayOutputDir) {
-    VELOX_CHECK(!replayOutputDir_.empty());
-  }
+      const std::string& operatorType)
+      : OperatorReplayerBase(
+            rootDir,
+            taskId,
+            nodeId,
+            pipelineId,
+            operatorType) {}
 
  private:
   core::PlanNodePtr createPlanNode(
       const core::PlanNode* node,
       const core::PlanNodeId& nodeId,
       const core::PlanNodePtr& source) const override;
-
-  const std::string replayOutputDir_;
 };
-
 } // namespace facebook::velox::tool::trace
