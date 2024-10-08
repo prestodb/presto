@@ -104,7 +104,7 @@ function install_boost {
   (
     cd ${DEPENDENCY_DIR}/boost
     ./bootstrap.sh --prefix=${INSTALL_PREFIX}
-    ${SUDO} ./b2 "-j$(nproc)" -d0 install threading=multi --without-python
+    ${SUDO} ./b2 "-j${NPROC}" -d0 install threading=multi --without-python
   )
 }
 
