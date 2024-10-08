@@ -90,22 +90,15 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
         infoColumns(_infoColumns),
         properties(_properties) {}
 
-  std::string toString() const override {
-    if (tableBucketNumber.has_value()) {
-      return fmt::format(
-          "Hive: {} {} - {} {}",
-          filePath,
-          start,
-          length,
-          tableBucketNumber.value());
-    }
-    return fmt::format("Hive: {} {} - {}", filePath, start, length);
-  }
+  std::string toString() const override;
 
-  std::string getFileName() const {
-    auto i = filePath.rfind('/');
-    return i == std::string::npos ? filePath : filePath.substr(i + 1);
-  }
+  std::string getFileName() const;
+
+  folly::dynamic serialize() const override;
+
+  static std::shared_ptr<HiveConnectorSplit> create(const folly::dynamic& obj);
+
+  static void registerSerDe();
 };
 
 } // namespace facebook::velox::connector::hive

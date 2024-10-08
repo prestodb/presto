@@ -48,7 +48,7 @@ class DataSource;
 
 /// A split represents a chunk of data that a connector should load and return
 /// as a RowVectorPtr, potentially after processing pushdowns.
-struct ConnectorSplit {
+struct ConnectorSplit : public ISerializable {
   const std::string connectorId;
   const int64_t splitWeight{0};
 
@@ -58,6 +58,11 @@ struct ConnectorSplit {
       const std::string& _connectorId,
       int64_t _splitWeight = 0)
       : connectorId(_connectorId), splitWeight(_splitWeight) {}
+
+  folly::dynamic serialize() const override {
+    VELOX_UNSUPPORTED();
+    return nullptr;
+  }
 
   virtual ~ConnectorSplit() {}
 
