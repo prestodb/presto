@@ -38,31 +38,35 @@ struct ValueSet {
 
 template <>
 struct ValueSet<ComplexType> {
-  using TKey = std::tuple<uint64_t, const BaseVector*, vector_size_t>;
+  struct Key {
+    const uint64_t hash;
+    const BaseVector* vector;
+    const vector_size_t index;
+  };
 
   struct Hash {
-    size_t operator()(const TKey& key) const {
-      return std::get<0>(key);
+    size_t operator()(const Key& key) const {
+      return key.hash;
     }
   };
 
   struct EqualTo {
-    bool operator()(const TKey& left, const TKey& right) const {
-      return std::get<1>(left)
+    bool operator()(const Key& left, const Key& right) const {
+      return left.vector
           ->equalValueAt(
-              std::get<1>(right),
-              std::get<2>(left),
-              std::get<2>(right),
+              right.vector,
+              left.index,
+              right.index,
               CompareFlags::NullHandlingMode::kNullAsValue)
           .value();
     }
   };
 
-  folly::F14FastSet<TKey, Hash, EqualTo> values;
+  folly::F14FastSet<Key, Hash, EqualTo> values;
 
   bool insert(const BaseVector* vector, vector_size_t index) {
     const uint64_t hash = vector->hashValueAt(index);
-    return values.insert(std::make_tuple(hash, vector, index)).second;
+    return values.insert({hash, vector, index}).second;
   }
 
   void reset() {
@@ -86,7 +90,7 @@ struct ValueSet<ComplexType> {
 /// which will be present in the output, and wrapped into a DictionaryVector.
 /// Next the `lengths` and `offsets` vectors that control where output arrays
 /// start and end are wrapped into the output ArrayVector.template <typename T>
-template <typename T>
+template <typename T, bool useCustomComparison = false>
 class ArrayDistinctFunction : public exec::VectorFunction {
  public:
   void apply(
@@ -117,6 +121,12 @@ class ArrayDistinctFunction : public exec::VectorFunction {
   }
 
  private:
+  // We want to use ValueSet<ComplexType> when we need custom comparison because
+  // it uses the Vector's implementation of compare and hash which it gets from
+  // the type.
+  using ValueSetT = std::
+      conditional_t<useCustomComparison, ValueSet<ComplexType>, ValueSet<T>>;
+
   VectorPtr applyFlat(
       const SelectivityVector& rows,
       const VectorPtr& arg,
@@ -143,7 +153,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
     auto* rawNewOffsets = newOffsets->asMutable<vector_size_t>();
 
     // Process the rows: store unique values in the hash table.
-    ValueSet<T> uniqueSet;
+    ValueSetT uniqueSet;
 
     rows.applyToSelected([&](vector_size_t row) {
       auto size = arrayVector->sizeAt(row);
@@ -159,7 +169,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
           }
         } else {
           bool unique;
-          if constexpr (std::is_same_v<ComplexType, T>) {
+          if constexpr (std::is_same_v<ValueSetT, ValueSet<ComplexType>>) {
             unique = uniqueSet.insert(elements->base(), elements->index(i));
           } else {
             auto value = elements->valueAt<T>(i);
@@ -193,7 +203,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
 };
 
 template <>
-VectorPtr ArrayDistinctFunction<UnknownType>::applyFlat(
+VectorPtr ArrayDistinctFunction<UnknownType, false>::applyFlat(
     const SelectivityVector& rows,
     const VectorPtr& arg,
     exec::EvalCtx& context) const {
@@ -259,11 +269,17 @@ void validateType(const std::vector<exec::VectorFunctionArg>& inputArgs) {
 // Create function template based on type.
 template <TypeKind kind>
 std::shared_ptr<exec::VectorFunction> createTyped(
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const TypePtr& elementType) {
   VELOX_CHECK_EQ(inputArgs.size(), 1);
 
   using T = typename TypeTraits<kind>::NativeType;
-  return std::make_shared<ArrayDistinctFunction<T>>();
+
+  if (elementType->providesCustomComparison()) {
+    return std::make_shared<ArrayDistinctFunction<T, true>>();
+  } else {
+    return std::make_shared<ArrayDistinctFunction<T, false>>();
+  }
 }
 
 // Create function.
@@ -282,7 +298,7 @@ std::shared_ptr<exec::VectorFunction> create(
   }
 
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      createTyped, elementType->kind(), inputArgs);
+      createTyped, elementType->kind(), inputArgs, elementType);
 }
 
 // Define function signature.
