@@ -80,5 +80,29 @@ TEST_F(MultimapFromEntriesTest, nullKey) {
       "map key cannot be null");
 }
 
+TEST_F(MultimapFromEntriesTest, nullEntryFailure) {
+  RowVectorPtr rowVector = makeRowVector(
+      {makeFlatVector(std::vector<int64_t>{1, 2, 3}),
+       makeFlatVector(std::vector<int64_t>{4, 5, 6})});
+  rowVector->setNull(0, true);
+
+  ArrayVectorPtr input = makeArrayVector({0}, rowVector);
+
+  VELOX_ASSERT_THROW(
+      evaluate("multimap_from_entries(c0)", makeRowVector({input})),
+      "map entry cannot be null");
+
+  // Test that having a null entry in the base vector used to create the array
+  // vector does not cause a failure.
+  input = makeArrayVector({1}, rowVector);
+
+  auto expectedKeys = makeFlatVector<int64_t>({2, 3});
+  auto expectedValues = makeArrayVector<int64_t>({{5}, {6}});
+
+  auto expectedMap = makeMapVector({0}, expectedKeys, expectedValues);
+  auto result = evaluate("multimap_from_entries(c0)", makeRowVector({input}));
+  assertEqualVectors(expectedMap, result);
+}
+
 } // namespace
 } // namespace facebook::velox::functions
