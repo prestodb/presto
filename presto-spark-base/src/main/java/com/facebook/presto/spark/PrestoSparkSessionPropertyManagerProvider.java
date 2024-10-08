@@ -20,6 +20,7 @@ import com.google.common.collect.Streams;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +31,8 @@ public class PrestoSparkSessionPropertyManagerProvider
     private final PrestoSparkSessionProperties prestoSparkSessionProperties;
 
     @Inject
-    public PrestoSparkSessionPropertyManagerProvider(SystemSessionProperties systemSessionProperties, PrestoSparkSessionProperties prestoSparkSessionProperties)
+    public PrestoSparkSessionPropertyManagerProvider(SystemSessionProperties systemSessionProperties,
+            PrestoSparkSessionProperties prestoSparkSessionProperties)
     {
         this.systemSessionProperties = requireNonNull(systemSessionProperties, "systemSessionProperties is null");
         this.prestoSparkSessionProperties = requireNonNull(prestoSparkSessionProperties, "prestoSparkSessionProperties is null");
@@ -39,9 +41,9 @@ public class PrestoSparkSessionPropertyManagerProvider
     @Override
     public SessionPropertyManager get()
     {
-        return new SessionPropertyManager(Streams.concat(
-                systemSessionProperties.getSessionProperties().stream(),
-                prestoSparkSessionProperties.getSessionProperties().stream())
+        return createTestingSessionPropertyManager(Streams.concat(
+                        systemSessionProperties.getSessionProperties().stream(),
+                        prestoSparkSessionProperties.getSessionProperties().stream())
                 .collect(toImmutableList()));
     }
 }
