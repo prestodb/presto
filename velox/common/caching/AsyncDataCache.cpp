@@ -130,8 +130,8 @@ void AsyncDataCacheEntry::initialize(FileCacheKey key) {
       // No memory to cover 'this'.
       release();
       VELOX_CACHE_ERROR(fmt::format(
-          "Failed to allocate {} bytes for cache: {}",
-          size_,
+          "Failed to allocate {} pages for cache: {}",
+          sizePages,
           cache->allocator()->getAndClearFailureMessage()));
     }
   }
