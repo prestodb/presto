@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/functions/Macros.h"
+#include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 #include <fmt/format.h>
 #include <cstdint>
@@ -720,6 +723,149 @@ TEST_F(ArraySortTest, failOnRowNullCompare) {
     assertEqualVectors(
         expected, evaluate("try(array_sort(c0))", nullCompareBatch2));
   }
+}
+
+TEST_F(ArraySortTest, timestampWithTimezone) {
+  auto testArraySort =
+      [this](
+          const std::vector<std::optional<int64_t>>& inputArray,
+          const std::vector<std::optional<int64_t>>& expectedAscArray,
+          const std::vector<std::optional<int64_t>>& expectedDescArray) {
+        const auto input = makeRowVector({makeArrayVector(
+            {0},
+            makeNullableFlatVector<int64_t>(
+                inputArray, TIMESTAMP_WITH_TIME_ZONE()))});
+        const auto expectedAsc = makeArrayVector(
+            {0},
+            makeNullableFlatVector<int64_t>(
+                expectedAscArray, TIMESTAMP_WITH_TIME_ZONE()));
+        const auto expectedDesc = makeArrayVector(
+            {0},
+            makeNullableFlatVector<int64_t>(
+                expectedDescArray, TIMESTAMP_WITH_TIME_ZONE()));
+
+        auto resultAsc = evaluate("array_sort(c0)", input);
+        assertEqualVectors(expectedAsc, resultAsc);
+
+        auto resultDesc = evaluate("array_sort_desc(c0)", input);
+        assertEqualVectors(expectedDesc, resultDesc);
+      };
+
+  testArraySort(
+      {pack(2, 0), pack(1, 1), pack(0, 2)},
+      {pack(0, 2), pack(1, 1), pack(2, 0)},
+      {pack(2, 0), pack(1, 1), pack(0, 2)});
+  testArraySort(
+      {pack(0, 0), pack(1, 1), pack(2, 2)},
+      {pack(0, 0), pack(1, 1), pack(2, 2)},
+      {pack(2, 2), pack(1, 1), pack(0, 0)});
+  testArraySort(
+      {pack(0, 0), pack(0, 1), pack(0, 2)},
+      {pack(0, 0), pack(0, 1), pack(0, 2)},
+      {pack(0, 0), pack(0, 1), pack(0, 2)});
+  testArraySort(
+      {pack(1, 0), pack(0, 1), pack(2, 2)},
+      {pack(0, 1), pack(1, 0), pack(2, 2)},
+      {pack(2, 2), pack(1, 0), pack(0, 1)});
+  testArraySort(
+      {std::nullopt, pack(1, 0), pack(0, 1), pack(2, 2)},
+      {pack(0, 1), pack(1, 0), pack(2, 2), std::nullopt},
+      {pack(2, 2), pack(1, 0), pack(0, 1), std::nullopt});
+  testArraySort(
+      {std::nullopt, std::nullopt, pack(1, 2), pack(0, 1), pack(2, 0)},
+      {pack(0, 1), pack(1, 2), pack(2, 0), std::nullopt, std::nullopt},
+      {pack(2, 0), pack(1, 2), pack(0, 1), std::nullopt, std::nullopt});
+  testArraySort(
+      {std::nullopt, pack(1, 1), pack(0, 2), std::nullopt, pack(2, 0)},
+      {pack(0, 2), pack(1, 1), pack(2, 0), std::nullopt, std::nullopt},
+      {pack(2, 0), pack(1, 1), pack(0, 2), std::nullopt, std::nullopt});
+  testArraySort(
+      {pack(1, 1), std::nullopt, pack(0, 0), pack(2, 2), std::nullopt},
+      {pack(0, 0), pack(1, 1), pack(2, 2), std::nullopt, std::nullopt},
+      {pack(2, 2), pack(1, 1), pack(0, 0), std::nullopt, std::nullopt});
+  testArraySort(
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+}
+
+template <typename T>
+struct TimeZoneFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& ts) {
+    result = unpackZoneKeyId(*ts);
+  }
+};
+
+TEST_F(ArraySortTest, timestampWithTimezoneWithLambda) {
+  registerFunction<TimeZoneFunction, int64_t, TimestampWithTimezone>(
+      {"timezone"});
+
+  auto testArraySort =
+      [this](
+          const std::vector<std::optional<int64_t>>& inputArray,
+          const std::vector<std::optional<int64_t>>& expectedAscArray,
+          const std::vector<std::optional<int64_t>>& expectedDescArray) {
+        const auto input = makeRowVector({makeArrayVector(
+            {0},
+            makeNullableFlatVector<int64_t>(
+                inputArray, TIMESTAMP_WITH_TIME_ZONE()))});
+        const auto expectedAsc = makeArrayVector(
+            {0},
+            makeNullableFlatVector<int64_t>(
+                expectedAscArray, TIMESTAMP_WITH_TIME_ZONE()));
+        const auto expectedDesc = makeArrayVector(
+            {0},
+            makeNullableFlatVector<int64_t>(
+                expectedDescArray, TIMESTAMP_WITH_TIME_ZONE()));
+
+        auto resultAsc = evaluate("array_sort(c0, x -> timezone(x))", input);
+        assertEqualVectors(expectedAsc, resultAsc);
+
+        auto resultDesc =
+            evaluate("array_sort_desc(c0, x -> timezone(x))", input);
+        assertEqualVectors(expectedDesc, resultDesc);
+      };
+
+  testArraySort(
+      {pack(2, 0), pack(1, 1), pack(0, 2)},
+      {pack(2, 0), pack(1, 1), pack(0, 2)},
+      {pack(0, 2), pack(1, 1), pack(2, 0)});
+  testArraySort(
+      {pack(0, 0), pack(1, 1), pack(2, 2)},
+      {pack(0, 0), pack(1, 1), pack(2, 2)},
+      {pack(2, 2), pack(1, 1), pack(0, 0)});
+  testArraySort(
+      {pack(0, 0), pack(0, 1), pack(0, 2)},
+      {pack(0, 0), pack(0, 1), pack(0, 2)},
+      {pack(0, 2), pack(0, 1), pack(0, 0)});
+  testArraySort(
+      {pack(1, 0), pack(0, 1), pack(2, 2)},
+      {pack(1, 0), pack(0, 1), pack(2, 2)},
+      {pack(2, 2), pack(0, 1), pack(1, 0)});
+  testArraySort(
+      {std::nullopt, pack(1, 0), pack(0, 1), pack(2, 2)},
+      {pack(1, 0), pack(0, 1), pack(2, 2), std::nullopt},
+      {pack(2, 2), pack(0, 1), pack(1, 0), std::nullopt});
+  testArraySort(
+      {std::nullopt, std::nullopt, pack(1, 2), pack(0, 1), pack(2, 0)},
+      {pack(2, 0), pack(0, 1), pack(1, 2), std::nullopt, std::nullopt},
+      {pack(1, 2), pack(0, 1), pack(2, 0), std::nullopt, std::nullopt});
+  testArraySort(
+      {std::nullopt, pack(1, 1), pack(0, 2), std::nullopt, pack(2, 0)},
+      {pack(2, 0), pack(1, 1), pack(0, 2), std::nullopt, std::nullopt},
+      {pack(0, 2), pack(1, 1), pack(2, 0), std::nullopt, std::nullopt});
+  testArraySort(
+      {pack(1, 1), std::nullopt, pack(0, 0), pack(2, 2), std::nullopt},
+      {pack(0, 0), pack(1, 1), pack(2, 2), std::nullopt, std::nullopt},
+      {pack(2, 2), pack(1, 1), pack(0, 0), std::nullopt, std::nullopt});
+  testArraySort(
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
 TEST_F(ArraySortTest, floatingPointExtremes) {
