@@ -212,40 +212,36 @@ public class TestClientRequestFilterPlugin
     private List<ClientRequestFilter> getClientRequestFilters()
     {
         List<ClientRequestFilter> requestFilters = new ArrayList<>();
-        ClientRequestFilter customModifier = new ClientRequestFilter()
+
+        class CustomHeaderFilter
+                implements ClientRequestFilter
         {
+            private final String headerName;
+            private final String headerValue;
+
+            public CustomHeaderFilter(String headerName, String headerValue)
+            {
+                this.headerName = headerName;
+                this.headerValue = headerValue;
+            }
+
             @Override
             public List<String> getHeaderNames()
             {
-                return Collections.singletonList("X-Custom-Header");
+                return Collections.singletonList(headerName);
             }
+
             @Override
             public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
             {
                 Map<String, String> headers = new HashMap<>();
-                headers.put("X-Custom-Header", "CustomValue_1");
+                headers.put(headerName, headerValue);
                 return Optional.of(headers);
             }
-        };
+        }
+        requestFilters.add(new CustomHeaderFilter("X-Custom-Header", "CustomValue_1"));
+        requestFilters.add(new CustomHeaderFilter("X-Custom-Header", "CustomValue_2"));
 
-        ClientRequestFilter customModifierConflict = new ClientRequestFilter()
-        {
-            @Override
-            public List<String> getHeaderNames()
-            {
-                return Collections.singletonList("X-Custom-Header");
-            }
-            @Override
-            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
-            {
-                Map<String, String> headers = new HashMap<>();
-                headers.put("X-Custom-Header", "CustomValue_2");
-                return Optional.of(headers);
-            }
-        };
-
-        requestFilters.add(customModifier);
-        requestFilters.add(customModifierConflict);
         return requestFilters;
     }
 
