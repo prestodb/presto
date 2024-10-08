@@ -13,29 +13,41 @@
  */
 package com.facebook.presto.nativeworker;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
+import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UnknownType;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.stream.Collectors;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ContainerQueryRunnerUtils
 {
@@ -224,92 +236,165 @@ public class ContainerQueryRunnerUtils
         file.setExecutable(true);
     }
 
-    public static MaterializedResult toMaterializedResult(String csvData)
-            throws IOException
+    public static MaterializedResult toMaterializedResult(ResultSet resultSet)
+            throws SQLException
     {
-        List<List<String>> allRows = parseCsvData(csvData);
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
 
-        // Infer column types based on the maximum columns found
-        int maxColumns = allRows.stream().mapToInt(row -> row.size()).max().orElse(0);
-        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
-        for (int i = 0; i < maxColumns; i++) {
-            final int columnIndex = i;
-            columnTypesBuilder.add(inferType(allRows.stream()
-                    .map(row -> columnIndex < row.size() ? row.get(columnIndex) : "")
-                    .collect(Collectors.toList())));
-        }
-        List<Type> columnTypes = columnTypesBuilder.build();
+        // List to hold the column types
+        List<Type> types = new ArrayList<>();
 
-        // Convert all rows to MaterializedRow
-        ImmutableList.Builder<MaterializedRow> rowsBuilder = ImmutableList.builder();
-        for (List<String> columns : allRows) {
-            ImmutableList.Builder<Object> valuesBuilder = ImmutableList.builder();
-            for (int i = 0; i < columnTypes.size(); i++) {
-                valuesBuilder.add(i < columns.size() ? convertToType(columns.get(i), columnTypes.get(i)) : null);
+        // Map SQL types to Presto types
+        for (int i = 1; i <= columnCount; i++) {
+            int sqlType = metaData.getColumnType(i);
+            String typeName = metaData.getColumnTypeName(i);
+
+            if (sqlType == java.sql.Types.ARRAY) {
+                // Get the base type of the array elements
+                String arrayElementTypeName = metaData.getColumnTypeName(i);
+                Type elementType = mapSqlTypeNameToType(arrayElementTypeName);
+                types.add(new ArrayType(elementType));
             }
-            rowsBuilder.add(new MaterializedRow(5, valuesBuilder.build()));
+            else if (sqlType == java.sql.Types.STRUCT) {
+                // Handle STRUCT types if necessary
+                types.add(UnknownType.UNKNOWN);
+            }
+            else {
+                types.add(mapSqlTypeToType(sqlType, typeName));
+            }
         }
-        List<MaterializedRow> rows = rowsBuilder.build();
 
-        // Create and return the MaterializedResult
-        return new MaterializedResult(rows, columnTypes);
+        // List to store the rows
+        List<MaterializedRow> rows = new ArrayList<>();
+
+        // Iterate over the ResultSet and convert each row to a MaterializedRow
+        while (resultSet.next()) {
+            List<Object> rowData = new ArrayList<>();
+
+            for (int i = 1; i <= columnCount; i++) {
+                Object value;
+                int sqlType = metaData.getColumnType(i);
+
+                if (sqlType == java.sql.Types.ARRAY) {
+                    java.sql.Array array = resultSet.getArray(i);
+                    if (array != null) {
+                        Object[] javaArray = (Object[]) array.getArray();
+                        // Recursively convert array elements if necessary
+                        value = Arrays.asList(javaArray);
+                    }
+                    else {
+                        value = null;
+                    }
+                }
+                else if (sqlType == java.sql.Types.STRUCT) {
+                    // Handle STRUCT types if necessary
+                    value = resultSet.getObject(i);
+                }
+                else {
+                    value = resultSet.getObject(i);
+                }
+                rowData.add(value);
+            }
+
+            // Use the default precision from MaterializedResult
+            rows.add(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, rowData));
+        }
+
+        // Return the MaterializedResult
+        return new MaterializedResult(rows, types);
     }
 
-    private static List<List<String>> parseCsvData(String csvData)
-            throws IOException
+    private static Type mapSqlTypeToType(int sqlType, String typeName)
     {
-        CSVReader reader = new CSVReader(new StringReader(csvData));
-        return reader.readAll().stream().map(ImmutableList::copyOf).collect(toImmutableList());
+        switch (sqlType) {
+            case java.sql.Types.INTEGER:
+                return IntegerType.INTEGER;
+            case java.sql.Types.BIGINT:
+                return BigintType.BIGINT;
+            case java.sql.Types.SMALLINT:
+                return SmallintType.SMALLINT;
+            case java.sql.Types.TINYINT:
+                return TinyintType.TINYINT;
+            case java.sql.Types.DOUBLE:
+                return DoubleType.DOUBLE;
+            case java.sql.Types.FLOAT:
+            case java.sql.Types.REAL:
+                return RealType.REAL;
+            case java.sql.Types.DECIMAL:
+            case java.sql.Types.NUMERIC:
+                return DecimalType.createDecimalType();
+            case java.sql.Types.VARCHAR:
+            case java.sql.Types.LONGVARCHAR:
+            case java.sql.Types.CHAR:
+                return VarcharType.createVarcharType(1);
+            case java.sql.Types.BOOLEAN:
+            case java.sql.Types.BIT:
+                return BooleanType.BOOLEAN;
+            case java.sql.Types.DATE:
+                return DateType.DATE;
+            case java.sql.Types.TIME:
+                return TimeType.TIME;
+            case java.sql.Types.TIMESTAMP:
+                return TimestampType.TIMESTAMP;
+            case java.sql.Types.TIMESTAMP_WITH_TIMEZONE:
+                return TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+            case java.sql.Types.BINARY:
+            case java.sql.Types.VARBINARY:
+            case java.sql.Types.LONGVARBINARY:
+                return VarbinaryType.VARBINARY;
+            case java.sql.Types.OTHER:
+                // Attempt to map based on type name
+                return mapSqlTypeNameToType(typeName);
+            default:
+                throw new UnsupportedOperationException("Unknown SQL type: " + sqlType + ", TypeName: " + typeName);
+        }
     }
 
-    private static Type inferType(List<String> values)
+    private static Type mapSqlTypeNameToType(String typeName)
     {
-        boolean isBigint = true;
-        boolean isDouble = true;
-        boolean isBoolean = true;
-
-        for (String value : values) {
-            if (!value.matches("^-?\\d+$")) {
-                isBigint = false;
-            }
-            if (!value.matches("^-?\\d+\\.\\d+$")) {
-                isDouble = false;
-            }
-            if (!value.equalsIgnoreCase("true") && !value.equalsIgnoreCase("false")) {
-                isBoolean = false;
-            }
-        }
-
-        if (isBigint) {
-            return BigintType.BIGINT;
-        }
-        else if (isDouble) {
-            return DoubleType.DOUBLE;
-        }
-        else if (isBoolean) {
-            return BooleanType.BOOLEAN;
-        }
-        else {
-            return VarcharType.VARCHAR;
-        }
-    }
-
-    private static Object convertToType(String value, Type type)
-    {
-        if (type.equals(VarcharType.VARCHAR)) {
-            return value;
-        }
-        else if (type.equals(BigintType.BIGINT)) {
-            return Long.parseLong(value);
-        }
-        else if (type.equals(DoubleType.DOUBLE)) {
-            return Double.parseDouble(value);
-        }
-        else if (type.equals(BooleanType.BOOLEAN)) {
-            return Boolean.parseBoolean(value);
-        }
-        else {
-            throw new UnsupportedOperationException("Unsupported type: " + type);
+        switch (typeName.toUpperCase()) {
+            case "INT":
+            case "INTEGER":
+            case "INT4":
+                return IntegerType.INTEGER;
+            case "BIGINT":
+            case "INT8":
+                return BigintType.BIGINT;
+            case "SMALLINT":
+                return SmallintType.SMALLINT;
+            case "TINYINT":
+                return TinyintType.TINYINT;
+            case "FLOAT":
+            case "REAL":
+                return RealType.REAL;
+            case "DOUBLE":
+            case "FLOAT8":
+                return DoubleType.DOUBLE;
+            case "DECIMAL":
+            case "NUMERIC":
+                return DecimalType.createDecimalType();
+            case "VARCHAR":
+            case "TEXT":
+            case "STRING":
+                return VarcharType.createUnboundedVarcharType();
+            case "CHAR":
+                return CharType.createCharType(1);
+            case "BOOLEAN":
+                return BooleanType.BOOLEAN;
+            case "DATE":
+                return DateType.DATE;
+            case "TIME":
+                return TimeType.TIME;
+            case "TIMESTAMP":
+                return TimestampType.TIMESTAMP;
+            case "TIMESTAMP WITH TIME ZONE":
+                return TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+            case "VARBINARY":
+            case "BINARY":
+                return VarbinaryType.VARBINARY;
+            default:
+                throw new UnsupportedOperationException("Unsupported type: " + typeName.toUpperCase());
         }
     }
 }
