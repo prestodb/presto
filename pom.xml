@@ -199,6 +199,7 @@
         <module>presto-singlestore</module>
         <module>presto-hana</module>
         <module>presto-openapi</module>
+        <module>presto-native-sidecar-plugin</module>
     </modules>
 
     <dependencyManagement>
