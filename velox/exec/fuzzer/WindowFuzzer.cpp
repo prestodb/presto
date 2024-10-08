@@ -17,9 +17,9 @@
 #include "velox/exec/fuzzer/WindowFuzzer.h"
 
 #include <boost/random/uniform_int_distribution.hpp>
-#include "velox/common/base/Portability.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/expression/ScopedVarSetter.h"
 
 DEFINE_bool(
     enable_window_reference_verification,
@@ -44,6 +44,12 @@ bool supportIgnoreNulls(const std::string& name) {
   return supportedFunctions.count(name) > 0;
 }
 
+bool isKBoundFrame(const core::WindowNode::BoundType& boundType) {
+  return (
+      boundType == core::WindowNode::BoundType::kPreceding ||
+      boundType == core::WindowNode::BoundType::kFollowing);
+}
+
 } // namespace
 
 void WindowFuzzer::addWindowFunctionSignatures(
@@ -60,27 +66,23 @@ void WindowFuzzer::addWindowFunctionSignatures(
   }
 }
 
-std::string WindowFuzzer::generateFrameClause(
+std::string WindowFuzzer::generateKRowsFrameBound(
     std::vector<std::string>& argNames,
     std::vector<TypePtr>& argTypes,
-    bool& isRowsFrame) {
-  auto frameType = [](int value) -> const std::string {
-    switch (value) {
-      case 0:
-        return "RANGE";
-      case 1:
-        return "ROWS";
-      default:
-        VELOX_UNREACHABLE("Unknown value for frame type generation");
-    }
-  };
-  isRowsFrame = boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
-  auto frameTypeString = frameType(isRowsFrame);
+    const std::string& colName) {
+  // Generating column bounded frames 50% of the time and constant bounded the
+  // rest of the times. The column bounded frames are of type INTEGER and only
+  // have positive values as Window functions reject negative values for them.
+  if (vectorFuzzer_.coinToss(0.5)) {
+    argTypes.push_back(INTEGER());
+    argNames.push_back(colName);
+    return colName;
+  }
 
   constexpr int64_t kMax = std::numeric_limits<int64_t>::max();
   constexpr int64_t kMin = std::numeric_limits<int64_t>::min();
-  // For frames with kPreceding, kFollowing bounds, pick a valid k, in the range
-  // of 1 to 10, 70% of times. Test for random k values remaining times.
+  // For frames with kPreceding, kFollowing bounds, pick a valid k, in the
+  // range of 1 to 10, 70% of times. Test for random k values remaining times.
   int64_t minKValue, maxKValue;
   if (vectorFuzzer_.coinToss(0.7)) {
     minKValue = 1;
@@ -89,78 +91,135 @@ std::string WindowFuzzer::generateFrameClause(
     minKValue = kMin;
     maxKValue = kMax;
   }
+  const auto kValue = boost::random::uniform_int_distribution<int64_t>(
+      minKValue, maxKValue)(rng_);
+  return std::to_string(kValue);
+}
 
-  // Generating column bounded frames 50% of the time and constant
-  // bounded the rest of the times. The column bounded frames are of
-  // type INTEGER and only have positive values as Window functions
-  // reject negative values for them.
-  auto frameBound = [this, minKValue, maxKValue, &argNames, &argTypes](
-                        core::WindowNode::BoundType boundType,
-                        const std::string& colName) -> const std::string {
-    auto kValue = boost::random::uniform_int_distribution<int64_t>(
-        minKValue, maxKValue)(rng_);
-    switch (boundType) {
-      case core::WindowNode::BoundType::kUnboundedPreceding:
-        return "UNBOUNDED PRECEDING";
-      case core::WindowNode::BoundType::kPreceding:
-        if (vectorFuzzer_.coinToss(0.5)) {
-          argTypes.push_back(INTEGER());
-          argNames.push_back(colName);
-          return fmt::format("{} PRECEDING", colName);
-        }
-        return fmt::format("{} PRECEDING", kValue);
-      case core::WindowNode::BoundType::kCurrentRow:
-        return "CURRENT ROW";
-      case core::WindowNode::BoundType::kFollowing:
-        if (vectorFuzzer_.coinToss(0.5)) {
-          argTypes.push_back(INTEGER());
-          argNames.push_back(colName);
-          return fmt::format("{} FOLLOWING", colName);
-        }
-        return fmt::format("{} FOLLOWING", kValue);
-      case core::WindowNode::BoundType::kUnboundedFollowing:
-        return "UNBOUNDED FOLLOWING";
-      default:
-        VELOX_UNREACHABLE("Unknown option for frame clause generation");
-    }
-  };
-
-  // Generating k PRECEDING and k FOLLOWING frames only for ROWS type.
-  // k RANGE frames require more work as we have to generate columns with the
-  // frame bound values.
-  std::vector<core::WindowNode::BoundType> startBoundOptions, endBoundOptions;
-  if (isRowsFrame) {
-    startBoundOptions = {
-        core::WindowNode::BoundType::kUnboundedPreceding,
-        core::WindowNode::BoundType::kPreceding,
-        core::WindowNode::BoundType::kCurrentRow,
-        core::WindowNode::BoundType::kFollowing};
-    endBoundOptions = {
-        core::WindowNode::BoundType::kPreceding,
-        core::WindowNode::BoundType::kCurrentRow,
-        core::WindowNode::BoundType::kFollowing,
-        core::WindowNode::BoundType::kUnboundedFollowing};
-  } else {
-    startBoundOptions = {
-        core::WindowNode::BoundType::kUnboundedPreceding,
-        core::WindowNode::BoundType::kCurrentRow};
-    endBoundOptions = {
-        core::WindowNode::BoundType::kCurrentRow,
-        core::WindowNode::BoundType::kUnboundedFollowing};
-  }
+WindowFuzzer::FrameMetadata WindowFuzzer::generateFrameClause(
+    std::vector<std::string>& argNames,
+    std::vector<TypePtr>& argTypes,
+    const std::vector<std::string>& kBoundColumnNames) {
+  FrameMetadata frameMetadata;
+  // Randomly select if ROWS or RANGE frame
+  frameMetadata.windowType = vectorFuzzer_.coinToss(0.5)
+      ? core::WindowNode::WindowType::kRows
+      : core::WindowNode::WindowType::kRange;
+  const std::vector<core::WindowNode::BoundType> commonBoundTypes = {
+      core::WindowNode::BoundType::kPreceding,
+      core::WindowNode::BoundType::kCurrentRow,
+      core::WindowNode::BoundType::kFollowing};
+  std::vector<core::WindowNode::BoundType> startBoundOptions = {
+      core::WindowNode::BoundType::kUnboundedPreceding};
+  startBoundOptions.insert(
+      startBoundOptions.end(),
+      commonBoundTypes.begin(),
+      commonBoundTypes.end());
+  auto endBoundOptions = commonBoundTypes;
+  endBoundOptions.emplace_back(
+      core::WindowNode::BoundType::kUnboundedFollowing);
 
   // End bound option should not be greater than start bound option as this
   // would result in an invalid frame.
   auto startBoundIndex = boost::random::uniform_int_distribution<uint32_t>(
       0, startBoundOptions.size() - 1)(rng_);
+  frameMetadata.startBoundType = startBoundOptions[startBoundIndex];
   auto endBoundMinIdx = std::max(0, static_cast<int>(startBoundIndex) - 1);
   auto endBoundIndex = boost::random::uniform_int_distribution<uint32_t>(
       endBoundMinIdx, endBoundOptions.size() - 1)(rng_);
-  auto frameStartBound = frameBound(startBoundOptions[startBoundIndex], "k0");
-  auto frameEndBound = frameBound(endBoundOptions[endBoundIndex], "k1");
+  frameMetadata.endBoundType = endBoundOptions[endBoundIndex];
 
-  return frameTypeString + " BETWEEN " + frameStartBound + " AND " +
-      frameEndBound;
+  // Generate the frame bounds for kRows frames. The frame bounds for kRange
+  // frames can be generated only after we get the sorting keys, as the frame
+  // bound value depends on the ORDER-BY column value.
+  if (frameMetadata.windowType == core::WindowNode::WindowType::kRows) {
+    if (isKBoundFrame(frameMetadata.startBoundType)) {
+      frameMetadata.startBoundString =
+          generateKRowsFrameBound(argNames, argTypes, kBoundColumnNames[0]);
+    }
+    if (isKBoundFrame(frameMetadata.endBoundType)) {
+      frameMetadata.endBoundString =
+          generateKRowsFrameBound(argNames, argTypes, kBoundColumnNames[1]);
+    }
+  }
+
+  return frameMetadata;
+}
+
+std::string WindowFuzzer::frameClauseString(
+    const FrameMetadata& frameMetadata,
+    const std::vector<std::string>& kRangeOffsetColumns) {
+  auto frameType = [&](const core::WindowNode::BoundType boundType,
+                       bool isStartBound) -> std::string {
+    const auto boundTypeString = core::WindowNode::boundTypeName(boundType);
+    switch (boundType) {
+      case core::WindowNode::BoundType::kUnboundedPreceding:
+      case core::WindowNode::BoundType::kCurrentRow:
+      case core::WindowNode::BoundType::kUnboundedFollowing:
+        return boundTypeString;
+      case core::WindowNode::BoundType::kPreceding:
+      case core::WindowNode::BoundType::kFollowing: {
+        std::string frameBound;
+        if (kRangeOffsetColumns.empty()) {
+          frameBound = isStartBound ? frameMetadata.startBoundString
+                                    : frameMetadata.endBoundString;
+        } else {
+          frameBound =
+              isStartBound ? kRangeOffsetColumns[0] : kRangeOffsetColumns[1];
+        }
+        return fmt::format("{} {}", frameBound, boundTypeString);
+      }
+      default:
+        VELOX_UNREACHABLE("Unknown option for frame clause generation");
+        return "";
+    }
+  };
+
+  return fmt::format(
+      " {} BETWEEN {} AND {}",
+      core::WindowNode::windowTypeName(frameMetadata.windowType),
+      frameType(frameMetadata.startBoundType, true),
+      frameType(frameMetadata.endBoundType, false));
+}
+
+template <typename T>
+const T WindowFuzzer::genOffsetAtIdx(
+    const T& orderByValue,
+    const T& frameBound,
+    const core::WindowNode::BoundType& frameBoundType,
+    const core::SortOrder& sortOrder) {
+  constexpr bool isIntegerType =
+      (std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t> ||
+       std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t> ||
+       std::is_same_v<T, int128_t>);
+  auto isPreceding = [&](core::WindowNode::BoundType boundType) {
+    return boundType == core::WindowNode::BoundType::kPreceding;
+  };
+
+  if ((isPreceding(frameBoundType) && sortOrder.isAscending()) ||
+      (!isPreceding(frameBoundType) && !sortOrder.isAscending())) {
+    if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>) {
+      return orderByValue - frameBound;
+    } else if constexpr (isIntegerType) {
+      return checkedMinus<T>(orderByValue, frameBound);
+    }
+  }
+
+  if ((!isPreceding(frameBoundType) && sortOrder.isAscending()) ||
+      (isPreceding(frameBoundType) && !sortOrder.isAscending())) {
+    if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>) {
+      return orderByValue + frameBound;
+    } else if constexpr (isIntegerType) {
+      return checkedPlus<T>(orderByValue, frameBound);
+    }
+  }
+
+  VELOX_UNREACHABLE(
+      "Offset cannot be generated: orderBy key type: {}, sortOrder ascending {}, frameBoundType {}",
+      CppToType<T>::name,
+      sortOrder.toString(),
+      core::WindowNode::boundTypeName(frameBoundType));
+  return T{};
 }
 
 std::string WindowFuzzer::generateOrderByClause(
@@ -187,15 +246,16 @@ std::string WindowFuzzer::getFrame(
   if (!sortingKeysAndOrders.empty()) {
     frame << generateOrderByClause(sortingKeysAndOrders);
   }
-  frame << " " << frameClause;
+  frame << frameClause;
   return frame.str();
 }
 
 std::vector<SortingKeyAndOrder> WindowFuzzer::generateSortingKeysAndOrders(
     const std::string& prefix,
     std::vector<std::string>& names,
-    std::vector<TypePtr>& types) {
-  auto keys = generateSortingKeys(prefix, names, types);
+    std::vector<TypePtr>& types,
+    bool isKRangeFrame) {
+  auto keys = generateSortingKeys(prefix, names, types, isKRangeFrame);
   std::vector<SortingKeyAndOrder> results;
   for (auto i = 0; i < keys.size(); ++i) {
     auto asc = vectorFuzzer_.coinToss(0.5);
@@ -203,6 +263,135 @@ std::vector<SortingKeyAndOrder> WindowFuzzer::generateSortingKeysAndOrders(
     results.emplace_back(keys[i], core::SortOrder(asc, nullsFirst));
   }
   return results;
+}
+
+template <typename T>
+VectorPtr WindowFuzzer::buildKRangeColumn(
+    const VectorPtr& frameBound,
+    const VectorPtr& orderByCol,
+    const core::WindowNode::BoundType& frameBoundType,
+    const core::SortOrder& sortOrder,
+    bool isColumnBound,
+    bool isOffsetColumn) {
+  auto type = CppToType<T>::create();
+  const auto size = vectorFuzzer_.getOptions().vectorSize;
+  const SelectivityVector allRows(size);
+  DecodedVector decodedVector(*orderByCol, allRows);
+  BufferPtr values = AlignedBuffer::allocate<T>(size, pool_.get());
+  BufferPtr nulls = allocateNulls(size, pool_.get());
+  auto rawValues = values->asMutableRange<T>();
+  auto* rawNulls = nulls->asMutable<uint64_t>();
+
+  for (auto j = 0; j < size; j++) {
+    if (decodedVector.isNullAt(j)) {
+      bits::setNull(rawNulls, j, true);
+    } else {
+      const auto orderByValueAtIdx = decodedVector.valueAt<T>(j);
+      if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>) {
+        if (!std::isfinite(orderByValueAtIdx) ||
+            std::isnan(orderByValueAtIdx)) {
+          rawValues[j] = orderByValueAtIdx;
+          continue;
+        }
+      }
+
+      const T frameBoundValue = isColumnBound
+          ? frameBound->as<FlatVector<T>>()->valueAt(j)
+          : frameBound->as<ConstantVector<T>>()->valueAt(0);
+      if (isOffsetColumn) {
+        rawValues[j] = genOffsetAtIdx<T>(
+            orderByValueAtIdx, frameBoundValue, frameBoundType, sortOrder);
+      } else {
+        rawValues[j] = frameBoundValue;
+      }
+    }
+  }
+
+  return std::make_shared<FlatVector<T>>(
+      pool_.get(), type, nulls, size, values, std::vector<BufferPtr>{});
+}
+
+template <typename T>
+std::string WindowFuzzer::addKRangeOffsetColumnToInputImpl(
+    std::vector<RowVectorPtr>& input,
+    const core::WindowNode::BoundType& frameBoundType,
+    const SortingKeyAndOrder& orderByKey,
+    const std::string& columnName,
+    const std::string& offsetColumnName) {
+  // Use columns as frame bound 50% of time.
+  bool isColumnBound = vectorFuzzer_.coinToss(0.5);
+  const auto type = CppToType<T>::create();
+  VectorPtr constantFrameBound =
+      isColumnBound ? nullptr : vectorFuzzer_.fuzzConstant(type, 1);
+  VectorPtr columnFrameBound;
+  // Generate frame bound (constant/column) without nulls.
+  ScopedVarSetter nullRatioHolder(
+      &vectorFuzzer_.getMutableOptions().nullRatio, 0.0);
+  ScopedVarSetter dataSpecHolder(
+      &vectorFuzzer_.getMutableOptions().dataSpec, {false, false});
+  velox::test::VectorMaker vectorMaker{pool_.get()};
+
+  for (auto i = 0; i < FLAGS_num_batches; i++) {
+    const auto orderByCol = input[i]->childAt(orderByKey.key_);
+    auto names = input[i]->type()->asRow().names();
+    auto children = input[i]->children();
+    if (isColumnBound) {
+      VectorPtr fuzzFrameBound = vectorFuzzer_.fuzzFlat(type);
+      names.push_back(columnName);
+      columnFrameBound = buildKRangeColumn<T>(
+          fuzzFrameBound,
+          orderByCol,
+          frameBoundType,
+          orderByKey.sortOrder_,
+          isColumnBound,
+          false);
+      children.push_back(columnFrameBound);
+    }
+
+    names.push_back(offsetColumnName);
+    VectorPtr frameBound =
+        isColumnBound ? columnFrameBound : constantFrameBound;
+    const VectorPtr offsetColumn = buildKRangeColumn<T>(
+        frameBound,
+        orderByCol,
+        frameBoundType,
+        orderByKey.sortOrder_,
+        isColumnBound,
+        true);
+    children.push_back(offsetColumn);
+    input[i] = vectorMaker.rowVector(names, children);
+  }
+
+  return isColumnBound
+      ? columnName
+      : constantFrameBound->as<ConstantVector<T>>()->toString(0);
+}
+
+template <TypeKind TKind>
+void WindowFuzzer::addKRangeOffsetColumnToInput(
+    std::vector<RowVectorPtr>& input,
+    FrameMetadata& frameMetadata,
+    SortingKeyAndOrder& orderByKey,
+    const std::vector<std::string>& columnNames,
+    const std::vector<std::string>& offsetColumnNames) {
+  using TCpp = typename TypeTraits<TKind>::NativeType;
+
+  if (isKBoundFrame(frameMetadata.startBoundType)) {
+    frameMetadata.startBoundString = addKRangeOffsetColumnToInputImpl<TCpp>(
+        input,
+        frameMetadata.startBoundType,
+        orderByKey,
+        columnNames[0],
+        offsetColumnNames[0]);
+  }
+  if (isKBoundFrame(frameMetadata.endBoundType)) {
+    frameMetadata.endBoundString = addKRangeOffsetColumnToInputImpl<TCpp>(
+        input,
+        frameMetadata.endBoundType,
+        orderByKey,
+        columnNames[1],
+        offsetColumnNames[1]);
+  }
 }
 
 void WindowFuzzer::go() {
@@ -248,27 +437,82 @@ void WindowFuzzer::go() {
     const auto call =
         makeFunctionCall(signature.name, argNames, false, false, ignoreNulls);
 
+    // Columns used as k-PRECEDING/FOLLOWING frame bounds have fixed names: k0
+    // and k1, for when a column is used as frame start and frame end bound
+    // respectively.
+    const std::vector<std::string> kBoundColumns = {"k0", "k1"};
+    auto frameMetadata = generateFrameClause(argNames, argTypes, kBoundColumns);
+    const auto windowType = frameMetadata.windowType;
+    const auto startBoundType = frameMetadata.startBoundType;
+    const auto endBoundType = frameMetadata.endBoundType;
+    bool isKRangeFrame = windowType == core::WindowNode::WindowType::kRange &&
+        (isKBoundFrame(startBoundType) || isKBoundFrame(endBoundType));
+
+    auto useRowNumberKey =
+        requireSortedInput || windowType == core::WindowNode::WindowType::kRows;
+
+    const auto partitionKeys = generateSortingKeys("p", argNames, argTypes);
+
     std::vector<SortingKeyAndOrder> sortingKeysAndOrders;
-    // 50% chance without order-by clause.
-    if (vectorFuzzer_.coinToss(0.5)) {
+    TypeKind orderByTypeKind;
+    if (useRowNumberKey) {
+      // If the function is order-dependent or uses "rows" frame, sort all
+      // input rows by row_number additionally.
+      sortingKeysAndOrders.emplace_back("row_number", core::kAscNullsLast);
+      orderByTypeKind = TypeKind::INTEGER;
+      ++stats_.numSortedInputs;
+    } else if (isKRangeFrame) {
+      // kRange frames need only one order by key. This would be row_number for
+      // functions that are order dependent.
+      sortingKeysAndOrders =
+          generateSortingKeysAndOrders("s", argNames, argTypes, true);
+      orderByTypeKind = argTypes.back()->kind();
+    } else if (vectorFuzzer_.coinToss(0.5)) {
+      // 50% chance without order-by clause.
       sortingKeysAndOrders =
           generateSortingKeysAndOrders("s", argNames, argTypes);
     }
-    const auto partitionKeys = generateSortingKeys("p", argNames, argTypes);
-    bool isRowsFrame = false;
-    const auto frameClause =
-        generateFrameClause(argNames, argTypes, isRowsFrame);
-    const auto input = generateInputDataWithRowNumber(
+
+    auto input = generateInputDataWithRowNumber(
         argNames, argTypes, partitionKeys, signature);
-    // If the function is order-dependent or uses "rows" frame, sort all input
-    // rows by row_number additionally.
-    if (requireSortedInput || isRowsFrame) {
-      sortingKeysAndOrders.emplace_back("row_number", core::kAscNullsLast);
-      ++stats_.numSortedInputs;
+    // Offset column names used for k-RANGE frame bounds have fixed names: off0
+    // and off1, representing the precomputed offset columns used as frame start
+    // and frame end bound respectively.
+    const std::vector<std::string> kRangeOffsetColumns = {"off0", "off1"};
+    if (isKRangeFrame) {
+      // Catch possible type overflow errors when generating offset columns.
+      try {
+        VELOX_USER_CHECK(
+            sortingKeysAndOrders.size() == 1,
+            "Window with k PRECEDING/FOLLOWING frame bounds should have a single ORDER-BY key");
+        auto orderByKey = sortingKeysAndOrders[0];
+        VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+            addKRangeOffsetColumnToInput,
+            orderByTypeKind,
+            input,
+            frameMetadata,
+            orderByKey,
+            kBoundColumns,
+            kRangeOffsetColumns);
+      } catch (VeloxUserError& e) {
+        VLOG(2) << fmt::format(
+            "This iteration is not valid due to exception from addKRangeOffsetColumnsToInput: {}",
+            e.message());
+        continue;
+      } catch (VeloxRuntimeError& e) {
+        throw e;
+      }
     }
 
     logVectors(input);
 
+    // For kRange frames with constant k, velox expects the frame bounds to be
+    // columns containing precomputed offset values. Presto frame clause uses
+    // constant k values.
+    const auto prestoFrameClause = frameClauseString(frameMetadata);
+    const auto frameClause = isKRangeFrame
+        ? frameClauseString(frameMetadata, kRangeOffsetColumns)
+        : prestoFrameClause;
     bool failed = verifyWindow(
         partitionKeys,
         sortingKeysAndOrders,
@@ -277,7 +521,8 @@ void WindowFuzzer::go() {
         input,
         customVerification,
         customVerifier,
-        FLAGS_enable_window_reference_verification);
+        FLAGS_enable_window_reference_verification,
+        prestoFrameClause);
     if (failed) {
       signatureWithStats.second.numFailed++;
     }
@@ -404,17 +649,20 @@ bool WindowFuzzer::verifyWindow(
     const std::vector<RowVectorPtr>& input,
     bool customVerification,
     const std::shared_ptr<ResultVerifier>& customVerifier,
-    bool enableWindowVerification) {
+    bool enableWindowVerification,
+    const std::string& prestoFrameClause) {
   SCOPE_EXIT {
     if (customVerifier) {
       customVerifier->reset();
     }
   };
 
+  core::PlanNodeId windowNodeId;
   auto frame = getFrame(partitionKeys, sortingKeysAndOrders, frameClause);
   auto plan = PlanBuilder()
                   .values(input)
                   .window({fmt::format("{} over ({})", functionCall, frame)})
+                  .capturePlanNodeId(windowNodeId)
                   .planNode();
 
   if (persistAndRunOnce_) {
@@ -430,8 +678,19 @@ bool WindowFuzzer::verifyWindow(
 
     if (!customVerification) {
       if (resultOrError.result && enableWindowVerification) {
+        auto prestoQueryRunner =
+            dynamic_cast<PrestoQueryRunner*>(referenceQueryRunner_.get());
+        bool isPrestoQueryRunner = (prestoQueryRunner != nullptr);
+        if (isPrestoQueryRunner) {
+          prestoQueryRunner->queryRunnerContext()
+              ->windowFrames_[windowNodeId]
+              .push_back(prestoFrameClause);
+        }
         auto referenceResult =
             computeReferenceResults(plan, input, referenceQueryRunner_.get());
+        if (isPrestoQueryRunner) {
+          prestoQueryRunner->queryRunnerContext()->windowFrames_.clear();
+        }
         stats_.updateReferenceQueryStats(referenceResult.second);
         if (auto expectedResult = referenceResult.first) {
           ++stats_.numVerified;

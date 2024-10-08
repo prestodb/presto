@@ -187,25 +187,42 @@ TEST_F(PrestoQueryRunnerTest, toSql) {
 
   // Test window queries.
   {
+    auto queryRunnerContext = queryRunner->queryRunnerContext();
+    core::PlanNodeId id;
+    const auto frameClause =
+        "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW";
     auto plan =
         PlanBuilder()
             .tableScan("tmp", dataType)
             .window({"first_value(c0) over (partition by c1 order by c2)"})
+            .capturePlanNodeId(id)
             .planNode();
+    queryRunnerContext->windowFrames_[id] = {frameClause};
     EXPECT_EQ(
         queryRunner->toSql(plan),
-        "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 ASC NULLS LAST RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM tmp");
+        fmt::format(
+            "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 ASC NULLS LAST {}) FROM tmp",
+            frameClause));
 
+    const auto firstValueFrame =
+        "ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING";
+    const auto lastValueFrame =
+        "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW";
     plan =
         PlanBuilder()
             .tableScan("tmp", dataType)
             .window(
                 {"first_value(c0) over (partition by c1 order by c2 desc nulls first rows between 1 following and unbounded following)",
                  "last_value(c0) over (partition by c1 order by c2 desc nulls first)"})
+            .capturePlanNodeId(id)
             .planNode();
+    queryRunnerContext->windowFrames_[id] = {firstValueFrame, lastValueFrame};
     EXPECT_EQ(
         queryRunner->toSql(plan),
-        "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING), last_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM tmp");
+        fmt::format(
+            "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST {}), last_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST {}) FROM tmp",
+            firstValueFrame,
+            lastValueFrame));
   }
 
   // Test aggregation queries.

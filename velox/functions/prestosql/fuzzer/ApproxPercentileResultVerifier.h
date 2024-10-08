@@ -70,7 +70,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
       const std::vector<std::string>& partitionByKeys,
       const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders,
       const core::WindowNode::Function& function,
-      const std::string& /*frame*/,
+      const std::string& frame,
       const std::string& windowName) override {
     VELOX_CHECK(!input.empty());
     verifyWindow_ = true;
@@ -88,7 +88,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
         valueField,
         weightField,
         sortingKeysAndOrders,
-        function.frame,
+        frame,
         function.functionCall->type(),
         isArrayPercentile);
   }
@@ -303,37 +303,6 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
     return AssertQueryBuilder(plan).copyResults(input[0]->pool());
   }
 
-  std::string getFrameClause(const core::WindowNode::Frame& frame) {
-    std::stringstream ss;
-    ss << core::WindowNode::windowTypeName(frame.type) << " between ";
-    if (frame.startValue) {
-      ss << frame.startValue->toString() << " ";
-    }
-    ss << core::WindowNode::boundTypeName(frame.startType) << " and ";
-    if (frame.endValue) {
-      ss << frame.endValue->toString() << " ";
-    }
-    ss << core::WindowNode::boundTypeName(frame.endType);
-    return ss.str();
-  }
-
-  std::string getOrderByClause(
-      const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders) {
-    if (sortingKeysAndOrders.empty()) {
-      return "";
-    }
-    std::stringstream ss;
-    ss << "order by ";
-    for (auto i = 0; i < sortingKeysAndOrders.size(); ++i) {
-      if (i > 0) {
-        ss << ", ";
-      }
-      ss << sortingKeysAndOrders[i].key_ << " "
-         << sortingKeysAndOrders[i].sortOrder_.toString();
-    }
-    return ss.str();
-  }
-
   std::string getPartitionByClause(
       const std::vector<std::string>& partitionByKeys) {
     if (partitionByKeys.empty()) {
@@ -456,7 +425,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
       const std::string& valueField,
       const std::optional<std::string>& weightField,
       const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders,
-      const core::WindowNode::Frame& frame,
+      const std::string& frame,
       const TypePtr& resultType,
       bool isArray) {
     VELOX_CHECK(!input.empty());
@@ -473,6 +442,15 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
     projections.push_back(fmt::format("{} as x", valueField));
     projections.push_back(
         fmt::format("{} as w", weighted ? weightField.value() : "1::bigint"));
+    // Names of columns, which could be offset columns in case of kRange frames,
+    // or frame bounds, should be projected.
+    static const std::unordered_set<std::string> kKBoundColumnNames = {
+        "k0", "k1", "off0", "off1"};
+    for (const auto& child : rowType->names()) {
+      if (kKBoundColumnNames.count(child) != 0) {
+        projections.push_back(child);
+      }
+    }
 
     PlanBuilder planBuilder;
     planBuilder.values(input).project(projections).filter("w > 0");
@@ -480,11 +458,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
     auto partitionByKeysWithRowNumber =
         getPartitionByClause(append(groupingKeys_, {"row_number"}));
     planBuilder
-        .window({fmt::format(
-            "multimap_agg(x, w) over ({} {} {}) as bucket",
-            getPartitionByClause(groupingKeys_),
-            getOrderByClause(sortingKeysAndOrders),
-            getFrameClause(frame))})
+        .window({fmt::format("multimap_agg(x, w) over ({}) as bucket", frame)})
         .project(append(
             groupingKeys_,
             {"row_number",

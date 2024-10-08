@@ -38,6 +38,8 @@ struct DataSpec {
   bool includeInfinity;
 };
 
+const std::vector<TypePtr>& defaultScalarTypes();
+
 /// VectorFuzzer is a helper class that generates randomized vectors and their
 /// data for testing, with a high degree of entropy.
 ///
@@ -167,6 +169,10 @@ class VectorFuzzer {
   }
 
   const VectorFuzzer::Options& getOptions() {
+    return opts_;
+  }
+
+  VectorFuzzer::Options& getMutableOptions() {
     return opts_;
   }
 

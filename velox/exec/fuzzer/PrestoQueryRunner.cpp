@@ -154,6 +154,7 @@ PrestoQueryRunner::PrestoQueryRunner(
       timeout_(timeout) {
   eventBaseThread_.start("PrestoQueryRunner");
   pool_ = aggregatePool()->addLeafChild("leaf");
+  queryRunnerContext_ = std::make_shared<QueryRunnerContext>();
 }
 
 std::optional<std::string> PrestoQueryRunner::toSql(
@@ -352,56 +353,6 @@ std::optional<std::string> PrestoQueryRunner::toSql(
   return sql.str();
 }
 
-namespace {
-
-void appendWindowFrame(
-    const core::WindowNode::Frame& frame,
-    std::stringstream& sql) {
-  // TODO: Add support for k Range Frames by retrieving the original range bound
-  // from WindowNode.
-  switch (frame.type) {
-    case core::WindowNode::WindowType::kRange:
-      sql << " RANGE";
-      break;
-    case core::WindowNode::WindowType::kRows:
-      sql << " ROWS";
-      break;
-    default:
-      VELOX_UNREACHABLE();
-  }
-  sql << " BETWEEN";
-
-  auto appendBound = [&sql](
-                         const core::WindowNode::BoundType& bound,
-                         const core::TypedExprPtr& value) {
-    switch (bound) {
-      case core::WindowNode::BoundType::kUnboundedPreceding:
-        sql << " UNBOUNDED PRECEDING";
-        break;
-      case core::WindowNode::BoundType::kUnboundedFollowing:
-        sql << " UNBOUNDED FOLLOWING";
-        break;
-      case core::WindowNode::BoundType::kCurrentRow:
-        sql << " CURRENT ROW";
-        break;
-      case core::WindowNode::BoundType::kPreceding:
-        sql << " " << value->toString() << " PRECEDING";
-        break;
-      case core::WindowNode::BoundType::kFollowing:
-        sql << " " << value->toString() << " FOLLOWING";
-        break;
-      default:
-        VELOX_UNREACHABLE();
-    }
-  };
-
-  appendBound(frame.startType, frame.startValue);
-  sql << " AND";
-  appendBound(frame.endType, frame.endValue);
-}
-
-} // namespace
-
 std::optional<std::string> PrestoQueryRunner::toSql(
     const std::shared_ptr<const core::WindowNode>& windowNode) {
   if (!isSupportedDwrfType(windowNode->sources()[0]->outputType())) {
@@ -446,7 +397,7 @@ std::optional<std::string> PrestoQueryRunner::toSql(
       }
     }
 
-    appendWindowFrame(functions[i].frame, sql);
+    sql << " " << queryRunnerContext_->windowFrames_.at(windowNode->id()).at(i);
     sql << ")";
   }
 

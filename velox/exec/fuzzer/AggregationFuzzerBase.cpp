@@ -241,14 +241,35 @@ std::vector<std::string> AggregationFuzzerBase::generateKeys(
 std::vector<std::string> AggregationFuzzerBase::generateSortingKeys(
     const std::string& prefix,
     std::vector<std::string>& names,
-    std::vector<TypePtr>& types) {
+    std::vector<TypePtr>& types,
+    bool rangeFrame) {
   std::vector<std::string> keys;
-  auto numKeys = boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
+  vector_size_t numKeys;
+  vector_size_t maxDepth;
+  std::vector<TypePtr> sortingKeyTypes = defaultScalarTypes();
+
+  // If frame has k-RANGE bound, only one sorting key should be present, and it
+  // should be a scalar type which supports '+', '-' arithmetic operations.
+  if (rangeFrame) {
+    numKeys = 1;
+    sortingKeyTypes = {
+        TINYINT(),
+        SMALLINT(),
+        INTEGER(),
+        BIGINT(),
+        HUGEINT(),
+        REAL(),
+        DOUBLE()};
+    maxDepth = 0;
+  } else {
+    numKeys = randInt(1, 5);
+    // Pick random, possibly complex, type.
+    maxDepth = 2;
+  }
+
   for (auto i = 0; i < numKeys; ++i) {
     keys.push_back(fmt::format("{}{}", prefix, i));
-
-    // Pick random, possibly complex, type.
-    types.push_back(vectorFuzzer_.randOrderableType(2));
+    types.push_back(vectorFuzzer_.randOrderableType(sortingKeyTypes, maxDepth));
     names.push_back(keys.back());
   }
 
