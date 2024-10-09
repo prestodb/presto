@@ -17,7 +17,6 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestPrestoContainerRemoteFunction
         extends AbstractTestQueryFramework
@@ -35,17 +34,6 @@ public class TestPrestoContainerRemoteFunction
     @Test
     public void testPresenceAndBasicFunctionality()
     {
-        assertTrue(
-                computeActual("SHOW catalogs").toString().contains("tpch"),
-                "tpch catalog is not present.");
-        System.out.println(computeActual("set session remote_functions_enabled=true").toString());
-        assertEquals(computeActual("select remote.default.abs(-10)").toString(),"10");
-    }
-
-    @Test
-    public void testPresenceAndBasicFunctionality1()
-    {
-        System.out.println(computeActual("SHOW catalogs").toString());
-        assertEquals(computeActual("select remote.default.abs(-10)").getMaterializedRows().toString(),"10");
+        assertEquals(computeActual("select remote.default.abs(-10)").getMaterializedRows().get(0).getField(0).toString(), "10");
     }
 }

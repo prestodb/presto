@@ -359,11 +359,10 @@ public class ContainerQueryRunnerUtils
             case java.sql.Types.VARCHAR:
                 return VarcharType.VARCHAR;
             case java.sql.Types.DOUBLE:
+            case java.sql.Types.FLOAT:
                 return DoubleType.DOUBLE;
             case java.sql.Types.BOOLEAN:
                 return BooleanType.BOOLEAN;
-            case java.sql.Types.FLOAT:
-                return DoubleType.DOUBLE;
             case java.sql.Types.TIMESTAMP:
                 return TimestampType.TIMESTAMP;
             case java.sql.Types.DATE:

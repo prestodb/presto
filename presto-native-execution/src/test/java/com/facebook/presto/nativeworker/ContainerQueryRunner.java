@@ -37,6 +37,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
@@ -44,7 +45,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
@@ -102,6 +102,7 @@ public class ContainerQueryRunner
         try {
             Connection connection = DriverManager.getConnection(url, "test", null);
             statement = connection.createStatement();
+            statement.execute("set session remote_functions_enabled=true");
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -286,9 +287,9 @@ public class ContainerQueryRunner
     public MaterializedResult execute(Session session, String sql)
     {
         try {
+            ResultSet resultSet = statement.executeQuery(sql);
             return ContainerQueryRunnerUtils
-                    .toMaterializedResult(
-                            statement.executeQuery(sql));
+                    .toMaterializedResult(resultSet);
         }
         catch (SQLException e) {
             throw new RuntimeException("Error executing query: " + sql, e);
