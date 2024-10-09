@@ -19,108 +19,11 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregateUtil.h"
 #include "velox/exec/WindowFunction.h"
+#include "velox/exec/tests/AggregateRegistryTestUtil.h"
 #include "velox/functions/Registerer.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::exec::test {
-
-namespace {
-
-class AggregateFunc : public Aggregate {
- public:
-  explicit AggregateFunc(TypePtr resultType) : Aggregate(resultType) {}
-
-  int32_t accumulatorFixedWidthSize() const override {
-    return 0;
-  }
-
-  void addRawInput(
-      char** /*groups*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
-      bool /*mayPushdown*/) override {}
-
-  void addIntermediateResults(
-      char** /*groups*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
-      bool /*mayPushdown*/) override {}
-
-  void addSingleGroupRawInput(
-      char* /*group*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
-      bool /*mayPushdown*/) override {}
-
-  void addSingleGroupIntermediateResults(
-      char* /*group*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
-      bool /*mayPushdown*/) override {}
-
-  void extractValues(
-      char** /*groups*/,
-      int32_t /*numGroups*/,
-      VectorPtr* /*result*/) override {}
-
-  void extractAccumulators(
-      char** /*groups*/,
-      int32_t /*numGroups*/,
-      VectorPtr* /*result*/) override {}
-  static std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures() {
-    std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures{
-        AggregateFunctionSignatureBuilder()
-            .returnType("bigint")
-            .intermediateType("array(bigint)")
-            .argumentType("bigint")
-            .argumentType("double")
-            .build(),
-        AggregateFunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("T")
-            .intermediateType("array(T)")
-            .argumentType("T")
-            .argumentType("T")
-            .build(),
-        AggregateFunctionSignatureBuilder()
-            .returnType("date")
-            .intermediateType("date")
-            .build(),
-    };
-    return signatures;
-  }
-
- protected:
-  void initializeNewGroupsInternal(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/) override {}
-};
-
-bool registerAggregateFunc(const std::string& name, bool overwrite = false) {
-  auto signatures = AggregateFunc::signatures();
-
-  return registerAggregateFunction(
-             name,
-             std::move(signatures),
-             [&](core::AggregationNode::Step step,
-                 const std::vector<TypePtr>& argTypes,
-                 const TypePtr& resultType,
-                 const core::QueryConfig& /*config*/)
-                 -> std::unique_ptr<exec::Aggregate> {
-               if (isPartialOutput(step)) {
-                 if (argTypes.empty()) {
-                   return std::make_unique<AggregateFunc>(resultType);
-                 }
-                 return std::make_unique<AggregateFunc>(ARRAY(resultType));
-               }
-               return std::make_unique<AggregateFunc>(resultType);
-             },
-             /*registerCompanionFunctions*/ false,
-             overwrite)
-      .mainFunction;
-}
-
-} // namespace
 
 class FunctionRegistryTest : public testing::Test {
  public:
