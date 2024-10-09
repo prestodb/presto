@@ -572,14 +572,14 @@ public abstract class AbstractTestQueryFramework
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
-                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), featuresConfig),
+                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), featuresConfig, queryRunner.getPlanCheckerProviderManager()),
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
                 costCalculator,
                 ImmutableMap.of(),
-                new PlanChecker(featuresConfig, false));
+                new PlanChecker(featuresConfig, false, queryRunner.getPlanCheckerProviderManager()));
     }
 
     protected static void skipTestUnless(boolean requirement)
