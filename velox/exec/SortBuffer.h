@@ -77,6 +77,9 @@ class SortBuffer {
   void updateEstimatedOutputRowSize();
   // Invoked to initialize or reset the reusable output buffer to get output.
   void prepareOutput(vector_size_t maxOutputRows);
+  // Invoked to initialize reader to read the spilled data from storage for
+  // output processing.
+  void prepareOutputWithSpill();
   void getOutputWithoutSpill();
   void getOutputWithSpill();
   // Spill during input stage.
@@ -116,6 +119,7 @@ class SortBuffer {
   // sort key columns are stored first then the non-sorted data columns.
   RowTypePtr spillerStoreType_;
   std::unique_ptr<Spiller> spiller_;
+  SpillPartitionSet spillPartitionSet_;
   // Used to merge the sorted runs from in-memory rows and spilled rows on disk.
   std::unique_ptr<TreeOfLosers<SpillMergeStream>> spillMerger_;
   // Records the source rows to copy to 'output_' in order.

@@ -82,6 +82,9 @@ SortBuffer::~SortBuffer() {
 }
 
 void SortBuffer::addInput(const VectorPtr& input) {
+  velox::common::testutil::TestValue::adjust(
+      "facebook::velox::exec::SortBuffer::addInput", this);
+
   VELOX_CHECK(!noMoreInput_);
   ensureInputFits(input);
 
@@ -348,6 +351,7 @@ void SortBuffer::prepareOutput(vector_size_t maxOutputRows) {
   if (spiller_ != nullptr) {
     spillSources_.resize(maxOutputRows);
     spillSourceRows_.resize(maxOutputRows);
+    prepareOutputWithSpill();
   }
 
   VELOX_CHECK_GT(output_->size(), 0);
@@ -414,11 +418,22 @@ void SortBuffer::getOutputWithSpill() {
 
 void SortBuffer::finishSpill() {
   VELOX_CHECK_NULL(spillMerger_);
-  SpillPartitionSet spillPartitionSet;
-  spiller_->finishSpill(spillPartitionSet);
-  VELOX_CHECK_EQ(spillPartitionSet.size(), 1);
-  spillMerger_ = spillPartitionSet.begin()->second->createOrderedReader(
+  VELOX_CHECK(spillPartitionSet_.empty());
+  spiller_->finishSpill(spillPartitionSet_);
+  VELOX_CHECK_EQ(spillPartitionSet_.size(), 1);
+}
+
+void SortBuffer::prepareOutputWithSpill() {
+  VELOX_CHECK_NOT_NULL(spiller_);
+  if (spillMerger_ != nullptr) {
+    VELOX_CHECK(spillPartitionSet_.empty());
+    return;
+  }
+
+  VELOX_CHECK_EQ(spillPartitionSet_.size(), 1);
+  spillMerger_ = spillPartitionSet_.begin()->second->createOrderedReader(
       spillConfig_->readBufferSize, pool(), spillStats_);
+  spillPartitionSet_.clear();
 }
 
 } // namespace facebook::velox::exec

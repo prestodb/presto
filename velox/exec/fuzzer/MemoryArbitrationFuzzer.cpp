@@ -85,15 +85,13 @@ class MemoryArbitrationFuzzer {
 
   struct Stats {
     size_t successCount{0};
-    size_t failureCount{0};
     size_t oomCount{0};
     size_t abortCount{0};
 
     void print() const {
       std::stringstream ss;
-      ss << "Success count = " << successCount
-         << ", failure count = " << failureCount
-         << ". OOM count  = " << oomCount << " Abort count = " << abortCount;
+      ss << "Success count = " << successCount << ". OOM count  = " << oomCount
+         << " Abort count = " << abortCount;
       LOG(INFO) << ss.str();
     }
   };
@@ -714,7 +712,7 @@ void MemoryArbitrationFuzzer::verify() {
           } else if (e.errorCode() == error_code::kMemAborted.c_str()) {
             ++lockedStats->abortCount;
           } else {
-            ++lockedStats->failureCount;
+            LOG(ERROR) << "Unexpected exception: " << e.what();
             std::rethrow_exception(std::current_exception());
           }
         }
