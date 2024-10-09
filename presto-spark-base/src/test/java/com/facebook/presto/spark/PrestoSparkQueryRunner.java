@@ -67,6 +67,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -156,6 +157,7 @@ public class PrestoSparkQueryRunner
     private final StatsCalculator statsCalculator;
     private final PluginManager pluginManager;
     private final ConnectorManager connectorManager;
+    private final PlanCheckerProviderManager planCheckerProviderManager;
     private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
     private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
 
@@ -334,6 +336,7 @@ public class PrestoSparkQueryRunner
         statsCalculator = injector.getInstance(StatsCalculator.class);
         pluginManager = injector.getInstance(PluginManager.class);
         connectorManager = injector.getInstance(ConnectorManager.class);
+        planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
         waitTimeMetrics = injector.getInstance(new Key<Set<PrestoSparkServiceWaitTimeMetrics>>() {});
         historyBasedPlanStatisticsManager = injector.getInstance(HistoryBasedPlanStatisticsManager.class);
 
@@ -475,6 +478,12 @@ public class PrestoSparkQueryRunner
     public ConnectorPlanOptimizerManager getPlanOptimizerManager()
     {
         return connectorPlanOptimizerManager;
+    }
+
+    @Override
+    public PlanCheckerProviderManager getPlanCheckerProviderManager()
+    {
+        return planCheckerProviderManager;
     }
 
     @Override

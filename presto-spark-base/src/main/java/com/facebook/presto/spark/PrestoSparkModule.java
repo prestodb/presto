@@ -136,6 +136,8 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.plan.SimplePlanFragment;
+import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -186,7 +188,9 @@ import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.tracing.TracerProviderManager;
@@ -292,6 +296,8 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleWriteInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(BatchTaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(BroadcastFileInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(SimplePlanFragment.class);
+        binder.bind(SimplePlanFragmentSerde.class).to(JsonCodecSimplePlanFragmentSerde.class).in(Scopes.SINGLETON);
 
         // smile codecs
         smileCodecBinder(binder).bindSmileCodec(TaskSource.class);
@@ -542,6 +548,8 @@ public class PrestoSparkModule
         // extra credentials and authenticator for Presto-on-Spark
         newSetBinder(binder, PrestoSparkCredentialsProvider.class);
         newSetBinder(binder, PrestoSparkAuthenticatorProvider.class);
+
+        binder.bind(PlanCheckerProviderManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides
