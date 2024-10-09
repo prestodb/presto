@@ -17,7 +17,13 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 
 public class TestCharOperators
         extends AbstractTestFunctions
@@ -191,5 +197,31 @@ public class TestCharOperators
     {
         assertOperator(INDETERMINATE, "CAST(null AS CHAR(3))", BOOLEAN, true);
         assertOperator(INDETERMINATE, "CHAR '123'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testCharCast()
+    {
+        assertFunction("CAST(CAST('78.95' AS CHAR(5)) AS DOUBLE)", DOUBLE, 78.95);
+        assertFunction("CAST(CAST(' 45.58  ' AS CHAR(10)) AS DOUBLE)", DOUBLE, 45.58);
+        assertInvalidCast("CAST(CAST('  Z56  ' AS CHAR(20)) AS DOUBLE)");
+        assertFunction("CAST(CAST('45.783' AS CHAR(6)) AS REAL)", REAL, 45.783f);
+        assertFunction("CAST(CAST(' 45.783  ' AS CHAR(10)) AS REAL)", REAL, 45.783f);
+        assertInvalidCast("CAST(CAST('  Z56  ' AS CHAR(20)) AS REAL)");
+        assertFunctionString("CAST(CAST('6.40282346638528860e+70' AS CHAR(60)) AS REAL)", REAL, "Infinity");
+        assertFunction("CAST(CAST('45' AS CHAR(2)) AS BIGINT)", BIGINT, 45L);
+        assertFunction("CAST(CAST(' 45  ' AS CHAR(10)) AS BIGINT)", BIGINT, 45L);
+        assertInvalidCast("CAST(CAST('  Z56  ' AS CHAR(20)) AS BIGINT)");
+        assertFunction("CAST(CAST('45' AS CHAR(2)) AS INTEGER)", INTEGER, 45);
+        assertFunction("CAST(CAST('2147483647' AS CHAR(10)) AS INTEGER)", INTEGER, 2147483647);
+        assertFunction("CAST(CAST(' 45  ' AS CHAR(10)) AS INTEGER)", INTEGER, 45);
+        assertInvalidCast("CAST(CAST('  Z56  ' AS CHAR(20)) AS INTEGER)");
+        assertInvalidCast("CAST(CAST('2147483648' AS CHAR(10)) AS INTEGER)"); // 1 over the max range of integer
+        assertFunction("CAST(CAST('45' AS CHAR(2)) AS SMALLINT)", SMALLINT, (short) 45);
+        assertFunction("CAST(CAST(' 45  ' AS CHAR(10)) AS SMALLINT)", SMALLINT, (short) 45);
+        assertInvalidCast("CAST(CAST('  Z56  ' AS CHAR(20)) AS SMALLINT)");
+        assertFunction("CAST(CAST('123' AS CHAR(3)) AS TINYINT)", TINYINT, (byte) 123);
+        assertFunction("CAST(CAST(' 123  ' AS CHAR(10)) AS TINYINT)", TINYINT, (byte) 123);
+        assertInvalidCast("CAST(CAST('  Z56  ' AS CHAR(20)) AS TINYINT)");
     }
 }
