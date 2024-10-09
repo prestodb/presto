@@ -24,7 +24,6 @@ import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimestampType;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -1173,11 +1172,6 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("to_milliseconds(parse_duration('1s'))", BigintType.BIGINT, SECONDS.toMillis(1));
         assertFunction("to_milliseconds(parse_duration('1h'))", BigintType.BIGINT, HOURS.toMillis(1));
         assertFunction("to_milliseconds(parse_duration('1d'))", BigintType.BIGINT, DAYS.toMillis(1));
-    }
-
-    private void assertFunctionString(String projection, Type expectedType, String expected)
-    {
-        functionAssertions.assertFunctionString(projection, expectedType, expected);
     }
 
     private static SqlDate toDate(LocalDate localDate)
