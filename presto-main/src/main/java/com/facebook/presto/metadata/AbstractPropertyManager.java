@@ -70,7 +70,7 @@ abstract class AbstractPropertyManager
         connectorProperties.remove(connectorId);
     }
 
-    public final Map<String, Object> getProperties(
+    public final ImmutableMap.Builder<String, Object> getUserSpecifiedProperties(
             ConnectorId connectorId,
             String catalog, // only use this for error messages
             Map<String, Expression> sqlPropertyValues,
@@ -78,11 +78,7 @@ abstract class AbstractPropertyManager
             Metadata metadata,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
-        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(connectorId);
-        if (supportedProperties == null) {
-            throw new PrestoException(NOT_FOUND, "Catalog not found: " + catalog);
-        }
-
+        Map<String, PropertyMetadata<?>> supportedProperties = getSupportedProperties(connectorId, catalog);
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
 
         // Fill in user-specified properties
@@ -125,6 +121,25 @@ abstract class AbstractPropertyManager
 
             properties.put(property.getName(), value);
         }
+        return properties;
+    }
+
+    public final Map<String, Object> getProperties(
+            ConnectorId connectorId,
+            String catalog, // only use this for error messages
+            Map<String, Expression> sqlPropertyValues,
+            Session session,
+            Metadata metadata,
+            Map<NodeRef<Parameter>, Expression> parameters)
+    {
+        Map<String, PropertyMetadata<?>> supportedProperties = getSupportedProperties(connectorId, catalog);
+        ImmutableMap.Builder<String, Object> properties = getUserSpecifiedProperties(
+                connectorId,
+                catalog,
+                sqlPropertyValues,
+                session,
+                metadata,
+                parameters);
         Map<String, Object> userSpecifiedProperties = properties.build();
 
         // Fill in the remaining properties with non-null defaults
@@ -142,6 +157,15 @@ abstract class AbstractPropertyManager
     public Map<ConnectorId, Map<String, PropertyMetadata<?>>> getAllProperties()
     {
         return ImmutableMap.copyOf(connectorProperties);
+    }
+
+    private Map<String, PropertyMetadata<?>> getSupportedProperties(ConnectorId connectorId, String catalog)
+    {
+        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(connectorId);
+        if (supportedProperties == null) {
+            throw new PrestoException(NOT_FOUND, "Catalog not found: " + catalog);
+        }
+        return supportedProperties;
     }
 
     private Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, Map<NodeRef<Parameter>, Expression> parameters)
