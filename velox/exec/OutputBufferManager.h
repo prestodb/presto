@@ -51,9 +51,9 @@ class OutputBufferManager {
   /// Returns true if the buffer exists for a given taskId, else returns false.
   bool updateNumDrivers(const std::string& taskId, uint32_t newNumDrivers);
 
-  // Adds data to the outgoing queue for 'destination'. 'data' must not be
-  // nullptr. 'data' is always added but if the buffers are full the future is
-  // set to a ContinueFuture that will be realized when there is space.
+  /// Adds data to the outgoing queue for 'destination'. 'data' must not be
+  /// nullptr. 'data' is always added but if the buffers are full the future is
+  /// set to a ContinueFuture that will be realized when there is space.
   bool enqueue(
       const std::string& taskId,
       int destination,
@@ -62,12 +62,12 @@ class OutputBufferManager {
 
   void noMoreData(const std::string& taskId);
 
-  // Returns true if noMoreData has been called and all the accumulated data
-  // have been fetched and acknowledged.
+  /// Returns true if noMoreData has been called and all the accumulated data
+  /// have been fetched and acknowledged.
   bool isFinished(const std::string& taskId);
 
-  // Removes data with sequence number < 'sequence' from the queue for
-  // 'destination_'.
+  /// Removes data with sequence number < 'sequence' from the queue for
+  /// 'destination_'.
   void
   acknowledge(const std::string& taskId, int destination, int64_t sequence);
 

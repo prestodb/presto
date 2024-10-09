@@ -22,6 +22,7 @@
 #include "velox/tool/trace/OperatorReplayerBase.h"
 
 namespace facebook::velox::tool::trace {
+
 /// The replayer to replay the traced 'TableWriter' operator.
 class TableWriterReplayer final : public OperatorReplayerBase {
  public:

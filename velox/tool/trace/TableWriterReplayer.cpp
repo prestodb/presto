@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-#include "velox/tool/trace/TableWriterReplayer.h"
-#include "velox/exec/QueryDataReader.h"
+#include <folly/executors/IOThreadPoolExecutor.h>
+
 #include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/TableWriter.h"
-#include "velox/exec/Task.h"
-#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/tool/trace/TableWriterReplayer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::tool::trace {
-
 namespace {
 
 std::shared_ptr<connector::hive::HiveInsertTableHandle>
@@ -66,7 +64,6 @@ std::shared_ptr<core::InsertTableHandle> createInsertTableHanlde(
   return std::make_shared<core::InsertTableHandle>(
       connectorId, makeHiveInsertTableHandle(node, std::move(targetDir)));
 }
-
 } // namespace
 
 core::PlanNodePtr TableWriterReplayer::createPlanNode(
@@ -74,6 +71,7 @@ core::PlanNodePtr TableWriterReplayer::createPlanNode(
     const core::PlanNodeId& nodeId,
     const core::PlanNodePtr& source) const {
   const auto* tableWriterNode = dynamic_cast<const core::TableWriteNode*>(node);
+  VELOX_CHECK_NOT_NULL(tableWriterNode);
   const auto insertTableHandle =
       createInsertTableHanlde("test-hive", tableWriterNode, replayOutputDir_);
   return std::make_shared<core::TableWriteNode>(

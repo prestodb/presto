@@ -21,25 +21,19 @@
 #include <string>
 
 #include "folly/dynamic.h"
-#include "folly/experimental/EventCount.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/hyperloglog/SparseHll.h"
-#include "velox/common/testutil/TestValue.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/QueryDataReader.h"
 #include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/TableWriter.h"
-#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/tool/trace/TableWriterReplayer.h"
-#include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -268,14 +262,15 @@ TEST_F(TableWriterReplayerTest, basic) {
           .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
           .copyResults(pool(), task);
   const auto traceOutputDir = TempDirectoryPath::create();
-  const auto tableWriterReplayer = TableWriterReplayer(
-      traceRoot,
-      task->taskId(),
-      "1",
-      0,
-      "TableWriter",
-      traceOutputDir->getPath());
-  const auto result = tableWriterReplayer.run();
+  const auto result = TableWriterReplayer(
+                          traceRoot,
+                          task->taskId(),
+                          "1",
+                          0,
+                          "TableWriter",
+                          traceOutputDir->getPath())
+                          .run();
+
   // Second column contains details about written files.
   const auto details = results->childAt(TableWriteTraits::kFragmentChannel)
                            ->as<FlatVector<StringView>>();
@@ -392,14 +387,14 @@ TEST_F(TableWriterReplayerTest, partitionWrite) {
       rowType);
 
   const auto traceOutputDir = TempDirectoryPath::create();
-  const auto tableWriterReplayer = TableWriterReplayer(
+  TableWriterReplayer(
       traceRoot,
       task->taskId(),
       tableWriteNodeId,
       0,
       "TableWriter",
-      traceOutputDir->getPath());
-  tableWriterReplayer.run();
+      traceOutputDir->getPath())
+      .run();
   actualPartitionDirectories = getLeafSubdirectories(traceOutputDir->getPath());
   checkWriteResults(
       actualPartitionDirectories,

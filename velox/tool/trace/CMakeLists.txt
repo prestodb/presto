@@ -12,8 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(velox_query_trace_replayer_base OperatorReplayerBase.cpp
-                  TableWriterReplayer.cpp AggregationReplayer.cpp)
+velox_add_library(
+  velox_query_trace_replayer_base
+  AggregationReplayer.cpp
+  OperatorReplayerBase.cpp
+  PartitionedOutputReplayer.cpp
+  TableWriterReplayer.cpp)
+
 velox_link_libraries(
   velox_query_trace_replayer_base
   velox_aggregates

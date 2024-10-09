@@ -198,9 +198,10 @@ TEST_F(AggregationReplayerTest, test) {
             .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
             .copyResults(pool(), task);
 
-    const auto tableWriterReplayer = AggregationReplayer(
-        traceRoot, task->taskId(), traceNodeId_, 0, "TableWriter");
-    const auto replayingResult = tableWriterReplayer.run();
+    const auto replayingResult =
+        AggregationReplayer(
+            traceRoot, task->taskId(), traceNodeId_, 0, "TableWriter")
+            .run();
     assertEqualResults({results}, {replayingResult});
   }
 }
