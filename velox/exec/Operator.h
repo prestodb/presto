@@ -335,6 +335,11 @@ class Operator : public BaseRuntimeStatWriter {
 
   /// The name of the runtime spill stats collected and reported by operators
   /// that support spilling.
+
+  /// This indicates the spill not supported for a spillable operator when the
+  /// spill config is enabled. This is due to the spill limitation in certain
+  /// plan node config such as unpartition window operator.
+  static inline const std::string kSpillNotSupported{"spillNotSupported"};
   /// The spill write stats.
   static inline const std::string kSpillFillTime{"spillFillWallNanos"};
   static inline const std::string kSpillSortTime{"spillSortWallNanos"};

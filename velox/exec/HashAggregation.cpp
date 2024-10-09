@@ -215,7 +215,7 @@ void HashAggregation::resetPartialOutputIfNeed() {
     lockedStats->addRuntimeStat(
         "partialAggregationPct", RuntimeCounter(aggregationPct));
   }
-  groupingSet_->resetTable();
+  groupingSet_->resetTable(/*freeTable=*/false);
   partialFull_ = false;
   if (!finished_) {
     maybeIncreasePartialAggregationMemoryUsage(aggregationPct);

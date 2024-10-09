@@ -41,6 +41,11 @@ Window::Window(
       stringAllocator_(pool()) {
   auto* spillConfig =
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr;
+  if (spillConfig == nullptr &&
+      operatorCtx_->driverCtx()->queryConfig().windowSpillEnabled()) {
+    auto lockedStats = stats_.wlock();
+    lockedStats->runtimeStats.emplace(kSpillNotSupported, RuntimeMetric(1));
+  }
   if (windowNode->inputsSorted()) {
     if (supportRowsStreaming()) {
       windowBuild_ = std::make_unique<RowsStreamingWindowBuild>(

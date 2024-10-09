@@ -81,6 +81,50 @@ TEST_F(WindowTest, spill) {
   ASSERT_GT(stats.spilledPartitions, 0);
 }
 
+TEST_F(WindowTest, spillUnsupported) {
+  const vector_size_t size = 1'000;
+  auto data = makeRowVector(
+      {"d", "p", "s"},
+      {
+          // Payload.
+          makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+          // Partition key.
+          makeFlatVector<int16_t>(size, [](auto row) { return row % 11; }),
+          // Sorting key.
+          makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      });
+
+  createDuckDbTable({data});
+
+  core::PlanNodeId windowId;
+  auto plan = PlanBuilder()
+                  .values(split(data, 10))
+                  .window({"row_number() over (order by s)"})
+                  .capturePlanNodeId(windowId)
+                  .planNode();
+
+  auto spillDirectory = TempDirectoryPath::create();
+  TestScopedSpillInjection scopedSpillInjection(100);
+  auto task =
+      AssertQueryBuilder(plan, duckDbQueryRunner_)
+          .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
+          .config(core::QueryConfig::kSpillEnabled, "true")
+          .config(core::QueryConfig::kWindowSpillEnabled, "true")
+          .spillDirectory(spillDirectory->getPath())
+          .assertResults("SELECT *, row_number() over (order by s) FROM tmp");
+
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  const auto& stats = taskStats.at(windowId);
+
+  ASSERT_EQ(stats.spilledBytes, 0);
+  ASSERT_EQ(stats.spilledRows, 0);
+  ASSERT_EQ(stats.spilledFiles, 0);
+  ASSERT_EQ(stats.spilledPartitions, 0);
+  auto opStats = toOperatorStats(task->taskStats());
+  ASSERT_GT(
+      opStats.at("Window").runtimeStats[Operator::kSpillNotSupported].sum, 1);
+}
+
 TEST_F(WindowTest, rowBasedStreamingWindowOOM) {
   const vector_size_t size = 1'000'000;
   auto data = makeRowVector(

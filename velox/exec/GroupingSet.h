@@ -80,7 +80,7 @@ class GroupingSet {
   /// is full or reclaims memory from distinct aggregation after it has received
   /// all the inputs. If 'freeTable' is false, then hash table itself is not
   /// freed but only table content.
-  void resetTable(bool freeTable = false);
+  void resetTable(bool freeTable);
 
   /// Returns true if 'this' should start producing partial
   /// aggregation results. Checks the memory consumption against

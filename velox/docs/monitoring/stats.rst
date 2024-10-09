@@ -116,6 +116,11 @@ These stats are reported by operators that support spilling.
    * - Stats
      - Unit
      - Description
+   * - spillNotSupported
+     - nanos
+     - The number of a spillable operators that don't support spill because of
+       spill limitation. For instance, a window operator do not support spill
+       if there is no partitioning.
    * - spillFillWallNanos
      - nanos
      - The time spent on filling rows for spilling.

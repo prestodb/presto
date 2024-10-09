@@ -220,9 +220,9 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     // out of memory if the restored partition still can't fit in memory.
     if (config->exceedSpillLevelLimit(startPartitionBit)) {
       RECORD_METRIC_VALUE(kMetricMaxSpillLevelExceededCount);
-      FB_LOG_EVERY_MS(WARNING, 1'000)
-          << "Exceeded spill level limit: " << config->maxSpillLevel
-          << ", and disable spilling for memory pool: " << pool()->name();
+      LOG(WARNING) << "Exceeded spill level limit: " << config->maxSpillLevel
+                   << ", and disable spilling for memory pool: "
+                   << pool()->name();
       ++spillStats_.wlock()->spillMaxLevelExceededCount;
       exceededMaxSpillLevelLimit_ = true;
       return;
@@ -1076,15 +1076,14 @@ void HashBuild::reclaim(
     // TODO: reduce the log frequency if it is too verbose.
     RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     ++stats.numNonReclaimableAttempts;
-    FB_LOG_EVERY_MS(WARNING, 1'000)
-        << "Can't reclaim from hash build operator, state_["
-        << stateName(state_) << "], nonReclaimableSection_["
-        << nonReclaimableSection_ << "], spiller_["
-        << (stateCleared_
-                ? "cleared"
-                : (spiller_->finalized() ? "finalized" : "non-finalized"))
-        << "] " << pool()->name()
-        << ", usage: " << succinctBytes(pool()->usedBytes());
+    LOG(WARNING) << "Can't reclaim from hash build operator, state_["
+                 << stateName(state_) << "], nonReclaimableSection_["
+                 << nonReclaimableSection_ << "], spiller_["
+                 << (stateCleared_ ? "cleared"
+                                   : (spiller_->finalized() ? "finalized"
+                                                            : "non-finalized"))
+                 << "] " << pool()->name()
+                 << ", usage: " << succinctBytes(pool()->usedBytes());
     return;
   }
 
@@ -1100,11 +1099,11 @@ void HashBuild::reclaim(
       // TODO: reduce the log frequency if it is too verbose.
       RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
       ++stats.numNonReclaimableAttempts;
-      FB_LOG_EVERY_MS(WARNING, 1'000)
-          << "Can't reclaim from hash build operator, state_["
-          << stateName(buildOp->state_) << "], nonReclaimableSection_["
-          << buildOp->nonReclaimableSection_ << "], " << buildOp->pool()->name()
-          << ", usage: " << succinctBytes(buildOp->pool()->usedBytes());
+      LOG(WARNING) << "Can't reclaim from hash build operator, state_["
+                   << stateName(buildOp->state_) << "], nonReclaimableSection_["
+                   << buildOp->nonReclaimableSection_ << "], "
+                   << buildOp->pool()->name() << ", usage: "
+                   << succinctBytes(buildOp->pool()->usedBytes());
       return;
     }
   }
