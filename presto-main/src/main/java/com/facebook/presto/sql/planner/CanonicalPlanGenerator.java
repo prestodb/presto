@@ -845,12 +845,30 @@ public class CanonicalPlanGenerator
     @Override
     public Optional<PlanNode> visitCteProducer(CteProducerNode node, Context context)
     {
-        return node.getSource().accept(this, context);
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+        List<VariableReferenceExpression> outputVariables = node.getOutputVariables().stream()
+                .map(variable -> inlineAndCanonicalize(context.getExpressions(), variable))
+                .sorted()
+                .collect(toImmutableList());
+        PlanNode canonicalCteProducer = new CteProducerNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                node.getCteId(),
+                node.getRowCountVariable(),
+                outputVariables);
+        context.addPlan(node, new CanonicalPlan(canonicalCteProducer, strategy));
+        return Optional.of(canonicalCteProducer);
     }
 
     @Override
     public Optional<PlanNode> visitCteConsumer(CteConsumerNode node, Context context)
     {
+        // ToDo: Current assumption is that the cte producer generates same hashes as the original node.
+        // This will generate wrong stats after cte materialization since original hashes will be updated
         return node.getOriginalSource().accept(this, context);
     }
 
