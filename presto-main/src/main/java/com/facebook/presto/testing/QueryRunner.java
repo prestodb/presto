@@ -27,6 +27,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
@@ -53,6 +54,8 @@ public interface QueryRunner
     NodePartitioningManager getNodePartitioningManager();
 
     ConnectorPlanOptimizerManager getPlanOptimizerManager();
+
+    PlanCheckerProviderManager getPlanCheckerProviderManager();
 
     StatsCalculator getStatsCalculator();
 

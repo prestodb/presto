@@ -99,6 +99,7 @@ import com.facebook.presto.sql.analyzer.utils.StatementUtils;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.transaction.TransactionManager;
@@ -206,6 +207,7 @@ public class PrestoSparkQueryExecutionFactory
     private final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
     private final AdaptivePlanOptimizers adaptivePlanOptimizers;
     private final FragmentStatsProvider fragmentStatsProvider;
+    private final PlanCheckerProviderManager planCheckerProviderManager;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -245,7 +247,8 @@ public class PrestoSparkQueryExecutionFactory
             Optional<ErrorClassifier> errorClassifier,
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
             AdaptivePlanOptimizers adaptivePlanOptimizers,
-            FragmentStatsProvider fragmentStatsProvider)
+            FragmentStatsProvider fragmentStatsProvider,
+            PlanCheckerProviderManager planCheckerProviderManager)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -284,6 +287,7 @@ public class PrestoSparkQueryExecutionFactory
         this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getHistoryBasedPlanStatisticsTracker();
         this.adaptivePlanOptimizers = requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null");
         this.fragmentStatsProvider = requireNonNull(fragmentStatsProvider, "fragmentStatsProvider is null");
+        this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
     }
 
     public static QueryInfo createQueryInfo(
@@ -764,7 +768,8 @@ public class PrestoSparkQueryExecutionFactory
                             variableAllocator,
                             planNodeIdAllocator,
                             fragmentStatsProvider,
-                            bootstrapMetricsCollector);
+                            bootstrapMetricsCollector,
+                            planCheckerProviderManager);
                 }
             }
         }
