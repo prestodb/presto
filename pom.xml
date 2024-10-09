@@ -311,6 +311,12 @@
             </dependency>
 
             <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>2.16.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-parquet</artifactId>
                 <version>${project.version}</version>
@@ -2367,6 +2373,17 @@
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoredClassPatterns combine.children="append">
+                            <!-- Duplicate class is being brought in by commons-io & log4j-api -->
+                            <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        </ignoredClassPatterns>
                     </configuration>
                 </plugin>
 
