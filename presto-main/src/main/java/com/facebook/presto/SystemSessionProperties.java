@@ -331,6 +331,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
     public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
     public static final String REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT = "remove_cross_join_with_constant_single_row_input";
+    public static final String EAGER_PLAN_VALIDATION_ENABLED = "eager_plan_validation_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -2018,6 +2019,11 @@ public final class SystemSessionProperties
                         "If one input of the cross join is a single row with constant value, remove this cross join and replace with a project node",
                         featuresConfig.isRemoveCrossJoinWithSingleConstantRow(),
                         false),
+                booleanProperty(
+                        EAGER_PLAN_VALIDATION_ENABLED,
+                        "Enable eager building and validation of logical plan before queueing",
+                        featuresConfig.isEagerPlanValidationEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
                         format("Set default view security mode. Options are: %s",
@@ -3342,6 +3348,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteExpressionWithConstantEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, Boolean.class);
+    }
+
+    public static boolean isEagerPlanValidationEnabled(Session session)
+    {
+        return session.getSystemProperty(EAGER_PLAN_VALIDATION_ENABLED, Boolean.class);
     }
 
     public static CreateView.Security getDefaultViewSecurityMode(Session session)
