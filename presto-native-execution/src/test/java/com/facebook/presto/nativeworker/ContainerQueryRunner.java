@@ -25,6 +25,7 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -181,6 +182,12 @@ public class ContainerQueryRunner
 
     @Override
     public ConnectorPlanOptimizerManager getPlanOptimizerManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PlanCheckerProviderManager getPlanCheckerProviderManager()
     {
         throw new UnsupportedOperationException();
     }
