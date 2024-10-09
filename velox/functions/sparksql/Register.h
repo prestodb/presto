@@ -16,9 +16,14 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace facebook::velox::functions::sparksql {
 
 void registerFunctions(const std::string& prefix);
+
+/// Return all the registered scalar function names include simple functions,
+/// vector functions and special forms.
+std::vector<std::string> listFunctionNames();
 
 } // namespace facebook::velox::functions::sparksql

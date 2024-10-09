@@ -71,3 +71,14 @@ target_link_libraries(
   GTest::gtest_main
   GTest::gmock
   gflags::gflags)
+
+add_executable(velox_spark_function_registry_test RegisterTest.cpp)
+
+add_test(velox_spark_function_registry_test velox_spark_function_registry_test)
+
+target_link_libraries(
+  velox_spark_function_registry_test
+  velox_expression
+  velox_functions_spark
+  GTest::gtest
+  GTest::gtest_main)

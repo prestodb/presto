@@ -52,6 +52,17 @@ SpecialFormRegistry::getSpecialForm(const std::string& name) const {
   return specialForm;
 }
 
+std::vector<std::string> SpecialFormRegistry::getSpecialFormNames() const {
+  std::vector<std::string> names;
+  registry_.withRLock([&](const auto& map) {
+    names.reserve(map.size());
+    for (const auto& [name, _] : map) {
+      names.push_back(name);
+    }
+  });
+  return names;
+}
+
 const SpecialFormRegistry& specialFormRegistry() {
   return specialFormRegistryInternal();
 }

@@ -41,6 +41,8 @@ class SpecialFormRegistry {
   FunctionCallToSpecialForm* FOLLY_NULLABLE
   getSpecialForm(const std::string& name) const;
 
+  std::vector<std::string> getSpecialFormNames() const;
+
  private:
   folly::Synchronized<RegistryType> registry_;
 };

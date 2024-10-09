@@ -520,5 +520,22 @@ void registerFunctions(const std::string& prefix) {
       Varchar>({prefix + "mask"});
 }
 
+std::vector<std::string> listFunctionNames() {
+  std::vector<std::string> names =
+      exec::specialFormRegistry().getSpecialFormNames();
+
+  const auto& simpleFunctions = exec::simpleFunctions().getFunctionNames();
+  names.insert(names.end(), simpleFunctions.begin(), simpleFunctions.end());
+
+  exec::vectorFunctionFactories().withRLock([&](const auto& map) {
+    names.reserve(names.size() + map.size());
+    for (const auto& [name, _] : map) {
+      names.push_back(name);
+    }
+  });
+
+  return names;
+}
+
 } // namespace sparksql
 } // namespace facebook::velox::functions
