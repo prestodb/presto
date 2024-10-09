@@ -319,7 +319,6 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.21.7</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>

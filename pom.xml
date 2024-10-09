@@ -81,6 +81,7 @@
         <dep.j2objc.version>2.8</dep.j2objc.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.commons.compress.version>1.23.0</dep.commons.compress.version>
+        <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -557,7 +558,13 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>3.25.1</version>
+                <version>${dep.protobuf-java.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java-util</artifactId>
+                <version>${dep.protobuf-java.version}</version>
             </dependency>
 
             <dependency>
