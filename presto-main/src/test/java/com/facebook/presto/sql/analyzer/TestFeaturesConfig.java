@@ -255,7 +255,9 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(false)
                 .setRemoveCrossJoinWithSingleConstantRow(true)
                 .setUseHistograms(false)
-                .setInlineProjectionsOnValues(false));
+                .setInlineProjectionsOnValues(false)
+                .setEagerPlanValidationEnabled(false)
+                .setEagerPlanValidationThreadPoolSize(20));
     }
 
     @Test
@@ -460,6 +462,8 @@ public class TestFeaturesConfig
                 .put("optimizer.remove-cross-join-with-single-constant-row", "false")
                 .put("optimizer.use-histograms", "true")
                 .put("optimizer.inline-projections-on-values", "true")
+                .put("eager-plan-validation-enabled", "true")
+                .put("eager-plan-validation-thread-pool-size", "2")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -661,7 +665,9 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(true)
                 .setRemoveCrossJoinWithSingleConstantRow(false)
                 .setUseHistograms(true)
-                .setInlineProjectionsOnValues(true);
+                .setInlineProjectionsOnValues(true)
+                .setEagerPlanValidationEnabled(true)
+                .setEagerPlanValidationThreadPoolSize(2);
         assertFullMapping(properties, expected);
     }
 

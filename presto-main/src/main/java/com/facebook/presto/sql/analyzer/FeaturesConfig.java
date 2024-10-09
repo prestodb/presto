@@ -296,6 +296,9 @@ public class FeaturesConfig
 
     private boolean isInlineProjectionsOnValuesEnabled;
 
+    private boolean eagerPlanValidationEnabled;
+    private int eagerPlanValidationThreadPoolSize = 20;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2968,5 +2971,31 @@ public class FeaturesConfig
     {
         this.isInlineProjectionsOnValuesEnabled = isInlineProjectionsOnValuesEnabled;
         return this;
+    }
+
+    @Config("eager-plan-validation-enabled")
+    @ConfigDescription("Enable eager building and validation of logical plan before queueing")
+    public FeaturesConfig setEagerPlanValidationEnabled(boolean eagerPlanValidationEnabled)
+    {
+        this.eagerPlanValidationEnabled = eagerPlanValidationEnabled;
+        return this;
+    }
+
+    public boolean isEagerPlanValidationEnabled()
+    {
+        return this.eagerPlanValidationEnabled;
+    }
+
+    @Config("eager-plan-validation-thread-pool-size")
+    @ConfigDescription("Size of thread pool to use when eager plan validation is enabled")
+    public FeaturesConfig setEagerPlanValidationThreadPoolSize(int eagerPlanValidationThreadPoolSize)
+    {
+        this.eagerPlanValidationThreadPoolSize = eagerPlanValidationThreadPoolSize;
+        return this;
+    }
+
+    public int getEagerPlanValidationThreadPoolSize()
+    {
+        return this.eagerPlanValidationThreadPoolSize;
     }
 }
