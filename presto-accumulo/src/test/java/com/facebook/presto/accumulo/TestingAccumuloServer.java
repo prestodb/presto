@@ -20,6 +20,7 @@ import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
+import java.io.IOException;
 import java.time.Duration;
 
 import static java.lang.String.format;
@@ -40,12 +41,23 @@ public class TestingAccumuloServer
         accumuloContainer.withFixedExposedPort(ACCUMULO_MASTER_PORT, ACCUMULO_MASTER_PORT);
         accumuloContainer.withFixedExposedPort(ACCUMULO_TSERVER_PORT, ACCUMULO_TSERVER_PORT);
         accumuloContainer.withExposedPorts(ZOOKEEPER_PORT);
+        accumuloContainer.withCreateContainerCmdModifier(cmd -> cmd
+                .withHostName("localhost")
+                .withEnv("ADDRESS=0.0.0.0")
+                .withEntrypoint("supervisord", "-c", "/etc/supervisord.conf"));
         accumuloContainer.waitingFor(Wait.forHealthcheck().withStartupTimeout(Duration.ofMinutes(10)));
         // No need for an explicit stop since this server is a singleton
         // and the container will be stopped by TestContainers on shutdown
         // TODO Change this class to not be a singleton
         //  https://github.com/prestosql/presto/issues/5842
         accumuloContainer.start();
+        try {
+            accumuloContainer.execInContainer("wget", "-P", "/usr/local/lib/accumulo/lib/ext/", "https://repo1.maven.org/maven2/com/facebook/presto/presto-accumulo/0.289/presto-accumulo-0.289.jar");
+            accumuloContainer.execInContainer("mv", "/usr/local/lib/accumulo/lib/ext/presto-accumulo-0.289.jar", "/usr/local/lib/accumulo/lib/ext/presto-accumulo-0.290-SNAPSHOT.jar");
+        }
+        catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
     public String getInstanceName()
     {
