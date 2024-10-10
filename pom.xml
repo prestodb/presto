@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.airlift</groupId>
+        <groupId>com.github.imjalpreet.airbase</groupId>
         <artifactId>airbase</artifactId>
-        <version>104-SNAPSHOT</version>
+        <version>upgradeToJava17-108aef1489-1</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -32,6 +32,20 @@
         <url>https://github.com/prestodb/presto</url>
         <tag>HEAD</tag>
     </scm>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </pluginRepository>
+    </pluginRepositories>
 
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
@@ -95,6 +109,8 @@
         <grpc.version>1.64.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <presto-maven-plugin.version>upgradeToJava17-8e3c193985-1</presto-maven-plugin.version>
+        <surefire.argLine></surefire.argLine>
     </properties>
 
     <modules>
@@ -2377,9 +2393,9 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>com.facebook.presto</groupId>
+                    <groupId>com.github.imjalpreet</groupId>
                     <artifactId>presto-maven-plugin</artifactId>
-                    <version>0.6-SNAPSHOT</version>
+                    <version>${presto-maven-plugin.version}</version>
                     <extensions>true</extensions>
                 </plugin>
 
@@ -2394,8 +2410,9 @@
 
         <plugins>
             <plugin>
-                <groupId>com.facebook.presto</groupId>
+                <groupId>com.github.imjalpreet</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
+                <extensions>true</extensions>
             </plugin>
 
             <plugin>
@@ -2426,6 +2443,7 @@
                         <exclude>**/*jmhTest*.java</exclude>
                         <exclude>**/*jmhType*.java</exclude>
                     </excludes>
+                    <argLine>${surefire.argLine}</argLine>
                 </configuration>
             </plugin>
 
@@ -2519,6 +2537,27 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>java8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+            <properties>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>java17</id>
+            <activation>
+                <jdk>17</jdk>
+            </activation>
+            <properties>
+                <surefire.argLine>
+                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens java.base/java.lang=ALL-UNNAMED
+                </surefire.argLine>
+            </properties>
+        </profile>
         <profile>
             <id>ui</id>
             <activation>
