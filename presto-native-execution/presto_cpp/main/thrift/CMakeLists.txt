@@ -32,11 +32,13 @@ thrift_library(
 target_link_libraries(presto_thrift-cpp2 ${THRIFT_PROTOCOL} ${THRIFT_METADATA}
                       ${THRIFT_CORE} ${THRIFT_TRANSPORT})
 set(presto_thrift_INCLUDES ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES})
-target_include_directories(presto_thrift-cpp2-obj PUBLIC ${THRIFT_INCLUDES})
+target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES}
+                                                     ${GLOG_INCLUDE_DIR})
+target_include_directories(presto_thrift-cpp2-obj PUBLIC ${THRIFT_INCLUDES}
+                                                         ${GLOG_INCLUDE_DIR})
 
 add_library(presto_thrift_extra ProtocolToThrift.cpp)
-target_include_directories(presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES}
-                                                      ${THRIFT_INCLUDES})
-target_include_directories(presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES})
+target_include_directories(
+  presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES} ${THRIFT_INCLUDES}
+                             ${GLOG_INCLUDE_DIR})
 add_dependencies(presto_thrift_extra presto_thrift-cpp2)
