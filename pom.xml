@@ -2514,6 +2514,7 @@
                 <configuration>
                     <ignoredClassPatterns combine.children="append">
                         <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
