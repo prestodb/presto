@@ -1426,7 +1426,7 @@ void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
 void PrestoServer::handleGracefulShutdown(
     const std::vector<std::unique_ptr<folly::IOBuf>>& body,
     proxygen::ResponseHandler* downstream) {
-  if (body.size() == 1 && body[0]->moveToFbString() == "\"SHUTTING_DOWN\"") {
+  if (body.size() == 1 && folly::trimWhitespace(body[0]->moveToFbString()) == "\"SHUTTING_DOWN\"") {
     LOG(INFO) << "Shutdown requested";
     if (nodeState() == NodeState::kActive) {
       std::thread([this]() { this->stop(); }).detach();
