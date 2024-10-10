@@ -135,6 +135,10 @@
                     <artifactId>jackson-dataformat-smile</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>com.google.inject.extensions</groupId>
+                    <artifactId>guice-multibindings</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>javax.activation</groupId>
                     <artifactId>javax.activation-api</artifactId>
                 </exclusion>
