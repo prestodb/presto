@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.NO_CPP_SIDECARS;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorAwareNodeManager
@@ -56,6 +59,16 @@ public class ConnectorAwareNodeManager
     public Node getCurrentNode()
     {
         return nodeManager.getCurrentNode();
+    }
+
+    @Override
+    public Node getSidecarNode()
+    {
+        Set<InternalNode> coordinatorSidecars = nodeManager.getCoordinatorSidecars();
+        if (coordinatorSidecars.isEmpty()) {
+            throw new PrestoException(NO_CPP_SIDECARS, "Expected exactly one coordinator sidecar, but found none");
+        }
+        return coordinatorSidecars.iterator().next();
     }
 
     @Override

@@ -370,6 +370,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
+    public static final String DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED = "delegating_row_expression_optimizer_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2071,6 +2072,11 @@ public final class SystemSessionProperties
                 booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
                         "Whether to evaluate project node on values node",
                         featuresConfig.getInlineProjectionsOnValues(),
+                        false),
+                booleanProperty(
+                        DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED,
+                        "Enable delegating row optimizer",
+                        featuresConfig.isDelegatingRowExpressionOptimizerEnabled(),
                         false));
     }
 
@@ -3402,5 +3408,10 @@ public final class SystemSessionProperties
     public static boolean isInlineProjectionsOnValues(Session session)
     {
         return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
+    }
+
+    public static boolean isDelegatingRowExpressionOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED, Boolean.class);
     }
 }

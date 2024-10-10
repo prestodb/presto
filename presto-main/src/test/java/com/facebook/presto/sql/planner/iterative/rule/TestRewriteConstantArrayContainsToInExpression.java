@@ -19,8 +19,10 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -32,13 +34,23 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.as
 public class TestRewriteConstantArrayContainsToInExpression
         extends BaseRuleTest
 {
-    @Test
-    public void testNoNull()
+    @DataProvider(name = "delegating-row-expression-optimizer-enabled")
+    public Object[][] delegatingDataProvider()
+    {
+        return new Object[][] {
+                {true},
+                {false},
+        };
+    }
+
+    @Test(dataProvider = "delegating-row-expression-optimizer-enabled")
+    public void testNoNull(boolean enableDelegatingRowExpressionOptimizer)
     {
         tester().assertThat(
-                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
+                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
+                .setSystemProperty(DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED, Boolean.toString(enableDelegatingRowExpressionOptimizer))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BOOLEAN);
                     VariableReferenceExpression b = p.variable("b");
@@ -52,11 +64,12 @@ public class TestRewriteConstantArrayContainsToInExpression
                                 values("b")));
     }
 
-    @Test
-    public void testDoesNotFireForNestedArray()
+    @Test(dataProvider = "delegating-row-expression-optimizer-enabled")
+    public void testDoesNotFireForNestedArray(boolean enableDelegatingRowExpressionOptimizer)
     {
         tester().assertThat(new RewriteConstantArrayContainsToInExpression(getFunctionManager()).projectRowExpressionRewriteRule())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
+                .setSystemProperty(DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED, Boolean.toString(enableDelegatingRowExpressionOptimizer))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BOOLEAN);
                     VariableReferenceExpression b = p.variable("b", new ArrayType(BIGINT));
@@ -67,8 +80,8 @@ public class TestRewriteConstantArrayContainsToInExpression
                 .doesNotFire();
     }
 
-    @Test
-    public void testDoesNotFireForNull()
+    @Test(dataProvider = "delegating-row-expression-optimizer-enabled")
+    public void testDoesNotFireForNull(boolean enableDelegatingRowExpressionOptimizer)
     {
         tester().assertThat(new RewriteConstantArrayContainsToInExpression(getFunctionManager()).projectRowExpressionRewriteRule())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
@@ -82,8 +95,8 @@ public class TestRewriteConstantArrayContainsToInExpression
                 .doesNotFire();
     }
 
-    @Test
-    public void testDoesNotFireForEmpty()
+    @Test(dataProvider = "delegating-row-expression-optimizer-enabled")
+    public void testDoesNotFireForEmpty(boolean enableDelegatingRowExpressionOptimizer)
     {
         tester().assertThat(new RewriteConstantArrayContainsToInExpression(getFunctionManager()).projectRowExpressionRewriteRule())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
@@ -97,11 +110,11 @@ public class TestRewriteConstantArrayContainsToInExpression
                 .doesNotFire();
     }
 
-    @Test
-    public void testNotFire()
+    @Test(dataProvider = "delegating-row-expression-optimizer-enabled")
+    public void testNotFire(boolean enableDelegatingRowExpressionOptimizer)
     {
         tester().assertThat(
-                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
+                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
@@ -118,11 +131,11 @@ public class TestRewriteConstantArrayContainsToInExpression
                                 values("b", "c")));
     }
 
-    @Test
-    public void testWithNull()
+    @Test(dataProvider = "delegating-row-expression-optimizer-enabled")
+    public void testWithNull(boolean enableDelegatingRowExpressionOptimizer)
     {
         tester().assertThat(
-                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
+                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
@@ -138,11 +151,11 @@ public class TestRewriteConstantArrayContainsToInExpression
                                 values("b")));
     }
 
-    @Test
-    public void testLambda()
+    @Test(dataProvider = "delegating-row-expression-optimizer-enabled")
+    public void testLambda(boolean enableDelegatingRowExpressionOptimizer)
     {
         tester().assertThat(
-                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
+                ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
                 .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {

@@ -142,6 +142,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -166,6 +167,8 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
+import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -345,6 +348,7 @@ public class LocalQueryRunner
     private static ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%s"));
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private ExpressionOptimizerManager expressionOptimizerManager;
 
     public LocalQueryRunner(Session defaultSession)
     {
@@ -481,6 +485,9 @@ public class LocalQueryRunner
                 blockEncodingManager,
                 featuresConfig);
 
+        // TODO: @tdm wire this in
+        expressionOptimizerManager = new ExpressionOptimizerManager(nodeManager, getFunctionAndTypeManager(), nodeInfo, new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class)));
+
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata, accessControl),
@@ -515,7 +522,8 @@ public class LocalQueryRunner
                 new ThrowingClusterTtlProviderManager(),
                 historyBasedPlanStatisticsManager,
                 new TracerProviderManager(new TracingConfig()),
-                new NodeStatusNotificationManager());
+                new NodeStatusNotificationManager(),
+                expressionOptimizerManager);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -684,6 +692,12 @@ public class LocalQueryRunner
     public TestingAccessControlManager getAccessControl()
     {
         return accessControl;
+    }
+
+    @Override
+    public ExpressionOptimizerManager getExpressionManager()
+    {
+        return expressionOptimizerManager;
     }
 
     public ExecutorService getExecutor()
@@ -1097,7 +1111,8 @@ public class LocalQueryRunner
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig).getPlanningTimeOptimizers();
+                featuresConfig,
+                expressionOptimizerManager).getPlanningTimeOptimizers();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)

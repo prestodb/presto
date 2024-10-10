@@ -255,7 +255,8 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(false)
                 .setRemoveCrossJoinWithSingleConstantRow(true)
                 .setUseHistograms(false)
-                .setInlineProjectionsOnValues(false));
+                .setInlineProjectionsOnValues(false)
+                .setDelegatingRowExpressionOptimizerEnabled(false));
     }
 
     @Test
@@ -460,6 +461,7 @@ public class TestFeaturesConfig
                 .put("optimizer.remove-cross-join-with-single-constant-row", "false")
                 .put("optimizer.use-histograms", "true")
                 .put("optimizer.inline-projections-on-values", "true")
+                .put("optimizer.delegating-row-expression-optimizer-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -661,7 +663,8 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(true)
                 .setRemoveCrossJoinWithSingleConstantRow(false)
                 .setUseHistograms(true)
-                .setInlineProjectionsOnValues(true);
+                .setInlineProjectionsOnValues(true)
+                .setDelegatingRowExpressionOptimizerEnabled(true);
         assertFullMapping(properties, expected);
     }
 

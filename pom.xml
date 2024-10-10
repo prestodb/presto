@@ -200,6 +200,7 @@
         <module>presto-singlestore</module>
         <module>presto-hana</module>
         <module>presto-openapi</module>
+        <module>presto-native-plugin</module>
     </modules>
 
     <dependencyManagement>
@@ -700,6 +701,13 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-tests</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-benchmark</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -891,6 +899,19 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-open-telemetry</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-native-plugin</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-native-execution</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
             </dependency>
 
             <dependency>
