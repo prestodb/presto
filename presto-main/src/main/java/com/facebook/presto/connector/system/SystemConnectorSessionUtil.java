@@ -34,7 +34,7 @@ public final class SystemConnectorSessionUtil
     {
         TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
         ConnectorIdentity connectorIdentity = session.getIdentity();
-        Identity identity = new Identity(connectorIdentity.getUser(), connectorIdentity.getPrincipal());
+        Identity identity = new Identity(connectorIdentity.getUser(), connectorIdentity.getPrincipal(), connectorIdentity.getExtraCredentials());
         return Session.builder(new SessionPropertyManager(SYSTEM_SESSION_PROPERTIES))
                 .setQueryId(new QueryId(session.getQueryId()))
                 .setTransactionId(transactionId)
