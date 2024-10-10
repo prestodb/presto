@@ -27,6 +27,8 @@ WriterContext::WriterContext(
     const std::shared_ptr<const Config>& config,
     std::shared_ptr<memory::MemoryPool> pool,
     const dwio::common::MetricsLogPtr& metricLogger,
+    const tz::TimeZone* sessionTimezone,
+    const bool adjustTimestampToTimezone,
     std::unique_ptr<encryption::EncryptionHandler> handler)
     : config_{config},
       pool_{std::move(pool)},
@@ -52,6 +54,8 @@ WriterContext::WriterContext(
       // metadata with dwio::common::request::AccessDescriptor upstream and
       // pass down the metric log.
       metricLogger_{metricLogger},
+      sessionTimezone_{sessionTimezone},
+      adjustTimestampToTimezone_{adjustTimestampToTimezone},
       handler_{std::move(handler)} {
   const bool forceLowMemoryMode{getConfig(Config::FORCE_LOW_MEMORY_MODE)};
   const bool disableLowMemoryMode{getConfig(Config::DISABLE_LOW_MEMORY_MODE)};

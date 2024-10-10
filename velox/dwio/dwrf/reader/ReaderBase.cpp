@@ -80,41 +80,24 @@ ReaderBase::ReaderBase(
     MemoryPool& pool,
     std::unique_ptr<dwio::common::BufferedInput> input,
     FileFormat fileFormat)
-    : ReaderBase(
-          pool,
-          std::move(input),
-          nullptr,
-          dwio::common::ReaderOptions::kDefaultFooterEstimatedSize,
-          dwio::common::ReaderOptions::kDefaultFilePreloadThreshold,
-          fileFormat) {}
+    : ReaderBase(createReaderOptions(pool, fileFormat), std::move(input)) {}
 
 ReaderBase::ReaderBase(
-    MemoryPool& pool,
-    std::unique_ptr<dwio::common::BufferedInput> input,
-    std::shared_ptr<DecrypterFactory> decryptorFactory,
-    uint64_t footerEstimatedSize,
-    uint64_t filePreloadThreshold,
-    FileFormat fileFormat,
-    bool fileColumnNamesReadAsLowerCase,
-    std::shared_ptr<random::RandomSkipTracker> randomSkip,
-    std::shared_ptr<velox::common::ScanSpec> scanSpec)
-    : pool_{pool},
-      arena_(std::make_unique<google::protobuf::Arena>()),
-      decryptorFactory_(decryptorFactory),
-      footerEstimatedSize_(footerEstimatedSize),
-      filePreloadThreshold_(filePreloadThreshold),
+    const dwio::common::ReaderOptions& options,
+    std::unique_ptr<dwio::common::BufferedInput> input)
+    : arena_(std::make_unique<google::protobuf::Arena>()),
+      options_{options},
       input_(std::move(input)),
-      randomSkip_(std::move(randomSkip)),
-      scanSpec_(std::move(scanSpec)),
       fileLength_(input_->getReadFile()->size()) {
   process::TraceContext trace("ReaderBase::ReaderBase");
   // TODO: make a config
   DWIO_ENSURE(fileLength_ > 0, "ORC file is empty");
   VELOX_CHECK_GE(fileLength_, 4, "File size too small");
 
-  const auto preloadFile = fileLength_ <= filePreloadThreshold_;
-  const uint64_t readSize =
-      preloadFile ? fileLength_ : std::min(fileLength_, footerEstimatedSize_);
+  const auto preloadFile = fileLength_ <= options_.filePreloadThreshold();
+  const uint64_t readSize = preloadFile
+      ? fileLength_
+      : std::min(fileLength_, options_.footerEstimatedSize());
   if (input_->supportSyncLoad()) {
     input_->enqueue({fileLength_ - readSize, readSize, "footer"});
     input_->load(preloadFile ? LogType::FILE : LogType::FOOTER);
@@ -135,7 +118,7 @@ ReaderBase::ReaderBase(
       fileLength_,
       "Corrupted file, Post script size is invalid");
 
-  if (fileFormat == FileFormat::DWRF) {
+  if (fileFormat() == FileFormat::DWRF) {
     auto postScript = ProtoUtils::readProto<proto::PostScript>(
         input_->read(fileLength_ - psLength_ - 1, psLength_, LogType::FOOTER));
     postScript_ = std::make_unique<PostScript>(std::move(postScript));
@@ -173,7 +156,7 @@ ReaderBase::ReaderBase(
 
   auto footerStream = input_->read(
       fileLength_ - psLength_ - footerSize - 1, footerSize, LogType::FOOTER);
-  if (fileFormat == FileFormat::DWRF) {
+  if (fileFormat() == FileFormat::DWRF) {
     auto footer =
         google::protobuf::Arena::CreateMessage<proto::Footer>(arena_.get());
     ProtoUtils::readProtoInto<proto::Footer>(
@@ -190,7 +173,7 @@ ReaderBase::ReaderBase(
   }
 
   schema_ = std::dynamic_pointer_cast<const RowType>(
-      convertType(*footer_, 0, fileColumnNamesReadAsLowerCase));
+      convertType(*footer_, 0, options_.fileColumnNamesReadAsLowerCase()));
   VELOX_CHECK_NOT_NULL(schema_, "invalid schema");
 
   // load stripe index/footer cache
@@ -204,8 +187,8 @@ ReaderBase::ReaderBase(
           input_->read(cacheOffset, cacheSize, LogType::FOOTER));
       input_->load(LogType::FOOTER);
     } else {
-      auto cacheBuffer =
-          std::make_shared<dwio::common::DataBuffer<char>>(pool, cacheSize);
+      auto cacheBuffer = std::make_shared<dwio::common::DataBuffer<char>>(
+          options_.memoryPool(), cacheSize);
       input_->read(cacheOffset, cacheSize, LogType::FOOTER)
           ->readFully(cacheBuffer->data(), cacheSize);
       cache_ = std::make_unique<StripeMetadataCache>(
@@ -226,7 +209,8 @@ ReaderBase::ReaderBase(
     }
   }
   // initialize file decrypter
-  handler_ = DecryptionHandler::create(*footer_, decryptorFactory_.get());
+  handler_ =
+      DecryptionHandler::create(*footer_, options_.decrypterFactory().get());
 }
 
 std::vector<uint64_t> ReaderBase::rowsPerStripe() const {

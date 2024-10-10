@@ -65,7 +65,6 @@ class StripeLoadKeysTest : public Test {
     auto handler =
         DecryptionHandler::create(FooterWrapper(footer_.get()), &factory);
     pool_ = memoryManager()->addLeafPool();
-
     reader_ = std::make_unique<ReaderBase>(
         *pool_,
         std::make_unique<BufferedInput>(

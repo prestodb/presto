@@ -794,26 +794,15 @@ std::optional<size_t> DwrfRowReader::estimatedRowSize() const {
 DwrfReader::DwrfReader(
     const ReaderOptions& options,
     std::unique_ptr<dwio::common::BufferedInput> input)
-    : readerBase_(std::make_unique<ReaderBase>(
-          options.memoryPool(),
-          std::move(input),
-          options.decrypterFactory(),
-          options.footerEstimatedSize(),
-          options.filePreloadThreshold(),
-          options.fileFormat() == FileFormat::ORC ? FileFormat::ORC
-                                                  : FileFormat::DWRF,
-          options.fileColumnNamesReadAsLowerCase(),
-          options.randomSkip(),
-          options.scanSpec())),
-      options_(options) {
+    : readerBase_(std::make_unique<ReaderBase>(options, std::move(input))) {
   // If we are not using column names to map table columns to file columns,
   // then we use indices. In that case we need to ensure the names completely
   // match, because we are still mapping columns by names further down the
   // code. So we rename column names in the file schema to match table schema.
   // We test the options to have 'fileSchema' (actually table schema) as most
   // of the unit tests fail to provide it.
-  if ((!options_.useColumnNamesForColumnMapping()) &&
-      (options_.fileSchema() != nullptr)) {
+  if ((!readerBase_->readerOptions().useColumnNamesForColumnMapping()) &&
+      (readerBase_->readerOptions().fileSchema() != nullptr)) {
     updateColumnNamesFromTableSchema();
   }
 }
@@ -910,7 +899,7 @@ TypePtr updateColumnNames(
 } // namespace
 
 void DwrfReader::updateColumnNamesFromTableSchema() {
-  const auto& tableSchema = options_.fileSchema();
+  const auto& tableSchema = readerBase_->readerOptions().fileSchema();
   const auto& fileSchema = readerBase_->schema();
   readerBase_->setSchema(std::dynamic_pointer_cast<const RowType>(
       updateColumnNames(fileSchema, tableSchema, "", "")));

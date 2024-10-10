@@ -75,8 +75,12 @@ Writer::Writer(
                                     *options.encryptionSpec,
                                     options.encrypterFactory.get())
                               : nullptr);
-  writerBase_->initContext(options.config, pool, std::move(handler));
-
+  writerBase_->initContext(
+      options.config,
+      pool,
+      options.sessionTimezone,
+      options.adjustTimestampToTimezone,
+      std::move(handler));
   auto& context = writerBase_->getContext();
   VELOX_CHECK_EQ(
       context.getTotalMemoryUsage(),

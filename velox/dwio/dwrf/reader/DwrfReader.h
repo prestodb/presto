@@ -344,7 +344,6 @@ class DwrfReader : public dwio::common::Reader {
 
  private:
   std::shared_ptr<ReaderBase> readerBase_;
-  const dwio::common::ReaderOptions options_;
 };
 
 class DwrfReaderFactory : public dwio::common::ReaderFactory {

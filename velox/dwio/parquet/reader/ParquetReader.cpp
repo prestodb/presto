@@ -91,7 +91,7 @@ class ReaderBase {
   }
 
   const tz::TimeZone* sessionTimezone() const {
-    return options_.getSessionTimezone();
+    return options_.sessionTimezone();
   }
 
   std::optional<SemanticVersion> version() const {

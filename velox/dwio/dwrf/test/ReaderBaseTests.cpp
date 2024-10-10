@@ -212,8 +212,9 @@ std::unique_ptr<ReaderBase> createCorruptedFileReader(
   sink.write(std::move(buf));
   auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(
       std::string(sink.data(), sink.size()));
+  facebook::velox::dwio::common::ReaderOptions readerOpts{pool.get()};
   return std::make_unique<ReaderBase>(
-      *pool, std::make_unique<BufferedInput>(readFile, *pool));
+      readerOpts, std::make_unique<BufferedInput>(readFile, *pool));
 }
 
 class ReaderBaseTest : public Test {

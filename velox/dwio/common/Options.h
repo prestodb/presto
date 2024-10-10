@@ -507,6 +507,11 @@ class ReaderOptions : public io::ReaderOptions {
     return *this;
   }
 
+  ReaderOptions& setAdjustTimestampToTimezone(bool adjustTimestampToTimezone) {
+    adjustTimestampToTimezone_ = adjustTimestampToTimezone;
+    return *this;
+  }
+
   /// Gets the desired tail location.
   uint64_t tailLocation() const {
     return tailLocation_;
@@ -546,8 +551,12 @@ class ReaderOptions : public io::ReaderOptions {
     return ioExecutor_;
   }
 
-  const tz::TimeZone* getSessionTimezone() const {
+  const tz::TimeZone* sessionTimezone() const {
     return sessionTimezone_;
+  }
+
+  bool adjustTimestampToTimezone() const {
+    return adjustTimestampToTimezone_;
   }
 
   bool fileColumnNamesReadAsLowerCase() const {
@@ -604,6 +613,7 @@ class ReaderOptions : public io::ReaderOptions {
   std::shared_ptr<random::RandomSkipTracker> randomSkip_;
   std::shared_ptr<velox::common::ScanSpec> scanSpec_;
   const tz::TimeZone* sessionTimezone_{nullptr};
+  bool adjustTimestampToTimezone_{false};
   bool selectiveNimbleReaderEnabled_{false};
 };
 
@@ -634,6 +644,9 @@ struct WriterOptions {
 
   std::function<std::unique_ptr<dwio::common::FlushPolicy>()>
       flushPolicyFactory;
+
+  const tz::TimeZone* sessionTimezone{nullptr};
+  bool adjustTimestampToTimezone{false};
 
   virtual ~WriterOptions() = default;
 };

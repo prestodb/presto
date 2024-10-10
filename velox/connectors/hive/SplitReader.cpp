@@ -34,7 +34,8 @@ VectorPtr newConstantFromString(
     const TypePtr& type,
     const std::optional<std::string>& value,
     vector_size_t size,
-    velox::memory::MemoryPool* pool) {
+    velox::memory::MemoryPool* pool,
+    const std::string& sessionTimezone) {
   using T = typename TypeTraits<kind>::NativeType;
   if (!value.has_value()) {
     return std::make_shared<ConstantVector<T>>(pool, size, true, type, T());
@@ -365,7 +366,8 @@ std::vector<TypePtr> SplitReader::adaptColumns(
           infoColumnType,
           iter->second,
           1,
-          connectorQueryCtx_->memoryPool());
+          connectorQueryCtx_->memoryPool(),
+          connectorQueryCtx_->sessionTimezone());
       childSpec->setConstantValue(constant);
     } else if (!childSpec->isExplicitRowNumber()) {
       auto fileTypeIdx = fileType->getChildIdxIfExists(fieldName);
@@ -417,7 +419,8 @@ void SplitReader::setPartitionValue(
       type,
       value,
       1,
-      connectorQueryCtx_->memoryPool());
+      connectorQueryCtx_->memoryPool(),
+      connectorQueryCtx_->sessionTimezone());
   spec->setConstantValue(constant);
 }
 

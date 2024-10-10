@@ -635,6 +635,14 @@ class TestStripeStreams : public StripeStreamsBase {
     VELOX_UNSUPPORTED();
   }
 
+  const facebook::velox::tz::TimeZone* sessionTimezone() const override {
+    VELOX_UNSUPPORTED();
+  }
+
+  bool adjustTimestampToTimezone() const override {
+    return false;
+  }
+
   const facebook::velox::dwio::common::RowReaderOptions& rowReaderOptions()
       const override {
     VELOX_UNSUPPORTED();
