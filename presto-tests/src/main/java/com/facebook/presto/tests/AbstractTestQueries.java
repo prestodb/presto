@@ -7768,21 +7768,62 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinPrefilter()
     {
-        // Orig
-        String testQuery = "SELECT 1 from region join nation using(regionkey)";
-        MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
-        assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
-        result = computeActual(testQuery);
-        assertEquals(result.getRowCount(), 25);
+        {
+            // Orig
+            String testQuery = "SELECT 1 from region join nation using(regionkey)";
+            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(testQuery);
+            assertEquals(result.getRowCount(), 25);
 
-        // With feature
-        Session session = Session.builder(getSession())
-                .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
-                .build();
-        result = computeActual(session, "explain(type distributed) " + testQuery);
-        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
-        result = computeActual(session, testQuery);
-        assertEquals(result.getRowCount(), 25);
+            // With feature
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                    .build();
+            result = computeActual(session, "explain(type distributed) " + testQuery);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(session, testQuery);
+            assertEquals(result.getRowCount(), 25);
+        }
+
+        {
+            // Orig
+            @Language("SQL") String testQuery = "SELECT 1 from region r join nation n on cast(r.regionkey as varchar) = cast(n.regionkey as varchar)";
+            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(testQuery);
+            assertEquals(result.getRowCount(), 25);
+
+            // With feature
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                    .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, String.valueOf(false))
+                    .build();
+            result = computeActual(session, "explain(type distributed) " + testQuery);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("XX_HASH_64"), -1);
+            result = computeActual(session, testQuery);
+            assertEquals(result.getRowCount(), 25);
+        }
+
+        {
+            // Orig
+            String testQuery = "SELECT 1 from lineitem l join orders o on l.orderkey = o.orderkey and l.suppkey = o.custkey";
+            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(testQuery);
+            assertEquals(result.getRowCount(), 37);
+
+            // With feature
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                    .build();
+            result = computeActual(session, "explain(type distributed) " + testQuery);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("XX_HASH_64"), -1);
+            result = computeActual(session, testQuery);
+            assertEquals(result.getRowCount(), 37);
+        }
     }
 
     @Test
