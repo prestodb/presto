@@ -79,7 +79,7 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: 'temurin'
-          java-version: 8
+          java-version: 17
       - name: Cache local Maven repository
         if: needs.changes.outputs.codechange == 'true'
         id: cache-maven
