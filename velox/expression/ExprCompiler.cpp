@@ -312,7 +312,17 @@ ExprPtr tryFoldIfConstant(const ExprPtr& expr, Scope* scope) {
       expr->eval(rows, context, result);
       auto constantVector = BaseVector::wrapInConstant(1, 0, result);
 
-      return std::make_shared<ConstantExpr>(constantVector);
+      auto resultExpr = std::make_shared<ConstantExpr>(constantVector);
+      if (expr->stats().defaultNullRowsSkipped ||
+          std::any_of(
+              expr->inputs().begin(),
+              expr->inputs().end(),
+              [](const ExprPtr& input) {
+                return input->stats().defaultNullRowsSkipped;
+              })) {
+        resultExpr->setDefaultNullRowsSkipped(true);
+      }
+      return resultExpr;
     }
     // Constant folding has a subtle gotcha: if folding a constant expression
     // deterministically throws, we can't throw at expression compilation time

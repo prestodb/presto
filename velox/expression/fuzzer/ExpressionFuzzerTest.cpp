@@ -17,6 +17,7 @@
 #include <folly/init/Init.h>
 #include <unordered_set>
 
+#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/expression/fuzzer/ArgGenerator.h"
 #include "velox/expression/fuzzer/FuzzerRunner.h"
 #include "velox/functions/prestosql/fuzzer/DivideArgGenerator.h"
@@ -33,17 +34,36 @@ DEFINE_int64(
     "Initial seed for random number generator used to reproduce previous "
     "results (0 means start with random seed).");
 
+DEFINE_string(
+    presto_url,
+    "",
+    "Presto coordinator URI along with port. If set, we use Presto as the "
+    "source of truth. Otherwise, use the Velox simplified expression evaluation. Example: "
+    "--presto_url=http://127.0.0.1:8080");
+
+DEFINE_uint32(
+    req_timeout_ms,
+    10000,
+    "Timeout in milliseconds for HTTP requests made to reference DB, "
+    "such as Presto. Example: --req_timeout_ms=2000");
+
 using namespace facebook::velox::exec::test;
+using facebook::velox::exec::test::PrestoQueryRunner;
 using facebook::velox::fuzzer::ArgGenerator;
 using facebook::velox::fuzzer::FuzzerRunner;
+using facebook::velox::test::ReferenceQueryRunner;
 
 int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
 
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
   folly::Init init(&argc, &argv);
+
+  facebook::velox::memory::MemoryManager::initialize({});
 
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable.
@@ -93,5 +113,22 @@ int main(int argc, char** argv) {
        {"mod", std::make_shared<ModulusArgGenerator>()},
        {"truncate", std::make_shared<TruncateArgGenerator>()}};
 
-  FuzzerRunner::runFromGtest(initialSeed, skipFunctions, {{}}, argGenerators);
+  std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
+      facebook::velox::memory::memoryManager()->addRootPool()};
+  std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
+  if (!FLAGS_presto_url.empty()) {
+    referenceQueryRunner = std::make_shared<PrestoQueryRunner>(
+        rootPool.get(),
+        FLAGS_presto_url,
+        "expression_fuzzer",
+        static_cast<std::chrono::milliseconds>(FLAGS_req_timeout_ms));
+    LOG(INFO) << "Using Presto as the reference DB.";
+  }
+  FuzzerRunner::runFromGtest(
+      initialSeed,
+      skipFunctions,
+      {{"session_timezone", "America/Los_Angeles"},
+       {"adjust_timestamp_to_session_timezone", "true"}},
+      argGenerators,
+      referenceQueryRunner);
 }

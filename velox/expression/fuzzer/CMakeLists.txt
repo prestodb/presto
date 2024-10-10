@@ -16,7 +16,10 @@ add_library(velox_expression_test_utility ArgumentTypeFuzzer.cpp
                                           FuzzerToolkit.cpp)
 
 target_link_libraries(
-  velox_expression_test_utility velox_type velox_expression_functions
+  velox_expression_test_utility
+  velox_type
+  velox_expression_functions
+  velox_fuzzer_util
   GTest::gtest)
 
 add_library(
@@ -34,7 +37,10 @@ target_link_libraries(
   velox_vector_fuzzer
   velox_vector_test_lib
   velox_function_registry
-  velox_expression_test_utility)
+  velox_expression_test_utility
+  velox_file
+  velox_hive_connector
+  velox_fuzzer_util)
 
 add_executable(velox_expression_fuzzer_test ExpressionFuzzerTest.cpp)
 
@@ -42,6 +48,8 @@ target_link_libraries(
   velox_expression_fuzzer_test
   velox_expression_fuzzer
   velox_functions_prestosql
+  velox_fuzzer_util
+  velox_hive_connector
   GTest::gtest
   GTest::gtest_main)
 
@@ -50,6 +58,8 @@ add_executable(spark_expression_fuzzer_test SparkExpressionFuzzerTest.cpp)
 target_link_libraries(
   spark_expression_fuzzer_test
   velox_expression_fuzzer
+  velox_fuzzer_util
+  velox_hive_connector
   velox_functions_spark
   GTest::gtest
   GTest::gtest_main)

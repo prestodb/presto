@@ -15,6 +15,7 @@
  */
 
 #include <string>
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/parse/Expressions.h"
 #include "velox/vector/TypeAliases.h"
 
@@ -70,6 +71,7 @@ class ExpressionRunner {
       vector_size_t numRows,
       const std::string& storeResultPath,
       const std::string& lazyColumnListPath,
+      std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner,
       bool findMinimalSubExpression = false,
       bool useSeperatePoolForInput = true);
 

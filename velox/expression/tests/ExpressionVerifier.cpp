@@ -16,12 +16,16 @@
 
 #include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/common/base/Fs.h"
+#include "velox/core/PlanNode.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/expression/Expr.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::test {
+
+using exec::test::ReferenceQueryErrorCode;
 
 namespace {
 void logRowVector(const RowVectorPtr& rowVector) {
@@ -38,6 +42,31 @@ void logRowVector(const RowVectorPtr& rowVector) {
   for (vector_size_t i = 0; i < rowVector->size(); ++i) {
     VLOG(1) << "\tAt " << i << ": " << rowVector->toString(i);
   }
+}
+
+core::PlanNodePtr makeProjectionPlan(
+    const RowVectorPtr& input,
+    const std::vector<core::TypedExprPtr>& projections) {
+  std::vector<std::string> names{projections.size()};
+  for (auto i = 0; i < names.size(); ++i) {
+    names[i] = fmt::format("p{}", i);
+  }
+  std::vector<RowVectorPtr> inputs{input};
+  return std::make_shared<core::ProjectNode>(
+      "project",
+      names,
+      projections,
+      std::make_shared<core::ValuesNode>("values", inputs));
+}
+
+bool defaultNullRowsSkipped(const exec::ExprSet& exprSet) {
+  auto stats = exprSet.stats();
+  for (auto iter = stats.begin(); iter != stats.end(); ++iter) {
+    if (iter->second.defaultNullRowsSkipped) {
+      return true;
+    }
+  }
+  return false;
 }
 } // namespace
 
@@ -107,7 +136,16 @@ fuzzer::ResultOrError ExpressionVerifier::verify(
 
   // Execute with common expression eval path. Some columns of the input row
   // vector will be wrapped in lazy as specified in 'columnsToWrapInLazy'.
-  bool unsupportedInputUncatchableError = false;
+
+  // Whether UNSUPPORTED_INPUT_UNCATCHABLE error is thrown from either the
+  // common or simplified evaluation path. This error is allowed to thrown only
+  // from one evaluation path because it is VeloxRuntimeError, hence cannot be
+  // suppressed by default nulls.
+  bool unsupportedInputUncatchableError{false};
+  // Whether default null behavior takes place in the common evaluation path. If
+  // so, errors from Presto are allowed because Presto doesn't suppress error by
+  // default nulls.
+  bool defaultNull{false};
   try {
     exec::ExprSet exprSetCommon(
         plans, execCtx_, !options_.disableConstantFolding);
@@ -125,6 +163,7 @@ fuzzer::ResultOrError ExpressionVerifier::verify(
 
     exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, inputRowVector.get());
     exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
+    defaultNull = defaultNullRowsSkipped(exprSetCommon);
 
     if (copiedInput) {
       // Flatten the input vector as an optimization if its very deeply nested.
@@ -158,76 +197,149 @@ fuzzer::ResultOrError ExpressionVerifier::verify(
     throw;
   }
 
-  VLOG(1) << "Starting simplified eval execution.";
+  VLOG(1) << "Starting reference eval execution.";
 
-  // Execute with simplified expression eval path.
-  try {
-    exec::ExprSetSimplified exprSetSimplified(plans, execCtx_);
-    exec::EvalCtx evalCtxSimplified(
-        execCtx_, &exprSetSimplified, rowVector.get());
+  if (referenceQueryRunner_ != nullptr) {
+    VLOG(1) << "Execute with reference DB.";
+    auto projectionPlan = makeProjectionPlan(rowVector, plans);
+    auto referenceResultOrError = computeReferenceResults(
+        projectionPlan, {rowVector}, referenceQueryRunner_.get());
 
-    auto copy = BaseVector::copy(*rowVector);
-    exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
+    auto referenceEvalResult = referenceResultOrError.first;
 
-    // Flatten the input vector as an optimization if its very deeply nested.
-    fuzzer::compareVectors(
-        copy,
-        BaseVector::copy(*rowVector),
-        "Copy of original input",
-        "Input after simplified");
+    if (referenceResultOrError.second !=
+        ReferenceQueryErrorCode::kReferenceQueryUnsupported) {
+      bool exceptionReference =
+          (referenceResultOrError.second != ReferenceQueryErrorCode::kSuccess);
+      try {
+        // Compare results or exceptions (if any). Fail if anything is
+        // different.
+        if (exceptionCommonPtr || exceptionReference) {
+          // Throws in case only one evaluation path throws exception.
+          // Otherwise, return false to signal that the expression failed.
+          if (!(defaultNull &&
+                referenceQueryRunner_->runnerType() ==
+                    ReferenceQueryRunner::RunnerType::kPrestoQueryRunner) &&
+              !(exceptionCommonPtr && exceptionReference)) {
+            LOG(ERROR) << "Only "
+                       << (exceptionCommonPtr ? "common" : "reference")
+                       << " path threw exception:";
+            if (exceptionCommonPtr) {
+              std::rethrow_exception(exceptionCommonPtr);
+            } else {
+              auto referenceSql = referenceQueryRunner_->toSql(projectionPlan);
+              VELOX_FAIL("Reference path throws for query: {}", *referenceSql);
+            }
+          }
+        } else {
+          // Throws in case output is different.
+          VELOX_CHECK_EQ(commonEvalResult.size(), plans.size());
+          VELOX_CHECK(referenceEvalResult.has_value());
 
-  } catch (const VeloxException& e) {
-    if (e.errorCode() == error_code::kUnsupportedInputUncatchable) {
-      unsupportedInputUncatchableError = true;
-    } else if (!e.isUserError()) {
+          std::vector<TypePtr> types;
+          for (auto i = 0; i < commonEvalResult.size(); ++i) {
+            types.push_back(commonEvalResult[i]->type());
+          }
+          auto commonEvalResultRow = std::make_shared<RowVector>(
+              execCtx_->pool(),
+              ROW(std::move(types)),
+              nullptr,
+              commonEvalResult[0]->size(),
+              commonEvalResult);
+          VELOX_CHECK(
+              exec::test::assertEqualResults(
+                  referenceEvalResult.value(),
+                  projectionPlan->outputType(),
+                  {commonEvalResultRow}),
+              "Velox and reference DB results don't match");
+          LOG(INFO) << "Verified results against reference DB";
+        }
+      } catch (...) {
+        persistReproInfoIfNeeded(
+            rowVector,
+            columnsToWrapInLazy,
+            copiedResult,
+            sql,
+            complexConstants);
+        throw;
+      }
+    }
+  } else {
+    VLOG(1) << "Execute with simplified expression eval path.";
+    try {
+      exec::ExprSetSimplified exprSetSimplified(plans, execCtx_);
+      exec::EvalCtx evalCtxSimplified(
+          execCtx_, &exprSetSimplified, rowVector.get());
+
+      auto copy = BaseVector::copy(*rowVector);
+      exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
+
+      // Flatten the input vector as an optimization if its very deeply
+      // nested.
+      fuzzer::compareVectors(
+          copy,
+          BaseVector::copy(*rowVector),
+          "Copy of original input",
+          "Input after simplified");
+    } catch (const VeloxException& e) {
+      if (e.errorCode() == error_code::kUnsupportedInputUncatchable) {
+        unsupportedInputUncatchableError = true;
+      } else if (!e.isUserError()) {
+        LOG(ERROR)
+            << "Simplified eval: VeloxRuntimeErrors other than UNSUPPORTED_INPUT_UNCATCHABLE error are not allowed.";
+        persistReproInfoIfNeeded(
+            rowVector,
+            columnsToWrapInLazy,
+            copiedResult,
+            sql,
+            complexConstants);
+        throw;
+      }
+      exceptionSimplifiedPtr = std::current_exception();
+    } catch (...) {
       LOG(ERROR)
-          << "Simplified eval: VeloxRuntimeErrors other than UNSUPPORTED_INPUT_UNCATCHABLE error are not allowed.";
+          << "Simplified eval: Exceptions other than VeloxUserError or VeloxRuntimeError with UNSUPPORTED_INPUT are not allowed.";
       persistReproInfoIfNeeded(
           rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
       throw;
     }
-    exceptionSimplifiedPtr = std::current_exception();
-  } catch (...) {
-    LOG(ERROR)
-        << "Simplified eval: Exceptions other than VeloxUserError or VeloxRuntimeError with UNSUPPORTED_INPUT are not allowed.";
-    persistReproInfoIfNeeded(
-        rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
-    throw;
-  }
 
-  try {
-    // Compare results or exceptions (if any). Fail if anything is different.
-    if (exceptionCommonPtr || exceptionSimplifiedPtr) {
-      // UNSUPPORTED_INPUT_UNCATCHABLE errors are VeloxRuntimeErrors that cannot
-      // be suppressed by default NULLs. So it may happen that only one of the
-      // common and simplified path throws this error. In this case, we do not
-      // compare the exceptions.
-      if (!unsupportedInputUncatchableError) {
-        // Throws in case exceptions are not compatible. If they are compatible,
-        // return false to signal that the expression failed.
-        fuzzer::compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
+    try {
+      // Compare results or exceptions (if any). Fail if anything is
+      // different.
+      if (exceptionCommonPtr || exceptionSimplifiedPtr) {
+        // UNSUPPORTED_INPUT_UNCATCHABLE errors are VeloxRuntimeErrors that
+        // cannot
+        // be suppressed by default NULLs. So it may happen that only one of the
+        // common and simplified path throws this error. In this case, we do not
+        // compare the exceptions.
+        if (!unsupportedInputUncatchableError) {
+          // Throws in case exceptions are not compatible. If they are
+          // compatible, return false to signal that the expression failed.
+          fuzzer::compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
+        }
+        return {
+            nullptr,
+            exceptionCommonPtr ? exceptionCommonPtr : exceptionSimplifiedPtr,
+            unsupportedInputUncatchableError};
+      } else {
+        // Throws in case output is different.
+        VELOX_CHECK_EQ(commonEvalResult.size(), plans.size());
+        VELOX_CHECK_EQ(simplifiedEvalResult.size(), plans.size());
+        for (int i = 0; i < plans.size(); ++i) {
+          fuzzer::compareVectors(
+              commonEvalResult[i],
+              simplifiedEvalResult[i],
+              "common path results ",
+              "simplified path results",
+              rows);
+        }
       }
-      return {
-          nullptr,
-          exceptionCommonPtr ? exceptionCommonPtr : exceptionSimplifiedPtr,
-          unsupportedInputUncatchableError};
-    } else {
-      // Throws in case output is different.
-      VELOX_CHECK_EQ(commonEvalResult.size(), plans.size());
-      VELOX_CHECK_EQ(simplifiedEvalResult.size(), plans.size());
-      for (int i = 0; i < plans.size(); ++i) {
-        fuzzer::compareVectors(
-            commonEvalResult[i],
-            simplifiedEvalResult[i],
-            "common path results ",
-            "simplified path results",
-            rows);
-      }
+    } catch (...) {
+      persistReproInfoIfNeeded(
+          rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
+      throw;
     }
-  } catch (...) {
-    persistReproInfoIfNeeded(
-        rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
-    throw;
   }
 
   if (!options_.reproPersistPath.empty() && options_.persistAndRunOnce) {
@@ -241,10 +353,14 @@ fuzzer::ResultOrError ExpressionVerifier::verify(
     exit(0);
   }
 
-  return {
-      VectorMaker(commonEvalResult[0]->pool()).rowVector(commonEvalResult),
-      nullptr,
-      unsupportedInputUncatchableError};
+  if (exceptionCommonPtr) {
+    return {nullptr, exceptionCommonPtr, unsupportedInputUncatchableError};
+  } else {
+    return {
+        VectorMaker(commonEvalResult[0]->pool()).rowVector(commonEvalResult),
+        nullptr,
+        unsupportedInputUncatchableError};
+  }
 }
 
 void ExpressionVerifier::persistReproInfoIfNeeded(

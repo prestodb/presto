@@ -23,14 +23,26 @@ namespace facebook::velox::exec::test {
 /// than 0.
 void appendComma(int32_t i, std::stringstream& sql);
 
-// Converts input expressions into SQL string and appends to a given
-// stringstream.
+/// Return the SQL string of type.
+std::string toTypeSql(const TypePtr& type);
+
+/// Converts input expressions into SQL string and appends to a given
+/// stringstream.
 void toCallInputsSql(
     const std::vector<core::TypedExprPtr>& inputs,
     std::stringstream& sql);
 
-// Converts a call expression into a SQL string.
+/// Converts a call expression into a SQL string.
 std::string toCallSql(const core::CallTypedExprPtr& call);
+
+/// Convert a cast expression into a SQL string.
+std::string toCastSql(const core::CastTypedExprPtr& cast);
+
+/// Convert a concat expression into a SQL string.
+std::string toConcatSql(const core::ConcatTypedExprPtr& concat);
+
+/// Convert a constant expression into a SQL string.
+std::string toConstantSql(const core::ConstantTypedExprPtr& constant);
 
 // Converts aggregate call expression into a SQL string.
 std::string toAggregateCallSql(

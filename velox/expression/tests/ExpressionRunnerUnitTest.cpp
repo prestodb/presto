@@ -76,6 +76,7 @@ TEST_F(ExpressionRunnerUnitTest, run) {
         0,
         "",
         "",
+        nullptr,
         false,
         useSeperatePoolForInput));
   }

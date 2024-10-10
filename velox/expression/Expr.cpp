@@ -413,6 +413,9 @@ bool Expr::evalArgsDefaultNulls(
     }
   }
 
+  // Default-null behavior has taken place if rows has changed.
+  stats_.defaultNullRowsSkipped |= rows.hasChanged();
+
   mergeOrThrowArgumentErrors(
       rows.rows(), originalErrors, argumentErrors, context);
 
@@ -1131,7 +1134,12 @@ bool Expr::removeSureNulls(
   }
   if (result) {
     result->updateBounds();
-    return result->countSelected() != rows.countSelected();
+    // Default-null behavior has taken place if some sure nulls has been removed
+    // from rows.
+    if (result->countSelected() < rows.countSelected()) {
+      stats_.defaultNullRowsSkipped = true;
+      return true;
+    }
   }
   return false;
 }
@@ -1783,7 +1791,7 @@ void addStats(
   uniqueExprs.insert(&expr);
 
   // Do not aggregate empty stats.
-  if (expr.stats().numProcessedRows) {
+  if (expr.stats().numProcessedRows || expr.stats().defaultNullRowsSkipped) {
     stats[expr.name()].add(expr.stats());
   }
 

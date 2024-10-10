@@ -193,6 +193,9 @@ class MemoryManager {
   FOLLY_EXPORT static MemoryManager& deprecatedGetInstance(
       const MemoryManagerOptions& options = MemoryManagerOptions{});
 
+  /// Returns true if the memory manager has been set.
+  static bool testInstance();
+
   /// Used by test to override the process-wide memory manager.
   static MemoryManager& testingSetInstance(const MemoryManagerOptions& options);
 

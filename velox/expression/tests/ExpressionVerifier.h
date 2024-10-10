@@ -18,6 +18,7 @@
 
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/type/Type.h"
@@ -26,6 +27,8 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::test {
+
+using exec::test::ReferenceQueryRunner;
 
 struct ExpressionVerifierOptions {
   bool disableConstantFolding{false};
@@ -46,8 +49,13 @@ class ExpressionVerifier {
   static constexpr const std::string_view kComplexConstantsFileName =
       "complex_constants";
 
-  ExpressionVerifier(core::ExecCtx* execCtx, ExpressionVerifierOptions options)
-      : execCtx_(execCtx), options_(options) {}
+  ExpressionVerifier(
+      core::ExecCtx* execCtx,
+      ExpressionVerifierOptions options,
+      std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner)
+      : execCtx_(execCtx),
+        options_(options),
+        referenceQueryRunner_{referenceQueryRunner} {}
 
   // Executes expressions both using common path (all evaluation
   // optimizations) and simplified path. Additionally, a list of column
@@ -93,6 +101,8 @@ class ExpressionVerifier {
  private:
   core::ExecCtx* execCtx_;
   const ExpressionVerifierOptions options_;
+
+  std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner_;
 };
 
 // Finds the minimum common subexpression which fails for a plan should it

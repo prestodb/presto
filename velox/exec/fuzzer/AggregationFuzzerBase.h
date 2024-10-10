@@ -75,14 +75,7 @@ class AggregationFuzzerBase {
         referenceQueryRunner_{std::move(referenceQueryRunner)},
         vectorFuzzer_{getFuzzerOptions(timestampPrecision), pool_.get()} {
     filesystems::registerLocalFileSystem();
-    auto configs = hiveConfigs;
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                kHiveConnectorId,
-                std::make_shared<config::ConfigBase>(std::move(configs)));
-    connector::registerConnector(hiveConnector);
+    registerHiveConnector(hiveConfigs);
 
     seed(initialSeed);
   }

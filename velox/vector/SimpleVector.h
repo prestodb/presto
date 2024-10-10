@@ -239,6 +239,12 @@ class SimpleVector : public BaseVector {
       } else {
         return velox::to<std::string>(value);
       }
+    } else if constexpr (std::is_same_v<T, int32_t>) {
+      if (type()->isDate()) {
+        return DATE()->toString(value);
+      } else {
+        return velox::to<std::string>(value);
+      }
     } else {
       return velox::to<std::string>(value);
     }

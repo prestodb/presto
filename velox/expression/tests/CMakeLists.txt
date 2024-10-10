@@ -85,6 +85,7 @@ target_link_libraries(
   velox_expression_verifier
   velox_vector_test_lib
   velox_vector_fuzzer
+  velox_fuzzer_util
   velox_type
   velox_expression_test_utility)
 
@@ -92,6 +93,7 @@ add_library(velox_expression_runner ExpressionRunner.cpp)
 target_link_libraries(
   velox_expression_runner
   velox_expression_verifier
+  velox_fuzzer_util
   velox_functions_prestosql
   velox_functions_spark
   velox_parse_parser
@@ -101,6 +103,7 @@ add_executable(velox_expression_runner_test ExpressionRunnerTest.cpp)
 target_link_libraries(
   velox_expression_runner_test
   velox_expression_runner
+  velox_fuzzer_util
   velox_exec_test_lib
   velox_function_registry
   GTest::gtest

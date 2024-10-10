@@ -22,6 +22,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/fuzzer/FuzzerRunner.h"
 #include "velox/functions/sparksql/Register.h"
 #include "velox/functions/sparksql/fuzzer/AddSubtractArgGenerator.h"
@@ -32,6 +33,7 @@
 
 using namespace facebook::velox::functions::sparksql::fuzzer;
 using facebook::velox::fuzzer::ArgGenerator;
+using facebook::velox::test::ReferenceQueryRunner;
 
 DEFINE_int64(
     seed,
@@ -85,6 +87,11 @@ int main(int argc, char** argv) {
        {"unscaled_value", std::make_shared<UnscaledValueArgGenerator>()},
        {"make_timestamp", std::make_shared<MakeTimestampArgGenerator>()}};
 
+  std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
   return FuzzerRunner::run(
-      FLAGS_seed, skipFunctions, queryConfigs, argGenerators);
+      FLAGS_seed,
+      skipFunctions,
+      queryConfigs,
+      argGenerators,
+      referenceQueryRunner);
 }

@@ -17,7 +17,6 @@
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include <cpr/cpr.h> // @manual
 #include <folly/json.h>
-#include <velox/dwio/dwrf/writer/Writer.h>
 #include <iostream>
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"
@@ -25,10 +24,13 @@
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/Expressions.h"
+#include "velox/core/ITypedExpr.h"
 #include "velox/dwio/common/WriterFactory.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/ToSQLUtil.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/parser/TypeParser.h"
 
@@ -194,39 +196,15 @@ std::optional<std::string> PrestoQueryRunner::toSql(
     return toSql(joinNode);
   }
 
+  if (const auto valuesNode =
+          std::dynamic_pointer_cast<const core::ValuesNode>(plan)) {
+    return toSql(valuesNode);
+  }
+
   VELOX_NYI();
 }
 
 namespace {
-
-std::string toTypeSql(const TypePtr& type) {
-  switch (type->kind()) {
-    case TypeKind::ARRAY:
-      return fmt::format("array({})", toTypeSql(type->childAt(0)));
-    case TypeKind::MAP:
-      return fmt::format(
-          "map({}, {})",
-          toTypeSql(type->childAt(0)),
-          toTypeSql(type->childAt(1)));
-    case TypeKind::ROW: {
-      const auto& rowType = type->asRow();
-      std::stringstream sql;
-      sql << "row(";
-      for (auto i = 0; i < type->size(); ++i) {
-        appendComma(i, sql);
-        sql << rowType.nameOf(i) << " ";
-        sql << toTypeSql(type->childAt(i));
-      }
-      sql << ")";
-      return sql.str();
-    }
-    default:
-      if (type->isPrimitiveType()) {
-        return type->toString();
-      }
-      VELOX_UNSUPPORTED("Type is not supported: {}", type->toString());
-  }
-}
 
 std::string toWindowCallSql(
     const core::CallTypedExprPtr& call,
@@ -365,6 +343,24 @@ std::optional<std::string> PrestoQueryRunner::toSql(
         auto call =
             std::dynamic_pointer_cast<const core::CallTypedExpr>(projection)) {
       sql << toCallSql(call);
+    } else if (
+        auto cast =
+            std::dynamic_pointer_cast<const core::CastTypedExpr>(projection)) {
+      sql << toCastSql(cast);
+    } else if (
+        auto concat = std::dynamic_pointer_cast<const core::ConcatTypedExpr>(
+            projection)) {
+      sql << toConcatSql(concat);
+    } else if (
+        auto constant =
+            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
+                projection)) {
+      if (constant->type()->isPrimitiveType()) {
+        sql << toConstantSql(constant);
+      } else {
+        // TODO: support complex-typed constant literals.
+        VELOX_NYI();
+      }
     } else {
       VELOX_NYI();
     }
@@ -427,6 +423,35 @@ std::optional<std::string> PrestoQueryRunner::toSql(
   sql << " FROM tmp";
 
   return sql.str();
+}
+
+bool PrestoQueryRunner::isConstantExprSupported(
+    const core::TypedExprPtr& expr) {
+  if (std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr)) {
+    // TODO: support constant literals of these types. Complex-typed constant
+    // literals require support of converting them to SQL. Json can be enabled
+    // after we're able to generate valid Json strings, because when Json is
+    // used as the type of constant literals in SQL, Presto implicitly invoke
+    // json_parse() on it, which makes the behavior of Presto different from
+    // Velox. Timestamp constant literals require further investigation to
+    // ensure Presto uses the same timezone as Velox.
+    auto& type = expr->type();
+    return type->isPrimitiveType() && !type->isTimestamp() && !isJsonType(type);
+  }
+  return true;
+}
+
+bool PrestoQueryRunner::isSupported(const exec::FunctionSignature& signature) {
+  // TODO: support queries with these types. Among the types below, hugeint is
+  // not a native type in Presto, so fuzzer should not use it as the type of
+  // cast-to or constant literals. Hyperloglog can only be casted from varbinary
+  // and cannot be used as the type of constant literals. Interval year to month
+  // can only be casted from NULL and cannot be used as the type of constant
+  // literals.
+  return !(
+      usesTypeName(signature, "interval year to month") ||
+      usesTypeName(signature, "hugeint") ||
+      usesTypeName(signature, "hyperloglog"));
 }
 
 std::optional<std::string> PrestoQueryRunner::toSql(
@@ -648,6 +673,14 @@ std::optional<std::string> PrestoQueryRunner::toSql(
   }
 
   return sql.str();
+}
+
+std::optional<std::string> PrestoQueryRunner::toSql(
+    const std::shared_ptr<const core::ValuesNode>& valuesNode) {
+  if (!isSupportedDwrfType(valuesNode->outputType())) {
+    return std::nullopt;
+  }
+  return "tmp";
 }
 
 std::multiset<std::vector<variant>> PrestoQueryRunner::execute(

@@ -21,6 +21,7 @@
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/catalog/fbhive/FileUtils.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/expression/SignatureBinder.h"
 
 using namespace facebook::velox::dwio::catalog::fbhive;
 
@@ -242,6 +243,92 @@ bool containsUnsupportedTypes(const TypePtr& type) {
       containsType(type, INTERVAL_DAY_TIME());
 }
 
+// Determine whether type is or contains typeName. typeName should be in lower
+// case.
+bool containTypeName(
+    const exec::TypeSignature& type,
+    const std::string& typeName) {
+  auto sanitizedTypeName = exec::sanitizeName(type.baseName());
+  if (sanitizedTypeName == typeName) {
+    return true;
+  }
+  for (const auto& parameter : type.parameters()) {
+    if (containTypeName(parameter, typeName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool usesTypeName(
+    const exec::FunctionSignature& signature,
+    const std::string& typeName) {
+  if (containTypeName(signature.returnType(), typeName)) {
+    return true;
+  }
+  for (const auto& argument : signature.argumentTypes()) {
+    if (containTypeName(argument, typeName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// If 'type' is a RowType or contains RowTypes with empty field names, adds
+// default names to these fields in the RowTypes.
+TypePtr sanitize(const TypePtr& type) {
+  if (!type) {
+    return type;
+  }
+
+  switch (type->kind()) {
+    case TypeKind::ARRAY:
+      return ARRAY(sanitize(type->childAt(0)));
+    case TypeKind::MAP:
+      return MAP(sanitize(type->childAt(0)), sanitize(type->childAt(1)));
+    case TypeKind::ROW: {
+      const auto& children = asRowType(type)->children();
+      std::vector<TypePtr> sanitizedChildren{children.size()};
+      std::transform(
+          children.begin(),
+          children.end(),
+          sanitizedChildren.begin(),
+          sanitize);
+
+      const auto& childNames = asRowType(type)->names();
+      std::vector<std::string> fieldNames;
+      for (auto i = 0; i < children.size(); ++i) {
+        const auto defaultName = fmt::format("f{}", i);
+        fieldNames.push_back(
+            childNames[i].empty() ? defaultName : childNames[i]);
+      }
+      return ROW(std::move(fieldNames), std::move(sanitizedChildren));
+    }
+    default:
+      return type;
+  }
+}
+
+TypePtr sanitizeTryResolveType(
+    const exec::TypeSignature& typeSignature,
+    const std::unordered_map<std::string, SignatureVariable>& variables,
+    const std::unordered_map<std::string, TypePtr>& resolvedTypeVariables) {
+  return sanitize(SignatureBinder::tryResolveType(
+      typeSignature, variables, resolvedTypeVariables));
+}
+
+TypePtr sanitizeTryResolveType(
+    const exec::TypeSignature& typeSignature,
+    const std::unordered_map<std::string, SignatureVariable>& variables,
+    const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
+    std::unordered_map<std::string, int>& integerVariablesBindings) {
+  return sanitize(SignatureBinder::tryResolveType(
+      typeSignature,
+      variables,
+      typeVariablesBindings,
+      integerVariablesBindings));
+}
+
 void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity) {
   FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   FLAGS_velox_memory_leak_check_enabled = true;
@@ -253,6 +340,18 @@ void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity) {
   options.checkUsageLeak = true;
   options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
   facebook::velox::memory::MemoryManager::initialize(options);
+}
+
+void registerHiveConnector(
+    const std::unordered_map<std::string, std::string>& hiveConfigs) {
+  auto configs = hiveConfigs;
+  auto hiveConnector =
+      connector::getConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)
+          ->newConnector(
+              kHiveConnectorId,
+              std::make_shared<config::ConfigBase>(std::move(configs)));
+  connector::registerConnector(hiveConnector);
 }
 
 std::pair<std::optional<MaterializedRowMultiset>, ReferenceQueryErrorCode>

@@ -18,6 +18,7 @@
 
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/fuzzer/ArgGenerator.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
@@ -27,6 +28,8 @@
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::fuzzer {
+
+using exec::test::ReferenceQueryRunner;
 
 // A tool that can be used to generate random expressions.
 class ExpressionFuzzer {
@@ -60,6 +63,8 @@ class ExpressionFuzzer {
     // Enable generation of expressions that re-uses already generated
     // subexpressions.
     bool enableExpressionReuse = false;
+
+    std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
 
     int32_t maxLevelOfNesting = 10;
 
@@ -199,6 +204,8 @@ class ExpressionFuzzer {
   RowTypePtr fuzzRowReturnType(size_t size, char prefix = 'p');
 
  private:
+  bool isSupportedSignature(const exec::FunctionSignature& signature);
+
   // Either generates a new expression of the required return type or if
   // already generated expressions of the same return type exist then there is
   // a 30% chance that it will re-use one of them.
@@ -233,8 +240,7 @@ class ExpressionFuzzer {
   // method finds all matching signatures and signature templates, picks one
   // randomly and generates LambdaTypedExpr. If no matching signatures or
   // signature templates found, this method returns LambdaTypedExpr that
-  // represents a constant lambda, i.e lambda that returns the same value for
-  // all input. The constant value is generated using 'generateArgConstant'.
+  // returns a constant literal or a column.
   core::TypedExprPtr generateArgFunction(const TypePtr& arg);
 
   std::vector<core::TypedExprPtr> generateArgs(const CallableSignature& input);

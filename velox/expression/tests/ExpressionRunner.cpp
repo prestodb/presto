@@ -115,6 +115,7 @@ void ExpressionRunner::run(
     vector_size_t numRows,
     const std::string& storeResultPath,
     const std::string& lazyColumnListPath,
+    std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner,
     bool findMinimalSubExpression,
     bool useSeperatePoolForInput) {
   VELOX_CHECK(!sql.empty());
@@ -190,7 +191,8 @@ void ExpressionRunner::run(
   LOG(INFO) << "Evaluating SQL expression(s): " << sql;
 
   if (mode == "verify") {
-    auto verifier = test::ExpressionVerifier(&execCtx, {false, ""});
+    auto verifier =
+        test::ExpressionVerifier(&execCtx, {false, ""}, referenceQueryRunner);
     try {
       verifier.verify(
           typedExprs,

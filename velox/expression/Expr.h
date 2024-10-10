@@ -59,18 +59,24 @@ struct ExprStats {
   /// size.
   uint64_t numProcessedVectors{0};
 
+  /// Whether default-null behavior of an expression resulted in skipping
+  /// evaluation of rows.
+  bool defaultNullRowsSkipped{false};
+
   void add(const ExprStats& other) {
     timing.add(other.timing);
     numProcessedRows += other.numProcessedRows;
     numProcessedVectors += other.numProcessedVectors;
+    defaultNullRowsSkipped |= other.defaultNullRowsSkipped;
   }
 
   std::string toString() const {
     return fmt::format(
-        "timing: {}, numProcessedRows: {}, numProcessedVectors: {}",
+        "timing: {}, numProcessedRows: {}, numProcessedVectors: {}, defaultNullRowsSkipped: {}",
         timing.toString(),
         numProcessedRows,
-        numProcessedVectors);
+        numProcessedVectors,
+        defaultNullRowsSkipped ? "true" : "false");
   }
 };
 

@@ -92,7 +92,7 @@ TEST_F(ExpressionVerifierUnitTest, persistReproInfo) {
   auto localFs = filesystems::getFileSystem(reproPath, nullptr);
 
   ExpressionVerifierOptions options{false, reproPath.c_str(), false};
-  ExpressionVerifier verifier{&execCtx_, options};
+  ExpressionVerifier verifier{&execCtx_, options, nullptr};
 
   auto testReproPersistency = [this](
                                   ExpressionVerifier& verifier,

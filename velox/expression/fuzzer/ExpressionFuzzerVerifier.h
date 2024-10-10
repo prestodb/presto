@@ -18,6 +18,7 @@
 
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/fuzzer/ExpressionFuzzer.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
@@ -187,6 +188,11 @@ class ExpressionFuzzerVerifier {
       const RowVectorPtr& rowVector,
       VectorFuzzer& vectorFuzzer);
 
+  // Fuzzes the input vector of type with an additional row number column.
+  RowVectorPtr fuzzInputWithRowNumber(
+      VectorFuzzer& fuzzer,
+      const RowTypePtr& type);
+
   const Options options_;
 
   FuzzerGenerator rng_;
@@ -210,6 +216,8 @@ class ExpressionFuzzerVerifier {
 
   /// The expression fuzzer that is used to fuzz the expression in the test.
   ExpressionFuzzer expressionFuzzer_;
+
+  std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner_;
 };
 
 } // namespace facebook::velox::fuzzer

@@ -83,7 +83,7 @@ RowVectorPtr makeNullRows(
 /// type are not supported.
 bool isTableScanSupported(const TypePtr& type);
 
-/// Concat tow RowTypes.
+/// Concat two RowTypes.
 RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b);
 
 /// Skip queries that use Timestamp, Varbinary, and IntervalDayTime types.
@@ -93,8 +93,34 @@ RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b);
 /// TODO Investigate mismatches reported when comparing Varbinary.
 bool containsUnsupportedTypes(const TypePtr& type);
 
+/// Determines whether the signature has an argument or return type that
+/// contains typeName. typeName should be in lower case.
+bool usesTypeName(
+    const exec::FunctionSignature& signature,
+    const std::string& typeName);
+
+// First resolves typeSignature. Then, the resolved type is a RowType or
+// contains RowTypes with empty field names, adds default names to these fields
+// in the RowTypes.
+TypePtr sanitizeTryResolveType(
+    const exec::TypeSignature& typeSignature,
+    const std::unordered_map<std::string, SignatureVariable>& variables,
+    const std::unordered_map<std::string, TypePtr>& resolvedTypeVariables);
+
+TypePtr sanitizeTryResolveType(
+    const exec::TypeSignature& typeSignature,
+    const std::unordered_map<std::string, SignatureVariable>& variables,
+    const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
+    std::unordered_map<std::string, int>& integerVariablesBindings);
+
 // Invoked to set up memory system with arbitration.
 void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity);
+
+/// Registers hive connector with configs. It should be called in the
+/// constructor of fuzzers that test plans with TableScan or uses
+/// PrestoQueryRunner that writes data to a local file.
+void registerHiveConnector(
+    const std::unordered_map<std::string, std::string>& hiveConfigs);
 
 enum ReferenceQueryErrorCode {
   kSuccess,

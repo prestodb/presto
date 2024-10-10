@@ -187,6 +187,12 @@ MemoryManager* MemoryManager::getInstance() {
 }
 
 // static.
+bool MemoryManager::testInstance() {
+  auto* instance = singletonState().instance.load(std::memory_order_acquire);
+  return instance != nullptr;
+}
+
+// static.
 MemoryManager& MemoryManager::testingSetInstance(
     const MemoryManagerOptions& options) {
   auto& state = singletonState();

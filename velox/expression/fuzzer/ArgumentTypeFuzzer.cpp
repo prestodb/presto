@@ -19,12 +19,15 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/expression/ReverseSignatureBinder.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/type/Type.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::fuzzer {
+
+using exec::test::sanitizeTryResolveType;
 
 std::string typeToBaseName(const TypePtr& type) {
   if (type->isDecimal()) {
@@ -183,7 +186,7 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
     if (formalArgs[i].baseName() == "any") {
       actualArg = randType();
     } else {
-      actualArg = exec::SignatureBinder::tryResolveType(
+      actualArg = sanitizeTryResolveType(
           formalArgs[i], variables(), bindings_, integerBindings_);
       VELOX_CHECK(actualArg != nullptr);
     }
@@ -218,7 +221,7 @@ TypePtr ArgumentTypeFuzzer::fuzzReturnType() {
   if (returnType.baseName() == "any") {
     returnType_ = randType();
   } else {
-    returnType_ = exec::SignatureBinder::tryResolveType(
+    returnType_ = sanitizeTryResolveType(
         returnType, variables(), bindings_, integerBindings_);
   }
 

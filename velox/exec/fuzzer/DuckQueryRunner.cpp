@@ -21,13 +21,13 @@ namespace facebook::velox::exec::test {
 
 namespace {
 
-bool isSupported(const TypePtr& type) {
+bool isSupportedType(const TypePtr& type) {
   // DuckDB doesn't support nanosecond precision for timestamps.
   if (type->kind() == TypeKind::TIMESTAMP) {
     return false;
   }
   for (auto i = 0; i < type->size(); ++i) {
-    if (!isSupported(type->childAt(i))) {
+    if (!isSupportedType(type->childAt(i))) {
       return false;
     }
   }
@@ -124,12 +124,12 @@ std::multiset<std::vector<velox::variant>> DuckQueryRunner::execute(
 
 std::optional<std::string> DuckQueryRunner::toSql(
     const core::PlanNodePtr& plan) {
-  if (!isSupported(plan->outputType())) {
+  if (!isSupportedType(plan->outputType())) {
     return std::nullopt;
   }
 
   for (const auto& source : plan->sources()) {
-    if (!isSupported(source->outputType())) {
+    if (!isSupportedType(source->outputType())) {
       return std::nullopt;
     }
   }

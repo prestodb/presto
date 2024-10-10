@@ -22,6 +22,7 @@
 #include <unordered_set>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/ReverseSignatureBinder.h"
@@ -34,6 +35,8 @@ namespace facebook::velox::fuzzer {
 namespace {
 using exec::SignatureBinder;
 using exec::SignatureBinderBase;
+using exec::test::sanitizeTryResolveType;
+using exec::test::usesTypeName;
 
 class FullSignatureBinder : public SignatureBinderBase {
  public:
@@ -382,8 +385,7 @@ std::optional<CallableSignature> processConcreteSignature(
       .name = functionName,
       .args = argTypes,
       .variableArity = signature.variableArity(),
-      .returnType =
-          SignatureBinder::tryResolveType(signature.returnType(), {}, {}),
+      .returnType = sanitizeTryResolveType(signature.returnType(), {}, {}),
       .constantArgs = signature.constantArguments()};
   VELOX_CHECK_NOT_NULL(callable.returnType);
 
@@ -400,58 +402,6 @@ std::optional<CallableSignature> processConcreteSignature(
     return std::nullopt;
   }
   return callable;
-}
-
-// Determine whether type is or contains typeName. typeName should be in lower
-// case.
-bool containTypeName(
-    const exec::TypeSignature& type,
-    const std::string& typeName) {
-  auto sanitizedTypeName = exec::sanitizeName(type.baseName());
-  if (sanitizedTypeName == typeName) {
-    return true;
-  }
-  for (const auto& parameter : type.parameters()) {
-    if (containTypeName(parameter, typeName)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// Determine whether the signature has an argument or return type that
-// contains typeName. typeName should be in lower case.
-bool useTypeName(
-    const exec::FunctionSignature& signature,
-    const std::string& typeName) {
-  if (containTypeName(signature.returnType(), typeName)) {
-    return true;
-  }
-  for (const auto& argument : signature.argumentTypes()) {
-    if (containTypeName(argument, typeName)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool isSupportedSignature(
-    const exec::FunctionSignature& signature,
-    bool enableComplexType,
-    bool enableDecimalType) {
-  // When enableComplexType is disabled, not supporting complex functions.
-  const bool useComplexType = useTypeName(signature, "array") ||
-      useTypeName(signature, "map") || useTypeName(signature, "row");
-  // When enableDecimalType is disabled, not supporting decimal functions. Not
-  // supporting functions using custom types, timestamp with time zone types and
-  // interval day to second types.
-  return !(
-      useTypeName(signature, "opaque") ||
-      useTypeName(signature, "timestamp with time zone") ||
-      useTypeName(signature, "interval day to second") ||
-      (!enableDecimalType && useTypeName(signature, "decimal")) ||
-      (!enableComplexType && useComplexType) ||
-      (enableComplexType && useTypeName(signature, "unknown")));
 }
 
 /// Returns row numbers for non-null rows among all children in'data' or null
@@ -562,10 +512,7 @@ ExpressionFuzzer::ExpressionFuzzer(
     for (const auto& signature : function.second) {
       ++totalFunctionSignatures;
 
-      if (!isSupportedSignature(
-              *signature,
-              options_.enableComplexTypes,
-              options_.enableDecimalType)) {
+      if (!isSupportedSignature(*signature)) {
         continue;
       }
       if (!(signature->variables().empty() || options_.enableComplexTypes ||
@@ -596,7 +543,7 @@ ExpressionFuzzer::ExpressionFuzzer(
         std::vector<TypePtr> argTypes;
         bool supportedSignature = true;
         for (const auto& arg : signature->argumentTypes()) {
-          auto resolvedType = SignatureBinder::tryResolveType(arg, {}, {});
+          auto resolvedType = sanitizeTryResolveType(arg, {}, {});
           if (!resolvedType) {
             supportedSignature = false;
             continue;
@@ -700,6 +647,30 @@ ExpressionFuzzer::ExpressionFuzzer(
   // Register function override (for cases where we want to restrict the types
   // or parameters we pass to functions).
   registerFuncOverride(&ExpressionFuzzer::generateSwitchArgs, "switch");
+}
+
+bool ExpressionFuzzer::isSupportedSignature(
+    const exec::FunctionSignature& signature) {
+  // When enableComplexType is disabled, not supporting complex functions.
+  const bool useComplexType = usesTypeName(signature, "array") ||
+      usesTypeName(signature, "map") || usesTypeName(signature, "row");
+  // Not supporting functions using custom types, timestamp with time zone types
+  // and interval day to second types.
+  if (usesTypeName(signature, "opaque") ||
+      usesTypeName(signature, "timestamp with time zone") ||
+      usesTypeName(signature, "interval day to second") ||
+      (!options_.enableDecimalType && usesTypeName(signature, "decimal")) ||
+      (!options_.enableComplexTypes && useComplexType) ||
+      (options_.enableComplexTypes && usesTypeName(signature, "unknown"))) {
+    return false;
+  }
+
+  if (options_.referenceQueryRunner &&
+      !options_.referenceQueryRunner->isSupported(signature)) {
+    return false;
+  }
+
+  return true;
 }
 
 void ExpressionFuzzer::getTicketsForFunctions() {
@@ -828,7 +799,11 @@ core::TypedExprPtr ExpressionFuzzer::generateArg(const TypePtr& arg) {
   }
 
   if (argClass == kArgConstant) {
-    return generateArgConstant(arg);
+    auto argExpr = generateArgConstant(arg);
+    if ((options_.referenceQueryRunner == nullptr ||
+         options_.referenceQueryRunner->isConstantExprSupported(argExpr))) {
+      return argExpr;
+    }
   }
   // argClass == kArgColumn
   return generateArgColumn(arg);
@@ -902,18 +877,31 @@ core::TypedExprPtr ExpressionFuzzer::generateArgFunction(const TypePtr& arg) {
     }
   }
 
+  core::TypedExprPtr body;
   if (eligible.empty()) {
-    return std::make_shared<core::LambdaTypedExpr>(
-        ROW(std::move(names), std::move(args)),
-        generateArgConstant(returnType));
+    body = generateArgConstant(returnType);
+    if (options_.referenceQueryRunner == nullptr ||
+        options_.referenceQueryRunner->isConstantExprSupported(body)) {
+      return std::make_shared<core::LambdaTypedExpr>(
+          ROW(std::move(names), std::move(args)), body);
+    } else {
+      return std::make_shared<core::LambdaTypedExpr>(
+          ROW(std::move(names), std::move(args)),
+          generateArgColumn(returnType));
+    }
   }
 
   const auto idx = rand32(0, eligible.size() - 1);
   const auto name = eligible[idx];
 
+  if (name == "cast") {
+    bool tryCast = rand32(0, 1);
+    body = std::make_shared<core::CastTypedExpr>(returnType, inputs, tryCast);
+  } else {
+    body = std::make_shared<core::CallTypedExpr>(returnType, inputs, name);
+  }
   return std::make_shared<core::LambdaTypedExpr>(
-      ROW(std::move(names), std::move(args)),
-      std::make_shared<core::CallTypedExpr>(returnType, inputs, name));
+      ROW(std::move(names), std::move(args)), body);
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateArg(
@@ -1037,8 +1025,15 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
   }
   if (!expression) {
     VLOG(1) << "Couldn't find a proper function to return '"
-            << returnType->toString() << "'. Returning a constant instead.";
-    return generateArgConstant(returnType);
+            << returnType->toString()
+            << "'. Returning a constant or column instead.";
+    expression = generateArgConstant(returnType);
+    if (options_.referenceQueryRunner == nullptr ||
+        options_.referenceQueryRunner->isConstantExprSupported(expression)) {
+      return expression;
+    } else {
+      return generateArgColumn(returnType);
+    }
   }
   state.expressionBank_.insert(expression);
   return expression;

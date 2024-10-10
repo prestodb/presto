@@ -19,6 +19,7 @@
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
 #include "velox/common/base/Fs.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -26,6 +27,7 @@
 #include "velox/vector/VectorSaver.h"
 
 using namespace facebook::velox;
+using facebook::velox::test::ReferenceQueryRunner;
 
 DEFINE_string(
     input_path,
@@ -217,7 +219,10 @@ int main(int argc, char** argv) {
     sql = restoreStringFromFile(FLAGS_sql_path.c_str());
     VELOX_CHECK(!sql.empty());
   }
+
   memory::initializeMemoryManager({});
+  std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
+
   test::ExpressionRunner::run(
       FLAGS_input_path,
       sql,
@@ -227,6 +232,7 @@ int main(int argc, char** argv) {
       FLAGS_num_rows,
       FLAGS_store_result_path,
       FLAGS_lazy_column_list_path,
+      referenceQueryRunner,
       FLAGS_find_minimal_subexpression,
       FLAGS_use_seperate_memory_pool_for_input_vector);
 }

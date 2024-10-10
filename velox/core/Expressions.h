@@ -516,6 +516,8 @@ class ConcatTypedExpr : public ITypedExpr {
   }
 };
 
+using ConcatTypedExprPtr = std::shared_ptr<const ConcatTypedExpr>;
+
 class LambdaTypedExpr : public ITypedExpr {
  public:
   LambdaTypedExpr(RowTypePtr signature, TypedExprPtr body)
