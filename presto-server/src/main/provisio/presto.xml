@@ -271,4 +271,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/plan-checker-providers">
+        <artifact id="${project.groupId}:presto-plan-checker-providers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

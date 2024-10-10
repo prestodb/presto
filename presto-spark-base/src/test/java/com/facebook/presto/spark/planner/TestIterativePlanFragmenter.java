@@ -224,7 +224,7 @@ public class TestIterativePlanFragmenter
                 plan,
                 testingFragmentTracker::isFragmentFinished,
                 metadata,
-                new PlanChecker(new FeaturesConfig()),
+                new PlanChecker(new FeaturesConfig(), false),
                 new PlanNodeIdAllocator(),
                 nodePartitioningManager,
                 new QueryManagerConfig(),

@@ -16,19 +16,28 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.google.common.collect.ImmutableListMultimap;
+import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import org.checkerframework.checker.lock.qual.GuardedBy;
 
 import javax.inject.Inject;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Perform checks on the plan that may generate warnings or errors.
  */
 public final class PlanChecker
 {
-    private final Multimap<Stage, Checker> checkers;
+    @GuardedBy("this")
+    private volatile Multimap<Stage, Checker> checkers;
 
     @Inject
     public PlanChecker(FeaturesConfig featuresConfig)
@@ -38,24 +47,28 @@ public final class PlanChecker
 
     public PlanChecker(FeaturesConfig featuresConfig, boolean forceSingleNode)
     {
-        ImmutableListMultimap.Builder<Stage, Checker> builder = ImmutableListMultimap.builder();
-        builder.putAll(
-                        Stage.INTERMEDIATE,
+        this.checkers = HashMultimap.create();
+
+        checkers.putAll(
+                Stage.INTERMEDIATE,
+                Arrays.asList(
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),
                         new VerifyOnlyOneOutputNode(),
-                        new VerifyNoUnresolvedSymbolExpression())
-                .putAll(
-                        Stage.FRAGMENT,
+                        new VerifyNoUnresolvedSymbolExpression()));
+        checkers.putAll(
+                Stage.FRAGMENT,
+                Arrays.asList(
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),
                         new VerifyNoFilteredAggregations(),
                         new VerifyNoIntermediateFormExpression(),
-                        new ValidateStreamingJoins(featuresConfig))
-                .putAll(
-                        Stage.FINAL,
+                        new ValidateStreamingJoins(featuresConfig)));
+        checkers.putAll(
+                Stage.FINAL,
+                Arrays.asList(
                         new CheckUnsupportedExternalFunctions(),
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
@@ -67,36 +80,88 @@ public final class PlanChecker
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
-                        new WarnOnScanWithoutPartitionPredicate(featuresConfig));
+                        new WarnOnScanWithoutPartitionPredicate(featuresConfig)));
         if (featuresConfig.isNativeExecutionEnabled() && (featuresConfig.isDisableTimeStampWithTimeZoneForNative() ||
                 featuresConfig.isDisableIPAddressForNative())) {
-            builder.put(Stage.INTERMEDIATE, new CheckUnsupportedPrestissimoTypes(featuresConfig));
+            checkers.put(Stage.INTERMEDIATE, new CheckUnsupportedPrestissimoTypes(featuresConfig));
         }
-        checkers = builder.build();
     }
 
-    public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
+    public synchronized void update(PlanCheckerProvider provider)
+    {
+        checkers.putAll(Stage.INTERMEDIATE, fromSpi(provider.getPlanCheckersIntermediate()));
+        checkers.putAll(Stage.FRAGMENT, fromSpi(provider.getPlanCheckersFragment()));
+        checkers.putAll(Stage.FINAL, fromSpi(provider.getPlanCheckersFinal()));
+    }
+
+    public synchronized void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
     }
 
-    public void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
+    public synchronized void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
     }
 
-    public void validatePlanFragment(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
+    public synchronized void validatePlanFragment(PlanFragment planFragment, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
+        checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validateFragment(planFragment, session, metadata, warningCollector));
+    }
+
+    private static List<Checker> fromSpi(List<com.facebook.presto.spi.plan.PlanChecker> checkers)
+    {
+        return checkers.stream().map(SpiCheckerAdapter::new).collect(Collectors.toList());
     }
 
     public interface Checker
     {
         void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector);
+
+        default void validateFragment(PlanFragment planFragment, Session session, Metadata metadata, WarningCollector warningCollector)
+        {
+            validate(planFragment.getRoot(), session, metadata, warningCollector);
+        }
     }
 
     private enum Stage
     {
         INTERMEDIATE, FINAL, FRAGMENT
+    }
+
+    private static class SpiCheckerAdapter
+            implements Checker
+    {
+        private final com.facebook.presto.spi.plan.PlanChecker checker;
+
+        public SpiCheckerAdapter(com.facebook.presto.spi.plan.PlanChecker checker)
+        {
+            this.checker = checker;
+        }
+
+        @Override
+        public void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
+        {
+            checker.validate(planNode, warningCollector);
+        }
+
+        @Override
+        public void validateFragment(PlanFragment planFragment, Session session, Metadata metadata, WarningCollector warningCollector)
+        {
+            checker.validateFragment(toSimplePlanFragment(planFragment), warningCollector);
+        }
+
+        private SimplePlanFragment toSimplePlanFragment(PlanFragment planFragment)
+        {
+            return new SimplePlanFragment(
+                    planFragment.getId(),
+                    planFragment.getRoot(),
+                    planFragment.getVariables(),
+                    planFragment.getPartitioning(),
+                    planFragment.getTableScanSchedulingOrder(),
+                    planFragment.getPartitioningScheme(),
+                    planFragment.getStageExecutionDescriptor(),
+                    planFragment.isOutputTableWriterFragment());
+        }
     }
 }

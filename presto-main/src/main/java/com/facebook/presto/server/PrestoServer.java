@@ -30,6 +30,7 @@ import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
+import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -39,14 +40,19 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.planner.PlanFragmenter;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.storage.TempStorageModule;
 import com.facebook.presto.tracing.TracerProviderManager;
@@ -177,6 +183,13 @@ public class PrestoServer
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
+
+            ConnectorAwareNodeManager connectorAwareNodeManager = new ConnectorAwareNodeManager(injector.getInstance(InMemoryNodeManager.class), "", new ConnectorId("<NA>"));
+            PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
+            planCheckerProviderManager.loadPlanCheckerProviders(connectorAwareNodeManager);
+            planCheckerProviderManager.updatePlanCheckerProviders(injector.getInstance(PlanChecker.class));
+            planCheckerProviderManager.updatePlanCheckerProviders(injector.getInstance(PlanFragmenter.class));
+
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

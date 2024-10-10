@@ -140,8 +140,6 @@ public abstract class BasePlanFragmenter
                 properties.getPartitionedSources());
 
         Set<VariableReferenceExpression> fragmentVariableTypes = extractOutputVariables(root);
-        planChecker.validatePlanFragment(root, session, metadata, warningCollector);
-
         Set<PlanNodeId> tableWriterNodeIds = PlanFragmenterUtils.getTableWriterNodeIds(root);
         boolean outputTableWriterFragment = tableWriterNodeIds.stream().anyMatch(outputTableWriterNodeIds::contains);
         if (outputTableWriterFragment) {
@@ -163,6 +161,8 @@ public abstract class BasePlanFragmenter
                 outputTableWriterFragment,
                 Optional.of(statsAndCosts.getForSubplan(root)),
                 Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)));
+
+        planChecker.validatePlanFragment(fragment, session, metadata, warningCollector);
 
         return new SubPlan(fragment, properties.getChildren());
     }

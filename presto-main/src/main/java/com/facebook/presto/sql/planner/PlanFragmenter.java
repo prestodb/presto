@@ -21,6 +21,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -61,6 +62,12 @@ public class PlanFragmenter
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.distributedPlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), false);
         this.singleNodePlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), true);
+    }
+
+    public void updatePlanCheckers(PlanCheckerProvider planCheckerProvider)
+    {
+        distributedPlanChecker.update(planCheckerProvider);
+        singleNodePlanChecker.update(planCheckerProvider);
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
