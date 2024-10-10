@@ -295,6 +295,7 @@ public class FeaturesConfig
     private boolean useHistograms;
 
     private boolean isInlineProjectionsOnValuesEnabled;
+    private boolean transformInValuesToInFilterEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2967,6 +2968,19 @@ public class FeaturesConfig
     public FeaturesConfig setInlineProjectionsOnValues(boolean isInlineProjectionsOnValuesEnabled)
     {
         this.isInlineProjectionsOnValuesEnabled = isInlineProjectionsOnValuesEnabled;
+        return this;
+    }
+
+    public boolean getTransformInValuesToInFilter()
+    {
+        return transformInValuesToInFilterEnabled;
+    }
+
+    @Config("optimizer.transform_in_values_to_in_filter")
+    @ConfigDescription("Transform the in values form to in filter instead of semijoin whenever possible")
+    public FeaturesConfig setTransformInValuesToInFilter(boolean transformInValuesToInFilterEnabled)
+    {
+        this.transformInValuesToInFilterEnabled = transformInValuesToInFilterEnabled;
         return this;
     }
 }
