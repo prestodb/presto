@@ -618,6 +618,9 @@ public class SqlStandardAccessControl
     public void checkCanSetRole(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, String role, String catalogName)
     {
         SemiTransactionalHiveMetastore metastore = getMetastore(transaction);
+        if (metastore == null) {
+            return;
+        }
         MetastoreContext metastoreContext = new MetastoreContext(
                 identity, context.getQueryId().getId(),
                 context.getClientInfo(),
@@ -761,6 +764,6 @@ public class SqlStandardAccessControl
     private SemiTransactionalHiveMetastore getMetastore(ConnectorTransactionHandle transaction)
     {
         TransactionalMetadata metadata = hiveTransactionManager.get(transaction);
-        return metadata.getMetastore();
+        return metadata == null ? null : metadata.getMetastore();
     }
 }
