@@ -39,6 +39,7 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -428,6 +429,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         throw new UnsupportedOperationException();
@@ -602,7 +615,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ProcedureRegistry getProcedureRegistry()
+    public IProcedureRegistry getProcedureRegistry()
     {
         throw new UnsupportedOperationException();
     }

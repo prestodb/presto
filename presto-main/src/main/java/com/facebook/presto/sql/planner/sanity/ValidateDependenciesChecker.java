@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.optimizations.WindowNodeUtil;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -604,6 +605,15 @@ public final class ValidateDependenciesChecker
                     node.getOutputVariables(),
                     node.getPartitioningScheme().getOutputLayout(),
                     "EXCHANGE must provide all of the necessary symbols for partition function");
+
+            return null;
+        }
+
+        @Override
+        public Void visitCallDistributedProcedure(CallDistributedProcedureNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundVariables); // visit child
 
             return null;
         }

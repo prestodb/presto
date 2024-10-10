@@ -38,6 +38,7 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -397,6 +398,18 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments)
+    {
+        return delegate.beginCallDistributedProcedure(session, procedureName, tableHandle, arguments);
+    }
+
+    @Override
+    public void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments)
+    {
+        delegate.finishCallDistributedProcedure(session, procedureHandle, procedureName, fragments);
+    }
+
+    @Override
     public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         return delegate.beginUpdate(session, tableHandle, updatedColumns);
@@ -584,7 +597,7 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public ProcedureRegistry getProcedureRegistry()
+    public IProcedureRegistry getProcedureRegistry()
     {
         return delegate.getProcedureRegistry();
     }
