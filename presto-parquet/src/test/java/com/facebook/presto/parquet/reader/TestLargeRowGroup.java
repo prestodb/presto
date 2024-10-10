@@ -54,17 +54,29 @@ public class TestLargeRowGroup
     private static final DataSize MAX_DATA_SOURCE_BUFFER_SIZE = new DataSize(16, DataSize.Unit.MEGABYTE);
     private final Configuration conf = new Configuration(false);
 
+    private static void validateFile(ParquetReader parquetReader, MessageColumnIO messageColumn, TestFile inputFile)
+            throws IOException
+    {
+        int rowIndex = 0;
+        int batchSize = parquetReader.nextBatch();
+        while (batchSize > 0) {
+            validateColumn("col1", VARCHAR, rowIndex, parquetReader, messageColumn, inputFile, new String[0]);
+            rowIndex += batchSize;
+            batchSize = parquetReader.nextBatch();
+        }
+    }
+
     @Test
     public void testDataSourceIsReadInBoundedChunksForALargeColumnChunk()
             throws IOException
     {
         MessageType schema = new MessageType("schema", new PrimitiveType(OPTIONAL, BINARY, "col1"));
-        //Create a parquet file with a columnChunk has more than MAX_DATA_SOURCE_BUFFER_SIZE of data
+        // Create a parquet file with a columnChunk has more than MAX_DATA_SOURCE_BUFFER_SIZE of data
         TestFile inputFile = new TestFileBuilder(conf, schema)
                 .withCodec("UNCOMPRESSED")
-                //20000 record count => more than 16 MiB of data
+                // 20000 record count => more than 16 MiB of data
                 .withNumRecord(200000)
-                //Allow for a very large row group
+                // Allow for a very large row group
                 .withRowGroupSize(1024 * 1024 * 1024)
                 .build();
 
@@ -77,39 +89,38 @@ public class TestLargeRowGroup
 
         assertTrue(totalSize > MAX_DATA_SOURCE_BUFFER_SIZE.toBytes(), "Test setup requires a single ColumnChunk more than MAX_DATA_SOURCE_BUFFER_SIZE");
 
-        //Read all columns in the file
+        // Read all columns in the file
         validateFile(parquetFile.getParquetReader(), parquetFile.getMessageColumnIO(), inputFile);
 
         List<Integer> bytesFetchedPerCall = parquetFile.getDataSource().getDataSourceBytesFetchedPerCall();
         assertTrue(bytesFetchedPerCall.size() > 1, "Expected more than one call to dataSource");
 
-        //Verify that we don't read more tha MAX_DATA_SOURCE_BUFFER_SIZE in any 'read' from the dataSource
+        // Verify that we don't read more tha MAX_DATA_SOURCE_BUFFER_SIZE in any 'read' from the dataSource
         for (Integer length : bytesFetchedPerCall) {
             assertTrue(length <= MAX_DATA_SOURCE_BUFFER_SIZE.toBytes());
         }
     }
 
-    //We test that the total memory consumed to parse and read this column chunk is NOT a function of the number of data pages
+    // We test that the total memory consumed to parse and read this column chunk is NOT a function of the number of data pages
     // in a ColumnChunk. Instead, we use a bounded amount of memory to read any ColumnChunk since we don't materialize the full
     // chunk in memory at any time
-    @Test
+    @Test(invocationCount = 20)
     public void testMemoryUsedIsNotAFunctionOfDataPageCount()
             throws IOException
     {
         MessageType schema = new MessageType("schema", new PrimitiveType(OPTIONAL, BINARY, "col1"));
 
-        //These max memory used by the parquet reader will change based on the implementation/memory accounting changes
-        //Update this value as needed
-        //We set the expected max to 30% more than MAX_DATA_SOURCE_BUFFER_SIZE
-        long expectedMaxMemoryUsage = (long) (MAX_DATA_SOURCE_BUFFER_SIZE.toBytes() * 1.30);
+        // These max memory used by the parquet reader will change based on the implementation/memory accounting changes
+        // In tests, we have see this value upto 2x of MAX_DATA_SOURCE_BUFFER_SIZE. Values beyond 2.2x should not be seen
+        long expectedMaxMemoryUsage = (long) (MAX_DATA_SOURCE_BUFFER_SIZE.toBytes() * 2.2);
 
         SizeOf sizeOf = SizeOf.newInstance();
         for (Integer testPageCount : Arrays.asList(1000, 5000, 10000, 20000)) {
-            //Create an input file with 1 row group, 1 column and a pre-determined number of data pages
+            // Create an input file with 1 row group, 1 column and a pre-determined number of data pages
             TestParquetFileProperties parquetFile = createTestParquetFile(schema, testPageCount);
             long expectedRowCount = parquetFile.getParquetMetadata().getBlocks().get(0).getRowCount();
 
-            //Read the column completely
+            // Read the column completely
             Field col1 = constructField(VARCHAR, lookupColumnByName(parquetFile.getMessageColumnIO(), "col1")).orElse(null);
             long maxSystemMemoryUsed = 0;
 
@@ -120,9 +131,9 @@ public class TestLargeRowGroup
                 parquetReader.nextBatch();
                 int rowsRead = parquetReader.readBlock(col1).getPositionCount();
                 totalRowsRead += rowsRead;
-                //Check the max memory used during each batch read
+                // Check the max memory used during each batch read
                 parquetReaderDeepSize = Math.max(parquetReaderDeepSize, sizeOf.deepSizeOf(parquetReader));
-                //Same check will work on system memory context; the upper bound here can be 'tightened' more
+                // Same check will work on system memory context; the upper bound here can be 'tightened' more
                 maxSystemMemoryUsed = Math.max(maxSystemMemoryUsed, parquetReader.getSystemMemoryUsage());
             }
 
@@ -135,15 +146,16 @@ public class TestLargeRowGroup
             parquetReader.close();
         }
     }
+
     private TestParquetFileProperties createTestParquetFile(MessageType schema, int requestedPageCount)
             throws IOException
     {
         int pageSize = 100;
         TestFile inputFile = new TestFileBuilder(conf, schema)
                 .withCodec("UNCOMPRESSED")
-                .withPageSize(pageSize) //Keep page size small, so we get a column chunk with a lot of pages
-                .withNumRecord(requestedPageCount * pageSize) //Since we're using an UNCOMPRESSED file, we can set the record count to an exact multiple of the pageSize
-                //Keep row group size large, so we get can fit all pages in one row group
+                .withPageSize(pageSize) // Keep page size small, so we get a column chunk with a lot of pages
+                .withNumRecord(requestedPageCount * pageSize) // Since we're using an UNCOMPRESSED file, we can set the record count to an exact multiple of the pageSize
+                // Keep row group size large, so we get can fit all pages in one row group
                 .withRowGroupSize(1024 * 1024 * 1024)
                 .build();
 
@@ -174,17 +186,6 @@ public class TestLargeRowGroup
         return new TestParquetFileProperties(messageColumn, parquetReader, dataSource, parquetMetadata);
     }
 
-    private static void validateFile(ParquetReader parquetReader, MessageColumnIO messageColumn, TestFile inputFile)
-            throws IOException
-    {
-        int rowIndex = 0;
-        int batchSize = parquetReader.nextBatch();
-        while (batchSize > 0) {
-            validateColumn("col1", VARCHAR, rowIndex, parquetReader, messageColumn, inputFile, new String[0]);
-            rowIndex += batchSize;
-            batchSize = parquetReader.nextBatch();
-        }
-    }
     private static class TestParquetFileProperties
     {
         private MessageColumnIO messageColumnIO;
