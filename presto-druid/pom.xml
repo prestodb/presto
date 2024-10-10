@@ -108,6 +108,10 @@
                     <artifactId>log4j-core</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>com.google.inject.extensions</groupId>
+                    <artifactId>guice-multibindings</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>org.apache.logging.log4j</groupId>
                     <artifactId>log4j-jul</artifactId>
                 </exclusion>
