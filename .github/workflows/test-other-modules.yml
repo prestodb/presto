@@ -64,6 +64,7 @@ jobs:
         run: |
           ./mvnw test -T 1 ${MAVEN_TEST} -pl '
             !presto-tests, 
+            !presto-native-tests,
             !presto-accumulo,
             !presto-cassandra,
             !presto-hive,
