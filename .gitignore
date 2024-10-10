@@ -42,6 +42,7 @@ cmake-build-*/
 a.out
 presto-native-execution/deps-download
 presto-native-execution/deps-install
+presto-native-execution/.venv
 
 # Compiled Object files
 *.slo
