@@ -62,6 +62,6 @@ public class TestIcebergNessieCatalogDistributedQueries
     @Override
     protected boolean supportsViews()
     {
-        return false;
+        return true;
     }
 }
