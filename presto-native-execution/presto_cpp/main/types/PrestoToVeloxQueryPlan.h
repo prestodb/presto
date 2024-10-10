@@ -14,6 +14,7 @@
 
 #include <stdexcept>
 #include <vector>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/core/Expressions.h"

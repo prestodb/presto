@@ -33,6 +33,8 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
@@ -49,6 +51,7 @@ import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
@@ -129,6 +132,8 @@ public class FunctionAndTypeManager
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
     private final CacheStatsMBean cacheStatsMBean;
     private final boolean nativeExecution;
+    private final boolean coordinatorSidecarEnabled;
+    public CatalogSchemaName currentDefaultNamespace = DEFAULT_NAMESPACE;
 
     @Inject
     public FunctionAndTypeManager(
@@ -136,6 +141,7 @@ public class FunctionAndTypeManager
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
             FunctionsConfig functionsConfig,
+            ServerConfig serverConfig,
             HandleResolver handleResolver,
             Set<Type> types)
     {
@@ -156,6 +162,7 @@ public class FunctionAndTypeManager
         this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
         this.typeCoercer = new TypeCoercer(functionsConfig, this);
         this.nativeExecution = featuresConfig.isNativeExecutionEnabled();
+        this.coordinatorSidecarEnabled = serverConfig.isCoordinatorSidecarEnabled();
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -165,6 +172,7 @@ public class FunctionAndTypeManager
                 new BlockEncodingManager(),
                 new FeaturesConfig(),
                 new FunctionsConfig(),
+                new ServerConfig(),
                 new HandleResolver(),
                 ImmutableSet.of());
     }
@@ -221,6 +229,12 @@ public class FunctionAndTypeManager
             }
 
             @Override
+            public SqlFunctionSupplier getSpecializedFunctionKey(Signature signature)
+            {
+                return FunctionAndTypeManager.this.getSpecializedFunctionKey(signature);
+            }
+
+            @Override
             public Collection<SqlFunction> listBuiltInFunctions()
             {
                 return FunctionAndTypeManager.this.listBuiltInFunctions();
@@ -256,14 +270,14 @@ public class FunctionAndTypeManager
     public void loadFunctionNamespaceManager(
             String functionNamespaceManagerName,
             String catalogName,
-            Map<String, String> properties)
+            Map<String, String> properties,
+            Optional<NodeManager> nodeManager)
     {
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this));
+        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this, nodeManager, Optional.of(this)));
         functionNamespaceManager.setBlockEncodingSerde(blockEncodingSerde);
-
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
         if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
             throw new IllegalArgumentException(format("Function namespace manager is already registered for catalog [%s]", catalogName));
@@ -329,6 +343,12 @@ public class FunctionAndTypeManager
 
     public void addFunctionNamespaceFactory(FunctionNamespaceManagerFactory factory)
     {
+        addFunctionNamespaceFactory(factory, Optional.empty());
+    }
+
+    public void addFunctionNamespaceFactory(FunctionNamespaceManagerFactory factory, Optional<String> defaultNamespacePrefixString)
+    {
+        defaultNamespacePrefixString.ifPresent(this::configureDefaultNamespace);
         if (functionNamespaceManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
         }
@@ -352,9 +372,19 @@ public class FunctionAndTypeManager
         ImmutableList.Builder<SqlFunction> functions = new ImmutableList.Builder<>();
         if (!isListBuiltInFunctionsOnly(session)) {
             functions.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
-            functions.addAll(functionNamespaceManagers.values().stream()
-                    .flatMap(manager -> manager.listFunctions(likePattern, escape).stream())
-                    .collect(toImmutableList()));
+
+            //filter out built-in namespace functions if coordinator sidecar is enabled
+            if (nativeExecution && coordinatorSidecarEnabled) {
+                functions.addAll(functionNamespaceManagers.entrySet().stream()
+                        .filter(namespace -> namespace.getKey().equals("native"))
+                        .flatMap(manager -> manager.getValue().listFunctions(likePattern, escape).stream())
+                        .collect(toImmutableList()));
+            }
+            else {
+                functions.addAll(functionNamespaceManagers.values().stream()
+                        .flatMap(manager -> manager.listFunctions(likePattern, escape).stream())
+                        .collect(toImmutableList()));
+            }
         }
         else {
             functions.addAll(listBuiltInFunctions());
@@ -417,15 +447,28 @@ public class FunctionAndTypeManager
         }
     }
 
-    public static QualifiedObjectName qualifyObjectName(QualifiedName name)
+    public QualifiedObjectName qualifyObjectName(QualifiedName name)
     {
-        if (!name.getPrefix().isPresent()) {
+        if (name.getSuffix().startsWith("$internal")) {
             return QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name.getSuffix());
+        }
+        if (!name.getPrefix().isPresent()) {
+            return QualifiedObjectName.valueOf(currentDefaultNamespace, name.getSuffix());
         }
         if (name.getOriginalParts().size() != 3) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Functions that are not temporary or builtin must be referenced by 'catalog.schema.function_name', found: %s", name));
         }
         return QualifiedObjectName.valueOf(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2));
+    }
+
+    public void configureDefaultNamespace(String defaultNamespacePrefixString)
+    {
+        String pattern = "[a-z]+\\.[a-z]+";
+        if (!defaultNamespacePrefixString.matches(pattern)) {
+            throw new PrestoException(GENERIC_USER_ERROR, format("Default namespace prefix string should be in the form of 'catalog.schema', found: %s", defaultNamespacePrefixString));
+        }
+        String[] catalogSchemaNameString = defaultNamespacePrefixString.split("\\.");
+        this.currentDefaultNamespace = new CatalogSchemaName(catalogSchemaNameString[0], catalogSchemaNameString[1]);
     }
 
     /**
@@ -589,26 +632,33 @@ public class FunctionAndTypeManager
         return !nativeExecution;
     }
 
+    public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    {
+        QualifiedObjectName functionName = qualifyObjectName(QualifiedName.of(name));
+        return lookupFunction(functionName, parameterTypes);
+    }
+
     /**
      * Lookup up a function with name and fully bound types. This can only be used for builtin functions. {@link #resolveFunction(Optional, Optional, QualifiedObjectName, List)}
      * should be used for dynamically registered functions.
      *
      * @throws PrestoException if function could not be found
      */
-    public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionHandle lookupFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        QualifiedObjectName functionName = qualifyObjectName(QualifiedName.of(name));
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for function '%s'", functionName);
         if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
             return lookupCachedFunction(functionName, parameterTypes);
         }
 
-        Collection<? extends SqlFunction> candidates = builtInTypeAndFunctionNamespaceManager.getFunctions(Optional.empty(), functionName);
+        Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
         Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, false);
         if (!match.isPresent()) {
             throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
         }
 
-        return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), match.get());
+        return functionNamespaceManager.get().getFunctionHandle(Optional.empty(), match.get());
     }
 
     public FunctionHandle lookupCast(CastType castType, Type fromType, Type toType)
@@ -698,7 +748,8 @@ public class FunctionAndTypeManager
 
     private FunctionHandle resolveBuiltInFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        checkArgument(functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE), "Expect built-in functions");
+        checkArgument(functionName.getCatalogSchemaName().equals(currentDefaultNamespace) ||
+                functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE), "Expect built-in/default namespace functions");
         checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Expect parameter types not to have dependency");
         return resolveFunctionInternal(Optional.empty(), functionName, parameterTypes);
     }
@@ -724,6 +775,17 @@ public class FunctionAndTypeManager
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(TypeSignatureBase typeSignatureBase)
     {
         return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().getCatalogName()));
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)
+    {
+        QualifiedObjectName functionName = signature.getName();
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for signature '%s'", functionName);
+        Collection<SqlFunction> candidates = (Collection<SqlFunction>) functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
+        return builtInTypeAndFunctionNamespaceManager.doGetSpecializedFunctionKey(signature, candidates);
     }
 
     private static class FunctionResolutionCacheKey

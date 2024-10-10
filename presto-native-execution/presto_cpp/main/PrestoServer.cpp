@@ -35,6 +35,8 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/types/FunctionMetadata.h"
+#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
@@ -232,6 +234,7 @@ void PrestoServer::run() {
       address_ = fmt::format("[{}]", address_);
     }
     nodeLocation_ = nodeConfig->nodeLocation();
+    prestoBuiltinFunctionPrefix_ = systemConfig->prestoDefaultNamespacePrefix();
   } catch (const VeloxUserError& e) {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
@@ -385,6 +388,16 @@ void PrestoServer::run() {
                 http::kMimeTypeApplicationJson)
             .sendWithEOM();
       });
+  if (systemConfig->prestoNativeSidecar()) {
+    httpServer_->registerGet(
+        "/v1/functions",
+        [server = this](
+            proxygen::HTTPMessage* /*message*/,
+            const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+            proxygen::ResponseHandler* downstream) {
+          server->getFunctionSignatures(downstream);
+        });
+  }
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
     enableWorkerStatsReporting();
@@ -1214,11 +1227,12 @@ void PrestoServer::registerCustomOperators() {
 }
 
 void PrestoServer::registerFunctions() {
-  static const std::string kPrestoDefaultPrefix{"presto.default."};
-  velox::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  velox::functions::prestosql::registerAllScalarFunctions(
+      prestoBuiltinFunctionPrefix_);
   velox::aggregate::prestosql::registerAllAggregateFunctions(
-      kPrestoDefaultPrefix);
-  velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+      prestoBuiltinFunctionPrefix_);
+  velox::window::prestosql::registerAllWindowFunctions(
+      prestoBuiltinFunctionPrefix_);
   if (SystemConfig::instance()->registerTestFunctions()) {
     velox::functions::prestosql::registerAllScalarFunctions(
         "json.test_schema.");
@@ -1402,6 +1416,11 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+void PrestoServer::getFunctionSignatures(
+    proxygen::ResponseHandler* downstream) {
+  http::sendOkResponse(downstream, getFunctionsMetadata());
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {

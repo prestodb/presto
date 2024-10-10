@@ -207,6 +207,8 @@ class PrestoServer {
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
+  void getFunctionSignatures(proxygen::ResponseHandler* downstream);
+
   protocol::NodeStatus fetchNodeStatus();
 
   void populateMemAndCPUInfo();
@@ -277,6 +279,7 @@ class PrestoServer {
   std::string address_;
   std::string nodeLocation_;
   folly::SSLContextPtr sslContext_;
+  std::string prestoBuiltinFunctionPrefix_;
 };
 
 } // namespace facebook::presto
