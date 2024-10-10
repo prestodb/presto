@@ -135,6 +135,17 @@ function install_boost {
   )
 }
 
+function install_protobuf {
+  wget_and_untar https://github.com/protocolbuffers/protobuf/releases/download/v21.8/protobuf-all-21.8.tar.gz protobuf
+  (
+    cd ${DEPENDENCY_DIR}/protobuf
+    ./configure CXXFLAGS="-fPIC" --prefix=${INSTALL_PREFIX}
+    make "-j${NPROC}"
+    make install
+    ldconfig
+  )
+}
+
 function install_folly {
   wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
   cmake_install_dir folly -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
@@ -238,6 +249,7 @@ function install_cuda {
 function install_velox_deps {
   run_and_time install_velox_deps_from_apt
   run_and_time install_fmt
+  run_and_time install_protobuf
   run_and_time install_boost
   run_and_time install_folly
   run_and_time install_fizz

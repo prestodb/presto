@@ -138,7 +138,7 @@ function install_protobuf {
   wget_and_untar https://github.com/protocolbuffers/protobuf/releases/download/v21.8/protobuf-all-21.8.tar.gz protobuf
   (
     cd ${DEPENDENCY_DIR}/protobuf
-    ./configure --prefix=${INSTALL_PREFIX}
+    ./configure CXXFLAGS="-fPIC" --prefix=${INSTALL_PREFIX}
     make "-j${NPROC}"
     make install
     ldconfig
