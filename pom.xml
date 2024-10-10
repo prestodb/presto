@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.airlift</groupId>
+        <groupId>com.github.zacblanco.airbase</groupId>
         <artifactId>airbase</artifactId>
-        <version>104-SNAPSHOT</version>
+        <version>upgradeJava17Bytecode-jitpack-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -32,6 +32,20 @@
         <url>https://github.com/prestodb/presto</url>
         <tag>HEAD</tag>
     </scm>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </pluginRepository>
+    </pluginRepositories>
 
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
@@ -97,6 +111,7 @@
         <grpc.version>1.64.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <presto-maven-plugin.version>upgradeToJava17-v1</presto-maven-plugin.version>
     </properties>
 
     <modules>
@@ -216,6 +231,12 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-testing-docker</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>slice</artifactId>
+                <version>${dep.slice.version}</version>
             </dependency>
 
             <dependency>
@@ -2415,9 +2436,9 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>com.facebook.presto</groupId>
+                    <groupId>com.github.zacblanco</groupId>
                     <artifactId>presto-maven-plugin</artifactId>
-                    <version>0.6-SNAPSHOT</version>
+                    <version>${presto-maven-plugin.version}</version>
                     <extensions>true</extensions>
                 </plugin>
 
@@ -2432,8 +2453,9 @@
 
         <plugins>
             <plugin>
-                <groupId>com.facebook.presto</groupId>
+                <groupId>com.github.zacblanco</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
+                <extensions>true</extensions>
             </plugin>
 
             <plugin>
@@ -2557,6 +2579,27 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>java8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+            <properties>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>java17</id>
+            <activation>
+                <jdk>[17,21]</jdk>
+            </activation>
+            <properties>
+                <air.test.jvm.additional-arguments>
+                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens java.base/java.lang=ALL-UNNAMED
+                </air.test.jvm.additional-arguments>
+            </properties>
+        </profile>
         <profile>
             <id>ui</id>
             <activation>
