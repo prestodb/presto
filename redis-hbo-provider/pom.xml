@@ -289,8 +289,11 @@
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <version>1.2.1</version>
                 <configuration>
                     <ignoredResourcePatterns>
+                        <ignoredResourcePattern>META-INF.versions.9.module-info</ignoredResourcePattern>
+                        <ignoredResourcePattern>module-info</ignoredResourcePattern>
                         <ignoredResourcePattern>com.google.*$</ignoredResourcePattern>
                         <ignoredResourcePattern>.*\.proto$</ignoredResourcePattern>
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
@@ -298,6 +301,7 @@
                     </ignoredResourcePatterns>
                     <ignoredClassPatterns>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
+                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                         <ignoredClassPattern>com.google.thirdparty.publicsuffix.*</ignoredClassPattern>
                         <ignoredClassPattern>com.google.auth.*</ignoredClassPattern>
                         <ignoredClassPattern>com.google.api.*</ignoredClassPattern>
