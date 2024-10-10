@@ -265,7 +265,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers</artifactId>
-            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.protobuf</groupId>
