@@ -58,6 +58,7 @@ import static java.net.Proxy.Type.HTTP;
 import static java.net.Proxy.Type.SOCKS;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
+import static okhttp3.internal.tls.OkHostnameVerifier.INSTANCE;
 
 public final class OkHttpUtil
 {
@@ -237,6 +238,7 @@ public final class OkHttpUtil
             sslContext.init(keyManagers, new TrustManager[] {trustManager}, null);
 
             clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), trustManager);
+            clientBuilder.hostnameVerifier(INSTANCE);
         }
         catch (GeneralSecurityException | IOException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
