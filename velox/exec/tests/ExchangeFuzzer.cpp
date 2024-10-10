@@ -284,6 +284,42 @@ class ExchangeFuzzer : public VectorTestBase {
       saveRepro(vectors, params);
       return false;
     }
+
+    for (const auto& task : tasks) {
+      if (!waitForTaskCompletion(task.get(), 1'000'000)) {
+        if (task->state() == TaskState::kFailed) {
+          try {
+            std::rethrow_exception(task->error());
+          } catch (const std::exception& taskException) {
+            // This must be an unexpected exception.
+            LOG(ERROR) << "Task " << task->toString() << " failed with error "
+                       << taskException.what();
+            saveRepro(vectors, params);
+            return false;
+          }
+        } else if (task->state() == TaskState::kRunning) {
+          VELOX_FAIL(
+              "Timed out waiting for task to complete, task: {} {}",
+              task->toString(),
+              taskStateString(task->state()));
+        } else if (task->state() != TaskState::kFinished) {
+          VELOX_FAIL(
+              "Task {} ended in unexpected state {}",
+              task->toString(),
+              taskStateString(task->state()));
+        } else if (task->numFinishedDrivers() != task->numTotalDrivers()) {
+          VELOX_FAIL(
+              "Task {} finished but it has {} drivers still running",
+              task->toString(),
+              task->numTotalDrivers() - task->numFinishedDrivers());
+        }
+        // There's a chance that the task exceeded the timeout to finish but
+        // managed to finish in the gap before these if statements got executed,
+        // in this case just let it slide since we ended up in the right place
+        // eventually.
+      }
+    }
+
     return true;
   }
 
