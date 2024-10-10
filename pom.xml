@@ -2719,6 +2719,25 @@
 
     <profiles>
         <profile>
+            <id>java8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+        </profile>
+
+        <profile>
+            <id>java17</id>
+            <activation>
+                <jdk>17</jdk>
+            </activation>
+            <properties>
+                <air.test.jvm.additional-arguments>
+                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens java.base/java.lang=ALL-UNNAMED
+                </air.test.jvm.additional-arguments>
+            </properties>
+        </profile>
+        <profile>
             <id>ui</id>
             <activation>
                 <property>
