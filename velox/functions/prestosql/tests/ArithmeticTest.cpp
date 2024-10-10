@@ -262,15 +262,39 @@ TEST_F(ArithmeticTest, modInt) {
 
 TEST_F(ArithmeticTest, power) {
   std::vector<double> baseDouble = {
-      0, 0, 0, -1, -1, -1, -9, 9.1, 10.1, 11.1, -11.1, 0, kInf, kInf};
+      0, 0, 0, -1, -1, -1, -9, 9.1, 10.1, 11.1, -11.1};
   std::vector<double> exponentDouble = {
-      0, 1, -1, 0, 1, -1, -3.3, 123456.432, -99.9, 0, 100000, kInf, 0, kInf};
+      0, 1, -1, 0, 1, -1, -3.3, 123456.432, -99.9, 0, 100000};
   std::vector<double> expectedDouble;
   expectedDouble.reserve(baseDouble.size());
 
   for (size_t i = 0; i < baseDouble.size(); i++) {
     expectedDouble.emplace_back(pow(baseDouble[i], exponentDouble[i]));
   }
+
+  // Check using function name and alias.
+  assertExpression<double>(
+      "power(c0, c1)", baseDouble, exponentDouble, expectedDouble);
+  assertExpression<double>(
+      "pow(c0, c1)", baseDouble, exponentDouble, expectedDouble);
+}
+
+TEST_F(ArithmeticTest, powerNan) {
+  std::vector<double> baseDouble = {1, kNan, kNan, kNan};
+  std::vector<double> exponentDouble = {kNan, 1, kInf, 0};
+  std::vector<double> expectedDouble = {kNan, kNan, kNan, 1};
+
+  // Check using function name and alias.
+  assertExpression<double>(
+      "power(c0, c1)", baseDouble, exponentDouble, expectedDouble);
+  assertExpression<double>(
+      "pow(c0, c1)", baseDouble, exponentDouble, expectedDouble);
+}
+
+TEST_F(ArithmeticTest, powerInf) {
+  std::vector<double> baseDouble = {1, kInf, kInf, kInf};
+  std::vector<double> exponentDouble = {kInf, 1, kNan, 0};
+  std::vector<double> expectedDouble = {kNan, kInf, kNan, 1};
 
   // Check using function name and alias.
   assertExpression<double>(
