@@ -22,7 +22,9 @@ add_executable(
   ServerOperationTest.cpp
   SessionPropertiesTest.cpp
   TaskManagerTest.cpp
-  QueryContextManagerTest.cpp)
+  QueryContextManagerTest.cpp
+  PrestoServerWrapper.cpp
+  PrestoServerTestSuite.cpp)
 
 add_test(
   NAME presto_server_test

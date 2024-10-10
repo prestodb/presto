@@ -25,11 +25,11 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
 #include "presto_cpp/main/http/filters/StatsFilter.h"
-#include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
@@ -158,7 +158,9 @@ PrestoServer::PrestoServer(const std::string& configDirectoryPath)
 
 PrestoServer::~PrestoServer() {}
 
-void PrestoServer::run() {
+void PrestoServer::run(
+    std::function<void(proxygen::HTTPServer*)> onSuccess,
+    std::function<void(std::exception_ptr)> onError) {
   auto systemConfig = SystemConfig::instance();
   auto nodeConfig = NodeConfig::instance();
   auto baseVeloxQueryConfig = BaseVeloxQueryConfig::instance();
@@ -367,13 +369,13 @@ void PrestoServer::run() {
         http::sendOkResponse(downstream, infoStateJson);
       });
   httpServer_->registerPut(
-     "/v1/info/state",
-     [server = this](
-         proxygen::HTTPMessage* /*message*/,
-         const std::vector<std::unique_ptr<folly::IOBuf>>& body ,
-         proxygen::ResponseHandler* downstream) {
-         server->handleGracefulShutdown(body, downstream);
- });
+      "/v1/info/state",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        server->handleGracefulShutdown(body, downstream);
+      });
   httpServer_->registerGet(
       "/v1/status",
       [server = this](
@@ -584,7 +586,7 @@ void PrestoServer::run() {
 
   // Start everything. After the return from the following call we are shutting
   // down.
-  httpServer_->start(getHttpServerFilters());
+  httpServer_->start(getHttpServerFilters(), onSuccess, onError);
 
   if (announcer_ != nullptr) {
     PRESTO_SHUTDOWN_LOG(INFO) << "Stopping announcer";
@@ -915,22 +917,30 @@ void PrestoServer::stop() {
       << "Waiting for " << shutdownOnsetSec
       << " second(s) before proceeding with the shutdown...";
 
-  // Give coordinator some time to receive our new node state and stop sending
-  // any tasks.
-  std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
+  std::thread shutdownThread([this, shutdownOnsetSec]() {
+    // Give coordinator some time to receive our new node state and stop sending
+    // any tasks.
+    std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
 
-  taskManager_->shutdown();
+    taskManager_->shutdown();
 
-  // Give coordinator some time to request tasks stats for completed or failed
-  // tasks.
-  std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
+    // Give coordinator some time to request tasks stats for completed or failed
+    // tasks.
+    std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
 
-  if (httpServer_) {
-    PRESTO_SHUTDOWN_LOG(INFO)
-        << "All tasks are completed. Stopping HTTP Server...";
-    httpServer_->stop();
-    PRESTO_SHUTDOWN_LOG(INFO) << "HTTP Server stopped.";
-  }
+    if (httpServer_) {
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "All tasks are completed. Stopping HTTP Server...";
+      httpServer_->stop();
+      PRESTO_SHUTDOWN_LOG(INFO) << "HTTP Server stopped.";
+    }
+
+    PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown process completed.";
+  });
+
+  shutdownThread.detach();
+
+  PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown scheduled in a separate thread.";
 }
 
 size_t PrestoServer::numDriverThreads() const {
@@ -1413,26 +1423,20 @@ void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
 }
 
-void PrestoServer::handleGracefulShutdown(const std::vector<std::unique_ptr<folly::IOBuf>>& body, proxygen::ResponseHandler* downstream){
-    if (body.size()==1 && body[0]->moveToFbString() == "\"SHUTTING_DOWN\"") {
-         // Print message and initiate shutdown
-         LOG(INFO) << "Shutdown requested";
-         if (nodeState() == NodeState::kActive) {
-             // Call stop() to handle the shutdown process
-             std::thread([this]() {
-                     this->stop();
-                 }).detach();
-         } else {
-             // Print message and indicate that node is inactive or shutdown is already requested
-             LOG(INFO) << "Node is inactive or shutdown is already requested";
-         }
-        http::sendOkResponse(downstream);
+void PrestoServer::handleGracefulShutdown(
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    proxygen::ResponseHandler* downstream) {
+  if (body.size() == 1 && body[0]->moveToFbString() == "\"SHUTTING_DOWN\"") {
+     LOG(INFO) << "Shutdown requested";
+    if (nodeState() == NodeState::kActive) {
+      std::thread([this]() { this->stop(); }).detach();
     } else {
-         // Throw a 400 Bad Request error if the body has some other value
-         http::sendErrorResponse(
-             downstream,
-             "Bad Request", http::kHttpBadRequest);
+      LOG(INFO) << "Node is inactive or shutdown is already requested";
     }
+    http::sendOkResponse(downstream);
+  } else {
+    http::sendErrorResponse(downstream, "Bad Request", http::kHttpBadRequest);
+  }
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {

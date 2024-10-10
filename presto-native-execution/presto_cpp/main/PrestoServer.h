@@ -75,7 +75,9 @@ class PrestoServer {
   explicit PrestoServer(const std::string& configDirectoryPath);
   virtual ~PrestoServer();
 
-  void run();
+  void run(
+      std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess = nullptr,
+      std::function<void(std::exception_ptr)> onError = nullptr);
 
   /// Called from signal handler on signals that should stop the server.
   void stop();
@@ -207,7 +209,9 @@ class PrestoServer {
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
-  void handleGracefulShutdown(const std::vector<std::unique_ptr<folly::IOBuf>>& body, proxygen::ResponseHandler* downstream);
+  void handleGracefulShutdown(
+      const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+      proxygen::ResponseHandler* downstream);
 
   protocol::NodeStatus fetchNodeStatus();
 

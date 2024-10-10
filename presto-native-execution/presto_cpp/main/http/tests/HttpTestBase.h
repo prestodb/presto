@@ -23,10 +23,10 @@
 #include "presto_cpp/main/http/HttpServer.h"
 #include "velox/common/base/StatsReporter.h"
 
-namespace fs = boost::filesystem;
+namespace bfs = boost::filesystem;
 
 std::string getCertsPath(const std::string& fileName) {
-  std::string currentPath = fs::current_path().c_str();
+  std::string currentPath = bfs::current_path().c_str();
   if (boost::algorithm::ends_with(currentPath, "fbcode")) {
     return currentPath +
         "/github/presto-trunk/presto-native-execution/presto_cpp/main/http/tests/certs/" +
@@ -230,6 +230,18 @@ sendGet(
     const std::string body = "") {
   return facebook::presto::http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
+      .url(url)
+      .send(client, body, sendDelay);
+}
+
+folly::SemiFuture<std::unique_ptr<facebook::presto::http::HttpResponse>>
+sendPut(
+    facebook::presto::http::HttpClient* client,
+    const std::string& url,
+    const uint64_t sendDelay = 0,
+    const std::string body = "") {
+  return facebook::presto::http::RequestBuilder()
+      .method(proxygen::HTTPMethod::PUT)
       .url(url)
       .send(client, body, sendDelay);
 }
