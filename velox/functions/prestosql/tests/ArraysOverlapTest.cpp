@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/tests/TestingDictionaryArrayElementsFunction.h"
 
 using namespace facebook::velox;
@@ -312,4 +313,70 @@ TEST_F(ArraysOverlapTest, dictionaryEncodedElementsInConstant) {
       expected,
       "arrays_overlap(testing_dictionary_array_elements(ARRAY [2, 2, 3, 1, 2, 2]), c0)",
       {array});
+}
+
+TEST_F(ArraysOverlapTest, TimestampWithTimezone) {
+  auto testArraysOverlap =
+      [this](
+          const std::vector<std::optional<int64_t>>& array1,
+          const std::vector<std::optional<int64_t>>& array2,
+          std::optional<bool> expected) {
+        auto arrayVector1 = makeArrayVector(
+            {0}, makeNullableFlatVector(array1, TIMESTAMP_WITH_TIME_ZONE()));
+        auto arrayVector2 = makeArrayVector(
+            {0}, makeNullableFlatVector(array2, TIMESTAMP_WITH_TIME_ZONE()));
+        auto expectedVector = makeNullableFlatVector<bool>({expected});
+
+        testExpr(
+            expectedVector,
+            "arrays_overlap(C0, C1)",
+            {arrayVector1, arrayVector2});
+        testExpr(
+            expectedVector,
+            "arrays_overlap(C1, C0)",
+            {arrayVector1, arrayVector2});
+      };
+
+  testArraysOverlap(
+      {pack(1, 1),
+       pack(-2, 2),
+       pack(3, 3),
+       std::nullopt,
+       pack(4, 4),
+       pack(5, 5),
+       pack(6, 6),
+       std::nullopt},
+      {pack(1, 10), pack(-2, 11), pack(4, 12)},
+      true);
+  testArraysOverlap(
+      {pack(1, 1), pack(2, 2), pack(-2, 3), pack(1, 4)},
+      {pack(1, 10), pack(-2, 11), pack(4, 12)},
+      true);
+  testArraysOverlap(
+      {pack(3, 1), pack(8, 2), std::nullopt},
+      {pack(1, 10), pack(-2, 11), pack(4, 12)},
+      std::nullopt);
+  testArraysOverlap(
+      {pack(1, 1),
+       pack(1, 2),
+       pack(-2, 3),
+       pack(-2, 4),
+       pack(-2, 5),
+       pack(4, 6),
+       pack(8, 7)},
+      {pack(1, 10), pack(-2, 11), pack(4, 12)},
+      true);
+  testArraysOverlap(
+      {pack(2, 1), pack(-1, 2)},
+      {pack(1, 1), pack(-2, 2), std::nullopt},
+      std::nullopt);
+  testArraysOverlap(
+      {pack(1, 1), pack(2, 2), pack(3, 3)},
+      {pack(5, 1), pack(6, 2), pack(7, 3)},
+      false);
+  testArraysOverlap({std::nullopt}, {std::nullopt}, std::nullopt);
+  testArraysOverlap({}, {1, std::nullopt}, false);
+  testArraysOverlap({std::nullopt}, {}, false);
+  testArraysOverlap({}, {std::nullopt}, false);
+  testArraysOverlap({pack(1, 1), pack(2, 2)}, {}, false);
 }

@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/tests/TestingDictionaryArrayElementsFunction.h"
 
 using namespace facebook::velox;
@@ -393,4 +394,104 @@ TEST_F(ArrayExceptTest, dictionaryEncodedElementsInConstant) {
       expected,
       "array_except(c0, testing_dictionary_array_elements(ARRAY [0, 1, 3, 2, 2, 3, 2]))",
       {array});
+}
+
+TEST_F(ArrayExceptTest, timestampWithTimezone) {
+  auto testArrayExcept =
+      [this](
+          const std::vector<std::optional<int64_t>>& inputArray1,
+          const std::vector<std::optional<int64_t>>& inputArray2,
+          const std::vector<std::optional<int64_t>>& expectedArrayForward,
+          const std::vector<std::optional<int64_t>>& expectedArrayBackward) {
+        const auto input1 = makeArrayVector(
+            {0},
+            makeNullableFlatVector(inputArray1, TIMESTAMP_WITH_TIME_ZONE()));
+        const auto input2 = makeArrayVector(
+            {0},
+            makeNullableFlatVector(inputArray2, TIMESTAMP_WITH_TIME_ZONE()));
+        const auto expectedForward = makeArrayVector(
+            {0},
+            makeNullableFlatVector(
+                expectedArrayForward, TIMESTAMP_WITH_TIME_ZONE()));
+        const auto expectedBackward = makeArrayVector(
+            {0},
+            makeNullableFlatVector(
+                expectedArrayBackward, TIMESTAMP_WITH_TIME_ZONE()));
+
+        testExpr(expectedForward, "array_except(c0, c1)", {input1, input2});
+        testExpr(expectedBackward, "array_except(c1, c0)", {input1, input2});
+      };
+
+  testArrayExcept(
+      {pack(1, 0),
+       pack(-2, 1),
+       pack(3, 2),
+       std::nullopt,
+       pack(4, 3),
+       pack(5, 4),
+       pack(6, 5),
+       std::nullopt},
+      {pack(1, 10), pack(-2, 11), pack(4, 12)},
+      {pack(3, 2), std::nullopt, pack(5, 4), pack(6, 5)},
+      {});
+  testArrayExcept(
+      {pack(1, 0), pack(2, 1), pack(-2, 2), pack(1, 3)},
+      {pack(1, 10), pack(-2, 11), pack(4, 12)},
+      {pack(2, 1)},
+      {pack(4, 12)});
+  testArrayExcept(
+      {pack(3, 0), pack(8, 1), std::nullopt},
+      {pack(1, 10), pack(-2, 11), pack(4, 12)},
+      {pack(3, 0), pack(8, 1), std::nullopt},
+      {pack(1, 10), pack(-2, 11), pack(4, 12)});
+  testArrayExcept(
+      {pack(1, 0),
+       pack(1, 1),
+       pack(-2, 2),
+       pack(-2, 3),
+       pack(-2, 4),
+       pack(4, 5),
+       pack(8, 6)},
+      {pack(1, 10), pack(-2, 11), pack(4, 12)},
+      {pack(8, 6)},
+      {});
+  testArrayExcept(
+      {pack(1, 0),
+       pack(-2, 1),
+       pack(3, 2),
+       std::nullopt,
+       pack(4, 3),
+       pack(5, 4),
+       pack(6, 5),
+       std::nullopt},
+      {pack(10, 10), pack(-24, 11), pack(43, 12)},
+      {pack(1, 0),
+       pack(-2, 1),
+       pack(3, 2),
+       std::nullopt,
+       pack(4, 3),
+       pack(5, 4),
+       pack(6, 5)},
+      {pack(10, 10), pack(-24, 11), pack(43, 12)});
+  testArrayExcept(
+      {pack(1, 0), pack(2, 1), pack(-2, 2), pack(1, 3)},
+      {std::nullopt, pack(-2, 10), pack(2, 11)},
+      {pack(1, 0)},
+      {std::nullopt});
+  testArrayExcept(
+      {pack(3, 0), pack(8, 1), std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt},
+      {pack(3, 0), pack(8, 1)},
+      {});
+  testArrayExcept(
+      {pack(1, 0),
+       pack(1, 1),
+       pack(-2, 2),
+       pack(-2, 3),
+       pack(-2, 4),
+       pack(4, 5),
+       pack(8, 6)},
+      {pack(8, 10), pack(1, 11), pack(8, 12), pack(1, 13)},
+      {pack(-2, 2), pack(4, 5)},
+      {});
 }

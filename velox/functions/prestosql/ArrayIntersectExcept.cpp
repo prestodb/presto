@@ -50,23 +50,27 @@ struct SetWithNull {
   bool hasNull{false};
 };
 
-struct ComplexTypeEntry {
+// This class is used as the entry in a set when the native type cannot be used
+// directly. In particular, for complex types and custom types that provide
+// custom comparison operators.
+struct WrappedVectorEntry {
   const uint64_t hash;
   const BaseVector* baseVector;
   const vector_size_t index;
 };
 
 template <>
-struct SetWithNull<ComplexTypeEntry> {
+struct SetWithNull<WrappedVectorEntry> {
   struct Hash {
-    size_t operator()(const ComplexTypeEntry& entry) const {
+    size_t operator()(const WrappedVectorEntry& entry) const {
       return entry.hash;
     }
   };
 
   struct EqualTo {
-    bool operator()(const ComplexTypeEntry& left, const ComplexTypeEntry& right)
-        const {
+    bool operator()(
+        const WrappedVectorEntry& left,
+        const WrappedVectorEntry& right) const {
       return left.baseVector
           ->equalValueAt(
               right.baseVector,
@@ -77,7 +81,7 @@ struct SetWithNull<ComplexTypeEntry> {
     }
   };
 
-  folly::F14FastSet<ComplexTypeEntry, Hash, EqualTo> set;
+  folly::F14FastSet<WrappedVectorEntry, Hash, EqualTo> set;
   bool hasNull{false};
 
   SetWithNull(vector_size_t initialSetSize = kInitialSetSize) {
@@ -88,7 +92,7 @@ struct SetWithNull<ComplexTypeEntry> {
     const auto vector = decodedElements->base();
     const auto index = decodedElements->index(offset);
     const uint64_t hash = vector->hashValueAt(index);
-    return set.insert(ComplexTypeEntry{hash, vector, index}).second;
+    return set.insert(WrappedVectorEntry{hash, vector, index}).second;
   }
 
   size_t count(const DecodedVector* decodedElements, vector_size_t offset)
@@ -96,7 +100,7 @@ struct SetWithNull<ComplexTypeEntry> {
     const auto vector = decodedElements->base();
     const auto index = decodedElements->index(offset);
     const uint64_t hash = vector->hashValueAt(index);
-    return set.count(ComplexTypeEntry{hash, vector, index});
+    return set.count(WrappedVectorEntry{hash, vector, index});
   }
 
   void reset() {
@@ -460,17 +464,9 @@ SetWithNull<T> validateConstantVectorAndGenerateSet(
   return constantSet;
 }
 
-template <bool isIntersect, TypeKind kind>
+template <bool isIntersect, typename SetEntryT>
 std::shared_ptr<exec::VectorFunction> createTypedArraysIntersectExcept(
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  using T = std::conditional_t<
-      TypeTraits<kind>::isPrimitiveType,
-      typename TypeTraits<kind>::NativeType,
-      ComplexTypeEntry>;
-
-  VELOX_CHECK_EQ(inputArgs.size(), 2);
-  BaseVector* rhs = inputArgs[1].constantValue.get();
-
+    const BaseVector* rhs) {
   // We don't optimize the case where lhs is a constant expression for
   // array_intersect() because that would make this function non-deterministic.
   // For example, a constant lhs would mean the constantSet is created based on
@@ -480,10 +476,31 @@ std::shared_ptr<exec::VectorFunction> createTypedArraysIntersectExcept(
   //
   // If rhs is a constant value:
   if (rhs != nullptr) {
-    return std::make_shared<ArrayIntersectExceptFunction<isIntersect, T>>(
-        validateConstantVectorAndGenerateSet<T>(rhs));
+    return std::make_shared<
+        ArrayIntersectExceptFunction<isIntersect, SetEntryT>>(
+        validateConstantVectorAndGenerateSet<SetEntryT>(rhs));
   } else {
-    return std::make_shared<ArrayIntersectExceptFunction<isIntersect, T>>();
+    return std::make_shared<
+        ArrayIntersectExceptFunction<isIntersect, SetEntryT>>();
+  }
+}
+
+template <bool isIntersect, TypeKind kind>
+std::shared_ptr<exec::VectorFunction> createTypedArraysIntersectExcept(
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const TypePtr& elementType) {
+  VELOX_CHECK_EQ(inputArgs.size(), 2);
+  const BaseVector* rhs = inputArgs[1].constantValue.get();
+
+  if (elementType->providesCustomComparison()) {
+    return createTypedArraysIntersectExcept<isIntersect, WrappedVectorEntry>(
+        rhs);
+  } else {
+    using T = std::conditional_t<
+        TypeTraits<kind>::isPrimitiveType,
+        typename TypeTraits<kind>::NativeType,
+        WrappedVectorEntry>;
+    return createTypedArraysIntersectExcept<isIntersect, T>(rhs);
   }
 }
 
@@ -498,7 +515,8 @@ std::shared_ptr<exec::VectorFunction> createArrayIntersect(
       createTypedArraysIntersectExcept,
       /* isIntersect */ true,
       elementType->kind(),
-      inputArgs);
+      inputArgs,
+      elementType);
 }
 
 std::shared_ptr<exec::VectorFunction> createArrayExcept(
@@ -512,7 +530,8 @@ std::shared_ptr<exec::VectorFunction> createArrayExcept(
       createTypedArraysIntersectExcept,
       /* isIntersect */ false,
       elementType->kind(),
-      inputArgs);
+      inputArgs,
+      elementType);
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> signatures(
@@ -533,19 +552,33 @@ const std::shared_ptr<exec::VectorFunction> createTypedArraysOverlap(
   VELOX_CHECK_EQ(inputArgs.size(), 2);
   auto left = inputArgs[0].constantValue.get();
   auto right = inputArgs[1].constantValue.get();
+  bool usesCustomComparison =
+      inputArgs[0].type->childAt(0)->providesCustomComparison();
   using T = std::conditional_t<
       TypeTraits<kind>::isPrimitiveType,
       typename TypeTraits<kind>::NativeType,
-      ComplexTypeEntry>;
+      WrappedVectorEntry>;
 
   if (left == nullptr && right == nullptr) {
-    return std::make_shared<ArraysOverlapFunction<T>>();
+    if (usesCustomComparison) {
+      return std::make_shared<ArraysOverlapFunction<WrappedVectorEntry>>();
+    } else {
+      return std::make_shared<ArraysOverlapFunction<T>>();
+    }
   }
   auto isLeftConstant = (left != nullptr);
   auto baseVector = isLeftConstant ? left : right;
-  auto constantSet = validateConstantVectorAndGenerateSet<T>(baseVector);
-  return std::make_shared<ArraysOverlapFunction<T>>(
-      std::move(constantSet), isLeftConstant);
+
+  if (usesCustomComparison) {
+    auto constantSet =
+        validateConstantVectorAndGenerateSet<WrappedVectorEntry>(baseVector);
+    return std::make_shared<ArraysOverlapFunction<WrappedVectorEntry>>(
+        std::move(constantSet), isLeftConstant);
+  } else {
+    auto constantSet = validateConstantVectorAndGenerateSet<T>(baseVector);
+    return std::make_shared<ArraysOverlapFunction<T>>(
+        std::move(constantSet), isLeftConstant);
+  }
 }
 
 std::shared_ptr<exec::VectorFunction> createArraysOverlapFunction(
