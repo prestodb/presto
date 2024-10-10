@@ -107,12 +107,15 @@ class AggregationFuzzerRunner {
         registerVectorSerde();
     facebook::velox::filesystems::registerLocalFileSystem();
 
+    auto& aggregationFunctionDataSpecs =
+        referenceQueryRunner->aggregationFunctionDataSpecs();
+
     facebook::velox::exec::test::aggregateFuzzer(
         filteredSignatures,
         seed,
         options.customVerificationFunctions,
         options.customInputGenerators,
-        options.functionDataSpec,
+        aggregationFunctionDataSpecs,
         options.timestampPrecision,
         options.queryConfigs,
         options.hiveConfigs,

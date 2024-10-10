@@ -141,24 +141,6 @@ int main(int argc, char** argv) {
           {"sum_data_size_for_stats", nullptr},
       };
 
-  using facebook::velox::DataSpec;
-  // For some functions, velox supports NaN, Infinity better than presto query
-  // runner, which makes the comparison impossible.
-  // Add data spec in vector fuzzer to enforce to not generate such data
-  // for those functions before they are fixed in presto query runner
-  static const std::unordered_map<std::string, DataSpec> functionDataSpec = {
-      {"regr_avgx", DataSpec{false, false}},
-      {"regr_avgy", DataSpec{false, false}},
-      {"regr_r2", DataSpec{false, false}},
-      {"regr_sxx", DataSpec{false, false}},
-      {"regr_syy", DataSpec{false, false}},
-      {"regr_sxy", DataSpec{false, false}},
-      {"regr_slope", DataSpec{false, false}},
-      {"regr_replacement", DataSpec{false, false}},
-      {"covar_pop", DataSpec{true, false}},
-      {"covar_samp", DataSpec{true, false}},
-  };
-
   static const std::unordered_set<std::string> orderDependentFunctions = {
       // Window functions.
       "first_value",
@@ -199,7 +181,6 @@ int main(int argc, char** argv) {
   options.orderDependentFunctions = orderDependentFunctions;
   options.timestampPrecision =
       facebook::velox::VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
-  options.functionDataSpec = functionDataSpec;
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
       facebook::velox::memory::memoryManager()->addRootPool()};
   return Runner::run(

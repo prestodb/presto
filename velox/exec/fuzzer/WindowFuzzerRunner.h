@@ -79,6 +79,9 @@ class WindowFuzzerRunner {
         registerVectorSerde();
     facebook::velox::filesystems::registerLocalFileSystem();
 
+    auto& aggregationFunctionDataSpecs =
+        referenceQueryRunner->aggregationFunctionDataSpecs();
+
     facebook::velox::exec::test::windowFuzzer(
         filteredAggregationSignatures,
         filteredWindowSignatures,
@@ -86,7 +89,7 @@ class WindowFuzzerRunner {
         options.customVerificationFunctions,
         options.customInputGenerators,
         options.orderDependentFunctions,
-        options.functionDataSpec,
+        aggregationFunctionDataSpecs,
         options.timestampPrecision,
         options.queryConfigs,
         options.hiveConfigs,

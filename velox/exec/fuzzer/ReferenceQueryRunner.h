@@ -45,6 +45,9 @@ class ReferenceQueryRunner {
     return defaultScalarTypes();
   }
 
+  virtual const std::unordered_map<std::string, DataSpec>&
+  aggregationFunctionDataSpecs() const = 0;
+
   /// Converts Velox plan into SQL accepted by the reference database.
   /// @return std::nullopt if the plan uses features not supported by the
   /// reference database.

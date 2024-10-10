@@ -111,24 +111,6 @@ int main(int argc, char** argv) {
        // formula. The results from the two methods are completely different.
        "kurtosis"});
 
-  using facebook::velox::DataSpec;
-  // For some functions, velox supports NaN, Infinity better than presto query
-  // runner, which makes the comparison impossible.
-  // Add data spec in vector fuzzer to enforce to not generate such data
-  // for those functions before they are fixed in presto query runner
-  static const std::unordered_map<std::string, DataSpec> functionDataSpec = {
-      {"regr_avgx", DataSpec{false, false}},
-      {"regr_avgy", DataSpec{false, false}},
-      {"regr_r2", DataSpec{false, false}},
-      {"regr_sxx", DataSpec{false, false}},
-      {"regr_syy", DataSpec{false, false}},
-      {"regr_sxy", DataSpec{false, false}},
-      {"regr_slope", DataSpec{false, false}},
-      {"regr_replacement", DataSpec{false, false}},
-      {"covar_pop", DataSpec{true, false}},
-      {"covar_samp", DataSpec{true, false}},
-  };
-
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
   using Options = facebook::velox::exec::test::AggregationFuzzerOptions;
 
@@ -137,6 +119,5 @@ int main(int argc, char** argv) {
   options.skipFunctions = skipFunctions;
   options.customVerificationFunctions = customVerificationFunctions;
   options.orderableGroupKeys = true;
-  options.functionDataSpec = functionDataSpec;
   return Runner::run(initialSeed, std::move(duckQueryRunner), options);
 }

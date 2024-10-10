@@ -90,6 +90,14 @@ const std::vector<TypePtr>& SparkQueryRunner::supportedScalarTypes() const {
   return kScalarTypes;
 }
 
+const std::unordered_map<std::string, DataSpec>&
+SparkQueryRunner::aggregationFunctionDataSpecs() const {
+  static const std::unordered_map<std::string, DataSpec>
+      kAggregationFunctionDataSpecs{};
+
+  return kAggregationFunctionDataSpecs;
+}
+
 std::optional<std::string> SparkQueryRunner::toSql(
     const velox::core::PlanNodePtr& plan) {
   if (const auto aggregationNode =

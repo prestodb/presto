@@ -273,6 +273,29 @@ const std::vector<TypePtr>& PrestoQueryRunner::supportedScalarTypes() const {
   return kScalarTypes;
 }
 
+const std::unordered_map<std::string, DataSpec>&
+PrestoQueryRunner::aggregationFunctionDataSpecs() const {
+  // For some functions, velox supports NaN, Infinity better than presto query
+  // runner, which makes the comparison impossible.
+  // Add data constraint in vector fuzzer to enforce to not generate such data
+  // for those functions before they are fixed in presto query runner
+  static const std::unordered_map<std::string, DataSpec>
+      kAggregationFunctionDataSpecs{
+          {"regr_avgx", DataSpec{false, false}},
+          {"regr_avgy", DataSpec{false, false}},
+          {"regr_r2", DataSpec{false, false}},
+          {"regr_sxx", DataSpec{false, false}},
+          {"regr_syy", DataSpec{false, false}},
+          {"regr_sxy", DataSpec{false, false}},
+          {"regr_slope", DataSpec{false, false}},
+          {"regr_replacement", DataSpec{false, false}},
+          {"covar_pop", DataSpec{true, false}},
+          {"covar_samp", DataSpec{true, false}},
+      };
+
+  return kAggregationFunctionDataSpecs;
+}
+
 std::optional<std::string> PrestoQueryRunner::toSql(
     const std::shared_ptr<const core::AggregationNode>& aggregationNode) {
   // Assume plan is Aggregation over Values.

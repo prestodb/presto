@@ -79,6 +79,29 @@ const std::vector<TypePtr>& DuckQueryRunner::supportedScalarTypes() const {
   return kScalarTypes;
 }
 
+const std::unordered_map<std::string, DataSpec>&
+DuckQueryRunner::aggregationFunctionDataSpecs() const {
+  // There are some functions for which DuckDB and Velox have inconsistent
+  // behavior with Nan and Infinity, so we exclude those.
+  static const std::unordered_map<std::string, DataSpec>
+      kAggregationFunctionDataSpecs{
+          {"covar_pop", DataSpec{true, false}},
+          {"covar_samp", DataSpec{true, false}},
+          {"histogram", DataSpec{false, false}},
+          {"regr_avgx", DataSpec{true, false}},
+          {"regr_avgy", DataSpec{true, false}},
+          {"regr_intercept", DataSpec{false, false}},
+          {"regr_r2", DataSpec{false, false}},
+          {"regr_replacement", DataSpec{false, false}},
+          {"regr_slope", DataSpec{false, false}},
+          {"regr_sxx", DataSpec{false, false}},
+          {"regr_sxy", DataSpec{false, false}},
+          {"regr_syy", DataSpec{false, false}},
+          {"var_pop", DataSpec{false, false}}};
+
+  return kAggregationFunctionDataSpecs;
+}
+
 std::multiset<std::vector<velox::variant>> DuckQueryRunner::execute(
     const std::string& sql,
     const std::vector<RowVectorPtr>& input,
