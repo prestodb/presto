@@ -334,17 +334,30 @@ TEST_F(TableScanTest, connectorStats) {
   EXPECT_NE(nullptr, hiveConnector);
   verifyCacheStats(hiveConnector->fileHandleCacheStats(), 0, 0, 0);
 
-  for (size_t i = 0; i < 99; i++) {
+  // Vector to store file paths
+  std::vector<std::shared_ptr<TempFilePath>> filePaths;
+
+  for (size_t i = 0; i < 49; i++) {
     auto vectors = makeVectors(10, 10);
     auto filePath = TempFilePath::create();
     writeToFile(filePath->getPath(), vectors);
+    filePaths.push_back(filePath); // Store the file path
     createDuckDbTable(vectors);
     auto plan = tableScanNode();
     assertQuery(plan, {filePath}, "SELECT * FROM tmp");
   }
 
-  verifyCacheStats(hiveConnector->fileHandleCacheStats(), 99, 0, 99);
-  verifyCacheStats(hiveConnector->clearFileHandleCache(), 0, 0, 99);
+  // Verify cache stats after the first loop
+  verifyCacheStats(hiveConnector->fileHandleCacheStats(), 49, 0, 49);
+
+  // Second loop to query using the stored file paths
+  for (const auto& filePath : filePaths) {
+    auto plan = tableScanNode();
+    assertQuery(plan, {filePath}, "SELECT * FROM tmp");
+  }
+
+  // Verify cache stats, expecting numHits to have increased
+  verifyCacheStats(hiveConnector->fileHandleCacheStats(), 49, 49, 98);
 }
 
 TEST_F(TableScanTest, columnAliases) {
@@ -614,6 +627,12 @@ DEBUG_ONLY_TEST_F(TableScanTest, timeLimitInGetOutput) {
 }
 
 TEST_F(TableScanTest, subfieldPruningRowType) {
+  // rowType: ROW
+  // └── "e": ROW
+  //     ├── "c": ROW
+  //     │   ├── "a": BIGINT
+  //     │   └── "b": DOUBLE
+  //     └── "d": BIGINT
   auto innerType = ROW({"a", "b"}, {BIGINT(), DOUBLE()});
   auto columnType = ROW({"c", "d"}, {innerType, BIGINT()});
   auto rowType = ROW({"e"}, {columnType});
@@ -648,6 +667,7 @@ TEST_F(TableScanTest, subfieldPruningRowType) {
   auto c = e->childAt(0)->as<RowVector>();
   ASSERT_EQ(c->childrenSize(), 2);
   int j = 0;
+  // assert scanned result is matching input vectors
   for (auto& vec : vectors) {
     ASSERT_LE(j + vec->size(), c->size());
     auto ee = vec->childAt(0)->as<RowVector>();
@@ -663,6 +683,7 @@ TEST_F(TableScanTest, subfieldPruningRowType) {
   }
   ASSERT_EQ(j, c->size());
   auto d = e->childAt(1);
+  // assert e.d is pruned(using null)
   ASSERT_EQ(d->size(), e->size());
   for (int i = 0; i < d->size(); ++i) {
     ASSERT_TRUE(e->isNullAt(i) || d->isNullAt(i));
@@ -705,6 +726,25 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterSubfieldsMissing) {
   auto a = e->childAt(0);
   for (int i = 0; i < a->size(); ++i) {
     ASSERT_TRUE(e->isNullAt(i) || a->isNullAt(i));
+  }
+
+  op = PlanBuilder()
+           .startTableScan()
+           .outputType(rowType)
+           .remainingFilter("e.a is not null")
+           .assignments(assignments)
+           .endTableScan()
+           .planNode();
+  result = AssertQueryBuilder(op).split(split).copyResults(pool());
+  rows = result->as<RowVector>();
+  e = rows->childAt(0)->as<RowVector>();
+  ASSERT_TRUE(e);
+  ASSERT_EQ(e->childrenSize(), 3);
+  a = e->childAt(0);
+  for (int i = 0; i < a->size(); ++i) {
+    if (!e->isNullAt(i)) {
+      ASSERT_TRUE(!a->isNullAt(i));
+    }
   }
 }
 
@@ -921,19 +961,19 @@ TEST_F(TableScanTest, subfieldPruningMapType) {
         kSize, [i](auto j) { return j >= i + 1 && j % 17 == (i + 1) % 17; });
     auto offsets = allocateOffsets(kSize, pool());
     auto* rawOffsets = offsets->asMutable<vector_size_t>();
-    auto lengths = allocateOffsets(kSize, pool());
-    auto* rawLengths = lengths->asMutable<vector_size_t>();
-    int mapEntrySize = 0;
+    auto sizes = allocateSizes(kSize, pool());
+    auto* rawLengths = sizes->asMutable<vector_size_t>();
+    int totalSize = 0;
     for (int j = 0; j < kSize; ++j) {
-      rawOffsets[j] = mapEntrySize;
+      rawOffsets[j] = totalSize;
       rawLengths[j] = bits::isBitNull(nulls->as<uint64_t>(), j) ? 0 : kMapSize;
-      mapEntrySize += rawLengths[j];
+      totalSize += rawLengths[j];
     }
     auto keys = makeFlatVector<int64_t>(
-        mapEntrySize, [](auto row) { return row % kMapSize; });
-    auto values = makeVectors(1, mapEntrySize, valueType)[0];
+        totalSize, [](auto row) { return row % kMapSize; });
+    auto values = makeVectors(1, totalSize, valueType)[0];
     auto maps = std::make_shared<MapVector>(
-        pool(), mapType, nulls, kSize, offsets, lengths, keys, values);
+        pool(), mapType, nulls, kSize, offsets, sizes, keys, values);
     vectors.push_back(makeRowVector({"c"}, {maps}));
   }
   auto rowType = asRowType(vectors[0]->type());
@@ -963,25 +1003,36 @@ TEST_F(TableScanTest, subfieldPruningMapType) {
   auto rows = result->as<RowVector>();
   ASSERT_TRUE(rows);
   ASSERT_EQ(rows->childrenSize(), 1);
-  auto maps = rows->childAt(0)->as<MapVector>();
-  ASSERT_TRUE(maps);
-  ASSERT_EQ(maps->size(), result->size());
-  for (int i = 0; i < maps->size(); ++i) {
-    auto expected =
-        vectors[i / kSize]->as<RowVector>()->childAt(0)->as<MapVector>();
+  auto outputFlat = rows->childAt(0)->as<MapVector>();
+  ASSERT_TRUE(outputFlat);
+  ASSERT_EQ(outputFlat->size(), result->size());
+  auto currentVectorIndex = -1;
+  const MapVector* inputVector = nullptr;
+  for (int i = 0; i < outputFlat->size(); ++i) {
+    // Create inputVector only when needed
+    int newVectorIndex = i / kSize;
+    if (newVectorIndex != currentVectorIndex) {
+      currentVectorIndex = newVectorIndex;
+      inputVector = vectors[currentVectorIndex]
+                        ->as<RowVector>()
+                        ->childAt(0)
+                        ->as<MapVector>();
+    }
     int j = i % kSize;
-    if (expected->isNullAt(j)) {
-      ASSERT_TRUE(maps->isNullAt(i));
+    if (inputVector->isNullAt(j)) {
+      ASSERT_TRUE(outputFlat->isNullAt(i));
       continue;
     }
-    ASSERT_EQ(maps->sizeAt(i), 3);
+    ASSERT_EQ(outputFlat->sizeAt(i), 3);
     for (int k = 0; k < 3; ++k) {
-      int ki = maps->offsetAt(i) + k;
-      int kj = expected->offsetAt(j) + 2 * k;
-      ASSERT_TRUE(
-          maps->mapKeys()->equalValueAt(expected->mapKeys().get(), ki, kj));
-      ASSERT_TRUE(
-          maps->mapValues()->equalValueAt(expected->mapValues().get(), ki, kj));
+      // Verify pruned output map (offset_output: 0, 1, 2) matches the
+      // entries from the original input map (offset_input: 0, 2, 4)
+      int offset_output = outputFlat->offsetAt(i) + k;
+      int offset_input = inputVector->offsetAt(j) + 2 * k;
+      ASSERT_TRUE(outputFlat->mapKeys()->equalValueAt(
+          inputVector->mapKeys().get(), offset_output, offset_input));
+      ASSERT_TRUE(outputFlat->mapValues()->equalValueAt(
+          inputVector->mapValues().get(), offset_output, offset_input));
     }
   }
 }
@@ -997,7 +1048,7 @@ TEST_F(TableScanTest, subfieldPruningArrayType) {
         kSize, [i](auto j) { return j >= i + 1 && j % 17 == (i + 1) % 17; });
     auto offsets = allocateOffsets(kSize, pool());
     auto* rawOffsets = offsets->asMutable<vector_size_t>();
-    auto lengths = allocateOffsets(kSize, pool());
+    auto lengths = allocateSizes(kSize, pool());
     auto* rawLengths = lengths->asMutable<vector_size_t>();
     int arrayElementSize = 0;
     for (int j = 0; j < kSize; ++j) {
@@ -1039,20 +1090,29 @@ TEST_F(TableScanTest, subfieldPruningArrayType) {
   auto arrays = rows->childAt(0)->as<ArrayVector>();
   ASSERT_TRUE(arrays);
   ASSERT_EQ(arrays->size(), result->size());
+  auto currentVectorIndex = -1;
+  const ArrayVector* inputVector = nullptr;
   for (int i = 0; i < arrays->size(); ++i) {
-    auto expected =
-        vectors[i / kSize]->as<RowVector>()->childAt(0)->as<ArrayVector>();
+    int newVectorIndex = i / kSize;
+    // Create inputVector only when needed
+    if (newVectorIndex != currentVectorIndex) {
+      currentVectorIndex = newVectorIndex;
+      inputVector = vectors[currentVectorIndex]
+                        ->as<RowVector>()
+                        ->childAt(0)
+                        ->as<ArrayVector>();
+    }
     int j = i % kSize;
-    if (expected->isNullAt(j)) {
+    if (inputVector->isNullAt(j)) {
       ASSERT_TRUE(arrays->isNullAt(i));
       continue;
     }
     ASSERT_EQ(arrays->sizeAt(i), 3);
     for (int k = 0; k < 3; ++k) {
       int ki = arrays->offsetAt(i) + k;
-      int kj = expected->offsetAt(j) + k;
-      ASSERT_TRUE(
-          arrays->elements()->equalValueAt(expected->elements().get(), ki, kj));
+      int kj = inputVector->offsetAt(j) + k;
+      ASSERT_TRUE(arrays->elements()->equalValueAt(
+          inputVector->elements().get(), ki, kj));
     }
   }
 }

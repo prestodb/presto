@@ -172,10 +172,12 @@ HiveDataSource::HiveDataSource(
       const auto& name = getColumnName(subfield);
       auto it = subfields_.find(name);
       if (it != subfields_.end()) {
-        // Only subfields of the column are projected out.
+        // Some subfields of the column are already projected out, we append the
+        // remainingFilter subfield
         it->second.push_back(&subfield);
       } else if (columnNames.count(name) == 0) {
-        // Column appears only in remaining filter.
+        // remainingFilter subfield's column is not projected out, we add the
+        // column and append the subfield
         subfields_[name].push_back(&subfield);
       }
     }
