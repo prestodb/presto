@@ -62,7 +62,10 @@ Split makeSplit(
 
 /// Create a connector split from an exsiting file.
 std::shared_ptr<connector::ConnectorSplit> makeConnectorSplit(
-    const std::string& filePath);
+    const std::string& filePath,
+    const std::unordered_map<std::string, std::optional<std::string>>&
+        partitionKeys = {},
+    std::optional<int32_t> tableBucketNumber = std::nullopt);
 
 /// Create column names with the pattern '${prefix}${i}'.
 std::vector<std::string> makeNames(const std::string& prefix, size_t n);

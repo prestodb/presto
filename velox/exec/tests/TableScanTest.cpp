@@ -2723,7 +2723,7 @@ TEST_F(TableScanTest, path) {
   auto assignments = allRegularColumns(rowType);
   assignments[kPath] = synthesizedColumn(kPath, VARCHAR());
 
-  auto pathValue = fmt::format("file:{}", filePath->getPath());
+  auto& pathValue = filePath->getPath();
   auto typeWithPath = ROW({kPath, "a"}, {VARCHAR(), BIGINT()});
   auto op = PlanBuilder()
                 .startTableScan()

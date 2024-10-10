@@ -33,9 +33,6 @@ struct HiveConnectorSplit;
 using SubfieldFilters =
     std::unordered_map<common::Subfield, std::unique_ptr<common::Filter>>;
 
-constexpr const char* kPath = "$path";
-constexpr const char* kBucket = "$bucket";
-
 const std::string& getColumnName(const common::Subfield& subfield);
 
 void checkColumnNameLowerCase(const std::shared_ptr<const Type>& type);

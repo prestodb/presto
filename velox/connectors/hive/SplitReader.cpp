@@ -337,25 +337,6 @@ std::vector<TypePtr> SplitReader::adaptColumns(
     if (auto it = hiveSplit_->partitionKeys.find(fieldName);
         it != hiveSplit_->partitionKeys.end()) {
       setPartitionValue(childSpec, fieldName, it->second);
-    } else if (fieldName == kPath) {
-      auto constantVec = std::make_shared<ConstantVector<StringView>>(
-          connectorQueryCtx_->memoryPool(),
-          1,
-          false,
-          VARCHAR(),
-          StringView(hiveSplit_->filePath));
-      childSpec->setConstantValue(constantVec);
-    } else if (fieldName == kBucket) {
-      if (hiveSplit_->tableBucketNumber.has_value()) {
-        int32_t bucket = hiveSplit_->tableBucketNumber.value();
-        auto constantVec = std::make_shared<ConstantVector<int32_t>>(
-            connectorQueryCtx_->memoryPool(),
-            1,
-            false,
-            INTEGER(),
-            std::move(bucket));
-        childSpec->setConstantValue(constantVec);
-      }
     } else if (auto iter = hiveSplit_->infoColumns.find(fieldName);
                iter != hiveSplit_->infoColumns.end()) {
       auto infoColumnType =

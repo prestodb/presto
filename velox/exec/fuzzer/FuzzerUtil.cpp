@@ -119,20 +119,32 @@ Split makeSplit(
     const std::unordered_map<std::string, std::optional<std::string>>&
         partitionKeys,
     std::optional<int32_t> tableBucketNumber) {
-  return Split{std::make_shared<connector::hive::HiveConnectorSplit>(
+  return Split{makeConnectorSplit(filePath, partitionKeys, tableBucketNumber)};
+}
+
+std::shared_ptr<connector::ConnectorSplit> makeConnectorSplit(
+    const std::string& filePath,
+    const std::unordered_map<std::string, std::optional<std::string>>&
+        partitionKeys,
+    std::optional<int32_t> tableBucketNumber) {
+  std::unordered_map<std::string, std::string> infoColumns = {
+      {"$path", filePath}};
+  if (tableBucketNumber.has_value()) {
+    infoColumns["$bucket"] = std::to_string(*tableBucketNumber);
+  }
+  return std::make_shared<connector::hive::HiveConnectorSplit>(
       kHiveConnectorId,
       filePath,
       dwio::common::FileFormat::DWRF,
       0,
       std::numeric_limits<uint64_t>::max(),
       partitionKeys,
-      tableBucketNumber)};
-}
-
-std::shared_ptr<connector::ConnectorSplit> makeConnectorSplit(
-    const std::string& filePath) {
-  return std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, filePath, dwio::common::FileFormat::DWRF);
+      tableBucketNumber,
+      /*customSplitInfo=*/std::unordered_map<std::string, std::string>{},
+      /*extraFileInfo=*/nullptr,
+      /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
+      /*splitWeight=*/0,
+      infoColumns);
 }
 
 std::vector<std::string> makeNames(const std::string& prefix, size_t n) {

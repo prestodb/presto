@@ -257,7 +257,7 @@ inline bool isSynthesizedColumn(
     const std::string& name,
     const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
         infoColumns) {
-  return name == kPath || name == kBucket || infoColumns.count(name) != 0;
+  return infoColumns.count(name) != 0;
 }
 
 inline bool isRowIndexColumn(

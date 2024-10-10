@@ -225,8 +225,10 @@ class HiveConnectorTestBase : public OperatorTestBase {
 
 class HiveConnectorSplitBuilder {
  public:
-  HiveConnectorSplitBuilder(std::string filePath)
-      : filePath_{std::move(filePath)} {}
+  explicit HiveConnectorSplitBuilder(std::string filePath)
+      : filePath_{std::move(filePath)} {
+    infoColumns_["$path"] = filePath_;
+  }
 
   HiveConnectorSplitBuilder& start(uint64_t start) {
     start_ = start;
@@ -264,6 +266,7 @@ class HiveConnectorSplitBuilder {
 
   HiveConnectorSplitBuilder& tableBucketNumber(int32_t bucket) {
     tableBucketNumber_ = bucket;
+    infoColumns_["$bucket"] = std::to_string(bucket);
     return *this;
   }
 
@@ -296,7 +299,7 @@ class HiveConnectorSplitBuilder {
     static const std::unordered_map<std::string, std::string> serdeParameters;
     return std::make_shared<connector::hive::HiveConnectorSplit>(
         connectorId_,
-        filePath_.find("/") == 0 ? "file:" + filePath_ : filePath_,
+        filePath_,
         fileFormat_,
         start_,
         length_,
