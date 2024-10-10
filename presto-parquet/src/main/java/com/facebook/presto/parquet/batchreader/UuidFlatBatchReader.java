@@ -14,7 +14,7 @@
 package com.facebook.presto.parquet.batchreader;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.block.Int128ArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.parquet.ColumnReader;
 import com.facebook.presto.parquet.DataPage;
@@ -23,7 +23,7 @@ import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.Decoders.FlatDecoders;
 import com.facebook.presto.parquet.batchreader.decoders.FlatDefinitionLevelDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.UuidValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.Dictionaries;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.reader.ColumnChunk;
@@ -42,24 +42,24 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class TimestampFlatBatchReader
+public class UuidFlatBatchReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampFlatBatchReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UuidFlatBatchReader.class).instanceSize();
 
     private final RichColumnDescriptor columnDescriptor;
 
     protected Field field;
     protected int nextBatchSize;
     protected FlatDefinitionLevelDecoder definitionLevelDecoder;
-    protected TimestampValuesDecoder valuesDecoder;
+    protected UuidValuesDecoder valuesDecoder;
     protected int remainingCountInPage;
 
     private Dictionary dictionary;
     private int readOffset;
     private PageReader pageReader;
 
-    public TimestampFlatBatchReader(RichColumnDescriptor columnDescriptor)
+    public UuidFlatBatchReader(RichColumnDescriptor columnDescriptor)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
     }
@@ -136,7 +136,7 @@ public class TimestampFlatBatchReader
 
         FlatDecoders flatDecoders = readFlatPage(page, columnDescriptor, dictionary);
         definitionLevelDecoder = flatDecoders.getDefinitionLevelDecoder();
-        valuesDecoder = (TimestampValuesDecoder) flatDecoders.getValuesDecoder();
+        valuesDecoder = (UuidValuesDecoder) flatDecoders.getValuesDecoder();
 
         remainingCountInPage = page.getValueCount();
         return true;
@@ -145,7 +145,7 @@ public class TimestampFlatBatchReader
     private ColumnChunk readWithNull()
             throws IOException
     {
-        long[] values = new long[nextBatchSize];
+        long[] values = new long[nextBatchSize * 2];
         boolean[] isNull = new boolean[nextBatchSize];
 
         int totalNonNullCount = 0;
@@ -170,7 +170,8 @@ public class TimestampFlatBatchReader
 
                 while (valueDestinationIndex >= startOffset) {
                     if (!isNull[valueDestinationIndex]) {
-                        values[valueDestinationIndex] = values[valueSourceIndex];
+                        values[valueDestinationIndex * 2 + 1] = values[valueSourceIndex * 2 + 1];
+                        values[valueDestinationIndex * 2] = values[valueSourceIndex * 2];
                         valueSourceIndex--;
                     }
                     valueDestinationIndex--;
@@ -192,14 +193,14 @@ public class TimestampFlatBatchReader
         }
 
         boolean hasNoNull = totalNonNullCount == nextBatchSize;
-        Block block = new LongArrayBlock(nextBatchSize, hasNoNull ? Optional.empty() : Optional.of(isNull), values);
+        Block block = new Int128ArrayBlock(nextBatchSize, hasNoNull ? Optional.empty() : Optional.of(isNull), values);
         return new ColumnChunk(block, new int[0], new int[0]);
     }
 
     private ColumnChunk readWithoutNull()
             throws IOException
     {
-        long[] values = new long[nextBatchSize];
+        long[] values = new long[nextBatchSize * 2];
         int remainingInBatch = nextBatchSize;
         int startOffset = 0;
         while (remainingInBatch > 0) {
@@ -221,7 +222,7 @@ public class TimestampFlatBatchReader
             throw new ParquetDecodingException(format("Corrupted Parquet file: extra %d values to be consumed when scanning current batch", remainingInBatch));
         }
 
-        Block block = new LongArrayBlock(nextBatchSize, Optional.empty(), values);
+        Block block = new Int128ArrayBlock(nextBatchSize, Optional.empty(), values);
         return new ColumnChunk(block, new int[0], new int[0]);
     }
 

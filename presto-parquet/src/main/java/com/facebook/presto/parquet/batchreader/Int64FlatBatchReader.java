@@ -255,3 +255,4 @@ public class Int64FlatBatchReader
         }
     }
 }
+
