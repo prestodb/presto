@@ -17,6 +17,7 @@
 #include <optional>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -57,7 +58,9 @@ class ArrayPositionTest : public FunctionBaseTest {
       const std::optional<T>& search,
       const std::vector<std::optional<int64_t>>& expected) {
     evalExpr(
-        {arrayVector, makeConstant(search, arrayVector->size())},
+        {arrayVector,
+         makeConstant(
+             search, arrayVector->size(), arrayVector->type()->childAt(0))},
         "array_position(c0, c1)",
         makeNullableFlatVector<int64_t>(expected));
   }
@@ -124,7 +127,19 @@ class ArrayPositionTest : public FunctionBaseTest {
         dictExpectedVector);
   }
 
-  void testPositionComplexTypeDictionaryEncoding(
+  template <typename T>
+  void testPositionDictEncoding(
+      const ArrayVectorPtr& arrayVector,
+      const std::optional<T>& search,
+      const std::vector<std::optional<int64_t>>& expected) {
+    testPositionDictEncoding(
+        arrayVector,
+        makeConstant(
+            search, arrayVector->size(), arrayVector->type()->childAt(0)),
+        expected);
+  }
+
+  void testPositionDictEncoding(
       const ArrayVectorPtr& arrayVector,
       const VectorPtr& searchVector,
       const std::vector<std::optional<int64_t>>& expected) {
@@ -170,7 +185,7 @@ class ArrayPositionTest : public FunctionBaseTest {
       const std::vector<std::optional<int64_t>>& expected) {
     evalExpr(
         {array,
-         makeConstant(search, array->size()),
+         makeConstant(search, array->size(), array->type()->childAt(0)),
          makeConstant(instance, array->size())},
         "array_position(c0, c1, c2)",
         makeNullableFlatVector<int64_t>(expected));
@@ -196,7 +211,16 @@ class ArrayPositionTest : public FunctionBaseTest {
       const std::optional<T>& search,
       const int64_t instance,
       const std::vector<std::optional<int64_t>>& expected) {
-    auto arrayVector = makeNullableArrayVector<T>(array);
+    testPositionDictEncodingWithInstance(
+        makeNullableArrayVector<T>(array), search, instance, expected);
+  }
+
+  template <typename T>
+  void testPositionDictEncodingWithInstance(
+      const ArrayVectorPtr& arrayVector,
+      const std::optional<T>& search,
+      const int64_t instance,
+      const std::vector<std::optional<int64_t>>& expected) {
     auto size = arrayVector->size();
 
     auto newSize = size * 2;
@@ -209,17 +233,21 @@ class ArrayPositionTest : public FunctionBaseTest {
 
     FlatVectorPtr<T> searchVector;
     if (search.has_value()) {
-      searchVector =
-          makeFlatVector<T>(size, [&](auto row) { return search.value(); });
+      searchVector = makeFlatVector<T>(
+          size,
+          [&](auto row) { return search.value(); },
+          nullptr,
+          arrayVector->type()->childAt(0));
     } else {
       searchVector = makeFlatVector<T>(
           size,
           [&](auto row) { return search.value(); },
-          [](auto row) { return true; });
+          [](auto row) { return true; },
+          arrayVector->type()->childAt(0));
     }
 
-    // Encode search and instance vectors using a different instance of indices
-    // to prevent peeling.
+    // Encode search and instance vectors using a different instance of
+    // indices to prevent peeling.
     auto searchIndices = makeIndices(newSize, [](auto row) { return row / 2; });
     auto dictSearchVector =
         wrapInDictionary(searchIndices, newSize, searchVector);
@@ -248,8 +276,8 @@ class ArrayPositionTest : public FunctionBaseTest {
     auto dictExpectedVector =
         wrapInDictionary(indices, newSize, expectedVector);
 
-    // Encode search and instance vectors using a different instance of indices
-    // to prevent peeling.
+    // Encode search and instance vectors using a different instance of
+    // indices to prevent peeling.
     auto searchIndices = makeIndices(newSize, [](auto row) { return row / 2; });
     auto dictSearchVector =
         wrapInDictionary(searchIndices, newSize, searchVector);
@@ -265,8 +293,8 @@ class ArrayPositionTest : public FunctionBaseTest {
         dictExpectedVector);
   }
 
-  // Verify that all NaNs are treated as equal and are identifiable in the input
-  // array.
+  // Verify that all NaNs are treated as equal and are identifiable in the
+  // input array.
   template <typename T>
   void testFloatingPointNaN() {
     static const T kNaN = std::numeric_limits<T>::quiet_NaN();
@@ -487,8 +515,7 @@ TEST_F(ArrayPositionTest, row) {
             size, [&](auto row) { return StringView{color}; });
         auto searchVector = makeRowVector({nVector, colorVector});
 
-        testPositionComplexTypeDictionaryEncoding(
-            arrayVector, searchVector, expected);
+        testPositionDictEncoding(arrayVector, searchVector, expected);
       };
 
   testPositionOfRowDictionaryEncoding(1, "red", {1, 0, 0, 0, 0});
@@ -530,8 +557,7 @@ TEST_F(ArrayPositionTest, array) {
       [&](const TwoDimVector<int64_t>& search,
           const std::vector<std::optional<int64_t>>& expected) {
         auto searchVector = makeNullableArrayVector<int64_t>(search);
-        testPositionComplexTypeDictionaryEncoding(
-            arrayVector, searchVector, expected);
+        testPositionDictEncoding(arrayVector, searchVector, expected);
       };
 
   testPositionOfArrayDictionaryEncoding({a, a, a, a, a, a}, {1, 0, 2, 0, 0, 0});
@@ -568,8 +594,7 @@ TEST_F(ArrayPositionTest, map) {
       [&](const std::vector<std::vector<P>>& search,
           const std::vector<std::optional<int64_t>>& expected) {
         auto searchVector = makeMapVector<int64_t, S>(search);
-        testPositionComplexTypeDictionaryEncoding(
-            arrayVector, searchVector, expected);
+        testPositionDictEncoding(arrayVector, searchVector, expected);
       };
 
   testPositionOfMapDictionaryEncoding({a, a, a}, {1, 0, 2});
@@ -975,6 +1000,224 @@ TEST_F(ArrayPositionTest, dictionaryEncodingElements) {
 TEST_F(ArrayPositionTest, floatNaN) {
   testFloatingPointNaN<float>();
   testFloatingPointNaN<double>();
+}
+
+TEST_F(ArrayPositionTest, timestampWithTimeZone) {
+  auto arrayVector = makeArrayVector(
+      {0, 4, 7, 7, 8, 13, 14},
+      makeNullableFlatVector<int64_t>(
+          {pack(1, 1),
+           std::nullopt,
+           pack(3, 2),
+           pack(4, 3),
+           pack(3, 4),
+           pack(4, 5),
+           pack(5, 6),
+           std::nullopt,
+           pack(5, 7),
+           pack(6, 8),
+           std::nullopt,
+           pack(8, 9),
+           pack(9, 10),
+           pack(7, 11),
+           pack(3, 12),
+           pack(9, 13),
+           pack(8, 14),
+           pack(7, 15)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+
+  testPosition<int64_t>(arrayVector, pack(3, 2), {3, 1, 0, 0, 0, 0, 1});
+  testPosition<int64_t>(arrayVector, pack(4, 3), {4, 2, 0, 0, 0, 0, 0});
+  testPosition<int64_t>(arrayVector, pack(5, 6), {0, 3, 0, 0, 1, 0, 0});
+  testPosition<int64_t>(arrayVector, pack(7, 11), {0, 0, 0, 0, 0, 1, 4});
+  testPosition<int64_t>(
+      arrayVector,
+      std::nullopt,
+      {std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt});
+
+  testPositionDictEncoding<int64_t>(
+      arrayVector, pack(3, 2), {3, 1, 0, 0, 0, 0, 1});
+  testPositionDictEncoding<int64_t>(
+      arrayVector, pack(4, 3), {4, 2, 0, 0, 0, 0, 0});
+  testPositionDictEncoding<int64_t>(
+      arrayVector, pack(5, 6), {0, 3, 0, 0, 1, 0, 0});
+  testPositionDictEncoding<int64_t>(
+      arrayVector, pack(7, 11), {0, 0, 0, 0, 0, 1, 4});
+  testPositionDictEncoding<int64_t>(
+      arrayVector,
+      std::nullopt,
+      {std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt});
+
+  // Test wrapped in a complex vector.
+  arrayVector = makeArrayVector(
+      {0, 4, 7, 7, 8, 13, 14},
+      makeRowVector({makeNullableFlatVector<int64_t>(
+          {pack(1, 1),
+           std::nullopt,
+           pack(3, 2),
+           pack(4, 3),
+           pack(3, 4),
+           pack(4, 5),
+           pack(5, 6),
+           std::nullopt,
+           pack(5, 7),
+           pack(6, 8),
+           std::nullopt,
+           pack(8, 9),
+           pack(9, 10),
+           pack(7, 11),
+           pack(3, 12),
+           pack(9, 13),
+           pack(8, 14),
+           pack(7, 15)},
+          TIMESTAMP_WITH_TIME_ZONE())}));
+
+  auto testPositionOfRow = [&](int64_t n,
+                               const std::vector<int64_t>& expected) {
+    const auto expectedVector = makeFlatVector<int64_t>(expected);
+    const auto searchVector = BaseVector::wrapInConstant(
+        arrayVector->size(),
+        0,
+        makeRowVector({makeFlatVector(
+            std::vector<int64_t>{n}, TIMESTAMP_WITH_TIME_ZONE())}));
+
+    evalExpr(
+        {arrayVector, searchVector}, "array_position(c0, c1)", expectedVector);
+  };
+
+  testPositionOfRow(pack(3, 2), {3, 1, 0, 0, 0, 0, 1});
+  testPositionOfRow(pack(4, 3), {4, 2, 0, 0, 0, 0, 0});
+  testPositionOfRow(pack(5, 6), {0, 3, 0, 0, 1, 0, 0});
+  testPositionOfRow(pack(7, 11), {0, 0, 0, 0, 0, 1, 4});
+}
+
+TEST_F(ArrayPositionTest, timestampWithTimeZoneWithInstance) {
+  auto arrayVector = makeArrayVector(
+      {0, 4, 7, 7, 8, 13, 14},
+      makeNullableFlatVector<int64_t>(
+          {pack(1, 1),
+           pack(2, 2),
+           std::nullopt,
+           pack(4, 3),
+           pack(3, 4),
+           pack(4, 5),
+           pack(4, 6),
+           std::nullopt,
+           pack(5, 7),
+           pack(2, 8),
+           pack(4, 9),
+           pack(2, 10),
+           pack(9, 11),
+           pack(7, 12),
+           pack(10, 13),
+           pack(4, 14),
+           pack(8, 15),
+           pack(4, 16)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+
+  testPositionWithInstance<int64_t>(
+      arrayVector, pack(4, 3), 2, {0, 3, 0, 0, 0, 0, 4});
+  testPositionWithInstance<int64_t>(
+      arrayVector, pack(4, 3), -1, {4, 3, 0, 0, 3, 0, 4});
+  testPositionWithInstance<int64_t>(
+      arrayVector, pack(2, 2), 2, {0, 0, 0, 0, 4, 0, 0});
+  testPositionWithInstance<int64_t>(
+      arrayVector, pack(2, 2), 3, {0, 0, 0, 0, 0, 0, 0});
+  testPositionWithInstance<int64_t>(
+      arrayVector, pack(2, 2), -1, {2, 0, 0, 0, 4, 0, 0});
+  testPositionWithInstance<int64_t>(
+      arrayVector,
+      std::nullopt,
+      1,
+      {std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt});
+
+  testPositionDictEncodingWithInstance<int64_t>(
+      arrayVector, pack(4, 3), 2, {0, 3, 0, 0, 0, 0, 4});
+  testPositionDictEncodingWithInstance<int64_t>(
+      arrayVector, pack(4, 3), -1, {4, 3, 0, 0, 3, 0, 4});
+  testPositionDictEncodingWithInstance<int64_t>(
+      arrayVector, pack(2, 2), 2, {0, 0, 0, 0, 4, 0, 0});
+  testPositionDictEncodingWithInstance<int64_t>(
+      arrayVector, pack(2, 2), 3, {0, 0, 0, 0, 0, 0, 0});
+  testPositionDictEncodingWithInstance<int64_t>(
+      arrayVector, pack(2, 2), -1, {2, 0, 0, 0, 4, 0, 0});
+  testPositionDictEncodingWithInstance<int64_t>(
+      arrayVector,
+      std::nullopt,
+      1,
+      {std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt});
+
+  // Test wrapped in a complex vector.
+  arrayVector = makeArrayVector(
+      {0, 4, 7, 7, 8, 13, 14},
+      makeRowVector({makeNullableFlatVector<int64_t>(
+          {pack(1, 1),
+           pack(2, 2),
+           std::nullopt,
+           pack(4, 3),
+           pack(3, 4),
+           pack(4, 5),
+           pack(4, 6),
+           std::nullopt,
+           pack(5, 7),
+           pack(2, 8),
+           pack(4, 9),
+           pack(2, 10),
+           pack(9, 11),
+           pack(7, 12),
+           pack(10, 13),
+           pack(4, 14),
+           pack(8, 15),
+           pack(4, 16)},
+          TIMESTAMP_WITH_TIME_ZONE())}));
+
+  auto testPositionOfRowWithInstance =
+      [&](int64_t n,
+          const int32_t instance,
+          const std::vector<int64_t>& expected) {
+        const auto expectedVector = makeFlatVector<int64_t>(expected);
+        const auto searchVector = BaseVector::wrapInConstant(
+            arrayVector->size(),
+            0,
+            makeRowVector({makeFlatVector(
+                std::vector<int64_t>{n}, TIMESTAMP_WITH_TIME_ZONE())}));
+        const auto instanceVector = makeConstant(instance, arrayVector->size());
+
+        evalExpr(
+            {arrayVector, searchVector, instanceVector},
+            "array_position(c0, c1, c2)",
+            expectedVector);
+      };
+
+  testPositionOfRowWithInstance(pack(4, 3), 2, {0, 3, 0, 0, 0, 0, 4});
+  testPositionOfRowWithInstance(pack(4, 3), -1, {4, 3, 0, 0, 3, 0, 4});
+  testPositionOfRowWithInstance(pack(2, 2), 2, {0, 0, 0, 0, 4, 0, 0});
+  testPositionOfRowWithInstance(pack(2, 2), 3, {0, 0, 0, 0, 0, 0, 0});
+  testPositionOfRowWithInstance(pack(2, 2), -1, {2, 0, 0, 0, 4, 0, 0});
 }
 
 } // namespace
