@@ -313,7 +313,8 @@ VectorPtr MapSubscript::applyMap(
   VELOX_CHECK(mapArg->type()->childAt(0)->equivalent(*indexArg->type()));
 
   bool triggerCaching = shouldTriggerCaching(mapArg);
-  if (indexArg->type()->isPrimitiveType()) {
+  if (indexArg->type()->isPrimitiveType() &&
+      !indexArg->type()->providesCustomComparison()) {
     return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         applyMapTyped,
         indexArg->typeKind(),
@@ -324,6 +325,11 @@ VectorPtr MapSubscript::applyMap(
         indexArg,
         context);
   } else {
+    // We use applyMapComplexType when the key type is complex, but also when it
+    // provides custom comparison operators because the main difference between
+    // applyMapComplexType and applyTyped is that applyMapComplexType calls the
+    // Vector's equalValueAt method, which calls the Types custom comparison
+    // operator internally.
     return applyMapComplexType(
         rows, mapArg, indexArg, context, triggerCaching, lookupTable_);
   }
