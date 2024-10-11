@@ -166,4 +166,9 @@ constexpr folly::StringPiece kCounterMemoryPushbackCount{
 /// reports P50, P90, P99, and P100.
 constexpr folly::StringPiece kCounterMemoryPushbackLatencyMs{
     "presto_cpp.memory_pushback_latency_ms"};
+/// Distribution of reduction in memory usage achieved by each memory pushback
+/// attempt. This is to gauge its effectiveness. In range of [0, 15GB] with 150
+/// buckets and reports P50, P90, P99, and P100.
+constexpr folly::StringPiece kCounterMemoryPushbackReductionBytes{
+    "presto_cpp.memory_pushback_reduction_bytes"};
 } // namespace facebook::presto
