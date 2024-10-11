@@ -1386,7 +1386,8 @@ class VectorStream {
         }
 
         // The first element in the offsets in the wire format is always 0 for
-        // nested types.
+        // nested types. Set upon construction/reset in case empty (no append
+        // calls will be made).
         lengths_.startWrite(sizeof(vector_size_t));
         lengths_.appendOne<int32_t>(0);
       }
@@ -1720,7 +1721,9 @@ class VectorStream {
       lengths_.startWrite(lengths_.size());
       if (type_->kind() == TypeKind::ROW || type_->kind() == TypeKind::ARRAY ||
           type_->kind() == TypeKind::MAP) {
-        // A complex type has a 0 as first length.
+        // The first element in the offsets in the wire format is always 0 for
+        // nested types. Set upon construction/reset in case empty (no append
+        // calls will be made).
         lengths_.appendOne<int32_t>(0);
       }
     }
@@ -1736,7 +1739,7 @@ class VectorStream {
       std::optional<VectorPtr> vector,
       vector_size_t initialNumRows) {
     initializeHeader(typeToEncodingName(type_), *streamArena_);
-    nulls_.startWrite(1 + (initialNumRows / 8));
+    nulls_.startWrite(0);
 
     switch (type_->kind()) {
       case TypeKind::ROW:
@@ -1745,7 +1748,6 @@ class VectorStream {
         [[fallthrough]];
       case TypeKind::MAP:
         hasLengths_ = true;
-        lengths_.startWrite(initialNumRows * sizeof(vector_size_t));
         children_.resize(type_->size());
         for (int32_t i = 0; i < type_->size(); ++i) {
           children_[i] = std::make_unique<VectorStream>(
@@ -1757,21 +1759,23 @@ class VectorStream {
               opts_);
         }
         // The first element in the offsets in the wire format is always 0 for
-        // nested types.
+        // nested types. Set upon construction/reset in case empty (no append
+        // calls will be made).
+        lengths_.startWrite(sizeof(vector_size_t));
         lengths_.appendOne<int32_t>(0);
         break;
       case TypeKind::VARCHAR:
         [[fallthrough]];
       case TypeKind::VARBINARY:
         hasLengths_ = true;
-        lengths_.startWrite(initialNumRows * sizeof(vector_size_t));
+        lengths_.startWrite(0);
         if (values_.ranges().empty()) {
-          values_.startWrite(initialNumRows * 10);
+          values_.startWrite(0);
         }
         break;
       default:
         if (values_.ranges().empty()) {
-          values_.startWrite(initialNumRows * 4);
+          values_.startWrite(0);
         }
         break;
     }
@@ -1978,7 +1982,6 @@ void serializeRowVector(
     VectorStream* stream,
     Scratch& scratch) {
   auto rowVector = vector->as<RowVector>();
-
   std::vector<IndexRange> childRanges;
   for (int32_t i = 0; i < ranges.size(); ++i) {
     auto begin = ranges[i].begin;

@@ -820,6 +820,33 @@ TEST_P(PrestoSerializerTest, emptyPage) {
   assertEqualVectors(deserialized, rowVector);
 }
 
+TEST_P(PrestoSerializerTest, initMemory) {
+  const auto numRows = 100;
+  auto testFunc = [&](TypePtr type, int64_t expectedBytes) {
+    const auto poolMemUsage = pool_->usedBytes();
+    auto arena = std::make_unique<StreamArena>(pool_.get());
+    const auto paramOptions = getParamSerdeOptions(nullptr);
+    const auto rowType = ROW({type});
+    const auto serializer = serde_->createIterativeSerializer(
+        rowType, numRows, arena.get(), &paramOptions);
+    ASSERT_EQ(pool_->usedBytes() - poolMemUsage, expectedBytes);
+  };
+
+  testFunc(BOOLEAN(), 0);
+  testFunc(TINYINT(), 0);
+  testFunc(SMALLINT(), 0);
+  testFunc(INTEGER(), 0);
+  testFunc(BIGINT(), 0);
+  testFunc(REAL(), 0);
+  testFunc(DOUBLE(), 0);
+  testFunc(VARCHAR(), 0);
+  testFunc(TIMESTAMP(), 0);
+  // For nested types, 2 pages allocation quantum for first offset (0).
+  testFunc(ROW({VARCHAR()}), 8192);
+  testFunc(ARRAY(INTEGER()), 8192);
+  testFunc(MAP(VARCHAR(), INTEGER()), 8192);
+}
+
 TEST_P(PrestoSerializerTest, serializeNoRowsSelected) {
   std::ostringstream out;
   facebook::velox::serializer::presto::PrestoOutputStreamListener listener;

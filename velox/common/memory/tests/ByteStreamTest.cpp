@@ -187,7 +187,7 @@ TEST_F(ByteStreamTest, newRangeAllocation) {
        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3}},
       {{1023, 64, 64, kPageSize, 5 * kPageSize},
-       {1152, 1152, 1152, kPageSize + 1152, 7 * kPageSize},
+       {1024, 1536, 1536, kPageSize + 1536, 7 * kPageSize},
        {kPageSize * 2,
         kPageSize * 2,
         kPageSize * 2,
