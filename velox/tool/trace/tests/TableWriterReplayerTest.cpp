@@ -159,16 +159,24 @@ class TableWriterReplayerTest : public HiveConnectorTestBase {
           connector::CommitStrategy::kNoCommit) {
     return [=](core::PlanNodeId nodeId,
                core::PlanNodePtr source) -> core::PlanNodePtr {
+      std::shared_ptr<core::AggregationNode> aggNode = nullptr;
+      if (aggregationNode == nullptr) {
+        aggNode = generateAggregationNode(
+            "c0", nodeId, {}, core::AggregationNode::Step::kPartial, source);
+      } else {
+        aggNode = aggregationNode;
+      }
+
       return std::make_shared<core::TableWriteNode>(
           nodeId,
           inputColumns,
           tableColumnNames,
-          aggregationNode,
+          aggNode,
           insertHandle,
           hasPartitioningScheme,
-          TableWriteTraits::outputType(aggregationNode),
+          TableWriteTraits::outputType(aggNode),
           commitStrategy,
-          std::move(source));
+          source);
     };
   }
 
@@ -225,6 +233,31 @@ class TableWriterReplayerTest : public HiveConnectorTestBase {
       ++actualDirIt;
       ++expectedDirIt;
     }
+  }
+
+  static std::shared_ptr<core::AggregationNode> generateAggregationNode(
+      const std::string& name,
+      const core::PlanNodeId nodeId,
+      const std::vector<core::FieldAccessTypedExprPtr>& groupingKeys,
+      AggregationNode::Step step,
+      const PlanNodePtr& source) {
+    core::TypedExprPtr inputField =
+        std::make_shared<const core::FieldAccessTypedExpr>(BIGINT(), name);
+    auto callExpr = std::make_shared<const core::CallTypedExpr>(
+        BIGINT(), std::vector<core::TypedExprPtr>{inputField}, "min");
+    std::vector<std::string> aggregateNames = {"min"};
+    std::vector<core::AggregationNode::Aggregate> aggregates = {
+        core::AggregationNode::Aggregate{
+            callExpr, {{BIGINT()}}, nullptr, {}, {}}};
+    return std::make_shared<core::AggregationNode>(
+        nodeId,
+        step,
+        groupingKeys,
+        std::vector<core::FieldAccessTypedExprPtr>{},
+        aggregateNames,
+        aggregates,
+        false, // ignoreNullKeys
+        source);
   }
 
   std::string tableWriteNodeId_;
