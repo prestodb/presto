@@ -1338,6 +1338,30 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testCosineSimilarityDense()
+    {
+        assertFunction("cosine_similarity_dense(array [1.0E0, 2.0E0], array [1.0E0, 3.0E0])",
+                DOUBLE,
+                ((1 * 1) + (2 * 3)) / (Math.sqrt(5) * Math.sqrt(10)));
+
+        assertFunction("cosine_similarity_dense(array [1.0E0, 2.0E0, -1.0E0], array [1.0E0, 3.0E0])",
+                DOUBLE,
+                (1 * 1 + 2 * 3) / (Math.sqrt(1 + 4 + 1) * Math.sqrt(1 + 9)));
+
+        assertFunction("cosine_similarity_dense(array [0, 0, 0], array [1.0E0, 3.0E0])",
+                DOUBLE,
+                0.0);
+
+        assertFunction("cosine_similarity_dense(null, array [1.0E0, 3.0E0])",
+                DOUBLE,
+                null);
+
+        assertFunction("cosine_similarity_dense(array [1.0E0, null], array [1.0E0, 3.0E0])",
+                DOUBLE,
+                null);
+    }
+
+    @Test
     public void testInverseNormalCdf()
     {
         assertFunction("inverse_normal_cdf(0, 1, 0.3)", DOUBLE, -0.52440051270804089);
