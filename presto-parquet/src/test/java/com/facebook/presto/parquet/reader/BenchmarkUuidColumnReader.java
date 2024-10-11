@@ -79,9 +79,9 @@ public class BenchmarkUuidColumnReader
     }
 
     @Override
-    protected boolean getEnableOptimizedReader()
+    protected boolean getBatchReaderEnabled()
     {
-        return enableOptimizedReader;
+        return batchReaderEnabled;
     }
 
     @Override

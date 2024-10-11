@@ -79,9 +79,9 @@ public class BenchmarkLongDecimalColumnReader
     }
 
     @Override
-    protected boolean getEnableOptimizedReader()
+    protected boolean getBatchReaderEnabled()
     {
-        return enableOptimizedReader;
+        return batchReaderEnabled;
     }
 
     @Override
