@@ -26,6 +26,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
@@ -368,6 +369,14 @@ void PrestoServer::run() {
           proxygen::ResponseHandler* downstream) {
         json infoStateJson = convertNodeState(server->nodeState());
         http::sendOkResponse(downstream, infoStateJson);
+      });
+  httpServer_->registerPut(
+      "/v1/info/state",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        server->handleGracefulShutdown(body, downstream);
       });
   httpServer_->registerGet(
       "/v1/status",
@@ -907,7 +916,6 @@ void PrestoServer::stop() {
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Waiting for " << shutdownOnsetSec
       << " second(s) before proceeding with the shutdown...";
-
   // Give coordinator some time to receive our new node state and stop sending
   // any tasks.
   std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
@@ -1425,6 +1433,27 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+void PrestoServer::handleGracefulShutdown(
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    proxygen::ResponseHandler* downstream) {
+  std::string bodyContent =
+      folly::trimWhitespace(body[0]->moveToFbString()).toString();
+  if (body.size() == 1 && bodyContent == http::kShuttingDown) {
+    LOG(INFO) << "Shutdown requested";
+    if (nodeState() == NodeState::kActive) {
+      // Run stop() in a separate thread to avoid blocking the main HTTP handler
+      // and ensure a timely 200 OK response to the client.
+      std::thread([this]() { this->stop(); }).detach();
+    } else {
+      LOG(INFO) << "Node is inactive or shutdown is already requested";
+    }
+    http::sendOkResponse(downstream);
+  } else {
+    LOG(ERROR) << "Bad Request. Received body content: " << bodyContent;
+    http::sendErrorResponse(downstream, "Bad Request", http::kHttpBadRequest);
+  }
 }
 
 void PrestoServer::registerSidecarEndpoints() {
