@@ -209,6 +209,12 @@ void PeriodicMemoryChecker::pushbackMemory() {
   }
   RECORD_HISTOGRAM_METRIC_VALUE(
       kCounterMemoryPushbackLatencyMs, latencyUs / 1000);
-  LOG(INFO) << "Shrunk " << velox::succinctBytes(freedBytes);
+  const auto actualFreedBytes = std::max<int64_t>(
+      0, static_cast<int64_t>(currentMemBytes) - systemUsedMemoryBytes());
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterMemoryPushbackLatencyMs, actualFreedBytes);
+  LOG(INFO) << "Memory pushback shrunk " << velox::succinctBytes(freedBytes)
+            << " Effective bytes shrunk: "
+            << velox::succinctBytes(actualFreedBytes);
 }
 } // namespace facebook::presto
