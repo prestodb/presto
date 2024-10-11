@@ -359,68 +359,83 @@
                         </executions>
                     </plugin>
                     <plugin>
-                        <groupId>com.spotify</groupId>
-                        <artifactId>dockerfile-maven-plugin</artifactId>
-                        <version>1.4.13</version>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
                         <executions>
+                            <!-- Build Presto Coordinator Docker Image -->
                             <execution>
-                                <id>coordinator</id>
+                                <id>build-presto-coordinator</id>
                                 <phase>install</phase>
                                 <goals>
-                                    <goal>build</goal>
+                                    <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <repository>presto-coordinator</repository>
-                                    <tag>latest</tag>
-                                    <contextDirectory>${project.parent.basedir}/docker/</contextDirectory>
-                                    <dockerfile>${project.parent.basedir}/docker/Dockerfile</dockerfile>
-                                    <buildArgs>
-                                        <PRESTO_VERSION>${project.version}</PRESTO_VERSION>
-                                    </buildArgs>
-                                    <writeTestMetadata>false</writeTestMetadata>
+                                    <executable>sh</executable>
+                                    <workingDirectory>${project.parent.basedir}/docker</workingDirectory>
+                                    <arguments>
+                                        <argument>-c</argument>
+                                        <argument>
+                                            <![CDATA[
+                                                cp ../presto-server/target/presto-server-${project.version}.tar.gz . &&
+                                                cp ../presto-cli/target/presto-cli-${project.version}-executable.jar . &&
+                                                docker build -t "presto-coordinator:latest" --build-arg "PRESTO_VERSION=${project.version}" .
+                                                ]]>
+                                        </argument>
+                                    </arguments>
                                 </configuration>
                             </execution>
+
+                            <!-- Build Presto Native Dependency Docker Image -->
                             <execution>
-                                <id>dependency</id>
+                                <id>build-presto-native-dependency</id>
                                 <phase>install</phase>
                                 <goals>
-                                    <goal>build</goal>
+                                    <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <repository>presto-native-dependency</repository>
-                                    <tag>latest</tag>
-                                    <contextDirectory>${project.basedir}</contextDirectory>
-                                    <dockerfile>${project.basedir}/scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile</dockerfile>
-                                    <buildArgs>
-                                        <BUILD_TYPE>Release</BUILD_TYPE>
-                                    </buildArgs>
-                                    <writeTestMetadata>false</writeTestMetadata>
+                                    <executable>sh</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>-c</argument>
+                                        <argument>
+                                            <![CDATA[
+                                                docker build -t "presto-native-dependency:latest" \
+                                                --build-arg BUILD_TYPE="Release" \
+                                                -f scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile .
+                                                ]]>
+                                        </argument>
+                                    </arguments>
                                 </configuration>
                             </execution>
+
+                            <!-- Build Presto Worker Docker Image -->
                             <execution>
-                                <id>worker</id>
+                                <id>build-presto-worker</id>
                                 <phase>install</phase>
                                 <goals>
-                                    <goal>build</goal>
+                                    <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <repository>presto-worker</repository>
-                                    <tag>latest</tag>
-                                    <contextDirectory>${project.basedir}</contextDirectory>
-                                    <dockerfile>${project.basedir}/scripts/dockerfiles/prestissimo-runtime.dockerfile</dockerfile>
-                                    <buildArgs>
-                                        <BUILD_TYPE>Release</BUILD_TYPE>
-                                        <DEPENDENCY_IMAGE>presto-native-dependency:latest</DEPENDENCY_IMAGE>
-                                        <EXTRA_CMAKE_FLAGS>-DPRESTO_ENABLE_TESTING=OFF</EXTRA_CMAKE_FLAGS>
-                                        <NUM_THREADS>2</NUM_THREADS>
-                                        <BASE_IMAGE>ubuntu:22.04</BASE_IMAGE>
-                                        <OSNAME>ubuntu</OSNAME>
-                                    </buildArgs>
-                                    <pullNewerImage>false</pullNewerImage>
-                                    <writeTestMetadata>false</writeTestMetadata>
-                                </configuration>
-                            </execution>
-                        </executions>
+                                    <executable>sh</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>-c</argument>
+                                        <argument>
+                                            <![CDATA[
+                                                docker build -t "presto-worker:latest" \
+                                                --build-arg BUILD_TYPE="Release" \
+                                                --build-arg DEPENDENCY_IMAGE="presto-native-dependency:latest" \
+                                                --build-arg EXTRA_CMAKE_FLAGS="-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON" \
+                                                --build-arg NUM_THREADS=2 \
+                                                --build-arg BASE_IMAGE="ubuntu:22.04" \
+                                                --build-arg OSNAME=ubuntu \
+                                                -f scripts/dockerfiles/prestissimo-runtime.dockerfile .
+                                                ]]>
+                                        </argument>
+                                    </arguments>
+                                 </configuration>
+                             </execution>
+                         </executions>
                     </plugin>
                 </plugins>
             </build>
