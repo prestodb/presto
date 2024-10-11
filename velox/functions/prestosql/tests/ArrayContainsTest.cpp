@@ -18,6 +18,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -480,5 +481,97 @@ TEST_F(ArrayContainsTest, rowCheckNulls) {
 TEST_F(ArrayContainsTest, floatNaNs) {
   testFloatingPointNaNs<float>();
   testFloatingPointNaNs<double>();
+}
+
+TEST_F(ArrayContainsTest, timestampWithTimeZone) {
+  auto arrayVector = makeArrayVector(
+      {0, 4, 7, 7, 13, 15},
+      makeNullableFlatVector<int64_t>(
+          {pack(1, 1),
+           pack(2, 2),
+           pack(3, 3),
+           pack(4, 4),
+           pack(3, 5),
+           pack(4, 6),
+           pack(5, 7),
+           pack(5, 8),
+           pack(6, 9),
+           std::nullopt,
+           pack(7, 10),
+           pack(8, 11),
+           pack(9, 12),
+           pack(7, 13),
+           std::nullopt,
+           pack(10, 14),
+           pack(9, 15),
+           pack(8, 16),
+           pack(7, 17)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+
+  const auto testContains =
+      [&](std::optional<int64_t> needle,
+          const std::vector<std::optional<bool>>& expected) {
+        const auto searchVector = makeConstant(
+            needle, arrayVector->size(), TIMESTAMP_WITH_TIME_ZONE());
+
+        testContainsGeneric(arrayVector, searchVector, expected);
+      };
+
+  testContains(
+      pack(1, 1), {true, false, false, std::nullopt, std::nullopt, false});
+  testContains(
+      pack(3, 3), {true, true, false, std::nullopt, std::nullopt, false});
+  testContains(pack(5, 1), {false, true, false, true, std::nullopt, false});
+  testContains(pack(7, 2), {false, false, false, true, true, true});
+  testContains(
+      pack(-2, 1), {false, false, false, std::nullopt, std::nullopt, false});
+  testContains(
+      std::nullopt,
+      {std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt});
+
+  // Test wrapped in a complex value.
+  arrayVector = makeArrayVector(
+      {0, 4, 7, 7, 12, 13},
+      makeRowVector({makeNullableFlatVector<int64_t>(
+          {pack(1, 1),
+           pack(2, 2),
+           pack(3, 3),
+           pack(4, 4),
+           pack(3, 5),
+           pack(4, 6),
+           pack(5, 7),
+           pack(5, 8),
+           pack(6, 9),
+           pack(7, 10),
+           pack(8, 11),
+           pack(9, 12),
+           pack(7, 13),
+           pack(10, 14),
+           pack(9, 15),
+           pack(8, 16),
+           pack(7, 17)},
+          TIMESTAMP_WITH_TIME_ZONE())}));
+
+  const auto testContainsRow =
+      [&](int64_t needle, const std::vector<std::optional<bool>>& expected) {
+        const auto searchVector = BaseVector::wrapInConstant(
+            arrayVector->size(),
+            0,
+            makeRowVector({makeFlatVector(
+                std::vector<int64_t>{needle}, TIMESTAMP_WITH_TIME_ZONE())}));
+
+        testContainsGeneric(arrayVector, searchVector, expected);
+      };
+
+  testContainsRow(pack(1, 1), {true, false, false, false, false, false});
+  testContainsRow(pack(3, 3), {true, true, false, false, false, false});
+  testContainsRow(pack(5, 1), {false, true, false, true, false, false});
+  testContainsRow(pack(7, 2), {false, false, false, true, true, true});
+  testContainsRow(pack(-2, 1), {false, false, false, false, false, false});
 }
 } // namespace

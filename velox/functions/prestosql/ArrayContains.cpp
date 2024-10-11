@@ -237,16 +237,31 @@ class ArrayContainsFunction : public exec::VectorFunction {
 
     exec::LocalDecodedVector searchHolder(context, *searchVector, rows);
 
-    VELOX_DYNAMIC_TYPE_DISPATCH(
-        applyTyped,
-        searchVector->typeKind(),
-        rows,
-        *arrayHolder.get(),
-        *elementsHolder.get(),
-        *searchHolder.get(),
-        context,
-        *flatResult,
-        throwOnNestedNull_);
+    if (searchVector->type()->providesCustomComparison()) {
+      // We use applyComplexType for types that provide custom comparison
+      // operators because the main difference between applyComplexType and
+      // applyTyped is that applyComplexType calls the Vector's equalValueAt
+      // method, which calls the Types custom comparison operator internally.
+      applyComplexType(
+          rows,
+          *arrayHolder.get(),
+          *elementsHolder.get(),
+          *searchHolder.get(),
+          context,
+          *flatResult,
+          throwOnNestedNull_);
+    } else {
+      VELOX_DYNAMIC_TYPE_DISPATCH(
+          applyTyped,
+          searchVector->typeKind(),
+          rows,
+          *arrayHolder.get(),
+          *elementsHolder.get(),
+          *searchHolder.get(),
+          context,
+          *flatResult,
+          throwOnNestedNull_);
+    }
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
