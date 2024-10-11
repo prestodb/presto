@@ -18,6 +18,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -495,6 +496,74 @@ TEST_F(MapTest, unknownType) {
       evaluate(
           "map(c0, c1)", makeRowVector({nullArrayVector, nullArrayVector})),
       "map key cannot be null");
+}
+
+TEST_F(MapTest, timestampWithTimeZone) {
+  functions::prestosql::registerMapAllowingDuplicates("map2");
+
+  auto values = makeArrayVector<int32_t>({{1, 2, 3, 4, 5, 6}});
+  auto checkDuplicate = [&](const VectorPtr& keys, std::string expectedError) {
+    VELOX_ASSERT_THROW(
+        evaluate("map(c0, c1)", makeRowVector({keys, values})), expectedError);
+
+    ASSERT_NO_THROW(
+        evaluate("try(map(c0, c1))", makeRowVector({keys, values})));
+
+    // Trying the map version with allowing duplicates.
+    ASSERT_NO_THROW(evaluate("map2(c0, c1)", makeRowVector({keys, values})));
+  };
+
+  // Check for duplicate keys with identical timestamps.
+  const auto keysIdenticalTimestamps = makeArrayVector(
+      {0},
+      makeFlatVector<int64_t>(
+          {pack(1, 1),
+           pack(2, 2),
+           pack(3, 3),
+           pack(4, 4),
+           pack(5, 5),
+           pack(3, 3)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+  checkDuplicate(
+      keysIdenticalTimestamps, "Duplicate map keys (12291) are not allowed");
+
+  // Check for duplicate keys with the same timestamps in different time zones.
+  const auto keysDifferentTimeZones = makeArrayVector(
+      {0},
+      makeFlatVector<int64_t>(
+          {pack(1, 1),
+           pack(2, 2),
+           pack(3, 3),
+           pack(4, 4),
+           pack(5, 5),
+           pack(3, 6)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+  checkDuplicate(
+      keysDifferentTimeZones, "Duplicate map keys (12294) are not allowed");
+
+  // Check for duplicate keys when the keys vector is a constant.
+  VectorPtr keysConstant =
+      BaseVector::wrapInConstant(1, 0, keysDifferentTimeZones);
+  checkDuplicate(keysConstant, "Duplicate map keys (12294) are not allowed");
+
+  // Check for duplicate keys when the keys vector wrapped in a dictionary.
+  VectorPtr keysInDictionary =
+      wrapInDictionary(makeIndices(1, folly::identity), keysDifferentTimeZones);
+  checkDuplicate(
+      keysInDictionary, "Duplicate map keys (12294) are not allowed");
+
+  // Check for duplicate keys nested inside a complex key.
+  VectorPtr arrayOfRows = makeArrayVector(
+      {0},
+      makeRowVector({makeFlatVector<int64_t>(
+          {pack(1, 1),
+           pack(2, 2),
+           pack(3, 3),
+           pack(4, 4),
+           pack(5, 5),
+           pack(3, 6)},
+          TIMESTAMP_WITH_TIME_ZONE())}));
+  checkDuplicate(arrayOfRows, "Duplicate map keys ({12294}) are not allowed");
 }
 
 } // namespace
