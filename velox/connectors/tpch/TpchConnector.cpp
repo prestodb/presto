@@ -162,6 +162,4 @@ std::optional<RowVectorPtr> TpchDataSource::next(
   return projectOutputColumns(outputVector);
 }
 
-VELOX_REGISTER_CONNECTOR_FACTORY(std::make_shared<TpchConnectorFactory>())
-
 } // namespace facebook::velox::connector::tpch

@@ -468,9 +468,6 @@ class ConnectorFactory {
 
   virtual ~ConnectorFactory() = default;
 
-  /// Initialize is called during the factory registration.
-  virtual void initialize() {}
-
   const std::string& connectorName() const {
     return name_;
   }
@@ -520,9 +517,4 @@ std::shared_ptr<Connector> getConnector(const std::string& connectorId);
 const std::unordered_map<std::string, std::shared_ptr<Connector>>&
 getAllConnectors();
 
-#define VELOX_REGISTER_CONNECTOR_FACTORY(theFactory)                      \
-  namespace {                                                             \
-  static bool FB_ANONYMOUS_VARIABLE(g_ConnectorFactory) =                 \
-      facebook::velox::connector::registerConnectorFactory((theFactory)); \
-  }
 } // namespace facebook::velox::connector

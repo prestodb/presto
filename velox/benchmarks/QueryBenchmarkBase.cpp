@@ -186,6 +186,8 @@ void QueryBenchmarkBase::initialize() {
       std::move(configurationValues));
 
   // Create hive connector with config...
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>());
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)

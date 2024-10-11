@@ -220,6 +220,8 @@ MemoryArbitrationFuzzer::MemoryArbitrationFuzzer(size_t initialSeed)
   // Make sure not to run out of open file descriptors.
   std::unordered_map<std::string, std::string> hiveConfig = {
       {connector::hive::HiveConfig::kNumCacheFileHandles, "1000"}};
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>());
   const auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)

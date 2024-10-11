@@ -44,7 +44,6 @@ std::string DataSink::Stats::toString() const {
 }
 
 bool registerConnectorFactory(std::shared_ptr<ConnectorFactory> factory) {
-  factory->initialize();
   bool ok =
       connectorFactories().insert({factory->connectorName(), factory}).second;
   VELOX_CHECK(

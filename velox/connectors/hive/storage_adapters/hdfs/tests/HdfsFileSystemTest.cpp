@@ -42,6 +42,7 @@ static const std::unordered_map<std::string, std::string> configurationValues(
 class HdfsFileSystemTest : public testing::Test {
  public:
   static void SetUpTestSuite() {
+    filesystems::registerHdfsFileSystem();
     if (miniCluster == nullptr) {
       miniCluster = std::make_shared<filesystems::test::HdfsMiniCluster>();
       miniCluster->start();

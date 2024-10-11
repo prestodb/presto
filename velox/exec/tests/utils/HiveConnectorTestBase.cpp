@@ -19,9 +19,13 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 
 namespace facebook::velox::exec::test {
@@ -33,6 +37,8 @@ HiveConnectorTestBase::HiveConnectorTestBase() {
 
 void HiveConnectorTestBase::SetUp() {
   OperatorTestBase::SetUp();
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>());
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
@@ -42,13 +48,24 @@ void HiveConnectorTestBase::SetUp() {
                   std::unordered_map<std::string, std::string>()),
               ioExecutor_.get());
   connector::registerConnector(hiveConnector);
+  dwio::common::registerFileSinks();
+  dwrf::registerDwrfReaderFactory();
+  dwrf::registerDwrfWriterFactory();
+  parquet::registerParquetReaderFactory();
+  parquet::registerParquetWriterFactory();
 }
 
 void HiveConnectorTestBase::TearDown() {
   // Make sure all pending loads are finished or cancelled before unregister
   // connector.
   ioExecutor_.reset();
+  dwrf::unregisterDwrfReaderFactory();
+  dwrf::unregisterDwrfWriterFactory();
+  parquet::unregisterParquetReaderFactory();
+  parquet::unregisterParquetWriterFactory();
   connector::unregisterConnector(kHiveConnectorId);
+  connector::unregisterConnectorFactory(
+      connector::hive::HiveConnectorFactory::kHiveConnectorName);
   OperatorTestBase::TearDown();
 }
 

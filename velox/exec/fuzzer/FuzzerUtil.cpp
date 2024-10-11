@@ -345,6 +345,11 @@ void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity) {
 void registerHiveConnector(
     const std::unordered_map<std::string, std::string>& hiveConfigs) {
   auto configs = hiveConfigs;
+  if (!connector::hasConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
+  }
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)

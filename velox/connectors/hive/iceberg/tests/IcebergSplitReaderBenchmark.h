@@ -22,6 +22,7 @@
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/connectors/hive/iceberg/IcebergSplitReader.h"
 #include "velox/dwio/common/tests/utils/DataSetBuilder.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -45,6 +46,7 @@ class IcebergSplitReaderBenchmark {
     dataSetBuilder_ =
         std::make_unique<facebook::velox::test::DataSetBuilder>(*leafPool_, 0);
     filesystems::registerLocalFileSystem();
+    dwrf::registerDwrfReaderFactory();
   }
 
   ~IcebergSplitReaderBenchmark() {}

@@ -69,6 +69,4 @@ std::optional<RowVectorPtr> FuzzerDataSource::next(
   return outputVector;
 }
 
-VELOX_REGISTER_CONNECTOR_FACTORY(std::make_shared<FuzzerConnectorFactory>())
-
 } // namespace facebook::velox::connector::fuzzer

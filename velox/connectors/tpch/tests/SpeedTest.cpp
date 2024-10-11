@@ -56,6 +56,8 @@ using std::chrono::system_clock;
 class TpchSpeedTest {
  public:
   TpchSpeedTest() {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::tpch::TpchConnectorFactory>());
     auto tpchConnector =
         connector::getConnectorFactory(
             connector::tpch::TpchConnectorFactory::kTpchConnectorName)
@@ -68,6 +70,8 @@ class TpchSpeedTest {
 
   ~TpchSpeedTest() {
     connector::unregisterConnector(kTpchConnectorId_);
+    connector::unregisterConnectorFactory(
+        connector::tpch::TpchConnectorFactory::kTpchConnectorName);
   }
 
   void run(tpch::Table table, size_t scaleFactor, size_t numSplits) {

@@ -42,18 +42,9 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
  protected:
   using OperatorTestBase::assertQuery;
 
-  void SetUp() {
-    OperatorTestBase::SetUp();
-    registerParquetReaderFactory();
-
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                kHiveConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
-    connector::registerConnector(hiveConnector);
+  void SetUp() override {
+    HiveConnectorTestBase::SetUp();
+    parquet::registerParquetReaderFactory();
   }
 
   void assertSelect(

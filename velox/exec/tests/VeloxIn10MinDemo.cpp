@@ -47,7 +47,11 @@ class VeloxIn10MinDemo : public VectorTestBase {
     // Register type resolver with DuckDB SQL parser.
     parse::registerTypeResolver();
 
-    // Register TPC-H connector.
+    // Register the TPC-H Connector Factory.
+    connector::registerConnectorFactory(
+        std::make_shared<connector::tpch::TpchConnectorFactory>());
+
+    // Create and register a TPC-H connector.
     auto tpchConnector =
         connector::getConnectorFactory(
             connector::tpch::TpchConnectorFactory::kTpchConnectorName)
@@ -60,6 +64,8 @@ class VeloxIn10MinDemo : public VectorTestBase {
 
   ~VeloxIn10MinDemo() {
     connector::unregisterConnector(kTpchConnectorId);
+    connector::unregisterConnectorFactory(
+        connector::tpch::TpchConnectorFactory::kTpchConnectorName);
   }
 
   /// Parse SQL expression into a typed expression tree using DuckDB SQL parser.

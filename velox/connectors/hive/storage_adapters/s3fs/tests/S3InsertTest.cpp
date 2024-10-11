@@ -20,6 +20,8 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -38,6 +40,8 @@ class S3InsertTest : public S3Test {
   void SetUp() override {
     S3Test::SetUp();
     filesystems::registerS3FileSystem();
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
     auto hiveConnector =
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
@@ -46,9 +50,15 @@ class S3InsertTest : public S3Test {
                 minioServer_->hiveConfig(),
                 ioExecutor_.get());
     connector::registerConnector(hiveConnector);
+    parquet::registerParquetReaderFactory();
+    parquet::registerParquetWriterFactory();
   }
 
   void TearDown() override {
+    parquet::unregisterParquetReaderFactory();
+    parquet::unregisterParquetWriterFactory();
+    connector::unregisterConnectorFactory(
+        connector::hive::HiveConnectorFactory::kHiveConnectorName);
     connector::unregisterConnector(::exec::test::kHiveConnectorId);
     S3Test::TearDown();
     filesystems::finalizeS3FileSystem();

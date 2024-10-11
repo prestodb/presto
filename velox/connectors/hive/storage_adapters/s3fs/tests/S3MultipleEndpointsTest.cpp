@@ -19,6 +19,8 @@
 #include "gtest/gtest.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -40,6 +42,8 @@ class S3MultipleEndpoints : public S3Test {
   void SetUp() override {
     S3Test::SetUp();
     filesystems::registerS3FileSystem();
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
     auto hiveConnector1 =
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
@@ -58,11 +62,17 @@ class S3MultipleEndpoints : public S3Test {
                 minioSecondServer_->hiveConfig(),
                 ioExecutor_.get());
     connector::registerConnector(hiveConnector2);
+    parquet::registerParquetReaderFactory();
+    parquet::registerParquetWriterFactory();
   }
 
   void TearDown() override {
+    parquet::unregisterParquetReaderFactory();
+    parquet::unregisterParquetWriterFactory();
     connector::unregisterConnector(std::string(kConnectorId1));
     connector::unregisterConnector(std::string(kConnectorId2));
+    connector::unregisterConnectorFactory(
+        connector::hive::HiveConnectorFactory::kHiveConnectorName);
     S3Test::TearDown();
     filesystems::finalizeS3FileSystem();
   }

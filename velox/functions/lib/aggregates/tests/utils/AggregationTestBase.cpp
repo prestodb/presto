@@ -21,6 +21,9 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/AggregateCompanionSignatures.h"
 #include "velox/exec/PlanNodeStats.h"
@@ -67,6 +70,8 @@ std::vector<RowVectorPtr> AggregationTestBase::makeVectors(
 void AggregationTestBase::SetUp() {
   OperatorTestBase::SetUp();
   filesystems::registerLocalFileSystem();
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>());
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
@@ -75,10 +80,14 @@ void AggregationTestBase::SetUp() {
               std::make_shared<config::ConfigBase>(
                   std::unordered_map<std::string, std::string>()));
   connector::registerConnector(hiveConnector);
+  dwrf::registerDwrfReaderFactory();
 }
 
 void AggregationTestBase::TearDown() {
+  dwrf::unregisterDwrfReaderFactory();
   connector::unregisterConnector(kHiveConnectorId);
+  connector::unregisterConnectorFactory(
+      connector::hive::HiveConnectorFactory::kHiveConnectorName);
   OperatorTestBase::TearDown();
 }
 
