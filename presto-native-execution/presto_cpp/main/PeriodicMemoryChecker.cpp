@@ -169,10 +169,10 @@ void PeriodicMemoryChecker::pushbackMemory() {
   const uint64_t bytesToShrink = currentMemBytes - targetMemBytes;
   VELOX_CHECK_GT(bytesToShrink, 0);
 
-  uint64_t latencyMs{0};
+  uint64_t latencyUs{0};
   uint64_t freedBytes{0};
   {
-    velox::MicrosecondTimer timer(&latencyMs);
+    velox::MicrosecondTimer timer(&latencyUs);
     auto* cache = velox::cache::AsyncDataCache::getInstance();
     auto systemConfig = SystemConfig::instance();
     freedBytes = cache != nullptr ? cache->shrink(bytesToShrink) : 0;
@@ -208,7 +208,7 @@ void PeriodicMemoryChecker::pushbackMemory() {
     }
   }
   RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterMemoryPushbackLatencyMs, latencyMs * 1000);
+      kCounterMemoryPushbackLatencyMs, latencyUs / 1000);
   LOG(INFO) << "Shrunk " << velox::succinctBytes(freedBytes);
 }
 } // namespace facebook::presto
