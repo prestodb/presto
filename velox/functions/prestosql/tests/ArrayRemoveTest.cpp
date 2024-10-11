@@ -15,6 +15,7 @@
  */
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -204,6 +205,56 @@ TEST_F(ArrayRemoveTest, arrayWithNull) {
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
   const auto expected = makeNullableArrayVector<int64_t>(
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+  testExpression(
+      "array_remove(c0, c1)", {arrayVector, elementVector}, expected);
+}
+
+TEST_F(ArrayRemoveTest, timestampWithTimeZone) {
+  const auto arrayVector = makeArrayVector(
+      {0, 6, 13, 16},
+      makeNullableFlatVector<int64_t>(
+          {pack(1, 1),
+           std::nullopt,
+           pack(2, 2),
+           pack(3, 3),
+           std::nullopt,
+           pack(4, 4),
+           pack(3, 5),
+           pack(4, 6),
+           pack(5, 7),
+           std::nullopt,
+           pack(3, 8),
+           pack(4, 9),
+           pack(5, 10),
+           pack(7, 11),
+           pack(8, 12),
+           pack(9, 13),
+           pack(10, 14),
+           pack(20, 15),
+           pack(30, 16)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+  const auto elementVector = makeFlatVector<int64_t>(
+      {pack(3, 3), pack(3, 3), pack(33, 1), pack(30, 1)},
+      TIMESTAMP_WITH_TIME_ZONE());
+  const auto expected = makeArrayVector(
+      {0, 5, 10, 13},
+      makeNullableFlatVector<int64_t>(
+          {pack(1, 1),
+           std::nullopt,
+           pack(2, 2),
+           std::nullopt,
+           pack(4, 4),
+           pack(4, 6),
+           pack(5, 7),
+           std::nullopt,
+           pack(4, 9),
+           pack(5, 10),
+           pack(7, 11),
+           pack(8, 12),
+           pack(9, 13),
+           pack(10, 14),
+           pack(20, 15)},
+          TIMESTAMP_WITH_TIME_ZONE()));
   testExpression(
       "array_remove(c0, c1)", {arrayVector, elementVector}, expected);
 }

@@ -15,6 +15,7 @@
  */
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -167,5 +168,81 @@ TEST_F(ArrayUnionTest, complexTypes) {
 TEST_F(ArrayUnionTest, floatingPointType) {
   floatArrayTest<float>();
   floatArrayTest<double>();
+}
+
+TEST_F(ArrayUnionTest, timestampWithTimeZone) {
+  const auto array1 = makeArrayVector(
+      {0, 4, 7, 10},
+      makeFlatVector<int64_t>(
+          {pack(1, 1),
+           pack(2, 2),
+           pack(3, 3),
+           pack(4, 4),
+           pack(3, 5),
+           pack(4, 6),
+           pack(5, 7),
+           pack(7, 8),
+           pack(8, 9),
+           pack(9, 10),
+           pack(10, 11),
+           pack(20, 12),
+           pack(30, 13)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+  const auto array2 = makeArrayVector(
+      {0, 3, 6, 6},
+      makeFlatVector<int64_t>(
+          {pack(2, 10),
+           pack(4, 11),
+           pack(5, 12),
+           pack(3, 13),
+           pack(4, 14),
+           pack(5, 15),
+           pack(40, 16),
+           pack(50, 17)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+
+  VectorPtr expected = makeArrayVector(
+      {0, 5, 8, 11},
+      makeFlatVector<int64_t>(
+          {pack(1, 1),
+           pack(2, 2),
+           pack(3, 3),
+           pack(4, 4),
+           pack(5, 12),
+           pack(3, 5),
+           pack(4, 6),
+           pack(5, 7),
+           pack(7, 8),
+           pack(8, 9),
+           pack(9, 10),
+           pack(10, 11),
+           pack(20, 12),
+           pack(30, 13),
+           pack(40, 16),
+           pack(50, 17)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+  testExpression("array_union(c0, c1)", {array1, array2}, expected);
+
+  expected = makeArrayVector(
+      {0, 5, 8, 11},
+      makeFlatVector<int64_t>(
+          {pack(2, 10),
+           pack(4, 11),
+           pack(5, 12),
+           pack(1, 1),
+           pack(3, 3),
+           pack(3, 13),
+           pack(4, 14),
+           pack(5, 15),
+           pack(7, 8),
+           pack(8, 9),
+           pack(9, 10),
+           pack(40, 16),
+           pack(50, 17),
+           pack(10, 11),
+           pack(20, 12),
+           pack(30, 13)},
+          TIMESTAMP_WITH_TIME_ZONE()));
+  testExpression("array_union(c0, c1)", {array2, array1}, expected);
 }
 } // namespace
