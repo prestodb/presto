@@ -13,7 +13,7 @@
  */
 #pragma once
 
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto::protocol {
@@ -227,40 +227,6 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
     VELOX_NYI("Not implemented: {}", typeid(BASE).name());
   }
 };
-
-using HiveConnectorProtocol = ConnectorProtocolTemplate<
-    HiveTableHandle,
-    HiveTableLayoutHandle,
-    HiveColumnHandle,
-    HiveInsertTableHandle,
-    HiveOutputTableHandle,
-    HiveSplit,
-    HivePartitioningHandle,
-    HiveTransactionHandle,
-    HiveMetadataUpdateHandle>;
-
-using IcebergConnectorProtocol = ConnectorProtocolTemplate<
-    IcebergTableHandle,
-    IcebergTableLayoutHandle,
-    IcebergColumnHandle,
-    NotImplemented,
-    NotImplemented,
-    IcebergSplit,
-    NotImplemented,
-    HiveTransactionHandle,
-    NotImplemented>;
-
-using TpchConnectorProtocol = ConnectorProtocolTemplate<
-    TpchTableHandle,
-    TpchTableLayoutHandle,
-    TpchColumnHandle,
-    NotImplemented,
-    NotImplemented,
-    TpchSplit,
-    TpchPartitioningHandle,
-    TpchTransactionHandle,
-    NotImplemented>;
-
 using SystemConnectorProtocol = ConnectorProtocolTemplate<
     SystemTableHandle,
     SystemTableLayoutHandle,

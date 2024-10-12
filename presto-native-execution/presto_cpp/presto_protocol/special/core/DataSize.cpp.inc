@@ -11,28 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 namespace facebook::presto::protocol {
 
-void to_json(json& j, const HivePageSinkMetadata& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "schemaTableName",
-      p.schemaTableName,
-      "HivePageSinkMetadata",
-      "SchemaTableName",
-      "schemaTableName");
-  to_json_key(j, "table", p.table, "HivePageSinkMetadata", "Table", "table");
+void to_json(nlohmann::json& j, const DataSize& p) {
+  j = p.toString();
 }
 
-void from_json(const json& j, HivePageSinkMetadata& p) {
-  from_json_key(
-      j,
-      "schemaTableName",
-      p.schemaTableName,
-      "HivePageSinkMetadata",
-      "SchemaTableName",
-      "schemaTableName");
-  from_json_key(j, "table", p.table, "HivePageSinkMetadata", "Table", "table");
+void from_json(const nlohmann::json& j, DataSize& p) {
+  p = DataSize(std::string(j));
 }
+
+std::ostream& operator<<(std::ostream& os, const DataSize& d) {
+  return os << d.toString();
+}
+
 } // namespace facebook::presto::protocol

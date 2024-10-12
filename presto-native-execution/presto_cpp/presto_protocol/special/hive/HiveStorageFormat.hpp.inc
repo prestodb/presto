@@ -12,17 +12,24 @@
  * limitations under the License.
  */
 
-// dependency Table
-// dependency SchemaTableName
+namespace facebook::presto::protocol::hive {
 
-namespace facebook::presto::protocol {
-
-struct HivePageSinkMetadata {
-  SchemaTableName schemaTableName = {};
-  std::shared_ptr<Table> table = {};
-  // TODO Add modifiedPartitions
+enum class HiveStorageFormat {
+  ORC,
+  DWRF,
+  ALPHA,
+  PARQUET,
+  AVRO,
+  RCBINARY,
+  RCTEXT,
+  SEQUENCEFILE,
+  JSON,
+  TEXTFILE,
+  CSV,
+  PAGEFILE
 };
-void to_json(json& j, const HivePageSinkMetadata& p);
-void from_json(const json& j, HivePageSinkMetadata& p);
 
-} // namespace facebook::presto::protocol
+void to_json(json& j, const HiveStorageFormat& p);
+void from_json(const json& j, HiveStorageFormat& p);
+
+} // namespace facebook::presto::protocol::hive

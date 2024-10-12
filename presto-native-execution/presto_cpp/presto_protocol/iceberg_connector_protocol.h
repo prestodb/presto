@@ -11,19 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-namespace facebook::presto::protocol {
+#include "presto_cpp/presto_protocol/ConnectorProtocol.h"
+#include "presto_cpp/presto_protocol/connector/iceberg/presto_protocol_iceberg.h"
 
-void to_json(nlohmann::json& j, const DataSize& p) {
-  j = p.toString();
-}
+namespace facebook::presto::protocol::iceberg {
 
-void from_json(const nlohmann::json& j, DataSize& p) {
-  p = DataSize(std::string(j));
-}
+using IcebergConnectorProtocol = ConnectorProtocolTemplate<
+    IcebergTableHandle,
+    IcebergTableLayoutHandle,
+    IcebergColumnHandle,
+    NotImplemented,
+    NotImplemented,
+    IcebergSplit,
+    NotImplemented,
+    hive::HiveTransactionHandle,
+    NotImplemented>;
 
-std::ostream& operator<<(std::ostream& os, const DataSize& d) {
-  return os << d.toString();
-}
-
-} // namespace facebook::presto::protocol
+} // namespace facebook::presto::protocol::iceberg

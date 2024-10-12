@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 
-
 namespace facebook::presto::protocol {
 
 std::ostream& operator<<(std::ostream& os, const Duration& d);

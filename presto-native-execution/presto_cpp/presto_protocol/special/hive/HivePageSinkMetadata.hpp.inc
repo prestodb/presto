@@ -12,19 +12,17 @@
  * limitations under the License.
  */
 
-// TpchTransactionHandle is special since
-// the corresponding class in Java is an enum.
+// dependency Table
+// dependency SchemaTableName
 
-namespace facebook::presto::protocol {
+namespace facebook::presto::protocol::hive {
 
-void to_json(json& j, const TpchTransactionHandle& p) {
-  j = json::array();
-  j.push_back(p._type);
-  j.push_back(p.instance);
-}
+struct HivePageSinkMetadata {
+  SchemaTableName schemaTableName = {};
+  std::shared_ptr<hive::Table> table = {};
+  // TODO Add modifiedPartitions
+};
+void to_json(json& j, const HivePageSinkMetadata& p);
+void from_json(const json& j, HivePageSinkMetadata& p);
 
-void from_json(const json& j, TpchTransactionHandle& p) {
-  j[0].get_to(p._type);
-  j[1].get_to(p.instance);
-}
-} // namespace facebook::presto::protocol
+} // namespace facebook::presto::protocol::hive

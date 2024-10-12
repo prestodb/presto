@@ -154,7 +154,7 @@ class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
  private:
   std::vector<std::shared_ptr<const velox::connector::hive::HiveColumnHandle>>
   toHiveColumns(
-      const protocol::List<protocol::HiveColumnHandle>& inputColumns,
+      const protocol::List<protocol::hive::HiveColumnHandle>& inputColumns,
       const TypeParser& typeParser,
       bool& hasPartitionColumn) const;
 };
