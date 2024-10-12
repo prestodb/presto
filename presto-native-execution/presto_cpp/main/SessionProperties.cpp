@@ -177,20 +177,20 @@ SessionProperties::SessionProperties() {
       std::to_string(c.rowNumberSpillEnabled()));
 
   addSessionProperty(
-      kNativeSpillerNumPartitionBits,
+      kSpillerNumPartitionBits,
       "none",
       TINYINT(),
       false,
       QueryConfig::kSpillNumPartitionBits,
-      std::to_string(c.spillNumPartitionBits())),
+      std::to_string(c.spillNumPartitionBits()));
 
-      addSessionProperty(
-          kTopNRowNumberSpillEnabled,
-          "Native Execution only. Enable topN row number spilling on native engine",
-          BOOLEAN(),
-          false,
-          QueryConfig::kTopNRowNumberSpillEnabled,
-          boolToString(c.topNRowNumberSpillEnabled()));
+  addSessionProperty(
+      kTopNRowNumberSpillEnabled,
+      "Native Execution only. Enable topN row number spilling on native engine",
+      BOOLEAN(),
+      false,
+      QueryConfig::kTopNRowNumberSpillEnabled,
+      boolToString(c.topNRowNumberSpillEnabled()));
 
   addSessionProperty(
       kValidateOutputFromOperators,
@@ -253,6 +253,48 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kSelectiveNimbleReaderEnabled,
       boolToString(c.selectiveNimbleReaderEnabled()));
+
+  addSessionProperty(
+      kQueryTraceEnabled,
+      "Enables query tracing.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kQueryTraceEnabled,
+      boolToString(c.queryTraceEnabled()));
+
+  addSessionProperty(
+      kQueryTraceDir,
+      "Base dir of a query to store tracing data.",
+      VARCHAR(),
+      false,
+      QueryConfig::kQueryTraceDir,
+      c.queryTraceDir());
+
+  addSessionProperty(
+      kQueryTraceNodeIds,
+      "A comma-separated list of plan node ids whose input data will be traced."
+      " Empty string if only want to trace the query metadata.",
+      VARCHAR(),
+      false,
+      QueryConfig::kQueryTraceNodeIds,
+      c.queryTraceNodeIds());
+
+  addSessionProperty(
+      kQueryTraceMaxBytes,
+      "The max trace bytes limit. Tracing is disabled if zero.",
+      BIGINT(),
+      false,
+      QueryConfig::kQueryTraceMaxBytes,
+      std::to_string(c.queryTraceMaxBytes()));
+
+  addSessionProperty(
+      kQueryTraceTaskRegExp,
+      "The regexp of traced task id. We only enable trace on a task if its id"
+      " matches.",
+      BIGINT(),
+      false,
+      QueryConfig::kQueryTraceTaskRegExp,
+      c.queryTraceTaskRegExp());
 
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's
