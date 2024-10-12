@@ -12,27 +12,20 @@
  * limitations under the License.
  */
 
-// IcebergColumnHandle is special since it needs an implementation of
+// TpchColumnHandle is special since it needs an implementation of
 // operator<().
 
-namespace facebook::presto::protocol {
-
-struct IcebergColumnHandle : public ColumnHandle {
-  ColumnIdentity columnIdentity = {};
+namespace facebook::presto::protocol::tpch {
+struct TpchColumnHandle : public ColumnHandle {
+  String columnName = {};
   Type type = {};
-  std::shared_ptr<String> comment = {};
-  ColumnType columnType = {};
-  List<Subfield> requiredSubfields = {};
 
-  IcebergColumnHandle() noexcept;
+  TpchColumnHandle() noexcept;
 
   bool operator<(const ColumnHandle& o) const override {
-    return columnIdentity.name <
-        dynamic_cast<const IcebergColumnHandle&>(o).columnIdentity.name;
+    return columnName < dynamic_cast<const TpchColumnHandle&>(o).columnName;
   }
 };
-
-void to_json(json& j, const IcebergColumnHandle& p);
-void from_json(const json& j, IcebergColumnHandle& p);
-
-} // namespace facebook::presto::protocol
+void to_json(json& j, const TpchColumnHandle& p);
+void from_json(const json& j, TpchColumnHandle& p);
+} // namespace facebook::presto::protocol::tpch
