@@ -16,6 +16,7 @@
 
 #include "velox/dwio/common/Writer.h"
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 
 using namespace ::testing;
 
@@ -25,7 +26,10 @@ TEST(WriterTest, stateString) {
   ASSERT_EQ(Writer::stateString(Writer::State::kInit), "INIT");
   ASSERT_EQ(Writer::stateString(Writer::State::kRunning), "RUNNING");
   ASSERT_EQ(Writer::stateString(Writer::State::kClosed), "CLOSED");
+  ASSERT_EQ(Writer::stateString(Writer::State::kFinishing), "FINISHING");
   ASSERT_EQ(Writer::stateString(Writer::State::kAborted), "ABORTED");
+  VELOX_ASSERT_THROW(
+      Writer::stateString(static_cast<Writer::State>(100)), "BAD STATE: 100");
 }
 } // namespace
 } // namespace facebook::velox::dwio::common

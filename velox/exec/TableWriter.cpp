@@ -115,6 +115,13 @@ std::vector<std::string> TableWriter::closeDataSink() {
   return dataSink_->close();
 }
 
+bool TableWriter::finishDataSink() {
+  // We only expect finish on a non-closed data sink.
+  VELOX_CHECK(!closed_);
+  VELOX_CHECK_NOT_NULL(dataSink_);
+  return dataSink_->finish();
+}
+
 void TableWriter::addInput(RowVectorPtr input) {
   if (input->size() == 0) {
     return;
@@ -150,6 +157,14 @@ void TableWriter::noMoreInput() {
   }
 }
 
+BlockingReason TableWriter::isBlocked(ContinueFuture* future) {
+  if (blockingFuture_.valid()) {
+    *future = std::move(blockingFuture_);
+    return blockingReason_;
+  }
+  return BlockingReason::kNotBlocked;
+}
+
 RowVectorPtr TableWriter::getOutput() {
   // Making sure the output is read only once after the write is fully done.
   if (!noMoreInput_ || finished_) {
@@ -163,6 +178,12 @@ RowVectorPtr TableWriter::getOutput() {
         aggregation_->getOutput(),
         StringView(commitContext),
         pool());
+  }
+
+  if (!finishDataSink()) {
+    blockingReason_ = BlockingReason::kYield;
+    blockingFuture_ = ContinueFuture{folly::Unit{}};
+    return nullptr;
   }
 
   finished_ = true;

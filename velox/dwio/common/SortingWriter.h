@@ -29,14 +29,17 @@ class SortingWriter : public Writer {
       std::unique_ptr<Writer> writer,
       std::unique_ptr<exec::SortBuffer> sortBuffer,
       vector_size_t maxOutputRowsConfig,
-      uint64_t maxOutputBytesConfig);
+      uint64_t maxOutputBytesConfig,
+      uint64_t outputTimeSliceLimitMs);
 
   ~SortingWriter() override;
 
   void write(const VectorPtr& data) override;
 
+  bool finish() override;
+
   /// No action because we need to accumulate all data and sort before data can
-  /// be flushed
+  /// be flushed.
   void flush() override;
 
   void close() override;
@@ -78,6 +81,7 @@ class SortingWriter : public Writer {
   const std::unique_ptr<Writer> outputWriter_;
   const vector_size_t maxOutputRowsConfig_;
   const uint64_t maxOutputBytesConfig_;
+  const uint64_t finishTimeSliceLimitMs_;
   memory::MemoryPool* const sortPool_;
   const bool canReclaim_;
 

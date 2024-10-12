@@ -26,7 +26,18 @@ void Writer::checkStateTransition(State oldState, State newState) {
       }
       break;
     case State::kRunning:
-      if (newState == State::kAborted || newState == State::kClosed) {
+      // NOTE: some physical file writer might switch from kRunning to kClosed
+      // directly as there is nothing to do with finish() call.
+      if (newState == State::kAborted || newState == State::kClosed ||
+          newState == State::kFinishing) {
+        return;
+      }
+      break;
+    case State::kFinishing:
+      if (newState == State::kAborted || newState == State::kClosed ||
+          // NOTE: the finishing state is reentry state as we could yield in the
+          // middle of long running finish processing.
+          newState == State::kFinishing) {
         return;
       }
       break;
@@ -49,6 +60,8 @@ std::string Writer::stateString(State state) {
       return "INIT";
     case State::kRunning:
       return "RUNNING";
+    case State::kFinishing:
+      return "FINISHING";
     case State::kClosed:
       return "CLOSED";
     case State::kAborted:
@@ -62,10 +75,14 @@ bool Writer::isRunning() const {
   return state_ == State::kRunning;
 }
 
+bool Writer::isFinishing() const {
+  return state_ == State::kFinishing;
+}
+
 void Writer::checkRunning() const {
   VELOX_CHECK_EQ(
-      static_cast<int>(state_),
-      static_cast<int>(State::kRunning),
+      state_,
+      State::kRunning,
       "Writer is not running: {}",
       Writer::stateString(state_));
 }

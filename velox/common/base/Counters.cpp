@@ -523,6 +523,12 @@ void registerVeloxMetrics() {
   DEFINE_METRIC(
       kMetricFileWriterEarlyFlushedRawBytes, facebook::velox::StatType::SUM);
 
+  // The distribution of the amount of time spent on hive sort writer finish
+  // call in range of [0, 120s] with 60 buckets. It is configured to report the
+  // latency at P50, P90, P99, and P100 percentiles.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricHiveSortWriterFinishTimeMs, 2'000, 0, 120'000, 50, 90, 99, 100);
+
   // The current spilling memory usage in bytes.
   DEFINE_METRIC(kMetricSpillMemoryBytes, facebook::velox::StatType::AVG);
 

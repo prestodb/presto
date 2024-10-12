@@ -544,3 +544,10 @@ Hive Connector
      - The distribution of hive file open latency in range of [0, 100s] with 10
        buckets. It is configured to report latency at P50, P90, P99, and P100
        percentiles.
+   * - hive_sort_writer_finish_time_ms
+     - Histogram
+     - The distribution of hive sort writer finish processing time slice in range
+       of[0, 120s] with 60 buckets. It is configured to report latency at P50,
+       P90, P99, and P100 percentiles.
+
+

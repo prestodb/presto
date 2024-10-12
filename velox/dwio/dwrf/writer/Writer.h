@@ -76,6 +76,10 @@ class Writer : public dwio::common::Writer {
   // Forces the writer to flush, does not close the writer.
   virtual void flush() override;
 
+  virtual bool finish() override {
+    return true;
+  }
+
   virtual void close() override;
 
   virtual void abort() override;

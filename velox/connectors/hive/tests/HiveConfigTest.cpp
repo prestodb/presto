@@ -69,6 +69,8 @@ TEST(HiveConfigTest, defaultConfig) {
   ASSERT_EQ(hiveConfig.sortWriterMaxOutputRows(emptySession.get()), 1024);
   ASSERT_EQ(
       hiveConfig.sortWriterMaxOutputBytes(emptySession.get()), 10UL << 20);
+  ASSERT_EQ(
+      hiveConfig.sortWriterFinishTimeSliceLimitMs(emptySession.get()), 5'000);
   ASSERT_EQ(hiveConfig.isPartitionPathAsLowerCase(emptySession.get()), true);
   ASSERT_EQ(hiveConfig.allowNullPartitionKeys(emptySession.get()), true);
   ASSERT_EQ(hiveConfig.orcWriterMinCompressionSize(emptySession.get()), 1024);
@@ -109,6 +111,7 @@ TEST(HiveConfigTest, overrideConfig) {
       {HiveConfig::kOrcWriterStringDictionaryEncodingEnabled, "false"},
       {HiveConfig::kSortWriterMaxOutputRows, "100"},
       {HiveConfig::kSortWriterMaxOutputBytes, "100MB"},
+      {HiveConfig::kSortWriterFinishTimeSliceLimitMs, "400"},
       {HiveConfig::kOrcWriterLinearStripeSizeHeuristics, "false"},
       {HiveConfig::kOrcWriterMinCompressionSize, "512"},
       {HiveConfig::kOrcWriterCompressionLevel, "1"},
@@ -159,6 +162,8 @@ TEST(HiveConfigTest, overrideConfig) {
   ASSERT_EQ(hiveConfig.sortWriterMaxOutputRows(emptySession.get()), 100);
   ASSERT_EQ(
       hiveConfig.sortWriterMaxOutputBytes(emptySession.get()), 100UL << 20);
+  ASSERT_EQ(
+      hiveConfig.sortWriterFinishTimeSliceLimitMs(emptySession.get()), 400);
   ASSERT_EQ(hiveConfig.orcWriterMinCompressionSize(emptySession.get()), 512);
   ASSERT_EQ(hiveConfig.orcWriterCompressionLevel(emptySession.get()), 1);
   ASSERT_EQ(
@@ -180,6 +185,7 @@ TEST(HiveConfigTest, overrideSession) {
       {HiveConfig::kOrcWriterStringDictionaryEncodingEnabledSession, "false"},
       {HiveConfig::kSortWriterMaxOutputRowsSession, "20"},
       {HiveConfig::kSortWriterMaxOutputBytesSession, "20MB"},
+      {HiveConfig::kSortWriterFinishTimeSliceLimitMsSession, "300"},
       {HiveConfig::kPartitionPathAsLowerCaseSession, "false"},
       {HiveConfig::kAllowNullPartitionKeysSession, "false"},
       {HiveConfig::kIgnoreMissingFilesSession, "true"},
@@ -227,6 +233,7 @@ TEST(HiveConfigTest, overrideSession) {
       false);
   ASSERT_EQ(hiveConfig.sortWriterMaxOutputRows(session.get()), 20);
   ASSERT_EQ(hiveConfig.sortWriterMaxOutputBytes(session.get()), 20UL << 20);
+  ASSERT_EQ(hiveConfig.sortWriterFinishTimeSliceLimitMs(session.get()), 300);
   ASSERT_EQ(hiveConfig.isPartitionPathAsLowerCase(session.get()), false);
   ASSERT_EQ(hiveConfig.allowNullPartitionKeys(session.get()), false);
   ASSERT_EQ(hiveConfig.ignoreMissingFiles(session.get()), true);

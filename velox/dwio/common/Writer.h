@@ -37,8 +37,9 @@ class Writer {
   enum class State {
     kInit = 0,
     kRunning = 1,
-    kAborted = 2,
-    kClosed = 3,
+    kFinishing = 2,
+    kAborted = 3,
+    kClosed = 4,
   };
   static std::string stateString(State state);
 
@@ -56,8 +57,22 @@ class Writer {
   /// Does not close the writer.
   virtual void flush() = 0;
 
-  /// Invokes flush and closes the writer.
-  ///  Data can no longer be written.
+  /// Invokes to finish the writing before close call. For logical writer like
+  /// hive sorting writer which is built on top of a physical file writer, it
+  /// sorts the buffered data and flush them to the physical file writer. This
+  /// process might take very long time so we allow to yield in the middle of
+  /// this process in favor of the other concurrent running threads in a query
+  /// system. It returns false if the finish process needs to continue,
+  /// otherwise true. Ihis should be called repeatedly when it returns false
+  /// until it returns true. Data can no longer be written after the first
+  /// finish call.
+  ///
+  /// NOTE: this must be called before close().
+  virtual bool finish() = 0;
+
+  /// Invokes closes the writer. Data can no longer be written.
+  ///
+  /// NOTE: this must be called after the last finish() which returns true.
   virtual void close() = 0;
 
   /// Aborts the writing by closing the writer and dropping everything.
@@ -66,6 +81,7 @@ class Writer {
 
  protected:
   bool isRunning() const;
+  bool isFinishing() const;
 
   void checkRunning() const;
 
@@ -86,3 +102,14 @@ FOLLY_ALWAYS_INLINE std::ostream& operator<<(
 }
 
 } // namespace facebook::velox::dwio::common
+
+template <>
+struct fmt::formatter<facebook::velox::dwio::common::Writer::State>
+    : formatter<std::string> {
+  auto format(
+      facebook::velox::dwio::common::Writer::State s,
+      format_context& ctx) const {
+    return formatter<std::string>::format(
+        facebook::velox::dwio::common::Writer::stateString(s), ctx);
+  }
+};

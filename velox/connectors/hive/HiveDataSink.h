@@ -429,6 +429,20 @@ class HiveDataSink : public DataSink {
   /// The list of runtime stats reported by hive data sink
   static constexpr const char* kEarlyFlushedRawBytes = "earlyFlushedRawBytes";
 
+  /// Defines the execution states of a hive data sink running internally.
+  enum class State {
+    /// The data sink accepts new append data in this state.
+    kRunning = 0,
+    /// The data sink flushes any buffered data to the underlying file writer
+    /// but no more data can be appended.
+    kFinishing = 1,
+    /// The data sink is aborted on error and no more data can be appended.
+    kAborted = 2,
+    /// The data sink is closed on error and no more data can be appended.
+    kClosed = 3
+  };
+  static std::string stateString(State state);
+
   HiveDataSink(
       RowTypePtr inputType,
       std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
@@ -443,6 +457,8 @@ class HiveDataSink : public DataSink {
 
   void appendData(RowVectorPtr input) override;
 
+  bool finish() override;
+
   Stats stats() const override;
 
   std::vector<std::string> close() override;
@@ -452,12 +468,6 @@ class HiveDataSink : public DataSink {
   bool canReclaim() const;
 
  private:
-  enum class State { kRunning = 0, kAborted = 1, kClosed = 2 };
-  friend struct fmt::formatter<
-      facebook::velox::connector::hive::HiveDataSink::State>;
-
-  static std::string stateString(State state);
-
   // Validates the state transition from 'oldState' to 'newState'.
   void checkStateTransition(State oldState, State newState);
   void setState(State newState);
@@ -588,6 +598,7 @@ class HiveDataSink : public DataSink {
   const std::unique_ptr<core::PartitionFunction> bucketFunction_;
   const std::shared_ptr<dwio::common::WriterFactory> writerFactory_;
   const common::SpillConfig* const spillConfig_;
+  const uint64_t sortWriterFinishTimeSliceLimitMs_{0};
 
   std::vector<column_index_t> sortColumnIndices_;
   std::vector<CompareFlags> sortCompareFlags_;
@@ -619,15 +630,22 @@ class HiveDataSink : public DataSink {
   std::vector<uint32_t> bucketIds_;
 };
 
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& os,
+    HiveDataSink::State state) {
+  os << HiveDataSink::stateString(state);
+  return os;
+}
 } // namespace facebook::velox::connector::hive
 
 template <>
 struct fmt::formatter<facebook::velox::connector::hive::HiveDataSink::State>
-    : formatter<int> {
+    : formatter<std::string> {
   auto format(
       facebook::velox::connector::hive::HiveDataSink::State s,
       format_context& ctx) const {
-    return formatter<int>::format(static_cast<int>(s), ctx);
+    return formatter<std::string>::format(
+        facebook::velox::connector::hive::HiveDataSink::stateString(s), ctx);
   }
 };
 

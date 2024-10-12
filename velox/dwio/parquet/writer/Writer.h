@@ -150,6 +150,10 @@ class Writer : public dwio::common::Writer {
   // Forces a row group boundary before the data added by next write().
   void newRowGroup(int32_t numRows);
 
+  bool finish() override {
+    return true;
+  }
+
   // Closes 'this', After close, data can no longer be added and the completed
   // Parquet file is flushed into 'sink' provided at construction. 'sink' stays
   // live until destruction of 'this'.

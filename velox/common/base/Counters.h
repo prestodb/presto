@@ -162,6 +162,9 @@ constexpr folly::StringPiece kMetricSpillPeakMemoryBytes{
 constexpr folly::StringPiece kMetricFileWriterEarlyFlushedRawBytes{
     "velox.file_writer_early_flushed_raw_bytes"};
 
+constexpr folly::StringPiece kMetricHiveSortWriterFinishTimeMs{
+    "velox.hive_sort_writer_finish_time_ms"};
+
 constexpr folly::StringPiece kMetricArbitratorRequestsCount{
     "velox.arbitrator_requests_count"};
 

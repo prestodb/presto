@@ -104,9 +104,7 @@ class TableWriter : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::TableWriteNode>& tableWriteNode);
 
-  BlockingReason isBlocked(ContinueFuture* /* future */) override {
-    return BlockingReason::kNotBlocked;
-  }
+  BlockingReason isBlocked(ContinueFuture* future) override;
 
   void initialize() override;
 
@@ -192,6 +190,8 @@ class TableWriter : public Operator {
 
   void createDataSink();
 
+  bool finishDataSink();
+
   std::vector<std::string> closeDataSink();
 
   void abortDataSink();
@@ -214,6 +214,10 @@ class TableWriter : public Operator {
   std::unique_ptr<connector::DataSink> dataSink_;
   std::vector<column_index_t> inputMapping_;
   std::shared_ptr<const RowType> mappedType_;
+
+  // The blocking future might be set when finish data sink.
+  ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
+  BlockingReason blockingReason_{BlockingReason::kNotBlocked};
 
   bool finished_{false};
   bool closed_{false};

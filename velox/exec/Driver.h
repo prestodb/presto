@@ -758,6 +758,16 @@ DriverThreadContext* driverThreadContext();
 } // namespace facebook::velox::exec
 
 template <>
+struct fmt::formatter<facebook::velox::exec::BlockingReason>
+    : formatter<std::string> {
+  auto format(facebook::velox::exec::BlockingReason b, format_context& ctx)
+      const {
+    return formatter<std::string>::format(
+        facebook::velox::exec::blockingReasonToString(b), ctx);
+  }
+};
+
+template <>
 struct fmt::formatter<facebook::velox::exec::StopReason>
     : formatter<std::string> {
   auto format(facebook::velox::exec::StopReason s, format_context& ctx) const {

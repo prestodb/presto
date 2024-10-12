@@ -38,6 +38,9 @@ using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::connector::hive {
 namespace {
+#define WRITER_NON_RECLAIMABLE_SECTION_GUARD(index)       \
+  memory::NonReclaimableSectionGuard nonReclaimableGuard( \
+      writerInfo_[(index)]->nonReclaimableSectionHolder.get())
 
 // Returns the type of non-partition data columns.
 RowTypePtr getNonPartitionTypes(
@@ -181,10 +184,17 @@ std::shared_ptr<memory::MemoryPool> createSortPool(
   return writerPool->addLeafChild(fmt::format("{}.sort", writerPool->name()));
 }
 
-#define WRITER_NON_RECLAIMABLE_SECTION_GUARD(index)       \
-  memory::NonReclaimableSectionGuard nonReclaimableGuard( \
-      writerInfo_[(index)]->nonReclaimableSectionHolder.get())
-
+uint64_t getFinishTimeSliceLimitMsFromHiveConfig(
+    const std::shared_ptr<const HiveConfig>& config,
+    const config::ConfigBase* sessions) {
+  const uint64_t flushTimeSliceLimitMsFromConfig =
+      config->sortWriterFinishTimeSliceLimitMs(sessions);
+  // NOTE: if the flush time slice limit is set to 0, then we treat it as no
+  // limit.
+  return flushTimeSliceLimitMsFromConfig == 0
+      ? std::numeric_limits<uint64_t>::max()
+      : flushTimeSliceLimitMsFromConfig;
+}
 } // namespace
 
 const HiveWriterId& HiveWriterId::unpartitionedId() {
@@ -388,7 +398,10 @@ HiveDataSink::HiveDataSink(
                        : nullptr),
       writerFactory_(dwio::common::getWriterFactory(
           insertTableHandle_->tableStorageFormat())),
-      spillConfig_(connectorQueryCtx->spillConfig()) {
+      spillConfig_(connectorQueryCtx->spillConfig()),
+      sortWriterFinishTimeSliceLimitMs_(getFinishTimeSliceLimitMsFromHiveConfig(
+          hiveConfig_,
+          connectorQueryCtx->sessionProperties())) {
   if (isBucketed()) {
     VELOX_USER_CHECK_LT(
         bucketCount_, maxBucketCount(), "bucketCount exceeds the limit");
@@ -482,6 +495,8 @@ std::string HiveDataSink::stateString(State state) {
   switch (state) {
     case State::kRunning:
       return "RUNNING";
+    case State::kFinishing:
+      return "FLUSHING";
     case State::kClosed:
       return "CLOSED";
     case State::kAborted:
@@ -578,23 +593,52 @@ void HiveDataSink::setState(State newState) {
 void HiveDataSink::checkStateTransition(State oldState, State newState) {
   switch (oldState) {
     case State::kRunning:
-      if (newState == State::kAborted || newState == State::kClosed) {
+      if (newState == State::kAborted || newState == State::kFinishing) {
         return;
       }
       break;
+    case State::kFinishing:
+      if (newState == State::kAborted || newState == State::kClosed ||
+          // The finishing state is reentry state if we yield in the middle of
+          // finish processing if a single run takes too long.
+          newState == State::kFinishing) {
+        return;
+      }
+      [[fallthrough]];
     case State::kAborted:
-      [[fallthrough]];
     case State::kClosed:
-      [[fallthrough]];
     default:
       break;
   }
   VELOX_FAIL("Unexpected state transition from {} to {}", oldState, newState);
 }
 
+bool HiveDataSink::finish() {
+  // Flush is reentry state.
+  setState(State::kFinishing);
+
+  // As for now, only sorted writer needs flush buffered data. For non-sorted
+  // writer, data is directly written to the underlying file writer.
+  if (!sortWrite()) {
+    return true;
+  }
+
+  // TODO: we might refactor to move the data sorting logic into hive data sink.
+  const uint64_t startTimeMs = getCurrentTimeMs();
+  for (auto i = 0; i < writers_.size(); ++i) {
+    WRITER_NON_RECLAIMABLE_SECTION_GUARD(i);
+    if (!writers_[i]->finish()) {
+      return false;
+    }
+    if (getCurrentTimeMs() - startTimeMs > sortWriterFinishTimeSliceLimitMs_) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::vector<std::string> HiveDataSink::close() {
-  checkRunning();
-  state_ = State::kClosed;
+  setState(State::kClosed);
   closeInternal();
 
   std::vector<std::string> partitionUpdates;
@@ -629,13 +673,13 @@ std::vector<std::string> HiveDataSink::close() {
 }
 
 void HiveDataSink::abort() {
-  checkRunning();
-  state_ = State::kAborted;
+  setState(State::kAborted);
   closeInternal();
 }
 
 void HiveDataSink::closeInternal() {
   VELOX_CHECK_NE(state_, State::kRunning);
+  VELOX_CHECK_NE(state_, State::kFinishing);
 
   TestValue::adjust(
       "facebook::velox::connector::hive::HiveDataSink::closeInternal", this);
@@ -799,7 +843,8 @@ HiveDataSink::maybeCreateBucketSortWriter(
       hiveConfig_->sortWriterMaxOutputRows(
           connectorQueryCtx_->sessionProperties()),
       hiveConfig_->sortWriterMaxOutputBytes(
-          connectorQueryCtx_->sessionProperties()));
+          connectorQueryCtx_->sessionProperties()),
+      sortWriterFinishTimeSliceLimitMs_);
 }
 
 HiveWriterId HiveDataSink::getWriterId(size_t row) const {

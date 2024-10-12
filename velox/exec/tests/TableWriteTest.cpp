@@ -3399,6 +3399,93 @@ DEBUG_ONLY_TEST_P(BucketSortOnlyTableWriterTest, outputBatchRows) {
   }
 }
 
+DEBUG_ONLY_TEST_P(BucketSortOnlyTableWriterTest, yield) {
+  auto rowType =
+      ROW({"c0", "p0", "c1", "c3", "c4", "c5"},
+          {VARCHAR(), BIGINT(), INTEGER(), REAL(), DOUBLE(), VARCHAR()});
+  std::vector<std::string> partitionKeys = {"p0"};
+
+  // Partition vector is constant vector.
+  std::vector<RowVectorPtr> vectors = makeBatches(1, [&](auto) {
+    return makeRowVector(
+        rowType->names(),
+        {makeFlatVector<StringView>(
+             1'000,
+             [&](auto row) {
+               return StringView::makeInline(fmt::format("str_{}", row));
+             }),
+         makeConstant((int64_t)365, 1'000),
+         makeConstant((int32_t)365, 1'000),
+         makeFlatVector<float>(1'000, [&](auto row) { return row + 33.23; }),
+         makeFlatVector<double>(1'000, [&](auto row) { return row + 33.23; }),
+         makeFlatVector<StringView>(1'000, [&](auto row) {
+           return StringView::makeInline(fmt::format("bucket_{}", row * 3));
+         })});
+  });
+  createDuckDbTable(vectors);
+
+  struct {
+    uint64_t flushTimeSliceLimitMs;
+    bool expectedYield;
+
+    std::string debugString() const {
+      return fmt::format(
+          "flushTimeSliceLimitMs: {}, expectedYield: {}",
+          flushTimeSliceLimitMs,
+          expectedYield);
+    }
+  } testSettings[] = {{0, false}, {1, true}, {10'000, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    std::atomic_bool injectDelayOnce{true};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::dwrf::Writer::write",
+        std::function<void(dwrf::Writer*)>([&](dwrf::Writer* /*unused*/) {
+          if (!injectDelayOnce.exchange(false)) {
+            return;
+          }
+          std::this_thread::sleep_for(std::chrono::seconds(2));
+        }));
+    createDuckDbTable(vectors);
+
+    auto outputDirectory = TempDirectoryPath::create();
+    auto plan = createInsertPlan(
+        PlanBuilder().values({vectors}),
+        rowType,
+        outputDirectory->getPath(),
+        partitionKeys,
+        bucketProperty_,
+        compressionKind_,
+        1,
+        connector::hive::LocationHandle::TableType::kNew,
+        commitStrategy_);
+    const int prevYieldCount = Driver::yieldCount();
+    const std::shared_ptr<Task> task =
+        AssertQueryBuilder(plan, duckDbQueryRunner_)
+            .config(QueryConfig::kTaskWriterCount, std::to_string(1))
+            .connectorSessionProperty(
+                kHiveConnectorId,
+                HiveConfig::kSortWriterFinishTimeSliceLimitMsSession,
+                folly::to<std::string>(testData.flushTimeSliceLimitMs))
+            .connectorSessionProperty(
+                kHiveConnectorId,
+                HiveConfig::kSortWriterMaxOutputRowsSession,
+                folly::to<std::string>(100))
+            .connectorSessionProperty(
+                kHiveConnectorId,
+                HiveConfig::kSortWriterMaxOutputBytesSession,
+                folly::to<std::string>("1KB"))
+            .assertResults("SELECT count(*) FROM tmp");
+    auto stats = task->taskStats().pipelineStats.front().operatorStats;
+    if (testData.expectedYield) {
+      ASSERT_GT(Driver::yieldCount(), prevYieldCount);
+    } else {
+      ASSERT_EQ(Driver::yieldCount(), prevYieldCount);
+    }
+  }
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     UnpartitionedTableWriterTest,

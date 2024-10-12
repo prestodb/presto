@@ -1086,7 +1086,10 @@ StopReason Driver::blockDriver(
       future.valid(),
       "The operator {} is blocked but blocking future is not valid",
       op->operatorType());
-
+  VELOX_CHECK_NE(blockingReason_, BlockingReason::kNotBlocked);
+  if (blockingReason_ == BlockingReason::kYield) {
+    recordYieldCount();
+  }
   blockedOperatorId_ = blockedOperatorId;
   blockingState = std::make_shared<BlockingState>(
       self, std::move(future), op, blockingReason_);

@@ -17,15 +17,16 @@
 #include "velox/dwio/common/SortingWriter.h"
 
 namespace facebook::velox::dwio::common {
-
 SortingWriter::SortingWriter(
     std::unique_ptr<Writer> writer,
     std::unique_ptr<exec::SortBuffer> sortBuffer,
     vector_size_t maxOutputRowsConfig,
-    uint64_t maxOutputBytesConfig)
+    uint64_t maxOutputBytesConfig,
+    uint64_t outputTimeSliceLimitMs)
     : outputWriter_(std::move(writer)),
       maxOutputRowsConfig_(maxOutputRowsConfig),
       maxOutputBytesConfig_(maxOutputBytesConfig),
+      finishTimeSliceLimitMs_(outputTimeSliceLimitMs),
       sortPool_(sortBuffer->pool()),
       canReclaim_(sortBuffer->canSpill()),
       sortBuffer_(std::move(sortBuffer)) {
@@ -51,19 +52,44 @@ void SortingWriter::flush() {
   outputWriter_->flush();
 }
 
-void SortingWriter::close() {
-  setState(State::kClosed);
-
-  sortBuffer_->noMoreInput();
-  const auto maxOutputBatchRows = outputBatchRows();
-  RowVectorPtr output = sortBuffer_->getOutput(maxOutputBatchRows);
-  while (output != nullptr) {
-    outputWriter_->write(output);
-    output = sortBuffer_->getOutput(maxOutputBatchRows);
+bool SortingWriter::finish() {
+  const uint64_t startTimeMs = getCurrentTimeMs();
+  SCOPE_EXIT {
+    const uint64_t flushTimeMs = getCurrentTimeMs() - startTimeMs;
+    if (flushTimeMs != 0) {
+      RECORD_HISTOGRAM_METRIC_VALUE(
+          kMetricHiveSortWriterFinishTimeMs, flushTimeMs);
+    }
+  };
+  if (isRunning()) {
+    sortBuffer_->noMoreInput();
+    setState(State::kFinishing);
   }
+  if (sortBuffer_ == nullptr) {
+    return true;
+  }
+
+  const auto maxOutputBatchRows = outputBatchRows();
+  RowVectorPtr output{nullptr};
+  do {
+    if (getCurrentTimeMs() - startTimeMs > finishTimeSliceLimitMs_) {
+      return false;
+    }
+    output = sortBuffer_->getOutput(maxOutputBatchRows);
+    if (output != nullptr) {
+      outputWriter_->write(output);
+    }
+  } while (output != nullptr);
 
   sortBuffer_.reset();
   sortPool_->release();
+  return true;
+}
+
+void SortingWriter::close() {
+  VELOX_CHECK(isFinishing());
+  setState(State::kClosed);
+  VELOX_CHECK_NULL(sortBuffer_);
   outputWriter_->close();
 }
 
@@ -86,7 +112,7 @@ uint64_t SortingWriter::reclaim(
     return 0;
   }
 
-  if (!isRunning()) {
+  if (!isRunning() && !isFinishing()) {
     LOG(WARNING) << "Can't reclaim from a not running hive sort writer pool: "
                  << sortPool_->name() << ", state: " << state()
                  << "used memory: " << succinctBytes(sortPool_->usedBytes())
