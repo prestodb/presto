@@ -20,7 +20,7 @@
 #include <unordered_map>
 
 #include "presto_cpp/main/SessionProperties.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/QueryCtx.h"
 
 namespace facebook::presto {

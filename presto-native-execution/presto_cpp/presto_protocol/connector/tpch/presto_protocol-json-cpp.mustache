@@ -20,51 +20,30 @@
 {{/comment}}
 {{/.}}
 
-#include <folly/Format.h>
-#include <iostream>
 
-#include "presto_cpp/presto_protocol/ConnectorProtocol.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
-
+#include "presto_cpp/presto_protocol/connector/tpch/presto_protocol_tpch.h"
 using namespace std::string_literals;
 
-namespace nlohmann {
-std::string json_map_key(std::string p) {
-	return p;
+namespace facebook::presto::protocol::tpch {
+
+void to_json(json& j, const TpchTransactionHandle& p) {
+    j = json::array();
+    j.push_back(p._type);
+    j.push_back(p.instance);
 }
-} // namespace nlohmann
 
-namespace facebook::presto::protocol {
-
-const char* const PRESTO_PAGES_MIME_TYPE = "application/x-presto-pages";
-
-const char* const PRESTO_CURRENT_STATE_HTTP_HEADER = "X-Presto-Current-State";
-const char* const PRESTO_MAX_WAIT_HTTP_HEADER = "X-Presto-Max-Wait";
-const char* const PRESTO_MAX_SIZE_HTTP_HEADER = "X-Presto-Max-Size";
-const char* const PRESTO_TASK_INSTANCE_ID_HEADER = "X-Presto-Task-Instance-Id";
-const char* const PRESTO_PAGE_TOKEN_HEADER = "X-Presto-Page-Sequence-Id";
-const char* const PRESTO_PAGE_NEXT_TOKEN_HEADER = "X-Presto-Page-End-Sequence-Id";
-const char* const PRESTO_BUFFER_COMPLETE_HEADER = "X-Presto-Buffer-Complete";
-const char* const PRESTO_GET_DATA_SIZE_HEADER = "X-Presto-Get-Data-Size";
-const char* const PRESTO_BUFFER_REMAINING_BYTES_HEADER = "X-Presto-Buffer-Remaining-Bytes";
-
-const char* const PRESTO_MAX_WAIT_DEFAULT = "2s";
-const char* const PRESTO_MAX_SIZE_DEFAULT = "4096 B";
-
-const char* const PRESTO_ABORT_TASK_URL_PARAM = "abort";
-
-std::string json_map_key(const VariableReferenceExpression& p) {
-	return fmt::format("{}<{}>", p.name, p.type);
+void from_json(const json& j, TpchTransactionHandle& p) {
+    j[0].get_to(p._type);
+    j[1].get_to(p.instance);
 }
 } // namespace facebook::presto::protocol
-
 {{#.}}
 {{#cinc}}
 {{&cinc}}
 {{/cinc}}
 {{^cinc}}
 {{#struct}}
-namespace facebook::presto::protocol {
+namespace facebook::presto::protocol::tpch {
     {{#super_class}}
     {{&class_name}}::{{&class_name}}() noexcept {
         _type = "{{json_key}}";
@@ -92,7 +71,7 @@ namespace facebook::presto::protocol {
 }
 {{/struct}}
 {{#enum}}
-namespace facebook::presto::protocol {
+namespace facebook::presto::protocol::tpch {
     //Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
     // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
@@ -125,7 +104,7 @@ namespace facebook::presto::protocol {
 }
 {{/enum}}
 {{#abstract}}
-namespace facebook::presto::protocol {
+namespace facebook::presto::protocol::tpch {
     void to_json(json& j, const std::shared_ptr<{{&class_name}}>& p) {
         if ( p == nullptr ) {
             return;
