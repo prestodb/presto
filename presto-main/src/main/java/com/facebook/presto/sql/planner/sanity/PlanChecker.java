@@ -107,7 +107,15 @@ public final class PlanChecker
         checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validateFragment(planFragment, session, metadata, warningCollector));
         for (PlanCheckerProvider provider : planCheckerProviderManager.getPlanCheckerProviders()) {
             for (com.facebook.presto.spi.plan.PlanChecker checker : provider.getFragmentPlanCheckers()) {
-                checker.validateFragment(toSimplePlanFragment(planFragment), warningCollector);
+                checker.validateFragment(new SimplePlanFragment(
+                        planFragment.getId(),
+                        planFragment.getRoot(),
+                        planFragment.getVariables(),
+                        planFragment.getPartitioning(),
+                        planFragment.getTableScanSchedulingOrder(),
+                        planFragment.getPartitioningScheme(),
+                        planFragment.getStageExecutionDescriptor(),
+                        planFragment.isOutputTableWriterFragment()), warningCollector);
             }
         }
     }
@@ -125,18 +133,5 @@ public final class PlanChecker
     private enum Stage
     {
         INTERMEDIATE, FINAL, FRAGMENT
-    }
-
-    private static SimplePlanFragment toSimplePlanFragment(PlanFragment planFragment)
-    {
-        return new SimplePlanFragment(
-                planFragment.getId(),
-                planFragment.getRoot(),
-                planFragment.getVariables(),
-                planFragment.getPartitioning(),
-                planFragment.getTableScanSchedulingOrder(),
-                planFragment.getPartitioningScheme(),
-                planFragment.getStageExecutionDescriptor(),
-                planFragment.isOutputTableWriterFragment());
     }
 }

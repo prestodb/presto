@@ -19,9 +19,9 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.plan.PlanChecker;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
-import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -45,7 +45,7 @@ public class NativePlanCheckerProvider
     public List<PlanChecker> getFragmentPlanCheckers()
     {
         return config.isPlanValidationEnabled() ?
-                Collections.singletonList(new NativePlanChecker(nodeManager, planFragmentJsonCodec, config)) :
-                Collections.emptyList();
+                ImmutableList.of(new NativePlanChecker(nodeManager, planFragmentJsonCodec, config)) :
+                ImmutableList.of();
     }
 }

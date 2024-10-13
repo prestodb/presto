@@ -21,7 +21,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanChecker;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanVisitor;
@@ -49,10 +48,6 @@ public final class NativePlanChecker
         implements PlanChecker
 {
     private static final Logger LOG = Logger.get(NativePlanChecker.class);
-    private static final String PRESTO_QUERY_ID = "X-Presto-Query-Id";
-    private static final String PRESTO_TIME_ZONE = "X-Presto-Time-Zone";
-    private static final String PRESTO_SYSTEM_PROPERTY = "X-Presto-System-Property";
-    private static final String PRESTO_CATALOG_PROPERTY = "X-Presto-Catalog-Property";
     private static final MediaType JSON_CONTENT_TYPE = MediaType.parse("application/json; charset=utf-8");
     public static final String PLAN_CONVERSION_ENDPOINT = "/v1/velox/plan";
 
@@ -96,7 +91,7 @@ public final class NativePlanChecker
             if (!planFragment.getPartitioning().isCoordinatorOnly() && !isInternalSystemConnector(planFragment.getRoot())) {
                 runValidation(planFragment);
             }
-            else if (LOG.isDebugEnabled()) {
+            else {
                 LOG.debug("Skipping Native Plan Validation for plan fragment id: %s", planFragment.getId());
             }
         }
@@ -137,7 +132,6 @@ public final class NativePlanChecker
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 String responseBody = response.body() != null ? response.body().string() : "{}";
-                LOG.error("Native plan checker failed with code: %d, response: %s", response.code(), responseBody);
                 if (config.isQueryFailOnError()) {
                     throw new PrestoException(QUERY_REJECTED, "Query failed by native plan checker with code: " + response.code() + ", response: " + responseBody);
                 }
@@ -168,14 +162,13 @@ public final class NativePlanChecker
         }
 
         @Override
-        public Boolean visitFilter(FilterNode filter, Void context)
-        {
-            return filter.getSource().accept(this, context);
-        }
-
-        @Override
         public Boolean visitPlan(PlanNode node, Void context)
         {
+            for (PlanNode child : node.getSources()) {
+                if (child.accept(this, context)) {
+                    return true;
+                }
+            }
             return false;
         }
     }

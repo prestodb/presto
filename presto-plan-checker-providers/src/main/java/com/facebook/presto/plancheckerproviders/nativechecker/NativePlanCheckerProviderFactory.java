@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class NativePlanCheckerProviderFactory
         implements PlanCheckerProviderFactory
 {
-    private static final File NATIVE_PLAN_CHECKER_PROVIDER_CONFIG = new File("etc/native-plan-checker-provider.properties");
+    private static final File NATIVE_PLAN_CHECKER_PROVIDER_CONFIG = new File("etc/plan-checker-providers/native-plan-checker.properties");
     private final ClassLoader classLoader;
 
     public NativePlanCheckerProviderFactory(ClassLoader classLoader)

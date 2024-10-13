@@ -27,7 +27,7 @@ public class NativePlanCheckerConfig
         return enabled;
     }
 
-    @Config("plan-validation-enabled")
+    @Config("native-plan-checker.plan-validation-enabled")
     @ConfigDescription("Set true to enable native plan validation")
     public NativePlanCheckerConfig setPlanValidationEnabled(boolean enabled)
     {
@@ -40,7 +40,7 @@ public class NativePlanCheckerConfig
         return queryFailOnError;
     }
 
-    @Config("query-fail-on-error")
+    @Config("native-plan-checker.query-fail-on-error")
     @ConfigDescription("Set true to fail the query if plan does not pass native validation, false will log error only")
     public NativePlanCheckerConfig setQueryFailOnError(boolean queryFailOnError)
     {
