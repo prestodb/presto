@@ -1446,10 +1446,14 @@ Expected<DateTimeResult> DateTimeFormatter::parse(
       date.timezoneId};
 }
 
-std::shared_ptr<DateTimeFormatter> buildMysqlDateTimeFormatter(
+Expected<std::shared_ptr<DateTimeFormatter>> buildMysqlDateTimeFormatter(
     const std::string_view& format) {
   if (format.empty()) {
-    VELOX_USER_FAIL("Both printing and parsing not supported");
+    if (threadSkipErrorDetails()) {
+      return folly::makeUnexpected(Status::UserError());
+    }
+    return folly::makeUnexpected(
+        Status::UserError("Both printing and parsing not supported"));
   }
 
   // For %r we should reserve 1 extra space because it has 3 literals ':' ':'
@@ -1557,8 +1561,11 @@ std::shared_ptr<DateTimeFormatter> buildMysqlDateTimeFormatter(
         case 'V':
         case 'w':
         case 'X':
-          VELOX_UNSUPPORTED(
-              "Date format specifier is not supported: %{}", *tokenEnd);
+          if (threadSkipErrorDetails()) {
+            return folly::makeUnexpected(Status::UserError());
+          }
+          return folly::makeUnexpected(Status::UserError(
+              "Date format specifier is not supported: %{}", *tokenEnd));
         default:
           builder.appendLiteral(tokenEnd, 1);
           break;
@@ -1575,10 +1582,14 @@ std::shared_ptr<DateTimeFormatter> buildMysqlDateTimeFormatter(
   return builder.setType(DateTimeFormatterType::MYSQL).build();
 }
 
-std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
+Expected<std::shared_ptr<DateTimeFormatter>> buildJodaDateTimeFormatter(
     const std::string_view& format) {
   if (format.empty()) {
-    VELOX_USER_FAIL("Invalid pattern specification");
+    if (threadSkipErrorDetails()) {
+      return folly::makeUnexpected(Status::UserError());
+    }
+    return folly::makeUnexpected(
+        Status::UserError("Invalid pattern specification"));
   }
 
   DateTimeFormatterBuilder builder(format.size());
@@ -1598,16 +1609,19 @@ std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
         // Case 2: find closing single quote
         int64_t count = numLiteralChars(startTokenPtr + 1, end);
         if (count == -1) {
-          VELOX_USER_FAIL("No closing single quote for literal");
-        } else {
-          for (int64_t i = 1; i <= count; i++) {
-            builder.appendLiteral(startTokenPtr + i, 1);
-            if (*(startTokenPtr + i) == '\'') {
-              i += 1;
-            }
+          if (threadSkipErrorDetails()) {
+            return folly::makeUnexpected(Status::UserError());
           }
-          cur += count + 2;
+          return folly::makeUnexpected(
+              Status::UserError("No closing single quote for literal"));
         }
+        for (int64_t i = 1; i <= count; i++) {
+          builder.appendLiteral(startTokenPtr + i, 1);
+          if (*(startTokenPtr + i) == '\'') {
+            i += 1;
+          }
+        }
+        cur += count + 2;
       }
     } else {
       int count = 1;
@@ -1686,7 +1700,11 @@ std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
           break;
         default:
           if (isalpha(*startTokenPtr)) {
-            VELOX_UNSUPPORTED("Specifier {} is not supported.", *startTokenPtr);
+            if (threadSkipErrorDetails()) {
+              return folly::makeUnexpected(Status::UserError());
+            }
+            return folly::makeUnexpected(Status::UserError(
+                "Specifier {} is not supported.", *startTokenPtr));
           } else {
             builder.appendLiteral(startTokenPtr, cur - startTokenPtr);
           }
@@ -1697,10 +1715,16 @@ std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
   return builder.setType(DateTimeFormatterType::JODA).build();
 }
 
-std::shared_ptr<DateTimeFormatter> buildSimpleDateTimeFormatter(
+Expected<std::shared_ptr<DateTimeFormatter>> buildSimpleDateTimeFormatter(
     const std::string_view& format,
     bool lenient) {
-  VELOX_USER_CHECK(!format.empty(), "Format pattern should not be empty.");
+  if (format.empty()) {
+    if (threadSkipErrorDetails()) {
+      return folly::makeUnexpected(Status::UserError());
+    }
+    return folly::makeUnexpected(
+        Status::UserError("Format pattern should not be empty"));
+  }
 
   DateTimeFormatterBuilder builder(format.size());
   const char* cur = format.data();
@@ -1721,7 +1745,13 @@ std::shared_ptr<DateTimeFormatter> buildSimpleDateTimeFormatter(
         // Append literal characters from the start until the next closing
         // literal sequence single quote.
         int64_t count = numLiteralChars(startTokenPtr + 1, end);
-        VELOX_USER_CHECK_NE(count, -1, "No closing single quote for literal");
+        if (count == -1) {
+          if (threadSkipErrorDetails()) {
+            return folly::makeUnexpected(Status::UserError());
+          }
+          return folly::makeUnexpected(
+              Status::UserError("No closing single quote for literal"));
+        }
         for (int64_t i = 1; i <= count; i++) {
           builder.appendLiteral(startTokenPtr + i, 1);
           if (*(startTokenPtr + i) == '\'') {
@@ -1809,7 +1839,11 @@ std::shared_ptr<DateTimeFormatter> buildSimpleDateTimeFormatter(
           break;
         default:
           if (isalpha(*startTokenPtr)) {
-            VELOX_UNSUPPORTED("Specifier {} is not supported.", *startTokenPtr);
+            if (threadSkipErrorDetails()) {
+              return folly::makeUnexpected(Status::UserError());
+            }
+            return folly::makeUnexpected(Status::UserError(
+                "Specifier {} is not supported.", *startTokenPtr));
           } else {
             builder.appendLiteral(startTokenPtr, cur - startTokenPtr);
           }
