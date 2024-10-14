@@ -48,6 +48,12 @@ class VeloxQueryPlanConverterBase {
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
+  /// Do we fail if we encounter a nested loop join in the plan ?
+  /// This is due to issue
+  ///  https://github.com/prestodb/presto/issues/22585
+  static constexpr std::string_view kFailOnNestedLoopJoin{
+      "fail_on_nested_loop_join"};
+
  protected:
   virtual velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::RemoteSourceNode>& node,
