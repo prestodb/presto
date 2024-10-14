@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+import static com.facebook.presto.elasticsearch.ElasticsearchClientUtil.buildRequest;
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
@@ -93,12 +94,13 @@ public class TestPasswordAuthentication
                 .build());
 
         client.getLowLevelClient()
-                .performRequest(
+                .performRequest(buildRequest(
                         "POST",
                         "/test/_doc?refresh",
                         ImmutableMap.of(),
                         new NStringEntity(json, ContentType.APPLICATION_JSON),
-                        new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
+                        ImmutableList.of(new BasicHeader("Authorization", format("Basic %s",
+                                Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))))));
 
         assertions.assertQuery("SELECT * FROM test",
                 "VALUES BIGINT '42'");
