@@ -22,6 +22,7 @@
 #include <type_traits>
 
 #include "velox/type/StringView.h"
+#include "velox/type/Timestamp.h"
 #include "velox/type/Type.h"
 
 // Miscellaneous utilities regarding type, to avoid duplication
@@ -53,8 +54,9 @@ constexpr bool isIntegral() {
  */
 template <typename T>
 constexpr bool admitsDictionary() {
-  return std::is_same_v<T, int64_t> || std::is_same_v<T, double> ||
-      std::is_same_v<T, StringView>;
+  return std::is_same_v<T, int128_t> || std::is_same_v<T, int64_t> ||
+      std::is_same_v<T, double> || std::is_same_v<T, StringView> ||
+      std::is_same_v<T, velox::Timestamp>;
 }
 
 /**

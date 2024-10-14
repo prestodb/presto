@@ -95,6 +95,17 @@ class PlanBuilder {
   explicit PlanBuilder(memory::MemoryPool* pool = nullptr)
       : PlanBuilder(std::make_shared<core::PlanNodeIdGenerator>(), pool) {}
 
+  /// Constructor that allows an initial plane node to be specified for testing
+  /// this is useful when testing additional connectors that do not rely on the
+  /// table scan node supported below.
+  PlanBuilder(
+      core::PlanNodePtr initialPlanNode,
+      std::shared_ptr<core::PlanNodeIdGenerator> planNodeIdGenerator,
+      memory::MemoryPool* pool = nullptr)
+      : planNode_(std::move(initialPlanNode)),
+        planNodeIdGenerator_{std::move(planNodeIdGenerator)},
+        pool_{pool} {}
+
   static constexpr const std::string_view kHiveDefaultConnectorId{"test-hive"};
   static constexpr const std::string_view kTpchDefaultConnectorId{"test-tpch"};
 

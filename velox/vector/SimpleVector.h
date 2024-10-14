@@ -137,6 +137,10 @@ class SimpleVector : public BaseVector {
     return stats_;
   }
 
+  void testingSetStats(SimpleVectorStats<T>&& stats) {
+    stats_ = std::move(stats);
+  }
+
   // Concrete Vector types need to implement this themselves.
   // This method does not do bounds checking. When the value is null the return
   // value is technically undefined (currently implemented as default of T)
