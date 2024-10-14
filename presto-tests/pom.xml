@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.jvmsize>5g</air.test.jvmsize>
     </properties>
 
     <dependencies>
@@ -367,7 +368,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Xms4g -Xmx4g</argLine>
                     <!-- these tests take a very long time so only run them in the CI server -->
                     <excludes>
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
