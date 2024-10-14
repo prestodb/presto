@@ -2604,6 +2604,7 @@
                     --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED
                     --add-opens java.base/java.util.regex=ALL-UNNAMED
                     --add-opens java.base/jdk.internal.loader=ALL-UNNAMED
+                    --add-opens java.base/sun.security.action=ALL-UNNAMED
                 </air.test.jvm.additional-arguments>
             </properties>
         </profile>
