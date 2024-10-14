@@ -77,15 +77,16 @@ class SessionProperties {
   static constexpr const char* kExprEvalSimplified =
       "native_simplified_expression_evaluation_enabled";
 
-  /// The maximum memory used by partial aggregation when data reduction is not
-  /// optimal.
+  /// The initial partial aggregation memory limit. The aggregation operator
+  /// might bump up the limit if the partial aggregation has seen good reduction
+  /// in output.
   static constexpr const char* kMaxPartialAggregationMemory =
       "native_max_partial_aggregation_memory";
 
-  /// The max partial aggregation memory when data reduction is optimal.
+  /// The max partial aggregation memory limit.
   /// When good data reduction is achieved through partial aggregation, more
-  /// memory would be given even when we reach limit of
-  /// kMaxPartialAggregationMemory.
+  /// memory would be given until we reach limit of
+  /// kMaxExtendedPartialAggregationMemory.
   static constexpr const char* kMaxExtendedPartialAggregationMemory =
       "native_max_extended_partial_aggregation_memory";
 

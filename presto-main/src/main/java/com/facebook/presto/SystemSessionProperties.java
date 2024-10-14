@@ -1766,12 +1766,15 @@ public final class SystemSessionProperties
                         true),
                 longProperty(
                         NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY,
-                        "The max partial aggregation memory when data reduction is not optimal.",
+                        "The initial partial aggregation memory limit. The aggregation operator " +
+                                "might bump up the limit if the partial aggregation has seen good reduction" +
+                                " in output.",
                         1L << 24,
                         false),
                 longProperty(
                         NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,
-                        "The max partial aggregation memory when data reduction is optimal.",
+                        "The max partial aggregation memory limit. The aggregation operator won't " +
+                                "exceed this limit even if it has seen good reduction in output.",
                         1L << 26,
                         false),
                 longProperty(
