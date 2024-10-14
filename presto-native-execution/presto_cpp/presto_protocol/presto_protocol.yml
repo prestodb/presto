@@ -53,6 +53,7 @@ AbstractClasses:
         - { name: IcebergColumnHandle,      key: hive-iceberg }
         - { name: TpchColumnHandle,         key: tpch }
         - { name: SystemColumnHandle,       key: $system@system }
+        - { name: TpcdsColumnHandle,        key: tpcds }
 
     ConnectorPartitioningHandle:
       super: JsonEncodedSubclass
@@ -60,6 +61,7 @@ AbstractClasses:
         - { name: SystemPartitioningHandle, key: $remote }
         - { name: HivePartitioningHandle,   key: hive}
         - { name: TpchPartitioningHandle,   key: tpch}
+        - { name: TpcdsPartitioningHandle,  key: tpcds}
 
     ConnectorTableHandle:
       super: JsonEncodedSubclass
@@ -68,6 +70,7 @@ AbstractClasses:
         - { name: IcebergTableHandle,       key: hive-iceberg }
         - { name: TpchTableHandle,          key: tpch }
         - { name: SystemTableHandle,        key: $system@system }
+        - { name: TpcdsTableHandle,         key: tpcds }
 
     ConnectorOutputTableHandle:
       super: JsonEncodedSubclass
@@ -87,6 +90,8 @@ AbstractClasses:
         - { name: HiveTransactionHandle,    key: hive }
         - { name: RemoteTransactionHandle,  key: $remote }
         - { name: SystemTransactionHandle,  key: $system@system }
+        - { name: TpchTransactionHandle,    key: tpch }
+        - { name: TpcdsTransactionHandle,   key: tpcds }
 
     ConnectorTableLayoutHandle:
       super: JsonEncodedSubclass
@@ -95,6 +100,7 @@ AbstractClasses:
         - { name: IcebergTableLayoutHandle, key: hive-iceberg }
         - { name: TpchTableLayoutHandle,    key: tpch }
         - { name: SystemTableLayoutHandle,  key: $system@system }
+        - { name: TpcdsTableLayoutHandle,   key: tpcds }
 
     ConnectorMetadataUpdateHandle:
       super: JsonEncodedSubclass
@@ -107,6 +113,7 @@ AbstractClasses:
         - { name: HiveSplit,            key: hive }
         - { name: IcebergSplit,         key: hive-iceberg }
         - { name: TpchSplit,            key: tpch }
+        - { name: TpcdsSplit,           key: tpcds }
         - { name: RemoteSplit,          key: $remote }
         - { name: EmptySplit,           key: $empty }
         - { name: SystemSplit,          key: $system@system }
@@ -272,6 +279,11 @@ JavaClasses:
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchTableLayoutHandle.java
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchColumnHandle.java
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchPartitioningHandle.java
+  - presto-tpcds/src/main/java/com/facebook/presto/tpcds/TpcdsSplit.java
+  - presto-tpcds/src/main/java/com/facebook/presto/tpcds/TpcdsTableHandle.java
+  - presto-tpcds/src/main/java/com/facebook/presto/tpcds/TpcdsTableLayoutHandle.java
+  - presto-tpcds/src/main/java/com/facebook/presto/tpcds/TpcdsColumnHandle.java
+  - presto-tpcds/src/main/java/com/facebook/presto/tpcds/TpcdsPartitioningHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/LimitNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/LongVariableConstraint.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/Marker.java
