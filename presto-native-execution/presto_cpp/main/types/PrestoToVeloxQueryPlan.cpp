@@ -15,6 +15,7 @@
 // clang-format off
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/common/Configs.h"
 #include <velox/type/Filter.h>
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/HashPartitionFunction.h"
@@ -23,6 +24,10 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/core/Expressions.h"
+#include "velox/connectors/hive/TableHandle.h"
+#include "velox/core/ITypedExpr.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+
 // clang-format on
 
 #include <folly/String.h>
@@ -1779,7 +1784,7 @@ protocol::PlanNodeId toPartitionedOutputNodeId(const protocol::PlanNodeId& id) {
 
 } // namespace
 
-core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlanImpl(
     const protocol::PlanFragment& fragment,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
@@ -1948,6 +1953,124 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       std::shared_ptr(std::move(spec)),
       toRowType(partitioningScheme.outputLayout, typeParser_),
       sourceNode);
+  return planFragment;
+}
+
+namespace {
+
+bool rowHasTimestampWithTz(const RowTypePtr row) {
+  for (auto child : row->children()) {
+    if (isTimestampWithTimeZoneType(child)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool exprHasTimestampWithTz(const std::vector<core::TypedExprPtr>& exprs) {
+  for (auto expr : exprs) {
+    if (isTimestampWithTimeZoneType(expr->type())) {
+      return true;
+    }
+    if (exprHasTimestampWithTz(expr->inputs())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+} // namespace
+
+bool planHasTimestampWithTimeZone(const core::PlanNodePtr planNode) {
+  // Do output types have timestamp with tz ?
+  if (rowHasTimestampWithTz(planNode->outputType())) {
+    return true;
+  }
+
+  // Is it a projectNode with timestamp with tz ?
+  if (auto projectNode =
+          std::dynamic_pointer_cast<const core::ProjectNode>(planNode)) {
+    if (!projectNode->projections().empty() &&
+        exprHasTimestampWithTz(projectNode->projections())) {
+      return true;
+    }
+  }
+
+  // Is it a filterNode with timestamp with tz ?
+  if (auto filterNode =
+          std::dynamic_pointer_cast<const core::FilterNode>(planNode)) {
+    if (filterNode->filter() &&
+        exprHasTimestampWithTz({filterNode->filter()})) {
+      return true;
+    }
+  }
+
+  // Is it one of the joinNodes with timestamp with tz ?
+  if (auto joinNode =
+          std::dynamic_pointer_cast<const core::AbstractJoinNode>(planNode)) {
+    if (joinNode->filter() && exprHasTimestampWithTz({joinNode->filter()})) {
+      return true;
+    }
+  }
+
+  if (auto joinNode =
+          std::dynamic_pointer_cast<const core::NestedLoopJoinNode>(planNode)) {
+    if (joinNode->joinCondition() &&
+        exprHasTimestampWithTz({joinNode->joinCondition()})) {
+      return true;
+    }
+  }
+
+  // Does aggregation use timestamp with tz ?
+  if (auto aggNode =
+          std::dynamic_pointer_cast<const core::AggregationNode>(planNode)) {
+    for (auto agg : aggNode->aggregates()) {
+      if (agg.call &&
+          (agg.call->type() && isTimestampWithTimeZoneType(agg.call->type()) ||
+           exprHasTimestampWithTz(agg.call->inputs()))) {
+        return true;
+      }
+    }
+  }
+
+  // Is it tablescan with remaining filter ?
+  if (auto tableScanNode =
+          std::dynamic_pointer_cast<const core::TableScanNode>(planNode)) {
+    if (auto hiveTableHandle =
+            std::dynamic_pointer_cast<connector::hive::HiveTableHandle>(
+                tableScanNode->tableHandle())) {
+      if (hiveTableHandle->remainingFilter() &&
+          exprHasTimestampWithTz({hiveTableHandle->remainingFilter()})) {
+        return true;
+      }
+    }
+  }
+
+  // Do source plans have timestamp with tz ?
+  for (auto plan : planNode->sources()) {
+    if (planHasTimestampWithTimeZone(plan)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const protocol::PlanFragment& fragment,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  auto planFragment = toVeloxQueryPlanImpl(fragment, tableWriteInfo, taskId);
+
+  if (SystemConfig::instance()
+          ->optionalProperty<bool>(kFailOnTimestampWithTimezone)
+          .value_or(false)) {
+    VELOX_CHECK(
+        !planHasTimestampWithTimeZone(planFragment.planNode),
+        "Plan uses Timestamp with Timezone");
+  }
   return planFragment;
 }
 
