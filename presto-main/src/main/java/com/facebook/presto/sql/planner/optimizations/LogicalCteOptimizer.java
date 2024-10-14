@@ -14,6 +14,16 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.cost.CachingCostProvider;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.CostProvider;
+import com.facebook.presto.cost.PlanCostEstimate;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -27,6 +37,9 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Memo;
+import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -41,6 +54,7 @@ import com.google.common.graph.MutableGraph;
 import com.google.common.graph.MutableValueGraph;
 import com.google.common.graph.Traverser;
 import com.google.common.graph.ValueGraphBuilder;
+import io.airlift.units.Duration;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -51,12 +65,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getCteHeuristicReplicationThreshold;
 import static com.facebook.presto.SystemSessionProperties.getCteMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.isCteMaterializationApplicable;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.ALL;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.EXPERIMENTAL_COST_BASED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.HEURISTIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.HEURISTIC_COMPLEX_QUERIES_ONLY;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -90,9 +105,21 @@ public class LogicalCteOptimizer
 {
     private final Metadata metadata;
 
-    public LogicalCteOptimizer(Metadata metadata)
+    private final CostComparator costComparator;
+
+    private final StatsCalculator statsCalculator;
+
+    private final CostCalculator costCalculator;
+
+    public LogicalCteOptimizer(Metadata metadata,
+            CostComparator costComparator,
+            CostCalculator costCalculator,
+            StatsCalculator statsCalculator)
     {
         this.metadata = metadata;
+        this.costComparator = costComparator;
+        this.costCalculator = costCalculator;
+        this.statsCalculator = statsCalculator;
     }
 
     @Override
@@ -106,7 +133,19 @@ public class LogicalCteOptimizer
         if (!isCteMaterializationApplicable(session)) {
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
-        CteEnumerator cteEnumerator = new CteEnumerator(idAllocator, variableAllocator);
+        Memo memo = new Memo(idAllocator, plan, Optional.empty());
+        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        Matcher matcher = new PlanNodeMatcher(lookup);
+        Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
+        StatsProvider statsProvider = new CachingStatsProvider(
+                statsCalculator,
+                Optional.of(memo),
+                lookup,
+                session,
+                TypeProvider.viewOf(variableAllocator.getVariables()));
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
+
+        CteEnumerator cteEnumerator = new CteEnumerator(idAllocator, variableAllocator, costProvider, statsProvider);
         PlanNode rewrittenPlan = cteEnumerator.transformPersistentCtes(session, plan);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, cteEnumerator.isPlanRewritten());
     }
@@ -116,19 +155,25 @@ public class LogicalCteOptimizer
         private PlanNodeIdAllocator planNodeIdAllocator;
         private VariableAllocator variableAllocator;
 
+        private CostProvider costProvider;
+
+        private CostProvider statsProvider;
+
         private boolean isPlanRewritten;
 
-        public CteEnumerator(PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator)
+        public CteEnumerator(PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, CostProvider costProvider, StatsProvider statsProvider)
         {
             this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator must not be null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator must not be null");
+            this.costProvider = requireNonNull(costProvider, "costProvider must not be null");
+            this.statsProvider = requireNonNull(costProvider, "costProvider must not be null");
         }
 
         public PlanNode transformPersistentCtes(Session session, PlanNode root)
         {
             checkArgument(root.getSources().size() == 1, "expected newChildren to contain 1 node");
             LogicalCteOptimizerContext context = new LogicalCteOptimizerContext();
-            determineMaterializationCandidatesAndUpdateContext(session, root, context);
+            determineMaterializationCandidatesAndUpdateContext(session, root, context, costProvider);
             PlanNode transformedCte = SimplePlanRewriter.rewriteWith(new CteConsumerTransformer(session, planNodeIdAllocator, variableAllocator),
                     root, context);
             List<PlanNode> topologicalOrderedList = context.getTopologicalOrdering();
@@ -151,10 +196,13 @@ public class LogicalCteOptimizer
             return isPlanRewritten;
         }
 
-        private void determineMaterializationCandidatesAndUpdateContext(Session session, PlanNode root, LogicalCteOptimizerContext context)
+        private void determineMaterializationCandidatesAndUpdateContext(Session session, PlanNode root, LogicalCteOptimizerContext context, CostProvider costProvider)
         {
             if (shouldPerformHeuristicAnalysis(session)) {
                 performHeuristicAnalysis(session, root, context);
+            }
+            else if (shouldPerformCostBasedAnalysis(session)) {
+                performCostBasedAnalysis(session, root, context, costProvider);
             }
             else {
                 markAllCtesForMaterialization(session, context);
@@ -163,7 +211,20 @@ public class LogicalCteOptimizer
 
         private boolean shouldPerformHeuristicAnalysis(Session session)
         {
-            return !getCteMaterializationStrategy(session).equals(ALL);
+            return getCteMaterializationStrategy(session).equals(HEURISTIC) || getCteMaterializationStrategy(session).equals(HEURISTIC_COMPLEX_QUERIES_ONLY);
+        }
+
+        private boolean shouldPerformCostBasedAnalysis(Session session)
+        {
+            return getCteMaterializationStrategy(session).equals(EXPERIMENTAL_COST_BASED);
+        }
+
+        private void performCostBasedAnalysis(Session session, PlanNode root, LogicalCteOptimizerContext context, CostProvider costProvider)
+        {
+            WeightedDependencyAnalyzer dependencyAnalyzer = new WeightedDependencyAnalyzer();
+            root.accept(dependencyAnalyzer, context);
+            root.accept(new CostAnalyzer(costProvider, planNodeIdAllocator, variableAllocator), context);
+            new CostBasedCteMaterializationDeterminer(session).determineCandidates(context);
         }
 
         private void performHeuristicAnalysis(Session session, PlanNode root, LogicalCteOptimizerContext context)
@@ -279,6 +340,73 @@ public class LogicalCteOptimizer
         }
     }
 
+    public class CostAnalyzer
+            extends SimplePlanVisitor<LogicalCteOptimizerContext>
+    {
+        private final Set<String> visited;
+
+        private final CostProvider costProvider;
+
+        private final PlanNodeIdAllocator idAllocator;
+
+        private final VariableAllocator variableAllocator;
+
+        public CostAnalyzer(CostProvider costProvider, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator)
+        {
+            this.idAllocator = planNodeIdAllocator;
+            this.variableAllocator = variableAllocator;
+            visited = new HashSet<>();
+            this.costProvider = costProvider;
+        }
+
+        @Override
+        public Void visitCteReference(CteReferenceNode node, LogicalCteOptimizerContext context)
+        {
+            node.getSource().accept(this, context);
+            PlanCostEstimate planNodeCost = costProvider.getCost(node);
+            context.cteReferenceCostMap.put(node.getCteId(), planNodeCost);
+
+
+            // compute cte producer cost
+            PlanNode dummyCteProducer = new CteProducerNode(node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    node.getSource(),
+                    node.getCteId(),
+                    variableAllocator.newVariable("rows", BIGINT), node.getOutputVariables());
+            PlanCostEstimate cteProducerCost = costProvider.getCost(dummyCteProducer);
+            context.cteProducerCostMap.put(node.getCteId(), cteProducerCost);
+            // Compute cte consumer cost
+            PlanNode dummyCteConsumerNode =
+                    new CteConsumerNode(node.getSourceLocation(), idAllocator.getNextId(),
+                            Optional.of(node.getSource()),
+                            node.getSource().getOutputVariables(),
+                            node.getCteId(),
+                            node.getSource());
+            PlanCostEstimate cteConsumerCost = costProvider.getCost(dummyCteConsumerNode);
+            context.cteConsumerCostMap.put(node.getCteId(), cteConsumerCost);
+
+            return null;
+        }
+    }
+
+    private static PlanCostEstimate multiplyCost(PlanCostEstimate costEstimate, int factor)
+    {
+        return new PlanCostEstimate(
+                costEstimate.getCpuCost() * factor,
+                costEstimate.getMaxMemory() * factor,
+                costEstimate.getMaxMemoryWhenOutputting() * factor,
+                costEstimate.getNetworkCost() * factor);
+    }
+
+    private static PlanCostEstimate addCost(PlanCostEstimate costEstimate, PlanCostEstimate costEstimate2)
+    {
+        return new PlanCostEstimate(
+                costEstimate.getCpuCost() + costEstimate2.getCpuCost(),
+                costEstimate.getMaxMemory() + costEstimate2.getCpuCost(),
+                costEstimate.getMaxMemoryWhenOutputting() + costEstimate2.getCpuCost(),
+                costEstimate.getNetworkCost() + costEstimate2.getCpuCost());
+    }
+
     /**
      * Selects CTEs for materialization following a greedy heuristic approach.
      * The algorithm greedily prioritizes the earliest parent CTE that meets the heuristic criteria for materialization and then reduces the reference counts for its child CTEs,
@@ -387,6 +515,102 @@ public class LogicalCteOptimizer
         }
     }
 
+    public class CostBasedCteMaterializationDeterminer
+    {
+        private final Session session;
+
+        public CostBasedCteMaterializationDeterminer(Session session)
+        {
+            this.session = session;
+        }
+
+        private void decrementCteReferenceCount(String cteId, int referencesToRemove)
+        {
+            HashMap<String, CTEInformation> cteInformationMap = session.getCteInformationCollector().getCteInformationMap();
+            CTEInformation cteInfo = cteInformationMap.get(cteId);
+            int newReferenceCount = cteInfo.getNumberOfReferences() - referencesToRemove;
+
+            checkArgument(newReferenceCount >= 0, "CTE Reference count for cteId %s should be >= 0", cteId);
+            cteInformationMap.put(cteId, new CTEInformation(cteInfo.getCteName(), cteInfo.getCteId(), newReferenceCount, cteInfo.getIsView(), cteInfo.isMaterialized()));
+        }
+
+        void rebaseReferences(MutableValueGraph<String, Integer> graph, String cteId, int currentMultiplier, int baseRemovalMultiplier, LogicalCteOptimizerContext context)
+        {
+            for (String childCte : graph.successors(cteId)) {
+                if (!context.shouldCteBeMaterialized(childCte)) {
+                    int edgeValue = graph.edgeValueOrDefault(cteId, childCte, 1);
+                    int referencesToRemove = baseRemovalMultiplier * currentMultiplier * edgeValue;
+                    decrementCteReferenceCount(childCte, referencesToRemove);
+                    rebaseReferences(graph, childCte, currentMultiplier * edgeValue, baseRemovalMultiplier, context);
+                }
+            }
+        }
+
+        /**
+         * Recursively adjusts the reference counts in the dependency graph due to the materialization of a CTE.
+         * This adjustment accounts for the reduced need to recompute the CTEs that are directly or indirectly
+         * referenced by the materialized CTE.
+         * <p>
+         * Example:
+         * Let's say A is referenced 3 times in a query and A references B 3 times, and B references C 2 times.
+         * The graph would be: Query - (3) - A -(3)-> B -(2)-> C
+         * If A was materialized, we would need to adjust B and C's references because their computations are
+         * effectively encapsulated by A's materialization.
+         * Initial reference counts are 9 for B and 18 for C.
+         * The decrement needed would be as follows:
+         * - For B, the adjustment would be 2 (A's references) * 3 (times A references B) = 6
+         * - For C, following B's adjustment, the adjustment would be 2 (A's references) * 3 (times A references B) * 2 (times B references C) = 12
+         * Therefore, the new reference counts would be 3 for B (9 - 6) and 6 for C (18 - 12).
+         */
+        private void adjustChildReferenceCounts(String parentCteId, int parentReferences, LogicalCteOptimizerContext context)
+        {
+            int adjustmentFactor = parentReferences - 1;
+            checkArgument(adjustmentFactor >= 0, "adjustment count cannot be negative");
+            rebaseReferences(context.cteReferenceDependencyGraph, parentCteId, 1, adjustmentFactor, context);
+        }
+
+        public void determineCandidates(LogicalCteOptimizerContext context)
+        {
+            MutableValueGraph<String, Integer> cteReferenceDependencyGraph = context.copyOfCteReferenceDependencyGraph();
+            HashMap<String, CTEInformation> cteInformationMap = session.getCteInformationCollector().getCteInformationMap();
+
+            // populate vertexes with indegree 0
+            List<String> nodesWithInDegreeZero = cteReferenceDependencyGraph.nodes().stream()
+                    .filter(node -> cteReferenceDependencyGraph.inDegree(node) == 0)
+                    .collect(Collectors.toList());
+
+            while (!nodesWithInDegreeZero.isEmpty()) {
+                // traverse these edges and update
+                nodesWithInDegreeZero.forEach(cteId -> {
+                    CTEInformation cteInfo = cteInformationMap.get(cteId);
+                    PlanCostEstimate referenceCost = context.cteReferenceCostMap.get(cteId);
+                    PlanCostEstimate cteProducerCost = context.cteProducerCostMap.get(cteId);
+                    PlanCostEstimate cteConsumerCost = context.cteConsumerCostMap.get(cteId);
+                    if (referenceCost.hasUnknownComponents() || cteProducerCost.hasUnknownComponents() || cteConsumerCost.hasUnknownComponents()) {
+                        return;
+                    }
+                    int numReferences = cteInfo.getNumberOfReferences();
+                    PlanCostEstimate totalCostWithoutMaterialization = multiplyCost(referenceCost, numReferences);
+                    PlanCostEstimate totalCostWithMaterialization = addCost(multiplyCost(cteConsumerCost, numReferences - 1), cteProducerCost);
+                    if (costComparator.compare(session, totalCostWithMaterialization, totalCostWithoutMaterialization) < 0) {
+                        // should be materialized
+                        context.candidatesForMaterilization.add(cteId);
+                        // update child references
+                        adjustChildReferenceCounts(cteId, cteInfo.getNumberOfReferences(), context);
+                    }
+                });
+
+                // Remove these nodes from the graphs
+                nodesWithInDegreeZero.forEach(cteReferenceDependencyGraph::removeNode);
+
+                // Refresh the list of nodes with in-degree of zero
+                nodesWithInDegreeZero = cteReferenceDependencyGraph.nodes().stream()
+                        .filter(node -> cteReferenceDependencyGraph.inDegree(node) == 0)
+                        .collect(Collectors.toList());
+            }
+        }
+    }
+
     public static class CteConsumerTransformer
             extends SimplePlanRewriter<LogicalCteOptimizerContext>
     {
@@ -462,12 +686,21 @@ public class LogicalCteOptimizer
 
         private Set<String> candidatesForMaterilization;
 
+        private Map<String, PlanCostEstimate> cteReferenceCostMap;
+
+        private Map<String, PlanCostEstimate> cteConsumerCostMap;
+
+        private Map<String, PlanCostEstimate> cteProducerCostMap;
+
         public LogicalCteOptimizerContext()
         {
             cteProducerMap = new HashMap<>();
             // The cte graph will never have cycles because sql won't allow it
             cteReferenceDependencyGraph = ValueGraphBuilder.directed().allowsSelfLoops(false).build();
             materializedCteDependencyGraph = GraphBuilder.directed().allowsSelfLoops(false).build();
+            cteReferenceCostMap = new HashMap<>();
+            cteConsumerCostMap = new HashMap<>();
+            cteProducerCostMap = new HashMap<>();
             activeCteStack = new Stack<>();
             complexCtes = new HashSet<>();
             candidatesForMaterilization = new HashSet<>();
