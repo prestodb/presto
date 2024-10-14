@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListener;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.planPrinter.JsonRenderer;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
@@ -24,6 +26,8 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -116,5 +120,31 @@ public class TestHiveDistributedQueries
         checkCTEInfo(explain, "tbl2", 1, false, true);
     }
 
+    @Test
+    public void testExplainAnalyzeMaterializedCTEs()
+    {
+        Session materializedSession = Session.builder(getSession())
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
+                .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
+                .setSystemProperty(CTE_PARTITIONING_PROVIDER_CATALOG, "hive")
+                .build();
+
+        JsonRenderer renderer = new JsonRenderer(getQueryRunner().getMetadata().getFunctionAndTypeManager());
+
+        List<Map<PlanFragmentId, JsonRenderer.JsonPlan>> fragmentsList = renderer.deserialize((String) computeActual(materializedSession, "EXPLAIN ANALYZE (format JSON) SELECT * FROM orders").getOnlyValue());
+        fragmentsList.forEach(fragments -> {
+            fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        });
+
+        fragmentsList = renderer.deserialize((String) computeActual(materializedSession, "EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders").getOnlyValue());
+        fragmentsList.forEach(fragments -> {
+            fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        });
+
+        fragmentsList = renderer.deserialize((String) computeActual(materializedSession, "EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0").getOnlyValue());
+        fragmentsList.forEach(fragments -> {
+            fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        });
+    }
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
 }
