@@ -44,8 +44,6 @@ struct CacheRequest {
   cache::CachePin pin;
   cache::SsdPin ssdPin;
 
-  bool processed{false};
-
   /// True if this should be coalesced into a CoalescedLoad with other nearby
   /// requests with a similar load probability. This is false for sparsely
   /// accessed large columns where hitting one piece should not load the

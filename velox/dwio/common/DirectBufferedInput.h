@@ -36,7 +36,6 @@ struct LoadRequest {
 
   velox::common::Region region;
   cache::TrackingId trackingId;
-  bool processed{false};
 
   const SeekableInputStream* stream;
 
@@ -63,6 +62,10 @@ class DirectCoalescedLoad : public cache::CoalescedLoad {
         input_(std::move(input)),
         loadQuantum_(loadQuantum),
         pool_(pool) {
+    VELOX_DCHECK(
+        std::is_sorted(requests.begin(), requests.end(), [](auto* x, auto* y) {
+          return x->region.offset < y->region.offset;
+        }));
     requests_.reserve(requests.size());
     for (auto i = 0; i < requests.size(); ++i) {
       requests_.push_back(std::move(*requests[i]));

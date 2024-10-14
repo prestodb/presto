@@ -539,7 +539,7 @@ TEST_F(CacheTest, ssd) {
   auto sparseStripeBytes = (ioStats_->rawBytesRead() - bytes) / 10;
   EXPECT_LT(sparseStripeBytes, fullStripeBytes / 4);
   // Expect the dense fraction of columns to have read ahead.
-  EXPECT_LT(1000000, ioStats_->prefetch().sum());
+  EXPECT_LT(400'000, ioStats_->prefetch().sum());
 
   constexpr int32_t kStripesPerFile = 10;
   auto bytesPerFile = fullStripeBytes * kStripesPerFile;

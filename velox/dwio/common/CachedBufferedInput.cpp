@@ -121,12 +121,11 @@ std::vector<CacheRequest*> makeRequestParts(
   // metadata columns (empty no trackingData) always coalesce.
   const bool prefetchOne =
       request.trackingId.id() == StreamIdentifier::sequentialFile().id_;
-  const auto readPct =
-      (100 * trackingData.numReads) / (1 + trackingData.numReferences);
   const auto readDensity =
-      (100 * trackingData.readBytes) / (1 + trackingData.referencedBytes);
+      trackingData.readBytes / (1 + trackingData.referencedBytes);
+  const auto readPct = 100 * readDensity;
   const bool prefetch = trackingData.referencedBytes > 0 &&
-      (isPrefetchPct(readPct) && readDensity >= 80);
+      isPrefetchPct(readPct) && readDensity >= 0.8;
   std::vector<CacheRequest*> parts;
   for (uint64_t offset = 0; offset < request.size; offset += loadQuantum) {
     const int32_t size = std::min<int32_t>(loadQuantum, request.size - offset);
@@ -143,14 +142,6 @@ std::vector<CacheRequest*> makeRequestParts(
   return parts;
 }
 
-int32_t adjustedReadPct(const cache::TrackingData& trackingData) {
-  // When called, there will be one more reference that read, since references
-  // are counted before reading.
-  if (trackingData.numReferences < 2) {
-    return 0;
-  }
-  return (100 * trackingData.numReads) / (trackingData.numReferences - 1);
-}
 } // namespace
 
 void CachedBufferedInput::load(const LogType /*unused*/) {
@@ -165,49 +156,43 @@ void CachedBufferedInput::load(const LogType /*unused*/) {
   // Extra requests made for pre-loadable regions that are larger than
   // 'loadQuantum'.
   std::vector<std::unique_ptr<CacheRequest>> extraRequests;
-  // We loop over access frequency buckets. For example readPct 80 will get all
-  // streams where 80% or more of the referenced data is actually loaded.
-  for (const auto readPct : std::vector<int32_t>{80, 50, 20, 0}) {
-    std::vector<CacheRequest*> storageLoad;
-    std::vector<CacheRequest*> ssdLoad;
-    for (auto& request : requests) {
-      if (request.processed) {
+  std::vector<CacheRequest*> storageLoad[2];
+  std::vector<CacheRequest*> ssdLoad[2];
+  for (auto& request : requests) {
+    cache::TrackingData trackingData;
+    const bool prefetchAnyway = request.trackingId.empty() ||
+        request.trackingId.id() == StreamIdentifier::sequentialFile().id_;
+    if (!prefetchAnyway && (tracker_ != nullptr)) {
+      trackingData = tracker_->trackingData(request.trackingId);
+    }
+    const int loadIndex =
+        (prefetchAnyway || isPrefetchPct(adjustedReadPct(trackingData))) ? 1
+                                                                         : 0;
+    auto parts = makeRequestParts(
+        request, trackingData, options_.loadQuantum(), extraRequests);
+    for (auto part : parts) {
+      if (cache_->exists(part->key)) {
         continue;
       }
-      cache::TrackingData trackingData;
-      const bool prefetchAnyway = request.trackingId.empty() ||
-          request.trackingId.id() == StreamIdentifier::sequentialFile().id_;
-      if (!prefetchAnyway && (tracker_ != nullptr)) {
-        trackingData = tracker_->trackingData(request.trackingId);
-      }
-      if (prefetchAnyway || adjustedReadPct(trackingData) >= readPct) {
-        request.processed = true;
-        auto parts = makeRequestParts(
-            request, trackingData, options_.loadQuantum(), extraRequests);
-        for (auto part : parts) {
-          if (cache_->exists(part->key)) {
-            continue;
-          }
-          if (ssdFile != nullptr) {
-            part->ssdPin = ssdFile->find(part->key);
-            if (!part->ssdPin.empty() &&
-                part->ssdPin.run().size() < part->size) {
-              LOG(INFO) << "IOERR: Ignoring SSD shorter than requested: "
-                        << part->ssdPin.run().size() << " vs " << part->size;
-              part->ssdPin.clear();
-            }
-            if (!part->ssdPin.empty()) {
-              ssdLoad.push_back(part);
-              continue;
-            }
-          }
-          storageLoad.push_back(part);
+      if (ssdFile != nullptr) {
+        part->ssdPin = ssdFile->find(part->key);
+        if (!part->ssdPin.empty() && part->ssdPin.run().size() < part->size) {
+          LOG(INFO) << "IOERR: Ignoring SSD shorter than requested: "
+                    << part->ssdPin.run().size() << " vs " << part->size;
+          part->ssdPin.clear();
+        }
+        if (!part->ssdPin.empty()) {
+          ssdLoad[loadIndex].push_back(part);
+          continue;
         }
       }
+      storageLoad[loadIndex].push_back(part);
     }
-    makeLoads(std::move(storageLoad), isPrefetchPct(readPct));
-    makeLoads(std::move(ssdLoad), isPrefetchPct(readPct));
   }
+  makeLoads(std::move(storageLoad[1]), true);
+  makeLoads(std::move(ssdLoad[1]), true);
+  makeLoads(std::move(storageLoad[0]), false);
+  makeLoads(std::move(ssdLoad[0]), false);
 }
 
 void CachedBufferedInput::makeLoads(
@@ -235,8 +220,7 @@ void CachedBufferedInput::makeLoads(
   coalesceIo<CacheRequest*, CacheRequest*>(
       requests,
       maxDistance,
-      // Break batches up. Better load more short ones in parallel.
-      40,
+      std::numeric_limits<int32_t>::max(),
       [&](int32_t index) {
         return isSsd ? requests[index]->ssdPin.run().offset()
                      : requests[index]->key.offset;

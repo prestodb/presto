@@ -32,8 +32,10 @@ void ScanTracker::recordReference(
     fileGroupStats_->recordReference(fileId, groupId, id, bytes);
   }
   std::lock_guard<std::mutex> l(mutex_);
-  data_[id].incrementReference(bytes, loadQuantum_);
-  sum_.incrementReference(bytes, loadQuantum_);
+  auto& data = data_[id];
+  data.referencedBytes += bytes;
+  data.lastReferencedBytes = bytes;
+  sum_.referencedBytes += bytes;
 }
 
 void ScanTracker::recordRead(
@@ -45,18 +47,17 @@ void ScanTracker::recordRead(
     fileGroupStats_->recordRead(fileId, groupId, id, bytes);
   }
   std::lock_guard<std::mutex> l(mutex_);
-  data_[id].incrementRead(bytes);
-  sum_.incrementRead(bytes);
+  auto& data = data_[id];
+  data.readBytes += bytes;
+  sum_.readBytes += bytes;
 }
 
 std::string ScanTracker::toString() const {
   std::stringstream out;
   out << "ScanTracker for " << id_ << std::endl;
-  for (const auto& pair : data_) {
-    const int pct =
-        100 * pair.second.readBytes / (1 + pair.second.referencedBytes);
-    out << pair.first.id() << ": " << pct << "% " << pair.second.readBytes
-        << "/" << pair.second.numReads << std::endl;
+  for (const auto& [id, data] : data_) {
+    out << id.id() << ": " << data.readBytes << "/" << data.referencedBytes
+        << std::endl;
   }
   return out.str();
 }

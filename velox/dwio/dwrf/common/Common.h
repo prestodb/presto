@@ -166,6 +166,9 @@ class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
             stream.has_column() ? stream.column() : dwio::common::MAX_UINT32,
             stream.kind()) {}
 
+  /// Pruned flat map keys are not enqueued thus all flatmap values on same
+  /// column should have similar read percentage, so it is ok for them to share
+  /// the same TrackingData.
   DwrfStreamIdentifier(
       uint32_t node,
       uint32_t sequence,

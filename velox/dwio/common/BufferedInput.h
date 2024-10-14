@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/common/caching/ScanTracker.h"
 #include "velox/common/memory/AllocationPool.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/StreamIdentifier.h"
@@ -149,6 +150,23 @@ class BufferedInput {
   virtual uint64_t nextFetchSize() const;
 
  protected:
+  static int adjustedReadPct(const cache::TrackingData& trackingData) {
+    // When this method is called, there is one more reference that is already
+    // counted, but the corresponding read (if exists) has not happened yet.  So
+    // we must count one fewer reference at this point.
+    const auto referencedBytes =
+        trackingData.referencedBytes - trackingData.lastReferencedBytes;
+    if (referencedBytes == 0) {
+      return 0;
+    }
+    const int pct = trackingData.readBytes / referencedBytes * 100;
+    VELOX_CHECK_LE(0, pct, "Bad read percentage: {}", pct);
+    // It is possible to seek back or clone the stream and read the same data
+    // multiple times, or because of unplanned read, so pct could be larger than
+    // 100.  This should be rare in production though.
+    return pct;
+  }
+
   const std::shared_ptr<ReadFileInputStream> input_;
   memory::MemoryPool* const pool_;
 
