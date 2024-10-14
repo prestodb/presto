@@ -24,7 +24,6 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
@@ -54,6 +53,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
@@ -77,7 +77,7 @@ public class TestValidateStreamingJoins
                 .setSchema("tiny");
         defaultSession = sessionBuilder.build();
         spillSession = testSessionBuilder(
-                new SessionPropertyManager(new SystemSessionProperties(
+                createTestingSessionPropertyManager(new SystemSessionProperties(
                         new QueryManagerConfig(),
                         new TaskManagerConfig(),
                         new MemoryManagerConfig(),
