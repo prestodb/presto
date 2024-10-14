@@ -159,7 +159,8 @@ public class PhysicalCteOptimizer
                     temporaryTableHandle,
                     actualSource.getOutputVariables(),
                     variableToColumnMap,
-                    node.getRowCountVariable());
+                    node.getRowCountVariable(),
+                    node.getStatsEquivalentPlanNode());
         }
 
         public boolean isPlanRewritten()
