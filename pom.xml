@@ -204,6 +204,12 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-handler</artifactId>
+                <version>4.1.107.Final</version>
+            </dependency>
+            
+            <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-testing-docker</artifactId>
                 <version>${project.version}</version>
