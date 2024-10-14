@@ -65,7 +65,7 @@ executors:
   build:
     docker:
       # These images are managed by the Presto Release team.
-      - image: prestodb/presto-native-dependency:latest
+      - image: prestodb/presto-native-dependency:0.290-20241014120930-e1fc090
     resource_class: 2xlarge
     environment:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError -XX:CompressedClassSpaceSize=3g"
