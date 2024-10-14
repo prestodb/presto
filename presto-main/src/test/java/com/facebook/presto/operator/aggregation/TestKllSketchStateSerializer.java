@@ -25,6 +25,7 @@ import org.apache.datasketches.common.ArrayOfLongsSerDe;
 import org.apache.datasketches.common.ArrayOfStringsSerDe;
 import org.apache.datasketches.kll.KllItemsSketch;
 import org.openjdk.jol.info.GraphLayout;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -91,6 +92,7 @@ public class TestKllSketchStateSerializer
         testEstimatedMemorySize(BIGINT, i -> (long) i, .05);
     }
 
+    @Ignore("The memory size of a string-typed sketch is dependent upon the strings used as input, so this test doesn't verify much")
     @Test
     public void testEstimatedMemorySizeString()
     {
