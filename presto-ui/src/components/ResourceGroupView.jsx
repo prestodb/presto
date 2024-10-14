@@ -190,7 +190,7 @@ export default function ResourceGroupView() {
             });
             return;
         }
-        fetch('/v1/resourceGroupState/' + group.replace('.', '/'))
+        fetch(`/v1/resourceGroupState/${group.replaceAll('.', '/')}`)
         .then(response => response.json())
         .then((resources) => {
             dataSet.current = {
