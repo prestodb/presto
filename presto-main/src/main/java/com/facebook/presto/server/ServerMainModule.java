@@ -141,6 +141,7 @@ import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
 import com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider;
+import com.facebook.presto.sessionpropertyproviders.NativeWorkerSessionPropertyProvider;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTypeSerde;
@@ -805,6 +806,9 @@ public class ServerMainModule
         MapBinder<String, WorkerSessionPropertyProvider> mapBinder =
                 newMapBinder(binder, String.class, WorkerSessionPropertyProvider.class);
         mapBinder.addBinding("java-worker").to(JavaWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+        if (!serverConfig.isCoordinatorSidecarEnabled()) {
+            mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+        }
 
         // Node manager binding
         binder.bind(PluginNodeManager.class).in(Scopes.SINGLETON);
