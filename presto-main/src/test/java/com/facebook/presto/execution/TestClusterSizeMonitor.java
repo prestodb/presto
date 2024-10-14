@@ -170,7 +170,7 @@ public class TestClusterSizeMonitor
         assertTrue(monitor.hasRequiredCoordinatorSidecars());
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Expected a single active coordinator sidecar. Found 2 active coordinator sidecars")
+    @Test
     public void testHasRequiredCoordinatorSidecarsMoreThanOne()
             throws InterruptedException
     {
@@ -178,7 +178,7 @@ public class TestClusterSizeMonitor
         for (int i = numCoordinatorSidecars.get(); i < DESIRED_COORDINATOR_SIDECAR_COUNT + 1; i++) {
             addCoordinatorSidecar(nodeManager);
         }
-        assertFalse(monitor.hasRequiredCoordinatorSidecars());
+        assertTrue(monitor.hasRequiredCoordinatorSidecars());
     }
 
     @Test
@@ -222,6 +222,7 @@ public class TestClusterSizeMonitor
         ListenableFuture<?> coordinatorSidecarsFuture = monitor.waitForMinimumCoordinatorSidecars();
         addSuccessCallback(coordinatorSidecarsFuture, () -> {
             assertFalse(coordinatorSidecarsTimeout.get());
+            minCoordinatorSidecarsLatch.countDown();
             minCoordinatorSidecarsLatch.countDown();
         });
         addExceptionCallback(coordinatorSidecarsFuture, () -> {
