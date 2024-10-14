@@ -634,13 +634,15 @@
         </profile>
         <profile>
             <id>test-hive-pushdown-filter-queries-basic</id>
+            <properties>
+                <air.test.jvmsize>5g</air.test.jvmsize>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <argLine>-Xms4g -Xmx4g</argLine>
                             <includes>
                                 <include>**/TestHivePushdownFilterQueries.java</include>
                                 <include>**/TestHivePushdownIntegrationSmokeTest.java</include>
