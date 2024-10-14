@@ -57,7 +57,7 @@ std::vector<std::unique_ptr<folly::IOBuf>> getData(
         result->setValue(std::move(pages));
       }));
   auto future = std::move(semiFuture).via(executor);
-  future.wait(std::chrono::seconds{10});
+  future.wait();
   VELOX_CHECK(future.isReady());
   return std::move(future).value();
 }

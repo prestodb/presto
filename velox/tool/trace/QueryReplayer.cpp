@@ -19,6 +19,7 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
@@ -89,6 +90,8 @@ void init() {
   const auto ioExecutor = std::make_unique<folly::IOThreadPoolExecutor>(
       std::thread::hardware_concurrency() *
       FLAGS_hiveConnectorExecutorHwMultiplier);
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>());
   const auto hiveConnector =
       connector::getConnectorFactory("hive")->newConnector(
           "test-hive",

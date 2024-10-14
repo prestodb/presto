@@ -63,7 +63,7 @@ class PartitionedOutputReplayer final : public OperatorReplayerBase {
       std::make_unique<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency(),
           std::make_shared<folly::NamedThreadFactory>("Driver"))};
-  const ConsumerCallBack& consumerCb_;
+  const ConsumerCallBack consumerCb_;
   std::unique_ptr<folly::CPUThreadPoolExecutor> consumerExecutor_;
 };
 } // namespace facebook::velox::tool::trace

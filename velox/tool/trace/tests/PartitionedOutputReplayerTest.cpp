@@ -76,9 +76,78 @@ class PartitionedOutputReplayerTest : public HiveConnectorTestBase {
         executor_.get(), core::QueryConfig(std::move(config)));
   }
 
+  std::shared_ptr<exec::Task> createPartitionedOutputTask(
+      const std::vector<RowVectorPtr>& inputs,
+      const std::vector<std::string>& partitionKeys,
+      const std::vector<std::string>& outputLayout,
+      const std::string& traceRoot,
+      const std::string& taskId,
+      uint32_t numPartitions,
+      std::string& capturedPlanNodeId) {
+    VELOX_CHECK(capturedPlanNodeId.empty());
+    auto plan = PlanBuilder()
+                    .values(inputs, false)
+                    .partitionedOutput(
+                        partitionKeys, numPartitions, false, outputLayout)
+                    .capturePlanNodeId(capturedPlanNodeId)
+                    .planNode();
+    auto task = Task::create(
+        taskId,
+        core::PlanFragment{plan},
+        0,
+        createQueryContext(
+            {{core::QueryConfig::kQueryTraceEnabled, "true"},
+             {core::QueryConfig::kQueryTraceDir, traceRoot},
+             {core::QueryConfig::kQueryTraceMaxBytes,
+              std::to_string(100UL << 30)},
+             {core::QueryConfig::kQueryTraceTaskRegExp, ".*"},
+             {core::QueryConfig::kQueryTraceNodeIds, capturedPlanNodeId},
+             {core::QueryConfig::kMaxPartitionedOutputBufferSize,
+              std::to_string(8UL << 20)},
+             {core::QueryConfig::kMaxOutputBufferSize,
+              std::to_string(8UL << 20)}}),
+        Task::ExecutionMode::kParallel);
+    return task;
+  }
+
   const std::shared_ptr<OutputBufferManager> bufferManager_{
       exec::OutputBufferManager::getInstance().lock()};
 };
+
+TEST_F(PartitionedOutputReplayerTest, defaultConsumer) {
+  const uint32_t numPartitions = 10;
+  std::string planNodeId;
+  auto input = makeRowVector(
+      {"key", "value"},
+      {makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+       makeFlatVector<int32_t>(1'000, [](auto row) { return row; })});
+  const auto testDir = TempDirectoryPath::create();
+  const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+  auto originalTask = createPartitionedOutputTask(
+      {input},
+      {"key"},
+      {"key", "value"},
+      traceRoot,
+      "local://test-partitioned-output-replayer-basic-defaultConsumer",
+      numPartitions,
+      planNodeId);
+
+  originalTask->start(1);
+
+  auto consumerExecutor = std::make_unique<folly::CPUThreadPoolExecutor>(
+      numPartitions, std::make_shared<folly::NamedThreadFactory>("Consumer"));
+  consumeAllData(
+      bufferManager_,
+      originalTask->taskId(),
+      numPartitions,
+      executor_.get(),
+      consumerExecutor.get(),
+      [&](auto /* unused */, auto /* unused */) {});
+  ASSERT_NO_THROW(
+      PartitionedOutputReplayer(
+          traceRoot, originalTask->taskId(), planNodeId, 0, "PartitionedOutput")
+          .run());
+}
 
 TEST_F(PartitionedOutputReplayerTest, basic) {
   struct TestParam {
@@ -115,34 +184,20 @@ TEST_F(PartitionedOutputReplayerTest, basic) {
   for (auto& testParam : testParams) {
     SCOPED_TRACE(testParam.debugString());
     std::string planNodeId;
-    auto plan =
-        PlanBuilder()
-            .values({testParam.input}, false)
-            .partitionedOutput(
-                {"key"}, testParam.numPartitions, false, {"key", "value"})
-            .capturePlanNodeId(planNodeId)
-            .planNode();
     const auto testDir = TempDirectoryPath::create();
     const auto traceRoot =
         fmt::format("{}/{}", testDir->getPath(), "traceRoot");
-    auto originalTask = Task::create(
+    auto originalTask = createPartitionedOutputTask(
+        {testParam.input},
+        {"key"},
+        {"key", "value"},
+        traceRoot,
         fmt::format(
             "local://test-partitioned-output-replayer-basic-{}",
             testParam.testName),
-        core::PlanFragment{plan},
-        0,
-        createQueryContext(
-            {{core::QueryConfig::kQueryTraceEnabled, "true"},
-             {core::QueryConfig::kQueryTraceDir, traceRoot},
-             {core::QueryConfig::kQueryTraceMaxBytes,
-              std::to_string(100UL << 30)},
-             {core::QueryConfig::kQueryTraceTaskRegExp, ".*"},
-             {core::QueryConfig::kQueryTraceNodeIds, planNodeId},
-             {core::QueryConfig::kMaxPartitionedOutputBufferSize,
-              std::to_string(8UL << 20)},
-             {core::QueryConfig::kMaxOutputBufferSize,
-              std::to_string(8UL << 20)}}),
-        Task::ExecutionMode::kParallel);
+        testParam.numPartitions,
+        planNodeId);
+
     originalTask->start(1);
 
     std::vector<std::vector<std::unique_ptr<folly::IOBuf>>>
