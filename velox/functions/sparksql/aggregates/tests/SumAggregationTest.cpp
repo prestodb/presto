@@ -369,6 +369,31 @@ TEST_F(SumAggregationTest, decimalGroupBySumOverflow) {
   decimalGroupBySumOverflow(decimalVector);
 }
 
+TEST_F(SumAggregationTest, decimalLargeCountRowsOverflow) {
+  // When the precision of the input type is less than 28, the precision of the
+  // result type
+  // will be less than 38. Therefore, we need to check if the result overflows
+  // due to the result type's precision limitations. This overflow is more
+  // likely to occur when dealing with a large number of rows. To simulate this
+  // case in unit testing, we create instances with input values that are very
+  // close to the overflow threshold, but only for the final step. For example,
+  // if the input type is Decimal(3, 2) and all values are 1.00, with
+  // 10^12 + 1 rows and 2 partitions, the result type is Decimal(13, 2). So the
+  // final step's input would be (50,000,000,001.00, false),
+  // (50,000,000,000.00, false)
+  auto accumulators = makeRowVector({makeRowVector(
+      {makeFlatVector<int64_t>(
+           {5000'000'000'100L, 5000'000'000'000L}, DECIMAL(13, 2)),
+       makeFlatVector<bool>({false, false})})});
+  auto node = PlanBuilder(pool())
+                  .values({accumulators})
+                  .finalAggregation({}, {"spark_sum(c0)"}, {{DECIMAL(3, 2)}})
+                  .planNode();
+  auto expected = makeRowVector(
+      {makeNullableFlatVector<int128_t>({std::nullopt}, DECIMAL(13, 2))});
+  AssertQueryBuilder(node).assertResults(expected);
+}
+
 TEST_F(SumAggregationTest, decimalAllNullValues) {
   std::vector<std::optional<int128_t>> allNull(5, std::nullopt);
   auto input = makeRowVector(

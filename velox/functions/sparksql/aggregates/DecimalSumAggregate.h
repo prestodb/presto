@@ -23,7 +23,9 @@ namespace facebook::velox::functions::aggregate::sparksql {
 /// @tparam TInputType The raw input data type.
 /// @tparam TSumType The type of sum in the output of partial aggregation or the
 /// final output type of final aggregation.
-template <typename TInputType, typename TSumType>
+/// @tparam ResultPrecision The precision of the result type, used for checking
+/// overflow.
+template <typename TInputType, typename TSumType, uint8_t ResultPrecision>
 class DecimalSumAggregate {
  public:
   using InputType = Row<TInputType>;
@@ -78,11 +80,8 @@ class DecimalSumAggregate {
       }
       auto const adjustedSum =
           DecimalUtil::adjustSumForOverflow(sum.value(), overflow);
-      constexpr uint8_t maxPrecision = std::is_same_v<TSumType, int128_t>
-          ? LongDecimalType::kMaxPrecision
-          : ShortDecimalType::kMaxPrecision;
       if (adjustedSum.has_value() &&
-          DecimalUtil::valueInPrecisionRange(adjustedSum, maxPrecision)) {
+          DecimalUtil::valueInPrecisionRange(adjustedSum, ResultPrecision)) {
         return adjustedSum;
       } else {
         // Found overflow during computing adjusted sum.
