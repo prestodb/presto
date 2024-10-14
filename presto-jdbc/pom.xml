@@ -340,6 +340,7 @@
                                     <excludes>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
+                                        <exclude>META-INF.versions.9.module-info</exclude>
                                         <exclude>LICENSE</exclude>
                                     </excludes>
                                 </filter>
