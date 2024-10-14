@@ -102,6 +102,21 @@ class QueryTracerTest : public HiveConnectorTestBase {
   VectorFuzzer vectorFuzzer_;
 };
 
+TEST_F(QueryTracerTest, emptyTrace) {
+  const auto outputDir = TempDirectoryPath::create();
+  auto writer = trace::QueryDataWriter(
+      outputDir->getPath(), pool(), [&](uint64_t bytes) { return false; });
+  writer.finish();
+
+  const auto fs = filesystems::getFileSystem(outputDir->getPath(), nullptr);
+  const auto summaryFile = fs->openFileForRead(fmt::format(
+      "{}/{}", outputDir->getPath(), QueryTraceTraits::kDataSummaryFileName));
+  const auto summary = summaryFile->pread(0, summaryFile->size());
+  ASSERT_FALSE(summary.empty());
+  folly::dynamic obj = folly::parseJson(summary);
+  ASSERT_EQ(obj[QueryTraceTraits::kTraceLimitExceededKey].asBool(), false);
+}
+
 TEST_F(QueryTracerTest, traceData) {
   const auto rowType = ROW({"a", "b", "c"}, {BIGINT(), BIGINT(), BIGINT()});
   std::vector<RowVectorPtr> inputVectors;

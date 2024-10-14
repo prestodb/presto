@@ -42,6 +42,9 @@ void QueryDataWriter::write(const RowVectorPtr& rows) {
   if (FOLLY_UNLIKELY(finished_)) {
     return;
   }
+  if (FOLLY_UNLIKELY(dataType_ == nullptr)) {
+    dataType_ = rows->type();
+  }
 
   if (batch_ == nullptr) {
     batch_ = std::make_unique<VectorStreamGroup>(pool_);
@@ -51,7 +54,6 @@ void QueryDataWriter::write(const RowVectorPtr& rows) {
         &options_);
   }
   batch_->append(rows);
-  dataType_ = rows->type();
 
   // Serialize and write out each batch.
   IOBufOutputStream out(
@@ -86,7 +88,9 @@ void QueryDataWriter::writeSummary(bool limitExceeded) const {
       fmt::format("{}/{}", dirPath_, QueryTraceTraits::kDataSummaryFileName);
   const auto file = fs_->openFileForWrite(summaryFilePath);
   folly::dynamic obj = folly::dynamic::object;
-  obj[QueryTraceTraits::kDataTypeKey] = dataType_->serialize();
+  if (dataType_ != nullptr) {
+    obj[QueryTraceTraits::kDataTypeKey] = dataType_->serialize();
+  }
   obj[QueryTraceTraits::kTraceLimitExceededKey] = limitExceeded;
   file->append(folly::toJson(obj));
   file->close();
