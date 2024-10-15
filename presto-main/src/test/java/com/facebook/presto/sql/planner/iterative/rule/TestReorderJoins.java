@@ -46,6 +46,7 @@ import static com.facebook.presto.SystemSessionProperties.HANDLE_COMPLEX_EQUI_JO
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.PREFER_BROADCAST_JOIN_OVER_PARTITIONED_JOIN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -441,6 +442,36 @@ public class TestReorderJoins
                         ImmutableList.of(equiJoinClause("A1", "B1")),
                         Optional.empty(),
                         Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testPreferBroadcast()
+    {
+        assertReorderJoins()
+                .setSystemProperty(PREFER_BROADCAST_JOIN_OVER_PARTITIONED_JOIN, "true")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.variable("A1")), TWO_ROWS),
+                                p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
+                                ImmutableList.of(p.variable("A1"), p.variable("B1")),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10000)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 64, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10000)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 64, 100)))
+                        .build())
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
                         values(ImmutableMap.of("B1", 0))));
     }
