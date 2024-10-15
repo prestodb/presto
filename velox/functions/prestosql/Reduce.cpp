@@ -36,15 +36,12 @@ void checkArraySizes(
       return;
     }
     const auto size = rawSizes[indices[row]];
-    try {
-      VELOX_USER_CHECK_LT(
-          size,
-          kMaxArraySize,
-          "reduce lambda function doesn't support arrays with more than {} elements",
-          kMaxArraySize);
-    } catch (VeloxUserError&) {
-      context.setError(row, std::current_exception());
-    }
+    // We do not want this error to be suppressed by TRY(), so we simply throw.
+    VELOX_CHECK_LT(
+        size,
+        kMaxArraySize,
+        "reduce lambda function doesn't support arrays with more than {} elements",
+        kMaxArraySize);
   });
 }
 
