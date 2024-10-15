@@ -29,12 +29,15 @@ jobs:
           codechange:
             - '!presto-docs/**'
   product-tests-specific-environment1:
+    strategy:
+      matrix:
+        java: [ 8, 17 ]
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 60
     concurrency:
-      group: ${{ github.workflow }}-product-tests-specific-environment1-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-product-tests-specific-environment1-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
       - name: Free Disk Space
@@ -49,7 +52,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: ${{ matrix.java }}
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v2
@@ -80,12 +83,15 @@ jobs:
         run: presto-product-tests/bin/run_on_docker.sh multinode-tls-kerberos -g cli,group-by,join,tls
 
   product-tests-specific-environment2:
+    strategy:
+      matrix:
+        java: [ 8, 17 ]
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 60
     concurrency:
-      group: ${{ github.workflow }}-product-tests-specific-environment2-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-product-tests-specific-environment2-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
       - name: Free Disk Space
@@ -100,7 +106,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: ${{ matrix.java }}
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v2
