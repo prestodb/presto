@@ -130,7 +130,9 @@ of rows in the vector.
 
 Vectors are always held by std::shared_ptr using the VectorPtr alias.
 
-using VectorPtr = std::shared_ptr<BaseVector>;
+.. code-block:: c++
+
+    using VectorPtr = std::shared_ptr<BaseVector>;
 
 The “bits” namespace contains a number of convenience functions for working with
 a nulls buffer.
