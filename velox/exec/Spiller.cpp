@@ -347,7 +347,7 @@ class RowContainerSpillMergeStream : public SpillMergeStream {
         rows_(std::move(rows)),
         spiller_(spiller) {
     if (!rows_.empty()) {
-      nextBatch();
+      RowContainerSpillMergeStream::nextBatch();
     }
   }
 

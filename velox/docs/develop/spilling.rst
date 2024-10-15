@@ -158,15 +158,16 @@ The operator first calls Spiller::finishSpill() to mark the completion of
 spilling. The Spiller collects rows from unspilled partitions and returns these
 to the operator. The operator processes the unspilled partitions, emits the
 results and frees up space in the RowContainer. Then, it loads spilled
-partitions one at a time. It calls Spiller::startMerge() for each spilled
-partition to create a sorted reader to restore the spilled partition state.
+partitions one at a time. It calls SpillPartition::createOrderedReader() for
+each spilled partition to create a sorted reader to restore the spilled
+partition state.
 
 .. code-block:: c++
 
-    SpillRows finishSpill();
+    void Spiller::finishSpill(SpillPartitionSet& partitionSet);
 
-    std::unique_ptr<TreeOfLosers<SpillMergeStream>> Spiller::startMerge(
-        int32_t partition);
+    std::unique_ptr<TreeOfLosers<SpillMergeStream>>
+    SpillPartition::createOrderedReader();
 
 **unsorted spill restore**: Used by hash build and hash probe
 operators. The operator first calls Spiller::finishSpill() to mark the
@@ -247,6 +248,13 @@ small files. If too large, operator execution slows down by spilling lots of
 data to disk. Configuration property :doc:`spillable_reservation_growth_pct <../configs>` sets the
 spill target size as a factor of the query memory limit. We might need to tune
 this parameter a bit in practice to see its impact on performance.
+
+Spill Compression
+^^^^^^^^^^^^^^^^^
+To reduce the spill file size when the size might exceed the disk space,
+we can enable spill compression. The Spiller compresses the serialized byte
+stream before writing it to disk. Configuration property :doc:`spill_compression_codec <../configs>` sets the
+compression codec to use.
 
 Data Storage
 ------------
