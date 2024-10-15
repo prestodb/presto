@@ -3988,6 +3988,34 @@ void to_json(json& j, const OperatorStats& p) {
       "totalDrivers");
   to_json_key(
       j,
+      "isBlockedCalls",
+      p.isBlockedCalls,
+      "OperatorStats",
+      "int64_t",
+      "isBlockedCalls");
+  to_json_key(
+      j,
+      "isBlockedWall",
+      p.isBlockedWall,
+      "OperatorStats",
+      "Duration",
+      "isBlockedWall");
+  to_json_key(
+      j,
+      "isBlockedCpu",
+      p.isBlockedCpu,
+      "OperatorStats",
+      "Duration",
+      "isBlockedCpu");
+  to_json_key(
+      j,
+      "isBlockedAllocation",
+      p.isBlockedAllocation,
+      "OperatorStats",
+      "DataSize",
+      "isBlockedAllocation");
+  to_json_key(
+      j,
       "addInputCalls",
       p.addInputCalls,
       "OperatorStats",
@@ -4265,6 +4293,34 @@ void from_json(const json& j, OperatorStats& p) {
       "OperatorStats",
       "int64_t",
       "totalDrivers");
+  from_json_key(
+      j,
+      "isBlockedCalls",
+      p.isBlockedCalls,
+      "OperatorStats",
+      "int64_t",
+      "isBlockedCalls");
+  from_json_key(
+      j,
+      "isBlockedWall",
+      p.isBlockedWall,
+      "OperatorStats",
+      "Duration",
+      "isBlockedWall");
+  from_json_key(
+      j,
+      "isBlockedCpu",
+      p.isBlockedCpu,
+      "OperatorStats",
+      "Duration",
+      "isBlockedCpu");
+  from_json_key(
+      j,
+      "isBlockedAllocation",
+      p.isBlockedAllocation,
+      "OperatorStats",
+      "DataSize",
+      "isBlockedAllocation");
   from_json_key(
       j,
       "addInputCalls",
