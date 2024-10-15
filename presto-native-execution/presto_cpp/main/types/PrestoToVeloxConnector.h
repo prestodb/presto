@@ -16,7 +16,7 @@
 #include "PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/ConnectorProtocol.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/PlanNode.h"
