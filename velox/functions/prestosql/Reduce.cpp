@@ -29,7 +29,8 @@ void checkArraySizes(
   const auto* indices = decodedArray.indices();
   const auto* rawSizes = decodedArray.base()->as<ArrayVector>()->rawSizes();
 
-  static const vector_size_t kMaxArraySize = 10'000;
+  const auto maxArraySize =
+      context.execCtx()->queryCtx()->queryConfig().exprMaxArraySizeInReduce();
 
   rows.applyToSelected([&](auto row) {
     if (decodedArray.isNullAt(row)) {
@@ -39,9 +40,9 @@ void checkArraySizes(
     // We do not want this error to be suppressed by TRY(), so we simply throw.
     VELOX_CHECK_LT(
         size,
-        kMaxArraySize,
+        maxArraySize,
         "reduce lambda function doesn't support arrays with more than {} elements",
-        kMaxArraySize);
+        maxArraySize);
   });
 }
 

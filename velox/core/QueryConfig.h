@@ -98,6 +98,11 @@ class QueryConfig {
   static constexpr const char* kCastMatchStructByName =
       "cast_match_struct_by_name";
 
+  /// Reduce() function will throw an error if encountered an array of size
+  /// greater than this.
+  static constexpr const char* kExprMaxArraySizeInReduce =
+      "expression.max_array_size_in_reduce";
+
   /// Used for backpressure to block local exchange producers when the local
   /// exchange buffer reaches or exceeds this size.
   static constexpr const char* kMaxLocalExchangeBufferSize =
@@ -541,6 +546,10 @@ class QueryConfig {
 
   bool isMatchStructByName() const {
     return get<bool>(kCastMatchStructByName, false);
+  }
+
+  uint64_t exprMaxArraySizeInReduce() const {
+    return get<uint64_t>(kExprMaxArraySizeInReduce, 100'000);
   }
 
   bool adjustTimestampToTimezone() const {
