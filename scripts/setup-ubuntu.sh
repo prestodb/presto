@@ -59,6 +59,7 @@ FMT_VERSION="10.1.1"
 BOOST_VERSION="boost-1.84.0"
 ARROW_VERSION="15.0.0"
 STEMMER_VERSION="2.2.0"
+DUCKDB_VERSION="v0.8.1"
 
 # Install packages required for build.
 function install_build_prerequisites {
@@ -192,7 +193,7 @@ function install_conda {
 function install_duckdb {
   if $BUILD_DUCKDB ; then
     echo 'Building DuckDB'
-    wget_and_untar https://github.com/duckdb/duckdb/archive/refs/tags/v0.8.1.tar.gz duckdb
+    wget_and_untar https://github.com/duckdb/duckdb/archive/refs/tags/${DUCKDB_VERSION}.tar.gz duckdb
     cmake_install_dir duckdb -DBUILD_UNITTESTS=OFF -DENABLE_SANITIZER=OFF -DENABLE_UBSAN=OFF -DBUILD_SHELL=OFF -DEXPORT_DLL_SYMBOLS=OFF -DCMAKE_BUILD_TYPE=Release
   fi
 }
