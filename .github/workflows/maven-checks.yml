@@ -13,6 +13,7 @@ env:
 jobs:
   maven-checks:
     strategy:
+      fail-fast: false
       matrix:
         java: [ 8, 17 ]
     runs-on: ubuntu-latest
