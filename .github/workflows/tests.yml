@@ -36,6 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        java: [8, 17]
         modules:
           - ":presto-tests -P presto-tests-execution-memory"
           - ":presto-tests -P presto-tests-general"
@@ -68,7 +69,7 @@ jobs:
           - ":presto-iceberg"
     timeout-minutes: 80
     concurrency:
-      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -79,7 +80,7 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: ${{ matrix.java }}
       - name: Cache local Maven repository
         if: needs.changes.outputs.codechange == 'true'
         id: cache-maven

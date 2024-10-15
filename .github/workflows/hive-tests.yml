@@ -31,12 +31,15 @@ jobs:
             - '!presto-docs/**'
 
   hive-tests:
+    strategy:
+      matrix:
+        java: [ 8, 17 ]
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 60
     concurrency:
-      group: ${{ github.workflow }}-hive-tests-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-hive-tests-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +48,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: ${{ matrix.java }}
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v2
@@ -83,12 +86,15 @@ jobs:
           fi
 
   hive-dockerized-tests:
+    strategy:
+      matrix:
+        java: [ 8, 17 ]
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 20
     concurrency:
-      group: ${{ github.workflow }}-hive-dockerized-tests-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-hive-dockerized-tests-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -97,7 +103,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: ${{ matrix.java }}
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v2
