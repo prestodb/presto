@@ -1257,6 +1257,10 @@ struct OperatorStats {
   PlanNodeId planNodeId = {};
   String operatorType = {};
   int64_t totalDrivers = {};
+  int64_t isBlockedCalls = {};
+  Duration isBlockedWall = {};
+  Duration isBlockedCpu = {};
+  DataSize isBlockedAllocation = {};
   int64_t addInputCalls = {};
   Duration addInputWall = {};
   Duration addInputCpu = {};
