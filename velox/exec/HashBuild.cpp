@@ -73,7 +73,7 @@ HashBuild::HashBuild(
 
   joinBridge_->addBuilder();
 
-  auto inputType = joinNode_->sources()[1]->outputType();
+  const auto& inputType = joinNode_->sources()[1]->outputType();
 
   const auto numKeys = joinNode_->rightKeys().size();
   keyChannels_.reserve(numKeys);
