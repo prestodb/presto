@@ -80,17 +80,17 @@ memory usage for each plan node.
 .. code-block::
 
      -> Project[expressions: (c0:INTEGER, ROW["c0"]), (p1:BIGINT, plus(ROW["c1"],1)), (p2:BIGINT, plus(ROW["c1"],ROW["u_c1"]))]
-        Output: 2000 rows (154.98KB), Cpu time: 695.33us, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1
+        Output: 2000 rows (154.98KB), Cpu time: 907.80us, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1, CPU breakdown: I/O/F (27.24us/872.82us/7.74us)
        -> HashJoin[INNER c0=u_c0]
-          Output: 2000 rows (136.88KB), Cpu time: 320.15us, Blocked wall time: 117.00us, Peak memory: 2.00MB
-          HashBuild: Input: 100 rows (1.31KB), Output: 0 rows (0B), Cpu time: 114.15us, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1
-          HashProbe: Input: 2000 rows (118.12KB), Output: 2000 rows (136.88KB), Cpu time: 206.01us, Blocked wall time: 117.00us, Peak memory: 1.00MB, Threads: 1
+          Output: 2000 rows (136.88KB), Cpu time: 508.74us, Blocked wall time: 117.00us, Peak memory: 2.00MB, CPU breakdown: I/O/F (177.87us/329.20us/1.66us)
+          HashBuild: Input: 100 rows (1.31KB), Output: 0 rows (0B), Cpu time: 41.77us, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1, CPU breakdown: I/O/F (40.18us/1.59us/0ns)
+          HashProbe: Input: 2000 rows (118.12KB), Output: 2000 rows (136.88KB), Cpu time: 466.97us, Blocked wall time: 117.00us, Peak memory: 1.00MB, Threads: 1, CPU breakdown: I/O/F (137.69us/327.61us/1.66us)
          -> TableScan[Table: Orders]
-            Input: 2000 rows (118.12KB), Raw Input: 20480 rows (72.31KB), Output: 2000 rows (118.12KB), Cpu time: 4.08ms, Blocked wall time: 5.00us, Peak memory: 1.00MB, Threads: 1, Splits: 20
+            Input: 2000 rows (118.12KB), Raw Input: 20480 rows (72.31KB), Output: 2000 rows (118.12KB), Cpu time: 8.89ms, Blocked wall time: 5.00us, Peak memory: 1.00MB, Threads: 1, Splits: 20, CPU breakdown: I/O/F (0ns/8.88ms/4.93us)
          -> Project[expressions: (u_c0:INTEGER, ROW["c0"]), (u_c1:BIGINT, ROW["c1"])]
-            Output: 100 rows (1.31KB), Cpu time: 17.99us, Blocked wall time: 0ns, Peak memory: 0B, Threads: 1
+            Output: 100 rows (1.31KB), Cpu time: 43.22us, Blocked wall time: 0ns, Peak memory: 0B, Threads: 1, CPU breakdown: I/O/F (691ns/5.54us/36.98us)
            -> Values[100 rows in 1 vectors]
-              Input: 0 rows (0B), Output: 100 rows (1.31KB), Cpu time: 5.38us, Blocked wall time: 0ns, Peak memory: 0B, Threads: 1
+              Input: 0 rows (0B), Output: 100 rows (1.31KB), Cpu time: 3.05us, Blocked wall time: 0ns, Peak memory: 0B, Threads: 1, CPU breakdown: I/O/F (0ns/2.48us/568ns)
 
 With includeCustomStats flag enabled, printPlanWithStats adds operator-specific
 statistics for each plan node, e.g. number of distinct values for the join key,
@@ -105,19 +105,19 @@ Here is the output for the join query from above.
 .. code-block::
 
     -> Project[expressions: (c0:INTEGER, ROW["c0"]), (p1:BIGINT, plus(ROW["c1"],1)), (p2:BIGINT, plus(ROW["c1"],ROW["u_c1"]))]
-       Output: 2000 rows (154.98KB), Cpu time: 1.11ms, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1
+       Output: 2000 rows (154.98KB), Cpu time: 907.80us, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1, CPU breakdown: I/O/F (27.24us/872.82us/7.74us)
           dataSourceLazyWallNanos    sum: 473.00us, count: 20, min: 11.00us, max: 96.00us
       -> HashJoin[INNER c0=u_c0]
-         Output: 2000 rows (136.88KB), Cpu time: 533.54us, Blocked wall time: 223.00us, Peak memory: 2.00MB
-         HashBuild: Input: 100 rows (1.31KB), Output: 0 rows (0B), Cpu time: 208.57us, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1
+         Output: 2000 rows (136.88KB), Cpu time: 508.74us, Blocked wall time: 223.00us, Peak memory: 2.00MB, CPU breakdown: I/O/F (177.87us/329.20us/1.66us)
+         HashBuild: Input: 100 rows (1.31KB), Output: 0 rows (0B), Cpu time: 41.77us, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1, CPU breakdown: I/O/F (40.18us/1.59us/0ns)
             distinctKey0       sum: 101, count: 1, min: 101, max: 101
             queuedWallNanos    sum: 125.00us, count: 1, min: 125.00us, max: 125.00us
             rangeKey0          sum: 200, count: 1, min: 200, max: 200
-         HashProbe: Input: 2000 rows (118.12KB), Output: 2000 rows (136.88KB), Cpu time: 324.97us, Blocked wall time: 223.00us, Peak memory: 1.00MB, Threads: 1
+         HashProbe: Input: 2000 rows (118.12KB), Output: 2000 rows (136.88KB), Cpu time: 466.97us, Blocked wall time: 223.00us, Peak memory: 1.00MB, Threads: 1, CPU breakdown: I/O/F (137.69us/327.61us/1.66us)
             dynamicFiltersProduced    sum: 1, count: 1, min: 1, max: 1
             queuedWallNanos           sum: 24.00us, count: 1, min: 24.00us, max: 24.00us
         -> TableScan[Table: Orders]
-           Input: 2000 rows (118.12KB), Raw Input: 20480 rows (72.31KB), Output: 2000 rows (118.12KB), Cpu time: 5.50ms, Blocked wall time: 10.00us, Peak memory: 1.00MB, Threads: 1, Splits: 20
+           Input: 2000 rows (118.12KB), Raw Input: 20480 rows (72.31KB), Output: 2000 rows (118.12KB), Cpu time: 8.89ms, Blocked wall time: 10.00us, Peak memory: 1.00MB, Threads: 1, Splits: 20, CPU breakdown: I/O/F (0ns/8.88ms/4.93us)
               dataSourceWallNanos       sum: 2.52ms, count: 40, min: 12.00us, max: 250.00us
               dynamicFiltersAccepted    sum: 1, count: 1, min: 1, max: 1
               localReadBytes            sum: 0B, count: 1, min: 0B, max: 0B
@@ -136,9 +136,9 @@ Here is the output for the join query from above.
               totalRemainingFilterTime  sum: 0ns, count: 1, min: 0ns, max: 0ns
               queryThreadIoLatency      sum: 0, count: 1, min: 0, max: 0
         -> Project[expressions: (u_c0:INTEGER, ROW["c0"]), (u_c1:BIGINT, ROW["c1"])]
-           Output: 100 rows (1.31KB), Cpu time: 21.50us, Blocked wall time: 0ns, Peak memory: 0B, Threads: 1
+           Output: 100 rows (1.31KB), Cpu time: 43.22us, Blocked wall time: 0ns, Peak memory: 0B, Threads: 1, CPU breakdown: I/O/F (691ns/5.54us/36.98us)
           -> Values[100 rows in 1 vectors]
-             Input: 0 rows (0B), Output: 100 rows (1.31KB), Cpu time: 12.14us, Blocked wall time: 0ns, Peak memory: 0B, Threads: 1
+             Input: 0 rows (0B), Output: 100 rows (1.31KB), Cpu time: 3.05us, Blocked wall time: 0ns, Peak memory: 0B, Threads: 1, CPU breakdown: I/O/F (0ns/2.48us/568ns)
 
 And this is the output for the aggregation query from above.
 
@@ -147,18 +147,18 @@ And this is the output for the aggregation query from above.
 .. code-block::
 
    -> Aggregation[PARTIAL [c5] a0 := max(ROW["c0"]), a1 := sum(ROW["c1"]), a2 := sum(ROW["c2"]), a3 := sum(ROW["c3"]), a4 := sum(ROW["c4"])]
-      Output: 849 rows (84.38KB), Cpu time: 1.83ms, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1
+      Output: 849 rows (84.38KB), Cpu time: 1.96ms, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1, CPU breakdown: I/O/F (1.38ms/579.12us/6.82us)
      -> TableScan[Table: hive_table]
-        Input: 10000 rows (0B), Output: 10000 rows (0B), Cpu time: 810.13us, Blocked wall time: 25.00us, Peak memory: 1.00MB, Threads: 1, Splits: 1
+        Input: 10000 rows (0B), Output: 10000 rows (0B), Cpu time: 2.89ms, Blocked wall time: 25.00us, Peak memory: 1.00MB, Threads: 1, Splits: 1, CPU breakdown: I/O/F (0ns/2.89ms/3.35us)
 
 `printPlanWithStats(*plan, task->taskStats(), true)` includes custom statistics:
 
 .. code-block::
 
     -> Aggregation[PARTIAL [c5] a0 := max(ROW["c0"]), a1 := sum(ROW["c1"]), a2 := sum(ROW["c2"]), a3 := sum(ROW["c3"]), a4 := sum(ROW["c4"])]
-       Output: 849 rows (84.38KB), Cpu time: 1.65ms, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1
+       Output: 849 rows (84.38KB), Cpu time: 1.96ms, Blocked wall time: 0ns, Peak memory: 1.00MB, Threads: 1, CPU breakdown: I/O/F (1.38ms/579.12us/6.82us)
       -> TableScan[Table: hive_table]
-         Input: 10000 rows (0B), Output: 10000 rows (0B), Cpu time: 759.00us, Blocked wall time: 30.00us, Peak memory: 1.00MB, Threads: 1, Splits: 1
+         Input: 10000 rows (0B), Output: 10000 rows (0B), Cpu time: 2.89ms, Blocked wall time: 30.00us, Peak memory: 1.00MB, Threads: 1, Splits: 1, CPU breakdown: I/O/F (0ns/2.89ms/3.35us)
             dataSourceLazyWallNanos    sum: 1.07ms, count: 7, min: 92.00us, max: 232.00us
             dataSourceWallNanos        sum: 329.00us, count: 2, min: 48.00us, max: 281.00us
             loadedToValueHook          sum: 50000, count: 5, min: 10000, max: 10000
@@ -189,7 +189,7 @@ their estimated sizes, cpu time, blocked wall time, and the number of threads us
 .. code-block::
 
     -> TableScan[Table: Orders]
-           Input: 2000 rows (118.12KB), Raw Input: 20480 rows (72.31KB), Output: 2000 rows (118.12KB), Cpu time: 5.50ms, Blocked wall time: 10.00us, Peak memory: 1.00MB, Threads: 1, Splits: 20
+           Input: 2000 rows (118.12KB), Raw Input: 20480 rows (72.31KB), Output: 2000 rows (118.12KB), Cpu time: 8.89ms, Blocked wall time: 10.00us, Peak memory: 1.00MB, Threads: 1, Splits: 20, CPU breakdown: I/O/F (0ns/8.88ms/4.93us)
 
 
 printPlanWithStats shows output rows and
@@ -215,7 +215,13 @@ information is shown for all plan nodes.
 
 .. code-block::
 
-	Cpu time: 5.50ms, Peak memory: 1.00MB
+	Cpu time: 8.89ms, Peak memory: 1.00MB
+
+A breakdown of CPU time into addInput, getOutput and finish stages of the operator is also available. I/O/F below is a shortcut for addInput/getOutput/finish.
+
+.. code-block::
+
+   CPU breakdown: I/O/F (0ns/8.88ms/4.93us)
 
 Some operators like TableScan and HashProbe may be blocked waiting for splits or
 hash tables. Velox records the total wall time an operator was blocked and
