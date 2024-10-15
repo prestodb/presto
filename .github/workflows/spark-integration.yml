@@ -31,6 +31,7 @@ jobs:
             - '!presto-docs/**'
   spark-integration:
     strategy:
+      fail-fast: false
       matrix:
         java: [ 8, 17 ]
     runs-on: ubuntu-latest

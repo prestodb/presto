@@ -31,6 +31,7 @@ jobs:
             - '!presto-docs/**'
   test-other-modules:
     strategy:
+      fail-fast: false
       matrix:
         java: [ 8, 17 ]
     runs-on: ubuntu-latest
