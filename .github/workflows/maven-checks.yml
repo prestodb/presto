@@ -12,10 +12,13 @@ env:
 
 jobs:
   maven-checks:
+    strategy:
+      matrix:
+        java: [ 8, 17 ]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
-      group: ${{ github.workflow }}-maven-checks-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-maven-checks-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
       - name: Free Disk Space
@@ -29,7 +32,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: ${{ matrix.java }}
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v2
