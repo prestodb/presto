@@ -593,6 +593,21 @@ struct ArrayNormalizeFunction {
     VELOX_USER_CHECK_GE(
         p, 0, "array_normalize only supports non-negative p: {}", p);
 
+    // Ideally, we should not register this function with int types. However,
+    // in Presto, during plan conversion it's possible to create this function
+    // with int types. In that case, we want to have default NULL behavior for
+    // int types, which can be achieved by registering the function and failing
+    // it for non-null int values. Example: SELECT array_normalize(x, 2) from
+    // (VALUES NULL) t(x) creates a plan with `array_normalize :=
+    // array_normalize(CAST(field AS array(integer)), INTEGER'2') (1:37)` which
+    // ideally should fail saying the function is not registered with int types.
+    // But it falls back to default NULL behavior and returns NULL in Presto.
+    if constexpr (
+        std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t> ||
+        std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>) {
+      VELOX_UNSUPPORTED("array_normalize only supports double and float types");
+    }
+
     // If the input array is empty, then the empty result should be returned,
     // same as Presto.
     if (inputArray.size() == 0) {

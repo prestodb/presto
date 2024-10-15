@@ -162,19 +162,16 @@ class ArrayNormalizeTest : public FunctionBaseTest {
 };
 
 TEST_F(ArrayNormalizeTest, arrayWithElementsZero) {
-  testArrayWithElementsEqualZero<int>();
   testArrayWithElementsEqualZero<float>();
   testArrayWithElementsEqualZero<double>();
 }
 
 TEST_F(ArrayNormalizeTest, pLessThanZero) {
-  testArrayWithElementsEqualZero<int>();
   testArrayWithPLessThanZero<float>();
   testArrayWithPLessThanZero<double>();
 }
 
 TEST_F(ArrayNormalizeTest, pEqualsZero) {
-  testArrayWithPEqualZero<int>();
   testArrayWithPEqualZero<float>();
   testArrayWithPEqualZero<double>();
 }
@@ -185,27 +182,31 @@ TEST_F(ArrayNormalizeTest, pLessThanOne) {
 }
 
 TEST_F(ArrayNormalizeTest, pEqualsOne) {
-  testArrayWithPEqualOne<int>();
   testArrayWithPEqualOne<float>();
   testArrayWithPEqualOne<double>();
 }
 
 TEST_F(ArrayNormalizeTest, limits) {
-  testArrayWithPEqualOne<int>();
   testArrayWithTypeLimits<float>();
   testArrayWithTypeLimits<double>();
 }
 
 TEST_F(ArrayNormalizeTest, nullValues) {
-  testArrayWithPEqualOne<int>();
   testArrayWithNullValues<float>();
   testArrayWithNullValues<double>();
 }
 
 TEST_F(ArrayNormalizeTest, differentValues) {
-  testArrayWithPEqualOne<int>();
   testArrayWithDifferentValues<float>();
   testArrayWithDifferentValues<double>();
+}
+
+TEST_F(ArrayNormalizeTest, throwForIntTypes) {
+  std::string errorMessage =
+      "array_normalize only supports double and float types";
+  VELOX_ASSERT_THROW(testArrayWithElementsEqualZero<int>(), errorMessage);
+  VELOX_ASSERT_THROW(testArrayWithPEqualZero<int>(), errorMessage);
+  VELOX_ASSERT_THROW(testArrayWithPEqualOne<int>(), errorMessage);
 }
 
 } // namespace
