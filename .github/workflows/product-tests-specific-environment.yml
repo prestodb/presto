@@ -30,6 +30,7 @@ jobs:
             - '!presto-docs/**'
   product-tests-specific-environment1:
     strategy:
+      fail-fast: false
       matrix:
         java: [ 8, 17 ]
     runs-on: ubuntu-latest
@@ -84,6 +85,7 @@ jobs:
 
   product-tests-specific-environment2:
     strategy:
+      fail-fast: false
       matrix:
         java: [ 8, 17 ]
     runs-on: ubuntu-latest
