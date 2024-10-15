@@ -123,41 +123,6 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
     }
   };
 
-  template <typename T>
-  std::optional<T> evaluateWithTimestampWithTimezone(
-      const std::string& expression,
-      std::optional<int64_t> timestamp,
-      const std::optional<std::string>& timeZoneName) {
-    if (!timestamp.has_value() || !timeZoneName.has_value()) {
-      return evaluateOnce<T>(
-          expression,
-          makeRowVector({BaseVector::createNullConstant(
-              TIMESTAMP_WITH_TIME_ZONE(), 1, pool())}));
-    }
-
-    return evaluateOnce<T>(
-        expression,
-        makeRowVector({makeTimestampWithTimeZoneVector(
-            timestamp.value(), timeZoneName.value().c_str())}));
-  }
-
-  VectorPtr evaluateWithTimestampWithTimezone(
-      const std::string& expression,
-      std::optional<int64_t> timestamp,
-      const std::optional<std::string>& timeZoneName) {
-    if (!timestamp.has_value() || !timeZoneName.has_value()) {
-      return evaluate(
-          expression,
-          makeRowVector({BaseVector::createNullConstant(
-              TIMESTAMP_WITH_TIME_ZONE(), 1, pool())}));
-    }
-
-    return evaluate(
-        expression,
-        makeRowVector({makeTimestampWithTimeZoneVector(
-            timestamp.value(), timeZoneName.value().c_str())}));
-  }
-
   VectorPtr makeTimestampWithTimeZoneVector(int64_t timestamp, const char* tz) {
     auto tzid = tz::getTimeZoneID(tz);
 
@@ -506,12 +471,16 @@ TEST_F(DateTimeFunctionsTest, weekTimestampWithTimezone) {
                   });
 
     auto timestamp = ts.getSeconds() * 100'000'000;
-    auto week = evaluateWithTimestampWithTimezone<int64_t>(
-                    "week(c0)", timestamp, timezone)
-                    .value();
-    auto weekOfYear = evaluateWithTimestampWithTimezone<int64_t>(
-                          "week_of_year(c0)", timestamp, timezone)
-                          .value();
+    auto week = *evaluateOnce<int64_t>(
+        "week(c0)",
+        TIMESTAMP_WITH_TIME_ZONE(),
+        TimestampWithTimezone::pack(
+            TimestampWithTimezone(timestamp, timezone)));
+    auto weekOfYear = *evaluateOnce<int64_t>(
+        "week_of_year(c0)",
+        TIMESTAMP_WITH_TIME_ZONE(),
+        TimestampWithTimezone::pack(
+            TimestampWithTimezone(timestamp, timezone)));
     VELOX_CHECK_EQ(
         week, weekOfYear, "week and week_of_year must return the same value");
     return week;
@@ -1801,12 +1770,14 @@ TEST_F(DateTimeFunctionsTest, dateTruncTimeStampWithTimezoneForWeek) {
                                      int64_t inputTimestamp,
                                      const std::string& timeZone,
                                      int64_t expectedTimestamp) {
-    assertEqualVectors(
-        makeTimestampWithTimeZoneVector(expectedTimestamp, timeZone.c_str()),
-        evaluateWithTimestampWithTimezone(
+    EXPECT_EQ(
+        TimestampWithTimezone::pack(
+            TimestampWithTimezone(expectedTimestamp, timeZone.c_str())),
+        evaluateOnce<int64_t>(
             fmt::format("date_trunc('{}', c0)", truncUnit),
-            inputTimestamp,
-            timeZone));
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(
+                TimestampWithTimezone(inputTimestamp, timeZone))));
   };
   // input 2023-08-07 00:00:00 (19576 days) with timeZone +01:00
   // output 2023-08-06 23:00:00" in UTC.(1691362800000)
@@ -1889,12 +1860,14 @@ TEST_F(DateTimeFunctionsTest, dateTruncTimestampWithTimezone) {
                                      int64_t inputTimestamp,
                                      const std::string& timeZone,
                                      int64_t expectedTimestamp) {
-    assertEqualVectors(
-        makeTimestampWithTimeZoneVector(expectedTimestamp, timeZone.c_str()),
-        evaluateWithTimestampWithTimezone(
+    EXPECT_EQ(
+        TimestampWithTimezone::pack(
+            TimestampWithTimezone(expectedTimestamp, timeZone.c_str())),
+        evaluateOnce<int64_t>(
             fmt::format("date_trunc('{}', c0)", truncUnit),
-            inputTimestamp,
-            timeZone));
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(
+                TimestampWithTimezone(inputTimestamp, timeZone))));
   };
 
   evaluateDateTrunc("second", 123, "+01:00", 0);
@@ -4015,10 +3988,16 @@ TEST_F(DateTimeFunctionsTest, dateFunctionTimestampWithTimezone) {
   const auto dateFunction =
       [&](std::optional<int64_t> timestamp,
           const std::optional<std::string>& timeZoneName) {
-        auto r1 = evaluateWithTimestampWithTimezone<int32_t>(
-            "date(c0)", timestamp, timeZoneName);
-        auto r2 = evaluateWithTimestampWithTimezone<int32_t>(
-            "cast(c0 as date)", timestamp, timeZoneName);
+        auto r1 = evaluateOnce<int32_t>(
+            "date(c0)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(
+                TimestampWithTimezone(*timestamp, *timeZoneName)));
+        auto r2 = evaluateOnce<int32_t>(
+            "cast(c0 as date)",
+            TIMESTAMP_WITH_TIME_ZONE(),
+            TimestampWithTimezone::pack(
+                TimestampWithTimezone(*timestamp, *timeZoneName)));
         EXPECT_EQ(r1, r2);
         return r1;
       };
@@ -4213,8 +4192,11 @@ TEST_F(DateTimeFunctionsTest, timeZoneHour) {
   const auto timezone_hour = [&](const char* time, const char* timezone) {
     Timestamp ts = parseTimestamp(time);
     auto timestamp = ts.toMillis();
-    auto hour = evaluateWithTimestampWithTimezone<int64_t>(
-                    "timezone_hour(c0)", timestamp, timezone)
+    auto hour = evaluateOnce<int64_t>(
+                    "timezone_hour(c0)",
+                    TIMESTAMP_WITH_TIME_ZONE(),
+                    TimestampWithTimezone::pack(
+                        TimestampWithTimezone(timestamp, timezone)))
                     .value();
     return hour;
   };
@@ -4253,8 +4235,11 @@ TEST_F(DateTimeFunctionsTest, timeZoneMinute) {
   const auto timezone_minute = [&](const char* time, const char* timezone) {
     Timestamp ts = parseTimestamp(time);
     auto timestamp = ts.toMillis();
-    auto minute = evaluateWithTimestampWithTimezone<int64_t>(
-                      "timezone_minute(c0)", timestamp, timezone)
+    auto minute = evaluateOnce<int64_t>(
+                      "timezone_minute(c0)",
+                      TIMESTAMP_WITH_TIME_ZONE(),
+                      TimestampWithTimezone::pack(
+                          TimestampWithTimezone(timestamp, timezone)))
                       .value();
     return minute;
   };
