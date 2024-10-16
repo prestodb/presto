@@ -78,9 +78,9 @@ public class BenchmarkShortDecimalColumnReader
     }
 
     @Override
-    protected boolean getEnableOptimizedReader()
+    protected boolean getBatchReaderEnabled()
     {
-        return enableOptimizedReader;
+        return batchReaderEnabled;
     }
 
     @Override
