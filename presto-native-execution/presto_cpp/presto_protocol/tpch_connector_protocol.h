@@ -12,17 +12,22 @@
  * limitations under the License.
  */
 
-// TpchTransactionHandle is special since
-// the corresponding class in Java is an enum.
+#pragma once
 
-namespace facebook::presto::protocol {
+#include "presto_cpp/presto_protocol/ConnectorProtocol.h"
+#include "presto_cpp/presto_protocol/connector/tpch/presto_protocol_tpch.h"
 
-struct TpchTransactionHandle : public ConnectorTransactionHandle {
-  String instance = {};
-};
+namespace facebook::presto::protocol::tpch {
 
-void to_json(json& j, const TpchTransactionHandle& p);
+using TpchConnectorProtocol = ConnectorProtocolTemplate<
+    TpchTableHandle,
+    TpchTableLayoutHandle,
+    TpchColumnHandle,
+    NotImplemented,
+    NotImplemented,
+    TpchSplit,
+    TpchPartitioningHandle,
+    TpchTransactionHandle,
+    NotImplemented>;
 
-void from_json(const json& j, TpchTransactionHandle& p);
-
-} // namespace facebook::presto::protocol
+} // namespace facebook::presto::protocol::tpch

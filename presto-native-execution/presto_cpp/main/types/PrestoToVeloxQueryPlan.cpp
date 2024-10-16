@@ -613,8 +613,9 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   // optimization opportunity in case of very low selectivity.
   if (auto tableScan = std::dynamic_pointer_cast<const protocol::TableScanNode>(
           node->source)) {
-    if (auto* tableLayout = dynamic_cast<protocol::HiveTableLayoutHandle*>(
-            tableScan->table.connectorTableLayout.get())) {
+    if (auto* tableLayout =
+            dynamic_cast<protocol::hive::HiveTableLayoutHandle*>(
+                tableScan->table.connectorTableLayout.get())) {
       auto remainingFilter =
           exprConverter_.toVeloxExpr(tableLayout->remainingPredicate);
       if (auto* constant = dynamic_cast<const core::ConstantTypedExpr*>(

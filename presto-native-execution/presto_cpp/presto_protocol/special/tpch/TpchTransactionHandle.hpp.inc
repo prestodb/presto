@@ -12,20 +12,17 @@
  * limitations under the License.
  */
 
-// TpchColumnHandle is special since it needs an implementation of
-// operator<().
+// TpchTransactionHandle is special since
+// the corresponding class in Java is an enum.
 
-namespace facebook::presto::protocol {
-struct TpchColumnHandle : public ColumnHandle {
-  String columnName = {};
-  Type type = {};
+namespace facebook::presto::protocol::tpch {
 
-  TpchColumnHandle() noexcept;
-
-  bool operator<(const ColumnHandle& o) const override {
-    return columnName < dynamic_cast<const TpchColumnHandle&>(o).columnName;
-  }
+struct TpchTransactionHandle : public ConnectorTransactionHandle {
+  String instance = {};
 };
-void to_json(json& j, const TpchColumnHandle& p);
-void from_json(const json& j, TpchColumnHandle& p);
-} // namespace facebook::presto::protocol
+
+void to_json(json& j, const TpchTransactionHandle& p);
+
+void from_json(const json& j, TpchTransactionHandle& p);
+
+} // namespace facebook::presto::protocol::tpch

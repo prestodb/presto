@@ -342,7 +342,7 @@ class TaskManagerTest : public testing::Test {
   protocol::ScheduledSplit makeSplit(
       const std::string& filePath,
       long sequenceId) {
-    auto hiveSplit = std::make_shared<protocol::HiveSplit>();
+    auto hiveSplit = std::make_shared<protocol::hive::HiveSplit>();
     hiveSplit->fileSplit.path = filePath;
     hiveSplit->storage.storageFormat.inputFormat =
         "com.facebook.hive.orc.OrcInputFormat";

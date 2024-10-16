@@ -305,7 +305,7 @@ def parse_args():
         help="output language type map",
     )
 
-    parser.add_argument("files", metavar="FILES", nargs="+", help="files to process")
+    parser.add_argument("files", metavar="FILES", nargs="*", help="files to process")
 
     return parser.parse_args()
 
