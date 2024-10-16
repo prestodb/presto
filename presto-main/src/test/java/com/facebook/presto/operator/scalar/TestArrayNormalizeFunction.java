@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -66,6 +67,7 @@ public class TestArrayNormalizeFunction
         assertFunction("array_normalize(ARRAY[4.0E0, 3.0E0], null)", new ArrayType(DOUBLE), null);
         assertFunction("array_normalize(ARRAY[4.0E0, null], 2.0E0)", new ArrayType(DOUBLE), null);
         assertFunction("array_normalize(ARRAY[REAL '4.0', REAL '3.0'], null)", new ArrayType(REAL), null);
+        assertFunction("array_normalize(null, 4)", new ArrayType(INTEGER), null);
     }
 
     @Test
@@ -81,6 +83,10 @@ public class TestArrayNormalizeFunction
     @Test
     public void testUnsupportedType()
     {
+        assertInvalidFunction(
+                "array_normalize(ARRAY[NULL], 1)",
+                FUNCTION_IMPLEMENTATION_MISSING,
+                "Unsupported array element type for array_normalize function: integer");
         assertInvalidFunction(
                 "array_normalize(ARRAY[1, 2, 3], 1)",
                 FUNCTION_IMPLEMENTATION_MISSING,
