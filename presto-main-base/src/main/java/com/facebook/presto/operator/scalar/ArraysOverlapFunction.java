@@ -18,10 +18,18 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.util.Failures.internalError;
+import static com.google.common.base.Defaults.defaultValue;
 
 @ScalarFunction("arrays_overlap")
 @Description("Returns true if arrays have common elements")
@@ -36,6 +44,7 @@ public final class ArraysOverlapFunction
     @SqlNullable
     public static Boolean arraysOverlap(
             @TypeParameter("T") Type elementType,
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"T", "T"}) MethodHandle elementIsDistinctFrom,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)
     {
@@ -59,8 +68,17 @@ public final class ArraysOverlapFunction
                     hasNull = true;
                     continue;
                 }
-                if (elementType.equalTo(leftArray, i, rightArray, j)) {
-                    return true;
+                try {
+                    boolean firstValueNull = leftArray.isNull(i);
+                    Object firstValue = firstValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, leftArray, i);
+                    boolean secondValueNull = rightArray.isNull(j);
+                    Object secondValue = secondValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, rightArray, j);
+                    if (!(boolean) elementIsDistinctFrom.invoke(firstValue, firstValueNull, secondValue, secondValueNull)) {
+                        return true;
+                    }
+                }
+                catch (Throwable t) {
+                    throw internalError(t);
                 }
             }
         }
