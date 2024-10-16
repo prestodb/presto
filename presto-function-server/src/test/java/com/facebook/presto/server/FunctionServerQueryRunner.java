@@ -13,26 +13,17 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.http.server.HttpServerInfo;
-import com.facebook.airlift.http.server.HttpServerModule;
-import com.facebook.airlift.jaxrs.JaxrsModule;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.rest.RestBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Injector;
-import com.google.inject.Module;
 
-import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
-import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static java.lang.String.format;
 
 public class FunctionServerQueryRunner
 {
@@ -40,16 +31,12 @@ public class FunctionServerQueryRunner
     {
     }
 
-    public static DistributedQueryRunner createQueryRunner()
+    public static DistributedQueryRunner createQueryRunner(int functionServerPort, Map<String, String> queryRunnerExtraProperties)
             throws Exception
     {
-        TestingFunctionServer functionServer = new TestingFunctionServer(ImmutableMap.of("http-server.http.port", "8082"));
-
         DistributedQueryRunner runner = TpchQueryRunnerBuilder.builder()
                 .setExtraProperties(
-                        ImmutableMap.of(
-                                "http-server.http.port", "8080",
-                                "list-built-in-functions-only", "false"))
+                        queryRunnerExtraProperties)
                 .build();
         runner.installPlugin(new FunctionNamespaceManagerPlugin());
         runner.loadFunctionNamespaceManager(
@@ -58,7 +45,7 @@ public class FunctionServerQueryRunner
                 ImmutableMap.of(
                         "supported-function-languages", "JAVA",
                         "function-implementation-type", "REST",
-                        "rest-based-function-manager.rest.url", "http://localhost:8082"));
+                        "rest-based-function-manager.rest.url", format("http://localhost:%s", functionServerPort)));
 
         Thread.sleep(5000);
         Logger log = Logger.get(TpchQueryRunner.class);
@@ -67,27 +54,13 @@ public class FunctionServerQueryRunner
         return runner;
     }
 
-    private static class TestingFunctionServer
+    public static void main(String[] args)
+            throws Exception
     {
-        public TestingFunctionServer(Map<String, String> requiredConfigurationProperties)
-        {
-            verifyJvmRequirements();
-            verifySystemTimeIsReasonable();
-
-            Logger log = Logger.get(FunctionServer.class);
-
-            List<Module> modules = ImmutableList.of(
-                    new FunctionServerModule(),
-                    new HttpServerModule(),
-                    new JaxrsModule());
-
-            Bootstrap app = new Bootstrap(modules);
-            Injector injector = app
-                    .setRequiredConfigurationProperties(requiredConfigurationProperties)
-                    .initialize();
-
-            HttpServerInfo serverInfo = injector.getInstance(HttpServerInfo.class);
-            log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
-        }
+        int functionServerPort = 8082;
+        TestingFunctionServer functionServer = new TestingFunctionServer(functionServerPort);
+        createQueryRunner(
+                functionServerPort,
+                ImmutableMap.of("http-server.http.port", "8080", "list-built-in-functions-only", "false"));
     }
 }

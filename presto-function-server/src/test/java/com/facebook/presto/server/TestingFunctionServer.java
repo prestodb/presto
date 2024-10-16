@@ -18,7 +18,9 @@ import com.facebook.airlift.http.server.HttpServerInfo;
 import com.facebook.airlift.http.server.HttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.Plugin;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
@@ -27,22 +29,11 @@ import java.util.List;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 
-public class FunctionServer
-        implements Runnable
+public class TestingFunctionServer
 {
-    private static final Logger log = Logger.get(FunctionServer.class);
+    private final FunctionPluginManager functionPluginManager;
 
-    public FunctionServer()
-    {
-    }
-
-    public static void main(String[] args)
-    {
-        new FunctionServer().run();
-    }
-
-    @Override
-    public void run()
+    public TestingFunctionServer(int port)
     {
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
@@ -54,19 +45,18 @@ public class FunctionServer
                 new HttpServerModule(),
                 new JaxrsModule());
 
-        try {
-            Bootstrap app = new Bootstrap(modules);
-            Injector injector = app.initialize();
-            injector.getInstance(FunctionPluginManager.class).loadPlugins();
+        Bootstrap app = new Bootstrap(modules);
+        Injector injector = app
+                .setRequiredConfigurationProperties(ImmutableMap.of("http-server.http.port", Integer.toString(port)))
+                .initialize();
 
-            HttpServerInfo serverInfo = injector.getInstance(HttpServerInfo.class);
-            log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
+        functionPluginManager = injector.getInstance(FunctionPluginManager.class);
+        HttpServerInfo serverInfo = injector.getInstance(HttpServerInfo.class);
+        log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
+    }
 
-            Thread.currentThread().join();
-        }
-        catch (Throwable e) {
-            log.error(e);
-            System.exit(1);
-        }
+    public void installPlugin(Plugin plugin)
+    {
+        functionPluginManager.installPlugin(plugin);
     }
 }
