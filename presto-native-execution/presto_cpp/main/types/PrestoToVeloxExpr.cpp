@@ -432,6 +432,42 @@ PageFormat fromSerdeString(const std::string_view& serdeName) {
         "Unknown serde name for remote function server: '{}'", serdeName);
   }
 }
+
+velox::TypePtr mapPrestoTypeToVeloxType(const protocol::TypeSignature& prestoType) {
+    // This function should map Presto's TypeSignature to Velox's equivalent types.
+    // You'll need to handle each type according to its corresponding Velox type.
+    // As an example:
+    
+    if (prestoType.compare("integer")) {
+        return velox::INTEGER();
+    } else if (prestoType.compare("double")) {
+        return velox::DOUBLE();
+    } 
+    // Add more mappings as needed...
+
+    // For unsupported types, throw an error
+    VELOX_UNSUPPORTED("Unsupported type: {}", prestoType);
+}
+
+// Function to convert Presto Signature to Velox FunctionSignature
+std::vector<velox::exec::FunctionSignaturePtr> convertPrestoSignatureToVeloxSignature(const protocol::Signature& prestoSignature) {
+    // A vector to hold the converted signatures
+    std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures;
+
+    
+
+    // Create a Velox FunctionSignature using the builder
+    auto signature = velox::exec::FunctionSignatureBuilder()
+                         .returnType(prestoSignature.returnType)         // Set the return type
+                         .argumentType("integer")   // Set the argument types
+                        //  .variableArity()  // Handle variable arity
+                         .build();
+
+    // Add the converted signature to the vector
+    veloxSignatures.push_back(signature);
+
+    return veloxSignatures;
+}
 #endif
 
 TypedExprPtr VeloxExprConverter::toVeloxExpr(
@@ -485,34 +521,41 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
-  else if (
-      auto RestFunctionHandle =
-          std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
-              pexpr.functionHandle)) {
-
+  else if (auto RestFunctionHandle =
+             std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
+                 pexpr.functionHandle)) {
+    
+    // Convert the Presto expressions to Velox expressions
     auto args = toVeloxExpr(pexpr.arguments);
+    
+    // Parse the return type using the type parser
     auto returnType = typeParser_->parse(pexpr.returnType);
-
+    
+    // Get system configurations
     const auto* systemConfig = SystemConfig::instance();
-
+    
+    // Set up metadata for the remote function
     velox::functions::RemoteVectorFunctionMetadata metadata;
-    metadata.serdeFormat =
-        fromSerdeString(systemConfig->remoteFunctionServerSerde());
+    metadata.serdeFormat = fromSerdeString(systemConfig->remoteFunctionServerSerde());
+    
+    // Create the URL for the remote function server
     proxygen::URL url(systemConfig->kRemoteFunctionServerRestURL);
     metadata.location = url;
-
-    json signatureJson;
-    to_json(signatureJson, RestFunctionHandle->signature);
-
-    JsonSignatureParser parser(signatureJson.dump());
-    for (const auto& [functionName, signatureItems] : parser) {
-      for (const auto& item : signatureItems) {
-        velox::functions::registerRemoteFunction(
-            getFunctionName(RestFunctionHandle->functionId),
-            {item.signature},
-            metadata);
-      }
-    }
+    
+    // Extract the signature from the RestFunctionHandle
+    const auto& prestoSignature = RestFunctionHandle->signature;
+    
+    // Convert Presto signature to Velox FunctionSignature
+    std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = convertPrestoSignatureToVeloxSignature(prestoSignature);
+    
+    // Register the remote function using Velox's API
+    velox::functions::registerRemoteFunction(
+        getFunctionName(RestFunctionHandle->functionId),  // Get the function name
+        veloxSignatures,                                  // Provide the converted Velox signatures
+        metadata,                                         // Attach the metadata
+        /* overwrite = */ true);                          // Set overwrite if needed
+    
+    // Create and return a CallTypedExpr with the function name, return type, and arguments
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(RestFunctionHandle->functionId));
   }
