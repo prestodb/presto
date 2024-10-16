@@ -271,8 +271,8 @@ HashStringAllocator::finishWrite(
   // and the block was extended. Calculate the new position.
   if (state_.startPosition().header->isContinued()) {
     auto* header = state_.startPosition().header;
-    const auto offset = state_.startPosition().offset();
-    const auto extra = offset - header->usableSize();
+    const auto offset_2 = state_.startPosition().offset();
+    const auto extra = offset_2 - header->usableSize();
     if (extra > 0) {
       auto* newHeader = header->nextContinued();
       auto* newPosition = newHeader->begin() + extra;

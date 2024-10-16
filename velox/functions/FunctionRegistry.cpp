@@ -84,8 +84,8 @@ std::optional<bool> isDeterministic(const std::string& functionName) {
     return std::nullopt;
   }
 
-  for (const auto& [metadata, _] : simpleFunctions) {
-    if (!metadata.deterministic) {
+  for (const auto& [metadata_2, _] : simpleFunctions) {
+    if (!metadata_2.deterministic) {
       return false;
     }
   }
