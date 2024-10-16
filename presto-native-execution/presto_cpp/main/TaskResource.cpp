@@ -416,7 +416,7 @@ proxygen::RequestHandler* TaskResource::getResults(
   auto maxWait = getMaxWait(message).value_or(
       protocol::Duration(protocol::PRESTO_MAX_WAIT_DEFAULT));
   protocol::DataSize maxSize;
-  if (getDataSize || headers.exists(protocol::PRESTO_GET_DATA_SIZE_HEADER)) {
+  if (getDataSize) {
     maxSize = protocol::DataSize(0, protocol::DataUnit::BYTE);
   } else {
     maxSize = protocol::DataSize(
