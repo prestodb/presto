@@ -887,8 +887,7 @@ The corresponding session property is :ref:`admin/properties-session:\`\`treat-l
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-Enable scalar functions stats propagation using annotations. Annotations define the behavior of the scalar
-function's stats characteristics. When set to ``true``, this property enables the stats propagation through annotations.
+When set to ``true``, this property enables statistics to be propagated from function arguments to higher level expressions. When set to ``false`` any function calls result in unknown statistics which can negatively impact query planning.
 This can also be specified on a per-query basis using the ``scalar_function_stats_propagation_enabled`` session property.
 
 ``optimizer.retry-query-with-history-based-optimization``
