@@ -56,7 +56,14 @@ Window::Window(
     }
   } else {
     windowBuild_ = std::make_unique<SortWindowBuild>(
-        windowNode, pool(), spillConfig, &nonReclaimableSection_, &spillStats_);
+        windowNode,
+        pool(),
+        common::PrefixSortConfig{
+            driverCtx->queryConfig().prefixSortNormalizedKeyMaxBytes(),
+            driverCtx->queryConfig().prefixSortMinRows()},
+        spillConfig,
+        &nonReclaimableSection_,
+        &spillStats_);
   }
 }
 

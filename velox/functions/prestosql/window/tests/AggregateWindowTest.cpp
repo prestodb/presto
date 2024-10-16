@@ -422,5 +422,26 @@ TEST_F(AggregateWindowTest, zeroRangeFrame) {
   test("range between k following and unbounded following", expected);
 }
 
+TEST_F(AggregateWindowTest, singlePartitionColumnForPrefixSort) {
+  auto size = 100;
+  auto input = makeRowVector(
+      {makeRandomInputVector(VARCHAR(), size, 0.0),
+       makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+       makeFlatVector<int64_t>(size, [](auto row) { return row; })});
+  // Single partition with varchar column triggers window sorting to use
+  // std::sort instead of Prefix sort used for multi-key partition/order by
+  // cases.
+  WindowTestBase::testWindowFunction(
+      {input},
+      "sum(c2)",
+      {"partition by c0"},
+      {"rows between unbounded preceding and unbounded following"});
+  WindowTestBase::testWindowFunction(
+      {input},
+      "min(c2)",
+      {"partition by c0"},
+      {"rows between unbounded preceding and unbounded following"});
+}
+
 }; // namespace
 }; // namespace facebook::velox::window::test

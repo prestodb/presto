@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/exec/PrefixSort.h"
 #include "velox/exec/Spiller.h"
 #include "velox/exec/WindowBuild.h"
 
@@ -29,6 +30,7 @@ class SortWindowBuild : public WindowBuild {
   SortWindowBuild(
       const std::shared_ptr<const core::WindowNode>& node,
       velox::memory::MemoryPool* pool,
+      common::PrefixSortConfig&& prefixSortConfig,
       const common::SpillConfig* spillConfig,
       tsan_atomic<bool>* nonReclaimableSection,
       folly::Synchronized<common::SpillStats>* spillStats);
@@ -82,10 +84,14 @@ class SortWindowBuild : public WindowBuild {
   // keys are set to default values. Compare flags for sorting keys match
   // sorting order specified in the plan node.
   //
-  // Used to sort 'data_' while spilling.
-  const std::vector<CompareFlags> spillCompareFlags_;
+  // Used to sort 'data_' while spilling and in Prefix sort.
+  const std::vector<CompareFlags> compareFlags_;
 
   memory::MemoryPool* const pool_;
+
+  // Config for Prefix-sort.
+  const common::PrefixSortConfig prefixSortConfig_;
+
   folly::Synchronized<common::SpillStats>* const spillStats_;
 
   // allKeyInfo_ is a combination of (partitionKeyInfo_ and sortKeyInfo_).

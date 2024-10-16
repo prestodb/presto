@@ -187,7 +187,8 @@ class AggregationFuzzerBase {
       const std::string& prefix,
       std::vector<std::string>& names,
       std::vector<TypePtr>& types,
-      bool rangeFrame = false);
+      bool rangeFrame = false,
+      std::optional<uint32_t> numKeys = std::nullopt);
 
   std::pair<CallableSignature, SignatureStats&> pickSignature();
 

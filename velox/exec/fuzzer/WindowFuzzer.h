@@ -188,7 +188,8 @@ class WindowFuzzer : public AggregationFuzzerBase {
       const std::string& prefix,
       std::vector<std::string>& names,
       std::vector<TypePtr>& types,
-      const bool isKRangeFrame = false);
+      const bool isKRangeFrame = false,
+      std::optional<uint32_t> numKeys = std::nullopt);
 
   // Return 'true' if query plans failed.
   bool verifyWindow(

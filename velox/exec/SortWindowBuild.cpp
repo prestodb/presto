@@ -20,7 +20,7 @@
 namespace facebook::velox::exec {
 
 namespace {
-std::vector<CompareFlags> makeSpillCompareFlags(
+std::vector<CompareFlags> makeCompareFlags(
     int32_t numPartitionKeys,
     const std::vector<core::SortOrder>& sortingOrders) {
   std::vector<CompareFlags> compareFlags;
@@ -42,14 +42,15 @@ std::vector<CompareFlags> makeSpillCompareFlags(
 SortWindowBuild::SortWindowBuild(
     const std::shared_ptr<const core::WindowNode>& node,
     velox::memory::MemoryPool* pool,
+    common::PrefixSortConfig&& prefixSortConfig,
     const common::SpillConfig* spillConfig,
     tsan_atomic<bool>* nonReclaimableSection,
     folly::Synchronized<common::SpillStats>* spillStats)
     : WindowBuild(node, pool, spillConfig, nonReclaimableSection),
       numPartitionKeys_{node->partitionKeys().size()},
-      spillCompareFlags_{
-          makeSpillCompareFlags(numPartitionKeys_, node->sortingOrders())},
+      compareFlags_{makeCompareFlags(numPartitionKeys_, node->sortingOrders())},
       pool_(pool),
+      prefixSortConfig_(prefixSortConfig),
       spillStats_(spillStats) {
   VELOX_CHECK_NOT_NULL(pool_);
   allKeyInfo_.reserve(partitionKeyInfo_.size() + sortKeyInfo_.size());
@@ -145,8 +146,8 @@ void SortWindowBuild::setupSpiller() {
       Spiller::Type::kOrderByInput,
       data_.get(),
       inputType_,
-      spillCompareFlags_.size(),
-      spillCompareFlags_,
+      compareFlags_.size(),
+      compareFlags_,
       spillConfig_,
       spillStats_);
 }
@@ -217,12 +218,8 @@ void SortWindowBuild::sortPartitions() {
   RowContainerIterator iter;
   data_->listRows(&iter, numRows_, sortedRows_.data());
 
-  std::sort(
-      sortedRows_.begin(),
-      sortedRows_.end(),
-      [this](const char* leftRow, const char* rightRow) {
-        return compareRowsWithKeys(leftRow, rightRow, allKeyInfo_);
-      });
+  PrefixSort::sort(
+      sortedRows_, pool_, data_.get(), compareFlags_, prefixSortConfig_);
 
   computePartitionStartRows();
 }

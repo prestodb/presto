@@ -242,9 +242,9 @@ std::vector<std::string> AggregationFuzzerBase::generateSortingKeys(
     const std::string& prefix,
     std::vector<std::string>& names,
     std::vector<TypePtr>& types,
-    bool rangeFrame) {
+    bool rangeFrame,
+    std::optional<uint32_t> numKeys) {
   std::vector<std::string> keys;
-  vector_size_t numKeys;
   vector_size_t maxDepth;
   std::vector<TypePtr> sortingKeyTypes = defaultScalarTypes();
 
@@ -262,12 +262,14 @@ std::vector<std::string> AggregationFuzzerBase::generateSortingKeys(
         DOUBLE()};
     maxDepth = 0;
   } else {
-    numKeys = randInt(1, 5);
+    if (!numKeys.has_value()) {
+      numKeys = boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
+    }
     // Pick random, possibly complex, type.
     maxDepth = 2;
   }
 
-  for (auto i = 0; i < numKeys; ++i) {
+  for (auto i = 0; i < numKeys.value(); ++i) {
     keys.push_back(fmt::format("{}{}", prefix, i));
     types.push_back(vectorFuzzer_.randOrderableType(sortingKeyTypes, maxDepth));
     names.push_back(keys.back());
