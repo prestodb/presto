@@ -486,7 +486,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
   }
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
   else if (
-      auto RestFunctionHandle =
+      auto restFunctionHandle =
           std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
               pexpr.functionHandle)) {
 
@@ -498,23 +498,38 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     velox::functions::RemoteVectorFunctionMetadata metadata;
     metadata.serdeFormat =
         fromSerdeString(systemConfig->remoteFunctionServerSerde());
-    proxygen::URL url(systemConfig->kRemoteFunctionServerRestURL);
+    proxygen::URL url(systemConfig->remoteFunctionRestUrl());
     metadata.location = url;
+    metadata.functionId = restFunctionHandle->functionId;
+    metadata.version = restFunctionHandle->version;
 
-    json signatureJson;
-    to_json(signatureJson, RestFunctionHandle->signature);
+    const auto& prestoSignature = restFunctionHandle->signature;
 
-    JsonSignatureParser parser(signatureJson.dump());
-    for (const auto& [functionName, signatureItems] : parser) {
-      for (const auto& item : signatureItems) {
-        velox::functions::registerRemoteFunction(
-            getFunctionName(RestFunctionHandle->functionId),
-            {item.signature},
-            metadata);
-      }
+    velox::exec::FunctionSignatureBuilder signatureBuilder;
+    signatureBuilder.returnType((prestoSignature.getReturnType()));
+
+    const auto& parameters = prestoSignature.getParameters();
+    for (const auto& param : parameters) {
+      signatureBuilder.argumentType(mapPrestoTypeToVeloxType(
+          param.getTypeSignature()));
     }
+
+    if (prestoSignature.isVariableArity()) {
+      signatureBuilder.variableArity(true);
+    }
+
+    auto signature = signatureBuilder.build();
+    std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {
+        signature};
+
+    velox::functions::registerRemoteFunction(
+        getFunctionName(restFunctionHandle->functionId),
+        veloxSignatures,
+        metadata,
+        false);
+
     return std::make_shared<CallTypedExpr>(
-        returnType, args, getFunctionName(RestFunctionHandle->functionId));
+        returnType, args, getFunctionName(restFunctionHandle->functionId));
   }
 #endif
   VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);

@@ -697,6 +697,8 @@ class SystemConfig : public ConfigBase {
 
   std::string remoteFunctionServerSerde() const;
 
+  std::string remoteFunctionRestUrl() const;
+
   int32_t maxDriversPerTask() const;
 
   int32_t concurrentLifespansPerTask() const;
