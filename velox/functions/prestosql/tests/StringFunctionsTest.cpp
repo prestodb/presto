@@ -2164,3 +2164,19 @@ TEST_F(StringFunctionsTest, normalize) {
       normalizeWithForm("sch\u00f6n", "NFKE"),
       "Normalization form must be one of [NFD, NFC, NFKD, NFKC]");
 }
+
+TEST_F(StringFunctionsTest, trail) {
+  auto trail = [&](std::optional<std::string> string,
+                   std::optional<int64_t> N) {
+    return evaluateOnce<std::string>("trail(c0, c1)", string, N);
+  };
+
+  // Basic Test
+  EXPECT_EQ("bar", trail("foobar", 3));
+  EXPECT_EQ("foobar", trail("foobar", 7));
+  EXPECT_EQ("", trail("foobar", 0));
+  EXPECT_EQ("", trail("foobar", -1));
+
+  // Test empty
+  EXPECT_EQ("", trail("", 3));
+}

@@ -47,6 +47,60 @@ struct CodePointFunction {
   }
 };
 
+/// trail(string, N) -> varchar
+///
+///     Returns the last N characters of the input string.
+template <typename T>
+struct TrailFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Results refer to strings in the first argument.
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  // ASCII input always produces ASCII result.
+  static constexpr bool is_default_ascii_behavior = true;
+
+  template <typename I>
+  FOLLY_ALWAYS_INLINE void callNullFree(
+      out_type<Varchar>& result,
+      const null_free_arg_type<Varchar>& input,
+      I N) {
+    doCall<false>(result, input, N);
+  }
+
+  template <typename I>
+  FOLLY_ALWAYS_INLINE void
+  callAscii(out_type<Varchar>& result, const arg_type<Varchar>& input, I N) {
+    doCall<true>(result, input, N);
+  }
+
+ private:
+  template <bool isAscii, typename I>
+  FOLLY_ALWAYS_INLINE void
+  doCall(out_type<Varchar>& result, const arg_type<Varchar>& input, I N) {
+    if (N <= 0) {
+      result.setEmpty();
+      return;
+    }
+
+    I numCharacters = stringImpl::length<isAscii>(input);
+
+    // Get the start position of the last N characters
+    // If N is greater than the number of characters, start at 1/
+    I start = N > numCharacters ? 1 : numCharacters - N + 1;
+
+    // Adjust length
+    I adjustedLength = std::min(N, numCharacters);
+
+    auto byteRange = stringCore::getByteRange<isAscii>(
+        input.data(), input.size(), start, adjustedLength);
+
+    // Generating output string
+    result.setNoCopy(StringView(
+        input.data() + byteRange.first, byteRange.second - byteRange.first));
+  }
+};
+
 /// substr(string, start) -> varchar
 ///
 ///     Returns the rest of string from the starting position start.

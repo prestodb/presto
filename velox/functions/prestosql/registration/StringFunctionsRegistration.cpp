@@ -52,6 +52,9 @@ void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<EndsWithFunction, bool, Varchar, Varchar>(
       {prefix + "ends_with"});
 
+  registerFunction<TrailFunction, Varchar, Varchar, int64_t>(
+      {prefix + "trail"});
+
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t>(
       {prefix + "substr"});
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t, int64_t>(

@@ -214,6 +214,10 @@ String Functions
 
         SELECT strrpos('aaa', 'aa', 2); -- 1
 
+.. function:: trail(string, N) -> varchar
+
+    Returns the last ``N`` characters of the input ``string`` up to at most the length of ``string``.
+
 .. function:: substr(string, start) -> varchar
 
     Returns the rest of ``string`` from the starting position ``start``.
