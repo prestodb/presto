@@ -34,7 +34,9 @@ public class TestJdbcMetadataConfig
                 .setAllowDropTable(false)
                 .setMetadataCacheTtl(new Duration(0, SECONDS))
                 .setMetadataCacheRefreshInterval(new Duration(0, SECONDS))
-                .setMetadataCacheMaximumSize(10000));
+                .setMetadataCacheMaximumSize(10000)
+                .setMetadataCacheThreadPoolSize(10)
+                .setJdbcMetadataCacheEnabled(false));
     }
 
     @Test
@@ -45,13 +47,17 @@ public class TestJdbcMetadataConfig
                 .put("metadata-cache-ttl", "1h")
                 .put("metadata-cache-refresh-interval", "10s")
                 .put("metadata-cache-maximum-size", "100")
+                .put("metadata-cache-thread-pool-size", "50")
+                .put("metadata-jdbc-cache-enabled", "true")
                 .build();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
                 .setAllowDropTable(true)
                 .setMetadataCacheTtl(new Duration(1, HOURS))
                 .setMetadataCacheRefreshInterval(new Duration(10, SECONDS))
-                .setMetadataCacheMaximumSize(100);
+                .setMetadataCacheMaximumSize(100)
+                .setMetadataCacheThreadPoolSize(50)
+                .setJdbcMetadataCacheEnabled(true);
 
         assertFullMapping(properties, expected);
     }

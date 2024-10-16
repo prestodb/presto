@@ -30,11 +30,12 @@ import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.plugin.jdbc.JdbcMetadataSessionPropertiesProvider.isJdbcMetadataCacheEnabled;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class JdbcMetadataCache
@@ -48,7 +49,7 @@ public class JdbcMetadataCache
     public JdbcMetadataCache(JdbcClient jdbcClient, JdbcMetadataConfig config, JdbcMetadataCacheStats stats)
     {
         this(
-                newCachedThreadPool(daemonThreadsNamed("jdbc-metadata-cache" + "-%s")),
+                newFixedThreadPool(config.getMetadataCacheThreadPoolSize(), daemonThreadsNamed("jdbc-metadata-cache" + "-%s")),
                 jdbcClient,
                 stats,
                 OptionalLong.of(config.getMetadataCacheTtl().toMillis()),
@@ -65,7 +66,6 @@ public class JdbcMetadataCache
             long cacheMaximumSize)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-
         this.tableHandleCache = newCacheBuilder(cacheTtl, refreshInterval, cacheMaximumSize)
                 .build(asyncReloading(CacheLoader.from(this::loadTableHandle), executor));
         stats.setTableHandleCache(tableHandleCache);
@@ -77,11 +77,19 @@ public class JdbcMetadataCache
 
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
+        if (!isJdbcMetadataCacheEnabled(session)) {
+            return jdbcClient.getTableHandle(session, JdbcIdentity.from(session), tableName);
+        }
+
         return get(tableHandleCache, new KeyAndSession<>(session, tableName)).orElse(null);
     }
 
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
+        if (!isJdbcMetadataCacheEnabled(session)) {
+            return jdbcClient.getColumns(session, jdbcTableHandle);
+        }
+
         return get(columnHandlesCache, new KeyAndSession<>(session, jdbcTableHandle));
     }
 
