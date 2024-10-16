@@ -65,6 +65,14 @@ SessionProperties::SessionProperties() {
       boolToString(c.exprEvalSimplified()));
 
   addSessionProperty(
+      kExprMaxArraySizeInReduce,
+      "Reduce() function will throw an error if it encounters an array of size greater than this value.",
+      BIGINT(),
+      false,
+      QueryConfig::kExprMaxArraySizeInReduce,
+      std::to_string(c.exprMaxArraySizeInReduce()));
+
+  addSessionProperty(
       kMaxPartialAggregationMemory,
       "The max partial aggregation memory when data reduction is not optimal.",
       BIGINT(),
