@@ -1,4 +1,4 @@
-# Presto
+# Presto!
 
 Presto is a distributed SQL query engine for big data.
 
