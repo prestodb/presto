@@ -59,6 +59,7 @@ import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
+import static java.lang.Long.reverseBytes;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -196,6 +197,8 @@ public class PostgreSqlClient
 
     private static Slice uuidSlice(UUID uuid)
     {
-        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+        return wrappedLongArray(
+                reverseBytes(uuid.getMostSignificantBits()),
+                reverseBytes(uuid.getLeastSignificantBits()));
     }
 }
