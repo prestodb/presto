@@ -846,7 +846,6 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   auto [freeRows, outOfLineFreeBytes] = rows->freeSpace();
   const auto outOfLineBytes =
       rows->stringAllocator().retainedSize() - outOfLineFreeBytes;
-  const auto outOfLineBytesPerRow = outOfLineBytes / numDistinct;
   const int64_t flatBytes = input->estimateFlatSize();
 
   // Test-only spill path.

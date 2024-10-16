@@ -291,7 +291,6 @@ struct InverseCauchyCDFFunction {
   FOLLY_ALWAYS_INLINE void
   call(double& result, double median, double scale, double p) {
     static constexpr double kInf = std::numeric_limits<double>::infinity();
-    static constexpr double kDoubleMax = std::numeric_limits<double>::max();
     static constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
 
     VELOX_USER_CHECK(p >= 0 && p <= 1, "p must be in the interval [0, 1]");

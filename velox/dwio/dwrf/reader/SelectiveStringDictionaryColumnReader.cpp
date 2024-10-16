@@ -203,7 +203,6 @@ void SelectiveStringDictionaryColumnReader::read(
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<int32_t>(offset, rows, incomingNulls);
-  bool isDense = rows.back() == rows.size() - 1;
   const auto* nullsPtr =
       nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
   // lazy loading dictionary data when first hit
