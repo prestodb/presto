@@ -60,6 +60,8 @@ public class FunctionServerModule
         binder.bind(ObjectMapper.class).toProvider(JsonObjectMapperProvider.class);
         binder.bind(new TypeLiteral<JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>>>() {})
                 .toInstance(new JsonCodecFactory().mapJsonCodec(String.class, listJsonCodec(JsonBasedUdfFunctionMetadata.class)));
+        binder.bind(FunctionPluginManager.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(PluginManagerConfig.class);
         configBinder(binder).bindConfig(FunctionsConfig.class);
         configBinder(binder).bindConfig(FeaturesConfig.class);
     }
