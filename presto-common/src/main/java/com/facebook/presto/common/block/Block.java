@@ -25,7 +25,7 @@ import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
 /**
  * A block packs positionCount values into a chunk of memory. How the values are packed,
  * whether compression is used, endianness, and other implementation details are up to the subclasses.
- * However, for purposes of API, you can think of a Block as a sequence of values that
+ * However, for purposes of API, you can think of a Block as a sequence of zero-indexed values that
  * can be read by calling the getter methods in this interface. For instance,
  * you can read positionCount bytes by calling
  * block.getByte(0), block.getByte(1), ... block.getByte(positionCount - 1).
@@ -51,6 +51,8 @@ public interface Block
 
     /**
      * Gets a byte in the value at {@code position}.
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default byte getByte(int position)
     {
@@ -59,6 +61,8 @@ public interface Block
 
     /**
      * Gets a short in the value at {@code position}.
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default short getShort(int position)
     {
@@ -67,6 +71,8 @@ public interface Block
 
     /**
      * Gets an int in the value at {@code position}.
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default int getInt(int position)
     {
@@ -75,6 +81,8 @@ public interface Block
 
     /**
      * Gets a long in the value at {@code position}.
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default long getLong(int position)
     {
@@ -99,7 +107,8 @@ public interface Block
 
     /**
      * Gets a block in the value at {@code position}.
-     * @return
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default Block getBlock(int position)
     {
@@ -107,7 +116,7 @@ public interface Block
     }
 
     /**
-     * Is the byte sequences at {@code offset} in the value at {@code position} equal
+     * Is the byte sequence at {@code offset} in the value at {@code position} equal
      * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
@@ -147,7 +156,7 @@ public interface Block
     }
 
     /**
-     * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
+     * Appends the value at {@code position} to {@code blockBuilder} and closes the entry.
      */
     void writePositionTo(int position, BlockBuilder blockBuilder);
 
@@ -378,12 +387,14 @@ public interface Block
     Block appendNull();
 
     /**
-     * Returns the converted long value at {@code position} if the value ar {@code position} can be converted to long.
-     * @throws UnsupportedOperationException if value at {@code position} is not compatible to be converted to long.
+     * Returns the converted long value at {@code position} if the value at {@code position} can be converted to long.
      *
      * Difference between toLong() and getLong() is:
      * getLong() would only return value when the block is LongArrayBlock, otherwise it would throw exception.
      * toLong() would return value for compatible types: LongArrayBlock, IntArrayBlock, ByteArrayBlock and ShortArrayBlock.
+     *
+     * @throws UnsupportedOperationException if value at {@code position} is not able to be converted to long.
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default long toLong(int position)
     {

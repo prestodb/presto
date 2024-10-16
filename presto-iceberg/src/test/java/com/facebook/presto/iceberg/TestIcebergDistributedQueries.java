@@ -67,12 +67,6 @@ public abstract class TestIcebergDistributedQueries
     }
 
     @Override
-    public void testRenameTable()
-    {
-        // Rename table are not supported by the connector
-    }
-
-    @Override
     public void testUpdate()
     {
         // Updates are not supported by the connector

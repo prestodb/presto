@@ -7,7 +7,7 @@ Release 0.282
 
 General Changes
 _______________
-* Fix ``TEMPORARY`` definition :doc:`/sql/create-function` and :doc:`/sql/drop-function`.
+* Fix ``TEMPORARY`` definition :doc:`/sql/create-function` and :doc:`/sql/drop-function`. :pr:`19429`
 * Fix a bug where ``cardinality(map_keys(x))`` and ``cardinality(map_values(x))`` would return wrong results.
 * Improve performance of ``Explain (TYPE VALIDATE)`` by returning immediately after analysis and ACL checks complete without executing a dummy query. The output column is now called ``result`` rather than ``valid``.
 * Improve error handling when using custom ``FunctionNamespaceManagers``.

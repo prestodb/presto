@@ -231,6 +231,10 @@ public class RewriteCaseToMap
                 }
             }
 
+            if (checkExpr == null) {
+                return node;
+            }
+
             // Here we have all values!
             RowExpression mapLookup = makeMapAndAccess(whens, thens, checkExpr);
 

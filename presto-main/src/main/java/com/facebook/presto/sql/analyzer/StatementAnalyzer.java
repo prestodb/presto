@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -1415,9 +1416,9 @@ class StatementAnalyzer
             }
             Object evalStateExpr = evaluateConstantExpression(stateExpr, stateExprType, metadata, session, analysis.getParameters());
             if (tableVersionType == TIMESTAMP) {
-                if (!(stateExprType instanceof TimestampWithTimeZoneType)) {
+                if (!(stateExprType instanceof TimestampWithTimeZoneType || stateExprType instanceof TimestampType)) {
                     throw new SemanticException(TYPE_MISMATCH, stateExpr,
-                            "Type %s is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.",
+                            "Type %s is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.",
                             stateExprType.getDisplayName());
                 }
             }

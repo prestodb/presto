@@ -594,7 +594,7 @@ public class SqlQueryScheduler
                 .forEach(currentSubPlan -> {
                     Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
                     if (newPlanFragment.isPresent()) {
-                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, warningCollector);
+                        planChecker.validatePlanFragment(newPlanFragment.get(), session, metadata, warningCollector);
                         oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
                     }
                 });

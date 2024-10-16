@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
@@ -55,6 +56,9 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 
+import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.getOptimizerNameForLog;
+import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.trackOptimizerRuntime;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -99,6 +103,7 @@ public class ApplyConnectorOptimization
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
+        boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers = connectorOptimizersSupplier.get();
         if (connectorOptimizers.isEmpty()) {
             return PlanOptimizerResult.optimizerResult(plan, false);
@@ -143,7 +148,11 @@ public class ApplyConnectorOptimization
 
                 // the returned node is still a max closure (only if there is no new connector added, which does happen but ignored here)
                 for (ConnectorPlanOptimizer optimizer : optimizers) {
+                    long start = System.nanoTime();
                     newNode = optimizer.optimize(newNode, session.toConnectorSession(connectorId), variableAllocator, idAllocator);
+                    if (enableVerboseRuntimeStats || trackOptimizerRuntime(session, optimizer)) {
+                        session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", getOptimizerNameForLog(optimizer)), NANO, System.nanoTime() - start);
+                    }
                 }
 
                 if (node != newNode) {

@@ -239,6 +239,26 @@ public class TestEffectivePredicateExtractor
     }
 
     @Test
+    public void testProjectOverFilterWithNoReferencedAssignments()
+    {
+        PlanNode node = new ProjectNode(newId(),
+                filter(baseTableScan,
+                        and(
+                                equals(call("mod",
+                                        metadata.getFunctionAndTypeManager().lookupFunction("mod", fromTypes(BIGINT, BIGINT)),
+                                        BIGINT,
+                                        ImmutableList.of(CV, bigintLiteral(5L))), bigintLiteral(-1L)),
+                                equals(CV, bigintLiteral(10L)))),
+                assignment(DV, AV));
+
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
+
+        // The filter predicate is reduced to `CV = 10 AND mod(10,5) = -1`
+        // Since we have no references to `CV` in the assignments however, neither of these conjuncts is pulled up through the Project
+        assertEquals(effectivePredicate, TRUE_CONSTANT);
+    }
+
+    @Test
     public void testTopN()
     {
         PlanNode node = new TopNNode(

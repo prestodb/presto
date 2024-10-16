@@ -210,6 +210,9 @@ Property Name                                        Description
                                                      Available values are ``NONE`` or ``OAUTH2`` (default: ``NONE``).
                                                      ``OAUTH2`` requires either a credential or token.
 
+``iceberg.rest.auth.oauth2.uri``                     OAUTH2 server endpoint URI.
+                                                     Example: ``https://localhost:9191``
+
 ``iceberg.rest.auth.oauth2.credential``              The credential to use for OAUTH2 authentication.
                                                      Example: ``key:secret``
 
@@ -1631,9 +1634,11 @@ In this example, SYSTEM_TIME can be used as an alias for TIMESTAMP.
 
     // In following query, timestamp string is matching with second inserted record.
     SELECT * FROM ctas_nation FOR TIMESTAMP AS OF TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles';
+    SELECT * FROM ctas_nation FOR TIMESTAMP AS OF TIMESTAMP '2023-10-17 13:29:46.822';
 
     // Same example using SYSTEM_TIME as an alias for TIMESTAMP
     SELECT * FROM ctas_nation FOR SYSTEM_TIME AS OF TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles';
+    SELECT * FROM ctas_nation FOR SYSTEM_TIME AS OF TIMESTAMP '2023-10-17 13:29:46.822';
 
 .. code-block:: text
 
@@ -1643,8 +1648,12 @@ In this example, SYSTEM_TIME can be used as an alias for TIMESTAMP.
             20 | canada        |         2 | comment
     (2 rows)
 
-The option following FOR TIMESTAMP AS OF can accept any expression that returns a timestamp with time zone value.
-For example, `TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles'` is a constant string for the expression.
+.. note::
+
+    Timestamp without timezone will be parsed and rendered in the session time zone. See `TIMESTAMP <https://prestodb.io/docs/current/language/types.html#timestamp>`_.
+
+The option following FOR TIMESTAMP AS OF can accept any expression that returns a timestamp or timestamp with time zone value.
+For example, `TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles'` and `TIMESTAMP '2023-10-17 13:29:46.822'` are both valid timestamps. The first specifies the timestamp within the timezone `America/Los_Angeles`. The second will use the timestamp based on the user's session timezone.
 In the following query, the expression CURRENT_TIMESTAMP returns the current timestamp with time zone value.
 
 .. code-block:: sql
@@ -1665,6 +1674,7 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
     // In following query, timestamp string is matching with second inserted record.
     // BEFORE clause returns first record which is less than timestamp of the second record.
     SELECT * FROM ctas_nation FOR TIMESTAMP BEFORE TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles';
+    SELECT * FROM ctas_nation FOR TIMESTAMP BEFORE TIMESTAMP '2023-10-17 13:29:46.822';
 
 .. code-block:: text
 

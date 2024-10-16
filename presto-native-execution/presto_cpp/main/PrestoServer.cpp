@@ -739,7 +739,7 @@ void PrestoServer::initializeThreadPools() {
 #ifdef __linux__
     threadFactory = std::make_shared<BatchThreadFactory>("Driver");
 #else
-    VELOX_FAIL("Batch scheduling policy can only be enabled on Linux")
+    VELOX_FAIL("Batch scheduling policy can only be enabled on Linux");
 #endif
   } else {
     threadFactory = std::make_shared<folly::NamedThreadFactory>("Driver");
@@ -834,8 +834,6 @@ void PrestoServer::initializeVeloxMemory() {
          systemConfig->sharedArbitratorMemoryPoolInitialCapacity()},
         {std::string(SharedArbitratorConfig::kMemoryPoolReservedCapacity),
          systemConfig->sharedArbitratorMemoryPoolReservedCapacity()},
-        {std::string(SharedArbitratorConfig::kMemoryPoolTransferCapacity),
-         systemConfig->sharedArbitratorMemoryPoolTransferCapacity()},
         {std::string(SharedArbitratorConfig::kMemoryReclaimMaxWaitTime),
          systemConfig->sharedArbitratorMemoryReclaimWaitTime()},
         {std::string(SharedArbitratorConfig::kMemoryPoolMinFreeCapacity),

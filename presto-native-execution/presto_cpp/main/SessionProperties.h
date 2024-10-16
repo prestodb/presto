@@ -131,7 +131,7 @@ class SessionProperties {
   static constexpr const char* kJoinSpillPartitionBits =
       "native_join_spiller_partition_bits";
 
-  static constexpr const char* kNativeSpillerNumPartitionBits =
+  static constexpr const char* kSpillerNumPartitionBits =
       "native_spiller_num_partition_bits";
 
   /// Enable topN row number spilling on native engine.
@@ -165,6 +165,12 @@ class SessionProperties {
   static constexpr const char* kDebugDisableExpressionWithLazyInputs =
       "native_debug_disable_expression_with_lazy_inputs";
 
+  /// Temporary flag to control whether selective Nimble reader should be used
+  /// in this query or not.  Will be removed after the selective Nimble reader
+  /// is fully rolled out.
+  static constexpr const char* kSelectiveNimbleReaderEnabled =
+      "native_selective_nimble_reader_enabled";
+
   /// Enable timezone-less timestamp conversions.
   static constexpr const char* kLegacyTimestamp = "legacy_timestamp";
 
@@ -172,6 +178,27 @@ class SessionProperties {
   /// can continuously run without yielding.
   static constexpr const char* kDriverCpuTimeSliceLimitMs =
       "driver_cpu_time_slice_limit_ms";
+
+  /// Enables query tracing.
+  static constexpr const char* kQueryTraceEnabled =
+      "native_query_trace_enabled";
+
+  /// Base dir of a query to store tracing data.
+  static constexpr const char* kQueryTraceDir = "native_query_trace_dir";
+
+  /// A comma-separated list of plan node ids whose input data will be traced.
+  /// Empty string if only want to trace the query metadata.
+  static constexpr const char* kQueryTraceNodeIds =
+      "native_query_trace_node_ids";
+
+  /// The max trace bytes limit. Tracing is disabled if zero.
+  static constexpr const char* kQueryTraceMaxBytes =
+      "native_query_trace_max_bytes";
+
+  /// The regexp of traced task id. We only enable trace on a task if its id
+  /// matches.
+  static constexpr const char* kQueryTraceTaskRegExp =
+      "native_query_trace_task_reg_exp";
 
   SessionProperties();
 

@@ -70,3 +70,11 @@ IP Functions
         SELECT is_private_ip(IPADDRESS '157.240.200.99'); -- false
         SELECT is_private_ip(IPADDRESS '2a03:2880:f031:12:face:b00c:0:2'); -- false
 
+.. function:: ip_prefix_subnets(ip_prefix, prefix_length) -> array(ip_prefix)
+
+    Returns the subnets of ``ip_prefix`` of size ``prefix_length``. ``prefix_length`` must be valid ([0, 32] for IPv4
+    and [0, 128] for IPv6) or the query will fail and raise an error. An empty array is returned if ``prefix_length``
+    is shorter (that is, less specific) than ``ip_prefix``. ::
+
+        SELECT IP_PREFIX_SUBNETS(IPPREFIX '192.168.1.0/24', 25); -- [{192.168.1.0/25}, {192.168.1.128/25}]
+        SELECT IP_PREFIX_SUBNETS(IPPREFIX '2a03:2880:c000::/34', 36); -- [{2a03:2880:c000::/36}, {2a03:2880:d000::/36}, {2a03:2880:e000::/36}, {2a03:2880:f000::/36}]

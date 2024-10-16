@@ -185,17 +185,6 @@
         </dependency>
     </dependencies>
 
-    <dependencyManagement>
-        <!-- This is to fix the upper bound issues arising out of different components-->
-        <dependencies>
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-handler</artifactId>
-                <version>4.1.107.Final</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
     <build>
         <plugins>
             <plugin>

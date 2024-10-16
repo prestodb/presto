@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto;
+package com.facebook.presto.spi.plan;
 
-/**
- * This class exists to force the creation of a jar for the presto-server module. This is needed to deploy the presto-server module to nexus.
- */
-public class Dummy
+public interface SimplePlanFragmentSerde
 {
+    String serialize(SimplePlanFragment planFragment);
+
+    SimplePlanFragment deserialize(String value);
 }

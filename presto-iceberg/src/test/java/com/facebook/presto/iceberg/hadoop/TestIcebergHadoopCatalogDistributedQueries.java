@@ -29,4 +29,10 @@ public class TestIcebergHadoopCatalogDistributedQueries
     {
         return false;
     }
+
+    @Override
+    public void testRenameTable()
+    {
+        // Rename table are not supported by hadoop catalog
+    }
 }

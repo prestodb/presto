@@ -6395,7 +6395,7 @@ public class TestHiveIntegrationSmokeTest
 
         // Negative tests
         assertQueryFails(addPrimaryKeyStmt, format("Primary key already exists for: %s.%s", getSession().getSchema().get(), tableName));
-        assertQueryFails(addUniqueConstraintStmt, format("Constraint already exists: 'uq3'"));
+        assertQueryFails(addUniqueConstraintStmt, "Constraint already exists: 'uq3'");
         String dropNonExistentConstraint = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT missingconstraint", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
         assertQueryFails(dropNonExistentConstraint, "Constraint 'missingconstraint' not found");
 

@@ -1109,13 +1109,15 @@ HivePrestoToVeloxConnector::toVeloxSplit(
   for (const auto& [key, value] : hiveSplit->storage.serdeParameters) {
     serdeParameters[key] = value;
   }
-  std::unordered_map<std::string, std::string> infoColumns;
-  infoColumns.reserve(2);
-  infoColumns.insert(
-      {"$file_size", std::to_string(hiveSplit->fileSplit.fileSize)});
-  infoColumns.insert(
+  std::unordered_map<std::string, std::string> infoColumns = {
+      {"$path", hiveSplit->fileSplit.path},
+      {"$file_size", std::to_string(hiveSplit->fileSplit.fileSize)},
       {"$file_modified_time",
-       std::to_string(hiveSplit->fileSplit.fileModifiedTime)});
+       std::to_string(hiveSplit->fileSplit.fileModifiedTime)},
+  };
+  if (hiveSplit->tableBucketNumber) {
+    infoColumns["$bucket"] = std::to_string(*hiveSplit->tableBucketNumber);
+  }
   auto veloxSplit =
       std::make_unique<velox::connector::hive::HiveConnectorSplit>(
           catalogId,
@@ -1354,11 +1356,10 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     deletes.emplace_back(icebergDeleteFile);
   }
 
-  std::unordered_map<std::string, std::string> metadataColumns;
-  metadataColumns.reserve(1);
-  metadataColumns.insert(
+  std::unordered_map<std::string, std::string> infoColumns = {
       {"$data_sequence_number",
-       std::to_string(icebergSplit->dataSequenceNumber)});
+       std::to_string(icebergSplit->dataSequenceNumber)},
+      {"$path", icebergSplit->path}};
 
   return std::make_unique<connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
@@ -1371,7 +1372,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       customSplitInfo,
       nullptr,
       deletes,
-      metadataColumns);
+      infoColumns);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>

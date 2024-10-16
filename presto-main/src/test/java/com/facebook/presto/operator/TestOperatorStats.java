@@ -56,6 +56,10 @@ public class TestOperatorStats
 
             1,
 
+            1,
+            new Duration(2, NANOSECONDS),
+            new Duration(3, NANOSECONDS),
+            new DataSize(234, BYTE),
             2,
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),
@@ -111,6 +115,10 @@ public class TestOperatorStats
 
             1,
 
+            1,
+            new Duration(2, NANOSECONDS),
+            new Duration(3, NANOSECONDS),
+            new DataSize(234, BYTE),
             2,
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),

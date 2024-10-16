@@ -89,7 +89,7 @@ public class TestFeaturesConfig
                 .setRedistributeWrites(true)
                 .setScaleWriters(false)
                 .setWriterMinSize(new DataSize(32, MEGABYTE))
-                .setOptimizedScaleWriterProducerBuffer(false)
+                .setOptimizedScaleWriterProducerBuffer(true)
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeMetadataQueriesIgnoreStats(false)
                 .setOptimizeMetadataQueriesCallThreshold(100)
@@ -255,7 +255,9 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(false)
                 .setRemoveCrossJoinWithSingleConstantRow(true)
                 .setUseHistograms(false)
-                .setInlineProjectionsOnValues(false));
+                .setInlineProjectionsOnValues(false)
+                .setEagerPlanValidationEnabled(false)
+                .setEagerPlanValidationThreadPoolSize(20));
     }
 
     @Test
@@ -306,7 +308,7 @@ public class TestFeaturesConfig
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "true")
                 .put("writer-min-size", "42GB")
-                .put("optimized-scale-writer-producer-buffer", "true")
+                .put("optimized-scale-writer-producer-buffer", "false")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-metadata-queries-ignore-stats", "true")
                 .put("optimizer.optimize-metadata-queries-call-threshold", "200")
@@ -460,6 +462,8 @@ public class TestFeaturesConfig
                 .put("optimizer.remove-cross-join-with-single-constant-row", "false")
                 .put("optimizer.use-histograms", "true")
                 .put("optimizer.inline-projections-on-values", "true")
+                .put("eager-plan-validation-enabled", "true")
+                .put("eager-plan-validation-thread-pool-size", "2")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -506,7 +510,7 @@ public class TestFeaturesConfig
                 .setRedistributeWrites(false)
                 .setScaleWriters(true)
                 .setWriterMinSize(new DataSize(42, GIGABYTE))
-                .setOptimizedScaleWriterProducerBuffer(true)
+                .setOptimizedScaleWriterProducerBuffer(false)
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeMetadataQueriesIgnoreStats(true)
                 .setOptimizeMetadataQueriesCallThreshold(200)
@@ -661,7 +665,9 @@ public class TestFeaturesConfig
                 .setPrintEstimatedStatsFromCache(true)
                 .setRemoveCrossJoinWithSingleConstantRow(false)
                 .setUseHistograms(true)
-                .setInlineProjectionsOnValues(true);
+                .setInlineProjectionsOnValues(true)
+                .setEagerPlanValidationEnabled(true)
+                .setEagerPlanValidationThreadPoolSize(2);
         assertFullMapping(properties, expected);
     }
 

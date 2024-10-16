@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
@@ -26,6 +27,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
+import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -37,6 +39,8 @@ import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUA
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.Chars.compareChars;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static java.lang.String.format;
 
 public final class CharOperators
 {
@@ -166,5 +170,83 @@ public final class CharOperators
     public static boolean indeterminate(@SqlType("char(x)") Slice value, @IsNull boolean isNull)
     {
         return isNull;
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double castToDouble(@SqlType("char(x)") Slice slice)
+    {
+        try {
+            return Double.parseDouble(slice.toStringUtf8());
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DOUBLE", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.REAL)
+    public static long castToFloat(@SqlType("char(x)") Slice slice)
+    {
+        try {
+            return Float.floatToIntBits(Float.parseFloat(slice.toStringUtf8()));
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to REAL", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.BIGINT)
+    public static long castToBigint(@SqlType("char(x)") Slice slice)
+    {
+        try {
+            return Long.parseLong(slice.toStringUtf8().trim());
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long castToInteger(@SqlType("char(x)") Slice slice)
+    {
+        try {
+            return Integer.parseInt(slice.toStringUtf8().trim());
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INT", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long castToSmallint(@SqlType("char(x)") Slice slice)
+    {
+        try {
+            return Short.parseShort(slice.toStringUtf8().trim());
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long castToTinyint(@SqlType("char(x)") Slice slice)
+    {
+        try {
+            return Byte.parseByte(slice.toStringUtf8().trim());
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", slice.toStringUtf8()));
+        }
     }
 }

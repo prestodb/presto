@@ -53,6 +53,36 @@ output data set is not skewed in order to avoid the overhead of hashing and
 redistributing all the data across the network. This can also be specified
 on a per-query basis using the ``redistribute_writes`` session property.
 
+``task_writer_count``
+^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``1``
+
+Default number of local parallel table writer threads per worker. It is required
+to be a power of two for a Java query engine.
+
+``task_partitioned_writer_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``task_writer_count``
+
+Number of local parallel table writer threads per worker for partitioned writes. If not
+set, the number set by ``task_writer_count`` will be used. It is required to be a power
+of two for a Java query engine.
+
+``eager-plan-validation-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+This property enables the eager building and validation of a logical plan.
+When enabled, the logical plan will begin to be built and validated before
+queueing and allocation of cluster resources so that any errors or
+incompatibilities in the query plan will fail quickly and inform the user.
+
 .. _tuning-memory:
 
 Memory Management Properties
