@@ -27,8 +27,6 @@ import com.facebook.presto.spi.function.TypeParameter;
 @Description("Returns true if arrays have common elements")
 public final class ArraysOverlapFunction
 {
-    private static final int NESTED_LOOP_THRESHOLD = 200;
-
     private ArraysOverlapFunction() {}
 
     @TypeParameter("T")
@@ -38,41 +36,6 @@ public final class ArraysOverlapFunction
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)
-    {
-        if (leftArray.getPositionCount() == 0 || rightArray.getPositionCount() == 0) {
-            return false;
-        }
-
-        if (Math.max(rightArray.getPositionCount(), leftArray.getPositionCount()) >= NESTED_LOOP_THRESHOLD) {
-            return arraysOverlapSetBased(elementType, leftArray, rightArray);
-        }
-
-        boolean hasNull = false;
-        for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            if (leftArray.isNull(i)) {
-                hasNull = true;
-                continue;
-            }
-
-            for (int j = 0; j < rightArray.getPositionCount(); j++) {
-                if (rightArray.isNull(j)) {
-                    hasNull = true;
-                    continue;
-                }
-                if (elementType.equalTo(leftArray, i, rightArray, j)) {
-                    return true;
-                }
-            }
-        }
-        if (hasNull) {
-            return null;
-        }
-        return false;
-    }
-
-    private static Boolean arraysOverlapSetBased(Type type,
-            Block leftArray,
-            Block rightArray)
     {
         int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
@@ -89,7 +52,7 @@ public final class ArraysOverlapFunction
         }
 
         boolean itrArrHasNull = false;
-        TypedSet typedSet = new TypedSet(type, lookArray.getPositionCount(), "arraysOverlap");
+        TypedSet typedSet = new TypedSet(elementType, lookArray.getPositionCount(), "arraysOverlap");
         for (int i = 0; i < lookArray.getPositionCount(); i++) {
             typedSet.add(lookArray, i);
         }
