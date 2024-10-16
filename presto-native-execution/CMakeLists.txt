@@ -57,7 +57,7 @@ option(PRESTO_ENABLE_ABFS "Build ABFS support" OFF)
 option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
 
 # Forwards user input to VELOX_ENABLE_REMOTE_FUNCTIONS.
-option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
+option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" ON)
 
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 

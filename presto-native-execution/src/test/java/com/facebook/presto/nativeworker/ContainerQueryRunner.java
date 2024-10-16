@@ -31,13 +31,16 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
 import org.testcontainers.containers.BindMode;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +51,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.fail;
 
 public class ContainerQueryRunner
         implements QueryRunner
@@ -57,19 +59,21 @@ public class ContainerQueryRunner
     private static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
     private static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
     private static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
-    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
+    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10000");
     private static final String BASE_DIR = System.getProperty("user.dir");
     private static final int DEFAULT_COORDINATOR_PORT = 8080;
     private static final String TPCH_CATALOG = "tpch";
     private static final String TINY_SCHEMA = "tiny";
     private static final int DEFAULT_NUMBER_OF_WORKERS = 4;
+    private static final Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
     private final GenericContainer<?> coordinator;
     private final List<GenericContainer<?>> workers = new ArrayList<>();
     private final int coordinatorPort;
     private final String catalog;
     private final String schema;
     private final int numberOfWorkers;
-    private static Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
+    private Connection connection;
+    private Statement statement;
 
     public ContainerQueryRunner()
             throws InterruptedException, IOException
@@ -95,7 +99,29 @@ public class ContainerQueryRunner
         workers.forEach(GenericContainer::start);
 
         logger.info("Presto UI is accessible at http://localhost:" + coordinator.getMappedPort(coordinatorPort));
-        TimeUnit.SECONDS.sleep(5);
+
+        TimeUnit.SECONDS.sleep(10);
+
+        String url = String.format("jdbc:presto://localhost:%s/%s/%s?%s",
+                coordinator.getMappedPort(coordinatorPort),
+                catalog,
+                schema,
+                "timeZoneId=UTC");
+
+        try {
+            Connection connection = DriverManager.getConnection(url, "test", null);
+            statement = connection.createStatement();
+            statement.execute("set session remote_functions_enabled=true");
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Delete the temporary files once the containers are started.
+        ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
+        for (int i = 0; i < numberOfWorkers; i++) {
+            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/native-worker-" + i);
+        }
     }
 
     private GenericContainer<?> createCoordinator()
@@ -107,6 +133,7 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
         ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
+        ContainerQueryRunnerUtils.createFunctionNamespaceRemoteProperties();
 
         return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(coordinatorPort)
@@ -144,10 +171,6 @@ public class ContainerQueryRunner
         }
         coordinator.stop();
         workers.forEach(GenericContainer::stop);
-        ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
-        for (int i = 0; i < numberOfWorkers; i++) {
-            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/native-worker-" + i);
-        }
     }
 
     @Override
@@ -276,34 +299,14 @@ public class ContainerQueryRunner
     @Override
     public MaterializedResult execute(Session session, String sql)
     {
-        String[] command = {
-                "/opt/presto-cli",
-                "--server",
-                "presto-coordinator:" + coordinatorPort,
-                "--catalog",
-                catalog,
-                "--schema",
-                schema,
-                "--execute",
-                sql
-        };
-
-        Container.ExecResult execResult;
         try {
-            execResult = coordinator.execInContainer(command);
-
-            if (execResult.getExitCode() != 0) {
-                String errorDetails = String.format("Stdout: %s%nStderr: %s", execResult.getStdout(), execResult.getStderr());
-                fail("Presto CLI exited with error code: " + execResult.getExitCode() + "\n" + errorDetails);
-            }
-
-            return ContainerQueryRunnerUtils.toMaterializedResult(execResult.getStdout());
+            ResultSet resultSet = statement.executeQuery(sql);
+            return ContainerQueryRunnerUtils
+                    .toMaterializedResult(resultSet);
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+        catch (SQLException e) {
+            e.printStackTrace();
         }
-        catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        return null;
     }
 }

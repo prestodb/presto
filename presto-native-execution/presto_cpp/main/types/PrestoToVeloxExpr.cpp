@@ -14,14 +14,23 @@
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include <boost/algorithm/string/case_conv.hpp>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/JsonSignatureParser.h"
+#include "velox/expression/FunctionSignature.h"
+#include "velox/functions/remote/client/Remote.h"
+#endif
 
 using namespace facebook::velox::core;
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+using facebook::velox::functions::remote::PageFormat;
+#endif
 using facebook::velox::TypeKind;
 
 namespace facebook::presto {
@@ -412,6 +421,55 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
       returnType, args, getFunctionName(signature));
 }
 
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+PageFormat fromSerdeString(const std::string_view& serdeName) {
+  if (serdeName == "presto_page") {
+    return PageFormat::PRESTO_PAGE;
+  } else if (serdeName == "spark_unsafe_row") {
+    return PageFormat::SPARK_UNSAFE_ROW;
+  } else {
+    VELOX_FAIL(
+        "Unknown serde name for remote function server: '{}'", serdeName);
+  }
+}
+
+velox::TypePtr mapPrestoTypeToVeloxType(const protocol::TypeSignature& prestoType) {
+    // This function should map Presto's TypeSignature to Velox's equivalent types.
+    // You'll need to handle each type according to its corresponding Velox type.
+    // As an example:
+    
+    if (prestoType.compare("integer")) {
+        return velox::INTEGER();
+    } else if (prestoType.compare("double")) {
+        return velox::DOUBLE();
+    } 
+    // Add more mappings as needed...
+
+    // For unsupported types, throw an error
+    VELOX_UNSUPPORTED("Unsupported type: {}", prestoType);
+}
+
+// Function to convert Presto Signature to Velox FunctionSignature
+std::vector<velox::exec::FunctionSignaturePtr> convertPrestoSignatureToVeloxSignature(const protocol::Signature& prestoSignature) {
+    // A vector to hold the converted signatures
+    std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures;
+
+    
+
+    // Create a Velox FunctionSignature using the builder
+    auto signature = velox::exec::FunctionSignatureBuilder()
+                         .returnType(prestoSignature.returnType)         // Set the return type
+                         .argumentType("integer")   // Set the argument types
+                        //  .variableArity()  // Handle variable arity
+                         .build();
+
+    // Add the converted signature to the vector
+    veloxSignatures.push_back(signature);
+
+    return veloxSignatures;
+}
+#endif
+
 TypedExprPtr VeloxExprConverter::toVeloxExpr(
     const protocol::CallExpression& pexpr) const {
   if (auto builtin = std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
@@ -458,10 +516,50 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
               pexpr.functionHandle)) {
     auto args = toVeloxExpr(pexpr.arguments);
     auto returnType = typeParser_->parse(pexpr.returnType);
+
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
-
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+  else if (auto RestFunctionHandle =
+             std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
+                 pexpr.functionHandle)) {
+    
+    // Convert the Presto expressions to Velox expressions
+    auto args = toVeloxExpr(pexpr.arguments);
+    
+    // Parse the return type using the type parser
+    auto returnType = typeParser_->parse(pexpr.returnType);
+    
+    // Get system configurations
+    const auto* systemConfig = SystemConfig::instance();
+    
+    // Set up metadata for the remote function
+    velox::functions::RemoteVectorFunctionMetadata metadata;
+    metadata.serdeFormat = fromSerdeString(systemConfig->remoteFunctionServerSerde());
+    
+    // Create the URL for the remote function server
+    proxygen::URL url(systemConfig->kRemoteFunctionServerRestURL);
+    metadata.location = url;
+    
+    // Extract the signature from the RestFunctionHandle
+    const auto& prestoSignature = RestFunctionHandle->signature;
+    
+    // Convert Presto signature to Velox FunctionSignature
+    std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = convertPrestoSignatureToVeloxSignature(prestoSignature);
+    
+    // Register the remote function using Velox's API
+    velox::functions::registerRemoteFunction(
+        getFunctionName(RestFunctionHandle->functionId),  // Get the function name
+        veloxSignatures,                                  // Provide the converted Velox signatures
+        metadata,                                         // Attach the metadata
+        /* overwrite = */ true);                          // Set overwrite if needed
+    
+    // Create and return a CallTypedExpr with the function name, return type, and arguments
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(RestFunctionHandle->functionId));
+  }
+#endif
   VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
 }
 
