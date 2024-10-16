@@ -42,6 +42,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.tracing.TracerProvider;
@@ -365,6 +366,11 @@ public class PluginManager
         for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
             log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
             metadata.getFunctionAndTypeManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
+        }
+
+        for (WorkerSessionPropertyProviderFactory providerFactory : plugin.getWorkerSessionPropertyProviderFactories()) {
+            log.info("Registering system session property provider factory %s", providerFactory.getName());
+            metadata.getSessionPropertyManager().addSessionPropertyProviderFactory(providerFactory);
         }
     }
 
