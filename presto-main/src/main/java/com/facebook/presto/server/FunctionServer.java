@@ -57,6 +57,7 @@ public class FunctionServer
         try {
             Bootstrap app = new Bootstrap(modules);
             Injector injector = app.initialize();
+            injector.getInstance(FunctionPluginManager.class).loadPlugins();
 
             HttpServerInfo serverInfo = injector.getInstance(HttpServerInfo.class);
             log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
