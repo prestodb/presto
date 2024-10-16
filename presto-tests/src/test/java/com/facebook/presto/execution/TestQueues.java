@@ -401,11 +401,12 @@ public class TestQueues
         QueryId secondQuery = createQuery(queryRunner, secondSession, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, secondQuery, QUEUED);
 
+        // Force failure during plan validation after queuing has begun
+        triggerValidationFailure.set(true);
+
         Session thirdSession = builder.setQueryId(QueryId.valueOf("20240930_203743_00003_33333")).build();
         QueryId thirdQuery = createQuery(queryRunner, thirdSession, LONG_LASTING_QUERY);
 
-        // Force failure during plan validation after queuing has begun
-        triggerValidationFailure.set(true);
         waitForQueryState(queryRunner, thirdQuery, FAILED);
 
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
