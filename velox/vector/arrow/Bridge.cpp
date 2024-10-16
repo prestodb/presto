@@ -572,7 +572,6 @@ VectorPtr createStringFlatVectorFromUtf8View(
   BufferPtr stringViews =
       AlignedBuffer::allocate<StringView>(arrowArray.length, pool);
   auto* rawStringViews = stringViews->asMutable<uint64_t>();
-  auto* rawNulls = nulls->as<uint64_t>();
 
   // Full copy for inline strings (length <= 12). For non-inline strings,
   // convert 16-byte Arrow Utf8View [4-byte length, 4-byte prefix, 4-byte

@@ -483,7 +483,6 @@ void MemoryAllocator::getTracingHooks(
   report = [state, allocator, ioVolume]() -> std::string {
     struct rusage rusage;
     getrusage(RUSAGE_SELF, &rusage);
-    auto newStats = allocator->stats();
     float u = elapsedUsec(rusage.ru_utime, state->rusage.ru_utime);
     float s = elapsedUsec(rusage.ru_stime, state->rusage.ru_stime);
     auto m = allocator->stats() - state->allocatorStats;
