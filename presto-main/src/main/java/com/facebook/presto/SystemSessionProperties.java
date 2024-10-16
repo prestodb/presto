@@ -335,6 +335,7 @@ public final class SystemSessionProperties
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
+    public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression.max_array_size_in_reduce";
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
     public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
@@ -1647,6 +1648,11 @@ public final class SystemSessionProperties
                         NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
                         "Native Execution only. Enable simplified path in expression evaluation",
                         false,
+                        false),
+                integerProperty(
+                        NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE,
+                        "Native Execution only. Reduce() function will throw an error if it encounters an array of size greater than this value.",
+                        100000,
                         false),
                 booleanProperty(
                         NATIVE_AGGREGATION_SPILL_ALL,
