@@ -268,6 +268,11 @@ public class TimestampColumnWriter
     }
 
     @Override
+    public void printRetainedBytes() {
+
+    }
+
+    @Override
     public void reset()
     {
         closed = false;
