@@ -14,6 +14,8 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name ADD [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] } ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED } ]
     ALTER TABLE [ IF EXISTS ] name DROP CONSTRAINT [ IF EXISTS ] constraint_name
     ALTER TABLE [ IF EXISTS ] ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
+    ALTER TABLE [ IF EXISTS ] name DROP BRANCH [ IF EXISTS ] branch_name
+    ALTER TABLE [ IF EXISTS ] name DROP TAG [ IF EXISTS ] tag_name
 
 Description
 -----------
@@ -88,6 +90,14 @@ Add not null constraint to column ``zip`` in the ``users`` table if  table ``use
 Drop not null constraint from column ``zip`` in the ``users`` table::
 
     ALTER TABLE users ALTER COLUMN zip DROP NOT NULL;
+
+Drop branch ``branch1`` from the ``users`` table::
+
+    ALTER TABLE users DROP BRANCH 'branch1';
+
+Drop tag ``tag1`` from the ``users`` table::
+
+    ALTER TABLE users DROP TAG 'tag1';
 
 See Also
 --------
