@@ -65,6 +65,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
@@ -377,6 +378,14 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(identity, view.getCatalogName(), ALL)) {
             denyCreateView(view.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRenameView(Identity identity, AccessControlContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        if (!canAccessCatalog(identity, view.getCatalogName(), ALL)) {
+            denyRenameView(view.toString(), newView.toString());
         }
     }
 

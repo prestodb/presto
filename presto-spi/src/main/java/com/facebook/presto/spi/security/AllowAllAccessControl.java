@@ -140,6 +140,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanRenameView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+    }
+
+    @Override
     public void checkCanDropView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName)
     {
     }

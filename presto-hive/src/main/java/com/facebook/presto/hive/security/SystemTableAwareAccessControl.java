@@ -167,6 +167,12 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
+    public void checkCanRenameView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        delegate().checkCanRenameView(transactionHandle, identity, context, viewName, newViewName);
+    }
+
+    @Override
     public void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
         delegate.checkCanDropView(transactionHandle, identity, context, viewName);
