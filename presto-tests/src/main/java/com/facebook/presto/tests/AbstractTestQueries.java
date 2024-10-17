@@ -3134,7 +3134,8 @@ public abstract class AbstractTestQueries
         @Language("SQL") String sql = "SHOW SESSION";
         MaterializedResult actualResult = computeActual(sql);
         List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
-        List<MaterializedRow> filteredRows = getNativeWorkerSessionProperties(actualRows);
+        String nativeSessionProperty = "native_expression.max_array_size_in_reduce";
+        List<MaterializedRow> filteredRows = getNativeWorkerSessionProperties(actualRows, nativeSessionProperty);
         assertTrue(filteredRows.isEmpty());
 
         // SET SESSION on a native-worker session property
@@ -7910,10 +7911,10 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (VALUES (60, 29))");
     }
 
-    private List<MaterializedRow> getNativeWorkerSessionProperties(List<MaterializedRow> inputRows)
+    private List<MaterializedRow> getNativeWorkerSessionProperties(List<MaterializedRow> inputRows, String sessionPropertyName)
     {
         return inputRows.stream()
-                .filter(row -> Pattern.matches("Native Execution only.*", row.getFields().get(4).toString()))
+                .filter(row -> Pattern.matches(sessionPropertyName, row.getFields().get(4).toString()))
                 .collect(toList());
     }
 }

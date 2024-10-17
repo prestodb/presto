@@ -14,7 +14,6 @@
 package com.facebook.presto.sidecar;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableMap;
 
 public class NativeSidecarPluginQueryRunnerUtils
 {
@@ -23,6 +22,6 @@ public class NativeSidecarPluginQueryRunnerUtils
     public static void setupNativeSidecarPlugin(QueryRunner queryRunner)
     {
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
-        queryRunner.loadSystemSessionPropertyProvider(NativeSystemSessionPropertyProviderFactory.NAME, ImmutableMap.of());
+        queryRunner.loadSessionPropertyProvider(NativeSystemSessionPropertyProviderFactory.NAME);
     }
 }

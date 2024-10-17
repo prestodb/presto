@@ -20,10 +20,6 @@ import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
 import com.google.inject.Injector;
 
-import java.util.Map;
-
-import static java.util.Objects.requireNonNull;
-
 public class NativeSystemSessionPropertyProviderFactory
         implements WorkerSessionPropertyProviderFactory
 {

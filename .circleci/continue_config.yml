@@ -211,7 +211,7 @@ jobs:
           steps:
             - checkout
             - attach_workspace:
-                at: presto-native-sidecar-plugin
+                at: presto-native-execution
             - maven_install:
                 maven_install_opts: ${MAVEN_INSTALL_OPTS}
                 maven_fast_install: ${MAVEN_FAST_INSTALL}
@@ -241,8 +241,6 @@ jobs:
                       -Duser.timezone=America/Bahia_Banderas \
                       -T1C
                   fi
-            - store_artifacts:
-                path: '/tmp/PrestoNativeQueryRunnerUtils'
 
   linux-spark-e2e-tests:
     executor: build

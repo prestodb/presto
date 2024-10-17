@@ -72,7 +72,6 @@ jobs:
             !presto-server,
             !presto-main,
             !presto-mongodb,
-            !presto-delta,
             !presto-spark-package,
             !presto-spark-launcher,
             !presto-spark-testing,
@@ -84,4 +83,5 @@ jobs:
             !presto-native-execution,
             !presto-test-coverage,
             !presto-iceberg,
-            !presto-singlestore'
+            !presto-singlestore,
+            !presto-native-sidecar-plugin'
