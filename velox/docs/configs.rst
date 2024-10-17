@@ -638,10 +638,6 @@ Each query can override the config by setting corresponding query session proper
      - string
      -
      - The GCS storage endpoint server.
-   * - hive.gcs.scheme
-     - string
-     -
-     - The GCS storage scheme, https for default credentials.
    * - hive.gcs.json-key-file-path
      - string
      -

@@ -266,13 +266,23 @@ class GCSFileSystem::Impl {
 
   // Use the input Config parameters and initialize the GCSClient.
   void initializeClient() {
+    constexpr std::string_view kHttpsScheme{"https://"};
     auto options = gc::Options{};
-    auto scheme = hiveConfig_->gcsScheme();
-    if (scheme == "https") {
+    auto endpointOverride = hiveConfig_->gcsEndpoint();
+    // Use secure credentials by default.
+    if (!endpointOverride.empty()) {
+      options.set<gcs::RestEndpointOption>(endpointOverride);
+      // Use Google default credentials if endpoint has https scheme.
+      if (endpointOverride.find(kHttpsScheme) == 0) {
+        options.set<gc::UnifiedCredentialsOption>(
+            gc::MakeGoogleDefaultCredentials());
+      } else {
+        options.set<gc::UnifiedCredentialsOption>(
+            gc::MakeInsecureCredentials());
+      }
+    } else {
       options.set<gc::UnifiedCredentialsOption>(
           gc::MakeGoogleDefaultCredentials());
-    } else {
-      options.set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials());
     }
     options.set<gcs::UploadBufferSizeOption>(kUploadBufferSize);
 
@@ -288,11 +298,6 @@ class GCSFileSystem::Impl {
           facebook::velox::config::toDuration(max_retry_time.value()));
       options.set<gcs::RetryPolicyOption>(
           gcs::LimitedTimeRetryPolicy(retry_time).clone());
-    }
-
-    auto endpointOverride = hiveConfig_->gcsEndpoint();
-    if (!endpointOverride.empty()) {
-      options.set<gcs::RestEndpointOption>(scheme + "://" + endpointOverride);
     }
 
     auto credFile = hiveConfig_->gcsCredentialsPath();

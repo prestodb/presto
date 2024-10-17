@@ -107,9 +107,6 @@ class HiveConfig {
   /// The GCS storage endpoint server.
   static constexpr const char* kGCSEndpoint = "hive.gcs.endpoint";
 
-  /// The GCS storage scheme, https for default credentials.
-  static constexpr const char* kGCSScheme = "hive.gcs.scheme";
-
   /// The GCS service account configuration JSON key file.
   static constexpr const char* kGCSCredentialsPath =
       "hive.gcs.json-key-file-path";
@@ -295,8 +292,6 @@ class HiveConfig {
   std::optional<std::string> s3RetryMode() const;
 
   std::string gcsEndpoint() const;
-
-  std::string gcsScheme() const;
 
   std::string gcsCredentialsPath() const;
 

@@ -139,10 +139,6 @@ std::string HiveConfig::gcsEndpoint() const {
   return config_->get<std::string>(kGCSEndpoint, std::string(""));
 }
 
-std::string HiveConfig::gcsScheme() const {
-  return config_->get<std::string>(kGCSScheme, std::string("https"));
-}
-
 std::string HiveConfig::gcsCredentialsPath() const {
   return config_->get<std::string>(kGCSCredentialsPath, std::string(""));
 }

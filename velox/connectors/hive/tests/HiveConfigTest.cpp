@@ -43,7 +43,6 @@ TEST(HiveConfigTest, defaultConfig) {
   ASSERT_EQ(hiveConfig.s3IAMRole(), std::nullopt);
   ASSERT_EQ(hiveConfig.s3IAMRoleSessionName(), "velox-session");
   ASSERT_EQ(hiveConfig.gcsEndpoint(), "");
-  ASSERT_EQ(hiveConfig.gcsScheme(), "https");
   ASSERT_EQ(hiveConfig.gcsCredentialsPath(), "");
   ASSERT_EQ(hiveConfig.isOrcUseColumnNames(emptySession.get()), false);
   ASSERT_EQ(
@@ -96,7 +95,6 @@ TEST(HiveConfigTest, overrideConfig) {
       {HiveConfig::kS3IamRole, "hello"},
       {HiveConfig::kS3IamRoleSessionName, "velox"},
       {HiveConfig::kGCSEndpoint, "hey"},
-      {HiveConfig::kGCSScheme, "http"},
       {HiveConfig::kGCSCredentialsPath, "hey"},
       {HiveConfig::kOrcUseColumnNames, "true"},
       {HiveConfig::kFileColumnNamesReadAsLowerCase, "true"},
@@ -136,7 +134,6 @@ TEST(HiveConfigTest, overrideConfig) {
   ASSERT_EQ(hiveConfig.s3IAMRole(), std::optional("hello"));
   ASSERT_EQ(hiveConfig.s3IAMRoleSessionName(), "velox");
   ASSERT_EQ(hiveConfig.gcsEndpoint(), "hey");
-  ASSERT_EQ(hiveConfig.gcsScheme(), "http");
   ASSERT_EQ(hiveConfig.gcsCredentialsPath(), "hey");
   ASSERT_EQ(hiveConfig.isOrcUseColumnNames(emptySession.get()), true);
   ASSERT_EQ(
@@ -211,7 +208,6 @@ TEST(HiveConfigTest, overrideSession) {
   ASSERT_EQ(hiveConfig.s3IAMRole(), std::nullopt);
   ASSERT_EQ(hiveConfig.s3IAMRoleSessionName(), "velox-session");
   ASSERT_EQ(hiveConfig.gcsEndpoint(), "");
-  ASSERT_EQ(hiveConfig.gcsScheme(), "https");
   ASSERT_EQ(hiveConfig.gcsCredentialsPath(), "");
   ASSERT_EQ(hiveConfig.isOrcUseColumnNames(session.get()), true);
   ASSERT_EQ(hiveConfig.isFileColumnNamesReadAsLowerCase(session.get()), true);
