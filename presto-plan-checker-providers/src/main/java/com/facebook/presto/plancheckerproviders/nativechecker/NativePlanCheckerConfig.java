@@ -26,7 +26,7 @@ public class NativePlanCheckerConfig
         return enabled;
     }
 
-    @Config("native-plan-checker.plan-validation-enabled")
+    @Config("plan-validation-enabled")
     @ConfigDescription("Set true to enable native plan validation")
     public NativePlanCheckerConfig setPlanValidationEnabled(boolean enabled)
     {
