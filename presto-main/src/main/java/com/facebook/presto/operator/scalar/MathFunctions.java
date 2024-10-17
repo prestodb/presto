@@ -1699,4 +1699,60 @@ public final class MathFunctions
         }
         return Math.sqrt(l2norm);
     }
+
+    @Description("euclidean distance between two dense vectors given as arrays")
+    @ScalarFunction("euclidean_distance_dense")
+    @SqlNullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double euclideanDistanceDense(@SqlType("array(double)") Block leftArray, @SqlType("array(double)") Block rightArray)
+    {
+        Double squaredSum = squaredSumDifferences(leftArray, rightArray);
+        if (squaredSum == null) {
+            return null;
+        }
+
+        return Math.sqrt(squaredSum);
+    }
+
+    private static Double squaredSumDifferences(Block leftArray, Block rightArray)
+    {
+        int maxIndex = 0;
+        Double squaredSum = 0.0;
+
+        if (leftArray.getPositionCount() < rightArray.getPositionCount()) {
+            maxIndex = leftArray.getPositionCount();
+            squaredSum = squaredSumArray(rightArray, maxIndex);
+        }
+        else {
+            maxIndex = rightArray.getPositionCount();
+            squaredSum = squaredSumArray(leftArray, maxIndex);
+        }
+
+        if (squaredSum == null) {
+            return null;
+        }
+
+        for (int i = 0; i < maxIndex; i++) {
+            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+                return null;
+            }
+            squaredSum += Math.pow(DOUBLE.getDouble(leftArray, i) - DOUBLE.getDouble(rightArray, i), 2);
+        }
+
+        return squaredSum;
+    }
+
+    private static Double squaredSumArray(Block array, int maxIndex)
+    {
+        Double squaredSum = 0.0;
+
+        for (int i = maxIndex; i < array.getPositionCount(); i++) {
+            if (array.isNull(i)) {
+                return null;
+            }
+            squaredSum += Math.pow(DOUBLE.getDouble(array, i), 2);
+        }
+
+        return squaredSum;
+    }
 }

@@ -1350,13 +1350,37 @@ public class TestMathFunctions
 
         assertFunction("cosine_similarity_dense(array [0, 0, 0], array [1.0E0, 3.0E0])",
                 DOUBLE,
-                0.0);
+                Double.NaN);
 
         assertFunction("cosine_similarity_dense(null, array [1.0E0, 3.0E0])",
                 DOUBLE,
                 null);
 
         assertFunction("cosine_similarity_dense(array [1.0E0, null], array [1.0E0, 3.0E0])",
+                DOUBLE,
+                null);
+    }
+
+    @Test
+    public void testEuclideanDistanceDense()
+    {
+        assertFunction("euclidean_distance_dense(array [1.0E0, 2.0E0], array [1.0E0, 3.0E0])",
+                DOUBLE,
+                Math.sqrt(Math.pow((1 - 1), 2) + Math.pow((2 - 3), 2)));
+
+        assertFunction("euclidean_distance_dense(array [1.0E0, 2.0E0, -1.0E0], array [1.0E0, 3.0E0])",
+                DOUBLE,
+                Math.sqrt(Math.pow((1 - 1), 2) + Math.pow((2 - 3), 2) + Math.pow((-1 - 0), 2)));
+
+        assertFunction("euclidean_distance_dense(array [0, 0, 0], array [0, 0])",
+                DOUBLE,
+                0.0);
+
+        assertFunction("euclidean_distance_dense(null, array [1.0E0, 3.0E0])",
+                DOUBLE,
+                null);
+
+        assertFunction("euclidean_distance_dense(array [1.0E0, null], array [1.0E0, 3.0E0])",
                 DOUBLE,
                 null);
     }
