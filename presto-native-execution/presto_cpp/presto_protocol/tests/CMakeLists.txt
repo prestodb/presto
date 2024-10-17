@@ -26,7 +26,8 @@ add_executable(
   TupleDomainTest.cpp
   TypeErrorTest.cpp
   VariableReferenceExpressionTest.cpp
-  PlanFragmentTest.cpp)
+  PlanFragmentTest.cpp
+)
 add_test(
   NAME presto_protocol_test
   COMMAND presto_protocol_test
