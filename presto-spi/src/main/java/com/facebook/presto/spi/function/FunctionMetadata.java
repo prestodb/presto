@@ -20,11 +20,13 @@ import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor.defaultFunctionDescriptor;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -42,6 +44,7 @@ public class FunctionMetadata
     private final boolean calledOnNullInput;
     private final FunctionVersion version;
     private final ComplexTypeFunctionDescriptor descriptor;
+    private final Map<Signature, ScalarStatsHeader> signatureToScalarStatsHeaders;
 
     public FunctionMetadata(
             QualifiedObjectName name,
@@ -52,7 +55,22 @@ public class FunctionMetadata
             boolean deterministic,
             boolean calledOnNullInput)
     {
-        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned());
+        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType,
+                deterministic, calledOnNullInput, notVersioned(), emptyMap());
+    }
+
+    public FunctionMetadata(
+            QualifiedObjectName name,
+            List<TypeSignature> argumentTypes,
+            TypeSignature returnType,
+            FunctionKind functionKind,
+            FunctionImplementationType implementationType,
+            boolean deterministic,
+            boolean calledOnNullInput,
+            Map<Signature, ScalarStatsHeader> signatureToScalarStatsHeaders)
+    {
+        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType,
+                deterministic, calledOnNullInput, notVersioned(), signatureToScalarStatsHeaders);
     }
 
     public FunctionMetadata(
@@ -65,7 +83,23 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
-        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor);
+        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType,
+                deterministic, calledOnNullInput, notVersioned(), functionDescriptor, emptyMap());
+    }
+
+    public FunctionMetadata(
+            QualifiedObjectName name,
+            List<TypeSignature> argumentTypes,
+            TypeSignature returnType,
+            FunctionKind functionKind,
+            FunctionImplementationType implementationType,
+            boolean deterministic,
+            boolean calledOnNullInput,
+            ComplexTypeFunctionDescriptor functionDescriptor,
+            Map<Signature, ScalarStatsHeader> signatureToScalarStatsHeaders)
+    {
+        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType,
+                deterministic, calledOnNullInput, notVersioned(), functionDescriptor, signatureToScalarStatsHeaders);
     }
 
     public FunctionMetadata(
@@ -80,7 +114,8 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             FunctionVersion version)
     {
-        this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic, calledOnNullInput, version);
+        this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic,
+                calledOnNullInput, version, emptyMap());
     }
 
     public FunctionMetadata(
@@ -97,7 +132,25 @@ public class FunctionMetadata
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
         this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic,
-                calledOnNullInput, version, functionDescriptor);
+                calledOnNullInput, version, functionDescriptor, emptyMap());
+    }
+
+    public FunctionMetadata(
+            QualifiedObjectName name,
+            List<TypeSignature> argumentTypes,
+            List<String> argumentNames,
+            TypeSignature returnType,
+            FunctionKind functionKind,
+            Language language,
+            FunctionImplementationType implementationType,
+            boolean deterministic,
+            boolean calledOnNullInput,
+            FunctionVersion version,
+            ComplexTypeFunctionDescriptor functionDescriptor,
+            Map<Signature, ScalarStatsHeader> signatureToScalarStatsHeaders)
+    {
+        this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic,
+                calledOnNullInput, version, functionDescriptor, signatureToScalarStatsHeaders);
     }
 
     public FunctionMetadata(
@@ -109,7 +162,8 @@ public class FunctionMetadata
             boolean deterministic,
             boolean calledOnNullInput)
     {
-        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned());
+        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(),
+                implementationType, deterministic, calledOnNullInput, notVersioned(), emptyMap());
     }
 
     public FunctionMetadata(
@@ -122,35 +176,8 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
-        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor);
-    }
-
-    private FunctionMetadata(
-            QualifiedObjectName name,
-            Optional<OperatorType> operatorType,
-            List<TypeSignature> argumentTypes,
-            Optional<List<String>> argumentNames,
-            TypeSignature returnType,
-            FunctionKind functionKind,
-            Optional<Language> language,
-            FunctionImplementationType implementationType,
-            boolean deterministic,
-            boolean calledOnNullInput,
-            FunctionVersion version)
-    {
-        this(
-                name,
-                operatorType,
-                argumentTypes,
-                argumentNames,
-                returnType,
-                functionKind,
-                language,
-                implementationType,
-                deterministic,
-                calledOnNullInput,
-                version,
-                defaultFunctionDescriptor());
+        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(),
+                implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor, emptyMap());
     }
 
     private FunctionMetadata(
@@ -165,7 +192,38 @@ public class FunctionMetadata
             boolean deterministic,
             boolean calledOnNullInput,
             FunctionVersion version,
-            ComplexTypeFunctionDescriptor functionDescriptor)
+            Map<Signature, ScalarStatsHeader> signatureToScalarStatsHeaders)
+    {
+        this(
+                name,
+                operatorType,
+                argumentTypes,
+                argumentNames,
+                returnType,
+                functionKind,
+                language,
+                implementationType,
+                deterministic,
+                calledOnNullInput,
+                version,
+                defaultFunctionDescriptor(),
+                signatureToScalarStatsHeaders);
+    }
+
+    private FunctionMetadata(
+            QualifiedObjectName name,
+            Optional<OperatorType> operatorType,
+            List<TypeSignature> argumentTypes,
+            Optional<List<String>> argumentNames,
+            TypeSignature returnType,
+            FunctionKind functionKind,
+            Optional<Language> language,
+            FunctionImplementationType implementationType,
+            boolean deterministic,
+            boolean calledOnNullInput,
+            FunctionVersion version,
+            ComplexTypeFunctionDescriptor functionDescriptor,
+            Map<Signature, ScalarStatsHeader> signatureToScalarStatsHeaders)
     {
         this.name = requireNonNull(name, "name is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -185,7 +243,9 @@ public class FunctionMetadata
                 functionDescriptor.getArgumentIndicesContainingMapOrArray(),
                 functionDescriptor.getOutputToInputTransformationFunction(),
                 argumentTypes);
+        this.signatureToScalarStatsHeaders = signatureToScalarStatsHeaders;
     }
+
     public FunctionKind getFunctionKind()
     {
         return functionKind;
@@ -246,6 +306,16 @@ public class FunctionMetadata
         return descriptor;
     }
 
+    public boolean hasStatsHeader()
+    {
+        return !signatureToScalarStatsHeaders.isEmpty();
+    }
+
+    public Optional<ScalarStatsHeader> getScalarStatsHeader(Signature signature)
+    {
+        return Optional.ofNullable(signatureToScalarStatsHeaders.get(signature));
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -267,12 +337,14 @@ public class FunctionMetadata
                 Objects.equals(this.deterministic, other.deterministic) &&
                 Objects.equals(this.calledOnNullInput, other.calledOnNullInput) &&
                 Objects.equals(this.version, other.version) &&
-                Objects.equals(this.descriptor, other.descriptor);
+                Objects.equals(this.descriptor, other.descriptor) &&
+                Objects.equals(this.signatureToScalarStatsHeaders, other.signatureToScalarStatsHeaders);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, operatorType, argumentTypes, argumentNames, returnType, functionKind, language, implementationType, deterministic, calledOnNullInput, version, descriptor);
+        return Objects.hash(name, operatorType, argumentTypes, argumentNames, returnType, functionKind, language, implementationType, deterministic, calledOnNullInput, version,
+                descriptor, signatureToScalarStatsHeaders);
     }
 }

@@ -884,6 +884,16 @@ This can also be specified on a per-query basis using the ``confidence_based_bro
 Enable treating ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins. This can also be specified
 on a per-query basis using the ``treat-low-confidence-zero-estimation-as-unknown`` session property.
 
+``optimizer.scalar-function-stats-propagation-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When set to ``true``, this property enables statistics to be propagated from function arguments to higher level expressions. When set to ``false`` any function calls result in unknown statistics which can negatively impact query planning.
+This can also be specified on a per-query basis using the ``scalar_function_stats_propagation_enabled`` session property.
+
 ``optimizer.retry-query-with-history-based-optimization``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
