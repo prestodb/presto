@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 
 import javax.servlet.AsyncContext;
@@ -45,6 +46,7 @@ import static java.util.Objects.requireNonNull;
 public class MockHttpServletRequest
         implements HttpServletRequest
 {
+    private static final String DEFAULT_ADDRESS = "127.0.0.1";
     private final ListMultimap<String, String> headers;
     private final String remoteAddress;
     private final Map<String, Object> attributes;
@@ -54,6 +56,12 @@ public class MockHttpServletRequest
         this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
         this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
         this.attributes = new HashMap<>(requireNonNull(attributes, "attributes is null"));
+    }
+
+    public MockHttpServletRequest(ListMultimap<String, String> headers)
+    {
+        // Default remoteAddress and empty attributes
+        this(headers, DEFAULT_ADDRESS, ImmutableMap.of());
     }
 
     @Override
