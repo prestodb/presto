@@ -33,6 +33,7 @@ import com.facebook.presto.spi.security.RoleGrant;
 
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -74,6 +75,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -183,6 +185,24 @@ public class SqlStandardAccessControl
                 context.getRuntimeStats());
         if (!isDatabaseOwner(transaction, identity, metastoreContext, tableName.getSchemaName())) {
             denyCreateTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        MetastoreContext metastoreContext = new MetastoreContext(identity,
+                context.getQueryId().getId(),
+                context.getClientInfo(),
+                context.getClientTags(),
+                context.getSource(),
+                Optional.empty(),
+                false,
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                context.getWarningCollector(),
+                context.getRuntimeStats());
+        if (!isTableOwner(transactionHandle, identity, metastoreContext, tableName)) {
+            denySetTableProperties(tableName.toString());
         }
     }
 
