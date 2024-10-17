@@ -56,6 +56,12 @@ public class MockHttpServletRequest
         this.attributes = new HashMap<>(requireNonNull(attributes, "attributes is null"));
     }
 
+    public MockHttpServletRequest(ListMultimap<String, String> headers)
+    {
+        // Default remoteAddress and empty attributes
+        this(headers, "127.0.0.1", new HashMap<>());
+    }
+
     @Override
     public String getAuthType()
     {
