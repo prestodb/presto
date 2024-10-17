@@ -240,3 +240,21 @@ Native Execution only. Enable window spilling on native engine.
 * **Default value:** ``true``
 
 Native Execution only. Enable writer spilling on native engine.
+
+``native_max_output_buffer_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``33554432``
+
+The maximum size in bytes for the task's buffered output. The buffer is shared among all drivers. Default is 32MB.
+
+``native_max_page_partitioning_buffer_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``33554432``
+
+The maximum bytes to buffer per PartitionedOutput operator to avoid creating tiny SerializedPages.
+For PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator would buffer up to that number of
+bytes / number of destinations for each destination before producing a SerializedPage. Default is 32MB.
