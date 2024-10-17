@@ -193,11 +193,6 @@ public class NativeWorkerSessionPropertyProvider
                         "The max allowed spill bytes",
                         100L << 30,
                         !nativeExecution),
-                integerProperty(
-                        NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE,
-                        "Native Execution only. Reduce() function will throw an error if it encounters an array of size greater than this value.",
-                        100000,
-                        !nativeExecution),
                 booleanProperty(NATIVE_QUERY_TRACE_ENABLED,
                         "Enables query tracing.",
                         false,

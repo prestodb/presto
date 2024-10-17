@@ -33,7 +33,6 @@ public class TestNativeSidecarPlugin
         Iterable<WorkerSessionPropertyProviderFactory> workerPropertyProviderFactories = plugin.getWorkerSessionPropertyProviderFactories();
         WorkerSessionPropertyProviderFactory factory = getOnlyElement(workerPropertyProviderFactories);
         factory.create(
-                ImmutableMap.of(),
                 new SessionPropertyContext(
                         Optional.of(new UnimplementedTypeManager()),
                         Optional.of(new UnimplementedNodeManager())));
