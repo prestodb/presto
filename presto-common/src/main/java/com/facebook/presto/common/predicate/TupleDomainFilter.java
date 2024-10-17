@@ -744,8 +744,8 @@ public interface TupleDomainFilter
     class DoubleRange
             extends AbstractRange
     {
-        private final double lower;
-        private final double upper;
+        protected final double lower;
+        protected final double upper;
 
         protected DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
