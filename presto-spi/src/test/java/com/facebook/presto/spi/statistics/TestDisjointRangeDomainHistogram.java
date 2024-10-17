@@ -12,20 +12,20 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.cost;
+package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.statistics.ConnectorHistogram;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Range;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.distribution.RealDistribution;
 import org.apache.commons.math3.distribution.UniformRealDistribution;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.predicate.Range.greaterThanOrEqual;
+import static com.facebook.presto.common.predicate.Range.lessThanOrEqual;
+import static com.facebook.presto.common.predicate.Range.range;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
 
 public class TestDisjointRangeDomainHistogram
@@ -39,9 +39,9 @@ public class TestDisjointRangeDomainHistogram
     {
         ConnectorHistogram source = new UniformDistributionHistogram(0, 100);
         ConnectorHistogram constrained = DisjointRangeDomainHistogram
-                .addDisjunction(source, StatisticRange.fromRange(Range.open(0d, 25d)));
+                .addDisjunction(source, rangeOpen(0d, 25d));
         constrained = DisjointRangeDomainHistogram
-                .addDisjunction(constrained, StatisticRange.fromRange(Range.open(75d, 100d)));
+                .addDisjunction(constrained, rangeOpen(75d, 100d));
         assertEquals(constrained.inverseCumulativeProbability(0.75).getValue(), 87.5);
         assertEquals(constrained.inverseCumulativeProbability(0.0).getValue(), 0.0);
         assertEquals(constrained.inverseCumulativeProbability(1.0).getValue(), 100);
@@ -59,7 +59,7 @@ public class TestDisjointRangeDomainHistogram
 
         // no overlap, left bound
         ConnectorHistogram constrained = DisjointRangeDomainHistogram
-                .addDisjunction(source, StatisticRange.fromRange(Range.open(-10d, -5d)));
+                .addDisjunction(source, rangeOpen(-10d, -5d));
         for (int i = -11; i < 12; i++) {
             assertEquals(constrained.cumulativeProbability(i, true).getValue(), 0.0, 1E-8);
             assertEquals(constrained.cumulativeProbability(i, false).getValue(), 0.0, 1E-8);
@@ -68,7 +68,7 @@ public class TestDisjointRangeDomainHistogram
         assertEquals(constrained.inverseCumulativeProbability(1.0), Estimate.unknown());
 
         // partial overlap left bound
-        constrained = new DisjointRangeDomainHistogram(source, ImmutableSet.of(Range.open(-2d, 2d)));
+        constrained = new DisjointRangeDomainHistogram(source, ImmutableSet.of(rangeOpen(-2d, 2d)));
         assertEquals(constrained.cumulativeProbability(-3, false).getValue(), 0.0, 1E-8);
         assertEquals(constrained.cumulativeProbability(-1, false).getValue(), 0.0, 1E-8);
         assertEquals(constrained.cumulativeProbability(0, false).getValue(), 0.0, 1E-8);
@@ -82,7 +82,7 @@ public class TestDisjointRangeDomainHistogram
         assertEquals(constrained.inverseCumulativeProbability(1.0).getValue(), 2d, 1E-8);
 
         //full overlap
-        constrained = new DisjointRangeDomainHistogram(source, ImmutableSet.of(Range.open(3d, 4d)));
+        constrained = new DisjointRangeDomainHistogram(source, ImmutableSet.of(rangeOpen(3d, 4d)));
         assertEquals(constrained.cumulativeProbability(-3, false).getValue(), 0.0, 1E-8);
         assertEquals(constrained.cumulativeProbability(0, false).getValue(), 0.0, 1E-8);
         assertEquals(constrained.cumulativeProbability(1, false).getValue(), 0.0, 1E-8);
@@ -96,7 +96,7 @@ public class TestDisjointRangeDomainHistogram
         assertEquals(constrained.inverseCumulativeProbability(1.0).getValue(), 4d, 1E-8);
 
         //right side overlap
-        constrained = new DisjointRangeDomainHistogram(source, ImmutableSet.of(Range.open(8d, 12d)));
+        constrained = new DisjointRangeDomainHistogram(source, ImmutableSet.of(rangeOpen(8d, 12d)));
         assertEquals(constrained.cumulativeProbability(-3, false).getValue(), 0.0, 1E-8);
         assertEquals(constrained.cumulativeProbability(0, false).getValue(), 0.0, 1E-8);
         assertEquals(constrained.cumulativeProbability(5, false).getValue(), 0.0, 1E-8);
@@ -114,7 +114,7 @@ public class TestDisjointRangeDomainHistogram
 
         // no overlap, right bound
         constrained = DisjointRangeDomainHistogram
-                .addDisjunction(source, StatisticRange.fromRange(Range.open(15d, 20d)));
+                .addDisjunction(source, rangeOpen(15d, 20d));
         for (int i = 15; i < 20; i++) {
             assertEquals(constrained.cumulativeProbability(i, true).getValue(), 0.0, 1E-8);
             assertEquals(constrained.cumulativeProbability(i, false).getValue(), 0.0, 1E-8);
@@ -132,8 +132,8 @@ public class TestDisjointRangeDomainHistogram
     {
         StandardNormalHistogram source = new StandardNormalHistogram();
         RealDistribution dist = source.getDistribution();
-        ConnectorHistogram constrained = disjunction(source, Range.closed(-2d, -1d));
-        constrained = disjunction(constrained, Range.closed(1d, 2d));
+        ConnectorHistogram constrained = disjunction(source, rangeClosed(-2d, -1d));
+        constrained = disjunction(constrained, rangeClosed(1d, 2d));
         double rangeLeftProb = dist.cumulativeProbability(-1) - dist.cumulativeProbability(-2);
         double rangeRightProb = dist.cumulativeProbability(2) - dist.cumulativeProbability(1);
         double sumRangeProb = rangeLeftProb + rangeRightProb;
@@ -156,7 +156,7 @@ public class TestDisjointRangeDomainHistogram
         // standard normal
         StandardNormalHistogram source = new StandardNormalHistogram();
         RealDistribution dist = source.getDistribution();
-        ConnectorHistogram constrained = new DisjointRangeDomainHistogram(source, ImmutableSet.of(Range.open(-1d, 1d)));
+        ConnectorHistogram constrained = new DisjointRangeDomainHistogram(source, ImmutableSet.of(rangeOpen(-1d, 1d)));
         assertEquals(constrained.cumulativeProbability(-1.0, true).getValue(), 0.0, 1E-8);
         assertEquals(constrained.cumulativeProbability(0.0, true).getValue(), 0.5, 1E-8);
         assertEquals(constrained.cumulativeProbability(1.0, true).getValue(), 1.0, 1E-8);
@@ -179,16 +179,16 @@ public class TestDisjointRangeDomainHistogram
     public void testAddDisjunction()
     {
         ConnectorHistogram source = new UniformDistributionHistogram(0, 100);
-        DisjointRangeDomainHistogram constrained = disjunction(source, Range.open(-1d, 2d));
-        assertEquals(constrained.getRanges().size(), 1);
-        assertEquals(ranges(constrained).get(0), Range.closedOpen(0d, 2d));
-        constrained = disjunction(constrained, Range.open(1d, 10d));
+        DisjointRangeDomainHistogram constrained = disjunction(source, rangeOpen(-1d, 2d));
+        assertEquals(constrained.getRanges().getOrderedRanges().size(), 1);
+        assertEquals(ranges(constrained).get(0), range(DOUBLE, 0d, true, 2d, false));
+        constrained = disjunction(constrained, rangeOpen(1d, 10d));
         assertEquals(ranges(constrained).size(), 1);
-        assertEquals(ranges(constrained).get(0), Range.closedOpen(0d, 10d));
-        constrained = disjunction(constrained, Range.closedOpen(50d, 100d));
+        assertEquals(ranges(constrained).get(0), range(DOUBLE, 0d, true, 10d, false));
+        constrained = disjunction(constrained, range(DOUBLE, 50d, true, 100d, false));
         assertEquals(ranges(constrained).size(), 2);
-        assertEquals(ranges(constrained).get(0), Range.closedOpen(0d, 10d));
-        assertEquals(ranges(constrained).get(1), Range.closedOpen(50d, 100d));
+        assertEquals(ranges(constrained).get(0), range(DOUBLE, 0d, true, 10d, false));
+        assertEquals(ranges(constrained).get(1), range(DOUBLE, 50d, true, 100d, false));
     }
 
     /**
@@ -198,30 +198,40 @@ public class TestDisjointRangeDomainHistogram
     public void testAddConjunction()
     {
         ConnectorHistogram source = new UniformDistributionHistogram(0, 100);
-        DisjointRangeDomainHistogram constrained = disjunction(source, Range.open(10d, 90d));
-        assertEquals(constrained.getRanges().size(), 1);
-        assertEquals(ranges(constrained).get(0), Range.open(10d, 90d));
-        constrained = conjunction(constrained, Range.atMost(50d));
+        DisjointRangeDomainHistogram constrained = disjunction(source, rangeOpen(10d, 90d));
+        assertEquals(constrained.getRanges().getOrderedRanges().size(), 1);
+        assertEquals(ranges(constrained).get(0), rangeOpen(10d, 90d));
+        constrained = conjunction(constrained, lessThanOrEqual(DOUBLE, 50d));
         assertEquals(ranges(constrained).size(), 1);
-        assertEquals(ranges(constrained).get(0), Range.openClosed(10d, 50d));
-        constrained = conjunction(constrained, Range.atLeast(25d));
+        assertEquals(ranges(constrained).get(0), range(DOUBLE, 10d, false, 50d, true));
+        constrained = conjunction(constrained, greaterThanOrEqual(DOUBLE, 25d));
         assertEquals(ranges(constrained).size(), 1);
-        assertEquals(ranges(constrained).get(0), Range.closed(25d, 50d));
+        assertEquals(ranges(constrained).get(0), rangeClosed(25d, 50d));
     }
 
-    private static DisjointRangeDomainHistogram disjunction(ConnectorHistogram source, Range<Double> range)
+    private static DisjointRangeDomainHistogram disjunction(ConnectorHistogram source, com.facebook.presto.common.predicate.Range range)
     {
-        return (DisjointRangeDomainHistogram) DisjointRangeDomainHistogram.addDisjunction(source, StatisticRange.fromRange(range));
+        return (DisjointRangeDomainHistogram) DisjointRangeDomainHistogram.addDisjunction(source, range);
     }
 
-    private static DisjointRangeDomainHistogram conjunction(ConnectorHistogram source, Range<Double> range)
+    private static DisjointRangeDomainHistogram conjunction(ConnectorHistogram source, com.facebook.presto.common.predicate.Range range)
     {
-        return (DisjointRangeDomainHistogram) DisjointRangeDomainHistogram.addConjunction(source, StatisticRange.fromRange(range));
+        return (DisjointRangeDomainHistogram) DisjointRangeDomainHistogram.addConjunction(source, range);
     }
 
-    private static List<Range<Double>> ranges(DisjointRangeDomainHistogram hist)
+    private static List<com.facebook.presto.common.predicate.Range> ranges(DisjointRangeDomainHistogram hist)
     {
-        return hist.getRanges().stream().map(StatisticRange::toRange).collect(Collectors.toList());
+        return hist.getRanges().getOrderedRanges();
+    }
+
+    private static com.facebook.presto.common.predicate.Range rangeOpen(double low, double high)
+    {
+        return range(DOUBLE, low, false, high, false);
+    }
+
+    private static com.facebook.presto.common.predicate.Range rangeClosed(double low, double high)
+    {
+        return range(DOUBLE, low, true, high, true);
     }
 
     private static class StandardNormalHistogram
@@ -269,7 +279,7 @@ public class TestDisjointRangeDomainHistogram
         return new DisjointRangeDomainHistogram(
                 new UniformDistributionHistogram(
                         distribution.getSupportLowerBound(), distribution.getSupportUpperBound()))
-                .addDisjunction(new StatisticRange(0.0, 100.0, 0.0));
+                .addDisjunction(rangeClosed(0.0, 100.0));
     }
 
     @Override

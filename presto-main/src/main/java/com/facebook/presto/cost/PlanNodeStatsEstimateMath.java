@@ -14,10 +14,11 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.statistics.ConnectorHistogram;
+import com.facebook.presto.spi.statistics.DisjointRangeDomainHistogram;
 
 import java.util.Optional;
 
-import static com.facebook.presto.cost.DisjointRangeDomainHistogram.addConjunction;
+import static com.facebook.presto.spi.statistics.DisjointRangeDomainHistogram.addConjunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -139,7 +140,7 @@ public class PlanNodeStatsEstimateMath
             double cappedNullsFraction = cappedRowCount == 0 ? 1 : cappedNumberOfNulls / cappedRowCount;
             newSymbolStats.setNullsFraction(cappedNullsFraction);
             if (shouldUseHistograms) {
-                newSymbolStats.setHistogram(symbolStats.getHistogram().map(symbolHistogram -> addConjunction(symbolHistogram, new StatisticRange(newLow, newHigh, 0))));
+                newSymbolStats.setHistogram(symbolStats.getHistogram().map(symbolHistogram -> addConjunction(symbolHistogram, new StatisticRange(newLow, newHigh, 0).toPrestoRange())));
             }
 
             result.addVariableStatistics(symbol, newSymbolStats.build());
@@ -296,8 +297,8 @@ public class PlanNodeStatsEstimateMath
                 .setNullsFraction(newNullsFraction);
         if (shouldUseHistograms) {
             Optional<ConnectorHistogram> newHistogram = RangeAdditionStrategy.INTERSECT == strategy ?
-                    leftStats.getHistogram().map(leftHistogram -> DisjointRangeDomainHistogram.addConjunction(leftHistogram, rightRange)) :
-                    leftStats.getHistogram().map(leftHistogram -> DisjointRangeDomainHistogram.addDisjunction(leftHistogram, rightRange));
+                    leftStats.getHistogram().map(leftHistogram -> DisjointRangeDomainHistogram.addConjunction(leftHistogram, rightRange.toPrestoRange())) :
+                    leftStats.getHistogram().map(leftHistogram -> DisjointRangeDomainHistogram.addDisjunction(leftHistogram, rightRange.toPrestoRange()));
             statistics.setHistogram(newHistogram);
         }
 
