@@ -442,6 +442,43 @@ void from_json(const json& j, Aggregation& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
+void to_json(json& j, const AggregationFunctionMetadata& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "intermediateType",
+      p.intermediateType,
+      "AggregationFunctionMetadata",
+      "TypeSignature",
+      "intermediateType");
+  to_json_key(
+      j,
+      "isOrderSensitive",
+      p.isOrderSensitive,
+      "AggregationFunctionMetadata",
+      "bool",
+      "isOrderSensitive");
+}
+
+void from_json(const json& j, AggregationFunctionMetadata& p) {
+  from_json_key(
+      j,
+      "intermediateType",
+      p.intermediateType,
+      "AggregationFunctionMetadata",
+      "TypeSignature",
+      "intermediateType");
+  from_json_key(
+      j,
+      "isOrderSensitive",
+      p.isOrderSensitive,
+      "AggregationFunctionMetadata",
+      "bool",
+      "isOrderSensitive");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
@@ -1458,16 +1495,32 @@ void from_json(const json& j, Determinism& e) {
           ->first;
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const Language& p) {
-  j = json::object();
-  to_json_key(j, "language", p.language, "Language", "String", "language");
+  json tj = json::object();
+  to_json_key(tj, "language", p.language, "Language", "String", "language");
+  j = tj["language"];
 }
 
 void from_json(const json& j, Language& p) {
   from_json_key(j, "language", p.language, "Language", "String", "language");
 }
+
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
@@ -9270,6 +9323,113 @@ void from_json(const json& j, JoinNodeStatsEstimate& p) {
       "JoinNodeStatsEstimate",
       "double",
       "joinProbeKeyCount");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "docString",
+      p.docString,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "docString");
+  to_json_key(
+      j,
+      "functionKind",
+      p.functionKind,
+      "JsonBasedUdfFunctionMetadata",
+      "FunctionKind",
+      "functionKind");
+  to_json_key(
+      j,
+      "outputType",
+      p.outputType,
+      "JsonBasedUdfFunctionMetadata",
+      "TypeSignature",
+      "outputType");
+  to_json_key(
+      j,
+      "paramTypes",
+      p.paramTypes,
+      "JsonBasedUdfFunctionMetadata",
+      "List<TypeSignature>",
+      "paramTypes");
+  to_json_key(
+      j,
+      "schema",
+      p.schema,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "schema");
+  to_json_key(
+      j,
+      "routineCharacteristics",
+      p.routineCharacteristics,
+      "JsonBasedUdfFunctionMetadata",
+      "RoutineCharacteristics",
+      "routineCharacteristics");
+  to_json_key(
+      j,
+      "aggregateMetadata",
+      p.aggregateMetadata,
+      "JsonBasedUdfFunctionMetadata",
+      "AggregationFunctionMetadata",
+      "aggregateMetadata");
+}
+
+void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
+  from_json_key(
+      j,
+      "docString",
+      p.docString,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "docString");
+  from_json_key(
+      j,
+      "functionKind",
+      p.functionKind,
+      "JsonBasedUdfFunctionMetadata",
+      "FunctionKind",
+      "functionKind");
+  from_json_key(
+      j,
+      "outputType",
+      p.outputType,
+      "JsonBasedUdfFunctionMetadata",
+      "TypeSignature",
+      "outputType");
+  from_json_key(
+      j,
+      "paramTypes",
+      p.paramTypes,
+      "JsonBasedUdfFunctionMetadata",
+      "List<TypeSignature>",
+      "paramTypes");
+  from_json_key(
+      j,
+      "schema",
+      p.schema,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "schema");
+  from_json_key(
+      j,
+      "routineCharacteristics",
+      p.routineCharacteristics,
+      "JsonBasedUdfFunctionMetadata",
+      "RoutineCharacteristics",
+      "routineCharacteristics");
+  from_json_key(
+      j,
+      "aggregateMetadata",
+      p.aggregateMetadata,
+      "JsonBasedUdfFunctionMetadata",
+      "AggregationFunctionMetadata",
+      "aggregateMetadata");
 }
 } // namespace facebook::presto::protocol
 /*
