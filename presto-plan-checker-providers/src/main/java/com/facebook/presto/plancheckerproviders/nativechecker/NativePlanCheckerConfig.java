@@ -20,7 +20,6 @@ public class NativePlanCheckerConfig
 {
     public static final String CONFIG_PREFIX = "native-plan-checker";
     private boolean enabled = true;
-    private boolean queryFailOnError;
 
     public boolean isPlanValidationEnabled()
     {
@@ -32,19 +31,6 @@ public class NativePlanCheckerConfig
     public NativePlanCheckerConfig setPlanValidationEnabled(boolean enabled)
     {
         this.enabled = enabled;
-        return this;
-    }
-
-    public boolean isQueryFailOnError()
-    {
-        return queryFailOnError;
-    }
-
-    @Config("native-plan-checker.query-fail-on-error")
-    @ConfigDescription("Set true to fail the query if plan does not pass native validation, false will log error only")
-    public NativePlanCheckerConfig setQueryFailOnError(boolean queryFailOnError)
-    {
-        this.queryFailOnError = queryFailOnError;
         return this;
     }
 }

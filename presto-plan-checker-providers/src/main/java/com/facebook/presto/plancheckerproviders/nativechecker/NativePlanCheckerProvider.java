@@ -45,7 +45,7 @@ public class NativePlanCheckerProvider
     public List<PlanChecker> getFragmentPlanCheckers()
     {
         return config.isPlanValidationEnabled() ?
-                ImmutableList.of(new NativePlanChecker(nodeManager, planFragmentJsonCodec, config)) :
+                ImmutableList.of(new NativePlanChecker(nodeManager, planFragmentJsonCodec)) :
                 ImmutableList.of();
     }
 }

@@ -33,12 +33,11 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -53,14 +52,12 @@ public final class NativePlanChecker
 
     private final NodeManager nodeManager;
     private final JsonCodec<SimplePlanFragment> planFragmentJsonCodec;
-    private final NativePlanCheckerConfig config;
     private final OkHttpClient httpClient;
 
-    public NativePlanChecker(NodeManager nodeManager, JsonCodec<SimplePlanFragment> planFragmentJsonCodec, NativePlanCheckerConfig config)
+    public NativePlanChecker(NodeManager nodeManager, JsonCodec<SimplePlanFragment> planFragmentJsonCodec)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.planFragmentJsonCodec = requireNonNull(planFragmentJsonCodec, "planFragmentJsonCodec is null");
-        this.config = requireNonNull(config, "config is null");
         this.httpClient = new OkHttpClient.Builder().build();
     }
 
@@ -73,8 +70,8 @@ public final class NativePlanChecker
             // endpoint to retrieve session properties from native worker
             return new URL(sidecarNode.getHttpUri().toString() + PLAN_CONVERSION_ENDPOINT);
         }
-        catch (MalformedURLException e) {
-            throw new RuntimeException(e);
+        catch (IOException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "I/O Error opening native sidecar location", e);
         }
     }
 
@@ -87,24 +84,11 @@ public final class NativePlanChecker
     @Override
     public void validateFragment(SimplePlanFragment planFragment, WarningCollector warningCollector)
     {
-        try {
-            if (!planFragment.getPartitioning().isCoordinatorOnly() && !isInternalSystemConnector(planFragment.getRoot())) {
-                runValidation(planFragment);
-            }
-            else {
-                LOG.debug("Skipping Native Plan Validation for plan fragment id: %s", planFragment.getId());
-            }
+        if (!planFragment.getPartitioning().isCoordinatorOnly() && !isInternalSystemConnector(planFragment.getRoot())) {
+            runValidation(planFragment);
         }
-        catch (final PrestoException e) {
-            if (config.isQueryFailOnError()) {
-                throw e;
-            }
-        }
-        catch (final Exception e) {
-            LOG.error(e, "Failed to run native plan validation");
-            if (config.isQueryFailOnError()) {
-                throw new IllegalStateException("Failed to run native plan validation", e);
-            }
+        else {
+            LOG.debug("Skipping Native Plan Validation for plan fragment id: %s", planFragment.getId());
         }
     }
 
@@ -120,7 +104,6 @@ public final class NativePlanChecker
     }
 
     private void runValidation(SimplePlanFragment planFragment)
-            throws IOException
     {
         LOG.debug("Starting native plan validation for plan fragment id: %s", planFragment.getId());
 
@@ -132,12 +115,13 @@ public final class NativePlanChecker
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 String responseBody = response.body() != null ? response.body().string() : "{}";
-                if (config.isQueryFailOnError()) {
-                    throw new PrestoException(QUERY_REJECTED, "Query failed by native plan checker with code: " + response.code() + ", response: " + responseBody);
-                }
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Error response from native plan checker with code: " + response.code() + ", response: " + responseBody);
             }
 
-            LOG.debug("Native plan validation complete for plan fragment id: %s, successful=%s failOnError=%s", planFragment.getId(), response.isSuccessful(), config.isQueryFailOnError());
+            LOG.debug("Native plan validation complete for plan fragment id: %s, successful=%s", planFragment.getId(), response.isSuccessful());
+        }
+        catch (IOException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "I/O error getting native plan checker response", e);
         }
     }
 

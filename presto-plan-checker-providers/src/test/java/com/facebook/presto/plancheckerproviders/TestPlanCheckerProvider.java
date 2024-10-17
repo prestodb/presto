@@ -79,13 +79,11 @@ public class TestPlanCheckerProvider
         try (MockWebServer server = new MockWebServer()) {
             server.start();
             TestNodeManager nodeManager = new TestNodeManager(server.url(NativePlanChecker.PLAN_CONVERSION_ENDPOINT).uri());
-            NativePlanCheckerConfig config = new NativePlanCheckerConfig();
-            NativePlanChecker checker = new NativePlanChecker(nodeManager, jsonCodecMock, config);
+            NativePlanChecker checker = new NativePlanChecker(nodeManager, jsonCodecMock);
 
             server.enqueue(new MockResponse().setBody("{ \"status\": \"ok\" }"));
             checker.validateFragment(fragmentMock, null);
 
-            config.setQueryFailOnError(true);
             server.enqueue(new MockResponse().setResponseCode(500).setBody("{ \"error\": \"fubar\" }"));
             assertThrows(PrestoException.class,
                     () -> checker.validateFragment(fragmentMock, null));
