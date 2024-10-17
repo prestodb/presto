@@ -30,6 +30,8 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
@@ -88,7 +90,7 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath, false);
+        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath, false, Collections.emptyMap(), Collections.emptyMap());
     }
 
     public static QueryRunner createJavaQueryRunner()
@@ -265,7 +267,9 @@ public class PrestoNativeQueryRunnerUtils
             Optional<String> remoteFunctionServerUds,
             String storageFormat,
             boolean addStorageFormatToPath,
-            Boolean failOnNestedLoopJoin)
+            Boolean failOnNestedLoopJoin,
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties)
             throws Exception
     {
         // The property "hive.allow-drop-table" needs to be set to true because security is always "legacy" in NativeQueryRunner.
@@ -282,8 +286,11 @@ public class PrestoNativeQueryRunnerUtils
                         .put("http-server.http.port", "8081")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .putAll(getNativeWorkerSystemProperties())
+                        .putAll(extraProperties)
                         .build(),
-                ImmutableMap.of(),
+                ImmutableMap.<String, String>builder()
+                        .putAll(extraCoordinatorProperties)
+                        .build(),
                 "legacy",
                 hiveProperties,
                 workerCount,
@@ -340,6 +347,26 @@ public class PrestoNativeQueryRunnerUtils
         return createNativeQueryRunner(false, DEFAULT_STORAGE_FORMAT, Optional.ofNullable(remoteFunctionServerUds), false);
     }
 
+    public static QueryRunner createNativeQueryRunner(Map<String, String> extraProperties, Map<String, String> extraCoordinatorProperties,
+                                                      String storageFormat)
+            throws Exception
+    {
+        int cacheMaxSize = 0;
+        NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
+        return createNativeQueryRunner(
+                nativeQueryRunnerParameters.dataDirectory.toString(),
+                nativeQueryRunnerParameters.serverBinary.toString(),
+                nativeQueryRunnerParameters.workerCount,
+                cacheMaxSize,
+                true,
+                Optional.empty(),
+                storageFormat,
+                true,
+                false,
+                extraProperties,
+                extraCoordinatorProperties);
+    }
+
     public static QueryRunner createNativeQueryRunner(boolean useThrift)
             throws Exception
     {
@@ -372,7 +399,9 @@ public class PrestoNativeQueryRunnerUtils
                 remoteFunctionServerUds,
                 storageFormat,
                 true,
-                failOnNestedLoopJoin);
+                failOnNestedLoopJoin,
+                Collections.emptyMap(),
+                Collections.emptyMap());
     }
 
     // Start the remote function server. Return the UDS path used to communicate with it.
