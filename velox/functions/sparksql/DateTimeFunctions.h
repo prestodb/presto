@@ -159,8 +159,7 @@ struct UnixTimestampParseFunction {
 
   const tz::TimeZone* getTimeZone(const DateTimeResult& result) {
     // If timezone was not parsed, fallback to the session timezone.
-    return result.timezoneId != -1 ? tz::locateZone(result.timezoneId)
-                                   : sessionTimeZone_;
+    return result.timezone ? result.timezone : sessionTimeZone_;
   }
 
   // Default if format is not specified, as per Spark documentation.
@@ -400,8 +399,7 @@ struct GetTimestampFunction {
   const tz::TimeZone* getTimeZone(const DateTimeResult& result) const {
     // If timezone was not parsed, fallback to the session timezone. If there's
     // no session timezone, fallback to 0 (GMT).
-    return result.timezoneId != -1 ? tz::locateZone(result.timezoneId)
-                                   : sessionTimeZone_;
+    return result.timezone ? result.timezone : sessionTimeZone_;
   }
 
   std::shared_ptr<DateTimeFormatter> formatter_{nullptr};

@@ -154,7 +154,7 @@ struct DateTimeToken {
 
 struct DateTimeResult {
   Timestamp timestamp;
-  int64_t timezoneId{-1};
+  const tz::TimeZone* timezone = nullptr;
 };
 
 /// A user defined formatter that formats/parses time to/from user provided

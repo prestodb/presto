@@ -739,7 +739,7 @@ TEST_F(DateTimeFunctionsTest, getTimestamp) {
   const auto getTimestampString =
       [&](const std::optional<StringView>& dateString,
           const std::string& format) {
-        return getTimestamp(dateString, format).value().toString();
+        return getTimestamp(dateString, format)->toString();
       };
 
   EXPECT_EQ(getTimestamp("1970-01-01", "yyyy-MM-dd"), Timestamp(0, 0));

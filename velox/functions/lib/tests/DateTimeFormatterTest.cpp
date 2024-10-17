@@ -123,10 +123,10 @@ class DateTimeFormatterTest : public testing::Test {
     auto dateTimeResultExpected =
         getJodaDateTimeFormatter(format)->parse(input);
     auto result = dateTimeResult(dateTimeResultExpected);
-    if (result.timezoneId == 0) {
+    if (result.timezone->id() == 0) {
       return "+00:00";
     }
-    return tz::getTimeZoneName(result.timezoneId);
+    return result.timezone->name();
   }
 
   std::string formatMysqlDateTime(
@@ -1096,17 +1096,17 @@ TEST_F(JodaDateTimeFormatterTest, parseMixedYMDFormat) {
   // Include timezone.
   auto result = parseJoda("2021-11-05+01:00+09:00", "YYYY-MM-dd+HH:mmZZ");
   EXPECT_EQ(fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
-  EXPECT_EQ("+09:00", tz::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+09:00", result.timezone->name());
 
   // Timezone offset in -hh:mm format.
   result = parseJoda("-07:232021-11-05+01:00", "ZZYYYY-MM-dd+HH:mm");
   EXPECT_EQ(fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
-  EXPECT_EQ("-07:23", tz::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("-07:23", result.timezone->name());
 
   // Timezone offset in +hhmm format.
   result = parseJoda("+01332022-03-08+13:00", "ZZYYYY-MM-dd+HH:mm");
   EXPECT_EQ(fromTimestampString("2022-03-08 13:00:00"), result.timestamp);
-  EXPECT_EQ("+01:33", tz::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+01:33", result.timezone->name());
 
   // Z in the input means GMT in Joda.
   EXPECT_EQ(
@@ -1117,7 +1117,7 @@ TEST_F(JodaDateTimeFormatterTest, parseMixedYMDFormat) {
   // Timezone in string format.
   result = parseJoda("2021-11-05+01:00 PST", "YYYY-MM-dd+HH:mm zz");
   EXPECT_EQ(fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
-  EXPECT_EQ("America/Los_Angeles", tz::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("America/Los_Angeles", result.timezone->name());
 }
 
 TEST_F(JodaDateTimeFormatterTest, parseMixedWeekFormat) {
@@ -1239,17 +1239,17 @@ TEST_F(JodaDateTimeFormatterTest, parseMixedWeekFormat) {
   auto result =
       parseJoda("2021 22 1 13:29:21.213+09:00", "x w e HH:mm:ss.SSSZZ");
   EXPECT_EQ(fromTimestampString("2021-05-31 13:29:21.213"), result.timestamp);
-  EXPECT_EQ("+09:00", tz::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+09:00", result.timezone->name());
 
   // Timezone offset in -hh:mm format.
   result = parseJoda("-07:232021 22 1 13:29:21.213", "ZZx w e HH:mm:ss.SSS");
   EXPECT_EQ(fromTimestampString("2021-05-31 13:29:21.213"), result.timestamp);
-  EXPECT_EQ("-07:23", tz::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("-07:23", result.timezone->name());
 
   // Timezone offset in +hhmm format.
   result = parseJoda("+01332021 22 1 13:29:21.213", "ZZx w e HH:mm:ss.SSS");
   EXPECT_EQ(fromTimestampString("2021-05-31 13:29:21.213"), result.timestamp);
-  EXPECT_EQ("+01:33", tz::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+01:33", result.timezone->name());
 }
 
 TEST_F(JodaDateTimeFormatterTest, parseFractionOfSecond) {
@@ -1257,13 +1257,13 @@ TEST_F(JodaDateTimeFormatterTest, parseFractionOfSecond) {
   auto result =
       parseJoda("2022-02-23T12:15:00.364+04:00", "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
   EXPECT_EQ(fromTimestampString("2022-02-23 12:15:00.364"), result.timestamp);
-  EXPECT_EQ("+04:00", tz::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("+04:00", result.timezone->name());
 
   // Valid milliseconds and timezone with negative offset.
   result =
       parseJoda("2022-02-23T12:15:00.776-14:00", "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
   EXPECT_EQ(fromTimestampString("2022-02-23 12:15:00.776"), result.timestamp);
-  EXPECT_EQ("-14:00", tz::getTimeZoneName(result.timezoneId));
+  EXPECT_EQ("-14:00", result.timezone->name());
 
   // Valid milliseconds.
   EXPECT_EQ(

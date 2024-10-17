@@ -1501,7 +1501,7 @@ struct FromIso8601Timestamp {
     auto [ts, timeZone] = castResult.value();
     // Input string may not contain a timezone - if so, it is interpreted in
     // session timezone.
-    if (timeZone == nullptr) {
+    if (!timeZone) {
       timeZone = sessionTimeZone_;
     }
     ts.toGMT(*timeZone);
@@ -1687,9 +1687,8 @@ struct ParseDateTimeFunction {
 
     // If timezone was not parsed, fallback to the session timezone. If there's
     // no session timezone, fallback to 0 (GMT).
-    const auto* timeZone = dateTimeResult->timezoneId != -1
-        ? tz::locateZone(dateTimeResult->timezoneId)
-        : sessionTimeZone_;
+    const auto* timeZone =
+        dateTimeResult->timezone ? dateTimeResult->timezone : sessionTimeZone_;
     dateTimeResult->timestamp.toGMT(*timeZone);
     result = pack(dateTimeResult->timestamp, timeZone->id());
     return Status::OK();
@@ -1819,7 +1818,7 @@ struct AtTimezoneFunction : public TimestampWithTimezoneSupport<T> {
       const core::QueryConfig& config,
       const arg_type<TimestampWithTimezone>* /*tsWithTz*/,
       const arg_type<Varchar>* timezone) {
-    if (timezone != nullptr) {
+    if (timezone) {
       targetTimezoneID_ = tz::getTimeZoneID(
           std::string_view(timezone->data(), timezone->size()));
     }
