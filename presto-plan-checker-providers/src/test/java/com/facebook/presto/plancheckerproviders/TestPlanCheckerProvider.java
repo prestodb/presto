@@ -22,9 +22,19 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
+import com.facebook.presto.spi.plan.StageExecutionDescriptor;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.Test;
@@ -32,12 +42,10 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -51,7 +59,7 @@ public class TestPlanCheckerProvider
     {
         NativePlanCheckerConfig config = new NativePlanCheckerConfig();
         assertTrue(config.isPlanValidationEnabled());
-        NativePlanCheckerProvider provider = new NativePlanCheckerProvider(new TestNodeManager(), PLAN_FRAGMENT_JSON_CODEC, config);
+        NativePlanCheckerProvider provider = new NativePlanCheckerProvider(new TestingNodeManager(URI.create("localhost")), PLAN_FRAGMENT_JSON_CODEC, config);
         assertTrue(provider.getIntermediatePlanCheckers().isEmpty());
         assertTrue(provider.getFinalPlanCheckers().isEmpty());
         assertFalse(provider.getFragmentPlanCheckers().isEmpty());
@@ -65,50 +73,84 @@ public class TestPlanCheckerProvider
     public void testNativePlanMockValidate()
             throws IOException
     {
-        PlanNode nodeMock = mock(PlanNode.class);
-        when(nodeMock.accept(any(), any())).thenReturn(false);
-        PartitioningHandle handleMock = mock(PartitioningHandle.class);
-        when(handleMock.isCoordinatorOnly()).thenReturn(false);
-        SimplePlanFragment fragmentMock = mock(SimplePlanFragment.class);
-        when(fragmentMock.getRoot()).thenReturn(nodeMock);
-        when(fragmentMock.getPartitioning()).thenReturn(handleMock);
-
-        JsonCodec<SimplePlanFragment> jsonCodecMock = spy(PLAN_FRAGMENT_JSON_CODEC);
-        when(jsonCodecMock.toJson(any(SimplePlanFragment.class))).thenReturn("{}");
+        TestingPlanNode root = new TestingPlanNode();
+        ConnectorPartitioningHandle connectorPartitioningHandle = new TestingConnectorPartitioningHandle();
+        PartitioningHandle handle = new PartitioningHandle(Optional.empty(), Optional.empty(), connectorPartitioningHandle);
+        PartitioningScheme partitioningScheme = new PartitioningScheme(new Partitioning(handle, ImmutableList.of()), ImmutableList.of());
+        SimplePlanFragment fragment = new SimplePlanFragment(new PlanFragmentId(1), root, ImmutableSet.of(), handle, ImmutableList.of(), partitioningScheme, StageExecutionDescriptor.ungroupedExecution(), false);
 
         try (MockWebServer server = new MockWebServer()) {
             server.start();
-            TestNodeManager nodeManager = new TestNodeManager(server.url(NativePlanChecker.PLAN_CONVERSION_ENDPOINT).uri());
-            NativePlanChecker checker = new NativePlanChecker(nodeManager, jsonCodecMock);
+            TestingNodeManager nodeManager = new TestingNodeManager(server.url(NativePlanChecker.PLAN_CONVERSION_ENDPOINT).uri());
+            NativePlanChecker checker = new NativePlanChecker(nodeManager, PLAN_FRAGMENT_JSON_CODEC);
 
             server.enqueue(new MockResponse().setBody("{ \"status\": \"ok\" }"));
-            checker.validateFragment(fragmentMock, null);
+            checker.validateFragment(fragment, null);
 
             server.enqueue(new MockResponse().setResponseCode(500).setBody("{ \"error\": \"fubar\" }"));
             assertThrows(PrestoException.class,
-                    () -> checker.validateFragment(fragmentMock, null));
+                    () -> checker.validateFragment(fragment, null));
         }
     }
 
-    private static class TestNodeManager
+    public static class TestingConnectorPartitioningHandle
+            implements ConnectorPartitioningHandle
+    {
+        @JsonProperty
+        @Override
+        public boolean isCoordinatorOnly()
+        {
+            return false;
+        }
+    }
+
+    private static class TestingPlanNode
+            extends PlanNode
+    {
+        protected TestingPlanNode()
+        {
+            super(Optional.empty(), new PlanNodeId("1"), Optional.empty());
+        }
+
+        @Override
+        public List<PlanNode> getSources()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public List<VariableReferenceExpression> getOutputVariables()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public PlanNode replaceChildren(List<PlanNode> newChildren)
+        {
+            return this;
+        }
+
+        @Override
+        public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+        {
+            return this;
+        }
+    }
+
+    private static class TestingNodeManager
             implements NodeManager
     {
         private final URI sidecarUri;
 
-        public TestNodeManager(URI sidecarUri)
+        public TestingNodeManager(URI sidecarUri)
         {
             this.sidecarUri = sidecarUri;
-        }
-
-        public TestNodeManager()
-        {
-            this(null);
         }
 
         @Override
         public Set<Node> getAllNodes()
         {
-            return sidecarUri != null ? Collections.singleton(new TestSidecarNode(sidecarUri)) : Collections.emptySet();
+            return sidecarUri != null ? ImmutableSet.of(new TestSidecarNode(sidecarUri)) : ImmutableSet.of();
         }
 
         @Override
@@ -143,13 +185,13 @@ public class TestPlanCheckerProvider
         @Override
         public String getHost()
         {
-            return "";
+            return sidecarUri.getHost();
         }
 
         @Override
         public HostAddress getHostAndPort()
         {
-            return null;
+            return HostAddress.fromUri(sidecarUri);
         }
 
         @Override
@@ -161,13 +203,13 @@ public class TestPlanCheckerProvider
         @Override
         public String getNodeIdentifier()
         {
-            return "";
+            return "ABC";
         }
 
         @Override
         public String getVersion()
         {
-            return "";
+            return "1";
         }
 
         @Override
@@ -197,7 +239,7 @@ public class TestPlanCheckerProvider
         @Override
         public NodePoolType getPoolType()
         {
-            return null;
+            return NodePoolType.DEFAULT;
         }
     }
 }
