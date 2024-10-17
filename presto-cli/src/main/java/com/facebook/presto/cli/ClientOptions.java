@@ -86,8 +86,12 @@ public class ClientOptions
 
     @Option(name = "--truststore-type", title = "truststore type", description = "Truststore type")
     public String trustStoreType = KeyStore.getDefaultType();
+
     @Option(name = "--access-token", title = "access token", description = "Access token")
     public String accessToken;
+
+    @Option(name = "--insecure", title = "trust all certificates", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
+    public boolean insecure;
 
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");

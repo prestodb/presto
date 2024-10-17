@@ -97,6 +97,10 @@ class PeriodicMemoryChecker {
   /// Returns true if dump is successful.
   virtual void removeDumpFile(const std::string& filePath) const = 0;
 
+  /// Invoked by the periodic checker when 'Config::systemMemPushbackEnabled'
+  /// is true and system memory usage is above 'Config::systemMemLimitBytes'.
+  virtual void pushbackMemory();
+
   const Config config_;
 
  private:
@@ -118,10 +122,6 @@ class PeriodicMemoryChecker {
       return mallocUsedBytes < other.mallocUsedBytes;
     }
   };
-
-  // Invoked by the periodic checker when 'Config::systemMemPushbackEnabled'
-  // is true and system memory usage is above 'Config::systemMemLimitBytes'.
-  void pushbackMemory();
 
   // Invoked by the periodic checker when 'Config::mallocMemHeapDumpEnabled' is
   // true.

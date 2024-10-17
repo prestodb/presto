@@ -16,12 +16,17 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 
 import javax.inject.Inject;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Perform checks on the plan that may generate warnings or errors.
@@ -29,15 +34,17 @@ import javax.inject.Inject;
 public final class PlanChecker
 {
     private final Multimap<Stage, Checker> checkers;
+    private final PlanCheckerProviderManager planCheckerProviderManager;
 
     @Inject
-    public PlanChecker(FeaturesConfig featuresConfig)
+    public PlanChecker(FeaturesConfig featuresConfig, PlanCheckerProviderManager planCheckerProviderManager)
     {
-        this(featuresConfig, false);
+        this(featuresConfig, false, planCheckerProviderManager);
     }
 
-    public PlanChecker(FeaturesConfig featuresConfig, boolean forceSingleNode)
+    public PlanChecker(FeaturesConfig featuresConfig, boolean forceSingleNode, PlanCheckerProviderManager planCheckerProviderManager)
     {
+        this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
         ImmutableListMultimap.Builder<Stage, Checker> builder = ImmutableListMultimap.builder();
         builder.putAll(
                         Stage.INTERMEDIATE,
@@ -78,25 +85,58 @@ public final class PlanChecker
     public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
+        for (PlanCheckerProvider provider : planCheckerProviderManager.getPlanCheckerProviders()) {
+            for (com.facebook.presto.spi.plan.PlanChecker checker : provider.getFinalPlanCheckers()) {
+                checker.validate(planNode, warningCollector);
+            }
+        }
     }
 
     public void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
+        for (PlanCheckerProvider provider : planCheckerProviderManager.getPlanCheckerProviders()) {
+            for (com.facebook.presto.spi.plan.PlanChecker checker : provider.getIntermediatePlanCheckers()) {
+                checker.validate(planNode, warningCollector);
+            }
+        }
     }
 
-    public void validatePlanFragment(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
+    public void validatePlanFragment(PlanFragment planFragment, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
+        checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validateFragment(planFragment, session, metadata, warningCollector));
+        for (PlanCheckerProvider provider : planCheckerProviderManager.getPlanCheckerProviders()) {
+            for (com.facebook.presto.spi.plan.PlanChecker checker : provider.getFragmentPlanCheckers()) {
+                checker.validateFragment(toSimplePlanFragment(planFragment), warningCollector);
+            }
+        }
     }
 
     public interface Checker
     {
         void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector);
+
+        default void validateFragment(PlanFragment planFragment, Session session, Metadata metadata, WarningCollector warningCollector)
+        {
+            validate(planFragment.getRoot(), session, metadata, warningCollector);
+        }
     }
 
     private enum Stage
     {
         INTERMEDIATE, FINAL, FRAGMENT
+    }
+
+    private static SimplePlanFragment toSimplePlanFragment(PlanFragment planFragment)
+    {
+        return new SimplePlanFragment(
+                planFragment.getId(),
+                planFragment.getRoot(),
+                planFragment.getVariables(),
+                planFragment.getPartitioning(),
+                planFragment.getTableScanSchedulingOrder(),
+                planFragment.getPartitioningScheme(),
+                planFragment.getStageExecutionDescriptor(),
+                planFragment.isOutputTableWriterFragment());
     }
 }

@@ -1136,7 +1136,7 @@ public final class MathFunctions
         catch (ArithmeticException e) {
             // Use BigDecimal if the value is out of the range of long.
             BigDecimal bigDecimal = new BigDecimal(numInFloat);
-            return floatToRawIntBits(bigDecimal.setScale((int) decimals, HALF_UP).longValue());
+            return floatToRawIntBits(bigDecimal.setScale((int) decimals, HALF_UP).floatValue());
         }
     }
 

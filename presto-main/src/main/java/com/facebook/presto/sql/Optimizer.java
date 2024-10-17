@@ -36,16 +36,13 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
-import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
-import com.google.common.base.Splitter;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.getOptimizersToEnableVerboseRuntimeStats;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
 import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
@@ -54,6 +51,8 @@ import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_PLANNING_TIMEOUT;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
+import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.getOptimizerNameForLog;
+import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.trackOptimizerRuntime;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -131,16 +130,6 @@ public class Optimizer
         return new Plan(root, types, computeStats(root, types));
     }
 
-    private boolean trackOptimizerRuntime(Session session, PlanOptimizer optimizer)
-    {
-        String optimizerString = getOptimizersToEnableVerboseRuntimeStats(session);
-        if (optimizerString.isEmpty()) {
-            return false;
-        }
-        List<String> optimizers = Splitter.on(",").trimResults().splitToList(optimizerString);
-        return optimizers.contains(getOptimizerNameForLog(optimizer));
-    }
-
     private StatsAndCosts computeStats(PlanNode root, TypeProvider types)
     {
         if (explain || isPrintStatsForNonJoinQuery(session) ||
@@ -179,14 +168,5 @@ public class Optimizer
             String newNodeStr = PlannerUtils.getPlanString(planOptimizerResult.getPlanNode(), session, types, metadata, false);
             session.getOptimizerResultCollector().addOptimizerResult(optimizerName, oldNodeStr, newNodeStr);
         }
-    }
-
-    private String getOptimizerNameForLog(PlanOptimizer optimizer)
-    {
-        String optimizerName = optimizer.getClass().getSimpleName();
-        if (optimizer instanceof StatsRecordingPlanOptimizer) {
-            optimizerName = format("%s:%s", optimizerName, ((StatsRecordingPlanOptimizer) optimizer).getDelegate().getClass().getSimpleName());
-        }
-        return optimizerName;
     }
 }

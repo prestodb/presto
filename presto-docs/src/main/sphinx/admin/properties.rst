@@ -72,6 +72,17 @@ Number of local parallel table writer threads per worker for partitioned writes.
 set, the number set by ``task_writer_count`` will be used. It is required to be a power
 of two for a Java query engine.
 
+``eager-plan-validation-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+This property enables the eager building and validation of a logical plan.
+When enabled, the logical plan will begin to be built and validated before
+queueing and allocation of cluster resources so that any errors or
+incompatibilities in the query plan will fail quickly and inform the user.
+
 .. _tuning-memory:
 
 Memory Management Properties

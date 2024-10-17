@@ -60,6 +60,7 @@ import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATI
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
+import static com.facebook.presto.hive.HiveTestUtils.getDataDirectoryPath;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTables;
@@ -441,42 +442,19 @@ public final class HiveQueryRunner
             throws Exception
     {
         // You need to add "--user user" to your CLI for your queries to work
-        Logging.initialize();
-
-        Optional<Path> dataDirectory = Optional.empty();
+        setupLogging();
+        Optional<Path> dataDirectory;
         if (args.length > 0) {
             if (args.length != 1) {
                 log.error("usage: HiveQueryRunner [dataDirectory]\n");
                 log.error("       [dataDirectory] is a local directory under which you want the hive_data directory to be created.]\n");
                 System.exit(1);
             }
-
-            File dataDirectoryFile = new File(args[0]);
-            if (dataDirectoryFile.exists()) {
-                if (!dataDirectoryFile.isDirectory()) {
-                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
-                    System.exit(1);
-                }
-                else if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
-                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
-                    System.exit(1);
-                }
-            }
-            else {
-                // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
-                // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
-                while (!dataDirectoryFile.exists()) {
-                    dataDirectoryFile = dataDirectoryFile.getParentFile();
-                }
-                if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
-                    log.error("Error: The ancestor directory " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
-                    System.exit(1);
-                }
-            }
-
-            dataDirectory = Optional.of(dataDirectoryFile.toPath());
+            dataDirectory = getDataDirectoryPath(Optional.of(args[0]));
         }
-
+        else {
+            dataDirectory = getDataDirectoryPath(Optional.empty());
+        }
         DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8080"), dataDirectory);
 
         try {

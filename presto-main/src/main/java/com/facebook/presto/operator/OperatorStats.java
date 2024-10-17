@@ -50,6 +50,11 @@ public class OperatorStats
 
     private final long totalDrivers;
 
+    private final long isBlockedCalls;
+    private final Duration isBlockedWall;
+    private final Duration isBlockedCpu;
+    private final DataSize isBlockedAllocation;
+
     private final long addInputCalls;
     private final Duration addInputWall;
     private final Duration addInputCpu;
@@ -113,6 +118,11 @@ public class OperatorStats
 
             @JsonProperty("totalDrivers") long totalDrivers,
 
+            @JsonProperty("isBlockedCalls") long isBlockedCalls,
+            @JsonProperty("isBlockedWall") Duration isBlockedWall,
+            @JsonProperty("isBlockedCpu") Duration isBlockedCpu,
+            @JsonProperty("isBlockedAllocation") DataSize isBlockedAllocation,
+
             @JsonProperty("addInputCalls") long addInputCalls,
             @JsonProperty("addInputWall") Duration addInputWall,
             @JsonProperty("addInputCpu") Duration addInputCpu,
@@ -170,6 +180,11 @@ public class OperatorStats
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
 
         this.totalDrivers = totalDrivers;
+
+        this.isBlockedCalls = isBlockedCalls;
+        this.isBlockedWall = requireNonNull(isBlockedWall, "isBlockedWall is null");
+        this.isBlockedCpu = requireNonNull(isBlockedCpu, "isBlockedCpu is null");
+        this.isBlockedAllocation = requireNonNull(isBlockedAllocation, "isBlockedAllocation is null");
 
         this.addInputCalls = addInputCalls;
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
@@ -235,6 +250,11 @@ public class OperatorStats
 
             long totalDrivers,
 
+            long isBlockedCalls,
+            Duration isBlockedWall,
+            Duration isBlockedCpu,
+            DataSize isBlockedAllocation,
+
             long addInputCalls,
             Duration addInputWall,
             Duration addInputCpu,
@@ -292,6 +312,11 @@ public class OperatorStats
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
 
         this.totalDrivers = totalDrivers;
+
+        this.isBlockedCalls = isBlockedCalls;
+        this.isBlockedWall = requireNonNull(isBlockedWall, "isBlockedWall is null");
+        this.isBlockedCpu = requireNonNull(isBlockedCpu, "isBlockedCpu is null");
+        this.isBlockedAllocation = requireNonNull(isBlockedAllocation, "isBlockedAllocation is null");
 
         this.addInputCalls = addInputCalls;
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
@@ -663,6 +688,34 @@ public class OperatorStats
         return dynamicFilterStats;
     }
 
+    @JsonProperty
+    @ThriftField(45)
+    public long getIsBlockedCalls()
+    {
+        return isBlockedCalls;
+    }
+
+    @JsonProperty
+    @ThriftField(46)
+    public Duration getIsBlockedWall()
+    {
+        return isBlockedWall;
+    }
+
+    @JsonProperty
+    @ThriftField(47)
+    public Duration getIsBlockedCpu()
+    {
+        return isBlockedCpu;
+    }
+
+    @JsonProperty
+    @ThriftField(48)
+    public DataSize getIsBlockedAllocation()
+    {
+        return isBlockedAllocation;
+    }
+
     public OperatorStats add(OperatorStats operatorStats)
     {
         return add(ImmutableList.of(operatorStats));
@@ -671,6 +724,11 @@ public class OperatorStats
     public OperatorStats add(Iterable<OperatorStats> operators)
     {
         long totalDrivers = this.totalDrivers;
+
+        long isBlockedCalls = this.isBlockedCalls;
+        long isBlockedWall = this.isBlockedWall.roundTo(NANOSECONDS);
+        long isBlockedCpu = this.isBlockedCpu.roundTo(NANOSECONDS);
+        long isBlockedAllocation = this.isBlockedAllocation.toBytes();
 
         long addInputCalls = this.addInputCalls;
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
@@ -723,6 +781,11 @@ public class OperatorStats
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
 
             totalDrivers += operator.totalDrivers;
+
+            isBlockedCalls += operator.getGetOutputCalls();
+            isBlockedWall += operator.getGetOutputWall().roundTo(NANOSECONDS);
+            isBlockedCpu += operator.getGetOutputCpu().roundTo(NANOSECONDS);
+            isBlockedAllocation += operator.getIsBlockedAllocation().toBytes();
 
             addInputCalls += operator.getAddInputCalls();
             addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
@@ -788,6 +851,11 @@ public class OperatorStats
                 operatorType,
 
                 totalDrivers,
+
+                isBlockedCalls,
+                succinctNanos(isBlockedWall),
+                succinctNanos(isBlockedCpu),
+                succinctBytes(isBlockedAllocation),
 
                 addInputCalls,
                 succinctNanos(addInputWall),
@@ -866,6 +934,10 @@ public class OperatorStats
                 planNodeId,
                 operatorType,
                 totalDrivers,
+                isBlockedCalls,
+                isBlockedWall,
+                isBlockedCpu,
+                isBlockedAllocation,
                 addInputCalls,
                 addInputWall,
                 addInputCpu,

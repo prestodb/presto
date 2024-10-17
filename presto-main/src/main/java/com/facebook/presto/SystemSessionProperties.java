@@ -331,9 +331,11 @@ public final class SystemSessionProperties
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
     public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
     public static final String REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT = "remove_cross_join_with_constant_single_row_input";
+    public static final String EAGER_PLAN_VALIDATION_ENABLED = "eager_plan_validation_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
+    public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression.max_array_size_in_reduce";
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
     public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
@@ -356,10 +358,15 @@ public final class SystemSessionProperties
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION = "native_debug_disable_expression_with_memoization";
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS = "native_debug_disable_expression_with_lazy_inputs";
     public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
-
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
     public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
+    public static final String NATIVE_QUERY_TRACE_ENABLED = "native_query_trace_enabled";
+    public static final String NATIVE_QUERY_TRACE_DIR = "native_query_trace_dir";
+    public static final String NATIVE_QUERY_TRACE_NODE_IDS = "native_query_trace_node_ids";
+    public static final String NATIVE_QUERY_TRACE_MAX_BYTES = "native_query_trace_max_bytes";
+    public static final String NATIVE_QUERY_TRACE_REG_EXP = "native_query_trace_task_reg_exp";
+
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
@@ -1642,6 +1649,11 @@ public final class SystemSessionProperties
                         "Native Execution only. Enable simplified path in expression evaluation",
                         false,
                         false),
+                integerProperty(
+                        NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE,
+                        "Native Execution only. Reduce() function will throw an error if it encounters an array of size greater than this value.",
+                        100000,
+                        false),
                 booleanProperty(
                         NATIVE_AGGREGATION_SPILL_ALL,
                         "Native Execution only. If true and spilling has been triggered during the input " +
@@ -1772,6 +1784,26 @@ public final class SystemSessionProperties
                         NATIVE_MAX_SPILL_BYTES,
                         "The max allowed spill bytes",
                         100L << 30,
+                        false),
+                booleanProperty(NATIVE_QUERY_TRACE_ENABLED,
+                        "Enables query tracing.",
+                        false,
+                        false),
+                stringProperty(NATIVE_QUERY_TRACE_DIR,
+                        "Base dir of a query to store tracing data.",
+                        "",
+                        false),
+                stringProperty(NATIVE_QUERY_TRACE_NODE_IDS,
+                        "A comma-separated list of plan node ids whose input data will be traced. Empty string if only want to trace the query metadata.",
+                        "",
+                        false),
+                longProperty(NATIVE_QUERY_TRACE_MAX_BYTES,
+                        "The max trace bytes limit. Tracing is disabled if zero.",
+                        0L,
+                        false),
+                stringProperty(NATIVE_QUERY_TRACE_REG_EXP,
+                        "The regexp of traced task id. We only enable trace on a task if its id matches.",
+                        "",
                         false),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
@@ -2017,6 +2049,11 @@ public final class SystemSessionProperties
                         REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT,
                         "If one input of the cross join is a single row with constant value, remove this cross join and replace with a project node",
                         featuresConfig.isRemoveCrossJoinWithSingleConstantRow(),
+                        false),
+                booleanProperty(
+                        EAGER_PLAN_VALIDATION_ENABLED,
+                        "Enable eager building and validation of logical plan before queueing",
+                        featuresConfig.isEagerPlanValidationEnabled(),
                         false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
@@ -3342,6 +3379,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteExpressionWithConstantEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, Boolean.class);
+    }
+
+    public static boolean isEagerPlanValidationEnabled(Session session)
+    {
+        return session.getSystemProperty(EAGER_PLAN_VALIDATION_ENABLED, Boolean.class);
     }
 
     public static CreateView.Security getDefaultViewSecurityMode(Session session)
