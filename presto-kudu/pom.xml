@@ -228,7 +228,7 @@
 
         <plugins>
             <plugin>
-                <groupId>com.facebook.presto</groupId>
+                <groupId>com.github.zacblanco</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
                 <extensions>true</extensions>
                 <configuration>
