@@ -87,6 +87,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
@@ -501,6 +502,9 @@ public class ElasticsearchClient
             }
             catch (IOException e) {
                 throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+            catch (NoSuchElementException e) {
+                throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, "Relation does not have any columns");
             }
         });
     }
