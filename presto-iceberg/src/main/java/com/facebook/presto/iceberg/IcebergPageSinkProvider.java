@@ -14,17 +14,22 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.OrcFileWriterFactory;
+import com.facebook.presto.hive.SortingFileWriterConfig;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSinkContext;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import io.airlift.units.DataSize;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -49,13 +54,24 @@ public class IcebergPageSinkProvider
     private final PageIndexerFactory pageIndexerFactory;
     private final int maxOpenPartitions;
 
+    private final DataSize sortingFileWriterBufferSize;
+    private final int sortingFileWriterMaxOpenFiles;
+    private final TypeManager typeManager;
+    private final PageSorter pageSorter;
+
+    private final OrcFileWriterFactory orcFileWriterFactory;
+
     @Inject
     public IcebergPageSinkProvider(
             HdfsEnvironment hdfsEnvironment,
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
-            IcebergConfig icebergConfig)
+            IcebergConfig icebergConfig,
+            SortingFileWriterConfig sortingFileWriterConfig,
+            TypeManager typeManager,
+            PageSorter pageSorter,
+            OrcFileWriterFactory orcFileWriterFactory)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -63,6 +79,11 @@ public class IcebergPageSinkProvider
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
+        this.sortingFileWriterBufferSize = sortingFileWriterConfig.getWriterSortBufferSize();
+        this.sortingFileWriterMaxOpenFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
     }
 
     @Override
@@ -96,6 +117,12 @@ public class IcebergPageSinkProvider
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat(),
-                maxOpenPartitions);
+                maxOpenPartitions,
+                tableHandle.getSortOrder(),
+                sortingFileWriterBufferSize,
+                sortingFileWriterMaxOpenFiles,
+                typeManager,
+                pageSorter,
+                orcFileWriterFactory);
     }
 }
