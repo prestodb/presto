@@ -12,17 +12,24 @@
  * limitations under the License.
  */
 #pragma once
-namespace facebook::presto::http {
 
-const uint16_t kHttpOk = 200;
-const uint16_t kHttpAccepted = 202;
-const uint16_t kHttpNoContent = 204;
-const uint16_t kHttpBadRequest = 400;
-const uint16_t kHttpUnauthorized = 401;
-const uint16_t kHttpNotFound = 404;
-const uint16_t kHttpInternalServerError = 500;
+#include <folly/futures/Future.h>
+#include "presto_cpp/main/PrestoServer.h"
 
-const char kMimeTypeApplicationJson[] = "application/json";
-const char kMimeTypeApplicationThrift[] = "application/x-thrift+binary";
-static const char kPrestoInternalBearer[] = "X-Presto-Internal-Bearer";
-} // namespace facebook::presto::http
+namespace facebook::presto::test {
+
+class PrestoServerWrapper {
+ public:
+  explicit PrestoServerWrapper(std::unique_ptr<PrestoServer> server)
+      : server_(std::move(server)) {}
+
+  folly::SemiFuture<folly::SocketAddress> start();
+
+  void stop();
+
+ private:
+  std::unique_ptr<PrestoServer> server_;
+  std::unique_ptr<std::thread> serverThread_;
+  folly::Promise<folly::SocketAddress> promise_;
+};
+} // namespace facebook::presto::test
