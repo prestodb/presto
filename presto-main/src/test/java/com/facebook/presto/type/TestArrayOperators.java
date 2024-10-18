@@ -1295,6 +1295,8 @@ public class TestArrayOperators
         assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 3], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
         assertFunction("ARRAYS_OVERLAP(ARRAY [3, NULL], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
         assertFunction("ARRAYS_OVERLAP(ARRAY [3, NULL], ARRAY [2, 1, NULL])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY[ARRAY[1, 2], ARRAY[1, NULL]], ARRAY[ARRAY[1, 2]])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY[ARRAY[1, NULL], ARRAY[1, 2]], ARRAY[ARRAY[1, 2]])", BooleanType.BOOLEAN, true);
 
         assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [NULL, CAST(2 AS BIGINT)])", BooleanType.BOOLEAN, true);
         assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [CAST(2 AS BIGINT), NULL])", BooleanType.BOOLEAN, true);
