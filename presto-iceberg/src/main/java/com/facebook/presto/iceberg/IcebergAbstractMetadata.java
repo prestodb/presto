@@ -85,10 +85,12 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.CharSequenceSet;
+import org.apache.iceberg.view.View;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -141,6 +143,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getPartitionSpecsIncluding
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
 import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdTimeOperator;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
+import static com.facebook.presto.iceberg.IcebergUtil.getViewComment;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
@@ -216,6 +219,8 @@ public abstract class IcebergAbstractMetadata
     }
 
     protected abstract Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName);
+
+    protected abstract View getIcebergView(ConnectorSession session, SchemaTableName schemaTableName);
 
     protected abstract boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName);
 
@@ -386,22 +391,28 @@ public abstract class IcebergAbstractMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
-        return getTableMetadata(session, icebergTableHandle.getSchemaTableName(), icebergTableHandle.getIcebergTableName());
+        return getTableOrViewMetadata(session, icebergTableHandle.getSchemaTableName(), icebergTableHandle.getIcebergTableName());
     }
 
-    protected ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table, IcebergTableName icebergTableName)
+    protected ConnectorTableMetadata getTableOrViewMetadata(ConnectorSession session, SchemaTableName table, IcebergTableName icebergTableName)
     {
-        Table icebergTable = getIcebergTable(session, new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName()));
-        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        columns.addAll(getColumnMetadatas(icebergTable));
-        if (icebergTableName.getTableType() == CHANGELOG) {
-            return ChangelogUtil.getChangelogTableMeta(table, typeManager, columns.build());
+        try {
+            Table icebergTable = getIcebergTable(session, new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName()));
+            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+            columns.addAll(getColumnMetadatas(icebergTable));
+            if (icebergTableName.getTableType() == CHANGELOG) {
+                return ChangelogUtil.getChangelogTableMeta(table, typeManager, columns.build());
+            }
+            else {
+                columns.add(PATH_COLUMN_METADATA);
+                columns.add(DATA_SEQUENCE_NUMBER_COLUMN_METADATA);
+            }
+            return new ConnectorTableMetadata(table, columns.build(), createMetadataProperties(icebergTable), getTableComment(icebergTable));
         }
-        else {
-            columns.add(PATH_COLUMN_METADATA);
-            columns.add(DATA_SEQUENCE_NUMBER_COLUMN_METADATA);
+        catch (NoSuchTableException e) {
+            View icebergView = getIcebergView(session, new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName()));
+            return new ConnectorTableMetadata(table, getColumnMetadatas(icebergView), createViewMetadataProperties(icebergView), getViewComment(icebergView));
         }
-        return new ConnectorTableMetadata(table, columns.build(), createMetadataProperties(icebergTable), getTableComment(icebergTable));
     }
 
     @Override
@@ -414,7 +425,7 @@ public abstract class IcebergAbstractMetadata
             try {
                 IcebergTableName tableName = IcebergTableName.from(table.getTableName());
                 if (!tableName.isSystemTable()) {
-                    columns.put(table, getTableMetadata(session, table, tableName).getColumns());
+                    columns.put(table, getTableOrViewMetadata(session, table, tableName).getColumns());
                 }
             }
             catch (TableNotFoundException e) {
@@ -546,6 +557,18 @@ public abstract class IcebergAbstractMetadata
                 .collect(toImmutableList());
     }
 
+    protected List<ColumnMetadata> getColumnMetadatas(View view)
+    {
+        return view.schema().columns().stream()
+                .map(column -> ColumnMetadata.builder()
+                        .setName(column.name())
+                        .setType(toPrestoType(column.type(), typeManager))
+                        .setComment(Optional.ofNullable(column.doc()))
+                        .setHidden(false)
+                        .build())
+                .collect(toImmutableList());
+    }
+
     private static String columnExtraInfo(List<String> partitionTransforms)
     {
         if (partitionTransforms.size() == 1 && partitionTransforms.get(0).equals("identity")) {
@@ -576,6 +599,16 @@ public abstract class IcebergAbstractMetadata
         properties.put(METADATA_DELETE_AFTER_COMMIT, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
         properties.put(METRICS_MAX_INFERRED_COLUMN, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
 
+        return properties.build();
+    }
+
+    protected ImmutableMap<String, Object> createViewMetadataProperties(View view)
+    {
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        if (view.properties() != null) {
+            view.properties().entrySet().stream()
+                    .forEach(entry -> properties.put(entry.getKey(), entry.getValue()));
+        }
         return properties.build();
     }
 
