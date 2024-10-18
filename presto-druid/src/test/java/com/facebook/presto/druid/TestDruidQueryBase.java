@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
@@ -62,6 +61,7 @@ import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.REGULA
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.TABLE_COLUMN;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -109,7 +109,7 @@ public class TestDruidQueryBase
         public SessionHolder()
         {
             connectorSession = SESSION;
-            session = TestingSession.testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
+            session = TestingSession.testSessionBuilder(createTestingSessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
         }
 
         public ConnectorSession getConnectorSession()
