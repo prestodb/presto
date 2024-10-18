@@ -17,6 +17,8 @@ import com.facebook.presto.parquet.batchreader.BytesUtils;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import org.openjdk.jol.info.ClassLayout;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -31,11 +33,25 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
 
     private int bufferOffset;
 
+    private boolean withTimezone;
+
     public Int64TimeAndTimestampMicrosPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length)
     {
         this.byteBuffer = byteBuffer;
         this.bufferOffset = bufferOffset;
         this.bufferEnd = bufferOffset + length;
+    }
+
+    @Override
+    public boolean isWithTimezone()
+    {
+        return withTimezone;
+    }
+
+    @Override
+    public void setWithTimezone(boolean withTimezone)
+    {
+        this.withTimezone = withTimezone;
     }
 
     @Override
@@ -49,7 +65,13 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
         int localBufferOffset = bufferOffset;
 
         while (offset < endOffset) {
-            values[offset++] = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
+            long valueMillis = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
+            if (isWithTimezone()) {
+                values[offset++] = packDateTimeWithZone(valueMillis, UTC_KEY);
+            }
+            else {
+                values[offset++] = valueMillis;
+            }
             localBufferOffset += 8;
         }
 

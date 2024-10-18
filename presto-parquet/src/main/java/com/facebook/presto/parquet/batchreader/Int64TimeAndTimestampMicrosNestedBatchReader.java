@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.batchreader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.reader.ColumnChunk;
@@ -26,9 +27,14 @@ import java.util.Optional;
 public class Int64TimeAndTimestampMicrosNestedBatchReader
         extends AbstractNestedBatchReader
 {
+    private boolean withTimezone;
+
     public Int64TimeAndTimestampMicrosNestedBatchReader(RichColumnDescriptor columnDescriptor)
     {
         super(columnDescriptor);
+        if (field.getType() instanceof TimestampWithTimeZoneType) {
+            withTimezone = true;
+        }
     }
 
     @Override
@@ -64,6 +70,7 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
         boolean[] isNull = new boolean[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
+            ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).setWithTimezone(withTimezone);
             ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
 
             int valueDestinationIndex = offset + valuesDecoderContext.getValueCount() - 1;
@@ -112,6 +119,7 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
         long[] values = new long[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
+            ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).setWithTimezone(withTimezone);
             ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
             offset += valuesDecoderContext.getValueCount();
         }

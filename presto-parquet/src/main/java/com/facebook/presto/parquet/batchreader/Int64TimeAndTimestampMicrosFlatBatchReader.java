@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.batchreader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.parquet.ColumnReader;
 import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DictionaryPage;
@@ -137,6 +138,7 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
         FlatDecoders flatDecoders = readFlatPage(page, columnDescriptor, dictionary);
         definitionLevelDecoder = flatDecoders.getDefinitionLevelDecoder();
         valuesDecoder = (Int64TimeAndTimestampMicrosValuesDecoder) flatDecoders.getValuesDecoder();
+        valuesDecoder.setWithTimezone(field.getType() instanceof TimestampWithTimeZoneType);
 
         remainingCountInPage = page.getValueCount();
         return true;

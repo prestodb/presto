@@ -62,6 +62,10 @@ public interface ValuesDecoder
 
         void skip(int length)
                 throws IOException;
+
+        boolean isWithTimezone();
+
+        void setWithTimezone(boolean withTimezone);
     }
 
     interface TimestampValuesDecoder
