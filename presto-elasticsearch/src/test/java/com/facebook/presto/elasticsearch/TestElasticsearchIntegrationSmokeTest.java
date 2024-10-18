@@ -805,4 +805,17 @@ public class TestElasticsearchIntegrationSmokeTest
         client.getLowLevelClient()
                 .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mapping, ContentType.APPLICATION_JSON));
     }
+
+    @Test
+    public void testEmptyIndexNoMappings()
+            throws IOException
+    {
+        client.getLowLevelClient().performRequest("PUT", "/emptyindex");
+        try {
+            computeActual("SELECT * FROM emptyindex");
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Relation does not have any columns");
+        }
+    }
 }
