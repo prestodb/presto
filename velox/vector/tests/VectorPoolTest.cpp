@@ -151,4 +151,48 @@ TEST_F(VectorPoolTest, customTypes) {
   ASSERT_EQ(1'000, vector->size());
   ASSERT_TRUE(isJsonType(vector->type()));
 }
+
+TEST_F(VectorPoolTest, clear) {
+  const auto statsBefore = pool()->stats();
+
+  VectorPool vectorPool(pool());
+
+  std::vector<VectorPtr> vectors(10);
+  std::vector<std::weak_ptr<BaseVector>> vectorPtrs(10);
+  for (auto i = 0; i < 10; ++i) {
+    vectors[i] = vectorPool.get(BIGINT(), 1'000);
+    ASSERT_NE(vectors[i], nullptr);
+    vectorPtrs[i] = vectors[i];
+  }
+
+  for (auto i = 0; i < 10; ++i) {
+    ASSERT_TRUE(vectorPool.release(vectors[i]));
+    ASSERT_EQ(vectors[i], nullptr);
+  }
+
+  // Fetch recycled vectors from the pool.
+  for (auto i = 9; i >= 0; --i) {
+    vectors[i] = vectorPool.get(BIGINT(), 1'000);
+    ASSERT_NE(vectors[i], nullptr);
+    ASSERT_EQ(vectors[i].get(), vectorPtrs[i].lock().get());
+  }
+
+  for (auto i = 0; i < 10; ++i) {
+    ASSERT_TRUE(vectorPool.release(vectors[i]));
+    ASSERT_EQ(vectors[i], nullptr);
+  }
+
+  vectorPool.clear();
+
+  ASSERT_EQ(statsBefore.usedBytes, pool()->stats().usedBytes);
+  ASSERT_EQ(statsBefore.reservedBytes, pool()->stats().reservedBytes);
+
+  // Try to fetch recycled vectors from the pool after clear, and verify that
+  // they are new.
+  for (auto i = 9; i >= 0; --i) {
+    vectors[i] = vectorPool.get(BIGINT(), 1'000);
+    ASSERT_NE(vectors[i], nullptr);
+    ASSERT_EQ(vectorPtrs[i].lock(), nullptr);
+  }
+}
 } // namespace facebook::velox::test

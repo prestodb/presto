@@ -84,6 +84,12 @@ size_t VectorPool::release(std::vector<VectorPtr>& vectors) {
   return numReleased;
 }
 
+void VectorPool::clear() {
+  for (auto& vectorPool : vectors_) {
+    vectorPool.clear();
+  }
+}
+
 bool VectorPool::TypePool::maybePushBack(VectorPtr& vector) {
   // Check that this is a Flat Vector with an initialized, unique, and mutable
   // values Buffer and an uninitialized or unique and mutable nulls Buffer.
@@ -126,5 +132,10 @@ VectorPtr VectorPool::TypePool::pop(
     return result;
   }
   return BaseVector::create(type, vectorSize, &pool);
+}
+
+void VectorPool::TypePool::clear() {
+  std::fill_n(vectors.begin(), kNumPerType, nullptr);
+  size = 0;
 }
 } // namespace facebook::velox

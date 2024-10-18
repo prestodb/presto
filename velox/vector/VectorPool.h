@@ -42,6 +42,9 @@ class VectorPool {
 
   size_t release(std::vector<VectorPtr>& vectors);
 
+  /// Clears all the cached vectors.
+  void clear();
+
  private:
   /// Max number of elements for a vector to be recyclable. The larger
   /// the batch the less the win from recycling.
@@ -58,6 +61,9 @@ class VectorPool {
         const TypePtr& type,
         vector_size_t vectorSize,
         memory::MemoryPool& pool);
+
+    /// Clears all the cached vectors.
+    void clear();
   };
 
   memory::MemoryPool* const pool_;
