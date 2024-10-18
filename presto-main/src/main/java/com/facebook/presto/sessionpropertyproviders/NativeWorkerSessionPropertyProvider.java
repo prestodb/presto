@@ -32,7 +32,7 @@ public class NativeWorkerSessionPropertyProvider
         implements WorkerSessionPropertyProvider
 {
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
-    public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression.max_array_size_in_reduce";
+    public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression_max_array_size_in_reduce";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
     public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
     public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
