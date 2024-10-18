@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.metadata.BuiltInFunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.ScalarStatsHeader;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -53,8 +58,11 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.function.OperatorType.DIVIDE;
 import static com.facebook.presto.common.function.OperatorType.MODULUS;
@@ -66,7 +74,9 @@ import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
 import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.facebook.presto.util.MoreMath.max;
 import static com.facebook.presto.util.MoreMath.min;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
@@ -107,11 +117,15 @@ public class ScalarStatsCalculator
         private final PlanNodeStatsEstimate input;
         private final ConnectorSession session;
         private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        private final boolean isStatsPropagationEnabled;
 
         public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, ConnectorSession session)
         {
             this.input = requireNonNull(input, "input is null");
             this.session = requireNonNull(session, "session is null");
+            // casting session to FullConnectorSession is not ideal.
+            this.isStatsPropagationEnabled =
+                    SystemSessionProperties.shouldEnableScalarFunctionStatsPropagation(((FullConnectorSession) session).getSession());
         }
 
         @Override
@@ -136,11 +150,12 @@ public class ScalarStatsCalculator
                 return value.accept(this, context);
             }
 
-            // value is not a constant but we can still propagate estimation through cast
+            // value is not a constant, but we can still propagate estimation through cast
             if (resolution.isCastFunction(call.getFunctionHandle())) {
                 return computeCastStatistics(call, context);
             }
-            return VariableStatsEstimate.unknown();
+
+            return computeStatsViaAnnotations(call, context, functionMetadata);
         }
 
         @Override
@@ -199,10 +214,41 @@ public class ScalarStatsCalculator
             return VariableStatsEstimate.unknown();
         }
 
+        private VariableStatsEstimate computeStatsViaAnnotations(CallExpression call, Void context, FunctionMetadata functionMetadata)
+        {
+            if (isStatsPropagationEnabled) {
+                if (functionMetadata.hasStatsHeader() && call.getFunctionHandle() instanceof BuiltInFunctionHandle) {
+                    Signature signature = ((BuiltInFunctionHandle) call.getFunctionHandle()).getSignature().canonicalization();
+                    Optional<ScalarStatsHeader> statsHeader = functionMetadata.getScalarStatsHeader(signature);
+                    if (statsHeader.isPresent()) {
+                        return computeCallStatistics(call, context, statsHeader.get());
+                    }
+                }
+            }
+            return VariableStatsEstimate.unknown();
+        }
+
+        private VariableStatsEstimate getSourceStats(CallExpression call, Void context, int argumentIndex)
+        {
+            checkArgument(argumentIndex < call.getArguments().size(),
+                    format("function argument index: %d >= %d (call argument size) for %s", argumentIndex, call.getArguments().size(), call));
+            return call.getArguments().get(argumentIndex).accept(this, context);
+        }
+
+        private VariableStatsEstimate computeCallStatistics(CallExpression call, Void context, ScalarStatsHeader scalarStatsHeader)
+        {
+            requireNonNull(call, "call is null");
+            List<VariableStatsEstimate> sourceStatsList =
+                    IntStream.range(0, call.getArguments().size()).mapToObj(argumentIndex -> getSourceStats(call, context, argumentIndex)).collect(toImmutableList());
+            VariableStatsEstimate result =
+                    ScalarStatsAnnotationProcessor.process(input.getOutputRowCount(), call, sourceStatsList, scalarStatsHeader);
+            return result;
+        }
+
         private VariableStatsEstimate computeCastStatistics(CallExpression call, Void context)
         {
             requireNonNull(call, "call is null");
-            VariableStatsEstimate sourceStats = call.getArguments().get(0).accept(this, context);
+            VariableStatsEstimate sourceStats = getSourceStats(call, context, 0);
 
             // todo - make this general postprocessing rule.
             double distinctValuesCount = sourceStats.getDistinctValuesCount();
@@ -236,7 +282,7 @@ public class ScalarStatsCalculator
         private VariableStatsEstimate computeNegationStatistics(CallExpression call, Void context)
         {
             requireNonNull(call, "call is null");
-            VariableStatsEstimate stats = call.getArguments().get(0).accept(this, context);
+            VariableStatsEstimate stats = getSourceStats(call, context, 0);
             if (resolution.isNegateFunction(call.getFunctionHandle())) {
                 return VariableStatsEstimate.buildFrom(stats)
                         .setLowValue(-stats.getHighValue())
@@ -249,14 +295,13 @@ public class ScalarStatsCalculator
         private VariableStatsEstimate computeArithmeticBinaryStatistics(CallExpression call, Void context)
         {
             requireNonNull(call, "call is null");
-            VariableStatsEstimate left = call.getArguments().get(0).accept(this, context);
-            VariableStatsEstimate right = call.getArguments().get(1).accept(this, context);
+            VariableStatsEstimate left = getSourceStats(call, context, 0);
+            VariableStatsEstimate right = getSourceStats(call, context, 1);
 
             VariableStatsEstimate.Builder result = VariableStatsEstimate.builder()
                     .setAverageRowSize(Math.max(left.getAverageRowSize(), right.getAverageRowSize()))
                     .setNullsFraction(left.getNullsFraction() + right.getNullsFraction() - left.getNullsFraction() * right.getNullsFraction())
                     .setDistinctValuesCount(min(left.getDistinctValuesCount() * right.getDistinctValuesCount(), input.getOutputRowCount()));
-
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(call.getFunctionHandle());
             checkState(functionMetadata.getOperatorType().isPresent());
             OperatorType operatorType = functionMetadata.getOperatorType().get();

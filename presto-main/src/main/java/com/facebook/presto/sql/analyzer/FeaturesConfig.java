@@ -293,7 +293,7 @@ public class FeaturesConfig
     private boolean removeCrossJoinWithSingleConstantRow = true;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
-
+    private boolean isScalarFunctionStatsPropagationEnabled;
     private boolean isInlineProjectionsOnValuesEnabled;
 
     private boolean eagerPlanValidationEnabled;
@@ -2944,6 +2944,19 @@ public class FeaturesConfig
     public FeaturesConfig setRemoveCrossJoinWithSingleConstantRow(boolean removeCrossJoinWithSingleConstantRow)
     {
         this.removeCrossJoinWithSingleConstantRow = removeCrossJoinWithSingleConstantRow;
+        return this;
+    }
+
+    public boolean isScalarFunctionStatsPropagationEnabled()
+    {
+        return isScalarFunctionStatsPropagationEnabled;
+    }
+
+    @Config("optimizer.scalar-function-stats-propagation-enabled")
+    @ConfigDescription("Respect scalar function statistics annotation for cost-based calculations in the optimizer")
+    public FeaturesConfig setScalarFunctionStatsPropagationEnabled(boolean scalarFunctionStatsPropagation)
+    {
+        this.isScalarFunctionStatsPropagationEnabled = scalarFunctionStatsPropagation;
         return this;
     }
 

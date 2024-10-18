@@ -15,6 +15,8 @@ package com.facebook.presto.util;
 
 import java.util.stream.DoubleStream;
 
+import static java.lang.Double.NaN;
+import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 
 public final class MoreMath
@@ -77,6 +79,23 @@ public final class MoreMath
         return DoubleStream.of(values)
                 .max()
                 .getAsDouble();
+    }
+
+    /**
+     * Returns the minimum value of the arguments. Returns NaN if there are no arguments or all arguments are NaN.
+     */
+    public static double minExcludingNaNs(double... values)
+    {
+        double min = NaN;
+        for (double v : values) {
+            if (isFinite(v)) {
+                if (isNaN(min)) {
+                    min = v;
+                }
+                min = Math.min(min, v);
+            }
+        }
+        return min;
     }
 
     public static double rangeMin(double left, double right)
