@@ -8,6 +8,7 @@ Administration
     admin/web-interface
     admin/tuning
     admin/properties
+    admin/properties-session
     admin/spill
     admin/exchange-materialization
     admin/cte-materialization
