@@ -535,6 +535,15 @@ void PrestoServer::run() {
         prestoServerOperations_->runOperation(message, downstream);
       });
 
+  httpServer_->registerPost(
+      "/v1/velox/plan",
+      [server = this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        server->convertToVeloxPlan(message, downstream, body);
+      });
+
   PRESTO_STARTUP_LOG(INFO) << "Driver CPU executor '"
                            << driverExecutor_->getName() << "' has "
                            << driverExecutor_->numThreads() << " threads.";
@@ -1384,6 +1393,45 @@ static protocol::Duration getUptime(
   }
 
   return protocol::Duration(seconds, protocol::TimeUnit::SECONDS);
+}
+
+void PrestoServer::convertToVeloxPlan(
+    proxygen::HTTPMessage* message,
+    proxygen::ResponseHandler* downstream,
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body) {
+  std::string error;
+  try {
+    auto headers = message->getHeaders();
+
+    std::ostringstream oss;
+    for (auto& buf : body) {
+      oss << std::string((const char*)buf->data(), buf->length());
+    }
+    std::string planFragmentJson = oss.str();
+    protocol::PlanFragment planFragment = json::parse(planFragmentJson);
+
+    auto queryCtx = core::QueryCtx::create();
+    VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool_.get());
+
+    // Create static taskId and empty TableWriteInfo needed for plan conversion
+    protocol::TaskId taskId = "velox-plan-conversion.0.0.0";
+    auto tableWriteInfo = std::make_shared<protocol::TableWriteInfo>();
+
+    // Attempt to convert the plan fragment to a Velox plan
+    converter.toVeloxQueryPlan(planFragment, tableWriteInfo, taskId);
+
+  } catch (VeloxException& e) {
+    error = e.message();
+  } catch (std::exception& e) {
+    error = e.what();
+  }
+
+  // Return ok status if conversion succeeded or error if failed
+  if (error.empty()) {
+    http::sendOkResponse(downstream, json(R"({ "status": "ok" })"));
+  } else {
+    http::sendErrorResponse(downstream, json(R"({ "status": "error", "message": ")" + error + R"(")})"));
+  }
 }
 
 void PrestoServer::reportMemoryInfo(proxygen::ResponseHandler* downstream) {
