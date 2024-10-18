@@ -67,15 +67,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.getDistinctAggregationLargeBlockSizeThreshold;
-import static com.facebook.presto.SystemSessionProperties.isDedupBasedDistinctAggregationSpillEnabled;
-import static com.facebook.presto.SystemSessionProperties.isDistinctAggregationLargeBlockSpillEnabled;
 import static com.facebook.presto.common.Page.wrapBlocksWithoutCopy;
 import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.getDistinctAggregationLargeBlockSizeThreshold;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.isDedupBasedDistinctAggregationSpillEnabled;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.isDistinctAggregationLargeBlockSpillEnabled;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;

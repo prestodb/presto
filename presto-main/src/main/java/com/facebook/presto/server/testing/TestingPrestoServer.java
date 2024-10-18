@@ -51,6 +51,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
@@ -61,6 +62,7 @@ import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.CoordinatorPlugin;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -175,6 +177,7 @@ public class TestingPrestoServer
     private final ServerInfoResource serverInfoResource;
     private final ResourceManagerClusterStateProvider clusterStateProvider;
     private final PlanCheckerProviderManager planCheckerProviderManager;
+    private final NodeManager pluginNodeManager;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -440,6 +443,7 @@ public class TestingPrestoServer
         announcer = injector.getInstance(Announcer.class);
         requestBlocker = injector.getInstance(RequestBlocker.class);
         serverInfoResource = injector.getInstance(ServerInfoResource.class);
+        pluginNodeManager = injector.getInstance(PluginNodeManager.class);
 
         // Announce Thrift server address
         DriftServer driftServer = injector.getInstance(DriftServer.class);
@@ -510,6 +514,7 @@ public class TestingPrestoServer
     {
         return pluginManager;
     }
+
     public void installPlugin(Plugin plugin)
     {
         pluginManager.installPlugin(plugin);
@@ -645,6 +650,11 @@ public class TestingPrestoServer
     public InternalNodeManager getNodeManager()
     {
         return nodeManager;
+    }
+
+    public NodeManager getPluginNodeManager()
+    {
+        return pluginNodeManager;
     }
 
     public NodePartitioningManager getNodePartitioningManager()

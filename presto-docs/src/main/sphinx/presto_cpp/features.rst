@@ -395,7 +395,7 @@ Native Execution only. Enable row number spilling on native engine.
 
 Native Execution only. Enable simplified path in expression evaluation.
 
-``native_expression.max_array_size_in_reduce``
+``native_expression_max_array_size_in_reduce``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``

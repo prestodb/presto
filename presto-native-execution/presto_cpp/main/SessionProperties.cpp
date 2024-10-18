@@ -299,7 +299,7 @@ SessionProperties::SessionProperties() {
       kQueryTraceTaskRegExp,
       "The regexp of traced task id. We only enable trace on a task if its id"
       " matches.",
-      BIGINT(),
+      VARCHAR(),
       false,
       QueryConfig::kQueryTraceTaskRegExp,
       c.queryTraceTaskRegExp());
