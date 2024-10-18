@@ -80,7 +80,7 @@ class SessionProperties {
   /// Reduce() function will throw an error if it encounters an array of size
   /// greater than this value.
   static constexpr const char* kExprMaxArraySizeInReduce =
-      "native_expression.max_array_size_in_reduce";
+      "native_expression_max_array_size_in_reduce";
 
   /// The maximum memory used by partial aggregation when data reduction is not
   /// optimal.
