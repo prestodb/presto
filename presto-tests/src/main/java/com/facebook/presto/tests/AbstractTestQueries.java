@@ -3134,18 +3134,18 @@ public abstract class AbstractTestQueries
         @Language("SQL") String sql = "SHOW SESSION";
         MaterializedResult actualResult = computeActual(sql);
         List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
-        String nativeSessionProperty = "native_expression.max_array_size_in_reduce";
+        String nativeSessionProperty = "native_expression_max_array_size_in_reduce";
         List<MaterializedRow> filteredRows = getNativeWorkerSessionProperties(actualRows, nativeSessionProperty);
         assertTrue(filteredRows.isEmpty());
 
         // SET SESSION on a native-worker session property
-        @Language("SQL") String setSession = "SET SESSION native_expression.max_array_size_in_reduce=50000";
+        @Language("SQL") String setSession = "SET SESSION native_expression_max_array_size_in_reduce=50000";
         MaterializedResult setSessionResult = computeActual(setSession);
         assertEquals(
                 setSessionResult.toString(),
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
-                        "setSessionProperties={native_expression.max_array_size_in_reduce=50000}, " +
+                        "setSessionProperties={native_expression_max_array_size_in_reduce=50000}, " +
                         "resetSessionProperties=[], updateType=SET SESSION}");
     }
 
