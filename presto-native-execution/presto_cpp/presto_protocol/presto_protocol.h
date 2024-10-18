@@ -492,6 +492,34 @@ void from_json(const json& j, AllOrNoneValueSet& p);
  * limitations under the License.
  */
 
+// TpcdsTransactionHandle is special since
+// the corresponding class in Java is an enum.
+
+namespace facebook::presto::protocol {
+
+struct TpcdsTransactionHandle : public ConnectorTransactionHandle {
+  String instance = {};
+};
+
+void to_json(json& j, const TpcdsTransactionHandle& p);
+
+void from_json(const json& j, TpcdsTransactionHandle& p);
+
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // TpchTransactionHandle is special since
 // the corresponding class in Java is an enum.
 
@@ -3162,6 +3190,58 @@ struct TopNRowNumberNode : public PlanNode {
 };
 void to_json(json& j, const TopNRowNumberNode& p);
 void from_json(const json& j, TopNRowNumberNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpcdsColumnHandle : public ColumnHandle {
+  String columnName = {};
+  Type type = {};
+
+  TpcdsColumnHandle() noexcept;
+};
+void to_json(json& j, const TpcdsColumnHandle& p);
+void from_json(const json& j, TpcdsColumnHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpcdsPartitioningHandle : public ConnectorPartitioningHandle {
+  String table = {};
+  int64_t totalRows = {};
+
+  TpcdsPartitioningHandle() noexcept;
+};
+void to_json(json& j, const TpcdsPartitioningHandle& p);
+void from_json(const json& j, TpcdsPartitioningHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpcdsTableHandle : public ConnectorTableHandle {
+  String tableName = {};
+  double scaleFactor = {};
+
+  TpcdsTableHandle() noexcept;
+};
+void to_json(json& j, const TpcdsTableHandle& p);
+void from_json(const json& j, TpcdsTableHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpcdsSplit : public ConnectorSplit {
+  TpcdsTableHandle tableHandle = {};
+  int partNumber = {};
+  int totalParts = {};
+  List<HostAddress> addresses = {};
+  bool noSexism = {};
+
+  TpcdsSplit() noexcept;
+};
+void to_json(json& j, const TpcdsSplit& p);
+void from_json(const json& j, TpcdsSplit& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpcdsTableLayoutHandle : public ConnectorTableLayoutHandle {
+  TpcdsTableHandle table = {};
+
+  TpcdsTableLayoutHandle() noexcept;
+};
+void to_json(json& j, const TpcdsTableLayoutHandle& p);
+void from_json(const json& j, TpcdsTableLayoutHandle& p);
 } // namespace facebook::presto::protocol
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");

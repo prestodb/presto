@@ -25,6 +25,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/connectors/tpcds/TpcdsConnector.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
@@ -63,6 +64,10 @@
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
+#endif
+
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+#include "presto_cpp/main/connectors/tpcds/TpcdsConnector.h"
 #endif
 
 #ifdef __linux__
@@ -247,8 +252,9 @@ void PrestoServer::run() {
 
   // Register Velox connector factory for iceberg.
   // The iceberg catalog is handled by the hive connector factory.
-  connector::registerConnectorFactory(
-      std::make_shared<connector::hive::HiveConnectorFactory>("iceberg"));
+  velox::connector::registerConnectorFactory(
+      std::make_shared<velox::connector::hive::HiveConnectorFactory>(
+          "iceberg"));
 
   registerPrestoToVeloxConnector(
       std::make_unique<HivePrestoToVeloxConnector>("hive"));
@@ -269,6 +275,10 @@ void PrestoServer::run() {
       std::make_unique<SystemPrestoToVeloxConnector>("system"));
   registerPrestoToVeloxConnector(
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+  registerPrestoToVeloxConnector(
+      std::make_unique<connector::tpcds::TpcdsPrestoToVeloxConnector>("tpcds"));
+#endif
 
   initializeVeloxMemory();
   initializeThreadPools();
@@ -1086,18 +1096,18 @@ PrestoServer::getAdditionalHttpServerFilters() {
 void PrestoServer::registerConnectorFactories() {
   // These checks for connector factories can be removed after we remove the
   // registrations from the Velox library.
-  if (!connector::hasConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>(
+  if (!velox::connector::hasConnectorFactory(
+          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::hive::HiveConnectorFactory>());
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::hive::HiveConnectorFactory>(
             kHiveHadoop2ConnectorName));
   }
-  if (!connector::hasConnectorFactory(
-          connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
-    connector::registerConnectorFactory(
-        std::make_shared<connector::tpch::TpchConnectorFactory>());
+  if (!velox::connector::hasConnectorFactory(
+          velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
   }
 }
 
