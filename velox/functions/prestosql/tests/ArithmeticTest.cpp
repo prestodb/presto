@@ -292,9 +292,18 @@ TEST_F(ArithmeticTest, powerNan) {
 }
 
 TEST_F(ArithmeticTest, powerInf) {
-  std::vector<double> baseDouble = {1, kInf, kInf, kInf};
-  std::vector<double> exponentDouble = {kInf, 1, kNan, 0};
-  std::vector<double> expectedDouble = {kNan, kInf, kNan, 1};
+  // base | exp | result
+  //----------------------
+  //   1    Inf     1
+  //   1   -Inf     1
+  //   2    Inf    Inf
+  //   2   -Inf     0
+  //  Inf    1     Inf
+  //  Inf    0      1
+  //  Inf   NaN    NaN
+  std::vector<double> baseDouble = {1, 1, 2, 2, kInf, kInf, kInf};
+  std::vector<double> exponentDouble = {kInf, -kInf, kInf, -kInf, 1, 0, kNan};
+  std::vector<double> expectedDouble = {1, 1, kInf, 0, kInf, 1, kNan};
 
   // Check using function name and alias.
   assertExpression<double>(
