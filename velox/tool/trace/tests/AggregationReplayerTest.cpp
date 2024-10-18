@@ -200,7 +200,7 @@ TEST_F(AggregationReplayerTest, test) {
 
     const auto replayingResult =
         AggregationReplayer(
-            traceRoot, task->taskId(), traceNodeId_, 0, "TableWriter")
+            traceRoot, task->taskId(), traceNodeId_, 0, "Aggregation")
             .run();
     assertEqualResults({results}, {replayingResult});
   }

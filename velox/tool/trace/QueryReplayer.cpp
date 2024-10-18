@@ -20,6 +20,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
@@ -27,8 +28,17 @@
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/core/PlanNode.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/QueryTraceUtil.h"
+#include "velox/expression/Expr.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/tool/trace/AggregationReplayer.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
 #include "velox/tool/trace/PartitionedOutputReplayer.h"
@@ -74,18 +84,31 @@ void init() {
   filesystems::registerHdfsFileSystem();
   filesystems::registerGCSFileSystem();
   filesystems::abfs::registerAbfsFileSystem();
-  Type::registerSerDe();
+
+  dwio::common::registerFileSinks();
+  dwrf::registerDwrfReaderFactory();
+  dwrf::registerDwrfWriterFactory();
+  parquet::registerParquetReaderFactory();
+  parquet::registerParquetWriterFactory();
+
   core::PlanNode::registerSerDe();
   core::ITypedExpr::registerSerDe();
   common::Filter::registerSerDe();
+  Type::registerSerDe();
   exec::registerPartitionFunctionSerDe();
+  if (!isRegisteredVectorSerde()) {
+    serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  }
   connector::hive::HiveTableHandle::registerSerDe();
   connector::hive::LocationHandle::registerSerDe();
   connector::hive::HiveColumnHandle::registerSerDe();
   connector::hive::HiveInsertTableHandle::registerSerDe();
-  if (!isRegisteredVectorSerde()) {
-    serializer::presto::PrestoVectorSerde::registerVectorSerde();
-  }
+  connector::hive::HiveConnectorSplit::registerSerDe();
+
+  functions::prestosql::registerAllScalarFunctions();
+  aggregate::prestosql::registerAllAggregateFunctions();
+  parse::registerTypeResolver();
+
   // TODO: make it configurable.
   const auto ioExecutor = std::make_unique<folly::IOThreadPoolExecutor>(
       std::thread::hardware_concurrency() *
@@ -179,12 +202,12 @@ void printSummary(
 } // namespace
 
 int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
   if (argc == 1) {
     gflags::ShowUsageWithFlags(argv[0]);
     return -1;
   }
+
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
   if (FLAGS_root_dir.empty()) {
     gflags::SetUsageMessage("--root_dir must be provided.");
     gflags::ShowUsageWithFlags(argv[0]);
