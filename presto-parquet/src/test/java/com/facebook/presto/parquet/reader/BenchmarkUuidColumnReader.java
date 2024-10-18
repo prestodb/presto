@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet.reader;
 
-import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import io.airlift.slice.Slice;
@@ -34,23 +34,23 @@ import static com.facebook.presto.parquet.reader.TestData.randomBigInteger;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 
-public class BenchmarkLongDecimalColumnReader
+public class BenchmarkUuidColumnReader
         extends AbstractColumnReaderBenchmark<long[]>
 {
     private static final int LENGTH = 2 * SIZE_OF_LONG;
 
-    private final Random random = new Random(1);
+    private static final Random random = new Random(1);
 
     @Override
     protected PrimitiveField createPrimitiveField()
     {
         PrimitiveType parquetType = Types.optional(FIXED_LEN_BYTE_ARRAY)
                 .length(LENGTH)
-                .as(LogicalTypeAnnotation.decimalType(0, 38))
+                .as(LogicalTypeAnnotation.uuidType())
                 .named("name");
 
         return new PrimitiveField(
-                DecimalType.createDecimalType(38),
+                UuidType.UUID,
                 -1,
                 -1,
                 true,
@@ -99,6 +99,6 @@ public class BenchmarkLongDecimalColumnReader
     public static void main(String[] args)
             throws Exception
     {
-        run(BenchmarkLongDecimalColumnReader.class);
+        run(BenchmarkUuidColumnReader.class);
     }
 }
