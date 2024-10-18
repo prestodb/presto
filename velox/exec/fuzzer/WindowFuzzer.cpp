@@ -319,17 +319,18 @@ std::string WindowFuzzer::addKRangeOffsetColumnToInputImpl(
     const SortingKeyAndOrder& orderByKey,
     const std::string& columnName,
     const std::string& offsetColumnName) {
+  // Generate frame bound (constant/column) without nulls.
+  ScopedVarSetter nullRatioHolder(
+      &vectorFuzzer_.getMutableOptions().nullRatio, 0.0);
+  ScopedVarSetter dataSpecHolder(
+      &vectorFuzzer_.getMutableOptions().dataSpec, {false, false});
+
   // Use columns as frame bound 50% of time.
   bool isColumnBound = vectorFuzzer_.coinToss(0.5);
   const auto type = CppToType<T>::create();
   VectorPtr constantFrameBound =
       isColumnBound ? nullptr : vectorFuzzer_.fuzzConstant(type, 1);
   VectorPtr columnFrameBound;
-  // Generate frame bound (constant/column) without nulls.
-  ScopedVarSetter nullRatioHolder(
-      &vectorFuzzer_.getMutableOptions().nullRatio, 0.0);
-  ScopedVarSetter dataSpecHolder(
-      &vectorFuzzer_.getMutableOptions().dataSpec, {false, false});
   velox::test::VectorMaker vectorMaker{pool_.get()};
 
   for (auto i = 0; i < FLAGS_num_batches; i++) {
