@@ -28,6 +28,7 @@ import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedLongArray;
+import static java.lang.Long.reverseBytes;
 import static java.lang.String.format;
 
 public class UuidType
@@ -117,7 +118,9 @@ public class UuidType
         if (block.isNull(position)) {
             return null;
         }
-        return new UUID(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG)).toString();
+        return new UUID(
+                reverseBytes(block.getLong(position, 0)),
+                reverseBytes(block.getLong(position, SIZE_OF_LONG))).toString();
     }
 
     @Override
@@ -161,8 +164,8 @@ public class UuidType
     public static Slice javaUuidToPrestoUuid(UUID uuid)
     {
         return wrappedLongArray(
-                uuid.getMostSignificantBits(),
-                uuid.getLeastSignificantBits());
+                reverseBytes(uuid.getMostSignificantBits()),
+                reverseBytes(uuid.getLeastSignificantBits()));
     }
 
     public static UUID prestoUuidToJavaUuid(Slice uuid)
@@ -171,7 +174,7 @@ public class UuidType
             throw new IllegalStateException(format("Expected value to be exactly %d bytes but was %d", INT128_BYTES, uuid.length()));
         }
         return new UUID(
-                uuid.getLong(0),
-                uuid.getLong(SIZE_OF_LONG));
+                reverseBytes(uuid.getLong(0)),
+                reverseBytes(uuid.getLong(SIZE_OF_LONG)));
     }
 }
