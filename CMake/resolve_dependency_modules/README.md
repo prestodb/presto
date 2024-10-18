@@ -1,7 +1,7 @@
 # Dependency List
 Following is the list of libraries and their minimum version
 that Velox requires. Some of these libraries can be installed
-via a platform's package manager (eg. `brew` on MacOS).
+via a platform's package manager (eg. `brew` on macOS).
 The versions of certain libraries is the default provided by
 the platform's package manager. Some libraries can be bundled
 by Velox. See details on bundling below.
@@ -40,6 +40,7 @@ by Velox. See details on bundling below.
 | libstemmer        | 2.2.0           | Yes      |
 | DuckDB (testing)  | 0.8.1           | Yes      |
 | cpr (testing)     | 1.10.15         | Yes      |
+| arrow             | 15.0.0          | Yes      |
 
 # Bundled Dependency Management
 This module provides a dependency management system that allows us to automatically fetch and build dependencies from source if needed.
