@@ -169,9 +169,9 @@ To integrate with the Expression Fuzzer, create a test, register all scalar
 functions supported by the engine, and call ``FuzzerRunner::run()`` defined in
 `FuzzerRunner.h`_. See `ExpressionFuzzerTest.cpp`_.
 
-.. _FuzzerRunner.h: https://github.com/facebookincubator/velox/blob/main/velox/expression/tests/ExpressionFuzzer.h
+.. _FuzzerRunner.h: https://github.com/facebookincubator/velox/blob/main/velox/expression/fuzzer/ExpressionFuzzer.h
 
-.. _ExpressionFuzzerTest.cpp: https://github.com/facebookincubator/velox/blob/main/velox/expression/tests/ExpressionFuzzerTest.cpp
+.. _ExpressionFuzzerTest.cpp: https://github.com/facebookincubator/velox/blob/main/velox/expression/fuzzer/ExpressionFuzzerTest.cpp
 
 Functions with known bugs can be excluded from testing using a skip-list.
 
