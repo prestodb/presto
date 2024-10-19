@@ -280,6 +280,7 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayCombinationsFunctions<Varchar>(prefix);
   registerArrayCombinationsFunctions<Timestamp>(prefix);
   registerArrayCombinationsFunctions<Date>(prefix);
+  registerArrayCombinationsFunctions<Generic<T1>>(prefix);
 
   registerArrayCumSumFunction<int8_t>(prefix);
   registerArrayCumSumFunction<int16_t>(prefix);
