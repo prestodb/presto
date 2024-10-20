@@ -1047,6 +1047,16 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testNestedConcat()
+    {
+        assertFunction("CONCAT('a', CONCAT('b', CONCAT(CONCAT('c', 'd'), 'e')))", VARCHAR, "abcde");
+        assertFunction("CONCAT(concat('a', CONCAT('b', CONCAT('c', CONCAT('d', 'e')))), 'f')", VARCHAR, "abcdef");
+        assertFunction("CONCAT('a', CONCAT(cast(null as varchar), concat(concat('c', 'd'), 'e')))", VARCHAR, null);
+        // The following is a harness for if/when someone touches the concat flattening logic
+        assertFunction("cast(concat(cast('abcde' as char(10)), concat(cast('abc' as char(3)) , 'd')) AS VARCHAR)", VARCHAR, "abcde     abcd");
+    }
+
+    @Test
     public void testStartsWith()
     {
         assertFunction("starts_with('abcd', 'ab')", BOOLEAN, true);
