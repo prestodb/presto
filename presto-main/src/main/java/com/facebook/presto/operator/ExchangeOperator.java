@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -95,6 +96,8 @@ public class ExchangeOperator
     private final PagesSerde serde;
     private ListenableFuture<?> isBlocked = NOT_BLOCKED;
 
+    private final LocalMemoryContext systemMemoryContext;
+
     public ExchangeOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
@@ -105,6 +108,9 @@ public class ExchangeOperator
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
         this.serde = requireNonNull(serde, "serde is null");
+
+        this.systemMemoryContext = operatorContext.localUserMemoryContext();
+        this.systemMemoryContext.setBytes(this.serde.getRetainedSizeInBytes());
 
         operatorContext.setInfoSupplier(exchangeClient::getStatus);
     }
@@ -196,6 +202,7 @@ public class ExchangeOperator
     @Override
     public void close()
     {
+        systemMemoryContext.setBytes(0);
         exchangeClient.close();
     }
 }
