@@ -58,12 +58,6 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
     }
 
     @Override
-    public void setWithTimezone(boolean withTimezone)
-    {
-        this.withTimezone = withTimezone;
-    }
-
-    @Override
     public void readNext(long[] values, int offset, int length)
             throws IOException
     {

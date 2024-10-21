@@ -64,8 +64,6 @@ public interface ValuesDecoder
                 throws IOException;
 
         boolean isWithTimezone();
-
-        void setWithTimezone(boolean withTimezone);
     }
 
     interface TimestampValuesDecoder
