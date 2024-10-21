@@ -355,12 +355,7 @@ std::optional<std::string> PrestoQueryRunner::toSql(
         auto constant =
             std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
                 projection)) {
-      if (constant->type()->isPrimitiveType()) {
-        sql << toConstantSql(constant);
-      } else {
-        // TODO: support complex-typed constant literals.
-        VELOX_NYI();
-      }
+      sql << toConstantSql(constant);
     } else {
       VELOX_NYI();
     }
@@ -434,9 +429,11 @@ bool PrestoQueryRunner::isConstantExprSupported(
     // used as the type of constant literals in SQL, Presto implicitly invoke
     // json_parse() on it, which makes the behavior of Presto different from
     // Velox. Timestamp constant literals require further investigation to
-    // ensure Presto uses the same timezone as Velox.
+    // ensure Presto uses the same timezone as Velox. Interval type cannot be
+    // used as the type of constant literals in Presto SQL.
     auto& type = expr->type();
-    return type->isPrimitiveType() && !type->isTimestamp() && !isJsonType(type);
+    return type->isPrimitiveType() && !type->isTimestamp() &&
+        !isJsonType(type) && !type->isIntervalDayTime();
   }
   return true;
 }
@@ -447,11 +444,14 @@ bool PrestoQueryRunner::isSupported(const exec::FunctionSignature& signature) {
   // cast-to or constant literals. Hyperloglog can only be casted from varbinary
   // and cannot be used as the type of constant literals. Interval year to month
   // can only be casted from NULL and cannot be used as the type of constant
-  // literals.
+  // literals. Json requires special handling, because Presto requires Json
+  // literals to be valid Json strings, and doesn't allow creation of Json-typed
+  // HIVE columns.
   return !(
       usesTypeName(signature, "interval year to month") ||
       usesTypeName(signature, "hugeint") ||
-      usesTypeName(signature, "hyperloglog"));
+      usesTypeName(signature, "hyperloglog") ||
+      usesTypeName(signature, "json"));
 }
 
 std::optional<std::string> PrestoQueryRunner::toSql(

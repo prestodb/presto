@@ -23,6 +23,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/FunctionSignature.h"
@@ -109,7 +110,10 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
       referenceQueryRunner_{
           options_.expressionFuzzerOptions.referenceQueryRunner} {
   filesystems::registerLocalFileSystem();
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>());
   exec::test::registerHiveConnector({});
+  dwrf::registerDwrfWriterFactory();
 
   seed(initialSeed);
 
