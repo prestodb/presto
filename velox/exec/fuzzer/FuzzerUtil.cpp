@@ -329,7 +329,10 @@ TypePtr sanitizeTryResolveType(
       integerVariablesBindings));
 }
 
-void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity) {
+void setupMemory(
+    int64_t allocatorCapacity,
+    int64_t arbitratorCapacity,
+    bool enableGlobalArbitration) {
   FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   FLAGS_velox_memory_leak_check_enabled = true;
   facebook::velox::memory::SharedArbitrator::registerFactory();
@@ -339,6 +342,13 @@ void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity) {
   options.arbitratorKind = "SHARED";
   options.checkUsageLeak = true;
   options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
+  options.extraArbitratorConfigs = {
+      {std::string(velox::memory::SharedArbitrator::ExtraConfig::
+                       kGlobalArbitrationEnabled),
+       enableGlobalArbitration ? "true" : "false"},
+      {std::string(velox::memory::SharedArbitrator::ExtraConfig::
+                       kMemoryPoolMinReclaimBytes),
+       "0B"}};
   facebook::velox::memory::MemoryManager::initialize(options);
 }
 

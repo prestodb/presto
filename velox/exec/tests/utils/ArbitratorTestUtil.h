@@ -94,7 +94,7 @@ std::shared_ptr<core::QueryCtx> newQueryCtx(
 std::unique_ptr<memory::MemoryManager> createMemoryManager(
     int64_t arbitratorCapacity = kMemoryCapacity,
     uint64_t memoryPoolInitCapacity = kMemoryPoolInitCapacity,
-    uint64_t maxReclaimWaitMs = 0,
+    uint64_t maxReclaimWaitMs = 5 * 60 * 1'000,
     uint64_t fastExponentialGrowthCapacityLimit = 0,
     double slowCapacityGrowPct = 0);
 

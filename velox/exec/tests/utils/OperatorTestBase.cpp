@@ -82,7 +82,9 @@ void OperatorTestBase::setupMemory(
     int64_t arbitratorCapacity,
     int64_t arbitratorReservedCapacity,
     int64_t memoryPoolInitCapacity,
-    int64_t memoryPoolReservedCapacity) {
+    int64_t memoryPoolReservedCapacity,
+    int64_t memoryPoolMinReclaimBytes,
+    int64_t memoryPoolAbortCapacityLimit) {
   if (asyncDataCache_ != nullptr) {
     asyncDataCache_->clear();
     asyncDataCache_.reset();
@@ -102,6 +104,10 @@ void OperatorTestBase::setupMemory(
        folly::to<std::string>(memoryPoolInitCapacity) + "B"},
       {std::string(ExtraConfig::kMemoryPoolReservedCapacity),
        folly::to<std::string>(memoryPoolReservedCapacity) + "B"},
+      {std::string(ExtraConfig::kMemoryPoolMinReclaimBytes),
+       folly::to<std::string>(memoryPoolMinReclaimBytes) + "B"},
+      {std::string(ExtraConfig::kMemoryPoolAbortCapacityLimit),
+       folly::to<std::string>(memoryPoolAbortCapacityLimit) + "B"},
       {std::string(ExtraConfig::kGlobalArbitrationEnabled), "true"},
   };
 
@@ -112,7 +118,7 @@ void OperatorTestBase::setupMemory(
 }
 
 void OperatorTestBase::resetMemory() {
-  OperatorTestBase::setupMemory(8L << 30, 6L << 30, 0, 512 << 20, 0);
+  OperatorTestBase::setupMemory(8L << 30, 6L << 30, 0, 512 << 20, 0, 0, 0);
 }
 
 void OperatorTestBase::SetUp() {

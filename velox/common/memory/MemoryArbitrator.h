@@ -264,7 +264,7 @@ class MemoryReclaimer {
     /// due to reclaiming at non-reclaimable stage.
     uint64_t numNonReclaimableAttempts{0};
 
-    /// The total execution time to do the reclaim in microseconds.
+    /// The total time to do the reclaim in microseconds.
     uint64_t reclaimExecTimeUs{0};
 
     /// The total reclaimed memory bytes.

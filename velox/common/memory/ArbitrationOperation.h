@@ -105,7 +105,7 @@ class ArbitrationOperation {
 
   /// Invoked to mark the start of global arbitration. This is used to measure
   /// how much time spent in waiting for global arbitration.
-  void startGlobalArbitration() {
+  void recordGlobalArbitrationStartTime() {
     VELOX_CHECK_EQ(globalArbitrationStartTimeMs_, 0);
     VELOX_CHECK_EQ(state_, State::kRunning);
     globalArbitrationStartTimeMs_ = getCurrentTimeMs();

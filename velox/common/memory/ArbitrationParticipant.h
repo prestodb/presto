@@ -25,6 +25,9 @@
 #include "velox/common/memory/Memory.h"
 
 namespace facebook::velox::memory {
+namespace test {
+class ArbitrationParticipantTestHelper;
+}
 
 class ArbitrationOperation;
 class ScopedArbitrationParticipant;
@@ -79,13 +82,34 @@ class ArbitrationParticipant
     uint64_t minFreeCapacity;
     double minFreeCapacityRatio;
 
+    /// Specifies the minimum bytes to reclaim from a participant at a time. The
+    /// global arbitration also avoids to reclaim from a participant if its
+    /// reclaimable used capacity is less than this threshold. This is to
+    /// prevent inefficient memory reclaim operations on a participant with
+    /// small reclaimable used capacity which could causes a large number of
+    /// small spilled file on disk.
+    uint64_t minReclaimBytes;
+
+    /// Specifies the starting memory capacity limit for global arbitration to
+    /// search for victim participant to reclaim used memory by abort. For
+    /// participants with capacity larger than the limit, the global arbitration
+    /// choose to abort the youngest participant which has the largest
+    /// participant id. This helps to let the old queries to run to completion.
+    /// The abort capacity limit is reduced by half if couldn't find a victim
+    /// participant until reaches to zero.
+    ///
+    /// NOTE: the limit must be zero or a power of 2.
+    uint64_t abortCapacityLimit;
+
     Config(
         uint64_t _initCapacity,
         uint64_t _minCapacity,
         uint64_t _fastExponentialGrowthCapacityLimit,
         double _slowCapacityGrowRatio,
         uint64_t _minFreeCapacity,
-        double _minFreeCapacityRatio);
+        double _minFreeCapacityRatio,
+        uint64_t _minReclaimBytes,
+        uint64_t _abortCapacityLimit);
 
     std::string toString() const;
   };
@@ -184,7 +208,10 @@ class ArbitrationParticipant
 
   // Invoked to reclaim used memory from this memory pool with specified
   // 'targetBytes'. The function returns the actually freed capacity.
-  uint64_t reclaim(uint64_t targetBytes, uint64_t maxWaitTimeMs) noexcept;
+  uint64_t reclaim(
+      uint64_t targetBytes,
+      uint64_t maxWaitTimeMs,
+      MemoryReclaimer::Stats& stats) noexcept;
 
   /// Invoked to abort the query memory pool and returns the reclaimed bytes
   /// after abort.
@@ -276,6 +303,8 @@ class ArbitrationParticipant
   // Aborts the query memory pool and returns the reclaimed bytes after abort.
   uint64_t abortLocked(const std::exception_ptr& error) noexcept;
 
+  uint64_t shrinkLocked(bool reclaimAll);
+
   const uint64_t id_;
   const std::weak_ptr<MemoryPool> poolWeakPtr_;
   MemoryPool* const pool_;
@@ -307,6 +336,7 @@ class ArbitrationParticipant
   mutable std::timed_mutex reclaimLock_;
 
   friend class ScopedArbitrationParticipant;
+  friend class test::ArbitrationParticipantTestHelper;
 };
 
 /// The wrapper of the arbitration participant which holds a shared reference to

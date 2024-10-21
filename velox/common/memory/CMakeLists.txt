@@ -19,6 +19,8 @@ velox_add_library(
   velox_memory
   Allocation.cpp
   AllocationPool.cpp
+  ArbitrationOperation.cpp
+  ArbitrationParticipant.cpp
   ByteStream.cpp
   HashStringAllocator.cpp
   MallocAllocator.cpp

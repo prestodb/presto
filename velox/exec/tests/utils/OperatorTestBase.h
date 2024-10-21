@@ -49,7 +49,9 @@ class OperatorTestBase : public testing::Test,
       int64_t arbitratorCapacity,
       int64_t arbitratorReservedCapacity,
       int64_t memoryPoolInitCapacity,
-      int64_t memoryPoolReservedCapacity);
+      int64_t memoryPoolReservedCapacity,
+      int64_t memoryPoolMinReclaimBytes,
+      int64_t memoryPoolAbortCapacityLimit);
 
   static void resetMemory();
 

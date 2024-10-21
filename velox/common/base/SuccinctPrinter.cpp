@@ -40,7 +40,7 @@ namespace {
 /// Possible units are days(d), hours(h), minutes(m), seconds(s).
 std::string succinctSeconds(uint64_t seconds) {
   std::stringstream out;
-  int days = seconds / kSecondsInDay;
+  const uint64_t days = seconds / kSecondsInDay;
   bool isFirstUnit = true;
   if (days) {
     out << days << "d";
@@ -48,7 +48,7 @@ std::string succinctSeconds(uint64_t seconds) {
   }
   seconds -= days * kSecondsInDay;
 
-  int hours = seconds / kSecondsInHour;
+  const uint64_t hours = seconds / kSecondsInHour;
   if (days || hours) {
     if (!isFirstUnit) {
       out << " ";
@@ -58,11 +58,12 @@ std::string succinctSeconds(uint64_t seconds) {
   }
   seconds -= hours * kSecondsInHour;
 
-  int minutes = seconds / kSecondsInMinute;
+  const uint64_t minutes = seconds / kSecondsInMinute;
   if (days || hours || minutes) {
     if (!isFirstUnit) {
       out << " ";
     }
+
     out << minutes << "m";
     isFirstUnit = false;
   }
@@ -109,6 +110,7 @@ std::string succinctDuration(uint64_t duration, int unitOffset, int precision) {
         std::round((duration * 1.0) / kTimeUnitsInSecond[unitOffset]);
     return succinctSeconds(seconds);
   }
+
   return succinctPrint(
       duration,
       &kTimeUnits[0],

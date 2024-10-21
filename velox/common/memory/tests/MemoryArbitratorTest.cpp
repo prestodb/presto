@@ -148,18 +148,14 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
         "arbitration. Requestor pool name 'leaf-1.0', request size 7.00MB, "
         "memory pool capacity 4.00MB, memory pool max capacity 8.00MB");
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 0), 0);
-    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 0);
-    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 1), 0);
+    VELOX_ASSERT_THROW(
+        manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), "");
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 1), 0);
     ASSERT_EQ(rootPool->capacity(), 4 << 20);
     static_cast<MemoryPoolImpl*>(rootPool.get())->testingSetReservation(0);
     ASSERT_EQ(
-        manager.arbitrator()->shrinkCapacity(leafPool.get(), 1 << 20), 1 << 20);
-    ASSERT_EQ(
-        manager.arbitrator()->shrinkCapacity(rootPool.get(), 1 << 20), 1 << 20);
-    ASSERT_EQ(rootPool->capacity(), 2 << 20);
-    ASSERT_EQ(leafPool->capacity(), 2 << 20);
-    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 2 << 20);
+        manager.arbitrator()->shrinkCapacity(rootPool.get(), 1 << 20), 4 << 20);
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 1 << 20), 0);
     ASSERT_EQ(rootPool->capacity(), 0);
     ASSERT_EQ(leafPool->capacity(), 0);
   }

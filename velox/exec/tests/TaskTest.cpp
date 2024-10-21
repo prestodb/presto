@@ -20,6 +20,7 @@
 #include "velox/common/future/VeloxPromise.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/memory/SharedArbitrator.h"
+#include "velox/common/memory/tests/SharedArbitratorTestUtil.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/exec/OutputBufferManager.h"
@@ -2015,7 +2016,8 @@ DEBUG_ONLY_TEST_F(TaskTest, taskReclaimStats) {
   auto* arbitrator = dynamic_cast<memory::SharedArbitrator*>(
       memory::memoryManager()->arbitrator());
   if (arbitrator != nullptr) {
-    arbitrator->testingFreeCapacity(reclaimedQueryCapacity);
+    memory::test::SharedArbitratorTestHelper arbitratorHelper(arbitrator);
+    arbitratorHelper.freeCapacity(reclaimedQueryCapacity);
   }
 
   auto taskStats = task->taskStats();

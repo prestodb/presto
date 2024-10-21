@@ -98,13 +98,7 @@ TEST_F(MemoryManagerTest, ctor) {
     ASSERT_EQ(arbitrator->stats().maxCapacityBytes, kCapacity);
     ASSERT_EQ(
         manager.toString(),
-        "Memory Manager[capacity 4.00GB alignment 64B usedBytes 0B number of "
-        "pools 2\nList of root pools:\n\t__sys_root__\n"
-        "Memory Allocator[MALLOC capacity 4.00GB allocated bytes 0 "
-        "allocated pages 0 mapped pages 0]\n"
-        "ARBITRATOR[SHARED CAPACITY[4.00GB] PENDING[0] "
-        "numRequests 0 numRunning 0 numSucceded 0 numAborted 0 numFailures 0 numNonReclaimableAttempts 0 "
-        "reclaimedFreeCapacity 0B reclaimedUsedCapacity 0B maxCapacity 4.00GB freeCapacity 4.00GB freeReservedCapacity 0B]]");
+        "Memory Manager[capacity 4.00GB alignment 64B usedBytes 0B number of pools 2\nList of root pools:\n\t__sys_root__\nMemory Allocator[MALLOC capacity 4.00GB allocated bytes 0 allocated pages 0 mapped pages 0]\nARBITRATOR[SHARED CAPACITY[4.00GB] numRequests 0 numRunning 0 numSucceded 0 numAborted 0 numFailures 0 numNonReclaimableAttempts 0 reclaimedFreeCapacity 0B reclaimedUsedCapacity 0B maxCapacity 4.00GB freeCapacity 4.00GB freeReservedCapacity 0B]]");
   }
 }
 
@@ -652,14 +646,23 @@ TEST_F(MemoryManagerTest, disableMemoryPoolTracking) {
   options.allocatorCapacity = 64LL << 20;
   options.arbitratorCapacity = 64LL << 20;
   std::vector<std::string> arbitratorKinds{kNoopKind, kSharedKind};
-  for (auto arbitratorKind : arbitratorKinds) {
+  for (const auto& arbitratorKind : arbitratorKinds) {
     options.arbitratorKind = arbitratorKind;
     MemoryManager manager{options};
     auto root0 = manager.addRootPool("root_0", 35LL << 20);
     auto leaf0 = root0->addLeafChild("leaf_0");
 
-    // Not throwing since there is no duplicate check.
-    auto root0Dup = manager.addRootPool("root_0", 35LL << 20);
+    std::shared_ptr<MemoryPool> root0Dup;
+    if (arbitratorKind == kSharedKind) {
+      // NOTE: shared arbitrator has duplicate check inside.
+      VELOX_ASSERT_THROW(
+          manager.addRootPool("root_0", 35LL << 20),
+          "Memory pool root_0 already exists");
+      continue;
+    } else {
+      // Not throwing since there is no duplicate check.
+      root0Dup = manager.addRootPool("root_0", 35LL << 20);
+    }
 
     // 1TB capacity is allowed since there is no capacity check.
     auto root1 = manager.addRootPool("root_1", 1LL << 40);

@@ -3585,8 +3585,19 @@ TEST_P(MemoryPoolTest, abortAPI) {
     {
       auto rootPool = manager.addRootPool("abortAPI", capacity);
       ASSERT_FALSE(rootPool->aborted());
-      VELOX_ASSERT_THROW(abortPool(rootPool.get()), "");
-      ASSERT_FALSE(rootPool->aborted());
+      abortPool(rootPool.get());
+      ASSERT_TRUE(rootPool->aborted());
+      auto leafPool = rootPool->addLeafChild("leafAbortAPI", true);
+      ASSERT_TRUE(leafPool->aborted());
+      ASSERT_EQ(leafPool->capacity(), capacity);
+      if (capacity != kMaxMemory) {
+        VELOX_ASSERT_THROW(
+            leafPool->allocate(leafPool->capacity() + 1),
+            "Manual MemoryPool Abortion");
+      }
+      VELOX_ASSERT_THROW(
+          abortPool(rootPool.get()),
+          "Trying to set another abort error on an already aborted pool.");
     }
     // The root memory pool with no child pool and default memory reclaimer.
     {
@@ -3824,16 +3835,19 @@ TEST_P(MemoryPoolTest, abort) {
       // Abort the pool.
       ContinueFuture future;
       if (!hasReclaimer) {
-        VELOX_ASSERT_THROW(abortPool(leafPool.get()), "");
-        VELOX_ASSERT_THROW(abortPool(aggregatePool.get()), "");
-        VELOX_ASSERT_THROW(abortPool(rootPool.get()), "");
-        ASSERT_FALSE(leafPool->aborted());
-        ASSERT_FALSE(aggregatePool->aborted());
-        ASSERT_FALSE(rootPool->aborted());
-        leafPool->free(buf1, 128);
-        buf1 = leafPool->allocate(capacity / 2);
-        leafPool->free(buf1, capacity / 2);
-        continue;
+        abortPool(leafPool.get());
+        ASSERT_TRUE(leafPool->aborted());
+        VELOX_ASSERT_THROW(
+            abortPool(aggregatePool.get()),
+            "Trying to set another abort error on an already aborted pool.");
+        VELOX_ASSERT_THROW(
+            abortPool(rootPool.get()),
+            "Trying to set another abort error on an already aborted pool.");
+        ASSERT_TRUE(leafPool->aborted());
+        ASSERT_TRUE(aggregatePool->aborted());
+        ASSERT_TRUE(rootPool->aborted());
+        VELOX_ASSERT_THROW(
+            leafPool->allocate(capacity / 2), "Manual MemoryPool Abortion");
       } else {
         abortPool(leafPool.get());
       }

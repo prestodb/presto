@@ -541,6 +541,13 @@ ScopedReclaimedBytesRecorder::~ScopedReclaimedBytesRecorder() {
     return;
   }
   const int64_t reservedBytesAfterReclaim = pool_->reservedBytes();
+  if (reservedBytesAfterReclaim > reservedBytesBeforeReclaim_) {
+    LOG(ERROR) << "Unexpected reserved bytes growth from " << pool_->name()
+               << " after memory reclaim from "
+               << succinctBytes(reservedBytesBeforeReclaim_) << " to "
+               << succinctBytes(reservedBytesAfterReclaim) << ", current usage "
+               << succinctBytes(pool_->usedBytes());
+  }
   *reclaimedBytes_ = reservedBytesBeforeReclaim_ - reservedBytesAfterReclaim;
 }
 } // namespace facebook::velox::memory

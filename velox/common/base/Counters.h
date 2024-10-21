@@ -56,7 +56,7 @@ constexpr folly::StringPiece kMetricTaskMemoryReclaimWaitTimeoutCount{
     "velox.task_memory_reclaim_wait_timeout_count"};
 
 constexpr folly::StringPiece kMetricOpMemoryReclaimTimeMs{
-    "velox.op_memory_reclaim_ms"};
+    "velox.op_memory_reclaim_time_ms"};
 
 constexpr folly::StringPiece kMetricOpMemoryReclaimedBytes{
     "velox.op_memory_reclaim_bytes"};
@@ -87,6 +87,14 @@ constexpr folly::StringPiece kMetricArbitratorLocalArbitrationCount{
 
 constexpr folly::StringPiece kMetricArbitratorGlobalArbitrationCount{
     "velox.arbitrator_global_arbitration_count"};
+
+constexpr folly::StringPiece
+    kMetricArbitratorGlobalArbitrationNumReclaimVictims{
+        "velox.arbitrator_global_arbitration_num_reclaim_victims"};
+
+constexpr folly::StringPiece
+    kMetricArbitratorGlobalArbitrationFailedVictimCount{
+        "velox.arbitrator_global_arbitration_failed_victim_count"};
 
 constexpr folly::StringPiece kMetricArbitratorGlobalArbitrationBytes{
     "velox.arbitrator_global_arbitration_bytes"};

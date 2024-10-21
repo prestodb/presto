@@ -1276,7 +1276,7 @@ class PartitionedOutputNode : public PlanNode {
         partitionFunctionSpec_(std::move(partitionFunctionSpec)),
         outputType_(std::move(outputType)) {
     VELOX_USER_CHECK_GT(numPartitions, 0);
-    if (numPartitions == 1) {
+    if (numPartitions_ == 1) {
       VELOX_USER_CHECK(
           keys_.empty(),
           "Non-empty partitioning keys require more than one partition");

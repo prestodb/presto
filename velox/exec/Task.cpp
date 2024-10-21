@@ -1675,7 +1675,7 @@ int Task::getOutputPipelineId() const {
     }
   }
 
-  VELOX_FAIL("Output pipeline not found");
+  VELOX_FAIL("Output pipeline not found for task {}", taskId_);
 }
 
 void Task::setAllOutputConsumed() {

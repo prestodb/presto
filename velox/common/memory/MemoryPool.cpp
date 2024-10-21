@@ -1119,10 +1119,10 @@ void MemoryPoolImpl::abort(const std::exception_ptr& error) {
     parent_->abort(error);
     return;
   }
-  if (reclaimer() == nullptr) {
-    VELOX_FAIL("Can't abort the memory pool {} without reclaimer", name_);
-  }
   setAbortError(error);
+  if (reclaimer() == nullptr) {
+    return;
+  }
   reclaimer()->abort(this, error);
 }
 

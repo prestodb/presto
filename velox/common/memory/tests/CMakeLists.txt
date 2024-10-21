@@ -17,6 +17,7 @@ add_executable(
   velox_memory_test
   AllocationPoolTest.cpp
   AllocationTest.cpp
+  ArbitrationParticipantTest.cpp
   ByteStreamTest.cpp
   CompactDoubleListTest.cpp
   HashStringAllocatorTest.cpp

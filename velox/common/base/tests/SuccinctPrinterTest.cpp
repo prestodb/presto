@@ -37,6 +37,9 @@ TEST(SuccinctPrinterTest, testSuccinctNanos) {
   EXPECT_EQ(succinctNanos(86'399'499'000'000), "23h 59m 59s");
   EXPECT_EQ(succinctNanos(86'400'123'000'000), "1d 0h 0m 0s");
   EXPECT_EQ(succinctNanos(867'661'789'000'000), "10d 1h 1m 2s");
+  EXPECT_EQ(
+      succinctNanos(std::numeric_limits<uint64_t>::max()),
+      "213503d 23h 34m 34s");
 }
 
 TEST(SuccinctPrinterTest, testSuccinctMicros) {
@@ -51,6 +54,9 @@ TEST(SuccinctPrinterTest, testSuccinctMicros) {
   EXPECT_EQ(succinctMicros(86'399'498), "1m 26s");
   EXPECT_EQ(succinctMicros(86'400'123), "1m 26s");
   EXPECT_EQ(succinctMicros(867'661'789), "14m 28s");
+  EXPECT_EQ(
+      succinctMicros(std::numeric_limits<uint64_t>::max()),
+      "213503982d 8h 1m 50s");
 }
 
 TEST(SuccinctPrinterTest, testSuccinctMillis) {
@@ -65,6 +71,9 @@ TEST(SuccinctPrinterTest, testSuccinctMillis) {
   EXPECT_EQ(succinctMillis(86'399'498), "23h 59m 59s");
   EXPECT_EQ(succinctMillis(86'400'123), "1d 0h 0m 0s");
   EXPECT_EQ(succinctMillis(867'661'789), "10d 1h 1m 2s");
+  EXPECT_EQ(
+      succinctMillis(std::numeric_limits<uint64_t>::max()),
+      "213503982334d 14h 25m 52s");
 }
 
 TEST(SuccinctPrinterTest, testSuccinctBytes) {
@@ -77,6 +86,8 @@ TEST(SuccinctPrinterTest, testSuccinctBytes) {
   EXPECT_EQ(succinctBytes(1'234'567'890), "1.15GB");
   EXPECT_EQ(succinctBytes(1'099'511'627'776), "1.00TB");
   EXPECT_EQ(succinctBytes(1234'099'511'627'776), "1122.41TB");
+  EXPECT_EQ(
+      succinctBytes(std::numeric_limits<uint64_t>::max()), "16777216.00TB");
 }
 
 } // namespace facebook::velox

@@ -114,7 +114,10 @@ TypePtr sanitizeTryResolveType(
     std::unordered_map<std::string, int>& integerVariablesBindings);
 
 // Invoked to set up memory system with arbitration.
-void setupMemory(int64_t allocatorCapacity, int64_t arbitratorCapacity);
+void setupMemory(
+    int64_t allocatorCapacity,
+    int64_t arbitratorCapacity,
+    bool enableGlobalArbitration = true);
 
 /// Registers hive connector with configs. It should be called in the
 /// constructor of fuzzers that test plans with TableScan or uses
