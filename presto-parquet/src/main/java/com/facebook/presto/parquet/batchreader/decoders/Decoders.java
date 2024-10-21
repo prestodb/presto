@@ -62,6 +62,7 @@ import io.airlift.slice.Slice;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.io.ByteArrayInputStream;
@@ -129,7 +130,9 @@ public class Decoders
                     return new Int32PlainValuesDecoder(buffer, offset, length);
                 case INT64: {
                     if (isTimeStampMicrosType(columnDescriptor) || isTimeMicrosType(columnDescriptor)) {
-                        return new Int64TimeAndTimestampMicrosPlainValuesDecoder(buffer, offset, length);
+                        LogicalTypeAnnotation.TimestampLogicalTypeAnnotation typeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation();
+                        boolean withTimezone = typeAnnotation.isAdjustedToUTC();
+                        return new Int64TimeAndTimestampMicrosPlainValuesDecoder(buffer, offset, length, withTimezone);
                     }
 
                     if (isShortDecimalType(columnDescriptor)) {

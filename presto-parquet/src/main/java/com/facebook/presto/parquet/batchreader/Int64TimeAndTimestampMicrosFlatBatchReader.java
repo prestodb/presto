@@ -138,7 +138,6 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
         FlatDecoders flatDecoders = readFlatPage(page, columnDescriptor, dictionary);
         definitionLevelDecoder = flatDecoders.getDefinitionLevelDecoder();
         valuesDecoder = (Int64TimeAndTimestampMicrosValuesDecoder) flatDecoders.getValuesDecoder();
-        valuesDecoder.setWithTimezone(field.getType() instanceof TimestampWithTimeZoneType);
 
         remainingCountInPage = page.getValueCount();
         return true;
