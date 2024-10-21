@@ -69,7 +69,7 @@ TEST_F(FunctionMetadataTest, arrayFrequency) {
 }
 
 TEST_F(FunctionMetadataTest, combinations) {
-  testFunction("combinations", "Combinations.json", 10);
+  testFunction("combinations", "Combinations.json", 11);
 }
 
 TEST_F(FunctionMetadataTest, covarSamp) {

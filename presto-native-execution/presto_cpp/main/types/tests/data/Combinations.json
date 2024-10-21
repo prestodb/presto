@@ -3,6 +3,21 @@
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
+      "outputType": "array(array(__user_T1))",
+      "paramTypes": [
+        "array(__user_T1)",
+        "integer"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    },
+    {
+      "docString": "presto.default.combinations",
+      "functionKind": "SCALAR",
       "outputType": "array(array(date))",
       "paramTypes": [
         "array(date)",
