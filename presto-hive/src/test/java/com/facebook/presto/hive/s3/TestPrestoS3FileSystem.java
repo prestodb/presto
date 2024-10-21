@@ -39,10 +39,13 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.StorageClass;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem.UnrecoverableS3OperationException;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
@@ -57,6 +60,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -64,6 +68,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
@@ -77,6 +82,7 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_KMS_KEY_ID;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_CLIENT_RETRIES;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_RETRY_TIME;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MULTIPART_MIN_PART_SIZE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PATH_STYLE_ACCESS;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SECRET_KEY;
@@ -86,6 +92,8 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRE
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_STREAMING_UPLOADS;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -94,9 +102,10 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
-import static org.testng.Assert.assertEquals;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoS3FileSystem
@@ -446,7 +455,8 @@ public class TestPrestoS3FileSystem
     }
 
     @Test(expectedExceptions = UnrecoverableS3OperationException.class, expectedExceptionsMessageRegExp = ".*\\Q (Path: /tmp/test/path)\\E")
-    public void testUnrecoverableS3ExceptionMessage() throws Exception
+    public void testUnrecoverableS3ExceptionMessage()
+            throws Exception
     {
         throw new UnrecoverableS3OperationException(new Path("/tmp/test/path"), new IOException("test io exception"));
     }
@@ -634,7 +644,7 @@ public class TestPrestoS3FileSystem
             try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
                 // initiate an upload by creating a stream & closing it immediately
             }
-            assertEquals(CannedAccessControlList.Private, s3.getAcl());
+            assertEquals(s3.getAcl(), CannedAccessControlList.Private);
         }
     }
 
@@ -707,7 +717,8 @@ public class TestPrestoS3FileSystem
     }
 
     @Test
-    public void testPrestoS3InputStreamEOS() throws Exception
+    public void testPrestoS3InputStreamEOS()
+            throws Exception
     {
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             AtomicInteger readableBytes = new AtomicInteger(1);
@@ -792,6 +803,187 @@ public class TestPrestoS3FileSystem
             assertEquals(recursiveFiles.get(0).getPath(), new Path(rootPath, childObject.getKey()));
             assertEquals(recursiveFiles.get(1).getPath(), new Path(rootPath, rootObject.getKey()));
         }
+    }
+
+    @Test(dataProvider = "streamingConfigs")
+    public void testMultipart(boolean streaming)
+            throws IOException, URISyntaxException
+    {
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            Configuration conf = new Configuration();
+            conf.setLong(S3_MULTIPART_MIN_PART_SIZE, 512L);
+            conf.setBoolean(S3_USE_STREAMING_UPLOADS, streaming);
+            fs.initialize(new URI("s3n://test-bucket/"), conf);
+            fs.setS3Client(s3);
+            try (FSDataOutputStream out = fs.create(new Path("test"))) {
+                out.flush();
+            }
+            // since we didn't exceed the part size, no multipart requests should be sent
+            assertEquals(s3.initiateMultipartRequests, 0);
+            assertEquals(s3.uploadPartRequests, 0);
+            assertEquals(s3.completePartUploadRequests, 0);
+            assertEquals(s3.putObjectRequests, 1);
+
+            try (FSDataOutputStream out = fs.create(new Path("test"))) {
+                out.write(new byte[512]);
+            }
+            // same as above
+            assertEquals(s3.initiateMultipartRequests, 0);
+            assertEquals(s3.uploadPartRequests, 0);
+            assertEquals(s3.completePartUploadRequests, 0);
+            assertEquals(s3.putObjectRequests, 2);
+
+            try (FSDataOutputStream out = fs.create(new Path("test"))) {
+                out.write(new byte[600]);
+                out.write(new byte[600]);
+            }
+            assertEquals(s3.initiateMultipartRequests, streaming ? 1 : 0);
+            assertEquals(s3.uploadPartRequests, streaming ? 2 : 0);
+            assertEquals(s3.completePartUploadRequests, streaming ? 1 : 0);
+            assertEquals(s3.putObjectRequests, streaming ? 2 : 3);
+        }
+    }
+
+    private void assertDirEmpty(java.nio.file.Path path)
+            throws IOException
+    {
+        assertEquals(requireNonNull(path.toFile().listFiles()).length, 0);
+    }
+
+    @DataProvider
+    public static Object[][] streamingConfigs()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Test(dataProvider = "streamingConfigs")
+    public void testAbortMultipart(boolean streaming)
+            throws IOException, URISyntaxException
+    {
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            Configuration conf = new Configuration();
+            conf.setLong(S3_MULTIPART_MIN_PART_SIZE, 512L);
+            conf.setBoolean(S3_USE_STREAMING_UPLOADS, streaming);
+            java.nio.file.Path stagingDir = Files.createTempDirectory("presto-s3-abort-multipart-test");
+            conf.set(S3_STAGING_DIRECTORY, stagingDir.toString());
+            fs.initialize(new URI("s3n://test-bucket/"), conf);
+            fs.setS3Client(s3);
+
+            // test abort on putObject
+            s3.setThrowOnNextUpload();
+
+            Class exception = streaming ? RuntimeException.class : IOException.class;
+            assertThrows(exception, () -> {
+                try (FSDataOutputStream out = fs.create(new Path("test"))) {
+                    out.flush();
+                }
+            });
+
+            // abort on initiate
+            assertDirEmpty(stagingDir);
+            assertThrows(exception, () -> {
+                try (FSDataOutputStream out = fs.create(new Path("test"))) {
+                    s3.setThrowOnNextUpload();
+                    out.write(new byte[512]);
+                }
+            });
+            assertDirEmpty(stagingDir);
+
+            // abort on part upload
+            assertThrows(exception, () -> {
+                try (FSDataOutputStream out = fs.create(new Path("test"))) {
+                    out.write(new byte[600]);
+                    s3.setThrowOnNextUpload();
+                    out.write(new byte[600]);
+                }
+            });
+            assertDirEmpty(stagingDir);
+
+            // abort on complete multipart
+            assertThrows(exception, () -> {
+                try (FSDataOutputStream out = fs.create(new Path("test"))) {
+                    out.write(new byte[600]);
+                    out.write(new byte[600]);
+                    out.write(new byte[600]);
+                    s3.setThrowOnNextUpload();
+                }
+            });
+            assertDirEmpty(stagingDir);
+        }
+    }
+
+    @Test(dataProvider = "streamingConfigs")
+    public void testRoundTripWrite(boolean streaming)
+            throws IOException, URISyntaxException
+    {
+        long minMultipartSize = 100L;
+        List<Integer> sizes = ImmutableList.of(99, 100, 101, 199, 200, 201);
+        for (Integer fileSize : sizes) {
+            byte[] data = new byte[fileSize];
+            ThreadLocalRandom.current().nextBytes(data);
+            try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+                MockAmazonS3 s3 = new MockAmazonS3();
+                Configuration conf = new Configuration();
+                conf.setLong(S3_MULTIPART_MIN_PART_SIZE, minMultipartSize);
+                conf.setBoolean(S3_USE_STREAMING_UPLOADS, streaming);
+                java.nio.file.Path stagingDir = Files.createTempDirectory("presto-s3-abort-multipart-test");
+                conf.set(S3_STAGING_DIRECTORY, stagingDir.toString());
+                fs.initialize(new URI("s3n://test-bucket/"), conf);
+                fs.setS3Client(s3);
+                // verify for each write type the file is correct
+                // write(byte[])
+                assertRoundTripWrite(() -> {
+                    Path filePath = new Path("/test" + fileSize + "byteArray");
+                    try (FSDataOutputStream out = fs.create(filePath)) {
+                        out.write(data);
+                    }
+                    return filePath;
+                }, fs, data);
+                // write(byte)
+                assertRoundTripWrite(() -> {
+                    Path filePath = new Path("/test" + fileSize + "byte");
+                    try (FSDataOutputStream out = fs.create(filePath)) {
+                        for (byte bit : data) {
+                            out.write(bit);
+                        }
+                    }
+                    return filePath;
+                }, fs, data);
+                // write(byte[], index, len)
+                assertRoundTripWrite(() -> {
+                    Path filePath = new Path("/test" + fileSize + "byteChunk");
+                    try (FSDataOutputStream out = fs.create(filePath)) {
+                        int chunkSize = 20;
+                        for (int i = 0; i < fileSize / chunkSize; i++) {
+                            out.write(data, i * chunkSize, chunkSize);
+                        }
+                        out.write(data, (fileSize / chunkSize) * chunkSize, fileSize % chunkSize);
+                    }
+                    return filePath;
+                }, fs, data);
+            }
+        }
+    }
+
+    private static void assertRoundTripWrite(IOSupplier<Path> writerExpected, FileSystem fs, byte[] expected)
+            throws IOException
+    {
+        Path writtenFile = writerExpected.get();
+        byte[] actual;
+        try (FSDataInputStream in = fs.open(writtenFile)) {
+            actual = ByteStreams.toByteArray(in);
+        }
+        assertEquals(actual, expected);
+    }
+
+    @FunctionalInterface
+    private interface IOSupplier<T>
+    {
+        T get()
+                throws IOException;
     }
 
     private static List<LocatedFileStatus> remoteIteratorToList(RemoteIterator<LocatedFileStatus> statuses)
