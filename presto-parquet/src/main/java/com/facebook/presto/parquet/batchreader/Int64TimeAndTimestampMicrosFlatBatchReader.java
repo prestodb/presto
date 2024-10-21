@@ -16,7 +16,6 @@ package com.facebook.presto.parquet.batchreader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.parquet.ColumnReader;
 import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DictionaryPage;

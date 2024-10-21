@@ -92,7 +92,8 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
         return INSTANCE_SIZE;
     }
 
-    private interface PackFunction {
+    private interface PackFunction
+    {
         long pack(long millis);
     }
 }
