@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
-import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
