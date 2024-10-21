@@ -28,12 +28,19 @@ public class TimestampWithTimezoneValueWriter
 {
     private final Type type;
     private final boolean writeMicroseconds;
+    private ScaleValueFunction scaleValueFunction;
 
     public TimestampWithTimezoneValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
         this.type = requireNonNull(type, "type is null");
         this.writeMicroseconds = parquetType.isPrimitive() && parquetType.getOriginalType() == OriginalType.TIMESTAMP_MICROS;
+        if (writeMicroseconds) {
+            this.scaleValueFunction = value -> MILLISECONDS.toMicros(value);
+        }
+        else {
+            this.scaleValueFunction = value -> value;
+        }
     }
 
     @Override
@@ -42,10 +49,15 @@ public class TimestampWithTimezoneValueWriter
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
                 long value = unpackMillisUtc(type.getLong(block, i));
-                long scaledValue = writeMicroseconds ? MILLISECONDS.toMicros(value) : value;
+                long scaledValue = scaleValueFunction.scaleValue(value);
                 getValueWriter().writeLong(scaledValue);
                 getStatistics().updateStats(scaledValue);
             }
         }
+    }
+
+    private interface ScaleValueFunction
+    {
+        long scaleValue(long value);
     }
 }
