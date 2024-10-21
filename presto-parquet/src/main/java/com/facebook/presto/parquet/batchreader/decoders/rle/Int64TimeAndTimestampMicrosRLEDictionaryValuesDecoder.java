@@ -39,11 +39,20 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
 
     private boolean withTimezone;
 
+    private PackFunction packFunction;
+
     public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary, boolean withTimezone)
     {
         super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;
         this.withTimezone = withTimezone;
+
+        if (withTimezone) {
+            this.packFunction = millis -> packDateTimeWithZone(millis, UTC_KEY);
+        }
+        else {
+            this.packFunction = millis -> millis;
+        }
     }
 
     public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
@@ -77,12 +86,7 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     final int rleValue = currentValue;
                     final long rleDictionaryValue = MICROSECONDS.toMillis(dictionary.decodeToLong(rleValue));
                     while (destinationIndex < endIndex) {
-                        if (isWithTimezone()) {
-                            values[destinationIndex++] = packDateTimeWithZone(rleDictionaryValue, UTC_KEY);
-                        }
-                        else {
-                            values[destinationIndex++] = rleDictionaryValue;
-                        }
+                        values[destinationIndex++] = packFunction.pack(rleDictionaryValue);
                     }
                     break;
                 }
@@ -92,12 +96,7 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
                         long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
                         long millisValue = MICROSECONDS.toMillis(dictionaryValue);
-                        if (isWithTimezone()) {
-                            values[destinationIndex++] = packDateTimeWithZone(millisValue, TimeZoneKey.UTC_KEY);
-                        }
-                        else {
-                            values[destinationIndex++] = millisValue;
-                        }
+                        values[destinationIndex++] = packFunction.pack(millisValue);
                     }
                     break;
                 }
@@ -137,5 +136,10 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) + sizeOf(currentBuffer);
+    }
+
+    private interface PackFunction
+    {
+        long pack(long millis);
     }
 }
