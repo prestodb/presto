@@ -39,10 +39,16 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
 
     private boolean withTimezone;
 
-    public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
+    public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary, boolean withTimezone)
     {
         super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;
+        this.withTimezone = withTimezone;
+    }
+
+    public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
+    {
+        this(bitWidth, inputStream, dictionary, false);
     }
 
     @Override

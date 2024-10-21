@@ -37,9 +37,15 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
 
     public Int64TimeAndTimestampMicrosPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length)
     {
+        this(byteBuffer, bufferOffset, length, false);
+    }
+
+    public Int64TimeAndTimestampMicrosPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length, boolean withTimezone)
+    {
         this.byteBuffer = byteBuffer;
         this.bufferOffset = bufferOffset;
         this.bufferEnd = bufferOffset + length;
+        this.withTimezone = withTimezone;
     }
 
     @Override

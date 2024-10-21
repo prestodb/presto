@@ -41,6 +41,13 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
     public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
             throws IOException
     {
+        this(valueCount, bufferInputStream, false);
+    }
+
+    public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream, boolean withTimezone)
+            throws IOException
+    {
+        this.withTimezone = withTimezone;
         innerReader = new DeltaBinaryPackingValuesReader();
         innerReader.initFromPage(valueCount, bufferInputStream);
     }
