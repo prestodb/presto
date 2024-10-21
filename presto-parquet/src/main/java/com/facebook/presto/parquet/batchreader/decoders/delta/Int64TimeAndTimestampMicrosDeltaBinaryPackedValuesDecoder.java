@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.delta;
 
-import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesReader;
@@ -22,6 +21,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 /**
@@ -38,6 +38,8 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
 
     private boolean withTimezone;
 
+    private PackFunction packFunction;
+
     public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
             throws IOException
     {
@@ -50,6 +52,12 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
         this.withTimezone = withTimezone;
         innerReader = new DeltaBinaryPackingValuesReader();
         innerReader.initFromPage(valueCount, bufferInputStream);
+        if (withTimezone) {
+            this.packFunction = millis -> packDateTimeWithZone(millis, UTC_KEY);
+        }
+        else {
+            this.packFunction = millis -> millis;
+        }
     }
 
     @Override
@@ -64,12 +72,7 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
         int endOffset = offset + length;
         for (int i = offset; i < endOffset; i++) {
             long curValue = MICROSECONDS.toMillis(innerReader.readLong());
-            if (isWithTimezone()) {
-                values[i] = packDateTimeWithZone(curValue, TimeZoneKey.UTC_KEY);
-            }
-            else {
-                values[i] = curValue;
-            }
+            packFunction.pack(curValue);
         }
     }
 
@@ -87,5 +90,9 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
     {
         // Not counting innerReader since it's in another library.
         return INSTANCE_SIZE;
+    }
+
+    private interface PackFunction {
+        long pack(long millis);
     }
 }
