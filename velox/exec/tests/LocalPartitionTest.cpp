@@ -51,10 +51,12 @@ class LocalPartitionTest : public HiveConnectorTestBase {
   void verifyExchangeSourceOperatorStats(
       const std::shared_ptr<exec::Task>& task,
       int expectedPositions,
-      int expectedVectors) {
+      int expectedVectors,
+      int expectedDrivers) {
     auto stats = task->taskStats().pipelineStats[0].operatorStats.front();
     ASSERT_EQ(stats.inputPositions, expectedPositions);
     ASSERT_EQ(stats.inputVectors, expectedVectors);
+    ASSERT_EQ(stats.numDrivers, expectedDrivers);
     ASSERT_TRUE(stats.inputBytes > 0);
 
     ASSERT_EQ(stats.outputPositions, stats.inputPositions);
@@ -112,7 +114,7 @@ TEST_F(LocalPartitionTest, gather) {
                 .planNode();
 
   auto task = assertQuery(op, "SELECT 300, -71, 152");
-  verifyExchangeSourceOperatorStats(task, 300, 3);
+  verifyExchangeSourceOperatorStats(task, 300, 3, 1);
 
   auto filePaths = writeToFiles(vectors);
 
@@ -144,7 +146,7 @@ TEST_F(LocalPartitionTest, gather) {
   }
 
   task = queryBuilder.assertResults("SELECT 300, -71, 152");
-  verifyExchangeSourceOperatorStats(task, 300, 3);
+  verifyExchangeSourceOperatorStats(task, 300, 3, 1);
 }
 
 TEST_F(LocalPartitionTest, partition) {
@@ -183,7 +185,8 @@ TEST_F(LocalPartitionTest, partition) {
   createDuckDbTable(vectors);
 
   AssertQueryBuilder queryBuilder(op, duckDbQueryRunner_);
-  queryBuilder.maxDrivers(2);
+  queryBuilder.maxDrivers(4);
+  queryBuilder.config(core::QueryConfig::kMaxLocalExchangePartitionCount, "2");
   for (auto i = 0; i < filePaths.size(); ++i) {
     queryBuilder.split(
         scanNodeIds[i], makeHiveConnectorSplit(filePaths[i]->getPath()));
@@ -191,7 +194,7 @@ TEST_F(LocalPartitionTest, partition) {
 
   auto task =
       queryBuilder.assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
-  verifyExchangeSourceOperatorStats(task, 300, 6);
+  verifyExchangeSourceOperatorStats(task, 300, 6, 2);
 }
 
 TEST_F(LocalPartitionTest, maxBufferSizeGather) {
@@ -225,7 +228,7 @@ TEST_F(LocalPartitionTest, maxBufferSizeGather) {
                   .config(core::QueryConfig::kMaxLocalExchangeBufferSize, "100")
                   .assertResults("SELECT 2100, -71, 228");
 
-  verifyExchangeSourceOperatorStats(task, 2100, 21);
+  verifyExchangeSourceOperatorStats(task, 2100, 21, 1);
 }
 
 TEST_F(LocalPartitionTest, maxBufferSizePartition) {
@@ -277,12 +280,12 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
   // Set an artificially low buffer size limit to trigger blocking behavior.
   auto task = makeQueryBuilder("100").assertResults(
       "SELECT c0, count(1) FROM tmp GROUP BY 1");
-  verifyExchangeSourceOperatorStats(task, 2100, 42);
+  verifyExchangeSourceOperatorStats(task, 2100, 42, 2);
 
   // Re-run with higher memory limit (enough to hold ~10 vectors at a time).
   task = makeQueryBuilder("10240").assertResults(
       "SELECT c0, count(1) FROM tmp GROUP BY 1");
-  verifyExchangeSourceOperatorStats(task, 2100, 42);
+  verifyExchangeSourceOperatorStats(task, 2100, 42, 2);
 }
 
 TEST_F(LocalPartitionTest, indicesBufferCapacity) {
@@ -483,7 +486,7 @@ TEST_F(LocalPartitionTest, earlyCompletion) {
 
   auto task = assertQuery(plan, "VALUES (3), (4)");
 
-  verifyExchangeSourceOperatorStats(task, 100, 1);
+  verifyExchangeSourceOperatorStats(task, 100, 1, 1);
 
   // Make sure there is only one reference to Task left, i.e. no Driver is
   // blocked forever.

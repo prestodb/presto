@@ -213,8 +213,14 @@ uint32_t maxDrivers(
         auto localExchange =
             std::dynamic_pointer_cast<const core::LocalPartitionNode>(node)) {
       // Local gather must run single-threaded.
-      if (localExchange->type() == core::LocalPartitionNode::Type::kGather) {
-        return 1;
+      switch (localExchange->type()) {
+        case core::LocalPartitionNode::Type::kGather:
+          return 1;
+        case core::LocalPartitionNode::Type::kRepartition:
+          count = std::min(queryConfig.maxLocalExchangePartitionCount(), count);
+          break;
+        default:
+          VELOX_UNREACHABLE("Unexpected local exchange type");
       }
     } else if (std::dynamic_pointer_cast<const core::LocalMergeNode>(node)) {
       // Local merge must run single-threaded.

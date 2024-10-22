@@ -76,6 +76,13 @@ Generic Configuration
      - integer
      - 32MB
      - Used for backpressure to block local exchange producers when the local exchange buffer reaches or exceeds this size.
+  * - max_local_exchange_partition_count
+     - integer
+     - 2^32
+     - Limits the number of partitions created by a local exchange. Partitioning data too granularly can lead to poor performance.
+       This setting allows increasing the task concurrency for all pipelines except the ones that require a local partitioning.
+       Affects the number of drivers for pipelines containing LocalPartitionNode and cannot exceed the maximum number of
+       pipeline drivers configured for the task.
    * - exchange.max_buffer_size
      - integer
      - 32MB
