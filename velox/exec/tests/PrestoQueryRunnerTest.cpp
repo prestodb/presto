@@ -242,7 +242,7 @@ TEST_F(PrestoQueryRunnerTest, toSql) {
                .planNode();
     EXPECT_EQ(
         queryRunner->toSql(plan),
-        "SELECT plus(a0, c1) as p0 FROM (SELECT c1, sum(c0) as a0 FROM tmp GROUP BY c1)");
+        "SELECT (a0 + c1) as p0 FROM (SELECT c1, sum(c0) as a0 FROM tmp GROUP BY c1)");
 
     plan = PlanBuilder()
                .tableScan("tmp", dataType)

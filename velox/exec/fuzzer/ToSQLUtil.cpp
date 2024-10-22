@@ -113,10 +113,51 @@ void toCallInputsSql(
   }
 }
 
+// Returns a mapping from Velox function names to the corresponding unary
+// operators supported in Presto SQL.
+const std::unordered_map<std::string, std::string>& unaryOperatorMap() {
+  static std::unordered_map<std::string, std::string> unaryOperatorMap{
+      {"negate", "-"}};
+  return unaryOperatorMap;
+}
+
+// Returns a mapping from Velox function names to the corresponding binary
+// operators supported in Presto SQL.
+const std::unordered_map<std::string, std::string>& binaryOperatorMap() {
+  static std::unordered_map<std::string, std::string> binaryOperatorMap{
+      {"plus", "+"},
+      {"subtract", "-"},
+      {"multiply", "*"},
+      {"divide", "/"},
+      {"eq", "="},
+      {"neq", "<>"},
+      {"lt", "<"},
+      {"gt", ">"},
+      {"lte", "<="},
+      {"gte", ">="},
+  };
+  return binaryOperatorMap;
+}
+
 std::string toCallSql(const core::CallTypedExprPtr& call) {
   std::stringstream sql;
   // Some functions require special SQL syntax, so handle them first.
-  if (call->name() == "in") {
+  const auto& unaryOperators = unaryOperatorMap();
+  const auto& binaryOperators = binaryOperatorMap();
+  if (unaryOperators.count(call->name()) > 0) {
+    VELOX_CHECK_EQ(call->inputs().size(), 1);
+    sql << "(";
+    sql << fmt::format("{} ", unaryOperators.at(call->name()));
+    toCallInputsSql({call->inputs()[0]}, sql);
+    sql << ")";
+  } else if (binaryOperators.count(call->name()) > 0) {
+    VELOX_CHECK_EQ(call->inputs().size(), 2);
+    sql << "(";
+    toCallInputsSql({call->inputs()[0]}, sql);
+    sql << fmt::format(" {} ", binaryOperators.at(call->name()));
+    toCallInputsSql({call->inputs()[1]}, sql);
+    sql << ")";
+  } else if (call->name() == "in") {
     VELOX_CHECK_GE(call->inputs().size(), 2);
     toCallInputsSql({call->inputs()[0]}, sql);
     sql << " in (";
