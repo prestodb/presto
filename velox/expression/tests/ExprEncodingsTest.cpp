@@ -355,51 +355,83 @@ class ExprEncodingsTest
 
   /// Evaluates 'text' expression on 'testDataRow()' twice. First, evaluates the
   /// expression on the first 2/3 of the rows. Then, evaluates the expression on
-  /// the last 1/3 of the rows.
+  /// the last 1/3 of the rows. It also performs an iteration which clears all
+  /// caches utilized during expression evaluation, such as shared
+  /// sub-expressions, memoization, vector pool, and error vector, and then
+  /// confirms that the memory usage before and after evaluation is consistent
   template <typename T>
   void run(
       const std::string& text,
       std::function<std::optional<T>(int32_t)> reference) {
-    auto source = {parseExpression(text, testDataType_)};
-    auto exprSet = std::make_unique<exec::ExprSet>(source, execCtx_.get());
-    auto row = testDataRow();
-    exec::EvalCtx context(execCtx_.get(), exprSet.get(), row.get());
-    auto size = row->size();
+    for (auto clearCache : {false, true}) {
+      SCOPED_TRACE(fmt::format("clearCache: {}", clearCache));
 
-    auto expectedResult = makeFlatVector<T>(
-        size,
-        [&](auto row) {
-          auto v = reference(row);
-          return v.has_value() ? v.value() : T();
-        },
-        [&](auto row) { return !reference(row).has_value(); });
+      const auto source = {parseExpression(text, testDataType_)};
+      auto exprSet = std::make_unique<exec::ExprSet>(source, execCtx_.get());
+      const auto row = testDataRow();
+      exec::EvalCtx context(execCtx_.get(), exprSet.get(), row.get());
+      context.vectorPool()->clear();
+      const auto size = row->size();
 
-    SelectivityVector allRows(size);
-    *context.mutableIsFinalSelection() = false;
-    *context.mutableFinalSelection() = &allRows;
+      auto expectedResult = makeFlatVector<T>(
+          size,
+          [&](auto row) {
+            auto v = reference(row);
+            return v.has_value() ? v.value() : T();
+          },
+          [&](auto row) { return !reference(row).has_value(); });
 
-    {
-      vector_size_t begin = 0;
-      vector_size_t end = size / 3 * 2;
-      auto rows = selectRange(begin, end);
-      std::vector<VectorPtr> result(1);
-      exprSet->eval(rows, context, result);
+      SelectivityVector allRows(size);
+      *context.mutableIsFinalSelection() = false;
+      *context.mutableFinalSelection() = &allRows;
 
-      SCOPED_TRACE(text);
-      SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
-      assertEqualRows(expectedResult, result[0], rows);
-    }
+      {
+        vector_size_t begin = 0;
+        vector_size_t end = size / 3 * 2;
+        const auto rows = selectRange(begin, end);
+        std::vector<VectorPtr> result(1);
+        const auto memoryUsage = context.pool()->usedBytes();
+        exprSet->eval(rows, context, result);
 
-    {
-      vector_size_t begin = size / 3;
-      vector_size_t end = size;
-      auto rows = selectRange(begin, end);
-      std::vector<VectorPtr> result(1);
-      exprSet->eval(0, 1, false, rows, context, result);
+        SCOPED_TRACE(text);
+        SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
+        assertEqualRows(expectedResult, result[0], rows);
 
-      SCOPED_TRACE(text);
-      SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
-      assertEqualRows(expectedResult, result[0], rows);
+        if (clearCache) {
+          result.clear();
+          exprSet->clearCache();
+          context.vectorPool()->clear();
+          {
+            exec::EvalErrorsPtr clearErrors;
+            context.moveAppendErrors(clearErrors);
+          }
+          ASSERT_EQ(context.pool()->usedBytes(), memoryUsage);
+        }
+      }
+
+      {
+        const vector_size_t begin = size / 3;
+        const vector_size_t end = size;
+        const auto rows = selectRange(begin, end);
+        std::vector<VectorPtr> result(1);
+        const auto memoryUsage = context.pool()->usedBytes();
+        exprSet->eval(0, 1, false, rows, context, result);
+
+        SCOPED_TRACE(text);
+        SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
+        assertEqualRows(expectedResult, result[0], rows);
+
+        if (clearCache) {
+          result.clear();
+          exprSet->clearCache();
+          context.vectorPool()->clear();
+          {
+            exec::EvalErrorsPtr clearErrors;
+            context.moveAppendErrors(clearErrors);
+          }
+          ASSERT_EQ(context.pool()->usedBytes(), memoryUsage);
+        }
+      }
     }
   }
 
@@ -490,8 +522,10 @@ class ExprEncodingsTest
   }
 
   std::shared_ptr<core::QueryCtx> queryCtx_{velox::core::QueryCtx::create()};
+  std::shared_ptr<memory::MemoryPool> execCtxPool_{
+      rootPool_->addLeafChild("execCtx")};
   std::unique_ptr<core::ExecCtx> execCtx_{
-      std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
+      std::make_unique<core::ExecCtx>(execCtxPool_.get(), queryCtx_.get())};
   TestData testData_;
   RowTypePtr testDataType_;
   std::vector<std::vector<EncodingOptions>> testEncodings_;
@@ -585,7 +619,7 @@ TEST_P(ExprEncodingsTest, commonSubExpressions) {
         if (!IS_BIGINT1 || !IS_BIGINT2) {
           return std::nullopt;
         } else {
-          auto sum = BIGINT1 + BIGINT2;
+          const auto sum = BIGINT1 + BIGINT2;
           return (BIGINT1 % 2 == 0 ? 2 * sum : 3 * sum) + 4 * sum;
         }
       });

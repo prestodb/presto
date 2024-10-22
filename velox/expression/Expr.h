@@ -265,6 +265,14 @@ class Expr {
     cachedDictionaryIndices_ = nullptr;
   }
 
+  virtual void clearCache() {
+    sharedSubexprResults_.clear();
+    clearMemo();
+    for (auto& input : inputs_) {
+      input->clearCache();
+    }
+  }
+
   const TypePtr& type() const {
     return type_;
   }
@@ -393,7 +401,7 @@ class Expr {
     return vectorFunctionMetadata_;
   }
 
-  auto& inputValues() {
+  std::vector<VectorPtr>& inputValues() {
     return inputValues_;
   }
 
@@ -595,11 +603,11 @@ class Expr {
   // The distinct references to input columns in 'inputs_'
   // subtrees. Empty if this is the same as 'distinctFields_' of
   // parent Expr.
-  std::vector<FieldReference * FOLLY_NONNULL> distinctFields_;
+  std::vector<FieldReference*> distinctFields_;
 
   // Fields referenced by multiple inputs, which is subset of distinctFields_.
   // Used to determine pre-loading of lazy vectors at current expr.
-  std::unordered_set<FieldReference * FOLLY_NONNULL> multiplyReferencedFields_;
+  std::unordered_set<FieldReference*> multiplyReferencedFields_;
 
   // True if a null in any of 'distinctFields_' causes 'this' to be
   // null for the row.
@@ -693,8 +701,7 @@ class Expr {
 };
 
 /// Generate a selectivity vector of a single row.
-SelectivityVector* FOLLY_NONNULL
-singleRow(LocalSelectivityVector& holder, vector_size_t row);
+SelectivityVector* singleRow(LocalSelectivityVector& holder, vector_size_t row);
 
 using ExprPtr = std::shared_ptr<Expr>;
 
@@ -735,6 +742,11 @@ class ExprSet {
       std::vector<VectorPtr>& result);
 
   void clear();
+
+  /// Clears the internally cached buffers used for shared sub-expressions and
+  /// dictionary memoization which are allocated through memory pool. This is
+  /// used by memory arbitration to reclaim memory.
+  void clearCache();
 
   core::ExecCtx* execCtx() const {
     return execCtx_;
@@ -785,10 +797,10 @@ class ExprSet {
   std::vector<std::shared_ptr<Expr>> exprs_;
 
   // The distinct references to input columns among all expressions in ExprSet.
-  std::vector<FieldReference * FOLLY_NONNULL> distinctFields_;
+  std::vector<FieldReference*> distinctFields_;
 
   // Fields referenced by multiple expressions in ExprSet.
-  std::unordered_set<FieldReference * FOLLY_NONNULL> multiplyReferencedFields_;
+  std::unordered_set<FieldReference*> multiplyReferencedFields_;
 
   // Distinct Exprs reachable from 'exprs_' for which reset() needs to
   // be called at the start of eval().

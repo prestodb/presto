@@ -890,7 +890,6 @@ void Expr::evaluateSharedSubexpr(
     } else {
       // Otherwise, simply evaluate it and return without caching the results.
       eval(rows, context, result);
-
       return;
     }
   }
@@ -932,7 +931,7 @@ void Expr::evaluateSharedSubexpr(
   // Identify a subset of rows that need to be computed: rows -
   // sharedSubexprRows_.
   LocalSelectivityVector missingRowsHolder(context, rows);
-  auto missingRows = missingRowsHolder.get();
+  auto* missingRows = missingRowsHolder.get();
   missingRows->deselect(*sharedSubexprRows);
   VELOX_DCHECK(missingRows->hasSelections());
 
@@ -940,7 +939,7 @@ void Expr::evaluateSharedSubexpr(
   // Final selection of rows need to include sharedSubexprRows_, missingRows and
   // current final selection of rows if set.
   LocalSelectivityVector newFinalSelectionHolder(context, *sharedSubexprRows);
-  auto newFinalSelection = newFinalSelectionHolder.get();
+  auto* newFinalSelection = newFinalSelectionHolder.get();
   newFinalSelection->select(*missingRows);
   if (!context.isFinalSelection()) {
     newFinalSelection->select(*context.finalSelection());
@@ -1962,6 +1961,12 @@ void ExprSet::clear() {
   }
   distinctFields_.clear();
   multiplyReferencedFields_.clear();
+}
+
+void ExprSet::clearCache() {
+  for (auto& expr : exprs_) {
+    expr->clearCache();
+  }
 }
 
 void ExprSetSimplified::eval(
