@@ -1097,6 +1097,34 @@ class GenericView {
         other.decoded_.base(), decodedIndex(), other.decodedIndex());
   }
 
+  int64_t compareOrThrow(const GenericView& other) const {
+    static constexpr CompareFlags kFlags = {
+        .nullHandlingMode =
+            CompareFlags::NullHandlingMode::kNullAsIndeterminate};
+    std::optional<int64_t> result = this->compare(other, kFlags);
+    // Will throw if it encounters null elements before result is determined.
+    VELOX_DCHECK(
+        result.has_value(),
+        "Compare should have thrown when null is encountered in child.");
+    return result.value();
+  }
+
+  bool operator<(const GenericView& other) const {
+    return compareOrThrow(other) < 0;
+  }
+
+  bool operator<=(const GenericView& other) const {
+    return compareOrThrow(other) <= 0;
+  }
+
+  bool operator>(const GenericView& other) const {
+    return compareOrThrow(other) > 0;
+  }
+
+  bool operator>=(const GenericView& other) const {
+    return compareOrThrow(other) >= 0;
+  }
+
   vector_size_t decodedIndex() const {
     return decoded_.index(index_);
   }

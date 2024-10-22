@@ -40,6 +40,96 @@ class ComparisonsTest : public functions::test::FunctionBaseTest {
     test::assertEqualVectors(expectedResult, actual);
   }
 
+  template <typename vectorType>
+  void testCompareComplexTypes(
+      vectorType vector1,
+      vectorType vector2,
+      const std::optional<std::vector<std::optional<bool>>>& expectedResults,
+      const std::string& expectedException) {
+    auto input = makeRowVector({vector1, vector2});
+    std::vector<std::optional<bool>> results;
+    std::string comparisonExpressions[4] = {">", ">=", "<", "<="};
+    if (expectedResults.has_value()) {
+      for (auto expression : comparisonExpressions) {
+        results.push_back(
+            evaluate<SimpleVector<bool>>("c0" + expression + "c1", input)
+                ->valueAt(0));
+      }
+      ASSERT_EQ(results, expectedResults);
+    } else {
+      for (auto expression : comparisonExpressions) {
+        VELOX_ASSERT_THROW(
+            evaluate<SimpleVector<bool>>("c0" + expression + "c1", input),
+            expectedException);
+      }
+    }
+  }
+
+  template <typename T, typename T2>
+  void testCompareRow(
+      const std::tuple<std::optional<T>, std::optional<T2>>& row1,
+      const std::tuple<std::optional<T>, std::optional<T2>>& row2,
+      std::optional<std::vector<std::optional<bool>>> expectedResults,
+      std::string expectedException = "") {
+    // Make row vectors.
+    auto vector1 = vectorMaker_.rowVector(
+        {vectorMaker_.flatVectorNullable<T>({std::get<0>(row1)}),
+         vectorMaker_.flatVectorNullable<T2>({std::get<1>(row1)})});
+    auto vector2 = vectorMaker_.rowVector(
+        {vectorMaker_.flatVectorNullable<T>({std::get<0>(row2)}),
+         vectorMaker_.flatVectorNullable<T2>({std::get<1>(row2)})});
+    testCompareComplexTypes<RowVectorPtr>(
+        vector1, vector2, expectedResults, expectedException);
+  }
+
+  template <typename T, typename T2>
+  void testCompareRowDifferentTypesAndSizes(
+      const std::tuple<std::optional<T>, std::optional<T>>& row1,
+      const std::tuple<std::optional<T2>, std::optional<T2>>& row2,
+      std::optional<std::vector<std::optional<bool>>> expectedResults,
+      std::string expectedException = "") {
+    // Make row vectors.
+    auto vector1 = vectorMaker_.rowVector(
+        {vectorMaker_.flatVectorNullable<T>({std::get<0>(row1)}),
+         vectorMaker_.flatVectorNullable<T>({std::get<1>(row1)})});
+    auto vector2 = vectorMaker_.rowVector(
+        {vectorMaker_.flatVectorNullable<T2>({std::get<0>(row2)}),
+         vectorMaker_.flatVectorNullable<T2>({std::get<1>(row2)})});
+    testCompareComplexTypes<RowVectorPtr>(
+        vector1, vector2, expectedResults, expectedException);
+
+    // Compare rows with different sizes by removing one element from vector1.
+    auto vector3 = vectorMaker_.rowVector(
+        {vectorMaker_.flatVectorNullable<T>({std::get<0>(row1)})});
+    testCompareComplexTypes<RowVectorPtr>(
+        vector1, vector3, expectedResults, expectedException);
+  }
+
+  template <typename T>
+  void testCompareArray(
+      const std::vector<std::optional<T>>& array1,
+      const std::vector<std::optional<T>>& array2,
+      std::optional<std::vector<std::optional<bool>>> expectedResults,
+      std::string expectedException = "") {
+    // Make array vectors.
+    auto vector1 = vectorMaker_.arrayVectorNullable<T>({array1});
+    auto vector2 = vectorMaker_.arrayVectorNullable<T>({array2});
+    testCompareComplexTypes<ArrayVectorPtr>(
+        vector1, vector2, expectedResults, expectedException);
+  }
+
+  template <typename T>
+  void testCompareMap(
+      const std::optional<std::vector<std::pair<T, std::optional<T>>>>& map1,
+      const std::optional<std::vector<std::pair<T, std::optional<T>>>>& map2,
+      std::string expectedException) {
+    // Make map vectors.
+    auto vector1 = makeNullableMapVector<T, T>({map1});
+    auto vector2 = makeNullableMapVector<T, T>({map2});
+    testCompareComplexTypes<MapVectorPtr>(
+        vector1, vector2, std::nullopt, expectedException);
+  }
+
   void registerSimpleComparisonFunctions() {
     using namespace facebook::velox::functions;
     registerBinaryScalar<EqFunction, bool>({"simple_eq"});
@@ -530,6 +620,125 @@ TEST_F(ComparisonsTest, eqRow) {
   test({1, 2}, {1, std::nullopt}, std::nullopt);
   test({1, std::nullopt}, {1, 2}, std::nullopt);
   test({1, 2}, {std::nullopt, 2}, std::nullopt);
+}
+
+TEST_F(ComparisonsTest, gtLtRow) {
+  // Row Comparison in order of >, >=, <, <=
+
+  // Row<int64_t, int64_t>
+  std::vector<std::optional<bool>> expectedResults = {false, false, true, true};
+  testCompareRow<int64_t, int64_t>({1, 2}, {2, 3}, expectedResults);
+
+  expectedResults = {false, true, false, true};
+  testCompareRow<int64_t, int64_t>({1, 2}, {1, 2}, expectedResults);
+
+  // Row<int64_t, int64_t> with nulls
+  // User Exception thrown when nulls encountered before result is determined.
+  auto expectedException = "Ordering nulls is not supported";
+  testCompareRow<int64_t, int64_t>(
+      {1, std::nullopt}, {1, 2}, std::nullopt, expectedException);
+
+  // Row<double, double>
+  expectedResults = {false, false, true, true};
+  testCompareRow<double, double>({1.0, 2.0}, {1.0, 3.0}, expectedResults);
+
+  // Row<double, double> with NaNs
+  // NaNs are considered larger than all other numbers
+  static const auto NaN = std::numeric_limits<double>::quiet_NaN();
+  expectedResults = {true, true, false, false};
+  testCompareRow<double, double>({NaN, 0.0}, {2.0, 1.0}, expectedResults);
+
+  expectedResults = {false, false, true, true};
+  testCompareRow<double, double>({NaN, 0.0}, {NaN, 1.0}, expectedResults);
+
+  // Row<int64_t, double>
+  expectedResults = {false, false, true, true};
+  testCompareRow<int64_t, double>({1, 3.0}, {2, 1.0}, expectedResults);
+
+  // Row<int64_t, Timestamp>
+  const Timestamp ts1(998474645, 321000000);
+  const Timestamp ts2(998474645, 321000001);
+  expectedResults = {false, false, true, true};
+  testCompareRow<int64_t, Timestamp>({1, ts1}, {1, ts2}, expectedResults);
+
+  // Comparing two rows of different types or different sizes is invalid
+  expectedException = "Scalar function signature is not supported";
+
+  // Row<int64_t, int64_t>, Row<double, double>
+  testCompareRowDifferentTypesAndSizes<int64_t, double>(
+      {1, 1}, {1.0, 1.2}, std::nullopt, expectedException);
+  // Row<int64_t, int64_t>, Row<Timestamp, Timestamp>
+  testCompareRowDifferentTypesAndSizes<int64_t, Timestamp>(
+      {1, 1}, {ts1, ts2}, std::nullopt, expectedException);
+}
+
+TEST_F(ComparisonsTest, gtLtArray) {
+  // Array Comparison in order of >, >=, <, <=
+
+  // Array<int64_t>
+  std::vector<std::optional<bool>> expectedResults = {false, true, false, true};
+  testCompareArray<int64_t>({1, 2}, {1, 2}, expectedResults);
+
+  expectedResults = {false, false, true, true};
+  testCompareArray<int64_t>({1, 2}, {1, 3}, expectedResults);
+
+  // Array<int64_t> of different sizes
+  expectedResults = {false, false, true, true};
+  testCompareArray<int64_t>({1, 2}, {1, 2, 3}, expectedResults);
+
+  expectedResults = {true, true, false, false};
+  testCompareArray<int64_t>({1, 3}, {1, 2, 3}, expectedResults);
+
+  // Array<int64_t> with nulls
+  // When nulls present, compare based on CompareFlag rules.
+  expectedResults = {true, true, false, false};
+  testCompareArray<int64_t>({1, std::nullopt}, {1}, expectedResults);
+
+  expectedResults = {false, false, true, true};
+  testCompareArray<int64_t>(
+      {1, std::nullopt}, {2, std::nullopt}, expectedResults);
+
+  // User Exception thrown when nulls encountered before result is determined.
+  auto expectedException = "Ordering nulls is not supported";
+  testCompareArray<int64_t>(
+      {1, std::nullopt, std::nullopt},
+      {1, 2, 3},
+      std::nullopt,
+      expectedException);
+
+  // Array<double>
+  expectedResults = {false, false, true, true};
+  testCompareArray<double>({1.0, 2.0}, {1.1, 1.9}, expectedResults);
+
+  static const auto NaN = std::numeric_limits<double>::quiet_NaN();
+  expectedResults = {false, true, false, true};
+  testCompareArray<double>({NaN, NaN}, {NaN, NaN}, expectedResults);
+
+  // Array<double>  with NaNs
+  // NaNs are considered larger than all other numbers
+  expectedResults = {true, true, false, false};
+  testCompareArray<double>({NaN}, {3.0}, expectedResults);
+
+  expectedResults = {false, false, true, true};
+  testCompareArray<double>({NaN}, {NaN, 3.0}, expectedResults);
+}
+
+TEST_F(ComparisonsTest, gtLtMap) {
+  // Comparing maps is not supported for any types.
+  auto expectedException = "Map is not orderable type";
+
+  std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>> map1 =
+      {{{1, 2}, {3, 4}}};
+  std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>> map2 =
+      {{{1, 2}, {3, 4}}};
+  testCompareMap<int64_t>(map1, map2, expectedException);
+
+  static const auto NaN = std::numeric_limits<double>::quiet_NaN();
+  std::optional<std::vector<std::pair<double, std::optional<double>>>> map3 = {
+      {{1.0, 2.0}, {NaN, 4.0}}};
+  std::optional<std::vector<std::pair<double, std::optional<double>>>> map4 = {
+      {{1.0, 2.0}, {3, 4.0}}};
+  testCompareMap<double>(map3, map4, expectedException);
 }
 
 TEST_F(ComparisonsTest, distinctFrom) {

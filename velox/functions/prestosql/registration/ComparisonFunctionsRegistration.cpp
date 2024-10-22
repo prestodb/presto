@@ -49,15 +49,21 @@ void registerComparisonFunctions(const std::string& prefix) {
 
   registerNonSimdizableScalar<LtFunction, bool>({prefix + "lt"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lt, prefix + "lt");
+  registerFunction<LtFunction, bool, Generic<T1>, Generic<T1>>({prefix + "lt"});
 
   registerNonSimdizableScalar<GtFunction, bool>({prefix + "gt"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_gt, prefix + "gt");
+  registerFunction<GtFunction, bool, Generic<T1>, Generic<T1>>({prefix + "gt"});
 
   registerNonSimdizableScalar<LteFunction, bool>({prefix + "lte"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lte, prefix + "lte");
+  registerFunction<LteFunction, bool, Generic<T1>, Generic<T1>>(
+      {prefix + "lte"});
 
   registerNonSimdizableScalar<GteFunction, bool>({prefix + "gte"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_gte, prefix + "gte");
+  registerFunction<GteFunction, bool, Generic<T1>, Generic<T1>>(
+      {prefix + "gte"});
 
   registerFunction<DistinctFromFunction, bool, Generic<T1>, Generic<T1>>(
       {prefix + "distinct_from"});
