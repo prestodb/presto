@@ -11,16 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.nativeworker;
+package com.facebook.presto.sidecar;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 
-public class HiveExternalWorkerQueryRunner
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+
+public class NativeSidecarPluginQueryRunner
 {
-    private HiveExternalWorkerQueryRunner() {}
+    private NativeSidecarPluginQueryRunner() {}
 
     public static void main(String[] args)
             throws Exception
@@ -34,7 +38,8 @@ public class HiveExternalWorkerQueryRunner
         javaQueryRunner.close();
 
         // Launch distributed runner.
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(false, false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(false, true);
+        setupNativeSidecarPlugin(queryRunner);
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");
