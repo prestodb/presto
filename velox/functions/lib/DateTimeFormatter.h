@@ -200,13 +200,17 @@ class DateTimeFormatter {
   ///
   /// The timestamp will be firstly converted to millisecond then to
   /// std::chrono::time_point. If allowOverflow is true, integer overflow is
-  /// allowed in converting to milliseconds.
+  /// allowed in converting to milliseconds. If zeroOffsetText is set, that
+  /// string will be used to represent the zero offset timezone, other time
+  /// zones will still be represented based on the pattern this was initialized
+  /// with.
   int32_t format(
       const Timestamp& timestamp,
       const tz::TimeZone* timezone,
       const uint32_t maxResultSize,
       char* result,
-      bool allowOverflow = false) const;
+      bool allowOverflow = false,
+      const std::optional<std::string>& zeroOffsetText = std::nullopt) const;
 
  private:
   std::unique_ptr<char[]> literalBuf_;

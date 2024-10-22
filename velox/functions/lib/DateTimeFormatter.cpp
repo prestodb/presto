@@ -1067,7 +1067,8 @@ int32_t DateTimeFormatter::format(
     const tz::TimeZone* timezone,
     const uint32_t maxResultSize,
     char* result,
-    bool allowOverflow) const {
+    bool allowOverflow,
+    const std::optional<std::string>& zeroOffsetText) const {
   int64_t offset = 0;
   Timestamp t = timestamp;
   if (timezone != nullptr) {
@@ -1300,6 +1301,13 @@ int32_t DateTimeFormatter::format(
                 getSpecifierName(token.pattern.specifier),
                 token.pattern.minRepresentDigits);
           }
+
+          if (offset == 0 && zeroOffsetText.has_value()) {
+            std::memcpy(result, zeroOffsetText->data(), zeroOffsetText->size());
+            result += zeroOffsetText->size();
+            break;
+          }
+
           result += appendTimezoneOffset(offset, result);
           break;
         }

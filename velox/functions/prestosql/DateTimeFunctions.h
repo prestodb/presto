@@ -1798,8 +1798,8 @@ struct ToISO8601Function {
       out_type<Varchar>& result) const {
     const auto maxResultSize = formatter_->maxResultSize(timeZone);
     result.reserve(maxResultSize);
-    const auto resultSize =
-        formatter_->format(timestamp, timeZone, maxResultSize, result.data());
+    const auto resultSize = formatter_->format(
+        timestamp, timeZone, maxResultSize, result.data(), false, "Z");
     result.resize(resultSize);
   }
 
