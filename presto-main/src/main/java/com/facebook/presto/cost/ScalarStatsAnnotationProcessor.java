@@ -26,16 +26,12 @@ import com.facebook.presto.spi.relation.RowExpression;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.function.StatsPropagationBehavior.NON_NULL_ROW_COUNT;
-import static com.facebook.presto.spi.function.StatsPropagationBehavior.ROW_COUNT;
 import static com.facebook.presto.spi.function.StatsPropagationBehavior.SUM_ARGUMENTS;
-import static com.facebook.presto.spi.function.StatsPropagationBehavior.SUM_ARGUMENTS_UPPER_BOUNDED_TO_ROW_COUNT;
 import static com.facebook.presto.spi.function.StatsPropagationBehavior.UNKNOWN;
 import static com.facebook.presto.spi.function.StatsPropagationBehavior.USE_SOURCE_STATS;
 import static com.facebook.presto.util.MoreMath.max;
 import static com.facebook.presto.util.MoreMath.min;
 import static com.facebook.presto.util.MoreMath.minExcludingNaNs;
-import static com.facebook.presto.util.MoreMath.nearlyEqual;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Double.NaN;
@@ -93,19 +89,11 @@ public final class ScalarStatsAnnotationProcessor
                 .setHighValue(maxValue)
                 .setNullsFraction(nullFraction)
                 .setAverageRowSize(firstFiniteValue(scalarStatsHeader.getAvgRowSize(), averageRowSize, returnNaNIfTypeWidthUnknown(getReturnTypeWidth(callExpression, UNKNOWN))))
-                .setDistinctValuesCount(processDistinctValuesCount(outputRowCount, nullFraction, scalarStatsHeader.getDistinctValuesCount(), distinctValuesCount)).build();
+                .setDistinctValuesCount(processDistinctValuesCount(outputRowCount, scalarStatsHeader.getDistinctValuesCount(), distinctValuesCount)).build();
     }
 
-    private static double processDistinctValuesCount(double outputRowCount, double nullFraction, double distinctValuesCountFromConstant, double distinctValuesCount)
+    private static double processDistinctValuesCount(double outputRowCount, double distinctValuesCountFromConstant, double distinctValuesCount)
     {
-        if (isFinite(distinctValuesCountFromConstant)) {
-            if (nearlyEqual(distinctValuesCountFromConstant, NON_NULL_ROW_COUNT.getValue(), 0.1)) {
-                distinctValuesCountFromConstant = outputRowCount * (1 - firstFiniteValue(nullFraction, 0.0));
-            }
-            else if (nearlyEqual(distinctValuesCount, ROW_COUNT.getValue(), 0.1)) {
-                distinctValuesCountFromConstant = outputRowCount;
-            }
-        }
         double distinctValuesCountFinal = firstFiniteValue(distinctValuesCountFromConstant, distinctValuesCount);
         if (distinctValuesCountFinal > outputRowCount) {
             distinctValuesCountFinal = NaN;
@@ -142,9 +130,6 @@ public final class ScalarStatsAnnotationProcessor
                             break;
                         case SUM_ARGUMENTS:
                             statValue = statValue + sourceStats.get(i);
-                            break;
-                        case SUM_ARGUMENTS_UPPER_BOUNDED_TO_ROW_COUNT:
-                            statValue = min(statValue + sourceStats.get(i), outputRowCount);
                             break;
                     }
                 }
@@ -197,7 +182,7 @@ public final class ScalarStatsAnnotationProcessor
             if (!returnType.isUnbounded()) {
                 return returnType.getLengthSafe();
             }
-            if (operation == SUM_ARGUMENTS || operation == SUM_ARGUMENTS_UPPER_BOUNDED_TO_ROW_COUNT) {
+            if (operation == SUM_ARGUMENTS) {
                 // since return type is an unbounded varchar and operation is SUM_ARGUMENTS,
                 // calculating the type width by doing a SUM of each argument's varchar type bounds - if available.
                 int sum = 0;

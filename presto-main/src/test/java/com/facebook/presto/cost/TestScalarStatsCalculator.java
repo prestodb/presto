@@ -133,7 +133,7 @@ public class TestScalarStatsCalculator
                 expression("custom_add(x, y)"),
                 TWO_ARGUMENTS_BIGINT_SOURCE_STATS,
                 TypeProvider.viewOf(TWO_ARGUMENTS_BIGINT_NAME_TO_TYPE_MAP))
-                .distinctValuesCount(7)
+                .distinctValuesCount(4)
                 .lowValue(-3)
                 .highValue(15)
                 .nullsFraction(0.3)
@@ -845,7 +845,7 @@ public class TestScalarStatsCalculator
                 @ScalarPropagateSourceStats(
                         propagateAllStats = false,
                         nullFraction = StatsPropagationBehavior.SUM_ARGUMENTS,
-                        distinctValuesCount = StatsPropagationBehavior.SUM_ARGUMENTS_UPPER_BOUNDED_TO_ROW_COUNT,
+                        distinctValuesCount = StatsPropagationBehavior.USE_MAX_ARGUMENT,
                         minValue = StatsPropagationBehavior.SUM_ARGUMENTS,
                         maxValue = StatsPropagationBehavior.SUM_ARGUMENTS) @SqlType(StandardTypes.BIGINT) long x,
                 @SqlType(StandardTypes.BIGINT) long y)
