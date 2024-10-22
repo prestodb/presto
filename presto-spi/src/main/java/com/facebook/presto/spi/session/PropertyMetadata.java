@@ -24,6 +24,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -159,6 +160,19 @@ public final class PropertyMetadata<T>
                 defaultValue,
                 hidden,
                 value -> ((Number) value).longValue(),
+                object -> object);
+    }
+
+    public static PropertyMetadata<Byte> tinyIntProperty(String name, String description, Byte defaultValue, boolean hidden)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                TINYINT,
+                Byte.class,
+                defaultValue,
+                hidden,
+                value -> ((Number) value).byteValue(),
                 object -> object);
     }
 
