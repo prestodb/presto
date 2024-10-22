@@ -16,12 +16,13 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.Identity;
+
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 
 public final class SystemConnectorSessionUtil
 {
@@ -35,7 +36,7 @@ public final class SystemConnectorSessionUtil
         TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
         ConnectorIdentity connectorIdentity = session.getIdentity();
         Identity identity = new Identity(connectorIdentity.getUser(), connectorIdentity.getPrincipal(), connectorIdentity.getExtraCredentials());
-        return Session.builder(new SessionPropertyManager(SYSTEM_SESSION_PROPERTIES))
+        return Session.builder(createTestingSessionPropertyManager(SYSTEM_SESSION_PROPERTIES))
                 .setQueryId(new QueryId(session.getQueryId()))
                 .setTransactionId(transactionId)
                 .setCatalog("catalog")

@@ -168,6 +168,7 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryPreparerProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.analyzer.MetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -258,6 +259,7 @@ public class PrestoSparkModule
         configBinder(binder).bindConfigGlobalDefaults(QueryManagerConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(FeaturesConfig.class);
         configBinder(binder).bindConfig(FunctionsConfig.class);
+        configBinder(binder).bindConfig(JavaFeaturesConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(FeaturesConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(TaskManagerConfig.class);

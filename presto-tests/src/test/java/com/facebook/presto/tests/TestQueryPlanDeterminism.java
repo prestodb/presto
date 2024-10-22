@@ -187,6 +187,11 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
+    public void testSetSessionNativeWorkerSessionProperty()
+    {
+    }
+
+    @Override
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
     {
     }
