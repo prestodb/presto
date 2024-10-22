@@ -94,7 +94,7 @@ public class TestPageProcessor
     @Test
     public void testProjectNoColumns()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(), OptionalInt.of(MAX_BATCH_SIZE));
+        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(), OptionalInt.of(MAX_BATCH_SIZE), Optional.empty(), Optional.empty());
 
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
@@ -131,7 +131,9 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.of(new TestingPageFilter(positionsRange(25, 50))),
                 ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)),
-                OptionalInt.of(MAX_BATCH_SIZE));
+                OptionalInt.of(MAX_BATCH_SIZE),
+                Optional.empty(),
+                Optional.empty());
 
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
@@ -173,7 +175,7 @@ public class TestPageProcessor
     @Test
     public void testSelectAllFilter()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)), OptionalInt.of(MAX_BATCH_SIZE));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)), OptionalInt.of(MAX_BATCH_SIZE), Optional.empty(), Optional.empty());
 
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
@@ -236,7 +238,7 @@ public class TestPageProcessor
     public void testProjectLazyLoad()
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new PageProjectionWithOutputs(new LazyPagePageProjection(), new int[] {
-                0})), OptionalInt.of(MAX_BATCH_SIZE));
+                0})), OptionalInt.of(MAX_BATCH_SIZE), Optional.empty(), Optional.empty());
 
         // if channel 1 is loaded, test will fail
         Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
@@ -254,7 +256,7 @@ public class TestPageProcessor
     @Test
     public void testBatchedOutput()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)), OptionalInt.of(MAX_BATCH_SIZE));
+        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)), OptionalInt.of(MAX_BATCH_SIZE), Optional.empty(), Optional.empty());
 
         Page inputPage = new Page(createLongSequenceBlock(0, (int) (MAX_BATCH_SIZE * 2.5)));
 
@@ -273,7 +275,7 @@ public class TestPageProcessor
     @Test
     public void testAdaptiveBatchSize()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(createInputPageProjectionWithOutputs(0, VARCHAR, 0)), OptionalInt.of(MAX_BATCH_SIZE));
+        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(createInputPageProjectionWithOutputs(0, VARCHAR, 0)), OptionalInt.of(MAX_BATCH_SIZE), Optional.empty(), Optional.empty());
 
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
@@ -316,7 +318,7 @@ public class TestPageProcessor
         InvocationCountPageProjection firstProjection = new InvocationCountPageProjection(new InputPageProjection(0));
         InvocationCountPageProjection secondProjection = new InvocationCountPageProjection(new InputPageProjection(0));
         PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(new PageProjectionWithOutputs(firstProjection, new int[] {
-                0}), new PageProjectionWithOutputs(secondProjection, new int[] {1})), OptionalInt.of(MAX_BATCH_SIZE));
+                0}), new PageProjectionWithOutputs(secondProjection, new int[] {1})), OptionalInt.of(MAX_BATCH_SIZE), Optional.empty(), Optional.empty());
 
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
@@ -358,7 +360,9 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.of(new SelectAllFilter()),
                 ImmutableList.of(createInputPageProjectionWithOutputs(0, VARCHAR, 0), createInputPageProjectionWithOutputs(1, VARCHAR, 1)),
-                OptionalInt.of(MAX_BATCH_SIZE));
+                OptionalInt.of(MAX_BATCH_SIZE),
+                Optional.empty(),
+                Optional.empty());
 
         // create 2 columns X 800 rows of strings with each string's size = 10KB
         // this can force previouslyComputedResults to be saved given the page is 16MB in size
@@ -389,7 +393,9 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 IntStream.range(0, 20).mapToObj(i -> new PageProjectionWithOutputs(new YieldPageProjection(new InputPageProjection(0)), new int[] {i})).collect(toImmutableList()),
-                OptionalInt.of(MAX_BATCH_SIZE));
+                OptionalInt.of(MAX_BATCH_SIZE),
+                Optional.empty(),
+                Optional.empty());
 
         Slice[] slices = new Slice[rows];
         Arrays.fill(slices, Slices.allocate(rows));
@@ -468,7 +474,9 @@ public class TestPageProcessor
                 Optional.empty(),
                 ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)),
                 OptionalInt.of(1),
-                profiler);
+                profiler,
+                Optional.empty(),
+                Optional.empty());
 
         Slice[] slices = new Slice[rows];
         Arrays.fill(slices, Slices.allocate(rows));
@@ -502,7 +510,9 @@ public class TestPageProcessor
                 Optional.empty(),
                 ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)),
                 OptionalInt.of(512),
-                profiler);
+                profiler,
+                Optional.empty(),
+                Optional.empty());
 
         Slice[] slices = new Slice[rows];
         Arrays.fill(slices, Slices.allocate(rows));
@@ -556,7 +566,9 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.of(new TestingPageFilter(positionsList(positions, 0, positionCount / 2))),
                 ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)),
-                OptionalInt.of(MAX_BATCH_SIZE));
+                OptionalInt.of(MAX_BATCH_SIZE),
+                Optional.empty(),
+                Optional.empty());
 
         Page inputPage = createPageWithRandomData(ImmutableList.of(type), positionCount, false, false, primitiveNullRate, nestedNullRate, useBlockView, wrappings);
 

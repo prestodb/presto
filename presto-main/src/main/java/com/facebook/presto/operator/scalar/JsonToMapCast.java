@@ -75,7 +75,7 @@ public class JsonToMapCast
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
         MapType mapType = (MapType) functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
-        checkCondition(canCastFromJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", mapType);
+        checkCondition(canCastFromJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s.", mapType);
 
         BlockBuilderAppender keyAppender = createBlockBuilderAppender(mapType.getKeyType());
         BlockBuilderAppender valueAppender = createBlockBuilderAppender(mapType.getValueType());
@@ -122,10 +122,10 @@ public class JsonToMapCast
             return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
         }
         catch (PrestoException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s%n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON to %s. %s%n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.%n%s", mapType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON to %s. %n%s", mapType, truncateIfNecessaryForErrorMessage(json)), e);
         }
     }
 }

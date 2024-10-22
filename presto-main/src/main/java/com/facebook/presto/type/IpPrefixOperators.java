@@ -137,21 +137,21 @@ public final class IpPrefixOperators
         int subnetSize;
         String string = slice.toStringUtf8();
         if (!string.contains("/")) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPPREFIX: " + slice.toStringUtf8());
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast varchar to IPPREFIX: " + slice.toStringUtf8());
         }
         String[] parts = string.split("/");
         try {
             address = InetAddresses.forString(parts[0]).getAddress();
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPPREFIX: " + slice.toStringUtf8());
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast varchar to IPPREFIX: " + slice.toStringUtf8());
         }
         subnetSize = Integer.parseInt(parts[1]);
 
         byte[] bytes = new byte[IPPREFIX.getFixedSize()];
         if (address.length == 4) {
             if (subnetSize < 0 || 32 < subnetSize) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPPREFIX: " + slice.toStringUtf8());
+                throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast varchar to IPPREFIX: " + slice.toStringUtf8());
             }
 
             for (int i = 0; i < 4; i++) {

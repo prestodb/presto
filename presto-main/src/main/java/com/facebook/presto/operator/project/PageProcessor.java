@@ -21,24 +21,43 @@ import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.metadata.BuiltInFunctionHandle;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
@@ -46,6 +65,7 @@ import static com.facebook.presto.operator.WorkProcessor.ProcessState.finished;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.ofResult;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.yield;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -63,19 +83,21 @@ public class PageProcessor
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
     private final Optional<PageFilter> filter;
+    private final Optional<List<ColumnHandle>> columns;
+    private Optional<List<? extends RowExpression>> rowExpressions;
     private final List<PageProjectionWithOutputs> projections;
     private final int outputCount;
 
     private int projectBatchSize;
 
     @VisibleForTesting
-    public PageProcessor(Optional<PageFilter> filter, List<PageProjectionWithOutputs> projections, OptionalInt initialBatchSize)
+    public PageProcessor(Optional<PageFilter> filter, List<PageProjectionWithOutputs> projections, OptionalInt initialBatchSize, Optional<List<ColumnHandle>> columns, Optional<List<? extends RowExpression>> rowExpressions)
     {
-        this(filter, projections, initialBatchSize, new ExpressionProfiler());
+        this(filter, projections, initialBatchSize, new ExpressionProfiler(), columns, rowExpressions);
     }
 
     @VisibleForTesting
-    public PageProcessor(Optional<PageFilter> filter, List<PageProjectionWithOutputs> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
+    public PageProcessor(Optional<PageFilter> filter, List<PageProjectionWithOutputs> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler, Optional<List<ColumnHandle>> columns, Optional<List<? extends RowExpression>> rowExpressions)
     {
         List<Integer> outputChannels = projections.stream().map(PageProjectionWithOutputs::getOutputChannels).map(Arrays::stream).map(IntStream::boxed).flatMap(identity()).distinct().collect(toImmutableList());
         int outputCount = projections.stream().map(PageProjectionWithOutputs::getOutputCount).reduce(Integer::sum).orElse(0);
@@ -91,6 +113,8 @@ public class PageProcessor
                     return pageFilter;
                 });
         this.outputCount = outputCount;
+        this.columns = columns;
+        this.rowExpressions = rowExpressions;
         this.projections = requireNonNull(projections, "projections is null").stream()
                 .map(projectionWithOutputs -> {
                     PageProjection projection = projectionWithOutputs.getPageProjection();
@@ -107,7 +131,7 @@ public class PageProcessor
 
     public PageProcessor(Optional<PageFilter> filter, List<PageProjectionWithOutputs> projections)
     {
-        this(filter, projections, OptionalInt.of(1));
+        this(filter, projections, OptionalInt.of(1), Optional.empty(), Optional.empty());
     }
 
     public Iterator<Optional<Page>> process(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
@@ -327,8 +351,53 @@ public class PageProcessor
                         pageProjectWork = projection.project(properties, yieldSignal, projection.getPageProjection().getInputChannels().getInputChannels(page), positionsBatch);
                         expressionProfiler.stop(positionsBatch.size());
                     }
-                    if (!pageProjectWork.process()) {
-                        return ProcessBatchResult.processBatchYield();
+                    try {
+                        if (!pageProjectWork.process()) {
+                            return ProcessBatchResult.processBatchYield();
+                        }
+                    }
+                    catch (PrestoException ex) {
+                        if (ex.getErrorCode().getName().equals(StandardErrorCode.INVALID_CAST_ARGUMENT.name())) {
+                            if (projection.getPageProjection() instanceof GeneratedPageProjection ||
+                                    (projection.getPageProjection() instanceof DictionaryAwarePageProjection &&
+                                            ((DictionaryAwarePageProjection) projection.getPageProjection()).getProjection() instanceof GeneratedPageProjection)) {
+                                String errorMsg = ex.getMessage();
+                                    /*
+                                    Get the exception message and parse it to get the data types involved. Next get the cast projections and match them with the same data types of actual column.
+                                    Once matched, get the column numbers and extract the columns with the column number.
+                                     */
+                                if (rowExpressions.isPresent()) {
+                                    List<CallExpression> filteredCastExpressions = getCastExpressions(rowExpressions.get());
+                                    Pattern pattern = Pattern.compile("Cannot cast\\s(\\w+)\\s.*to\\s(.+).(.*)");
+                                    Matcher matcher = pattern.matcher(ex.getMessage());
+                                    if (matcher.find()) {
+                                        String originalType = matcher.group(1);
+                                        String returnType = matcher.group(2);
+                                        //Iterate over the cast exprs to find out the ones operating over originalType
+                                        Set<Integer> columnNumbers = filteredCastExpressions.stream().filter(e -> {
+                                            Signature signature = ((BuiltInFunctionHandle) e.getFunctionHandle()).getSignature();
+                                            return signature.getArgumentTypes().size() == 1 && //size check is redundant.
+                                                    signature.getArgumentTypes().get(0).toString().equalsIgnoreCase(originalType) &&
+                                                    signature.getReturnType().toString().equalsIgnoreCase(returnType);
+                                        }).map(e -> {
+                                            //sample value: CAST(#1), cast(floor(#0))
+                                            Set<InputReferenceExpression> resultSet = new HashSet<>();
+                                            extractInputReferenceFromCallExpression(e, resultSet);
+                                            return resultSet.stream().map(ip -> ip.toString().substring(1)).map(Integer::parseInt).collect(Collectors.toList());
+                                        }).collect(Collectors.toList()).stream().flatMap(Collection::stream).collect(Collectors.toSet());
+                                        if (columns.isPresent()) {
+                                            List<String> probableColumns = new ArrayList<>();
+                                            for (Integer columnNumber : columnNumbers) {
+                                                probableColumns.add(columns.get().get(columnNumber).toString());
+                                            }
+                                            errorMsg = errorMsg + ", error prone columns:" + probableColumns;
+                                        }
+                                        throw new PrestoException(INVALID_CAST_ARGUMENT, errorMsg);
+                                    }
+                                }
+                                throw new PrestoException(INVALID_CAST_ARGUMENT, errorMsg);
+                            }
+                        }
                     }
                     List<Block> projectionOutputs = pageProjectWork.getResult();
                     for (int j = 0; j < outputChannels.length; j++) {
@@ -341,6 +410,71 @@ public class PageProcessor
                 }
             }
             return ProcessBatchResult.processBatchSuccess(new Page(positionsBatch.size(), blocks));
+        }
+    }
+
+    private List<CallExpression> getCastExpressions(List<? extends RowExpression> rowExpressions)
+    {
+        List<CallExpression> castExpressions = new ArrayList<>();
+        for (RowExpression rowExpression : rowExpressions) {
+            filterCastExpressions(rowExpression, castExpressions);
+        }
+        return castExpressions;
+    }
+
+    private void filterCastExpressions(RowExpression rowExpression, List<CallExpression> callExpressions)
+    {
+        if (rowExpression instanceof InputReferenceExpression || rowExpression instanceof ConstantExpression || rowExpression instanceof VariableReferenceExpression) {
+            return;
+        }
+        if (castExpressionPredicate(rowExpression)) {
+            //if it is a cast type, then simply take it to the filtered list
+            callExpressions.add((CallExpression) rowExpression);
+            ((CallExpression) rowExpression).getArguments().forEach(e -> filterCastExpressions(e, callExpressions));
+        }
+        else if (rowExpression instanceof SpecialFormExpression) {
+            ((SpecialFormExpression) rowExpression).getArguments().forEach(e -> filterCastExpressions(e, callExpressions));
+        }
+        else if (rowExpression instanceof LambdaDefinitionExpression) {
+            filterCastExpressions(((LambdaDefinitionExpression) rowExpression).getBody(), callExpressions);
+        }
+    }
+
+    private boolean castExpressionPredicate(RowExpression rowExpression)
+    {
+        return rowExpression instanceof CallExpression && ((CallExpression) rowExpression).getDisplayName().equalsIgnoreCase("CAST");
+    }
+
+    private void extractInputReferenceFromCallExpression(CallExpression expression, Set<InputReferenceExpression> resultSet)
+    {
+        for (RowExpression exp : expression.getArguments()) {
+            getInputReferenceExpression(exp, resultSet);
+        }
+    }
+
+    private void getInputReferenceExpression(RowExpression rowExpression, Set<InputReferenceExpression> resultSet)
+    {
+        if (rowExpression instanceof ConstantExpression || rowExpression instanceof VariableReferenceExpression) {
+            return;
+        }
+        else if (rowExpression instanceof InputReferenceExpression) {
+            resultSet.add((InputReferenceExpression) rowExpression);
+        }
+        else if (rowExpression instanceof CallExpression) {
+            extractInputReferenceFromCallExpression((CallExpression) rowExpression, resultSet);
+        }
+        else if (rowExpression instanceof SpecialFormExpression) {
+            extractInputReferenceFromSpecialFormExpression((SpecialFormExpression) rowExpression, resultSet);
+        }
+        else if (rowExpression instanceof LambdaDefinitionExpression) {
+            getInputReferenceExpression((((LambdaDefinitionExpression) rowExpression).getBody()), resultSet);
+        }
+    }
+
+    private void extractInputReferenceFromSpecialFormExpression(SpecialFormExpression expression, Set<InputReferenceExpression> resultSet)
+    {
+        for (RowExpression rowExpression : expression.getArguments()) {
+            getInputReferenceExpression(rowExpression, resultSet);
         }
     }
 

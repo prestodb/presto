@@ -74,7 +74,7 @@ public class RowToJsonCast
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = boundVariables.getTypeVariable("T");
-        checkCondition(canCastToJson(type), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", type);
+        checkCondition(canCastToJson(type), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON.", type);
 
         List<Type> fieldTypes = type.getTypeParameters();
         List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());

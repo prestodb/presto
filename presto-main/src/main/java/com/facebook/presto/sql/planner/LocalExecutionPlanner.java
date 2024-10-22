@@ -1540,7 +1540,8 @@ public class LocalExecutionPlanner
                             projections,
                             isOptimizeCommonSubExpressions(session),
                             session.getSessionFunctions(),
-                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                            Optional.of(context.getStageExecutionId() + "_" + planNodeId),
+                            Optional.of(columns));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1565,7 +1566,8 @@ public class LocalExecutionPlanner
                             projections,
                             isOptimizeCommonSubExpressions(session),
                             session.getSessionFunctions(),
-                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                            Optional.of(context.getStageExecutionId() + "_" + planNodeId),
+                            Optional.ofNullable(columns));
 
                     OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
