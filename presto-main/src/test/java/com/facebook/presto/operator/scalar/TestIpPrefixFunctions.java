@@ -56,10 +56,10 @@ public class TestIpPrefixFunctions
         assertInvalidFunction("IP_PREFIX('::ffff:1.2.3.4', 33)", "IPv4 subnet size must be in range [0, 32]");
         assertInvalidFunction("IP_PREFIX('64:ff9b::10', -1)", "IPv6 subnet size must be in range [0, 128]");
         assertInvalidFunction("IP_PREFIX('64:ff9b::10', 129)", "IPv6 subnet size must be in range [0, 128]");
-        assertInvalidCast("IP_PREFIX('localhost', 24)", "Cannot cast value to IPADDRESS: localhost");
-        assertInvalidCast("IP_PREFIX('64::ff9b::10', 24)", "Cannot cast value to IPADDRESS: 64::ff9b::10");
-        assertInvalidCast("IP_PREFIX('64:face:book::10', 24)", "Cannot cast value to IPADDRESS: 64:face:book::10");
-        assertInvalidCast("IP_PREFIX('123.456.789.012', 24)", "Cannot cast value to IPADDRESS: 123.456.789.012");
+        assertInvalidCast("IP_PREFIX('localhost', 24)", "Cannot cast VARCHAR to IPADDRESS: localhost");
+        assertInvalidCast("IP_PREFIX('64::ff9b::10', 24)", "Cannot cast VARCHAR to IPADDRESS: 64::ff9b::10");
+        assertInvalidCast("IP_PREFIX('64:face:book::10', 24)", "Cannot cast VARCHAR to IPADDRESS: 64:face:book::10");
+        assertInvalidCast("IP_PREFIX('123.456.789.012', 24)", "Cannot cast VARCHAR to IPADDRESS: 123.456.789.012");
     }
 
     @Test

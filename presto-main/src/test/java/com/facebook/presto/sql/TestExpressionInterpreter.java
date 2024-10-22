@@ -658,7 +658,7 @@ public class TestExpressionInterpreter
         catch (PrestoException e) {
             try {
                 assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-                assertEquals(e.getMessage(), "Value 12300000000 cannot be represented as varchar(3)");
+                assertEquals(e.getMessage(), "Cannot cast BIGINT 12300000000 to varchar(3).");
             }
             catch (Throwable failure) {
                 failure.addSuppressed(e);
@@ -672,7 +672,7 @@ public class TestExpressionInterpreter
         catch (PrestoException e) {
             try {
                 assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-                assertEquals(e.getMessage(), "Value -12300000000 cannot be represented as varchar(3)");
+                assertEquals(e.getMessage(), "Cannot cast BIGINT -12300000000 to varchar(3).");
             }
             catch (Throwable failure) {
                 failure.addSuppressed(e);

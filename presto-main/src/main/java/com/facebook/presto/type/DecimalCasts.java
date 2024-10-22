@@ -287,7 +287,7 @@ public final class DecimalCasts
             return toIntExact(unscaledDecimalToUnscaledLong(rescale(decimal, intScale(-scale))));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL(%s,%s)  '%s' to INTEGER.", precision, scale, Decimals.toString(decimal, intScale(scale))));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL(%s,%s) '%s' to INTEGER.", precision, scale, Decimals.toString(decimal, intScale(scale))));
         }
     }
 

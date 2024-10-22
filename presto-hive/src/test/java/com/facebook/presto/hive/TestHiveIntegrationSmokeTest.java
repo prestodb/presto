@@ -5138,7 +5138,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertQueryFails("" +
                 "SELECT * FROM test_prune_failure\n" +
-                "WHERE x > 0 AND cast(p AS int) > 0", "Cannot cast 'abc' to INT");
+                "WHERE x > 0 AND cast(p AS int) > 0", "Cannot cast VARCHAR 'abc' to INT.");
 
         assertUpdate("DROP TABLE test_prune_failure");
     }
