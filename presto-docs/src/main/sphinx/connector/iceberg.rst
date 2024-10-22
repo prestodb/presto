@@ -1757,6 +1757,10 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``TIME``
   * - ``TIMESTAMP``
     - ``TIMESTAMP``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP_WITH_TIMEZONE``
+  * - ``STRING``
+    - ``VARCHAR``
   * - ``UUID``
     - ``UUID``
   * - ``LIST``
