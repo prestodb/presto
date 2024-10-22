@@ -2405,7 +2405,7 @@ TEST_F(MockSharedArbitrationTest, memoryPoolAbortCapacityLimit) {
   }
 }
 
-TEST_F(
+DEBUG_ONLY_TEST_F(
     MockSharedArbitrationTest,
     globalArbitrationWaitReturnEarlyWithFreeCapacity) {
   uint64_t memoryCapacity = 256 * MB;
