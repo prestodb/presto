@@ -40,6 +40,18 @@ Mathematical Functions
 
         SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
 
+.. function:: cosine_similarity_dense(x, y) -> double
+
+    Returns the cosine similarity between the dense vectors ``x`` and ``y``::
+
+        SELECT cosine_similarity_dense(ARRAY[1.0], ARRAY[2.0]); -- 1.0
+
+.. function:: euclidean_distance_dense(x, y) -> double
+
+    Returns the euclidean distance between the dense vectors ``x`` and ``y``::
+
+        SELECT euclidean_distance_dense(ARRAY[1.0], ARRAY[2.0]); -- 1.0
+
 .. function:: degrees(x) -> double
 
     Converts angle ``x`` in radians to degrees.
