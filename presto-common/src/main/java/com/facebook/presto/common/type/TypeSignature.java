@@ -146,6 +146,25 @@ public class TypeSignature
         return result;
     }
 
+    public List<TypeSignature> getTypeOrNamedTypeParametersAsTypeSignatures()
+    {
+        List<TypeSignature> result = new ArrayList<>();
+        for (TypeSignatureParameter parameter : parameters) {
+            if ((parameter.getKind() != ParameterKind.TYPE) &&
+                    (parameter.getKind() != ParameterKind.NAMED_TYPE)) {
+                throw new IllegalStateException(
+                        format("Expected all parameters to be of kind TYPE or NAMED_TYPE but [%s] kind was found for parameter: [%s]",
+                                parameter.getKind(), parameter));
+            }
+            TypeSignature typeSignature =
+                    (parameter.getKind() == ParameterKind.NAMED_TYPE) ?
+                            parameter.getNamedTypeSignature().getTypeSignature() :
+                            parameter.getTypeSignature();
+            result.add(typeSignature);
+        }
+        return result;
+    }
+
     public boolean isCalculated()
     {
         return calculated;
