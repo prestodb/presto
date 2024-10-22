@@ -133,10 +133,8 @@ class ScanSpec {
     subscript_ = subscript;
   }
 
-  // True if the value is returned from scan. Fields can have
-  // 'extractValues_' set and not be projected out if these are only
-  // used in filter functions. A runtime pushdown of a filter function
-  // may cause this to become false at run time.
+  // True if the value is returned from scan.  A runtime pushdown of a filter
+  // function may cause this to become false at run time.
   bool projectOut() const {
     return projectOut_;
   }
@@ -145,22 +143,8 @@ class ScanSpec {
     projectOut_ = projectOut;
   }
 
-  // Whether the value is extracted, to be collected with
-  // getValues(). If this corresponds to a container, e.g. struct,
-  // list, map of which at least one value is extracted, this is true.
-  // A runtime pushdown may make this false, e.g. if a hash probe
-  // changes into an IN predicate. This is true while 'projectOut_' is
-  // false for columns that are used in filter functions.
-  bool extractValues() const {
-    return extractValues_;
-  }
-
-  void setExtractValues(bool extractValues) {
-    extractValues_ = extractValues;
-  }
-
   bool keepValues() const {
-    return extractValues_ || projectOut_;
+    return projectOut_;
   }
 
   // Position in the RowVector returned by the top level scan. Applies
@@ -234,8 +218,7 @@ class ScanSpec {
       if (filter_->kind() == FilterKind::kIsNull) {
         return true;
       }
-      if (filter_->kind() == FilterKind::kIsNotNull && !projectOut_ &&
-          !extractValues_) {
+      if (filter_->kind() == FilterKind::kIsNotNull && !projectOut_) {
         return true;
       }
     }
@@ -370,7 +353,6 @@ class ScanSpec {
 
   VectorPtr constantValue_;
   bool projectOut_ = false;
-  bool extractValues_ = false;
 
   bool isExplicitRowNumber_ = false;
   // True if a string dictionary or flat map in this field should be
@@ -389,20 +371,6 @@ class ScanSpec {
   SelectivityInfo selectivity_;
   // Sort children by filtering efficiency.
   bool enableFilterReorder_ = true;
-
-  // Specification of action on child fields. This is filled in as
-  // follows: Top level ScanSpec: All top level fields mentioned are
-  // specified.  Nested struct/map/list: If filter-only,
-  // projectOut/extractvalues are false in both container and children
-  // and filtered subfields are represented.  If all children are
-  // extracted and some are filtered: The container has
-  // projectOut/extractValues set and filtered children, if any, are
-  // in 'children_'. The filtered children have extractValues
-  // false. If only some children are materialized (subfield pruning),
-  // then the materialized children and filtered children are
-  // represented in 'children_' and the materialized ones have
-  // extractValues true.  Having at least one child with extractValues
-  // true differentiates pruning from the case of extracting all children.
 
   std::vector<std::shared_ptr<ScanSpec>> children_;
   // Read-only copy of children, not subject to reordering. Used when

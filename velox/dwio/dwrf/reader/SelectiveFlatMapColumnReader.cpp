@@ -91,9 +91,7 @@ std::vector<KeyNode<T>> getKeyNodes(
         scanSpec.getOrCreateChild(common::ScanSpec::kMapValuesFieldName);
     VELOX_CHECK(!valuesSpec->hasFilter());
     keysSpec->setProjectOut(true);
-    keysSpec->setExtractValues(true);
     valuesSpec->setProjectOut(true);
-    valuesSpec->setExtractValues(true);
   } else {
     for (auto& c : scanSpec.children()) {
       T key;

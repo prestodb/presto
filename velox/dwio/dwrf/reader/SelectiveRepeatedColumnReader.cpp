@@ -65,7 +65,6 @@ SelectiveListColumnReader::SelectiveListColumnReader(
     scanSpec.getOrCreateChild(common::ScanSpec::kArrayElementsFieldName);
   }
   scanSpec_->children()[0]->setProjectOut(true);
-  scanSpec_->children()[0]->setExtractValues(true);
 
   auto childParams = DwrfParams(
       stripe,
@@ -97,9 +96,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
     scanSpec_->getOrCreateChild(common::ScanSpec::kMapValuesFieldName);
   }
   scanSpec_->children()[0]->setProjectOut(true);
-  scanSpec_->children()[0]->setExtractValues(true);
   scanSpec_->children()[1]->setProjectOut(true);
-  scanSpec_->children()[1]->setExtractValues(true);
 
   auto& keyType = requestedType_->childAt(0);
   auto keyParams = DwrfParams(

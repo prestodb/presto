@@ -285,14 +285,6 @@ void E2EFilterTestBase::testReadWithFilterLazy(
   SCOPED_TRACE("Lazy");
   // Test with LazyVectors for non-filtered columns.
   uint64_t timeWithFilter = 0;
-  for (auto& childSpec : spec->children()) {
-    childSpec->setExtractValues(false);
-    for (auto& grandchild : childSpec->children()) {
-      grandchild->setExtractValues(false);
-    }
-  }
-  readWithFilter(spec, mutations, batches, hitRows, timeWithFilter, false);
-  timeWithFilter = 0;
   readWithFilter(spec, mutations, batches, hitRows, timeWithFilter, true);
 }
 

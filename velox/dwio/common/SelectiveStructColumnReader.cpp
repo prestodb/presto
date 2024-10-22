@@ -208,7 +208,7 @@ void SelectiveStructColumnReaderBase::read(
     const auto fieldIndex = childSpec->subscript();
     auto* reader = children_.at(fieldIndex);
     if (reader->isTopLevel() && childSpec->projectOut() &&
-        !childSpec->hasFilter() && !childSpec->extractValues()) {
+        !childSpec->hasFilter()) {
       // Will make a LazyVector.
       continue;
     }
@@ -427,8 +427,7 @@ void SelectiveStructColumnReaderBase::getValues(
       continue;
     }
 
-    if (childSpec->extractValues() || childSpec->hasFilter() ||
-        !children_[index]->isTopLevel()) {
+    if (childSpec->hasFilter() || !children_[index]->isTopLevel()) {
       children_[index]->getValues(rows, &childResult);
       continue;
     }
