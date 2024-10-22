@@ -55,6 +55,7 @@ import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_SHOW_ROLES_FR
 import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_SHOW_ROLE_GRANTS_FROM_CATALOG;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_SHOW_SCHEMA;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_TRUNCATE_TABLE;
+import static com.facebook.presto.spi.StandardErrorCode.AMS_CAN_ONLY_SELECT_FROM_COLUMNS_IN_TABLE;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_PRINCIPAL_CANNOT_BECOME_USER;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_QUERY_INTEGRITY_CHECK_FAIL;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_VIEW_OWNER_CANNOT_CREATE_VIEW;
@@ -378,16 +379,25 @@ public class AMSAccessDeniedException
         throw new AMSAccessDeniedException(AMS_CANNOT_SET_CATALOG_SESSION_PROPERTY, format("Cannot set catalog session property %s", propertyName));
     }
 
-    public static void denySelectColumns(String tableName, Collection<String> columnNames)
+    public static void denySelectColumns(String tableName)
     {
-        denySelectColumns(tableName, columnNames, null);
+        denySelectColumns(tableName, Optional.empty());
     }
-
-    public static void denySelectColumns(String tableName, Collection<String> columnNames, String extraInfo)
+    public static void denySelectColumns(String tableName, Optional<String> extraInfo)
     {
-        throw new AMSAccessDeniedException(AMS_CANNOT_SELECT_FROM_COLUMNS_IN_TABLE, format("Cannot select from columns %s in table or view %s%s", columnNames, tableName, formatExtraInfo(extraInfo)));
+        throw new AMSAccessDeniedException(AMS_CANNOT_SELECT_FROM_COLUMNS_IN_TABLE, format("The column(s) trying to select is not accessible in table or view %s%s", tableName, formatExtraInfo(extraInfo.orElse(null))));
     }
-
+    public static void allowSelectColumns(String tableName, Collection<String> columnNames)
+    {
+        allowSelectColumns(tableName, columnNames, Optional.empty());
+    }
+    public static void allowSelectColumns(String tableName, Collection<String> columnNames, Optional<String> extraInfo)
+    {
+        if (columnNames == null || columnNames.isEmpty()) {
+            throw new AMSAccessDeniedException(AMS_CAN_ONLY_SELECT_FROM_COLUMNS_IN_TABLE, "Column names cannot be null or empty");
+        }
+        throw new AMSAccessDeniedException(AMS_CAN_ONLY_SELECT_FROM_COLUMNS_IN_TABLE, format("Can only select from column(s) %s in table or view %s%s", columnNames, tableName, formatExtraInfo(extraInfo.orElse(null))));
+    }
     public static void denyCreateRole(String roleName)
     {
         throw new AMSAccessDeniedException(AMS_CANNOT_CREATE_ROLE, format("Cannot create role %s", roleName));
