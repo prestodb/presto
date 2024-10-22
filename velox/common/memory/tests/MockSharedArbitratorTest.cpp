@@ -2219,10 +2219,9 @@ TEST_F(MockSharedArbitrationTest, ensureNodeMaxCapacity) {
   }
 }
 
-TEST_F(MockSharedArbitrationTest, arbitrationAbort) {
+DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, arbitrationAbort) {
   uint64_t memoryCapacity = 256 * MB;
-  setupMemory(
-      memoryCapacity, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, nullptr, true, 1'000);
+  setupMemory(memoryCapacity);
   std::shared_ptr<MockTask> task1 = addTask(memoryCapacity);
   auto* op1 =
       task1->addMemoryOp(true, [&](MemoryPool* /*unsed*/, uint64_t /*unsed*/) {
