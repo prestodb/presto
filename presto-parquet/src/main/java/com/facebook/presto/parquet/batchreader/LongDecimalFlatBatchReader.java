@@ -256,3 +256,4 @@ public class LongDecimalFlatBatchReader
         }
     }
 }
+

@@ -299,10 +299,31 @@ SessionProperties::SessionProperties() {
       kQueryTraceTaskRegExp,
       "The regexp of traced task id. We only enable trace on a task if its id"
       " matches.",
-      BIGINT(),
+      VARCHAR(),
       false,
       QueryConfig::kQueryTraceTaskRegExp,
       c.queryTraceTaskRegExp());
+
+  addSessionProperty(
+      kMaxOutputBufferSize,
+      "The maximum size in bytes for the task's buffered output. The buffer is"
+      " shared among all drivers.",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxOutputBufferSize,
+      std::to_string(c.maxOutputBufferSize()));
+
+  addSessionProperty(
+      kMaxPartitionedOutputBufferSize,
+      "The maximum bytes to buffer per PartitionedOutput operator to avoid"
+      "creating tiny SerializedPages. For "
+      "PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator"
+      "would buffer up to that number of bytes / number of destinations for "
+      "each destination before producing a SerializedPage.",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxPartitionedOutputBufferSize,
+      std::to_string(c.maxPartitionedOutputBufferSize()));
 
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's

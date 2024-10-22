@@ -203,7 +203,10 @@ class TaskManagerTest : public testing::Test {
     options.extraArbitratorConfigs = {
         {std::string(velox::memory::SharedArbitrator::ExtraConfig::
                          kMemoryPoolInitialCapacity),
-         "512MB"}};
+         "512MB"},
+        {std::string(velox::memory::SharedArbitrator::ExtraConfig::
+                         kMemoryPoolMinReclaimBytes),
+         "0B"}};
     options.arbitratorKind = "SHARED";
     options.checkUsageLeak = true;
     options.arbitrationStateCheckCb = memoryArbitrationStateCheck;

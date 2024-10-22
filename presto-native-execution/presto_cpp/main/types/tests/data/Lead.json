@@ -1,0 +1,49 @@
+{
+  "lead": [
+    {
+      "docString": "presto.default.lead",
+      "functionKind": "WINDOW",
+      "outputType": "T",
+      "paramTypes": [
+        "T"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    },
+    {
+      "docString": "presto.default.lead",
+      "functionKind": "WINDOW",
+      "outputType": "T",
+      "paramTypes": [
+        "T",
+        "bigint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    },
+    {
+      "docString": "presto.default.lead",
+      "functionKind": "WINDOW",
+      "outputType": "T",
+      "paramTypes": [
+        "T",
+        "bigint",
+        "T"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    }
+  ]
+}

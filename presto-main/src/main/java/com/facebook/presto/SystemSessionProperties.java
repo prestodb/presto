@@ -335,7 +335,7 @@ public final class SystemSessionProperties
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
-    public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression.max_array_size_in_reduce";
+    public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression_max_array_size_in_reduce";
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
     public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
@@ -366,6 +366,8 @@ public final class SystemSessionProperties
     public static final String NATIVE_QUERY_TRACE_NODE_IDS = "native_query_trace_node_ids";
     public static final String NATIVE_QUERY_TRACE_MAX_BYTES = "native_query_trace_max_bytes";
     public static final String NATIVE_QUERY_TRACE_REG_EXP = "native_query_trace_task_reg_exp";
+    public static final String NATIVE_MAX_PAGE_PARTITIONING_BUFFER_SIZE = "native_max_page_partitioning_buffer_size";
+    public static final String NATIVE_MAX_OUTPUT_BUFFER_SIZE = "native_max_output_buffer_size";
 
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
@@ -1804,6 +1806,17 @@ public final class SystemSessionProperties
                 stringProperty(NATIVE_QUERY_TRACE_REG_EXP,
                         "The regexp of traced task id. We only enable trace on a task if its id matches.",
                         "",
+                        false),
+                longProperty(NATIVE_MAX_OUTPUT_BUFFER_SIZE,
+                        "The maximum size in bytes for the task's buffered output. The buffer is shared among all drivers.",
+                        200L << 20,
+                        false),
+                longProperty(NATIVE_MAX_PAGE_PARTITIONING_BUFFER_SIZE,
+                        "The maximum bytes to buffer per PartitionedOutput operator to avoid creating tiny " +
+                                "SerializedPages. For PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator " +
+                                "would buffer up to that number of bytes / number of destinations for each destination before " +
+                                "producing a SerializedPage.",
+                        24L << 20,
                         false),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
