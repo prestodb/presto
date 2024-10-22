@@ -55,7 +55,8 @@ target_link_libraries(
   gflags::gflags
   glog::glog
   fmt::fmt
-  ${FILESYSTEM})
+  ${FILESYSTEM}
+  CUDA::nvrtc)
 
 add_test(velox_wave_exec_test velox_wave_exec_test)
 
@@ -102,5 +103,6 @@ if(${VELOX_ENABLE_BENCHMARKS})
     gflags::gflags
     glog::glog
     fmt::fmt
-    ${FILESYSTEM})
+    ${FILESYSTEM}
+    CUDA::nvrtc)
 endif()

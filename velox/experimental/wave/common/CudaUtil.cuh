@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include <cstdint>
 
@@ -27,12 +28,19 @@ void cudaCheck(cudaError_t err, const char* file, int line);
 
 void cudaCheckFatal(cudaError_t err, const char* file, int line);
 
+void cuCheck(CUresult result, const char* file, int32_t line);
+
 #define CUDA_CHECK(e) ::facebook::velox::wave::cudaCheck(e, __FILE__, __LINE__)
+
+#define CU_CHECK(e) ::facebook::velox::wave::cuCheck(e, __FILE__, __LINE__)
 
 #ifndef CUDA_CHECK_FATAL
 #define CUDA_CHECK_FATAL(e) \
   ::facebook::velox::wave::cudaCheckFatal(e, __FILE__, __LINE__)
 #endif
+
+// Gets device and context for Driver API. Initializes on first use.
+void getDeviceAndContext(CUdevice& device, CUcontext& context);
 
 template <typename T, typename U>
 __host__ __device__ constexpr inline T roundUp(T value, U factor) {
@@ -91,7 +99,7 @@ inline uint32_t __device__ deviceScale32(uint32_t n, uint32_t scale) {
 }
 
 struct StreamImpl {
-  cudaStream_t stream;
+  cudaStream_t stream{};
 };
 
 bool registerKernel(const char* name, const void* func);

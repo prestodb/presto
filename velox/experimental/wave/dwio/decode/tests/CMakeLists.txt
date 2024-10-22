@@ -27,4 +27,5 @@ target_link_libraries(
   GTest::gtest_main
   gflags::gflags
   glog::glog
-  Folly::folly)
+  Folly::folly
+  CUDA::nvrtc)

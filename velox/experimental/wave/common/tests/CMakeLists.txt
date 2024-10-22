@@ -17,6 +17,7 @@ add_executable(
   GpuArenaTest.cpp
   CudaTest.cpp
   CudaTest.cu
+  CompileTest.cu
   BlockTest.cpp
   BlockTest.cu
   HashTableTest.cpp
@@ -34,4 +35,5 @@ target_link_libraries(
   GTest::gtest_main
   gflags::gflags
   glog::glog
-  Folly::folly)
+  Folly::folly
+  CUDA::nvrtc)
