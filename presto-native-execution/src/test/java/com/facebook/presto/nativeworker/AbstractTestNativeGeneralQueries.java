@@ -490,13 +490,13 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT cast(size as JSON), cast(partkey as JSON), cast(brand as JSON), cast(name as JSON) FROM part");
         assertQuery("SELECT cast(nationkey + 0.01 as JSON), cast(array[suppkey, nationkey] as JSON), cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON), cast(row(name, suppkey) as JSON), cast(array[map(array[name, address], array[1, 2]), map(array[name, phone], array[3, 4])] as JSON), cast(map(array[name, address, phone], array[array[1, 2], array[3, 4], array[5, 6]]) as JSON), cast(map(array[suppkey], array[name]) as JSON), cast(row(array[name, address], array[], array[null], map(array[phone], array[null])) as JSON) from supplier");
         assertQuery("SELECT cast(orderdate as JSON) FROM orders");
-        assertQueryFails("SELECT cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast map(timestamp, integer) to JSON.");
+        assertQueryFails("SELECT cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast map(timestamp,integer) to JSON.");
 
         assertQuery("SELECT try_cast(regionkey = 2 as JSON) FROM nation");
         assertQuery("SELECT try_cast(size as JSON), try_cast(partkey as JSON), try_cast(brand as JSON), try_cast(name as JSON) FROM part");
         assertQuery("SELECT try_cast(nationkey + 0.01 as JSON), try_cast(array[suppkey, nationkey] as JSON), try_cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON), try_cast(row(name, suppkey) as JSON), try_cast(array[map(array[name, address], array[1, 2]), map(array[name, phone], array[3, 4])] as JSON), try_cast(map(array[name, address, phone], array[array[1, 2], array[3, 4], array[5, 6]]) as JSON), try_cast(map(array[suppkey], array[name]) as JSON), try_cast(row(array[name, address], array[], array[null], map(array[phone], array[null])) as JSON) from supplier");
         assertQuery("SELECT try_cast(orderdate as JSON) FROM orders");
-        assertQueryFails("SELECT try_cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast map(timestamp, integer) to JSON.");
+        assertQueryFails("SELECT try_cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast map(timestamp,integer) to JSON.");
 
         // Cast from Json type.
         assertQuery("SELECT cast(json_parse(json_format(cast(array[nationkey, regionkey] as json))) as array(smallint)) FROM nation");
