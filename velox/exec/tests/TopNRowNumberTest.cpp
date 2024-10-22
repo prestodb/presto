@@ -380,5 +380,122 @@ TEST_F(TopNRowNumberTest, maxSpillBytes) {
   }
 }
 
+// This test verifies that TopNRowNumber operator reclaim all the memory after
+// spill.
+DEBUG_ONLY_TEST_F(TopNRowNumberTest, memoryUsageCheckAfterReclaim) {
+  std::atomic_int inputCount{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::addInput",
+      std::function<void(exec::Operator*)>(([&](exec::Operator* op) {
+        if (op->testingOperatorCtx()->operatorType() != "TopNRowNumber") {
+          return;
+        }
+        // Inject spill in the middle of aggregation input processing.
+        if (++inputCount != 3) {
+          return;
+        }
+        testingRunArbitration(op->pool());
+        ASSERT_EQ(op->pool()->usedBytes(), 0);
+        ASSERT_EQ(op->pool()->reservedBytes(), 0);
+      })));
+
+  const vector_size_t size = 10'000;
+  auto data = split(
+      makeRowVector(
+          {"d", "s", "p"},
+          {
+              // Data.
+              makeFlatVector<int64_t>(
+                  size, [](auto row) { return row; }, nullEvery(11)),
+              // Sorting key.
+              makeFlatVector<int64_t>(
+                  size,
+                  [](auto row) { return (size - row) * 10; },
+                  [](auto row) { return row == 123; }),
+              // Partitioning key. Make sure to spread rows from the same
+              // partition across multiple batches to trigger de-dup logic when
+              // reading back spilled data.
+              makeFlatVector<int64_t>(
+                  size, [](auto row) { return row % 5'000; }, nullEvery(7)),
+          }),
+      10);
+
+  createDuckDbTable(data);
+
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+
+  core::PlanNodeId topNRowNumberId;
+  auto plan = PlanBuilder()
+                  .values(data)
+                  .topNRowNumber({"p"}, {"s"}, 1'000, true)
+                  .capturePlanNodeId(topNRowNumberId)
+                  .planNode();
+
+  const auto sql =
+      "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
+      " WHERE rn <= 1000";
+  auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
+                  .config(core::QueryConfig::kSpillEnabled, "true")
+                  .config(core::QueryConfig::kTopNRowNumberSpillEnabled, "true")
+                  .spillDirectory(spillDirectory->getPath())
+                  .assertResults(sql);
+
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  const auto& stats = taskStats.at(topNRowNumberId);
+
+  ASSERT_GT(stats.spilledBytes, 0);
+  ASSERT_GT(stats.spilledRows, 0);
+  ASSERT_GT(stats.spilledFiles, 0);
+  ASSERT_GT(stats.spilledPartitions, 0);
+}
+
+// This test verifies that TopNRowNumber operator can be closed twice which
+// might be triggered by memory pool abort.
+DEBUG_ONLY_TEST_F(TopNRowNumberTest, doubleClose) {
+  const std::string errorMessage("doubleClose");
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "TopNRowNumber") {
+          return;
+        }
+        op->close();
+        VELOX_FAIL(errorMessage);
+      })));
+
+  const vector_size_t size = 10'000;
+  auto data = split(
+      makeRowVector(
+          {"d", "s", "p"},
+          {
+              // Data.
+              makeFlatVector<int64_t>(
+                  size, [](auto row) { return row; }, nullEvery(11)),
+              // Sorting key.
+              makeFlatVector<int64_t>(
+                  size,
+                  [](auto row) { return (size - row) * 10; },
+                  [](auto row) { return row == 123; }),
+              // Partitioning key. Make sure to spread rows from the same
+              // partition across multiple batches to trigger de-dup logic when
+              // reading back spilled data.
+              makeFlatVector<int64_t>(
+                  size, [](auto row) { return row % 5'000; }, nullEvery(7)),
+          }),
+      10);
+
+  core::PlanNodeId topNRowNumberId;
+  auto plan = PlanBuilder()
+                  .values(data)
+                  .topNRowNumber({"p"}, {"s"}, 1'000, true)
+                  .capturePlanNodeId(topNRowNumberId)
+                  .planNode();
+
+  const auto sql =
+      "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
+      " WHERE rn <= 1000";
+
+  VELOX_ASSERT_THROW(assertQuery(plan, sql), errorMessage);
+}
 } // namespace
 } // namespace facebook::velox::exec

@@ -1120,7 +1120,7 @@ void HashBuild::reclaim(
         memory::createAsyncMemoryReclaimTask<SpillResult>([buildOp]() {
           try {
             buildOp->spiller_->spill();
-            buildOp->table_->clear();
+            buildOp->table_->clear(true);
             // Release the minimum reserved memory.
             buildOp->pool()->release();
             return std::make_unique<SpillResult>(nullptr);

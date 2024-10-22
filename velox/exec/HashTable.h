@@ -289,7 +289,7 @@ class BaseHashTable {
 
   /// Deletes any content of 'this'. If 'freeTable' is false, then hash table is
   /// not freed which can be used for flushing a partial group by, for example.
-  virtual void clear(bool freeTable = false) = 0;
+  virtual void clear(bool freeTable) = 0;
 
   /// Returns the capacity of the internal hash table which is number of rows
   /// it can stores in a group by or hash join build.
@@ -529,7 +529,7 @@ class HashTable : public BaseHashTable {
       int32_t maxRows,
       char** rows) override;
 
-  void clear(bool freeTable = false) override;
+  void clear(bool freeTable) override;
 
   int64_t allocatedBytes() const override {
     // For each row: sizeof(char*) per table entry + memory

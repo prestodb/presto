@@ -428,7 +428,7 @@ RowVectorPtr TopNRowNumber::getOutputFromMemory() {
   if (remainingRowsInPartition_ > 0) {
     auto& partition = currentPartition();
     auto start = partition.rows.size() - remainingRowsInPartition_;
-    auto numRows =
+    const auto numRows =
         std::min<vector_size_t>(outputBatchSize_, remainingRowsInPartition_);
     appendPartitionRows(partition, start, numRows, offset, rowNumbers);
     offset += numRows;
@@ -461,7 +461,7 @@ RowVectorPtr TopNRowNumber::getOutputFromMemory() {
   if (offset == 0) {
     data_->clear();
     if (table_ != nullptr) {
-      table_->clear();
+      table_->clear(true);
     }
     pool()->release();
     return nullptr;
@@ -503,7 +503,7 @@ void TopNRowNumber::setupNextOutput(
     int32_t rowNumber) {
   nextRowNumber_ = rowNumber;
 
-  auto lookAhead = merge_->next();
+  auto* lookAhead = merge_->next();
   if (lookAhead == nullptr) {
     nextRowNumber_ = 0;
     return;
@@ -521,7 +521,7 @@ void TopNRowNumber::setupNextOutput(
   // Skip remaining rows for this partition.
   lookAhead->pop();
 
-  while (auto next = merge_->next()) {
+  while (auto* next = merge_->next()) {
     if (isNewPartition(output, output->size(), next)) {
       nextRowNumber_ = 0;
       return;
@@ -616,18 +616,27 @@ bool TopNRowNumber::isFinished() {
 void TopNRowNumber::close() {
   Operator::close();
 
-  if (table_) {
-    partitionIt_.reset();
-    partitions_.resize(1000);
-    while (auto numPartitions = table_->listAllRows(
-               &partitionIt_,
-               partitions_.size(),
-               RowContainer::kUnlimited,
-               partitions_.data())) {
-      for (auto i = 0; i < numPartitions; ++i) {
-        std::destroy_at(
-            reinterpret_cast<TopRows*>(partitions_[i] + partitionOffset_));
-      }
+  SCOPE_EXIT {
+    table_.reset();
+    singlePartition_.reset();
+    data_.reset();
+    allocator_.reset();
+  };
+
+  if (table_ == nullptr) {
+    return;
+  }
+
+  partitionIt_.reset();
+  partitions_.resize(1'000);
+  while (auto numPartitions = table_->listAllRows(
+             &partitionIt_,
+             partitions_.size(),
+             RowContainer::kUnlimited,
+             partitions_.data())) {
+    for (auto i = 0; i < numPartitions; ++i) {
+      std::destroy_at(
+          reinterpret_cast<TopRows*>(partitions_[i] + partitionOffset_));
     }
   }
 }
@@ -729,7 +738,7 @@ void TopNRowNumber::spill() {
   updateEstimatedOutputRowSize();
 
   spiller_->spill();
-  table_->clear();
+  table_->clear(true);
   data_->clear();
   pool()->release();
 }
