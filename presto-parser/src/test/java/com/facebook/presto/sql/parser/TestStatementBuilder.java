@@ -291,6 +291,19 @@ public class TestStatementBuilder
         printStatement("alter table foo alter column bar drop not null");
         printStatement("alter table if exists foo alter bar set not null");
         printStatement("alter table if exists foo alter bar drop not null");
+
+        printStatement("" +
+                "merge into product_sales as s\n" +
+                "  using monthly_sales as ms\n" +
+                "  on s.product_id = ms.product_id\n" +
+                "when matched then\n" +
+                "  update set\n" +
+                "      sales = sales + ms.sales\n" +
+                "    , last_sale = ms.sale_date\n" +
+                "    , current_price = ms.price\n" +
+                "when not matched then\n" +
+                "  insert (product_id, sales, last_sale, current_price)\n" +
+                "  values (ms.product_id, ms.sales, ms.sale_date, ms.price)");
     }
 
     @Test
