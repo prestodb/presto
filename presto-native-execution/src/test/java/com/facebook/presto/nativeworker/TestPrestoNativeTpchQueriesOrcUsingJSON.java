@@ -15,19 +15,21 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.Test;
 
-public class TestPrestoNativeIcebergTpchQueriesUsingThrift
-        extends AbstractTestNativeIcebergTpchQueries
+@Test(groups = {"orc"})
+public class TestPrestoNativeTpchQueriesOrcUsingJSON
+        extends AbstractTestNativeTpchQueries
 {
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "PARQUET");
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false, "ORC");
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner("PARQUET");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("ORC");
     }
 }
