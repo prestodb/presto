@@ -18,7 +18,7 @@ import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
-import static com.facebook.presto.SystemSessionProperties.WINDOW_SPILL_ENABLED;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.WINDOW_SPILL_ENABLED;
 
 public class TestSpilledWindowQueries
         extends AbstractTestWindowQueries

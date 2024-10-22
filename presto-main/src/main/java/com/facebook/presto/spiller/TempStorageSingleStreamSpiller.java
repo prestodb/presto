@@ -46,9 +46,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.getTempStorageSpillerBufferSize;
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.getTempStorageSpillerBufferSize;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterators.transform;

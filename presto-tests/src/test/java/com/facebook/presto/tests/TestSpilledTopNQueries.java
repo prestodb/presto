@@ -23,7 +23,8 @@ import org.testng.annotations.Test;
 import java.nio.file.Paths;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
-import static com.facebook.presto.SystemSessionProperties.TOPN_SPILL_ENABLED;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.TOPN_SPILL_ENABLED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -39,7 +40,7 @@ public class TestSpilledTopNQueries
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2")
-                .setSystemProperty(SystemSessionProperties.TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT, "120kB")
+                .setSystemProperty(TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT, "120kB")
                 .setSystemProperty(SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE, "1500kB")
                 .build();
 
