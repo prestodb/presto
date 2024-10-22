@@ -108,5 +108,5 @@ target_link_libraries(
   velox_aggregates
   velox_functions_prestosql
   velox_window
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)

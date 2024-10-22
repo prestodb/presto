@@ -110,7 +110,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 /**
  * TODO: This should not extend from FunctionMetadataManager and TypeManager
@@ -156,7 +156,7 @@ public class FunctionAndTypeManager
         this.functionCache = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
+                .expireAfterWrite(1, MINUTES)
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
@@ -775,6 +775,11 @@ public class FunctionAndTypeManager
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(TypeSignatureBase typeSignatureBase)
     {
         return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().getCatalogName()));
+    }
+
+    public boolean isCoordinatorSidecarEnabled()
+    {
+        return coordinatorSidecarEnabled;
     }
 
     @Override

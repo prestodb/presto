@@ -358,10 +358,22 @@ public class PrestoNativeQueryRunnerUtils
         return createNativeQueryRunner(useThrift, DEFAULT_STORAGE_FORMAT, Optional.empty(), failOnNestedLoopJoin, false);
     }
 
+    public static QueryRunner createNativeQueryRunner(boolean useThrift, boolean failOnNestedLoopJoin, boolean isCoordinatorSidecarEnabled)
+            throws Exception
+    {
+        return createNativeQueryRunner(useThrift, DEFAULT_STORAGE_FORMAT, Optional.empty(), failOnNestedLoopJoin, isCoordinatorSidecarEnabled);
+    }
+
     public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat)
             throws Exception
     {
         return createNativeQueryRunner(useThrift, storageFormat, Optional.empty(), false, false);
+    }
+
+    public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat, boolean isCoordinatorSidecarEnabled)
+            throws Exception
+    {
+        return createNativeQueryRunner(useThrift, storageFormat, Optional.empty(), false, isCoordinatorSidecarEnabled);
     }
 
     public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat, Optional<String> remoteFunctionServerUds, Boolean failOnNestedLoopJoin, boolean isCoordinatorSidecarEnabled)

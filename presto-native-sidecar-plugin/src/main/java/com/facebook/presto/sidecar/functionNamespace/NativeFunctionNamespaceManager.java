@@ -19,6 +19,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
@@ -54,6 +55,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -62,7 +64,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeSignatureUtils.resolveIntermediateType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -169,8 +170,7 @@ public class NativeFunctionNamespaceManager
 
         AggregationFunctionMetadata aggregationMetadata = sqlFunction.getAggregationMetadata().get();
         TypeSignature intermediateType = aggregationMetadata.getIntermediateType();
-        List<TypeSignature> typeSignatures = sqlFunction.getParameters().stream().map(Parameter::getType).collect(Collectors.toList());
-        TypeSignature resolvedIntermediateType = resolveIntermediateType(intermediateType, typeSignatures, signature.getArgumentTypes());
+        TypeSignature resolvedIntermediateType = resolveIntermediateType(intermediateType, sqlFunction.getFunctionId().getArgumentTypes(), signature.getArgumentTypes());
         List<Type> parameters = signature.getArgumentTypes().stream().map(
                 (typeManager::getType)).collect(toImmutableList());
         aggregationImplementationByHandle.put(
@@ -220,6 +220,21 @@ public class NativeFunctionNamespaceManager
         List<TypeSignature> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
         List<TypeVariableConstraint> typeVariableConstraintsList = jsonBasedUdfFunctionMetaData.getTypeVariableConstraints().isPresent() ?
                 jsonBasedUdfFunctionMetaData.getTypeVariableConstraints().get() : Collections.emptyList();
+
+        if (functionName.equals("approx_distinct")) {
+            List<TypeSignature> newParameterTypeList = new ArrayList<>();
+            for (int j = 0; j < parameterNameList.size(); j++) {
+                if (parameterTypeList.get(j).getTypeSignatureBase().getStandardTypeBase().startsWith("decimal")) {
+                    List<TypeSignature> paramtersList = parameterTypeList.get(j).getTypeParametersAsTypeSignatures();
+                    newParameterTypeList.add(new TypeSignature(
+                            "decimal", TypeSignatureParameter.of(paramtersList.get(0).getBase()), TypeSignatureParameter.of(paramtersList.get(1).getBase())));
+                }
+                else {
+                    newParameterTypeList.add(parameterTypeList.get(j));
+                }
+            }
+            parameterTypeList = newParameterTypeList;
+        }
 
         ImmutableList.Builder<Parameter> parameterBuilder = ImmutableList.builder();
         for (int i = 0; i < parameterNameList.size(); i++) {

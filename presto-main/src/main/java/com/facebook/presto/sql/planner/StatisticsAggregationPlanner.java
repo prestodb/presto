@@ -174,7 +174,10 @@ public class StatisticsAggregationPlanner
         FunctionMetadata functionMeta = functionAndTypeResolver.getFunctionMetadata(functionHandle);
         Type inputType = functionAndTypeResolver.getType(getOnlyElement(functionMeta.getArgumentTypes()));
         Type outputType = functionAndTypeResolver.getType(functionMeta.getReturnType());
-        verify(inputType.equals(input.getType()) || input.getType().equals(UNKNOWN), "resolved function input type does not match the input type: %s != %s", inputType, input.getType());
+        // If isCoordinatorSidecarEnabled skip the varchar checks cause native engine does not support parameterized varchar.
+        if (!(functionAndTypeManager.isCoordinatorSidecarEnabled() && inputType.getTypeSignature().getTypeSignatureBase().getStandardTypeBase().equals("varchar"))) {
+            verify(inputType.equals(input.getType()) || input.getType().equals(UNKNOWN), "resolved function input type does not match the input type: %s != %s", inputType, input.getType());
+        }
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         new CallExpression(

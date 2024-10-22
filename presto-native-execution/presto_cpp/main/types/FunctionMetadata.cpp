@@ -39,6 +39,24 @@ const std::vector<std::string> getFunctionNameParts(
   return parts;
 }
 
+// Check if the Velox type is supported in Presto.
+bool isValidPrestoType(const TypeSignature& typeSignature) {
+  if (typeSignature.parameters().empty()) {
+    // Hugeint type is not supported in Presto.
+    auto kindName = boost::algorithm::to_upper_copy(typeSignature.baseName());
+    if (auto typeKind = tryMapNameToTypeKind(kindName)) {
+      return typeKind.value() != TypeKind::HUGEINT;
+    }
+  } else {
+    for (const auto& paramType : typeSignature.parameters()) {
+      if (!isValidPrestoType(paramType)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 /// TODO: Similar function exists in velox/functions/CoverageUtil.cpp, refactor
 /// to use this function once it is moved to velox/functions/FunctionRegistry.h
 /// Reference: https://github.com/facebookincubator/velox/pull/9250/.
@@ -139,21 +157,27 @@ const std::vector<protocol::TypeVariableConstraint> getTypeVariableConstraints(
   return typeVariableConstraints;
 }
 
-const protocol::JsonBasedUdfFunctionMetadata buildFunctionMetadata(
+std::optional<const protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
     const std::string& name,
     const std::string& schema,
     const protocol::FunctionKind& kind,
     const FunctionSignature& signature,
-    std::optional<AggregateFunctionSignature> aggregateSignature) {
+    const AggregateFunctionSignaturePtr& aggregateSignature = nullptr) {
   protocol::JsonBasedUdfFunctionMetadata metadata;
   metadata.docString = name;
   metadata.functionKind = kind;
+  if (!isValidPrestoType(signature.returnType())) {
+    return std::nullopt;
+  }
   metadata.outputType = signature.returnType().toString();
 
-  const std::vector<TypeSignature> types = signature.argumentTypes();
-  std::vector<std::string> paramTypes;
-  for (const auto& type : types) {
-    paramTypes.emplace_back(type.toString());
+  const auto& argumentTypes = signature.argumentTypes();
+  std::vector<std::string> paramTypes(argumentTypes.size());
+  for (auto i = 0; i < argumentTypes.size(); i++) {
+    if (!isValidPrestoType(argumentTypes.at(i))) {
+      return std::nullopt;
+    }
+    paramTypes[i] = argumentTypes.at(i).toString();
   }
   metadata.paramTypes = paramTypes;
   metadata.schema = schema;
@@ -163,10 +187,10 @@ const protocol::JsonBasedUdfFunctionMetadata buildFunctionMetadata(
       std::make_shared<std::vector<protocol::TypeVariableConstraint>>(
           getTypeVariableConstraints(signature));
 
-  if (aggregateSignature.has_value()) {
+  if (aggregateSignature) {
     metadata.aggregateMetadata =
         std::make_shared<protocol::AggregationFunctionMetadata>(
-            getAggregationFunctionMetadata(name, aggregateSignature.value()));
+            getAggregationFunctionMetadata(name, *aggregateSignature));
   }
   return metadata;
 }
@@ -179,10 +203,11 @@ json buildScalarMetadata(
   json j = json::array();
   json tj;
   for (const auto& signature : signatures) {
-    protocol::to_json(
-        tj,
-        buildFunctionMetadata(name, schema, kind, *signature, std::nullopt));
-    j.push_back(tj);
+    if (auto functionMetadata = buildFunctionMetadata(
+            name, schema, protocol::FunctionKind::SCALAR, *signature)) {
+      protocol::to_json(tj, functionMetadata.value());
+      j.push_back(tj);
+    }
   }
   return j;
 }
@@ -205,10 +230,11 @@ json buildAggregateMetadata(
   json tj;
   for (const auto& kind : kinds) {
     for (const auto& signature : signatures) {
-      protocol::to_json(
-          tj,
-          buildFunctionMetadata(name, schema, kind, *signature, *signature));
-      j.push_back(tj);
+      if (auto functionMetadata = buildFunctionMetadata(
+              name, schema, kind, *signature, signature)) {
+        protocol::to_json(tj, functionMetadata.value());
+        j.push_back(tj);
+      }
     }
   }
   return j;
@@ -222,10 +248,11 @@ json buildWindowMetadata(
   json j = json::array();
   json tj;
   for (const auto& signature : signatures) {
-    protocol::to_json(
-        tj,
-        buildFunctionMetadata(name, schema, kind, *signature, std::nullopt));
-    j.push_back(tj);
+    if (auto functionMetadata = buildFunctionMetadata(
+            name, schema, protocol::FunctionKind::WINDOW, *signature)) {
+      protocol::to_json(tj, functionMetadata.value());
+      j.push_back(tj);
+    }
   }
   return j;
 }

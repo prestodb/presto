@@ -335,6 +335,12 @@ public class SignatureBinder
             return true;
         }
 
+        // todo: hack to make decimal function signatures work for now
+//        if (functionAndTypeManager.isCoordinatorSidecarEnabled() && isDecimalTypeBase(formalTypeSignature.getBase())) {
+//            resultBuilder.add(new TypeWithLiteralParametersSolver(actualType.getTypeSignature(), actualType));
+//            return true;
+//        }
+
         List<TypeSignatureProvider> actualTypeParametersTypeSignatureProvider;
         if (UNKNOWN.equals(actualType)) {
             actualTypeParametersTypeSignatureProvider = Collections.nCopies(formalTypeSignature.getParameters().size(), new TypeSignatureProvider(UNKNOWN.getTypeSignature()));
@@ -357,6 +363,11 @@ public class SignatureBinder
                 formalTypeParameterTypeSignatures.build(),
                 actualTypeParametersTypeSignatureProvider,
                 allowCoercion && isCovariantTypeBase(formalTypeSignature.getBase()));
+    }
+
+    private static boolean isDecimalTypeBase(String typeBase)
+    {
+        return typeBase.equals(StandardTypes.DECIMAL);
     }
 
     private static boolean isCovariantTypeBase(String typeBase)

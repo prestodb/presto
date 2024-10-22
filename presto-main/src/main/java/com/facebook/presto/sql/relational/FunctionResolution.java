@@ -79,6 +79,16 @@ public final class FunctionResolution
         return notFunction().equals(functionHandle);
     }
 
+    public FunctionHandle likeVarcharVarcharFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, VARCHAR));
+    }
+
+    public FunctionHandle likeVarcharVarcharVarcharFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, VARCHAR, VARCHAR));
+    }
+
     @Override
     public FunctionHandle likeVarcharFunction()
     {
