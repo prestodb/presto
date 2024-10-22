@@ -932,6 +932,17 @@ public class DistributedQueryRunner
         log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
+    @Override
+    public void loadSessionPropertyProvider(String sessionPropertyProviderName)
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getMetadata().getSessionPropertyManager().loadSessionPropertyProvider(
+                    sessionPropertyProviderName,
+                    Optional.ofNullable(server.getMetadata().getFunctionAndTypeManager()),
+                    Optional.ofNullable(server.getPluginNodeManager()));
+        }
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {

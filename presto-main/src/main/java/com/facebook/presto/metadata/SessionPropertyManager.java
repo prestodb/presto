@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
@@ -137,11 +138,11 @@ public final class SessionPropertyManager
                 Optional.empty());
     }
 
-    public void loadSessionPropertyProvider(String sessionPropertyProviderName)
+    public void loadSessionPropertyProvider(String sessionPropertyProviderName, Optional<TypeManager> typeManager, Optional<NodeManager> nodeManager)
     {
         WorkerSessionPropertyProviderFactory factory = workerSessionPropertyProviderFactories.get(sessionPropertyProviderName);
         checkState(factory != null, "No factory for session property provider : " + sessionPropertyProviderName);
-        WorkerSessionPropertyProvider sessionPropertyProvider = factory.create(new SessionPropertyContext(functionAndTypeManager, nodeManager));
+        WorkerSessionPropertyProvider sessionPropertyProvider = factory.create(new SessionPropertyContext(typeManager, nodeManager));
         if (workerSessionPropertyProviders.putIfAbsent(sessionPropertyProviderName, sessionPropertyProvider) != null) {
             throw new IllegalArgumentException("System session property provider is already registered for property provider : " + sessionPropertyProviderName);
         }
@@ -150,7 +151,14 @@ public final class SessionPropertyManager
     public void loadSessionPropertyProviders()
     {
         for (String sessionPropertyProviderName : workerSessionPropertyProviderFactories.keySet()) {
-            loadSessionPropertyProvider(sessionPropertyProviderName);
+            loadSessionPropertyProvider(sessionPropertyProviderName, functionAndTypeManager, nodeManager);
+        }
+    }
+
+    public void addSessionPropertyProviderFactory(WorkerSessionPropertyProviderFactory factory)
+    {
+        if (workerSessionPropertyProviderFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("System Session property provider factory" + factory.getName() + "is already registered"));
         }
     }
 
@@ -367,6 +375,9 @@ public final class SessionPropertyManager
         if (VarcharType.VARCHAR.equals(type)) {
             return value.toString();
         }
+        if (TinyintType.TINYINT.equals(type)) {
+            return value.toString();
+        }
         if (type instanceof ArrayType || type instanceof MapType) {
             return getJsonCodecForType(type).toJson(value);
         }
@@ -393,6 +404,9 @@ public final class SessionPropertyManager
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.valueOf(value);
         }
+        if (TinyintType.TINYINT.equals(type)) {
+            return Byte.valueOf(value);
+        }
         if (type instanceof ArrayType || type instanceof MapType) {
             return getJsonCodecForType(type).fromJson(value);
         }
@@ -415,6 +429,9 @@ public final class SessionPropertyManager
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Double.class);
+        }
+        if (TinyintType.TINYINT.equals(type)) {
+            return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Byte.class);
         }
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
@@ -444,6 +461,9 @@ public final class SessionPropertyManager
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.class;
+        }
+        if (TinyintType.TINYINT.equals(type)) {
+            return Byte.class;
         }
         throw new PrestoException(INVALID_SESSION_PROPERTY, format("Session property map key type %s is not supported", type));
     }
