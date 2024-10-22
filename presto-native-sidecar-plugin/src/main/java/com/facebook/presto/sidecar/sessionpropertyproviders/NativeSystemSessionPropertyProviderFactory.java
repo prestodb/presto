@@ -14,6 +14,7 @@
 package com.facebook.presto.sidecar.sessionpropertyproviders;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.presto.sidecar.NativeSidecarCommunicationModule;
 import com.facebook.presto.spi.session.SessionPropertyContext;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
@@ -35,10 +36,12 @@ public class NativeSystemSessionPropertyProviderFactory
     {
         Bootstrap app = new Bootstrap(
                 new NativeSystemSessionPropertyProviderModule(
-                        context.getNodeManager(), context.getTypeManager()));
+                        context.getNodeManager(), context.getTypeManager()),
+                new NativeSidecarCommunicationModule());
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .noStrictConfig()
                 .initialize();
         return injector.getInstance(NativeSystemSessionPropertyProvider.class);
     }
