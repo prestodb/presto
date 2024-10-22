@@ -54,7 +54,7 @@ class PeriodicMemoryCheckerTest : public testing::Test {
       return mallocBytes_;
     }
 
-    void periodicCb() const override {
+    void periodicCb() override {
       if (periodicCb_) {
         periodicCb_();
       }
