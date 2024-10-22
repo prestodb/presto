@@ -57,7 +57,7 @@ uint64_t SelectiveDecimalColumnReader<DataT>::skip(uint64_t numValues) {
 }
 
 template <typename DataT>
-void SelectiveDecimalColumnReader<DataT>::seekToRowGroup(uint32_t index) {
+void SelectiveDecimalColumnReader<DataT>::seekToRowGroup(int64_t index) {
   SelectiveColumnReader::seekToRowGroup(index);
   auto positionsProvider = formatData_->seekToRowGroup(index);
   valueDecoder_->seekToRowGroup(positionsProvider);
@@ -108,7 +108,7 @@ void SelectiveDecimalColumnReader<DataT>::readHelper(RowSet rows) {
 
 template <typename DataT>
 void SelectiveDecimalColumnReader<DataT>::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   VELOX_CHECK(!scanSpec_->filter());

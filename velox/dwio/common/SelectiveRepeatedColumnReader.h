@@ -78,7 +78,7 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   // length stream. The child readers can be behind if the last parents were
   // null, so that the child stream was only read up to the last position
   // corresponding to the last non-null parent.
-  vector_size_t childTargetReadOffset_ = 0;
+  int64_t childTargetReadOffset_ = 0;
   std::vector<SelectiveColumnReader*> children_;
 };
 
@@ -96,10 +96,8 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls) override;
+  void read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls)
+      override;
 
   void getValues(const RowSet& rows, VectorPtr* result) override;
 
@@ -122,10 +120,8 @@ class SelectiveMapColumnReader : public SelectiveRepeatedColumnReader {
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls) override;
+  void read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls)
+      override;
 
   void getValues(const RowSet& rows, VectorPtr* result) override;
 

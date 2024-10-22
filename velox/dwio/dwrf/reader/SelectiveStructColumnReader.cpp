@@ -76,7 +76,7 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
 }
 
 void SelectiveStructColumnReaderBase::seekTo(
-    vector_size_t offset,
+    int64_t offset,
     bool readsNullsOnly) {
   if (offset == readOffset_) {
     return;

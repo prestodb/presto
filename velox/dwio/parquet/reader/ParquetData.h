@@ -78,7 +78,7 @@ class ParquetData : public dwio::common::FormatData {
   /// Positions 'this' at 'index'th row group. loadRowGroup must be called
   /// first. The returned PositionProvider is empty and should not be used.
   /// Other formats may use it.
-  dwio::common::PositionProvider seekToRowGroup(uint32_t index) override;
+  dwio::common::PositionProvider seekToRowGroup(int64_t index) override;
 
   void filterRowGroups(
       const common::ScanSpec& scanSpec,

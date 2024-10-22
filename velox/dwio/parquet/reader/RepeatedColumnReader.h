@@ -68,12 +68,12 @@ class MapColumnReader : public dwio::common::SelectiveMapColumnReader {
     // The prepare is done by the topmost list/map/struct.
   }
 
-  void seekToRowGroup(uint32_t index) override;
+  void seekToRowGroup(int64_t index) override;
 
   void enqueueRowGroup(uint32_t index, dwio::common::BufferedInput& input);
 
   void read(
-      vector_size_t offset,
+      int64_t offset,
       const RowSet& rows,
       const uint64_t* /*incomingNulls*/) override;
 
@@ -124,12 +124,12 @@ class ListColumnReader : public dwio::common::SelectiveListColumnReader {
     // The prepare is done by the topmost list/struct.
   }
 
-  void seekToRowGroup(uint32_t index) override;
+  void seekToRowGroup(int64_t index) override;
 
   void enqueueRowGroup(uint32_t index, dwio::common::BufferedInput& input);
 
   void read(
-      vector_size_t offset,
+      int64_t offset,
       const RowSet& rows,
       const uint64_t* /*incomingNulls*/) override;
 

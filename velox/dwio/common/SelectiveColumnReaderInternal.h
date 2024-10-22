@@ -45,7 +45,7 @@ void SelectiveColumnReader::ensureValuesCapacity(vector_size_t numRows) {
 
 template <typename T>
 void SelectiveColumnReader::prepareRead(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   const bool readsNullsOnly = this->readsNullsOnly();

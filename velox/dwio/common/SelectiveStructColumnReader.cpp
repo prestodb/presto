@@ -149,7 +149,7 @@ void SelectiveStructColumnReaderBase::next(
 }
 
 void SelectiveStructColumnReaderBase::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   numReads_ = scanSpec_->newRead();
@@ -247,7 +247,7 @@ void SelectiveStructColumnReaderBase::read(
 }
 
 void SelectiveStructColumnReaderBase::recordParentNullsInChildren(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows) {
   if (formatData_->parentNullsInLeaves()) {
     return;

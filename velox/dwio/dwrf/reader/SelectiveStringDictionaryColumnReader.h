@@ -39,7 +39,7 @@ class SelectiveStringDictionaryColumnReader
     return version_ != velox::dwrf::RleVersion_2;
   }
 
-  void seekToRowGroup(uint32_t index) override {
+  void seekToRowGroup(int64_t index) override {
     SelectiveColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->as<DwrfData>().seekToRowGroup(index);
     if (strideDictStream_) {
@@ -60,10 +60,8 @@ class SelectiveStringDictionaryColumnReader
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls) override;
+  void read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls)
+      override;
 
   void getValues(const RowSet& rows, VectorPtr* result) override;
 
@@ -104,7 +102,7 @@ class SelectiveStringDictionaryColumnReader
   std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> lengthDecoder_;
   std::unique_ptr<dwio::common::SeekableInputStream> blobStream_;
   bool initialized_{false};
-  vector_size_t numRowsScanned_;
+  int64_t numRowsScanned_;
 };
 
 template <typename TVisitor>

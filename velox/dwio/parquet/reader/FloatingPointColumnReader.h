@@ -36,7 +36,7 @@ class FloatingPointColumnReader
       ParquetParams& params,
       common::ScanSpec& scanSpec);
 
-  void seekToRowGroup(uint32_t index) override {
+  void seekToRowGroup(int64_t index) override {
     base::seekToRowGroup(index);
     this->scanState().clear();
     this->readOffset_ = 0;
@@ -45,10 +45,8 @@ class FloatingPointColumnReader
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls) override {
+  void read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls)
+      override {
     using T = FloatingPointColumnReader<TData, TRequested>;
     this->template readCommon<T, true>(offset, rows, incomingNulls);
     this->readOffset_ += rows.back() + 1;

@@ -34,7 +34,7 @@ class SelectiveIntegerDictionaryColumnReader
       common::ScanSpec& scanSpec,
       uint32_t numBytes);
 
-  void seekToRowGroup(uint32_t index) override {
+  void seekToRowGroup(int64_t index) override {
     SelectiveIntegerColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
     if (inDictionaryReader_) {
@@ -47,10 +47,8 @@ class SelectiveIntegerDictionaryColumnReader
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls) override;
+  void read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls)
+      override;
 
   template <typename ColumnVisitor>
   void readWithVisitor(const RowSet& rows, ColumnVisitor visitor);

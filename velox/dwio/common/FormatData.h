@@ -86,7 +86,7 @@ class FormatData {
   /// is in FormatData the provider is at end. For ORC/DWRF the type
   /// dependent stream positions are accessed via the provider. The
   /// provider is valid until next call of this.
-  virtual dwio::common::PositionProvider seekToRowGroup(uint32_t index) = 0;
+  virtual dwio::common::PositionProvider seekToRowGroup(int64_t index) = 0;
 
   struct FilterRowGroupsResult {
     std::vector<uint64_t> filterResult;

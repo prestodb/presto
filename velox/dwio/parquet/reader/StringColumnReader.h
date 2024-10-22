@@ -34,7 +34,7 @@ class StringColumnReader : public dwio::common::SelectiveColumnReader {
     return scanState_.dictionary.values != nullptr;
   }
 
-  void seekToRowGroup(uint32_t index) override {
+  void seekToRowGroup(int64_t index) override {
     SelectiveColumnReader::seekToRowGroup(index);
     scanState().clear();
     readOffset_ = 0;
@@ -43,10 +43,8 @@ class StringColumnReader : public dwio::common::SelectiveColumnReader {
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls) override;
+  void read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls)
+      override;
 
   void getValues(const RowSet& rows, VectorPtr* result) override;
 

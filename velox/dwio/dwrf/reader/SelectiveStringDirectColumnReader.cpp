@@ -464,7 +464,7 @@ void SelectiveStringDirectColumnReader::readWithVisitor(
 }
 
 void SelectiveStringDirectColumnReader::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<folly::StringPiece>(offset, rows, incomingNulls);

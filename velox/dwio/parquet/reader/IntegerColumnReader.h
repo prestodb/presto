@@ -41,7 +41,7 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
              : true);
   }
 
-  void seekToRowGroup(uint32_t index) override {
+  void seekToRowGroup(int64_t index) override {
     SelectiveIntegerColumnReader::seekToRowGroup(index);
     scanState().clear();
     readOffset_ = 0;
@@ -65,7 +65,7 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
   }
 
   void read(
-      vector_size_t offset,
+      int64_t offset,
       const RowSet& rows,
       const uint64_t* /*incomingNulls*/) override {
     auto& data = formatData_->as<ParquetData>();

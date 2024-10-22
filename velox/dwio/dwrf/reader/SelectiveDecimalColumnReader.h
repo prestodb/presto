@@ -40,11 +40,10 @@ class SelectiveDecimalColumnReader : public SelectiveColumnReader {
     return version_ != velox::dwrf::RleVersion_2;
   }
 
-  void seekToRowGroup(uint32_t index) override;
+  void seekToRowGroup(int64_t index) override;
   uint64_t skip(uint64_t numValues) override;
 
-  void read(vector_size_t offset, const RowSet& rows, const uint64_t* nulls)
-      override;
+  void read(int64_t offset, const RowSet& rows, const uint64_t* nulls) override;
 
   void getValues(const RowSet& rows, VectorPtr* result) override;
 

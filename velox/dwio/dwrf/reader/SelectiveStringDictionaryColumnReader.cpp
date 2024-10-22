@@ -199,7 +199,7 @@ void SelectiveStringDictionaryColumnReader::makeDictionaryBaseVector() {
 }
 
 void SelectiveStringDictionaryColumnReader::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<int32_t>(offset, rows, incomingNulls);

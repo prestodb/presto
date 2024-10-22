@@ -74,7 +74,7 @@ class DwrfData : public dwio::common::FormatData {
 
   /// Seeks possible flat map in map streams and nulls to the row group
   /// and returns a PositionsProvider for the other streams.
-  dwio::common::PositionProvider seekToRowGroup(uint32_t index) override;
+  dwio::common::PositionProvider seekToRowGroup(int64_t index) override;
 
   int64_t stripeRows() const {
     return stripeRows_;

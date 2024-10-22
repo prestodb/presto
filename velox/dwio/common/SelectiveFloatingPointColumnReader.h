@@ -41,10 +41,8 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
   }
 
   template <typename Reader, bool kEncodingHasNulls>
-  void readCommon(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls);
+  void
+  readCommon(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls);
 
   void getValues(const RowSet& rows, VectorPtr* result) override {
     getFlatValues<TData, TRequested>(rows, result, requestedType_);
@@ -174,7 +172,7 @@ void SelectiveFloatingPointColumnReader<TData, TRequested>::processValueHook(
 template <typename TData, typename TRequested>
 template <typename Reader, bool kEncodingHasNulls>
 void SelectiveFloatingPointColumnReader<TData, TRequested>::readCommon(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<TData>(offset, rows, incomingNulls);

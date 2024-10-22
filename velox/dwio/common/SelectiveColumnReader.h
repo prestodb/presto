@@ -167,10 +167,8 @@ class SelectiveColumnReader {
   // relative to 'offset', so that row 0 is the 'offset'th row from
   // start of stripe. 'rows' is expected to stay constant
   // between this and the next call to read.
-  virtual void read(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls) = 0;
+  virtual void
+  read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls) = 0;
 
   virtual uint64_t skip(uint64_t numValues) {
     return formatData_->skip(numValues);
@@ -193,14 +191,14 @@ class SelectiveColumnReader {
 
   // Advances to 'offset', so that the next item to be read is the
   // offset-th from the start of stripe.
-  virtual void seekTo(vector_size_t offset, bool readsNullsOnly);
+  virtual void seekTo(int64_t offset, bool readsNullsOnly);
 
   /// Positions this at the start of 'index'th row group. Interpretation of
   /// 'index' depends on format. Clears counts of skipped enclosing struct nulls
   /// for formats where nulls are recorded at each nesting level, i.e. not
   /// rep-def.
-  virtual void seekToRowGroup(uint32_t index) {
-    VELOX_TRACE_HISTORY_PUSH("seekToRowGroup %u", index);
+  virtual void seekToRowGroup(int64_t index) {
+    VELOX_TRACE_HISTORY_PUSH("seekToRowGroup %" PRId64, index);
     numParentNulls_ = 0;
     parentNullsRecordedTo_ = 0;
   }
@@ -361,11 +359,11 @@ class SelectiveColumnReader {
     return readOffset_;
   }
 
-  void setReadOffset(vector_size_t readOffset) {
+  void setReadOffset(int64_t readOffset) {
     readOffset_ = readOffset;
   }
 
-  virtual void setReadOffsetRecursive(int32_t readOffset) {
+  virtual void setReadOffsetRecursive(int64_t readOffset) {
     setReadOffset(readOffset);
   }
 
@@ -448,7 +446,7 @@ class SelectiveColumnReader {
   /// level rows and represents all null parents at any enclosing level. 'nulls'
   /// is nullptr if there are no parent nulls.
   void addParentNulls(
-      int32_t firstRowInNulls,
+      int64_t firstRowInNulls,
       const uint64_t* nulls,
       const RowSet& rows);
 
@@ -456,8 +454,7 @@ class SelectiveColumnReader {
   // any level there are between top level row 'from' and 'to'. If
   // called many times, the 'from' of the next should be the 'to' of
   // the previous.
-  void
-  addSkippedParentNulls(vector_size_t from, vector_size_t to, int32_t numNulls);
+  void addSkippedParentNulls(int64_t from, int64_t to, int32_t numNulls);
 
   static constexpr int8_t kNoValueSize = -1;
   static constexpr uint32_t kRowGroupNotSet = ~0;
@@ -508,7 +505,7 @@ class SelectiveColumnReader {
  protected:
   template <typename T>
   void prepareRead(
-      vector_size_t offset,
+      int64_t offset,
       const RowSet& rows,
       const uint64_t* incomingNulls);
 
@@ -618,7 +615,7 @@ class SelectiveColumnReader {
 
   // Row number after last read row, relative to the ORC stripe or Parquet
   // Rowgroup start.
-  vector_size_t readOffset_ = 0;
+  int64_t readOffset_ = 0;
 
   // Number of parent nulls between 'readOffset_' and 'parentNullsRecordedTo_'.
   // When skipping, subtract the parent nulls from the skip distance because the

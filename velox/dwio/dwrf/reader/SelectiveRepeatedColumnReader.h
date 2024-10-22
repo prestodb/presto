@@ -37,7 +37,7 @@ class SelectiveListColumnReader
     child_->resetFilterCaches();
   }
 
-  void seekToRowGroup(uint32_t index) override {
+  void seekToRowGroup(int64_t index) override {
     dwio::common::SelectiveListColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
     length_->seekToRowGroup(positionsProvider);
@@ -71,7 +71,7 @@ class SelectiveMapColumnReader : public dwio::common::SelectiveMapColumnReader {
     elementReader_->resetFilterCaches();
   }
 
-  void seekToRowGroup(uint32_t index) override {
+  void seekToRowGroup(int64_t index) override {
     dwio::common::SelectiveMapColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
 

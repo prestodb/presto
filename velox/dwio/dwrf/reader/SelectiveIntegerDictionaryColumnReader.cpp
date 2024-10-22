@@ -72,7 +72,7 @@ uint64_t SelectiveIntegerDictionaryColumnReader::skip(uint64_t numValues) {
 }
 
 void SelectiveIntegerDictionaryColumnReader::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   VELOX_WIDTH_DISPATCH(

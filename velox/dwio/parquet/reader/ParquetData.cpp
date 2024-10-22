@@ -115,7 +115,7 @@ void ParquetData::enqueueRowGroup(
   streams_[index] = input.enqueue({chunkReadOffset, readSize}, &id);
 }
 
-dwio::common::PositionProvider ParquetData::seekToRowGroup(uint32_t index) {
+dwio::common::PositionProvider ParquetData::seekToRowGroup(int64_t index) {
   static std::vector<uint64_t> empty;
   VELOX_CHECK_LT(index, streams_.size());
   VELOX_CHECK(streams_[index], "Stream not enqueued for column");

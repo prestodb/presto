@@ -56,7 +56,7 @@ class SelectiveByteRleColumnReader
     }
   }
 
-  void seekToRowGroup(uint32_t index) override {
+  void seekToRowGroup(int64_t index) override {
     dwio::common::SelectiveByteRleColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
     if (boolRle_) {
@@ -78,10 +78,8 @@ class SelectiveByteRleColumnReader
     return numValues;
   }
 
-  void read(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls) override {
+  void read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls)
+      override {
     readCommon<SelectiveByteRleColumnReader, true>(offset, rows, incomingNulls);
     readOffset_ += rows.back() + 1;
   }

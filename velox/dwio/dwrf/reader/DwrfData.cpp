@@ -91,7 +91,7 @@ void DwrfData::ensureRowGroupIndex() {
   }
 }
 
-dwio::common::PositionProvider DwrfData::seekToRowGroup(uint32_t index) {
+dwio::common::PositionProvider DwrfData::seekToRowGroup(int64_t index) {
   ensureRowGroupIndex();
 
   positionsHolder_ = toPositionsInner(index_->entry(index));

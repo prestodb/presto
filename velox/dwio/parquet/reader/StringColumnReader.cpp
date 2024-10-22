@@ -32,7 +32,7 @@ uint64_t StringColumnReader::skip(uint64_t numValues) {
 }
 
 void StringColumnReader::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<folly::StringPiece>(offset, rows, incomingNulls);

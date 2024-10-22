@@ -40,9 +40,9 @@ class SelectiveStructColumnReaderBase
     VELOX_CHECK_EQ(fileType_->id(), fileType->id(), "working on the same node");
   }
 
-  void seekTo(vector_size_t offset, bool readsNullsOnly) override;
+  void seekTo(int64_t offset, bool readsNullsOnly) override;
 
-  void seekToRowGroup(uint32_t index) override {
+  void seekToRowGroup(int64_t index) override {
     dwio::common::SelectiveStructColumnReaderBase::seekToRowGroup(index);
     if (isTopLevel_ && !formatData_->hasNulls()) {
       readOffset_ = index * rowsPerRowGroup_;
@@ -61,7 +61,7 @@ class SelectiveStructColumnReaderBase
 
   /// Advance field reader to the row group closest to specified offset by
   /// calling seekToRowGroup.
-  void advanceFieldReader(SelectiveColumnReader* reader, vector_size_t offset)
+  void advanceFieldReader(SelectiveColumnReader* reader, int64_t offset)
       override {
     if (!reader->isTopLevel()) {
       return;

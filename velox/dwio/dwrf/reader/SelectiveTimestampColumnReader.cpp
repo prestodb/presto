@@ -57,7 +57,7 @@ uint64_t SelectiveTimestampColumnReader::skip(uint64_t numValues) {
   return numValues;
 }
 
-void SelectiveTimestampColumnReader::seekToRowGroup(uint32_t index) {
+void SelectiveTimestampColumnReader::seekToRowGroup(int64_t index) {
   SelectiveColumnReader::seekToRowGroup(index);
   auto positionsProvider = formatData_->seekToRowGroup(index);
   seconds_->seekToRowGroup(positionsProvider);
@@ -67,7 +67,7 @@ void SelectiveTimestampColumnReader::seekToRowGroup(uint32_t index) {
 }
 
 void SelectiveTimestampColumnReader::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<int64_t>(offset, rows, incomingNulls);

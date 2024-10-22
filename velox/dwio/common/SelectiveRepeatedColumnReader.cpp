@@ -218,7 +218,7 @@ uint64_t SelectiveListColumnReader::skip(uint64_t numValues) {
 }
 
 void SelectiveListColumnReader::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   // Catch up if the child is behind the length stream.
@@ -287,7 +287,7 @@ uint64_t SelectiveMapColumnReader::skip(uint64_t numValues) {
 }
 
 void SelectiveMapColumnReader::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   // Catch up if child readers are behind the length stream.

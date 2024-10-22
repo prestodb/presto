@@ -137,7 +137,7 @@ void MapColumnReader::enqueueRowGroup(
   enqueueChildren(this, index, input);
 }
 
-void MapColumnReader::seekToRowGroup(uint32_t index) {
+void MapColumnReader::seekToRowGroup(int64_t index) {
   SelectiveMapColumnReader::seekToRowGroup(index);
   readOffset_ = 0;
   childTargetReadOffset_ = 0;
@@ -183,7 +183,7 @@ void MapColumnReader::setLengthsFromRepDefs(PageReader& pageReader) {
 }
 
 void MapColumnReader::read(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   // The topmost list reader reads the repdefs for the left subtree.
@@ -242,7 +242,7 @@ void ListColumnReader::enqueueRowGroup(
   enqueueChildren(this, index, input);
 }
 
-void ListColumnReader::seekToRowGroup(uint32_t index) {
+void ListColumnReader::seekToRowGroup(int64_t index) {
   SelectiveListColumnReader::seekToRowGroup(index);
   readOffset_ = 0;
   childTargetReadOffset_ = 0;
@@ -286,8 +286,7 @@ void ListColumnReader::setLengthsFromRepDefs(PageReader& pageReader) {
   setLengths(std::move(lengths));
 }
 void ListColumnReader::read(
-    vector_size_t offset,
-
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   // The topmost list reader reads the repdefs for the left subtree.

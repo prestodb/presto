@@ -5192,3 +5192,24 @@ TEST_F(TableScanTest, rowNumberInRemainingFilter) {
       .split(makeHiveConnectorSplit(file->getPath()))
       .assertResults(expected);
 }
+
+TEST_F(TableScanTest, hugeStripe) {
+  CursorParameters params;
+  params.planNode =
+      PlanBuilder()
+          .tableScan(ROW({}, {}), {"c0 IS NULL"}, "", ROW({"c0"}, {TINYINT()}))
+          .planNode();
+  params.copyResult = false;
+  auto cursor = TaskCursor::create(params);
+  auto path = facebook::velox::test::getDataFilePath(
+      "velox/exec/tests", "data/many-nulls.dwrf");
+  cursor->task()->addSplit("0", makeHiveSplit(path));
+  cursor->task()->noMoreSplits("0");
+  int64_t numRows = 0;
+  while (cursor->moveNext()) {
+    auto& vector = cursor->current();
+    ASSERT_EQ(vector->childrenSize(), 0);
+    numRows += vector->size();
+  }
+  ASSERT_EQ(numRows, 4'294'980'000);
+}

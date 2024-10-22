@@ -63,10 +63,8 @@ class SelectiveByteRleColumnReader : public SelectiveColumnReader {
       ExtractValues extractValues);
 
   template <typename Reader, bool kEncodingHasNulls>
-  void readCommon(
-      vector_size_t offset,
-      const RowSet& rows,
-      const uint64_t* incomingNulls);
+  void
+  readCommon(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls);
 };
 
 template <
@@ -163,7 +161,7 @@ void SelectiveByteRleColumnReader::processValueHook(
 
 template <typename Reader, bool kEncodingHasNulls>
 void SelectiveByteRleColumnReader::readCommon(
-    vector_size_t offset,
+    int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
   prepareRead<int8_t>(offset, rows, incomingNulls);
