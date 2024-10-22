@@ -1189,6 +1189,52 @@ TEST_P(MultiThreadedHashJoinTest, filter) {
       .run();
 }
 
+DEBUG_ONLY_TEST_P(MultiThreadedHashJoinTest, filterSpillOnFirstProbeInput) {
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+  std::atomic_bool injectProbeSpillOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::getOutput",
+      std::function<void(Operator*)>([&](Operator* op) {
+        if (!isHashProbeMemoryPool(*op->pool())) {
+          return;
+        }
+        HashProbe* probeOp = static_cast<HashProbe*>(op);
+        if (!probeOp->testingHasPendingInput()) {
+          return;
+        }
+        if (!injectProbeSpillOnce.exchange(false)) {
+          return;
+        }
+        testingRunArbitration(op->pool());
+        ASSERT_EQ(op->pool()->usedBytes(), 0);
+        ASSERT_EQ(op->pool()->reservedBytes(), 0);
+      }));
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .numDrivers(numDrivers_)
+      .keyTypes({BIGINT()})
+      .numDrivers(1)
+      .probeVectors(1600, 5)
+      .buildVectors(1500, 5)
+      .injectSpill(false)
+      .spillDirectory(spillDirectory->getPath())
+      .joinFilter("((t_k0 % 100) + (u_k0 % 100)) % 40 < 20")
+      .referenceQuery(
+          "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t_k0 = u_k0 AND ((t_k0 % 100) + (u_k0 % 100)) % 40 < 20")
+      .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+        const auto statsPair = taskSpilledStats(*task);
+        ASSERT_EQ(statsPair.first.spilledRows, 0);
+        ASSERT_EQ(statsPair.first.spilledBytes, 0);
+        ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+        ASSERT_EQ(statsPair.first.spilledFiles, 0);
+        ASSERT_GT(statsPair.second.spilledRows, 0);
+        ASSERT_GT(statsPair.second.spilledBytes, 0);
+        ASSERT_GT(statsPair.second.spilledPartitions, 0);
+        ASSERT_GT(statsPair.second.spilledFiles, 0);
+      })
+      .run();
+}
+
 TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithNull) {
   struct {
     double probeNullRatio;
@@ -7518,7 +7564,6 @@ DEBUG_ONLY_TEST_F(HashJoinTest, taskWaitTimeout) {
 
   for (uint64_t timeoutMs : {1'000, 30'000}) {
     SCOPED_TRACE(fmt::format("timeout {}", succinctMillis(timeoutMs)));
-    LOG(ERROR) << "timeout " << succinctMillis(timeoutMs);
     auto memoryManager = createMemoryManager(512 << 20, 0, timeoutMs);
     auto queryCtx =
         newQueryCtx(memoryManager.get(), executor_.get(), queryMemoryCapacity);

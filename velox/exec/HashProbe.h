@@ -76,6 +76,10 @@ class HashProbe : public Operator {
     return exceededMaxSpillLevelLimit_;
   }
 
+  bool testingHasPendingInput() const {
+    return input_ != nullptr;
+  }
+
  private:
   // Indicates if the join type includes misses from the left side in the
   // output.

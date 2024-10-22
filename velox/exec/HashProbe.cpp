@@ -1931,6 +1931,16 @@ void HashProbe::clearBuffers() {
   output_.reset();
   nonSpillInputIndicesBuffer_.reset();
   spillInputIndicesBuffers_.clear();
+  if (filter_ == nullptr) {
+    return;
+  }
+  filterResult_.clear();
+  filterResult_.resize(1);
+  filterTableInput_.reset();
+  filterTableResult_.clear();
+  filterTableResult_.resize(1);
+  operatorCtx_->execCtx()->vectorPool()->clear();
+  filter_->clearCache();
 }
 
 } // namespace facebook::velox::exec
