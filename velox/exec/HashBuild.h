@@ -26,15 +26,15 @@
 
 namespace facebook::velox::exec {
 
-// Builds a hash table for use in HashProbe. This is the final
-// Operator in a build side Driver. The build side pipeline has
-// multiple Drivers, each with its own HashBuild. The build finishes
-// when the last Driver of the build pipeline finishes. Hence finishHashBuild()
-// has a barrier where the last one to enter gathers the data
-// accumulated by the other Drivers and makes the join hash
-// table. This table is then passed to the probe side pipeline via
-// JoinBridge. After this, all build side Drivers finish and free
-// their state.
+/// Builds a hash table for use in HashProbe. This is the final
+/// Operator in a build side Driver. The build side pipeline has
+/// multiple Drivers, each with its own HashBuild. The build finishes
+/// when the last Driver of the build pipeline finishes. Hence finishHashBuild()
+/// has a barrier where the last one to enter gathers the data
+/// accumulated by the other Drivers and makes the join hash
+/// table. This table is then passed to the probe side pipeline via
+/// JoinBridge. After this, all build side Drivers finish and free
+/// their state.
 class HashBuild final : public Operator {
  public:
   /// Define the internal execution state for hash build.

@@ -270,7 +270,7 @@ void HashProbe::maybeSetupInputSpiller(
   // spill input, then we shall just finish the spiller and records the spilled
   // partition set accordingly.
   if (noMoreSpillInput_) {
-    inputSpiller_->finishSpill(spillPartitionSet_);
+    inputSpiller_->finishSpill(inputSpillPartitionSet_);
   }
 }
 
@@ -283,13 +283,13 @@ void HashProbe::maybeSetupSpillInputReader(
   // If 'restoredPartitionId' is not null, then 'table_' is built from the
   // spilled build data. Create an unsorted reader to read the probe inputs from
   // the corresponding spilled probe partition on disk.
-  auto iter = spillPartitionSet_.find(restoredPartitionId.value());
-  VELOX_CHECK(iter != spillPartitionSet_.end());
+  auto iter = inputSpillPartitionSet_.find(restoredPartitionId.value());
+  VELOX_CHECK(iter != inputSpillPartitionSet_.end());
   auto partition = std::move(iter->second);
   VELOX_CHECK_EQ(partition->id(), restoredPartitionId.value());
   spillInputReader_ = partition->createUnorderedReader(
       spillConfig_->readBufferSize, pool(), &spillStats_);
-  spillPartitionSet_.erase(iter);
+  inputSpillPartitionSet_.erase(iter);
 }
 
 void HashProbe::initializeResultIter() {
@@ -337,7 +337,7 @@ void HashProbe::asyncWaitForHashTable() {
       // Null-aware anti join with null keys on the build side without a filter
       // always returns nothing.
       // The flag must be set on the first (and only) built 'table_'.
-      VELOX_CHECK(spillPartitionSet_.empty());
+      VELOX_CHECK(inputSpillPartitionSet_.empty());
       noMoreInput();
       return;
     }
@@ -351,11 +351,11 @@ void HashProbe::asyncWaitForHashTable() {
 
   maybeSetupSpillInputReader(hashBuildResult->restoredPartitionId);
   maybeSetupInputSpiller(hashBuildResult->spillPartitionIds);
-  prepareTableSpill(hashBuildResult->restoredPartitionId);
+  checkMaxSpillLevel(hashBuildResult->restoredPartitionId);
 
   if (table_->numDistinct() == 0) {
     if (skipProbeOnEmptyBuild()) {
-      if (!needSpillInput()) {
+      if (!needToSpillInput()) {
         if (isSpillInput() ||
             operatorCtx_->driverCtx()
                 ->queryConfig()
@@ -467,7 +467,7 @@ void HashProbe::addSpillInput() {
 }
 
 void HashProbe::spillInput(RowVectorPtr& input) {
-  VELOX_CHECK(needSpillInput());
+  VELOX_CHECK(needToSpillInput());
 
   const auto numInput = input->size();
   prepareInputIndicesBuffers(
@@ -622,7 +622,7 @@ void HashProbe::addInput(RowVectorPtr input) {
 
   bool hasDecoded = false;
 
-  if (needSpillInput()) {
+  if (needToSpillInput()) {
     if (isRightSemiProjectJoin(joinType_) && !probeSideHasNullKeys_) {
       decodeAndDetectNonNullKeys();
       hasDecoded = true;
@@ -637,7 +637,7 @@ void HashProbe::addInput(RowVectorPtr input) {
 
   if (table_->numDistinct() == 0) {
     if (skipProbeOnEmptyBuild()) {
-      VELOX_CHECK(needSpillInput());
+      VELOX_CHECK(needToSpillInput());
       input_ = nullptr;
       return;
     }
@@ -882,11 +882,11 @@ bool HashProbe::canSpill() const {
 }
 
 bool HashProbe::hasMoreSpillData() const {
-  VELOX_CHECK(spillPartitionSet_.empty() || canSpill());
-  return !spillPartitionSet_.empty() || needSpillInput();
+  VELOX_CHECK(inputSpillPartitionSet_.empty() || canSpill());
+  return !inputSpillPartitionSet_.empty() || needToSpillInput();
 }
 
-bool HashProbe::needSpillInput() const {
+bool HashProbe::needToSpillInput() const {
   VELOX_CHECK(spillInputPartitionIds_.empty() || canSpill());
   VELOX_CHECK_EQ(spillInputPartitionIds_.empty(), inputSpiller_ == nullptr);
 
@@ -1573,7 +1573,7 @@ void HashProbe::noMoreInputInternal() {
     VELOX_CHECK_EQ(
         spillInputPartitionIds_.size(),
         inputSpiller_->spilledPartitionSet().size());
-    inputSpiller_->finishSpill(spillPartitionSet_);
+    inputSpiller_->finishSpill(inputSpillPartitionSet_);
     VELOX_CHECK_EQ(spillStats_.rlock()->spillSortTimeNanos, 0);
   }
 
@@ -1750,7 +1750,8 @@ void HashProbe::reclaim(
   if (hasMoreProbeInput) {
     // Only spill hash table if any hash probe operators still has input probe
     // data, otherwise we skip this step.
-    spillPartitionSet = spillTable();
+    spillPartitionSet = spillHashJoinTable(
+        table_, tableSpillHashBits_, joinNode_, spillConfig(), &spillStats_);
     VELOX_CHECK(!spillPartitionSet.empty());
   }
   const auto spillPartitionIdSet = toSpillPartitionIdSet(spillPartitionSet);
@@ -1881,82 +1882,7 @@ void HashProbe::maybeSetupSpillOutputReader() {
   spillOutputPartitionSet_.clear();
 }
 
-SpillPartitionSet HashProbe::spillTable() {
-  struct SpillResult {
-    std::unique_ptr<Spiller> spiller{nullptr};
-    const std::exception_ptr error{nullptr};
-
-    explicit SpillResult(std::exception_ptr _error) : error(_error) {}
-    explicit SpillResult(std::unique_ptr<Spiller> _spiller)
-        : spiller(std::move(_spiller)) {}
-  };
-
-  const std::vector<RowContainer*> rowContainers = table_->allRows();
-  std::vector<std::shared_ptr<AsyncSource<SpillResult>>> spillTasks;
-  auto* spillExecutor = spillConfig()->executor;
-  for (auto* rowContainer : rowContainers) {
-    if (rowContainer->numRows() == 0) {
-      continue;
-    }
-    spillTasks.push_back(memory::createAsyncMemoryReclaimTask<SpillResult>(
-        [this, rowContainer]() {
-          try {
-            return std::make_unique<SpillResult>(spillTable(rowContainer));
-          } catch (const std::exception& e) {
-            LOG(ERROR) << "Spill sub-table from hash probe pool "
-                       << pool()->name() << " failed: " << e.what();
-            // The exception is captured and thrown by the caller.
-            return std::make_unique<SpillResult>(std::current_exception());
-          }
-        }));
-    if ((spillTasks.size() > 1) && (spillExecutor != nullptr)) {
-      spillExecutor->add([source = spillTasks.back()]() { source->prepare(); });
-    }
-  }
-
-  auto syncGuard = folly::makeGuard([&]() {
-    for (auto& spillTask : spillTasks) {
-      // We consume the result for the pending tasks. This is a cleanup in the
-      // guard and must not throw. The first error is already captured before
-      // this runs.
-      try {
-        spillTask->move();
-      } catch (const std::exception&) {
-      }
-    }
-  });
-
-  SpillPartitionSet spillPartitions;
-  for (auto& spillTask : spillTasks) {
-    const auto result = spillTask->move();
-    if (result->error) {
-      std::rethrow_exception(result->error);
-    }
-    result->spiller->finishSpill(spillPartitions);
-  }
-
-  // Remove the spilled partitions which are empty so as we don't need to
-  // trigger unnecessary spilling at hash probe side.
-  removeEmptyPartitions(spillPartitions);
-  return spillPartitions;
-}
-
-std::unique_ptr<Spiller> HashProbe::spillTable(RowContainer* subTableRows) {
-  VELOX_CHECK_NOT_NULL(tableSpillType_);
-
-  auto tableSpiller = std::make_unique<Spiller>(
-      Spiller::Type::kHashJoinBuild,
-      joinType_,
-      subTableRows,
-      tableSpillType_,
-      std::move(tableSpillHashBits_),
-      spillConfig(),
-      &spillStats_);
-  tableSpiller->spill();
-  return tableSpiller;
-}
-
-void HashProbe::prepareTableSpill(
+void HashProbe::checkMaxSpillLevel(
     const std::optional<SpillPartitionId>& restoredPartitionId) {
   if (!canSpill()) {
     return;
@@ -1980,40 +1906,8 @@ void HashProbe::prepareTableSpill(
     }
   }
   exceededMaxSpillLevelLimit_ = false;
-
   tableSpillHashBits_ = HashBitRange(
       startPartitionBit, startPartitionBit + config->numPartitionBits);
-
-  // NOTE: we only need to init 'tableSpillType_' once.
-  if (tableSpillType_ != nullptr) {
-    return;
-  }
-
-  const auto& tableInputType = joinNode_->sources()[1]->outputType();
-  std::vector<std::string> names;
-  names.reserve(tableInputType->size());
-  std::vector<TypePtr> types;
-  types.reserve(tableInputType->size());
-  const auto numKeys = joinNode_->rightKeys().size();
-
-  // Identify the non-key build side columns.
-  folly::F14FastMap<column_index_t, column_index_t> keyChannelMap;
-  for (int i = 0; i < numKeys; ++i) {
-    const auto& key = joinNode_->rightKeys()[i];
-    const auto channel = exprToChannel(key.get(), tableInputType);
-    keyChannelMap[channel] = i;
-    names.emplace_back(tableInputType->nameOf(channel));
-    types.emplace_back(tableInputType->childAt(channel));
-  }
-  const auto numDependents = tableInputType->size() - numKeys;
-  for (auto i = 0; i < tableInputType->size(); ++i) {
-    if (keyChannelMap.find(i) == keyChannelMap.end()) {
-      names.emplace_back(tableInputType->nameOf(i));
-      types.emplace_back(tableInputType->childAt(i));
-    }
-  }
-  tableSpillType_ = hashJoinTableSpillType(
-      ROW(std::move(names), std::move(types)), joinType_);
 }
 
 void HashProbe::close() {

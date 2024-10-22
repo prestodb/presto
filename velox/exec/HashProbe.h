@@ -201,9 +201,9 @@ class HashProbe : public Operator {
   void maybeSetupSpillInputReader(
       const std::optional<SpillPartitionId>& restoredSpillPartitionId);
 
-  // Prepares the table spill by checking the spill level limit, setting spill
-  // partition bits and table spill type.
-  void prepareTableSpill(
+  // Checks the hash table's spill level limit from the restored table. Sets the
+  // 'exceededMaxSpillLevelLimit_' accordingly.
+  void checkMaxSpillLevel(
       const std::optional<SpillPartitionId>& restoredPartitionId);
 
   bool canSpill() const override;
@@ -218,7 +218,7 @@ class HashProbe : public Operator {
   // Indicates if the operator needs to spill probe inputs. It is true if parts
   // of the build-side rows have been spilled. Hence, the probe operator needs
   // to spill the corresponding probe-side rows as well.
-  bool needSpillInput() const;
+  bool needToSpillInput() const;
 
   // This ensures there is sufficient buffer reserved to produce the next output
   // batch. This might trigger memory arbitration underneath and the probe
@@ -251,14 +251,6 @@ class HashProbe : public Operator {
   void spillOutput(const std::vector<HashProbe*>& operators);
   // Produces and spills output from this probe operator.
   void spillOutput();
-
-  // Spills the composed 'table_' from the built side.
-  SpillPartitionSet spillTable();
-  // Spills the row container from one of the sub-table from 'table_' to
-  // parallelize the table spilling. The function spills all the rows from the
-  // row container and returns the spiller for the caller to collect the spilled
-  // partitions and stats.
-  std::unique_ptr<Spiller> spillTable(RowContainer* subTableRows);
 
   // Invoked to spill rows in 'input' to disk directly if the corresponding
   // partitions have been spilled at the build side.
@@ -300,7 +292,7 @@ class HashProbe : public Operator {
   // restore. Also note that the spilled partition at build side must not be
   // empty.
   bool emptyBuildSide() const {
-    return table_->numDistinct() == 0 && spillPartitionSet_.empty() &&
+    return table_->numDistinct() == 0 && inputSpillPartitionSet_.empty() &&
         spillInputPartitionIds_.empty();
   }
 
@@ -373,8 +365,8 @@ class HashProbe : public Operator {
 
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
 
-  // Table shared between other HashProbes in other Drivers of the same
-  // pipeline.
+  // Current working hash table that is shared between other HashProbes in other
+  // Drivers of the same pipeline.
   std::shared_ptr<BaseHashTable> table_;
 
   // Indicates whether there was no input. Used for right semi join project.
@@ -624,8 +616,6 @@ class HashProbe : public Operator {
 
   // The partition bits used to spill the hash table.
   HashBitRange tableSpillHashBits_;
-  // The row type used to spill hash table on disk.
-  RowTypePtr tableSpillType_;
 
   // The spilled output partition set which is cleared after setup
   // 'spillOutputReader_'.
@@ -668,7 +658,7 @@ class HashProbe : public Operator {
   bool noMoreSpillInput_{false};
 
   // The spilled probe partitions remaining to restore.
-  SpillPartitionSet spillPartitionSet_;
+  SpillPartitionSet inputSpillPartitionSet_;
 };
 
 inline std::ostream& operator<<(std::ostream& os, ProbeOperatorState state) {

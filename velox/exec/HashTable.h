@@ -342,8 +342,8 @@ class BaseHashTable {
       int8_t spillInputStartPartitionBit,
       bool disableRangeArrayHash = false) = 0;
 
-  // Removes 'rows' from the hash table and its RowContainer. 'rows' must exist
-  // and be unique.
+  /// Removes 'rows' from the hash table and its RowContainer. 'rows' must exist
+  /// and be unique.
   virtual void erase(folly::Range<char**> rows) = 0;
 
   /// Returns a brief description for use in debugging.

@@ -77,18 +77,12 @@ HashBuild::HashBuild(
 
   const auto numKeys = joinNode_->rightKeys().size();
   keyChannels_.reserve(numKeys);
-  std::vector<std::string> names;
-  names.reserve(inputType->size());
-  std::vector<TypePtr> types;
-  types.reserve(inputType->size());
 
   for (int i = 0; i < numKeys; ++i) {
     auto& key = joinNode_->rightKeys()[i];
     auto channel = exprToChannel(key.get(), inputType);
     keyChannelMap_[channel] = i;
     keyChannels_.emplace_back(channel);
-    names.emplace_back(inputType->nameOf(channel));
-    types.emplace_back(inputType->childAt(channel));
   }
 
   // Identify the non-key build side columns and make a decoder for each.
@@ -106,12 +100,10 @@ HashBuild::HashBuild(
     if (keyChannelMap_.find(i) == keyChannelMap_.end()) {
       dependentChannels_.emplace_back(i);
       decoders_.emplace_back(std::make_unique<DecodedVector>());
-      names.emplace_back(inputType->nameOf(i));
-      types.emplace_back(inputType->childAt(i));
     }
   }
 
-  tableType_ = ROW(std::move(names), std::move(types));
+  tableType_ = hashJoinTableType(joinNode_);
   setupTable();
   setupSpiller();
   stateCleared_ = false;
@@ -1053,13 +1045,13 @@ void HashBuild::reclaim(
   VELOX_CHECK_NOT_NULL(driver);
   VELOX_CHECK(!nonReclaimableSection_);
 
+  const auto* config = spillConfig();
+  VELOX_CHECK_NOT_NULL(config);
   if (UNLIKELY(exceededMaxSpillLevelLimit_)) {
     // 'canReclaim()' already checks the spill limit is not exceeding max, there
     // is only a small chance from the time 'canReclaim()' is checked to the
     // actual reclaim happens that the operator has spilled such that the spill
     // level exceeds max.
-    const auto* config = spillConfig();
-    VELOX_CHECK_NOT_NULL(config);
     LOG(WARNING)
         << "Can't reclaim from hash build operator, exceeded maximum spill "
            "level of "
@@ -1089,6 +1081,7 @@ void HashBuild::reclaim(
   VELOX_CHECK(task->pauseRequested());
   const std::vector<Operator*> operators =
       task->findPeerOperators(operatorCtx_->driverCtx()->pipelineId, this);
+
   for (auto* op : operators) {
     HashBuild* buildOp = dynamic_cast<HashBuild*>(op);
     VELOX_CHECK_NOT_NULL(buildOp);
@@ -1106,53 +1099,18 @@ void HashBuild::reclaim(
     }
   }
 
-  struct SpillResult {
-    const std::exception_ptr error{nullptr};
-
-    explicit SpillResult(std::exception_ptr _error) : error(_error) {}
-  };
-
-  std::vector<std::shared_ptr<AsyncSource<SpillResult>>> spillTasks;
-  auto* spillExecutor = spillConfig()->executor;
+  std::vector<Spiller*> spillers;
   for (auto* op : operators) {
     HashBuild* buildOp = static_cast<HashBuild*>(op);
-    spillTasks.push_back(
-        memory::createAsyncMemoryReclaimTask<SpillResult>([buildOp]() {
-          try {
-            buildOp->spiller_->spill();
-            buildOp->table_->clear(true);
-            // Release the minimum reserved memory.
-            buildOp->pool()->release();
-            return std::make_unique<SpillResult>(nullptr);
-          } catch (const std::exception& e) {
-            LOG(ERROR) << "Spill from hash build pool "
-                       << buildOp->pool()->name() << " failed: " << e.what();
-            // The exception is captured and thrown by the caller.
-            return std::make_unique<SpillResult>(std::current_exception());
-          }
-        }));
-    if ((operators.size() > 1) && (spillExecutor != nullptr)) {
-      spillExecutor->add([source = spillTasks.back()]() { source->prepare(); });
-    }
+    spillers.push_back(buildOp->spiller_.get());
   }
 
-  auto syncGuard = folly::makeGuard([&]() {
-    for (auto& spillTask : spillTasks) {
-      // We consume the result for the pending tasks. This is a cleanup in the
-      // guard and must not throw. The first error is already captured before
-      // this runs.
-      try {
-        spillTask->move();
-      } catch (const std::exception&) {
-      }
-    }
-  });
+  spillHashJoinTable(spillers, config);
 
-  for (auto& spillTask : spillTasks) {
-    const auto result = spillTask->move();
-    if (result->error) {
-      std::rethrow_exception(result->error);
-    }
+  for (auto* op : operators) {
+    HashBuild* buildOp = static_cast<HashBuild*>(op);
+    buildOp->table_->clear(true);
+    buildOp->pool()->release();
   }
 }
 

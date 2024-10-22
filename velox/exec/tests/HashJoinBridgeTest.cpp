@@ -586,6 +586,90 @@ TEST(HashJoinBridgeTest, needRightSideJoin) {
   }
 }
 
+TEST_P(HashJoinBridgeTest, hashJoinTableType) {
+  core::TypedExprPtr filter{
+      std::make_shared<core::ConstantTypedExpr>(BOOLEAN(), true)};
+  struct TestSetting {
+    core::JoinType joinType;
+    RowTypePtr probeKeyType;
+    RowTypePtr buildKeyType;
+    RowTypePtr probeSourceType;
+    RowTypePtr buildSourceType;
+    std::string debugString() const {
+      return fmt::format(
+          "joinType {} probeKeyType {} buildKeyType {} probeSourceType {} buildSourceType {}",
+          joinType,
+          probeKeyType->toString(),
+          buildKeyType->toString(),
+          buildSourceType->toString(),
+          probeSourceType->toString());
+    }
+  };
+  std::vector<TestSetting> testSettings{
+      {core::JoinType::kInner,
+       ROW({"p0"}, {BIGINT()}),
+       ROW({"b0"}, {BIGINT()}),
+       ROW({"p0", "p1"}, {BIGINT(), BIGINT()}),
+       ROW({"b0", "b1"}, {BIGINT(), BIGINT()})},
+      {core::JoinType::kRight,
+       ROW({"p1", "p0"}, {BIGINT(), BIGINT()}),
+       ROW({"b1", "b0"}, {BIGINT(), BIGINT()}),
+       ROW({"p0", "p1"}, {BIGINT(), BIGINT()}),
+       ROW({"b0", "b1"}, {BIGINT(), BIGINT()})},
+      {core::JoinType::kLeft,
+       ROW({"p1"}, {BIGINT()}),
+       ROW({"b1"}, {BIGINT()}),
+       ROW({"p0", "p1"}, {BIGINT(), BIGINT()}),
+       ROW({"b0", "b1"}, {BIGINT(), BIGINT()})}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const auto emptyBuildVector = {std::make_shared<RowVector>(
+        pool_.get(),
+        testData.buildSourceType,
+        nullptr, // nulls
+        0,
+        std::vector<VectorPtr>{})};
+    const auto buildValueNode =
+        std::make_shared<core::ValuesNode>("buildValueNode", emptyBuildVector);
+
+    const auto emptyProbeVectors = {std::make_shared<RowVector>(
+        pool_.get(),
+        testData.probeSourceType,
+        nullptr, // nulls
+        0,
+        std::vector<VectorPtr>{})};
+    const auto probeValueNode =
+        std::make_shared<core::ValuesNode>("probeValueNode", emptyProbeVectors);
+
+    std::vector<core::FieldAccessTypedExprPtr> buildKeys;
+    std::vector<core::FieldAccessTypedExprPtr> probeKeys;
+    for (uint32_t i = 0; i < testData.buildKeyType->size(); i++) {
+      buildKeys.push_back(std::make_shared<core::FieldAccessTypedExpr>(
+          testData.buildKeyType->childAt(i), testData.buildKeyType->nameOf(i)));
+    }
+    for (uint32_t i = 0; i < testData.probeKeyType->size(); i++) {
+      probeKeys.push_back(std::make_shared<core::FieldAccessTypedExpr>(
+          testData.probeKeyType->childAt(i), testData.probeKeyType->nameOf(i)));
+    }
+    const auto joinNode = std::make_shared<core::HashJoinNode>(
+        "join-bridge-test",
+        testData.joinType,
+        false,
+        probeKeys,
+        buildKeys,
+        filter,
+        probeValueNode,
+        buildValueNode,
+        ROW({}));
+
+    auto tableType = hashJoinTableType(joinNode);
+    ASSERT_EQ(tableType->size(), testData.buildSourceType->size());
+    for (uint32_t i = 0; i < buildKeys.size(); i++) {
+      ASSERT_EQ(tableType->childAt(i), testData.buildKeyType->childAt(i));
+    }
+  }
+}
+
 TEST(HashJoinBridgeTest, hashJoinTableSpillType) {
   const RowTypePtr tableType = ROW({"k1", "k2"}, {BIGINT(), BIGINT()});
   const RowTypePtr spillTypeWithProbedFlag =

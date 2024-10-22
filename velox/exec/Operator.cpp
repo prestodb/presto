@@ -486,9 +486,8 @@ column_index_t exprToChannel(
   if (dynamic_cast<const core::ConstantTypedExpr*>(expr)) {
     return kConstantChannel;
   }
-  VELOX_FAIL(
+  VELOX_UNREACHABLE(
       "Expression must be field access or constant, got: {}", expr->toString());
-  return 0; // not reached.
 }
 
 std::vector<column_index_t> calculateOutputChannels(
