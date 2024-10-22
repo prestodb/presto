@@ -298,6 +298,7 @@ public class FeaturesConfig
 
     private boolean eagerPlanValidationEnabled;
     private int eagerPlanValidationThreadPoolSize = 20;
+    private boolean printWarningsForExplainIo;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2997,5 +2998,18 @@ public class FeaturesConfig
     public int getEagerPlanValidationThreadPoolSize()
     {
         return this.eagerPlanValidationThreadPoolSize;
+    }
+
+    public boolean isPrintWarningsForExplainIo()
+    {
+        return printWarningsForExplainIo;
+    }
+
+    @Config("print-warnings-for-explain-io")
+    @ConfigDescription("Whether to print warnings in the output for EXPLAIN(TYPE IO)")
+    public FeaturesConfig setPrintWarningsForExplainIo(boolean printWarningsForExplainIo)
+    {
+        this.printWarningsForExplainIo = printWarningsForExplainIo;
+        return this;
     }
 }

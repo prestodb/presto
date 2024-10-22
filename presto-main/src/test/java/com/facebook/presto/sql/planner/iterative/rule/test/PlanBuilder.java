@@ -876,6 +876,18 @@ public class PlanBuilder
         return new ExceptNode(Optional.empty(), idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping);
     }
 
+    public TableFinishNode tableFinish(TableWriterNode.WriterTarget writerTarget, PlanNode source)
+    {
+        return new TableFinishNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                source,
+                Optional.of(writerTarget),
+                new VariableReferenceExpression(Optional.empty(), "rowCountVariable", BIGINT),
+                Optional.empty(),
+                Optional.empty());
+    }
+
     public TableWriterNode tableWriter(List<VariableReferenceExpression> columns, List<String> columnNames, PlanNode source)
     {
         return new TableWriterNode(

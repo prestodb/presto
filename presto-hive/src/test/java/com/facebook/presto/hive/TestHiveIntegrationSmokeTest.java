@@ -29,6 +29,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -91,6 +92,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATE
 import static com.facebook.presto.SystemSessionProperties.LOG_INVOKED_FUNCTION_NAMES_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
+import static com.facebook.presto.SystemSessionProperties.PRINT_WARNINGS_FOR_EXPLAIN_IO;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -133,6 +135,7 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
+import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
@@ -321,7 +324,8 @@ public class TestHiveIntegrationSmokeTest
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
                                 expectedConstraints.build())),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders")),
+                        ImmutableList.of()));
 
         assertUpdate("DROP TABLE test_orders");
 
@@ -346,9 +350,58 @@ public class TestHiveIntegrationSmokeTest
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
                                 expectedConstraints.build())),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders")),
+                        ImmutableList.of()));
 
         assertUpdate("DROP TABLE test_orders");
+    }
+
+    @Test
+    public void testIOExplainWithWarningsEnabled()
+    {
+        MaterializedResult result = computeActual(
+                Session.builder(getSession()).setSystemProperty(PRINT_WARNINGS_FOR_EXPLAIN_IO, "true").build(),
+                "EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM (SELECT * FROM orders ORDER BY orderkey) ORDER BY custkey");
+        assertEquals(
+                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IOPlan(
+                        ImmutableSet.of(new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "orders"),
+                                ImmutableSet.of())),
+                        Optional.empty(),
+                        ImmutableList.of(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"))));
+    }
+
+    @Test
+    public void testIOExplainWithWarningsDisabled()
+    {
+        MaterializedResult result = computeActual(
+                Session.builder(getSession()).setSystemProperty(PRINT_WARNINGS_FOR_EXPLAIN_IO, "false").build(),
+                "EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM (SELECT * FROM orders ORDER BY orderkey) ORDER BY custkey");
+        assertEquals(
+                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IOPlan(
+                        ImmutableSet.of(new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "orders"),
+                                ImmutableSet.of())),
+                        Optional.empty(),
+                        ImmutableList.of()));
+    }
+
+    @Test
+    public void testIOExplainWithEmptyWarnings()
+    {
+        MaterializedResult result = computeActual(
+                Session.builder(getSession()).setSystemProperty(PRINT_WARNINGS_FOR_EXPLAIN_IO, "true").build(),
+                "EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM orders ORDER BY custkey");
+        assertEquals(
+                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IOPlan(
+                        ImmutableSet.of(new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "orders"),
+                                ImmutableSet.of())),
+                        Optional.empty(),
+                        ImmutableList.of()));
     }
 
     @Test

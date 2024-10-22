@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -81,6 +82,6 @@ public class TestDistributedQueriesIndexed
 
         assertEquals(
                 jsonCodec(IOPlanPrinter.IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IOPlanPrinter.IOPlan(ImmutableSet.of(lineitem, orders), Optional.empty()));
+                new IOPlanPrinter.IOPlan(ImmutableSet.of(lineitem, orders), Optional.empty(), ImmutableList.of()));
     }
 }

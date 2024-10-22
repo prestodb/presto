@@ -31,8 +31,10 @@ import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -41,18 +43,22 @@ import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.IOPlanBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.isPrintWarningsForExplainIOEnabled;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -65,21 +71,26 @@ public class IOPlanPrinter
 {
     private final Metadata metadata;
     private final Session session;
+    private final WarningCollector warningCollector;
 
-    private IOPlanPrinter(Metadata metadata, Session session)
+    private IOPlanPrinter(Metadata metadata, Session session, WarningCollector warningCollector)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
-    public static String textIOPlan(PlanNode plan, Metadata metadata, Session session)
+    public static String textIOPlan(PlanNode plan, Metadata metadata, Session session, WarningCollector warningCollector)
     {
-        return new IOPlanPrinter(metadata, session).print(plan);
+        return new IOPlanPrinter(metadata, session, warningCollector).print(plan);
     }
 
     private String print(PlanNode plan)
     {
         IOPlanBuilder ioPlanBuilder = new IOPlanBuilder();
+        if (isPrintWarningsForExplainIOEnabled(session)) {
+            ioPlanBuilder.setWarnings(warningCollector.getWarnings());
+        }
         plan.accept(new IOPlanVisitor(), ioPlanBuilder);
         return jsonCodec(IOPlan.class).toJson(ioPlanBuilder.build());
     }
@@ -88,14 +99,18 @@ public class IOPlanPrinter
     {
         private final Set<TableColumnInfo> inputTableColumnInfos;
         private final Optional<CatalogSchemaTableName> outputTable;
+        private final List<PrestoWarning> warnings;
 
         @JsonCreator
         public IOPlan(
                 @JsonProperty("inputTableColumnInfos") Set<TableColumnInfo> inputTableColumnInfos,
-                @JsonProperty("outputTable") Optional<CatalogSchemaTableName> outputTable)
+                @JsonProperty("outputTable") Optional<CatalogSchemaTableName> outputTable,
+                @JsonProperty("warnings") List<PrestoWarning> warnings)
         {
             this.inputTableColumnInfos = ImmutableSet.copyOf(requireNonNull(inputTableColumnInfos, "inputTableColumnInfos is null"));
             this.outputTable = requireNonNull(outputTable, "outputTable is null");
+            // warnings can be null when deserialized from a json string where they are absent
+            this.warnings = warnings == null ? ImmutableList.of() : ImmutableList.copyOf(warnings);
         }
 
         @JsonProperty
@@ -110,6 +125,13 @@ public class IOPlanPrinter
             return outputTable;
         }
 
+        @JsonProperty
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+        public List<PrestoWarning> getWarnings()
+        {
+            return warnings;
+        }
+
         @Override
         public boolean equals(Object obj)
         {
@@ -121,13 +143,14 @@ public class IOPlanPrinter
             }
             IOPlan o = (IOPlan) obj;
             return Objects.equals(inputTableColumnInfos, o.inputTableColumnInfos) &&
-                    Objects.equals(outputTable, o.outputTable);
+                    Objects.equals(outputTable, o.outputTable) &&
+                    Objects.equals(warnings, o.warnings);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(inputTableColumnInfos, outputTable);
+            return Objects.hash(inputTableColumnInfos, outputTable, warnings);
         }
 
         @Override
@@ -136,6 +159,7 @@ public class IOPlanPrinter
             return toStringHelper(this)
                     .add("inputTableColumnInfos", inputTableColumnInfos)
                     .add("outputTable", outputTable)
+                    .add("warnings", warnings)
                     .toString();
         }
 
@@ -143,6 +167,7 @@ public class IOPlanPrinter
         {
             private Set<TableColumnInfo> inputTableColumnInfos;
             private Optional<CatalogSchemaTableName> outputTable;
+            private List<PrestoWarning> warnings = ImmutableList.of();
 
             private IOPlanBuilder()
             {
@@ -160,9 +185,14 @@ public class IOPlanPrinter
                 this.outputTable = Optional.of(outputTable);
             }
 
+            private void setWarnings(List<PrestoWarning> warnings)
+            {
+                this.warnings = warnings;
+            }
+
             private IOPlan build()
             {
-                return new IOPlan(inputTableColumnInfos, outputTable);
+                return new IOPlan(inputTableColumnInfos, outputTable, warnings);
             }
         }
 

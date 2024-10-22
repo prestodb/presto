@@ -152,6 +152,34 @@ IO:
        }
      }
 
+To include warnings in the EXPLAIN (TYPE IO) output, set the configuration property ``print-warnings-for-explain-io`` or session property ``print_warnings_for_explain_io`` to ``true``
+
+.. code-block:: none
+
+    presto> set session print_warnings_for_explain_io=true;
+    SET SESSION
+    presto> EXPLAIN (TYPE IO) SELECT * FROM (SELECT * FROM tpch.sf1.nation order by nationkey) order by regionkey;
+                            Query Plan
+    -----------------------------------------------------------
+     {
+       "inputTableColumnInfos" : [ {
+         "table" : {
+           "catalog" : "tpch",
+           "schemaTable" : {
+             "schema" : "sf1.0",
+             "table" : "nation"
+           }
+         },
+         "columnConstraints" : [ ]
+       } ],
+       "warnings" : [ {
+         "warningCode" : {
+           "code" : 5,
+           "name" : "REDUNDANT_ORDER_BY"
+         },
+         "message" : "ORDER BY in subquery may have no effect"
+       } ]
+     }
 
 See Also
 --------

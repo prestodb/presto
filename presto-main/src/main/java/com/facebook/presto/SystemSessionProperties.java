@@ -374,6 +374,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
+    public static final String PRINT_WARNINGS_FOR_EXPLAIN_IO = "print_warnings_for_explain_io";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2096,6 +2097,10 @@ public final class SystemSessionProperties
                 booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
                         "Whether to evaluate project node on values node",
                         featuresConfig.getInlineProjectionsOnValues(),
+                        false),
+                booleanProperty(PRINT_WARNINGS_FOR_EXPLAIN_IO,
+                        "Whether to print warnings in the output for EXPLAIN(TYPE IO)",
+                        featuresConfig.isPrintWarningsForExplainIo(),
                         false));
     }
 
@@ -3432,5 +3437,10 @@ public final class SystemSessionProperties
     public static boolean isInlineProjectionsOnValues(Session session)
     {
         return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
+    }
+
+    public static boolean isPrintWarningsForExplainIOEnabled(Session session)
+    {
+        return session.getSystemProperty(PRINT_WARNINGS_FOR_EXPLAIN_IO, Boolean.class);
     }
 }
