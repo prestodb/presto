@@ -398,6 +398,9 @@ public class PageProcessor
                                 throw new PrestoException(INVALID_CAST_ARGUMENT, errorMsg);
                             }
                         }
+                        else {
+                            throw ex;
+                        }
                     }
                     List<Block> projectionOutputs = pageProjectWork.getResult();
                     for (int j = 0; j < outputChannels.length; j++) {
