@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/functions/prestosql/aggregates/ApproxPercentileAggregate.h"
 #include "velox/common/base/IOUtils.h"
 #include "velox/common/base/Macros.h"
 #include "velox/common/base/RandomUtil.h"
@@ -167,18 +168,6 @@ struct KllSketchAccumulator {
   KllSketch<T> sketch_;
   std::vector<std::pair<T, int64_t>, StlAllocator<std::pair<T, int64_t>>>
       largeCountValues_;
-};
-
-enum IntermediateTypeChildIndex {
-  kPercentiles = 0,
-  kPercentilesIsArray = 1,
-  kAccuracy = 2,
-  kK = 3,
-  kN = 4,
-  kMinValue = 5,
-  kMaxValue = 6,
-  kItems = 7,
-  kLevels = 8,
 };
 
 void checkWeight(int64_t weight) {
