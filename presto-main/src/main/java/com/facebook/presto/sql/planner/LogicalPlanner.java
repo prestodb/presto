@@ -589,13 +589,13 @@ public class LogicalPlanner
     private RowExpression rowExpression(Expression expression, SqlPlannerContext context, Analysis analysis)
     {
         return toRowExpression(
-            expression,
-            metadata,
-            session,
-            sqlParser,
-            variableAllocator,
-            analysis,
-            context.getTranslatorContext());
+                expression,
+                metadata,
+                session,
+                sqlParser,
+                variableAllocator,
+                analysis,
+                context.getTranslatorContext());
     }
 
     private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan, Optional<List<Identifier>> columnAliases)

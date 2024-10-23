@@ -893,6 +893,18 @@ on a per-query basis using the ``treat-low-confidence-zero-estimation-as-unknown
 Enable retry for failed queries who can potentially be helped by HBO. This can also be specified
 on a per-query basis using the ``retry-query-with-history-based-optimization`` session property.
 
+``optimizer.use-histograms``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default Value:** ``false``
+
+Enables the optimizer to use histograms when available to perform cost estimate calculations
+during query optimization. When set to ``false``, this parameter does not prevent histograms
+from being collected by ``ANALYZE``, but prevents them from being used during query
+optimization. This behavior can be controlled on a per-query basis using the
+``optimizer_use_histograms`` session property.
+
 Planner Properties
 ------------------
 

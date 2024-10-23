@@ -20,11 +20,27 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.hive.HdfsConfiguration;
+import com.facebook.presto.hive.HdfsConfigurationInitializer;
+import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveHdfsConfiguration;
+import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.iceberg.CatalogType;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
 import com.facebook.presto.iceberg.IcebergMetadataColumn;
+import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -39,16 +55,22 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.iceberg.StatisticsFile;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.UpdateStatistics;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -56,9 +78,14 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.HIVE_METASTORE_STATISTICS_MERGE_STRATEGY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -159,6 +186,7 @@ public class TestIcebergHiveStatistics
         assertQuerySucceeds("CREATE TABLE statsWithPartitionAnalyze WITH (partitioning = ARRAY['orderdate']) as SELECT * FROM statsNoPartitionAnalyze");
         assertQuerySucceeds("ANALYZE statsNoPartitionAnalyze");
         assertQuerySucceeds("ANALYZE statsWithPartitionAnalyze");
+        deleteTableStatistics("statsWithPartitionAnalyze");
         Metadata meta = getQueryRunner().getMetadata();
         TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
         Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
@@ -295,12 +323,17 @@ public class TestIcebergHiveStatistics
     {
         assertQuerySucceeds("CREATE TABLE mergeFlagsStats (i int, v varchar)");
         assertQuerySucceeds("INSERT INTO mergeFlagsStats VALUES (0, '1'), (1, '22'), (2, '333'), (NULL, 'aaaaa'), (4, NULL)");
-        assertQuerySucceeds("ANALYZE mergeFlagsStats"); // stats stored in
+        assertQuerySucceeds("ANALYZE mergeFlagsStats");
+
+        // invalidate puffin files so only hive stats can be returned
+        deleteTableStatistics("mergeFlagsStats");
+
         // Test stats without merging doesn't return NDVs or data size
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, "")
                 .build();
         TableStatistics stats = getTableStatistics(session, "mergeFlagsStats");
+
         Map<String, ColumnStatistics> columnStatistics = getColumnNameMap(stats);
         assertEquals(columnStatistics.get("i").getDistinctValuesCount(), Estimate.unknown());
         assertEquals(columnStatistics.get("i").getDataSize(), Estimate.unknown());
@@ -466,6 +499,64 @@ public class TestIcebergHiveStatistics
                 }
             }
         });
+    }
+
+    private void deleteTableStatistics(String tableName)
+    {
+        Table icebergTable = loadTable(tableName);
+        UpdateStatistics statsUpdate = icebergTable.updateStatistics();
+        icebergTable.statisticsFiles().stream().map(StatisticsFile::snapshotId).forEach(statsUpdate::removeStatistics);
+        statsUpdate.commit();
+    }
+
+    private Table loadTable(String tableName)
+    {
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+
+        return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
+                getHdfsEnvironment(),
+                new IcebergHiveTableOperationsConfig(),
+                getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
+                SchemaTableName.valueOf("tpch." + tableName));
+    }
+
+    protected ExtendedHiveMetastore getFileHiveMetastore()
+    {
+        FileHiveMetastore fileHiveMetastore = new FileHiveMetastore(getHdfsEnvironment(),
+                Optional.of(getCatalogDirectory(HIVE))
+                        .filter(File::exists)
+                        .map(File::getPath)
+                        .orElseThrow(() -> new RuntimeException("Catalog directory does not exist: " + getCatalogDirectory(HIVE))),
+                "test");
+        return memoizeMetastore(fileHiveMetastore, false, 1000, 0);
+    }
+
+    protected static HdfsEnvironment getHdfsEnvironment()
+    {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig),
+                ImmutableSet.of(),
+                hiveClientConfig);
+        return new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
+    }
+
+    protected File getCatalogDirectory(CatalogType catalogType)
+    {
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        switch (catalogType) {
+            case HIVE:
+                return dataDirectory
+                        .resolve(TEST_DATA_DIRECTORY)
+                        .resolve(HIVE.name())
+                        .toFile();
+            case HADOOP:
+            case NESSIE:
+                return dataDirectory.toFile();
+        }
+
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
     }
 
     private static Map<String, ColumnStatistics> getColumnNameMap(TableStatistics statistics)
