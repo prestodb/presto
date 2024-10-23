@@ -97,6 +97,7 @@
         <grpc.version>1.64.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <presto.hard-link-includes>**/*.jar</presto.hard-link-includes>
     </properties>
 
     <modules>
