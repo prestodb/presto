@@ -19,8 +19,7 @@
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/TypeAliases.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template <>
 const bool* FlatVector<bool>::rawValues() const {
@@ -373,5 +372,4 @@ void FlatVector<StringView>::validate(
   }
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

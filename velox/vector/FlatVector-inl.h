@@ -23,8 +23,7 @@
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/TypeAliases.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 // Here are some common intel intrsic operations. Please refer to
 // https://software.intel.com/sites/landingpage/IntrinsicsGuide for examples.
@@ -592,5 +591,5 @@ inline void FlatVector<bool>::resizeValues(
   values_ = std::move(newValues);
   rawValues_ = values_->asMutable<bool>();
 }
-} // namespace velox
-} // namespace facebook
+
+} // namespace facebook::velox

@@ -16,10 +16,8 @@
 
 #include "velox/vector/SequenceVector.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template class SequenceVector<int32_t>;
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

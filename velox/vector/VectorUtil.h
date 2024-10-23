@@ -20,8 +20,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/Type.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template <typename T>
 static inline BufferPtr copyToBuffer(
@@ -45,5 +44,4 @@ static inline BufferPtr copyToBuffer(
   return returnsNullptr ? nullptr : AlignedBuffer::allocate<Value>(0, pool);
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template <typename T>
 std::unique_ptr<SimpleVector<uint64_t>> ConstantVector<T>::hashAll() const {
@@ -29,5 +28,4 @@ std::unique_ptr<SimpleVector<uint64_t>> ConstantVector<T>::hashAll() const {
       sizeof(uint64_t) * BaseVector::length_ /* representedBytes */);
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

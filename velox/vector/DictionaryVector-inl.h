@@ -19,8 +19,7 @@
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/TypeAliases.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template <typename T>
 void DictionaryVector<T>::setInternalState() {
@@ -218,5 +217,4 @@ void DictionaryVector<T>::validate(const VectorValidateOptions& options) const {
   dictionaryValues_->validate(options);
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

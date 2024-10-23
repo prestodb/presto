@@ -28,8 +28,7 @@
 // Miscellaneous utilities regarding type, to avoid duplication
 // and improve readability in places that have to reason about types.
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 /**
  * @return true iff the type T can be used in a biased vector
@@ -97,5 +96,4 @@ inline bool deltaAllowsBias<int16_t>(uint64_t delta) {
   return delta <= std::numeric_limits<uint8_t>::max();
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

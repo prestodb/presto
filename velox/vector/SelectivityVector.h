@@ -28,8 +28,7 @@
 #include "velox/common/base/Range.h"
 #include "velox/vector/TypeAliases.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 // A selectivityVector is used to logically filter / select data in place.
 // The goal here is to be able to pass this vector between filter stages on
@@ -469,5 +468,5 @@ void translateToInnerRows(
     const vector_size_t* indices,
     const uint64_t* nulls,
     SelectivityVector& innerRows);
-} // namespace velox
-} // namespace facebook
+
+} // namespace facebook::velox

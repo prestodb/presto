@@ -18,8 +18,7 @@
 
 #include "velox/vector/BuilderTypeUtils.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template <typename T>
 SequenceVector<T>::SequenceVector(
@@ -196,5 +195,4 @@ static inline vector_size_t offsetOfIndex(
   return *lastIndex;
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

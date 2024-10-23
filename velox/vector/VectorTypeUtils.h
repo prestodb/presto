@@ -20,8 +20,7 @@
 #include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 // Maps TypeKind to the corresponding writable vector.
 template <TypeKind K>
@@ -94,5 +93,5 @@ template <typename T, bool comparable, bool orderable>
 struct TypeToFlatVector<Generic<T, comparable, orderable>> {
   using type = BaseVector;
 };
-} // namespace velox
-} // namespace facebook
+
+} // namespace facebook::velox

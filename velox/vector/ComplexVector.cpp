@@ -23,8 +23,7 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/SimpleVector.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 // Up to # of elements to show as debug string for `toString()`.
 constexpr vector_size_t kMaxElementsInToString = 5;
@@ -1716,5 +1715,4 @@ void RowVector::appendNulls(vector_size_t numberOfRows) {
   bits::fillBits(mutableRawNulls(), oldSize, newSize, bits::kNull);
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

@@ -21,8 +21,7 @@
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/TypeAliases.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 /*
  * NOTE - biased vector is stored solely as a standard numeric flat array in
@@ -145,5 +144,4 @@ xsimd::batch<T> BiasVector<T>::loadSIMDValueBufferAt(size_t index) const {
   }
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

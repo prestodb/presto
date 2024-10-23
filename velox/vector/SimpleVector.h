@@ -34,8 +34,7 @@
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/TypeAliases.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 namespace exec {
 class EvalCtx;
@@ -548,5 +547,4 @@ inline uint64_t SimpleVector<ComplexType>::hashValueAt(
 template <typename T>
 using SimpleVectorPtr = std::shared_ptr<SimpleVector<T>>;
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

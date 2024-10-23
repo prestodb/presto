@@ -39,8 +39,7 @@
 #include "velox/vector/VectorEncoding.h"
 #include "velox/vector/VectorUtil.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template <typename T>
 class SimpleVector;
@@ -1006,8 +1005,7 @@ std::string printIndices(
     const BufferPtr& indices,
     vector_size_t maxIndicesToPrint = 10);
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox
 
 namespace folly {
 

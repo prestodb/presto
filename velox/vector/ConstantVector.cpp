@@ -16,8 +16,7 @@
 
 #include "velox/vector/ConstantVector.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template <>
 void ConstantVector<StringView>::setValue(const std::string& string) {
@@ -42,5 +41,4 @@ void ConstantVector<ComplexType>::setValue(const std::string& /*string*/) {
       "ConstantVectors of ComplexType cannot be initialized from string values.");
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

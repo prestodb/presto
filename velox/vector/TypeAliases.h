@@ -17,8 +17,7 @@
 #pragma once
 #include <cstdint>
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 /**
  * The reason for centralizing these types is to maintain consistency in the
@@ -34,5 +33,4 @@ using ByteCount = int32_t;
 // involved in storage, and should not be changed.
 using SequenceLength = uint32_t;
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

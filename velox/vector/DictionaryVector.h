@@ -24,8 +24,7 @@
 #include "velox/vector/SimpleVector.h"
 #include "velox/vector/TypeAliases.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 template <typename T>
 class DictionaryVector : public SimpleVector<T> {
@@ -270,7 +269,6 @@ class DictionaryVector : public SimpleVector<T> {
 template <typename T>
 using DictionaryVectorPtr = std::shared_ptr<DictionaryVector<T>>;
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox
 
 #include "velox/vector/DictionaryVector-inl.h"

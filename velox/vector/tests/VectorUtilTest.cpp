@@ -24,9 +24,7 @@
 #include "velox/buffer/Buffer.h"
 #include "velox/vector/VectorUtil.h"
 
-namespace facebook {
-namespace velox {
-namespace test {
+namespace facebook::velox::test {
 
 template <typename T>
 class VectorUtilTest : public testing::Test {
@@ -85,6 +83,5 @@ TYPED_TEST(VectorUtilTest, copyToBufferWithEmptyVector) {
 TYPED_TEST(VectorUtilTest, copyToBufferWithEmptyVectorReturnsNullptr) {
   this->runTestWithEmptyVectorAndReturnsNullptr();
 }
-} // namespace test
-} // namespace velox
-} // namespace facebook
+
+} // namespace facebook::velox::test
