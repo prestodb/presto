@@ -381,6 +381,10 @@ inline int64_t findNthInstanceByteIndexFromEnd(
 /// replacement string if ignoreEmptyReplaced is false, otherwise the result is
 /// empty.
 ///
+/// Note: if replaceFirst=true, the only the first found occurence of replaced
+/// is replaced. If replaced is empty, then replacement is added before the
+/// inputString.
+///
 /// replace("", "", "x") = "" -- when ignoreEmptyReplaced is true
 /// replace("", "", "x") = "x" -- when ignoreEmptyReplaced is false
 /// replace("aa", "", "x") = "xaxax" -- when ignoreEmptyReplaced is false
@@ -391,7 +395,8 @@ inline static size_t replace(
     const std::string_view& inputString,
     const std::string_view& replaced,
     const std::string_view& replacement,
-    bool inPlace = false) {
+    bool inPlace = false,
+    bool replaceFirst = false) {
   if (inputString.empty()) {
     if (!ignoreEmptyReplaced && replaced.empty() && !replacement.empty()) {
       std::memcpy(outputString, replacement.data(), replacement.size());
@@ -465,6 +470,17 @@ inline static size_t replace(
     // Can never be in place since replacement.size()>replaced.size()
     assert(!inPlace && "wrong inplace replace usage");
 
+    if (replaceFirst) {
+      // writes replacement to the beginning of outputString
+      std::memcpy(&outputString[0], replacement.data(), replacement.size());
+      // writes the original string
+      std::memcpy(
+          &outputString[replacement.size()],
+          inputString.data(),
+          inputString.size());
+      return replacement.size() + inputString.size();
+    }
+
     // add replacement before and after each char in inputString
     for (auto i = 0; i < inputString.size(); i++) {
       writeReplacement();
@@ -488,6 +504,11 @@ inline static size_t replace(
     auto unchangedSize = position - readPosition;
     writeUnchanged(unchangedSize);
     writeReplacement();
+    // If replaceFirst is true, we only replace the first occurence
+    // of the found replaced
+    if (replaceFirst) {
+      break;
+    }
   }
 
   auto unchangedSize = inputString.size() - readPosition;

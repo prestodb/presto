@@ -311,13 +311,19 @@ class StringFunctionsTest : public FunctionBaseTest {
 
   void testReplaceFlatVector(
       const replace_input_test_t& tests,
-      bool withReplaceArgument);
+      bool withReplaceArgument,
+      bool replaceFirst = false);
 
   void testReplaceInPlace(
       const std::vector<std::pair<std::string, std::string>>& tests,
       const std::string& search,
       const std::string& replace,
-      bool multiReferenced);
+      bool multiReferenced,
+      bool replaceFirst = false);
+
+  using replace_first_input_test_t = std::vector<std::pair<
+      std::tuple<std::string, std::string, std::string>,
+      std::string>>;
 };
 
 /**
@@ -1368,7 +1374,8 @@ void StringFunctionsTest::testReplaceInPlace(
     const std::vector<std::pair<std::string, std::string>>& tests,
     const std::string& search,
     const std::string& replace,
-    bool multiReferenced) {
+    bool multiReferenced,
+    bool replaceFirst) {
   auto makeInput = [&]() {
     auto stringVector = makeFlatVector<StringView>(tests.size());
 
@@ -1390,7 +1397,11 @@ void StringFunctionsTest::testReplaceInPlace(
   };
 
   auto result = evaluate<FlatVector<StringView>>(
-      fmt::format("replace(c0, '{}', '{}')", search, replace),
+      fmt::format(
+          "{}(c0, '{}', '{}')",
+          replaceFirst ? "replaceFirst" : "replace",
+          search,
+          replace),
       makeRowVector({makeInput()}));
   testResults(result.get());
 
@@ -1399,8 +1410,11 @@ void StringFunctionsTest::testReplaceInPlace(
   auto applyReplaceFunction = [&](std::vector<VectorPtr>& functionInputs,
                                   VectorPtr& resultPtr) {
     core::QueryConfig config({});
-    auto replaceFunction =
-        exec::getVectorFunction("replace", {VARCHAR(), VARCHAR()}, {}, config);
+    auto replaceFunction = replaceFirst
+        ? exec::getVectorFunction(
+              "replaceFirst", {VARCHAR(), VARCHAR(), VARCHAR()}, {}, config)
+        : exec::getVectorFunction(
+              "replace", {VARCHAR(), VARCHAR()}, {}, config);
     SelectivityVector rows(tests.size());
     ExprSet exprSet({}, &execCtx_);
     RowVectorPtr inputRows = makeRowVector({});
@@ -1427,7 +1441,8 @@ void StringFunctionsTest::testReplaceInPlace(
 
 void StringFunctionsTest::testReplaceFlatVector(
     const replace_input_test_t& tests,
-    bool withReplaceArgument) {
+    bool withReplaceArgument,
+    bool replaceFirst) {
   auto stringVector = makeFlatVector<StringView>(tests.size());
   auto searchVector = makeFlatVector<StringView>(tests.size());
   auto replaceVector =
@@ -1442,8 +1457,11 @@ void StringFunctionsTest::testReplaceFlatVector(
   }
 
   FlatVectorPtr<StringView> result;
-
-  if (withReplaceArgument) {
+  if (replaceFirst) {
+    result = evaluate<FlatVector<StringView>>(
+        "replaceFirst(c0, c1, c2)",
+        makeRowVector({stringVector, searchVector, replaceVector}));
+  } else if (withReplaceArgument) {
     result = evaluate<FlatVector<StringView>>(
         "replace(c0, c1, c2)",
         makeRowVector({stringVector, searchVector, replaceVector}));
@@ -1454,6 +1472,75 @@ void StringFunctionsTest::testReplaceFlatVector(
 
   for (int32_t i = 0; i < tests.size(); ++i) {
     ASSERT_EQ(result->valueAt(i), StringView(tests[i].second));
+  }
+}
+
+TEST_F(StringFunctionsTest, replaceFirst) {
+  testReplaceFlatVector(
+      {{{"hello_world", "cannot_find_me", "test"}, {"hello_world"}}},
+      true,
+      /*replaceFirst*/ true);
+  testReplaceFlatVector(
+      {{{"hello_world", "e", "test"}, {"htestllo_world"}}},
+      true,
+      /*replaceFirst*/ true);
+  testReplaceFlatVector(
+      {{{"hello_world_foobar", "_", ""}, {"helloworld_foobar"}}},
+      true,
+      /*replaceFirst*/ true);
+  testReplaceFlatVector(
+      {{{"hello_world_foobar", "_", "__"}, {"hello__world_foobar"}}},
+      true,
+      /*replaceFirst*/ true);
+  testReplaceFlatVector(
+      {{{"Testcases test cases", "cases", ""}, {"Test test cases"}}},
+      true,
+      /*replaceFirst*/ true);
+  testReplaceFlatVector(
+      {{{"test cases", "", "Add "}, {"Add test cases"}}},
+      true,
+      /*replaceFirst*/ true);
+  testReplaceFlatVector(
+      {{{"", "", "not_empty"}, {"not_empty"}}}, true, /*replaceFirst*/ true);
+  testReplaceFlatVector(
+      {{{"", "foo", "bar"}, {""}}}, true, /*replaceFirst*/ true);
+  // Test unicode
+  testReplaceFlatVector(
+      {{{"àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþ", "á", "ÀÁ"},
+        {"àÀÁâãäåæçèéêëìíîïðñòóôõöøùúûüýþ"}}},
+      true,
+      /*replaceFirst*/ true);
+  testReplaceFlatVector(
+      {{{"àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþ", "", "ÀÁ"},
+        {"ÀÁàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþ"}}},
+      true,
+      /*replaceFirst*/ true);
+  testReplaceFlatVector(
+      {{{"àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþ", "", "string"},
+        {"stringàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþ"}}},
+      true,
+      /*replaceFirst*/ true);
+
+  // Test in place path
+  std::vector<std::pair<std::string, std::string>> testsInplace = {
+      {"foobar", "fttbar"}, {"oooooo", "ttoooo"}};
+  testReplaceInPlace(testsInplace, "oo", "tt", false, /*replaceFirst*/ true);
+  testReplaceInPlace(testsInplace, "oo", "tt", true, /*replaceFirst*/ true);
+  // Test in place path with unicode
+  std::vector<std::pair<std::string, std::string>> testsInplaceUnicode = {
+      {"αβγδεζηθικλμνξοπρςστυφχψ", "αβγδεζηψκλμνξοπρςστυφχψ"},
+      {"θιбвгдежз", "ψбвгдежз"}};
+  testReplaceInPlace(
+      testsInplaceUnicode, "θι", "ψ", false, /*replaceFirst*/ true);
+  testReplaceInPlace(
+      testsInplaceUnicode, "θι", "ψ", true, /*replaceFirst*/ true);
+
+  // Test constant vectors
+  auto rows = makeRowVector(makeRowType({BIGINT()}), 10);
+  auto result = evaluate<SimpleVector<StringView>>(
+      "replace('hello_world', '_', '')", rows);
+  for (int i = 0; i < 10; ++i) {
+    EXPECT_EQ(result->valueAt(i), StringView("helloworld"));
   }
 }
 

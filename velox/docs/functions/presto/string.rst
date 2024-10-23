@@ -93,6 +93,12 @@ String Functions
         SELECT ltrim('test', 't'); -- est
         SELECT ltrim('tetris', 'te'); -- ris
 
+.. function:: replaceFirst(string, search, replace) -> varchar
+
+    Removes the first instances of ``search`` with ``replace`` in ``string``.
+
+    If ``search`` is an empty string, inserts ``replace`` in front of ``string``.
+
 .. function:: replace(string, search) -> varchar
 
     Removes all instances of ``search`` from ``string``.

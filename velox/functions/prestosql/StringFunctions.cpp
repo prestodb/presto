@@ -287,7 +287,13 @@ class ConcatFunction : public exec::VectorFunction {
  * replace(string, search, replace) → varchar
  * Replaces all instances of search with replace in string.
  * If search is an empty string, inserts replace in front of every character
- *and at the end of the string.
+ * and at the end of the string.
+ *
+ * If replaceFirst=true.
+ * replace_first(string, search, replace) -> varchar
+ * Replaces the first instances of ``search`` with ``replace`` in ``string``.
+ * If search is an empty string, it inserts replace at the beginning of the
+ * string.
  **/
 class Replace : public exec::VectorFunction {
  private:
@@ -304,7 +310,11 @@ class Replace : public exec::VectorFunction {
     rows.applyToSelected([&](int row) {
       auto proxy = exec::StringWriter<>(results, row);
       stringImpl::replace(
-          proxy, stringReader(row), searchReader(row), replaceReader(row));
+          proxy,
+          stringReader(row),
+          searchReader(row),
+          replaceReader(row),
+          replaceFirst_);
       proxy.finalize();
     });
   }
@@ -322,12 +332,17 @@ class Replace : public exec::VectorFunction {
     rows.applyToSelected([&](int row) {
       auto proxy = exec::StringWriter<true /*reuseInput*/>(
           results, row, stringReader(row) /*reusedInput*/, true /*inPlace*/);
-      stringImpl::replaceInPlace(proxy, searchReader(row), replaceReader(row));
+      stringImpl::replaceInPlace(
+          proxy, searchReader(row), replaceReader(row), replaceFirst_);
       proxy.finalize();
     });
   }
 
+  const bool replaceFirst_;
+
  public:
+  explicit Replace(bool replaceFirst) : replaceFirst_(replaceFirst) {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -407,8 +422,17 @@ class Replace : public exec::VectorFunction {
         stringReader, searchReader, replaceReader, rows, resultFlatVector);
   }
 
-  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    return {
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures(
+      bool replaceFirst) {
+    return replaceFirst ? std::vector<std::shared_ptr<exec::FunctionSignature>>{
+        // varchar, varchar, varchar -> varchar
+        exec::FunctionSignatureBuilder()
+            .returnType("varchar")
+            .argumentType("varchar")
+            .argumentType("varchar")
+            .argumentType("varchar")
+            .build(),
+    } : std::vector<std::shared_ptr<exec::FunctionSignature>>{
         // varchar, varchar -> varchar
         exec::FunctionSignatureBuilder()
             .returnType("varchar")
@@ -457,8 +481,13 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION_WITH_METADATA(
     });
 
 VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_replaceFirst,
+    Replace::signatures(/*replaceFirst*/ true),
+    std::make_unique<Replace>(/*replaceFirst*/ true));
+
+VELOX_DECLARE_VECTOR_FUNCTION(
     udf_replace,
-    Replace::signatures(),
-    std::make_unique<Replace>());
+    Replace::signatures(/*replaceFirst*/ false),
+    std::make_unique<Replace>(/*replaceFirst*/ false));
 
 } // namespace facebook::velox::functions

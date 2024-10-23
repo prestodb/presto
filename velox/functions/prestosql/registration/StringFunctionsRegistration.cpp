@@ -153,6 +153,7 @@ void registerStringFunctions(const std::string& prefix) {
   registerSplitToMap(prefix);
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_replaceFirst, prefix + "replaceFirst");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, prefix + "replace");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_reverse, prefix + "reverse");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_to_utf8, prefix + "to_utf8");

@@ -238,8 +238,11 @@ FOLLY_ALWAYS_INLINE void replace(
     TOutString& outputString,
     const TInString& inputString,
     const TInString& replaced,
-    const TInString& replacement) {
-  if (replaced.size() == 0) {
+    const TInString& replacement,
+    bool replaceFirst = false) {
+  if (replaceFirst) {
+    outputString.reserve(inputString.size() + replacement.size());
+  } else if (replaced.size() == 0) {
     // Add replacement before and after each character.
     outputString.reserve(
         inputString.size() + replacement.size() +
@@ -255,7 +258,8 @@ FOLLY_ALWAYS_INLINE void replace(
       std::string_view(inputString.data(), inputString.size()),
       std::string_view(replaced.data(), replaced.size()),
       std::string_view(replacement.data(), replacement.size()),
-      false);
+      false,
+      replaceFirst);
 
   outputString.resize(outputSize);
 }
@@ -265,7 +269,8 @@ template <typename TInOutString, typename TInString>
 FOLLY_ALWAYS_INLINE void replaceInPlace(
     TInOutString& string,
     const TInString& replaced,
-    const TInString& replacement) {
+    const TInString& replacement,
+    bool replaceFirst = false) {
   assert(replacement.size() <= replaced.size() && "invalid inplace replace");
 
   auto outputSize = stringCore::replace(
@@ -273,7 +278,8 @@ FOLLY_ALWAYS_INLINE void replaceInPlace(
       std::string_view(string.data(), string.size()),
       std::string_view(replaced.data(), replaced.size()),
       std::string_view(replacement.data(), replacement.size()),
-      true);
+      true,
+      replaceFirst);
 
   string.resize(outputSize);
 }
