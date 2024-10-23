@@ -332,12 +332,24 @@ class TaskManagerTest : public testing::Test {
     writer->close();
   }
 
-  std::vector<std::shared_ptr<exec::test::TempFilePath>> makeFilePaths(
+  std::vector<std::string> makeFilePaths(
+      const std::shared_ptr<TempDirectoryPath>& dirPath,
       int count) {
-    std::vector<std::shared_ptr<exec::test::TempFilePath>> filePaths;
+    std::vector<std::string> filePaths;
     filePaths.reserve(count);
     for (int i = 0; i < count; ++i) {
-      filePaths.emplace_back(exec::test::TempFilePath::create());
+      filePaths.emplace_back(fmt::format("{}/{}", dirPath->getPath(), i));
+    }
+    return filePaths;
+  }
+
+  std::vector<std::string> makeEmptyFiles(
+      const std::shared_ptr<TempDirectoryPath>& dirPath,
+      int count) {
+    std::vector<std::string> filePaths = makeFilePaths(dirPath, count);
+    auto fs = filesystems::getFileSystem(dirPath->getPath(), nullptr);
+    for (const auto& filePath : filePaths) {
+      fs->openFileForWrite(filePath);
     }
     return filePaths;
   }
@@ -439,14 +451,13 @@ class TaskManagerTest : public testing::Test {
 
   protocol::TaskSource makeSource(
       const protocol::PlanNodeId& sourceId,
-      const std::vector<std::shared_ptr<exec::test::TempFilePath>>& filePaths,
+      const std::vector<std::string>& filePaths,
       bool noMoreSplits,
       long& splitSequenceId) {
     protocol::TaskSource source;
     source.planNodeId = sourceId;
     for (auto& filePath : filePaths) {
-      source.splits.emplace_back(
-          makeSplit(filePath->getPath(), splitSequenceId++));
+      source.splits.emplace_back(makeSplit(filePath, splitSequenceId++));
     }
     source.noMoreSplits = noMoreSplits;
     return source;
@@ -470,7 +481,7 @@ class TaskManagerTest : public testing::Test {
   // Version with auto-incremented sequence id.
   protocol::TaskSource makeSource(
       const protocol::PlanNodeId& sourceId,
-      const std::vector<std::shared_ptr<exec::test::TempFilePath>>& filePaths,
+      const std::vector<std::string>& filePaths,
       bool noMoreSplits) {
     return makeSource(sourceId, filePaths, noMoreSplits, splitSequenceId_);
   }
@@ -495,7 +506,7 @@ class TaskManagerTest : public testing::Test {
   //  - output
   std::pair<int64_t, int64_t> testCountAggregation(
       const protocol::QueryId& queryId,
-      const std::vector<std::shared_ptr<exec::test::TempFilePath>>& filePaths,
+      const std::vector<std::string>& filePaths,
       const std::map<std::string, std::string>& queryConfigStrings = {},
       bool expectTaskFailure = false,
       bool expectSpill = false) {
@@ -699,10 +710,11 @@ class TaskManagerTest : public testing::Test {
 // Runs "select * from t where c0 % 5 = 0" query.
 // Creates one task and provides all splits at once.
 TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
-  auto filePaths = makeFilePaths(5);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->getPath(), vectors[i]);
+    writeToFile(filePaths[i], vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -725,10 +737,11 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
 }
 
 TEST_F(TaskManagerTest, fecthFromFinishedTask) {
-  auto filePaths = makeFilePaths(5);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->getPath(), vectors[i]);
+    writeToFile(filePaths[i], vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -842,10 +855,11 @@ TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
   // Trigger old task cleanup immediately.
   taskManager_->setOldTaskCleanUpMs(0);
 
-  auto filePaths = makeFilePaths(5);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->getPath(), vectors[i]);
+    writeToFile(filePaths[i], vectors[i]);
   }
 
   auto planFragment = exec::test::PlanBuilder()
@@ -897,10 +911,11 @@ TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
 // Runs "select * from t where c0 % 5 = 1" query.
 // Creates one task and provides splits one at a time.
 TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
-  auto filePaths = makeFilePaths(5);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->getPath(), vectors[i]);
+    writeToFile(filePaths[i], vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -931,10 +946,11 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
 
 // Runs 2-stage tableScan: (1) multiple table scan tasks; (2) single output task
 TEST_F(TaskManagerTest, tableScanMultipleTasks) {
-  auto filePaths = makeFilePaths(5);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->getPath(), vectors[i]);
+    writeToFile(filePaths[i], vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -966,7 +982,8 @@ TEST_F(TaskManagerTest, tableScanMultipleTasks) {
 // Create a task to scan an empty (invalid) ORC file. Ensure that the error
 // propagates via getTaskStatus().
 TEST_F(TaskManagerTest, emptyFile) {
-  auto filePaths = makeFilePaths(1);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeEmptyFiles(tableDir, 1);
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .partitionedOutput({}, 1, {"c0", "c1"})
@@ -1002,10 +1019,11 @@ TEST_F(TaskManagerTest, emptyFile) {
 }
 
 TEST_F(TaskManagerTest, countAggregation) {
-  auto filePaths = makeFilePaths(5);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->getPath(), vectors[i]);
+    writeToFile(filePaths[i], vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -1015,10 +1033,11 @@ TEST_F(TaskManagerTest, countAggregation) {
 // Run distributed sort query that has 2 stages. First stage runs multiple
 // tasks with partial sort. Second stage runs single task with merge exchange.
 TEST_F(TaskManagerTest, distributedSort) {
-  auto filePaths = makeFilePaths(5);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->getPath(), vectors[i]);
+    writeToFile(filePaths[i], vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -1087,10 +1106,11 @@ TEST_F(TaskManagerTest, distributedSort) {
 }
 
 TEST_F(TaskManagerTest, outOfQueryUserMemory) {
-  auto filePaths = makeFilePaths(5);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (auto i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->getPath(), vectors[i]);
+    writeToFile(filePaths[i], vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -1125,7 +1145,8 @@ TEST_F(TaskManagerTest, outOfOrderRequests) {
   auto longWait = protocol::Duration("300s");
   auto shortWait = std::chrono::seconds(1);
 
-  auto filePaths = makeFilePaths(5);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1000);
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -1205,14 +1226,15 @@ TEST_F(TaskManagerTest, aggregationSpill) {
   // trigger spill.
   const int numBatchesPerFile = 5;
   const int numFiles = 5;
-  auto filePaths = makeFilePaths(numFiles);
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, numFiles);
   std::vector<std::vector<RowVectorPtr>> batches(numFiles);
   for (int i = 0; i < numFiles; ++i) {
     batches[i] = makeVectors(numBatchesPerFile, 1'000);
   }
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < filePaths.size(); ++i) {
-    writeToFile(filePaths[i]->getPath(), batches[i]);
+    writeToFile(filePaths[i], batches[i]);
     std::move(
         batches[i].begin(), batches[i].end(), std::back_inserter(vectors));
   }
