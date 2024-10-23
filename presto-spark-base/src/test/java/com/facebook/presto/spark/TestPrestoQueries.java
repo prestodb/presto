@@ -181,4 +181,16 @@ public class TestPrestoQueries
     {
         // DDL statements are not supported by Presto on Spark
     }
+
+    @Override
+    public void testShowSessionWithoutNativeSessionProperties()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
+
+    @Override
+    public void testSetSessionNativeWorkerSessionProperty()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
 }

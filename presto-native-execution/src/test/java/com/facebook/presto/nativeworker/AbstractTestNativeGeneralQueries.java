@@ -19,10 +19,13 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -30,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -73,6 +77,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -320,7 +325,8 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testIPAddressIPPrefix() throws InterruptedException
+    public void testIPAddressIPPrefix()
+            throws InterruptedException
     {
         String tmpTableName = generateRandomTableName();
         try {
@@ -346,6 +352,7 @@ public abstract class AbstractTestNativeGeneralQueries
             dropTableIfExists(tmpTableName);
         }
     }
+
     @Test
     public void testTableSample()
     {
@@ -1168,6 +1175,33 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testShowSessionWithoutJavaSessionProperties()
+    {
+        // SHOW SESSION will exclude java-worker session properties
+        @Language("SQL") String sql = "SHOW SESSION";
+        MaterializedResult actualResult = computeActual(sql);
+        List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
+
+        String javaSessionProperty = "distinct_aggregation_spill_enabled";
+        List<MaterializedRow> filteredRows = getJavaWorkerSessionProperties(actualRows, javaSessionProperty);
+        assertTrue(filteredRows.isEmpty());
+    }
+
+    @Test
+    public void testSetSessionJavaWorkerSessionProperty()
+    {
+        // SET SESSION on a java-worker session property
+        @Language("SQL") String setSession = "SET SESSION distinct_aggregation_spill_enabled=false";
+        MaterializedResult setSessionResult = computeActual(setSession);
+        assertEquals(
+                setSessionResult.toString(),
+                "MaterializedResult{rows=[[true]], " +
+                        "types=[boolean], " +
+                        "setSessionProperties={distinct_aggregation_spill_enabled=false}, " +
+                        "resetSessionProperties=[], updateType=SET SESSION}");
+    }
+
+    @Test
     public void testBucketedExecution()
     {
         // Run aggregation query that groups by a bucketed column.
@@ -1825,5 +1859,12 @@ public abstract class AbstractTestNativeGeneralQueries
     private void assertQueryResultCount(Session session, String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(session, sql).getRowCount(), expectedResultCount);
+    }
+
+    private List<MaterializedRow> getJavaWorkerSessionProperties(List<MaterializedRow> inputRows, String sessionPropertyName)
+    {
+        return inputRows.stream()
+                .filter(row -> Pattern.matches(sessionPropertyName, row.getFields().get(4).toString()))
+                .collect(toList());
     }
 }
