@@ -484,6 +484,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.renameView(session, viewName, newViewName);
+        }
+    }
+
+    @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

@@ -622,6 +622,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitRenameView(RenameView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitDropView(DropView node, C context)
     {
         return visitStatement(node, context);
