@@ -129,15 +129,34 @@ TEST_F(HiveConnectorSerDeTest, hiveTableHandle) {
 }
 
 TEST_F(HiveConnectorSerDeTest, hiveColumnHandle) {
-  auto columnType = ROW(
-      {{"c0c0", BIGINT()},
-       {"c0c1",
-        ARRAY(MAP(
-            VARCHAR(), ROW({{"c0c1c0", BIGINT()}, {"c0c1c1", BIGINT()}})))}});
-  auto columnHandle = exec::test::HiveConnectorTestBase::makeColumnHandle(
-      "columnHandle", columnType, {"c0.c0c1[3][\"foo\"].c0c1c0"});
+  auto columnType = ROW({
+      {"c0c0", BIGINT()},
+      {"c0c1",
+       ARRAY(
+           MAP(VARCHAR(),
+               ROW({
+                   {"c0c1c0", BIGINT()},
+                   {"c0c1c1", BIGINT()},
+               })))},
+  });
 
-  testSerde(*columnHandle);
+  auto columnHandleTypes = {
+      HiveColumnHandle::ColumnType::kPartitionKey,
+      HiveColumnHandle::ColumnType::kRegular,
+      HiveColumnHandle::ColumnType::kSynthesized,
+      HiveColumnHandle::ColumnType::kRowIndex,
+  };
+
+  for (auto columnHandleType : columnHandleTypes) {
+    auto columnHandle = exec::test::HiveConnectorTestBase::makeColumnHandle(
+        "columnHandle",
+        columnType,
+        columnType,
+        {"c0.c0c1[3][\"foo\"].c0c1c0"},
+        columnHandleType);
+
+    testSerde(*columnHandle);
+  }
 }
 
 TEST_F(HiveConnectorSerDeTest, locationHandle) {
