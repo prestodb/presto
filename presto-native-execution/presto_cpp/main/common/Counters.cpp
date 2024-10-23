@@ -103,7 +103,16 @@ void registerPrestoMetrics() {
   DEFINE_HISTOGRAM_METRIC(
       kCounterMemoryPushbackLatencyMs, 10'000, 0, 100'000, 50, 90, 99, 100);
   DEFINE_HISTOGRAM_METRIC(
-      kCounterMemoryPushbackLatencyMs,
+      kCounterMemoryPushbackReductionBytes,
+      100l * 1024 * 1024, // 100MB
+      0,
+      15l * 1024 * 1024 * 1024, // 15GB
+      50,
+      90,
+      99,
+      100);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterMemoryPushbackExpectedReductionBytes,
       100l * 1024 * 1024, // 100MB
       0,
       15l * 1024 * 1024 * 1024, // 15GB

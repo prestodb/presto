@@ -35,6 +35,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
@@ -469,16 +470,7 @@ void PrestoServer::run() {
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 
   if (systemConfig->prestoNativeSidecar()) {
-    httpServer_->registerGet(
-        "/v1/properties/session",
-        [this](
-            proxygen::HTTPMessage* /*message*/,
-            const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-            proxygen::ResponseHandler* downstream) {
-          auto sessionProperties =
-              taskManager_->getQueryContextManager()->getSessionProperties();
-          http::sendOkResponse(downstream, sessionProperties.serialize());
-        });
+    registerSidecarEndpoints();
   }
 
   std::string taskUri;
@@ -1402,6 +1394,27 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+void PrestoServer::registerSidecarEndpoints() {
+  VELOX_CHECK(httpServer_);
+  httpServer_->registerGet(
+      "/v1/properties/session",
+      [this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        auto sessionProperties =
+            taskManager_->getQueryContextManager()->getSessionProperties();
+        http::sendOkResponse(downstream, sessionProperties.serialize());
+      });
+  httpServer_->registerGet(
+      "/v1/functions",
+      [](proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(downstream, getFunctionsMetadata());
+      });
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {

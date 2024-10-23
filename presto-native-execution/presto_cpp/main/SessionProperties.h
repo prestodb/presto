@@ -77,6 +77,11 @@ class SessionProperties {
   static constexpr const char* kExprEvalSimplified =
       "native_simplified_expression_evaluation_enabled";
 
+  /// Reduce() function will throw an error if it encounters an array of size
+  /// greater than this value.
+  static constexpr const char* kExprMaxArraySizeInReduce =
+      "native_expression_max_array_size_in_reduce";
+
   /// The maximum memory used by partial aggregation when data reduction is not
   /// optimal.
   static constexpr const char* kMaxPartialAggregationMemory =
@@ -199,6 +204,19 @@ class SessionProperties {
   /// matches.
   static constexpr const char* kQueryTraceTaskRegExp =
       "native_query_trace_task_reg_exp";
+
+  /// The maximum size in bytes for the task's buffered output. The buffer is
+  /// shared among all drivers.
+  static constexpr const char* kMaxOutputBufferSize =
+      "native_max_output_buffer_size";
+
+  /// The maximum bytes to buffer per PartitionedOutput operator to avoid
+  /// creating tiny SerializedPages. For
+  /// PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator
+  /// would buffer up to that number of bytes / number of destinations for each
+  /// destination before producing a SerializedPage.
+  static constexpr const char* kMaxPartitionedOutputBufferSize =
+      "native_max_page_partitioning_buffer_size";
 
   SessionProperties();
 

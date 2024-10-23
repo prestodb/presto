@@ -15,6 +15,7 @@ package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import io.airlift.slice.Slice;
 import org.apache.parquet.io.api.Binary;
@@ -23,6 +24,7 @@ import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
+import static com.facebook.presto.parquet.batchreader.BytesUtils.getLongBigEndian;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 
@@ -40,6 +42,15 @@ public class BinaryColumnReader
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
             Slice value;
+
+            if (type instanceof UuidType) {
+                byte[] src = binary.getBytes();
+                blockBuilder.writeLong(getLongBigEndian(src, 0));
+                blockBuilder.writeLong(getLongBigEndian(src, Long.BYTES));
+                blockBuilder.closeEntry();
+                return;
+            }
+
             if (binary.length() == 0) {
                 value = EMPTY_SLICE;
             }

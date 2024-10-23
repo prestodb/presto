@@ -85,7 +85,7 @@ public abstract class AbstractColumnReaderBenchmark<T>
     @Param({
             "true", "false",
     })
-    public boolean enableOptimizedReader;
+    public boolean batchReaderEnabled;
 
     protected abstract PrimitiveField createPrimitiveField();
 
@@ -95,7 +95,7 @@ public abstract class AbstractColumnReaderBenchmark<T>
 
     protected abstract void writeValue(ValuesWriter writer, T batch, int index);
 
-    protected abstract boolean getEnableOptimizedReader();
+    protected abstract boolean getBatchReaderEnabled();
 
     @Setup
     public void setup()
@@ -126,7 +126,7 @@ public abstract class AbstractColumnReaderBenchmark<T>
     public int read()
             throws IOException
     {
-        ColumnReader columnReader = ColumnReaderFactory.createReader(field.getDescriptor(), getEnableOptimizedReader());
+        ColumnReader columnReader = ColumnReaderFactory.createReader(field.getDescriptor(), getBatchReaderEnabled());
         columnReader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null);
 
         ColumnReader reader = null;

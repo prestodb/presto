@@ -1,0 +1,49 @@
+{
+  "element_at": [
+    {
+      "docString": "presto.default.element_at",
+      "functionKind": "SCALAR",
+      "outputType": "T",
+      "paramTypes": [
+        "array(T)",
+        "integer"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    },
+    {
+      "docString": "presto.default.element_at",
+      "functionKind": "SCALAR",
+      "outputType": "T",
+      "paramTypes": [
+        "array(T)",
+        "bigint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    },
+    {
+      "docString": "presto.default.element_at",
+      "functionKind": "SCALAR",
+      "outputType": "V",
+      "paramTypes": [
+        "map(K,V)",
+        "K"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    }
+  ]
+}

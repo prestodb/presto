@@ -1,13 +1,16 @@
-===============================
-Presto C++ Properties Reference
-===============================
+===================================
+Presto C++ Configuration Properties
+===================================
 
 This section describes Presto C++ configuration properties.
 
-The following is not a complete list of all configuration and
-session properties, and does not include any connector-specific
-catalog configuration properties. For information on catalog 
-configuration properties, see :doc:`Connectors </connector/>`.
+The following is not a complete list of all configuration properties, 
+and does not include any connector-specific catalog configuration properties 
+or session properties. 
+
+For information on catalog configuration properties, see :doc:`Connectors </connector/>`.
+
+For information on Presto C++ session properties, see :doc:`properties-session`.
 
 .. contents::
     :local:

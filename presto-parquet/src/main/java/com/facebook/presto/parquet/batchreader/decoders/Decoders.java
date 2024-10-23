@@ -23,6 +23,7 @@ import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryLongDecimalD
 import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryShortDecimalDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.FixedLenByteArrayLongDecimalDeltaValueDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.FixedLenByteArrayShortDecimalDeltaValueDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.FixedLenByteArrayUuidDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int32DeltaBinaryPackedValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int32ShortDecimalDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64DeltaBinaryPackedValuesDecoder;
@@ -34,6 +35,7 @@ import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryShortDecimal
 import com.facebook.presto.parquet.batchreader.decoders.plain.BooleanPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.FixedLenByteArrayLongDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.FixedLenByteArrayShortDecimalPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.FixedLenByteArrayUuidPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32ShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
@@ -49,6 +51,7 @@ import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimeAndTimestam
 import com.facebook.presto.parquet.batchreader.decoders.rle.LongDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.UuidRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
 import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
 import com.facebook.presto.parquet.dictionary.Dictionary;
@@ -81,6 +84,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.isDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isShortDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeMicrosType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isUuidType;
 import static com.facebook.presto.parquet.ValuesType.VALUES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -153,6 +157,10 @@ public class Decoders
                         int typeLength = columnDescriptor.getPrimitiveType().getTypeLength();
                         return new FixedLenByteArrayLongDecimalPlainValuesDecoder(typeLength, buffer, offset, length);
                     }
+                    else if (isUuidType(columnDescriptor)) {
+                        int typeLength = columnDescriptor.getPrimitiveType().getTypeLength();
+                        return new FixedLenByteArrayUuidPlainValuesDecoder(typeLength, buffer, offset, length);
+                    }
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
             }
@@ -198,6 +206,9 @@ public class Decoders
                             return new ShortDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
                         }
                         return new LongDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
+                    }
+                    else if (isUuidType(columnDescriptor)) {
+                        return new UuidRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
                     }
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
@@ -255,6 +266,11 @@ public class Decoders
                 }
 
                 return new FixedLenByteArrayLongDecimalDeltaValueDecoder(parquetReader);
+            }
+            else if (isUuidType(columnDescriptor)) {
+                ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+                ValuesReader parquetReader = getParquetReader(encoding, columnDescriptor, valueCount, inputStream);
+                return new FixedLenByteArrayUuidDeltaValuesDecoder(parquetReader);
             }
         }
 
