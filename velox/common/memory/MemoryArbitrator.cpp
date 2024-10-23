@@ -91,6 +91,8 @@ class NoopArbitrator : public MemoryArbitrator {
     return "NOOP";
   }
 
+  void shutdown() override {}
+
   void addPool(const std::shared_ptr<MemoryPool>& pool) override {
     VELOX_CHECK_EQ(pool->capacity(), 0);
     growPool(pool.get(), pool->maxCapacity(), 0);

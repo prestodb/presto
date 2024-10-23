@@ -57,6 +57,8 @@ class TestArbitrator : public MemoryArbitrator {
              .capacity = config.capacity,
              .extraConfigs = config.extraConfigs}) {}
 
+  void shutdown() override {}
+
   void addPool(const std::shared_ptr<MemoryPool>& /*unused*/) override {}
 
   void removePool(MemoryPool* /*unused*/) override {}

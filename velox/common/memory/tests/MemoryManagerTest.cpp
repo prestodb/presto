@@ -114,6 +114,8 @@ class FakeTestArbitrator : public MemoryArbitrator {
              .extraConfigs = config.extraConfigs}),
         injectAddPoolFailure_(injectAddPoolFailure) {}
 
+  void shutdown() override {}
+
   void addPool(const std::shared_ptr<MemoryPool>& /*unused*/) override {
     VELOX_CHECK(!injectAddPoolFailure_, "Failed to add pool");
   }

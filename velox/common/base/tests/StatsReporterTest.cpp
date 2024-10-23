@@ -242,6 +242,8 @@ class TestStatsReportMemoryArbitrator : public memory::MemoryArbitrator {
     return "test";
   }
 
+  void shutdown() override {}
+
   void addPool(const std::shared_ptr<memory::MemoryPool>& /*unused*/) override {
   }
 

@@ -133,6 +133,8 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
 }
 
 MemoryManager::~MemoryManager() {
+  arbitrator_->shutdown();
+
   if (pools_.size() != 0) {
     const auto errMsg = fmt::format(
         "pools_.size() != 0 ({} vs {}). There are unexpected alive memory "

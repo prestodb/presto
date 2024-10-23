@@ -217,6 +217,8 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   static void unregisterFactory();
 
+  void shutdown() override;
+
   void addPool(const std::shared_ptr<MemoryPool>& pool) final;
 
   void removePool(MemoryPool* pool) final;
@@ -253,6 +255,16 @@ class SharedArbitrator : public memory::MemoryArbitrator {
       "globalArbitrationWaitWallNanos"};
 
  private:
+  // Define the internal execution states of the arbitrator.
+  enum class State {
+    kRunning,
+    // Indicates the arbitrator is shutting down. The arbitrator doesn't accept
+    // any new arbitration requests under this state except remove pool as the
+    // last pool reference might be still held by the background global memory
+    // arbitration.
+    kShutdown,
+  };
+
   // The kind string of shared arbitrator.
   inline static const std::string kind_{"SHARED"};
 
@@ -282,6 +294,15 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     SharedArbitrator* const arbitrator_;
     const memory::ScopedMemoryArbitrationContext arbitrationCtx_{};
   };
+
+  FOLLY_ALWAYS_INLINE void checkRunning() {
+    std::lock_guard<std::mutex> l(stateLock_);
+    VELOX_CHECK(!hasShutdownLocked(), "SharedArbitrator is not running");
+  }
+
+  FOLLY_ALWAYS_INLINE bool hasShutdownLocked() const {
+    return state_ == State::kShutdown;
+  }
 
   // Invoked to get the arbitration participant by 'name'. The function returns
   // std::nullopt if the underlying query memory pool is destroyed.
@@ -553,10 +574,11 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // Lock used to protect the arbitrator internal state.
   mutable std::mutex stateLock_;
 
+  State state_{State::kRunning};
+
   tsan_atomic<uint64_t> freeReservedCapacity_{0};
   tsan_atomic<uint64_t> freeNonReservedCapacity_{0};
 
-  bool globalArbitrationStop_{false};
   // Indicates if the global arbitration is currently running or not.
   tsan_atomic<bool> globalArbitrationRunning_{false};
 

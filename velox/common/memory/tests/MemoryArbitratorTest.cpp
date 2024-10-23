@@ -333,6 +333,8 @@ class FakeTestArbitrator : public MemoryArbitrator {
     return "USER";
   }
 
+  void shutdown() override {}
+
   void addPool(const std::shared_ptr<MemoryPool>& /*unused*/) override {}
 
   void removePool(MemoryPool* /*unused*/) override {}

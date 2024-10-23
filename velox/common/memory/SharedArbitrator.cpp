@@ -258,6 +258,31 @@ SharedArbitrator::SharedArbitrator(const Config& config)
                       << participantConfig_.toString();
 }
 
+void SharedArbitrator::shutdown() {
+  {
+    std::lock_guard<std::mutex> l(stateLock_);
+    VELOX_CHECK(globalArbitrationWaiters_.empty());
+    if (hasShutdownLocked()) {
+      return;
+    }
+    state_ = State::kShutdown;
+  }
+
+  shutdownGlobalArbitration();
+
+  VELOX_MEM_LOG(INFO) << "Stopping memory reclaim executor '"
+                      << memoryReclaimExecutor_->getName() << "': threads: "
+                      << memoryReclaimExecutor_->numActiveThreads() << "/"
+                      << memoryReclaimExecutor_->numThreads()
+                      << ", task queue: "
+                      << memoryReclaimExecutor_->getTaskQueueSize();
+  memoryReclaimExecutor_.reset();
+  VELOX_MEM_LOG(INFO) << "Memory reclaim executor stopped";
+
+  VELOX_CHECK_EQ(
+      participants_.size(), 0, "Unexpected alive participants on destruction");
+}
+
 void SharedArbitrator::setupGlobalArbitration() {
   if (!globalArbitrationEnabled_) {
     return;
@@ -291,14 +316,6 @@ void SharedArbitrator::shutdownGlobalArbitration() {
 
   VELOX_CHECK(!globalArbitrationAbortCapacityLimits_.empty());
   VELOX_CHECK_NOT_NULL(globalArbitrationController_);
-  {
-    std::lock_guard<std::mutex> l(stateLock_);
-    // We only expect stop global arbitration once during velox runtime
-    // shutdown.
-    VELOX_CHECK(!globalArbitrationStop_);
-    VELOX_CHECK(globalArbitrationWaiters_.empty());
-    globalArbitrationStop_ = true;
-  }
 
   VELOX_MEM_LOG(INFO) << "Stopping global arbitration controller";
   globalArbitrationThreadCv_.notify_one();
@@ -315,19 +332,7 @@ void SharedArbitrator::wakeupGlobalArbitrationThread() {
 }
 
 SharedArbitrator::~SharedArbitrator() {
-  shutdownGlobalArbitration();
-
-  VELOX_MEM_LOG(INFO) << "Stopping memory reclaim executor '"
-                      << memoryReclaimExecutor_->getName() << "': threads: "
-                      << memoryReclaimExecutor_->numActiveThreads() << "/"
-                      << memoryReclaimExecutor_->numThreads()
-                      << ", task queue: "
-                      << memoryReclaimExecutor_->getTaskQueueSize();
-  memoryReclaimExecutor_.reset();
-  VELOX_MEM_LOG(INFO) << "Memory reclaim executor stopped";
-
-  VELOX_CHECK_EQ(
-      participants_.size(), 0, "Unexpected alive participants on destruction");
+  shutdown();
 
   if (freeNonReservedCapacity_ + freeReservedCapacity_ != capacity_) {
     const std::string errMsg = fmt::format(
@@ -393,6 +398,8 @@ void SharedArbitrator::finishArbitration(ArbitrationOperation* op) {
 }
 
 void SharedArbitrator::addPool(const std::shared_ptr<MemoryPool>& pool) {
+  checkRunning();
+
   VELOX_CHECK_EQ(pool->capacity(), 0);
 
   auto newParticipant = ArbitrationParticipant::create(
@@ -512,8 +519,8 @@ std::optional<ArbitrationCandidate> SharedArbitrator::findAbortCandidate(
         candidateIdx = i;
         continue;
       }
-      // With the same capacity size bucket, we favor the old participant to let
-      // long running query proceed first.
+      // With the same capacity size bucket, we favor the old participant to
+      // let long running query proceed first.
       if (candidates[candidateIdx].participant->id() <
           candidates[i].participant->id()) {
         candidateIdx = i;
@@ -608,6 +615,8 @@ uint64_t SharedArbitrator::allocateCapacityLocked(
 uint64_t SharedArbitrator::shrinkCapacity(
     MemoryPool* pool,
     uint64_t /*unused*/) {
+  checkRunning();
+
   VELOX_CHECK(pool->isRoot());
   auto participant = getParticipant(pool->name());
   VELOX_CHECK(participant.has_value());
@@ -618,6 +627,8 @@ uint64_t SharedArbitrator::shrinkCapacity(
     uint64_t requestBytes,
     bool allowSpill,
     bool allowAbort) {
+  checkRunning();
+
   const uint64_t targetBytes = requestBytes == 0 ? capacity_ : requestBytes;
   ScopedMemoryArbitrationContext abitrationCtx{};
   const uint64_t startTimeMs = getCurrentTimeMs();
@@ -663,6 +674,8 @@ ArbitrationOperation SharedArbitrator::createArbitrationOperation(
 }
 
 bool SharedArbitrator::growCapacity(MemoryPool* pool, uint64_t requestBytes) {
+  checkRunning();
+
   VELOX_CHECK(pool->isRoot());
   auto op = createArbitrationOperation(pool, requestBytes);
   ScopedArbitration scopedArbitration(this, &op);
@@ -711,8 +724,8 @@ bool SharedArbitrator::growCapacity(ArbitrationOperation& op) {
   if (!globalArbitrationEnabled_ &&
       op.participant()->reclaimableUsedCapacity() >=
           participantConfig_.minReclaimBytes) {
-    // NOTE: if global memory arbitration is not enabled, we will try to reclaim
-    // from the participant itself before failing this operation.
+    // NOTE: if global memory arbitration is not enabled, we will try to
+    // reclaim from the participant itself before failing this operation.
     reclaim(
         op.participant(),
         op.requestBytes(),
@@ -804,9 +817,9 @@ void SharedArbitrator::globalArbitrationMain() {
     {
       std::unique_lock l(stateLock_);
       globalArbitrationThreadCv_.wait(l, [&] {
-        return globalArbitrationStop_ || !globalArbitrationWaiters_.empty();
+        return hasShutdownLocked() || !globalArbitrationWaiters_.empty();
       });
-      if (globalArbitrationStop_) {
+      if (hasShutdownLocked()) {
         VELOX_CHECK(globalArbitrationWaiters_.empty());
         break;
       }

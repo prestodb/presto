@@ -2268,6 +2268,91 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, arbitrationAbort) {
   ASSERT_EQ(task3->capacity(), memoryCapacity / 4);
 }
 
+TEST_F(MockSharedArbitrationTest, shutdown) {
+  uint64_t memoryCapacity = 256 * MB;
+  setupMemory(memoryCapacity);
+  arbitrator_->shutdown();
+  // double shutdown.
+  arbitrator_->shutdown();
+  // Check APIs.
+  // NOTE: the arbitrator running is first check for external APIs.
+  VELOX_ASSERT_THROW(
+      arbitrator_->addPool(nullptr), "SharedArbitrator is not running");
+  VELOX_ASSERT_THROW(
+      arbitrator_->growCapacity(nullptr, 0), "SharedArbitrator is not running");
+  VELOX_ASSERT_THROW(
+      arbitrator_->shrinkCapacity(nullptr, 0),
+      "SharedArbitrator is not running");
+
+  auto arbitratorHelper = test::SharedArbitratorTestHelper(arbitrator_);
+  ASSERT_TRUE(arbitratorHelper.hasShutdown());
+}
+
+DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, shutdownWait) {
+  uint64_t memoryCapacity = 256 * MB;
+  setupMemory(
+      memoryCapacity, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, nullptr, true, 2'000);
+  std::shared_ptr<MockTask> task1 = addTask(memoryCapacity);
+  auto* op1 = task1->addMemoryOp(true);
+  op1->allocate(memoryCapacity / 2);
+  ASSERT_EQ(task1->capacity(), memoryCapacity / 2);
+
+  std::shared_ptr<MockTask> task2 = addTask(memoryCapacity);
+  auto* op2 = task2->addMemoryOp(true);
+  op2->allocate(memoryCapacity / 2);
+  ASSERT_EQ(task2->capacity(), memoryCapacity / 2);
+
+  folly::EventCount globalArbitrationStarted;
+  std::atomic_bool globalArbitrationStartedFlag{false};
+  folly::EventCount globalArbitrationWait;
+  std::atomic_bool globalArbitrationWaitFlag{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::SharedArbitrator::runGlobalArbitration",
+      std::function<void(const SharedArbitrator*)>(
+          ([&](const SharedArbitrator* arbitrator) {
+            test::SharedArbitratorTestHelper arbitratorHelper(
+                const_cast<SharedArbitrator*>(arbitrator));
+            ASSERT_EQ(arbitratorHelper.numGlobalArbitrationWaiters(), 1);
+            globalArbitrationStartedFlag = true;
+            globalArbitrationStarted.notifyAll();
+            globalArbitrationWait.await(
+                [&]() { return !globalArbitrationWaitFlag.load(); });
+          })));
+  VELOX_ASSERT_THROW(
+      op1->allocate(memoryCapacity / 4),
+      "Memory arbitration timed out on memory pool");
+  globalArbitrationStarted.await(
+      [&]() { return globalArbitrationStartedFlag.load(); });
+
+  op2->freeAll();
+  task2.reset();
+  op1->freeAll();
+  task1.reset();
+
+  test::SharedArbitratorTestHelper arbitratorHelper(
+      const_cast<SharedArbitrator*>(arbitrator_));
+  ASSERT_FALSE(arbitratorHelper.hasShutdown());
+
+  std::atomic_bool shutdownCompleted{false};
+  std::thread shutdownThread([&]() {
+    arbitrator_->shutdown();
+    shutdownCompleted = true;
+  });
+
+  std::this_thread::sleep_for(std::chrono::seconds(2)); // NOLINT
+  ASSERT_FALSE(shutdownCompleted);
+  ASSERT_TRUE(arbitratorHelper.globalArbitrationRunning());
+  ASSERT_TRUE(arbitratorHelper.hasShutdown());
+
+  globalArbitrationWaitFlag = false;
+  globalArbitrationWait.notifyAll();
+
+  arbitratorHelper.waitForGlobalArbitrationToFinish();
+  shutdownThread.join();
+  ASSERT_TRUE(shutdownCompleted);
+  ASSERT_TRUE(arbitratorHelper.hasShutdown());
+}
+
 TEST_F(MockSharedArbitrationTest, memoryPoolAbortCapacityLimit) {
   const int64_t memoryCapacity = 256 << 20;
 
@@ -3128,6 +3213,7 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, abortWithNoCandidate) {
   abortWait.notifyAll();
 
   allocationThread.join();
+  arbitratorHelper.waitForGlobalArbitrationToFinish();
 }
 
 // This test verifies the global arbitration can handle the case that there is
@@ -3193,6 +3279,7 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, reclaimWithNoCandidate) {
   reclaimWait.notifyAll();
 
   allocationThread.join();
+  arbitratorHelper.waitForGlobalArbitrationToFinish();
 }
 
 TEST_F(MockSharedArbitrationTest, arbitrateBySelfMemoryReclaim) {
