@@ -110,30 +110,18 @@ TEST_F(ArrayCombinationsTest, arrayOfRows) {
   auto result = evaluate(
       "combinations(C0, C1)",
       makeRowVector({arrayOfRowVector, comboLengthVector}));
-  auto expected1 = makeArrayVector(
-      {0},
-      makeArrayOfRowVector(
-          ROW({"a", "b", "c"}, {INTEGER(), VARCHAR(), BOOLEAN()}), {{}}));
 
-  auto expected2 = makeArrayVector(
-      {0},
+  auto expected = makeArrayVector(
+      {0, 1, 4},
       makeArrayOfRowVector(
           ROW({"a", "b", "c"}, {INTEGER(), VARCHAR(), BOOLEAN()}),
-          {
-              {variant::row({11, "a", true}),
-               variant::row({2, variant::null(TypeKind::VARCHAR), true})},
-              {variant::row({11, "a", true}), variant::row({31, "d", false})},
-              {variant::row({2, variant::null(TypeKind::VARCHAR), true}),
-               variant::row({31, "d", false})},
-          }));
-  auto expected3 = makeArrayVector(
-      {0},
-      makeArrayOfRowVector(
-          ROW({"a", "b", "c"}, {INTEGER(), VARCHAR(), BOOLEAN()}), {}));
-  expected1->append(expected2.get());
-  expected1->append(expected3.get());
-
-  facebook::velox::test::assertEqualVectors(expected1, result);
+          {{},
+           {variant::row({11, "a", true}),
+            variant::row({2, variant::null(TypeKind::VARCHAR), true})},
+           {variant::row({11, "a", true}), variant::row({31, "d", false})},
+           {variant::row({2, variant::null(TypeKind::VARCHAR), true}),
+            variant::row({31, "d", false})}}));
+  facebook::velox::test::assertEqualVectors(expected, result);
 }
 
 TEST_F(ArrayCombinationsTest, intArrays) {
