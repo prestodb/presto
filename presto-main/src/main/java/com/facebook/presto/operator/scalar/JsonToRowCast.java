@@ -74,7 +74,7 @@ public class JsonToRowCast
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         RowType rowType = (RowType) boundVariables.getTypeVariable("T");
-        checkCondition(canCastFromJson(rowType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", rowType);
+        checkCondition(canCastFromJson(rowType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s.", rowType);
 
         List<Field> rowFields = rowType.getFields();
         BlockBuilderAppender[] fieldAppenders = rowFields.stream()
@@ -119,10 +119,10 @@ public class JsonToRowCast
             return rowType.getObject(rowBlockBuilder, 0);
         }
         catch (PrestoException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s%n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON to %s. %s%n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.%n%s", rowType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON to %s. %n%s", rowType, truncateIfNecessaryForErrorMessage(json)), e);
         }
     }
 }
