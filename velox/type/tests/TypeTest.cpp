@@ -413,7 +413,7 @@ TEST(TypeTest, row) {
   EXPECT_STREQ(row0->findChild("a")->kindName(), "INTEGER");
   EXPECT_EQ(row0->nameOf(0), "a");
   EXPECT_EQ(row0->nameOf(1), "b");
-  EXPECT_THROW(row0->nameOf(4), std::out_of_range);
+  EXPECT_THROW(row0->nameOf(4), VeloxRuntimeError);
   EXPECT_THROW(row0->findChild("not_exist"), VeloxUserError);
   // todo: expected case behavior?:
   VELOX_ASSERT_THROW(

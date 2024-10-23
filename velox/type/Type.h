@@ -1014,7 +1014,8 @@ class RowType : public TypeBase<TypeKind::ROW> {
   std::optional<uint32_t> getChildIdxIfExists(const std::string& name) const;
 
   const std::string& nameOf(uint32_t idx) const {
-    return names_.at(idx);
+    VELOX_CHECK_LT(idx, names_.size());
+    return names_[idx];
   }
 
   bool equivalent(const Type& other) const override;
