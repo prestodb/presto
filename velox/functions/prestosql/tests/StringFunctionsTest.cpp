@@ -2254,9 +2254,13 @@ TEST_F(StringFunctionsTest, normalize) {
 
 TEST_F(StringFunctionsTest, trail) {
   auto trail = [&](std::optional<std::string> string,
-                   std::optional<int64_t> N) {
+                   std::optional<int32_t> N) {
     return evaluateOnce<std::string>("trail(c0, c1)", string, N);
   };
+  // Test registered signatures
+  auto signatures = getSignatureStrings("trail");
+  ASSERT_EQ(1, signatures.size());
+  ASSERT_EQ(1, signatures.count("(varchar,integer) -> varchar"));
 
   // Basic Test
   EXPECT_EQ("bar", trail("foobar", 3));
