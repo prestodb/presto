@@ -456,7 +456,6 @@ struct LastDayFunction {
     auto dateTime = getDateTime(date);
     int32_t year = getYear(dateTime);
     int32_t month = getMonth(dateTime);
-    int32_t day = getMonth(dateTime);
     auto lastDay = util::getMaxDayOfMonth(year, month);
     Expected<int64_t> expected =
         util::daysSinceEpochFromDate(year, month, lastDay);
@@ -468,10 +467,8 @@ struct LastDayFunction {
     VELOX_USER_CHECK_EQ(
         daysSinceEpoch,
         (int32_t)daysSinceEpoch,
-        "Integer overflow in last_day({}-{}-{})",
-        year,
-        month,
-        day);
+        "Integer overflow in last_day({})",
+        DATE()->toString(date));
     result = daysSinceEpoch;
   }
 };
