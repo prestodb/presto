@@ -15,6 +15,7 @@
  */
 
 #include <optional>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/tests/TestingDictionaryArrayElementsFunction.h"
@@ -106,6 +107,47 @@ class ArrayIntersectTest : public FunctionBaseTest {
   }
 
   template <typename T>
+  void testIntNestedArray() {
+    auto array1 = makeNestedArrayVectorFromJson<T>({
+        "[[1, 2, 3], [1, null]]",
+        "[[], [1], [2, 1], []]",
+        "[[1], [], [2, 1]]",
+        "[[1, 2, 3, null]]",
+        "[[], [1, 2, 3, null]]",
+        "[[1, null], [null]]",
+        "[[null], [null]]",
+        "[]",
+    });
+    auto expected1 = makeNullableArrayVector<T>({
+        {1},
+        {},
+        {},
+        {1, 2, 3, std::nullopt},
+        {},
+        {std::nullopt},
+        {std::nullopt},
+        {},
+    });
+    testExpr(expected1, "array_intersect(C0)", {array1});
+
+    auto array2 = makeNestedArrayVectorFromJson<T>({
+        "[null, [1, 2, 3], [1, null]]",
+        "[[], [1], [2, 1], [], null]",
+        "[[1], [], null, [2, 1]]",
+        "[[1, 2, 3, null], null]",
+        "[[null], [null], null]",
+    });
+    auto expected2 = makeNullableArrayVector<T>({
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+    });
+    testExpr(expected2, "array_intersect(C0)", {array2});
+  }
+
+  template <typename T>
   void testFloatingPoint() {
     auto array1 = makeNullableArrayVector<T>({
         {1.0001, -2.0, 3.03, std::nullopt, 4.00004},
@@ -138,6 +180,37 @@ class ArrayIntersectTest : public FunctionBaseTest {
     testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
     testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
   }
+
+  template <typename T>
+  void testFloatingPointNestedArray() {
+    using innerArrayType = std::vector<std::optional<T>>;
+    using outerArrayType =
+        std::vector<std::optional<std::vector<std::optional<T>>>>;
+
+    innerArrayType a1{1.0001, -2.0, 3.03, std::nullopt, 4.00004};
+    innerArrayType a2{1.0, -2.0, 4.0};
+
+    innerArrayType b1{std::numeric_limits<T>::min(), std::nullopt};
+    innerArrayType b2{std::numeric_limits<T>::min()};
+
+    innerArrayType c1{
+        std::numeric_limits<T>::infinity(), std::numeric_limits<T>::max()};
+    innerArrayType c2{
+        std::numeric_limits<T>::infinity(), std::numeric_limits<T>::max()};
+
+    outerArrayType row1{{a1}, {a2}};
+    outerArrayType row2{{b1}, {b2}};
+    outerArrayType row3{{c1}, {c2}};
+    outerArrayType row4{{a1}, {{}}};
+    auto arrayVector =
+        makeNullableNestedArrayVector<T>({{row1}, {row2}, {row3}, {row4}});
+    auto expected = makeNullableArrayVector<T>(
+        {{-2.0},
+         {std::numeric_limits<T>::min()},
+         {std::numeric_limits<T>::infinity(), std::numeric_limits<T>::max()},
+         {}});
+    testExpr(expected, "array_intersect(C0)", {arrayVector});
+  }
 };
 
 } // namespace
@@ -149,9 +222,21 @@ TEST_F(ArrayIntersectTest, intArrays) {
   testInt<int64_t>();
 }
 
+TEST_F(ArrayIntersectTest, intNestedArrays) {
+  testIntNestedArray<int8_t>();
+  testIntNestedArray<int16_t>();
+  testIntNestedArray<int32_t>();
+  testIntNestedArray<int64_t>();
+}
+
 TEST_F(ArrayIntersectTest, floatArrays) {
   testFloatingPoint<float>();
   testFloatingPoint<double>();
+}
+
+TEST_F(ArrayIntersectTest, floatNestedArrays) {
+  testFloatingPointNestedArray<float>();
+  testFloatingPointNestedArray<double>();
 }
 
 TEST_F(ArrayIntersectTest, boolArrays) {
@@ -189,6 +274,32 @@ TEST_F(ArrayIntersectTest, boolArrays) {
   testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
 }
 
+TEST_F(ArrayIntersectTest, boolNestedArrays) {
+  using innerArrayType = std::vector<std::optional<bool>>;
+  using outerArrayType =
+      std::vector<std::optional<std::vector<std::optional<bool>>>>;
+
+  innerArrayType a1{true, true, std::nullopt};
+  innerArrayType a2{true, false, std::nullopt};
+
+  innerArrayType b1{std::nullopt, std::nullopt, true};
+  innerArrayType b2{true, false, std::nullopt};
+  innerArrayType b3{true, true, std::nullopt};
+
+  innerArrayType c1{true, true, std::nullopt};
+  innerArrayType c2{false, false, false};
+
+  outerArrayType row1{{a1}, {a2}};
+  outerArrayType row2{{b1}, {b2}, {b3}};
+  outerArrayType row3{{c1}, {c2}};
+  outerArrayType row4{{a1}, {{}}};
+  auto arrayVector =
+      makeNullableNestedArrayVector<bool>({{row1}, {row2}, {row3}, {row4}});
+  auto expected = makeNullableArrayVector<bool>(
+      {{true, std::nullopt}, {true, std::nullopt}, {}, {}});
+  testExpr(expected, "array_intersect(C0)", {arrayVector});
+}
+
 // Test inline strings.
 TEST_F(ArrayIntersectTest, strArrays) {
   using S = StringView;
@@ -213,6 +324,32 @@ TEST_F(ArrayIntersectTest, strArrays) {
   });
   testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
   testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
+}
+
+TEST_F(ArrayIntersectTest, strNestedArrays) {
+  using innerArrayType = std::vector<std::optional<std::string>>;
+  using outerArrayType =
+      std::vector<std::optional<std::vector<std::optional<std::string>>>>;
+
+  innerArrayType a1{"a", "a", std::nullopt};
+  innerArrayType a2{"a", "b", std::nullopt};
+
+  innerArrayType b1{std::nullopt, std::nullopt, "c"};
+  innerArrayType b2{"c", "d", std::nullopt};
+  innerArrayType b3{"ce", "d", "c", std::nullopt};
+
+  innerArrayType c1{"a", "a", std::nullopt};
+  innerArrayType c2{"ba", "ab", "b"};
+
+  outerArrayType row1{{a1}, {a2}};
+  outerArrayType row2{{b1}, {b2}, {b3}};
+  outerArrayType row3{{c1}, {c2}};
+  outerArrayType row4{{a1}, {{}}};
+  auto arrayVector = makeNullableNestedArrayVector<std::string>(
+      {{row1}, {row2}, {row3}, {row4}});
+  auto expected = makeNullableArrayVector<std::string>(
+      {{"a", std::nullopt}, {"c", std::nullopt}, {}, {}});
+  testExpr(expected, "array_intersect(C0)", {arrayVector});
 }
 
 // Test non-inline (> 12 length) strings.
@@ -244,6 +381,50 @@ TEST_F(ArrayIntersectTest, longStrArrays) {
   });
   testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
   testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
+}
+
+TEST_F(ArrayIntersectTest, longStrNestedArrays) {
+  using innerArrayType = std::vector<std::optional<std::string>>;
+  using outerArrayType =
+      std::vector<std::optional<std::vector<std::optional<std::string>>>>;
+
+  innerArrayType a1{
+      "red shiny car ahead", "blue clear sky above", std::nullopt};
+  innerArrayType a2{
+      "red shiny car ahead", "I see blue clear sky above", std::nullopt};
+
+  innerArrayType b1{
+      std::nullopt,
+      std::nullopt,
+      "blue clear sky above",
+      "orange beautiful sunset"};
+  innerArrayType b2{
+      "orange beautiful sunset", "blue clear sky above", std::nullopt};
+  innerArrayType b3{
+      "orange beautiful sunset",
+      "blue clear sky above",
+      "green plants make us happy",
+      std::nullopt};
+
+  innerArrayType c1{
+      "orange beautiful sunset", "blue clear sky above", std::nullopt};
+  innerArrayType c2{
+      "a orange beautiful sunset",
+      "a blue clear sky above",
+  };
+
+  outerArrayType row1{{a1}, {a2}};
+  outerArrayType row2{{b1}, {b2}, {b3}};
+  outerArrayType row3{{c1}, {c2}};
+  outerArrayType row4{{a1}, {{}}};
+  auto arrayVector = makeNullableNestedArrayVector<std::string>(
+      {{row1}, {row2}, {row3}, {row4}});
+  auto expected = makeNullableArrayVector<std::string>(
+      {{"red shiny car ahead", std::nullopt},
+       {"orange beautiful sunset", "blue clear sky above", std::nullopt},
+       {},
+       {}});
+  testExpr(expected, "array_intersect(C0)", {arrayVector});
 }
 
 TEST_F(ArrayIntersectTest, varbinary) {
@@ -281,6 +462,23 @@ TEST_F(ArrayIntersectTest, complexTypeArray) {
   testExpr(expected, "array_intersect(c0, c1)", {left, right});
 }
 
+TEST_F(ArrayIntersectTest, complexTypeArrayNestedArrays) {
+  auto inputData = makeNestedArrayVectorFromJson<int32_t>(
+      {"[null, [1, 2, 3], [null, null]]",
+       "[[1, 2, 3]]",
+       "[[1], [2], []]",
+       "[[1]]",
+       "[[1, null, 3]]",
+       "[[1, null, 3], [1, 2]]",
+       "[[1, null, 3]]",
+       "[[1, null, 3, null]]"});
+
+  auto input = makeArrayVector({0, 2, 4, 6}, inputData);
+  auto expected = makeNestedArrayVectorFromJson<int32_t>(
+      {"[[1, 2, 3]]", "[[1]]", "[[1, null, 3]]", "[]"});
+  testExpr(expected, "array_intersect(c0)", {input});
+}
+
 TEST_F(ArrayIntersectTest, complexTypeMap) {
   std::vector<Pair<StringView, int64_t>> a{{"blue", 1}, {"red", 2}};
   std::vector<Pair<StringView, int64_t>> b{{"green", std::nullopt}};
@@ -299,6 +497,22 @@ TEST_F(ArrayIntersectTest, complexTypeMap) {
   testExpr(expected, "array_intersect(c0, c1)", {left, right});
 }
 
+TEST_F(ArrayIntersectTest, complexTypeMapNestedArrays) {
+  std::vector<Pair<StringView, int64_t>> a{{"blue", 1}, {"red", 2}};
+  std::vector<Pair<StringView, int64_t>> b{{"green", std::nullopt}};
+  std::vector<Pair<StringView, int64_t>> c{{"yellow", 4}, {"purple", 5}};
+  std::vector<std::vector<std::vector<Pair<StringView, int64_t>>>> inputData{
+      {b, a}, {a, b}, {b}, {}, {c, a}, {a}};
+  std::vector<std::vector<std::vector<Pair<StringView, int64_t>>>> expectedData{
+      {a, b}, {}, {a}};
+
+  auto input = makeArrayVector(
+      {0, 2, 4}, makeArrayOfMapVector<StringView, int64_t>(inputData));
+  auto expected = makeArrayOfMapVector<StringView, int64_t>(expectedData);
+
+  testExpr(expected, "array_intersect(c0)", {input});
+}
+
 TEST_F(ArrayIntersectTest, complexTypeRow) {
   RowTypePtr rowType = ROW({INTEGER(), VARCHAR()});
 
@@ -315,6 +529,27 @@ TEST_F(ArrayIntersectTest, complexTypeRow) {
   auto right = makeArrayOfRowVector(rightData, rowType);
   auto expected = makeArrayOfRowVector(expectedData, rowType);
   testExpr(expected, "array_intersect(c0, c1)", {left, right});
+}
+
+TEST_F(ArrayIntersectTest, complexTypeRowNestedArrays) {
+  RowTypePtr rowType = ROW({INTEGER(), VARCHAR()});
+  using ArrayOfRow = std::vector<std::optional<std::tuple<int, std::string>>>;
+
+  std::vector<ArrayOfRow> data = {
+      {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+      {{{1, "red"}}},
+      {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+      {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+      {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+      {{{1, "red"}}, std::nullopt, std::nullopt}};
+  auto input = makeArrayVector({0, 2, 4}, makeArrayOfRowVector(data, rowType));
+
+  std::vector<ArrayOfRow> expectedData = {
+      {{{1, "red"}}},
+      {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+      {{{1, "red"}}}};
+  auto expected = makeArrayOfRowVector(expectedData, rowType);
+  testExpr(expected, "array_intersect(c0)", {input});
 }
 
 // When one of the arrays is constant.
