@@ -50,6 +50,7 @@ import static org.apache.iceberg.CatalogUtil.configureHadoopConf;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.JWT_TOKEN_TYPE;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.OAUTH2_SERVER_URI;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.SCOPE;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 
 public class IcebergRestCatalogFactory
@@ -124,6 +125,7 @@ public class IcebergRestCatalogFactory
                 }
                 catalogConfig.getCredential().ifPresent(credential -> properties.put(CREDENTIAL, credential));
                 catalogConfig.getToken().ifPresent(token -> properties.put(TOKEN, token));
+                catalogConfig.getScope().ifPresent(scope -> properties.put(SCOPE, scope));
             }
         });
 
