@@ -40,6 +40,7 @@ import io.airlift.slice.SliceInput;
 
 import javax.inject.Inject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -118,6 +119,12 @@ public class RestSqlFunctionExecutor
                     .setHeader(CONTENT_TYPE, PLAIN_TEXT_UTF_8.toString())
                     .setHeader(ACCEPT, PLAIN_TEXT_UTF_8.toString())
                     .build();
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            request.getBodyGenerator().write(outputStream);
+            System.out.println("Joe Test: " + outputStream);
+            System.out.println("Joe Test: " + request.getUri());
+
             HttpClient.HttpResponseFuture<SqlFunctionResult> future = httpClient.executeAsync(request, new SqlFunctionResultResponseHandler());
             Futures.addCallback(future, new SqlResultFutureCallback(), directExecutor());
             return toCompletableFuture(future);

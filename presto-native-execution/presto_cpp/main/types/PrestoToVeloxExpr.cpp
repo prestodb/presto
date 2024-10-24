@@ -425,11 +425,10 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
 PageFormat fromSerdeString(const std::string_view& serdeName) {
   if (serdeName == "presto_page") {
     return PageFormat::PRESTO_PAGE;
-  } else if (serdeName == "spark_unsafe_row") {
-    return PageFormat::SPARK_UNSAFE_ROW;
   } else {
     VELOX_FAIL(
-        "Unknown serde name for remote function server: '{}'", serdeName);
+        "presto_page serde is expected by remote function server but got : '{}'",
+        serdeName);
   }
 }
 #endif
@@ -504,18 +503,29 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     metadata.version = restFunctionHandle->version;
 
     const auto& prestoSignature = restFunctionHandle->signature;
-
+    // parseTypeSignature
     velox::exec::FunctionSignatureBuilder signatureBuilder;
-    signatureBuilder.returnType((prestoSignature.getReturnType()));
-
-    const auto& parameters = prestoSignature.getParameters();
-    for (const auto& param : parameters) {
-      signatureBuilder.argumentType(mapPrestoTypeToVeloxType(
-          param.getTypeSignature()));
+    // Handle type variable constraints
+    for (const auto& typeVar : prestoSignature.typeVariableConstraints) {
+      signatureBuilder.typeVariable(typeVar.name);
     }
 
-    if (prestoSignature.isVariableArity()) {
-      signatureBuilder.variableArity(true);
+    // Handle long variable constraints (for integer variables)
+    for (const auto& longVar : prestoSignature.longVariableConstraints) {
+      signatureBuilder.integerVariable(longVar.name);
+    }
+
+    // Handle return type
+    signatureBuilder.returnType(prestoSignature.returnType);
+
+    // Handle argument types
+    for (const auto& argType : prestoSignature.argumentTypes) {
+      signatureBuilder.argumentType(argType);
+    }
+
+    // Handle variable arity
+    if (prestoSignature.variableArity) {
+      signatureBuilder.variableArity();
     }
 
     auto signature = signatureBuilder.build();

@@ -57,6 +57,7 @@ import java.math.BigDecimal;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -221,7 +222,11 @@ public class FunctionResource
             byte[] serializedPageByteArray)
     {
         Slice slice = wrappedBuffer(serializedPageByteArray);
-        SerializedPage serializedPage = readSerializedPage(new BasicSliceInput(slice));
+        System.out.println("Joe 1: " + functionName + " Array: " + Arrays.toString(serializedPageByteArray));
+        System.out.println("Joe 2: " + functionName + " Wrapped Buffer: " + Slices.wrappedBuffer(serializedPageByteArray).toStringUtf8());
+        BasicSliceInput sliceInput = new BasicSliceInput(slice);
+        System.out.println("Joe 3: " + functionName + " Slice " + sliceInput.toString());
+        SerializedPage serializedPage = readSerializedPage(sliceInput);
         Page inputPage = pagesSerde.deserialize(serializedPage);
 
         // Use functionId to retrieve argument types
