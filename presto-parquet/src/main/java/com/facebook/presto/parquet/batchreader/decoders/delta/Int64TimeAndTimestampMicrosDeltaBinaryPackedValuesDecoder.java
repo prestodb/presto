@@ -72,7 +72,7 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
         int endOffset = offset + length;
         for (int i = offset; i < endOffset; i++) {
             long curValue = MICROSECONDS.toMillis(innerReader.readLong());
-            packFunction.pack(curValue);
+            values[i] = packFunction.pack(curValue);
         }
     }
 
