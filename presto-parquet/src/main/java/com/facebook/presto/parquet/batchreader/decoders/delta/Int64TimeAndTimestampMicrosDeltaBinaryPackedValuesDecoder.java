@@ -61,12 +61,6 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
     }
 
     @Override
-    public boolean isWithTimezone()
-    {
-        return withTimezone;
-    }
-
-    @Override
     public void readNext(long[] values, int offset, int length)
     {
         int endOffset = offset + length;

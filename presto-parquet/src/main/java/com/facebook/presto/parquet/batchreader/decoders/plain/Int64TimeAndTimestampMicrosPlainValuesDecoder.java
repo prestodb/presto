@@ -57,12 +57,6 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
     }
 
     @Override
-    public boolean isWithTimezone()
-    {
-        return withTimezone;
-    }
-
-    @Override
     public void readNext(long[] values, int offset, int length)
     {
         checkArgument(bufferOffset + length * 8 <= bufferEnd, "End of stream: invalid read request");
