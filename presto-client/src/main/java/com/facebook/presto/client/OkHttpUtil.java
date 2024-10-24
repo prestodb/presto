@@ -58,6 +58,7 @@ import static java.net.Proxy.Type.HTTP;
 import static java.net.Proxy.Type.SOCKS;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
+import static okhttp3.internal.tls.OkHostnameVerifier.INSTANCE;
 
 public final class OkHttpUtil
 {
@@ -178,7 +179,7 @@ public final class OkHttpUtil
             OkHttpClient.Builder clientBuilder,
             Optional<String> keyStorePath,
             Optional<String> keyStorePassword,
-            Optional<String> keystoreType,
+            Optional<String> keyStoreType,
             Optional<String> trustStorePath,
             Optional<String> trustStorePassword,
             Optional<String> trustStoreType)
@@ -192,7 +193,6 @@ public final class OkHttpUtil
             KeyStore keyStore = null;
             KeyManager[] keyManagers = null;
             if (keyStorePath.isPresent()) {
-                checkArgument(keystoreType.isPresent(), "keystore type is not present");
                 char[] keyManagerPassword;
                 try {
                     // attempt to read the key store as a PEM file
@@ -203,7 +203,7 @@ public final class OkHttpUtil
                 catch (IOException | GeneralSecurityException ignored) {
                     keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
-                    keyStore = KeyStore.getInstance(keystoreType.get());
+                    keyStore = KeyStore.getInstance(keyStoreType.get());
                     try (InputStream in = new FileInputStream(keyStorePath.get())) {
                         keyStore.load(in, keyManagerPassword);
                     }
@@ -217,7 +217,6 @@ public final class OkHttpUtil
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
             if (trustStorePath.isPresent()) {
-                checkArgument(trustStoreType.isPresent(), "truststore type is not present");
                 trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType.get());
             }
 
@@ -237,10 +236,21 @@ public final class OkHttpUtil
             sslContext.init(keyManagers, new TrustManager[] {trustManager}, null);
 
             clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), trustManager);
+            clientBuilder.hostnameVerifier(INSTANCE);
         }
         catch (GeneralSecurityException | IOException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
         }
+    }
+
+    public static void setupSsl(
+            OkHttpClient.Builder clientBuilder,
+            Optional<String> keyStorePath,
+            Optional<String> keyStorePassword,
+            Optional<String> trustStorePath,
+            Optional<String> trustStorePassword)
+    {
+        setupSsl(clientBuilder, keyStorePath, keyStorePassword, Optional.of(KeyStore.getDefaultType()), trustStorePath, trustStorePassword, Optional.of(KeyStore.getDefaultType()));
     }
 
     private static void validateCertificates(KeyStore keyStore)
