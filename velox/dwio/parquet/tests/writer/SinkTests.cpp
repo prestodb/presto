@@ -14,13 +14,20 @@
  * limitations under the License.
  */
 
+#include "velox/common/file/FileSystems.h"
 #include "velox/dwio/parquet/tests/ParquetTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::parquet;
 
-class SinkTest : public ParquetTestBase {};
+class SinkTest : public ParquetTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+    facebook::velox::filesystems::registerLocalFileSystem();
+  }
+};
 
 TEST_F(SinkTest, close) {
   auto rowType = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});

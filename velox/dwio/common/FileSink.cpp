@@ -17,6 +17,7 @@
 #include "velox/dwio/common/FileSink.h"
 
 #include "velox/common/base/Fs.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 #include <fcntl.h>
@@ -96,7 +97,7 @@ bool FileSink::registerFactory(const FileSink::Factory& factory) {
 std::unique_ptr<FileSink> FileSink::create(
     const std::string& filePath,
     const Options& options) {
-  DWIO_ENSURE_NOT_NULL(options.metricLogger);
+  VELOX_CHECK_NOT_NULL(options.metricLogger);
   for (auto& factory : factories()) {
     auto result = factory(filePath, options);
     if (result) {
@@ -115,7 +116,7 @@ WriteFileSink::WriteFileSink(
           std::move(name),
           {.metricLogger = std::move(metricLogger), .stats = stats}),
       writeFile_{std::move(writeFile)} {
-  DWIO_ENSURE_NOT_NULL(writeFile_);
+  VELOX_CHECK_NOT_NULL(writeFile_);
 }
 
 void WriteFileSink::write(std::vector<DataBuffer<char>>& buffers) {
@@ -135,52 +136,27 @@ void WriteFileSink::doClose() {
 }
 
 LocalFileSink::LocalFileSink(const std::string& name, const Options& options)
-    : FileSink{name, options} {
+    : FileSink{name, options}, writeFile_() {
   const auto dir = fs::path(name_).parent_path();
   if (!fs::exists(dir)) {
-    DWIO_ENSURE(velox::common::generateFileDirectory(dir.c_str()));
+    VELOX_CHECK(velox::common::generateFileDirectory(dir.c_str()));
   }
-  fd_ = ::open(name_.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
-  if (fd_ == -1) {
-    markClosed();
-    DWIO_RAISE(
-        "Can't open ", name_, " ErrorNo ", errno, ": ", folly::errnoStr(errno));
+  auto fs = filesystems::getFileSystem(name_, nullptr);
+  writeFile_ = fs->openFileForWrite(name_);
+}
+
+void LocalFileSink::doClose() {
+  LOG(INFO) << "closing file: " << name()
+            << ",  total size: " << succinctBytes(size_);
+  if (writeFile_ != nullptr) {
+    writeFile_->close();
   }
 }
 
 void LocalFileSink::write(std::vector<DataBuffer<char>>& buffers) {
   writeImpl(buffers, [&](auto& buffer) {
-    const size_t size = buffer.size();
-    size_t offset = 0;
-    while (offset < size) {
-      // Write system call can write fewer bytes than requested.
-      const auto bytesWritten =
-          ::write(fd_, buffer.data() + offset, size - offset);
-
-      // errno should only be accessed when the return value is -1.
-      DWIO_ENSURE_NE(
-          bytesWritten,
-          -1,
-          "Bad write of ",
-          name_,
-          " ErrorNo ",
-          errno,
-          " Remaining ",
-          size - offset);
-
-      // ensure the file is making some forward progress in each loop.
-      DWIO_ENSURE_GT(
-          bytesWritten,
-          0,
-          "No bytes transferred ",
-          name_,
-          " Size: ",
-          size,
-          " Offset: ",
-          offset);
-
-      offset += bytesWritten;
-    }
+    const uint64_t size = buffer.size();
+    writeFile_->append({buffer.data(), size});
     return size;
   });
 }

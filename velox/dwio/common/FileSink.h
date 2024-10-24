@@ -166,13 +166,10 @@ class LocalFileSink : public FileSink {
   static void registerFactory();
 
  protected:
-  void doClose() override {
-    ::close(fd_);
-  }
+  void doClose() override;
 
  private:
-  // The local open file handle.
-  int fd_;
+  std::unique_ptr<WriteFile> writeFile_;
 };
 
 class MemorySink : public FileSink {
