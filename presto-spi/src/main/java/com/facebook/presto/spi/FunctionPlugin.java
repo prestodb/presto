@@ -11,11 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
+import java.util.Set;
 
-public interface FunctionDefinitionProvider
+import static java.util.Collections.emptySet;
+
+/**
+ * Introduces a new {@link FunctionPlugin} interface for Remote function server.
+ * It contains only interfaces that are valid and used in the Remote function server.
+ */
+public interface FunctionPlugin
 {
-    UdfFunctionSignatureMap getUdfDefinition(String filePath);
+    default Set<Class<?>> getFunctions()
+    {
+        return emptySet();
+    }
 }
