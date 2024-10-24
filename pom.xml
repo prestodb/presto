@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.airlift</groupId>
+        <groupId>com.github.zacblanco.airbase</groupId>
         <artifactId>airbase</artifactId>
-        <version>102</version>
+        <version>upgradeToJava17-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -33,6 +33,20 @@
         <tag>HEAD</tag>
     </scm>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </pluginRepository>
+    </pluginRepositories>
+
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
@@ -56,7 +70,7 @@
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.7</dep.joda.version>
-        <dep.tempto.version>1.53</dep.tempto.version>
+        <dep.tempto.version>jdk8_snapshot</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.13</dep.logback.version>
@@ -97,6 +111,7 @@
         <grpc.version>1.64.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <presto-maven-plugin.version>upgradeToJava17-v1</presto-maven-plugin.version>
     </properties>
 
     <modules>
@@ -2001,7 +2016,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.aaneja.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2013,11 +2028,15 @@
                         <groupId>com.google.code.findbugs</groupId>
                         <artifactId>annotations</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.aaneja.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2025,11 +2044,15 @@
                         <groupId>com.datastax.cassandra</groupId>
                         <artifactId>cassandra-driver-core</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.aaneja.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2041,17 +2064,25 @@
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.aaneja.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
                         <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -2408,9 +2439,9 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>com.facebook.presto</groupId>
+                    <groupId>com.github.zacblanco</groupId>
                     <artifactId>presto-maven-plugin</artifactId>
-                    <version>0.4</version>
+                    <version>${presto-maven-plugin.version}</version>
                     <extensions>true</extensions>
                 </plugin>
 
@@ -2425,8 +2456,9 @@
 
         <plugins>
             <plugin>
-                <groupId>com.facebook.presto</groupId>
+                <groupId>com.github.zacblanco</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
+                <extensions>true</extensions>
             </plugin>
 
             <plugin>
@@ -2550,6 +2582,41 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>java8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+            <properties>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>java17</id>
+            <activation>
+                <jdk>17</jdk>
+            </activation>
+            <properties>
+                <air.test.jvm.additional-arguments>
+                    --add-opens java.base/java.io=ALL-UNNAMED
+                    --add-opens java.base/java.lang=ALL-UNNAMED
+                    --add-opens java.base/java.lang.ref=ALL-UNNAMED
+                    --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                    --add-opens java.base/java.net=ALL-UNNAMED
+                    --add-opens java.base/java.nio=ALL-UNNAMED
+                    --add-opens java.base/java.security=ALL-UNNAMED
+                    --add-opens java.base/javax.security.auth=ALL-UNNAMED
+                    --add-opens java.base/javax.security.auth.login=ALL-UNNAMED
+                    --add-opens java.base/java.text=ALL-UNNAMED
+                    --add-opens java.base/java.util=ALL-UNNAMED
+                    --add-opens java.base/java.util.concurrent=ALL-UNNAMED
+                    --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED
+                    --add-opens java.base/java.util.regex=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.loader=ALL-UNNAMED
+                    --add-opens java.base/sun.security.action=ALL-UNNAMED
+                </air.test.jvm.additional-arguments>
+            </properties>
+        </profile>
         <profile>
             <id>ui</id>
             <activation>
