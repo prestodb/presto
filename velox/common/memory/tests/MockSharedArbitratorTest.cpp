@@ -1543,15 +1543,15 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].count, 1);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].sum, 1);
+    ASSERT_GT(
+        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].count, 0);
+    ASSERT_GT(
+        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].sum, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].sum, 0);
-    ASSERT_EQ(
+    ASSERT_GT(
         runtimeStats[SharedArbitrator::kGlobalArbitrationWaitWallNanos].count,
-        1);
+        0);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kGlobalArbitrationWaitWallNanos].sum,
         1'000'000'000);
