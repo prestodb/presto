@@ -347,7 +347,7 @@ void FlatVector<T>::copyRanges(
       const T* sourceValues = flatSource->rawValues();
       applyToEachRange(
           ranges, [&](auto targetIndex, auto sourceIndex, auto count) {
-            if (Buffer::is_pod_like_v<T>) {
+            if constexpr (Buffer::is_pod_like_v<T>) {
               memcpy(
                   &rawValues_[targetIndex],
                   &sourceValues[sourceIndex],

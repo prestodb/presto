@@ -169,7 +169,7 @@ class FlatVector final : public SimpleVector<T> {
         } else {
           auto dst = newValues->asMutable<T>();
           auto src = values_->as<T>();
-          if (Buffer::is_pod_like_v<T>) {
+          if constexpr (Buffer::is_pod_like_v<T>) {
             memcpy(dst, src, numCopyBytes);
           } else {
             std::copy(src, src + numCopyBytes / sizeof(T), dst);

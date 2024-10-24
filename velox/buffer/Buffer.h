@@ -394,7 +394,7 @@ class AlignedBuffer : public Buffer {
       return;
     }
     velox::memory::MemoryPool* pool = old->pool();
-    if (!is_pod_like_v<T>) {
+    if constexpr (!is_pod_like_v<T>) {
       // We always take this code path for non-POD types because
       // pool->reallocate below would move memory around without calling move
       // constructor.
