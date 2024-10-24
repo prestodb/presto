@@ -27,16 +27,15 @@ public class TimestampWithTimezoneValueWriter
         extends PrimitiveValueWriter
 {
     private final Type type;
-    private final boolean writeMicroseconds;
-    private ScaleValueFunction scaleValueFunction;
+    private final ScaleValueFunction scaleValueFunction;
 
     public TimestampWithTimezoneValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
         this.type = requireNonNull(type, "type is null");
-        this.writeMicroseconds = parquetType.isPrimitive() && parquetType.getOriginalType() == OriginalType.TIMESTAMP_MICROS;
+        boolean writeMicroseconds = parquetType.isPrimitive() && parquetType.getOriginalType() == OriginalType.TIMESTAMP_MICROS;
         if (writeMicroseconds) {
-            this.scaleValueFunction = value -> MILLISECONDS.toMicros(value);
+            this.scaleValueFunction = MILLISECONDS::toMicros;
         }
         else {
             this.scaleValueFunction = value -> value;
