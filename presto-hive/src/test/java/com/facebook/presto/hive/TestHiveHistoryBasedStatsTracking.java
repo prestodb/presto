@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -334,6 +335,32 @@ public class TestHiveHistoryBasedStatsTracking
     }
 
     @Test
+    public void testHistoryBasedStatsCalculatorCTE1()
+    {
+        String sql = "with t1 as (select orderkey, orderstatus from orders where totalprice = 1), t2 as (select orderkey, totalprice from orders where custkey > 100) " +
+                "SELECT * FROM t1 " +
+                "UNION " +
+                "SELECT * FROM t1 " +
+                "UNION " +
+                "SELECT * FROM t1 " +
+                "UNION " +
+                "SELECT * FROM t1";
+        Session cteMaterialization = Session.builder(defaultSession())
+                .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "EXPERIMENTAL_COST_BASED")
+                .setSystemProperty(CTE_PARTITIONING_PROVIDER_CATALOG, "hive")
+                .build();
+        // CBO Statistics
+        assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+
+        // HBO Statistics
+        executeAndTrackHistory(sql, cteMaterialization);
+        for (int i = 0; i < 100; i++) {
+            executeAndTrackHistory(sql, cteMaterialization);
+        }
+//        assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(3)));
+    }
+
+    @Test
     public void testHistoryBasedStatsCalculatorCTE()
     {
         String sql = "with t1 as (select orderkey, orderstatus from orders where totalprice > 100), t2 as (select orderkey, totalprice from orders where custkey > 100) " +
@@ -348,6 +375,7 @@ public class TestHiveHistoryBasedStatsTracking
         // HBO Statistics
         executeAndTrackHistory(sql, cteMaterialization);
         assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(3)));
+        assertPlan(cteMaterialization, sql, anyTree(node(TableWriterNode.class, anyTree(any())).withOutputRowCount(3)));
     }
 
     @Test

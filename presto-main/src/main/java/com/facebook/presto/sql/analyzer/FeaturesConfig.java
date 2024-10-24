@@ -361,7 +361,8 @@ public class FeaturesConfig
 
         // HEURISTIC algorithm greedily prioritizes the earliest parent CTE that meets the heuristic criteria for materialization
         HEURISTIC, // Materialize CTES occuring  >= CTE_HEURISTIC_REPLICATION_THRESHOLD
-        HEURISTIC_COMPLEX_QUERIES_ONLY // Materialize CTES occuring >= CTE_HEURISTIC_REPLICATION_THRESHOLD and having a join or an aggregate
+        HEURISTIC_COMPLEX_QUERIES_ONLY, // Materialize CTES occuring >= CTE_HEURISTIC_REPLICATION_THRESHOLD and having a join or an aggregate.
+        EXPERIMENTAL_COST_BASED
     }
 
     public enum TaskSpillingStrategy
