@@ -19,6 +19,25 @@
 #include "velox/common/config/Config.h"
 
 namespace facebook::presto::util {
+
+namespace {
+// Replaces strings of the form "${VAR}"
+// with the value of the environment variable "VAR" (if it exists).
+// Does nothing if the input doesn't look like "${...}".
+std::string replaceIfEnvironmentVariable(std::string_view str) {
+  if (str.size() >= 3 && str.substr(0, 2) == "${" &&
+      str[str.size() - 1] == '}') {
+    auto env_name = std::string(str.substr(2, str.size() - 3));
+
+    char* envval = std::getenv(env_name.c_str());
+    if (envval) {
+      return std::string(envval);
+    }
+  }
+  return std::string(str);
+}
+} // namespace
+
 std::unordered_map<std::string, std::string> readConfig(
     const std::string& filePath) {
   // https://teradata.github.io/presto/docs/141t/configuration/configuration.html
@@ -45,7 +64,8 @@ std::unordered_map<std::string, std::string> readConfig(
     const auto name = line.substr(0, delimiterPos);
     VELOX_CHECK(!name.empty(), "property pair '{}' has empty key", line);
     const auto value = line.substr(delimiterPos + 1);
-    properties.emplace(name, value);
+    const auto adjustedValue = replaceIfEnvironmentVariable(value);
+    properties.emplace(name, adjustedValue);
   }
 
   return properties;

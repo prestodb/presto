@@ -255,4 +255,33 @@ TEST_F(ConfigTest, optionalNodeId) {
   EXPECT_EQ(nodeId, config.nodeId());
 }
 
+TEST_F(ConfigTest, readConfigEnvVarTest) {
+  char path[] = "/tmp/velox_system_config_test_XXXXXX";
+  const char* tempDirectoryPath = mkdtemp(path);
+  if (tempDirectoryPath == nullptr) {
+    throw std::logic_error("Cannot open temp directory");
+  }
+
+  std::string propFilePath = tempDirectoryPath;
+  propFilePath += "/envtest.properties";
+  std::string ENV_VAR = "PRESTO_READ_CONFIG_TEST_VAR";
+
+  std::ofstream propFile(propFilePath);
+  propFile << fmt::format("{}={}\n", "plain-text", "plain-text-value");
+  propFile << fmt::format("{}=${{{}}}\n", "env-var", ENV_VAR);
+  propFile << fmt::format("{}=${{{}\n", "env-var2", ENV_VAR);
+  propFile << fmt::format("{}={}}}\n", "env-var3", ENV_VAR);
+  propFile << fmt::format("{}=${{}}\n", "no-env-var");
+  propFile.close();
+
+  setenv(ENV_VAR.c_str(), "env-var-value", 1);
+  auto properties = facebook::presto::util::readConfig(propFilePath);
+  ASSERT_EQ(properties["plain-text"], "plain-text-value");
+  ASSERT_EQ(properties["env-var"], "env-var-value");
+  ASSERT_EQ(properties["env-var2"], "${PRESTO_READ_CONFIG_TEST_VAR");
+  ASSERT_EQ(properties["env-var3"], "PRESTO_READ_CONFIG_TEST_VAR}");
+  ASSERT_EQ(properties["no-env-var"], "${}");
+  unsetenv(ENV_VAR.c_str());
+}
+
 } // namespace facebook::presto::test
