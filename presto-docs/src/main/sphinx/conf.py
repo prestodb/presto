@@ -64,7 +64,7 @@ def get_version():
 needs_sphinx = '7.2.6'
 
 extensions = [
-    'sphinx_immaterial', 'sphinx_copybutton', 'download', 'issue', 'pr'
+    'sphinx_immaterial', 'sphinx_copybutton', 'download', 'issue', 'pr', 'sphinx.ext.autosectionlabel'
 ]
 
 copyright = 'The Presto Foundation. All rights reserved. Presto is a registered trademark of LF Projects, LLC'
@@ -94,6 +94,8 @@ rst_epilog = """
 
 # 'xelatex' natively supports Unicode
 latex_engine = 'xelatex'
+
+autosectionlabel_prefix_document = True
 
 # -- Options for HTML output ---------------------------------------------------
 
