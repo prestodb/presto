@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.batchreader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.reader.ColumnChunk;
@@ -26,9 +27,14 @@ import java.util.Optional;
 public class Int64TimeAndTimestampMicrosNestedBatchReader
         extends AbstractNestedBatchReader
 {
+    private boolean withTimezone;
+
     public Int64TimeAndTimestampMicrosNestedBatchReader(RichColumnDescriptor columnDescriptor)
     {
         super(columnDescriptor);
+        if (field.getType() instanceof TimestampWithTimeZoneType) {
+            withTimezone = true;
+        }
     }
 
     @Override

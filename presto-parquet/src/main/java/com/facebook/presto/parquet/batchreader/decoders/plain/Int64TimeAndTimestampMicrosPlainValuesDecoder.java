@@ -17,6 +17,8 @@ import com.facebook.presto.parquet.batchreader.BytesUtils;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import org.openjdk.jol.info.ClassLayout;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -31,11 +33,27 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
 
     private int bufferOffset;
 
+    private boolean withTimezone;
+
+    private PackFunction packFunction;
+
     public Int64TimeAndTimestampMicrosPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length)
+    {
+        this(byteBuffer, bufferOffset, length, false);
+    }
+
+    public Int64TimeAndTimestampMicrosPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length, boolean withTimezone)
     {
         this.byteBuffer = byteBuffer;
         this.bufferOffset = bufferOffset;
         this.bufferEnd = bufferOffset + length;
+        this.withTimezone = withTimezone;
+        if (withTimezone) {
+            packFunction = millis -> packDateTimeWithZone(millis, UTC_KEY);
+        }
+        else {
+            packFunction = millis -> millis;
+        }
     }
 
     @Override
@@ -49,7 +67,8 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
         int localBufferOffset = bufferOffset;
 
         while (offset < endOffset) {
-            values[offset++] = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
+            long valueMillis = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
+            values[offset++] = packFunction.pack(valueMillis);
             localBufferOffset += 8;
         }
 
@@ -68,5 +87,10 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + sizeOf(byteBuffer);
+    }
+
+    private interface PackFunction
+    {
+        long pack(long millis);
     }
 }
