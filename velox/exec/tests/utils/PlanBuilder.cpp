@@ -1250,6 +1250,21 @@ PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
   return *this;
 }
 
+PlanBuilder& PlanBuilder::localPartition(
+    int numBuckets,
+    const std::vector<column_index_t>& bucketChannels,
+    const std::vector<VectorPtr>& constValues) {
+  auto hivePartitionFunctionFactory =
+      std::make_shared<HivePartitionFunctionSpec>(
+          numBuckets, bucketChannels, constValues);
+  planNode_ = std::make_shared<core::LocalPartitionNode>(
+      nextPlanNodeId(),
+      core::LocalPartitionNode::Type::kRepartition,
+      std::move(hivePartitionFunctionFactory),
+      std::vector<core::PlanNodePtr>{planNode_});
+  return *this;
+}
+
 PlanBuilder& PlanBuilder::localPartitionByBucket(
     const std::shared_ptr<connector::hive::HiveBucketProperty>&
         bucketProperty) {
@@ -1323,7 +1338,8 @@ class RoundRobinRowPartitionFunction : public core::PartitionFunction {
 class RoundRobinRowPartitionFunctionSpec : public core::PartitionFunctionSpec {
  public:
   std::unique_ptr<core::PartitionFunction> create(
-      int numPartitions) const override {
+      int numPartitions,
+      bool /*localExchange*/) const override {
     return std::make_unique<RoundRobinRowPartitionFunction>(numPartitions);
   }
 

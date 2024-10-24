@@ -44,6 +44,10 @@ class HivePartitionFunction : public core::PartitionFunction {
       const RowVector& input,
       std::vector<uint32_t>& partitions) override;
 
+  const std::vector<int>& testingBucketToPartition() const {
+    return bucketToPartition_;
+  }
+
  private:
   // Precompute single value hive hash for a constant partition key.
   void precompute(const BaseVector& value, size_t column_index_t);

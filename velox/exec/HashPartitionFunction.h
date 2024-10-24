@@ -30,6 +30,7 @@ namespace facebook::velox::exec {
 class HashPartitionFunction : public core::PartitionFunction {
  public:
   HashPartitionFunction(
+      bool localExchange,
       int numPartitions,
       const RowTypePtr& inputType,
       const std::vector<column_index_t>& keyChannels,
@@ -57,6 +58,7 @@ class HashPartitionFunction : public core::PartitionFunction {
       const std::vector<column_index_t>& keyChannels,
       const std::vector<VectorPtr>& constValues);
 
+  const bool localExchange_;
   const int numPartitions_;
   const std::optional<HashBitRange> hashBitRange_ = std::nullopt;
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
@@ -82,7 +84,8 @@ class HashPartitionFunctionSpec : public core::PartitionFunctionSpec {
         constValues_{std::move(constValues)} {}
 
   std::unique_ptr<core::PartitionFunction> create(
-      int numPartitions) const override;
+      int numPartitions,
+      bool localExchange) const override;
 
   std::string toString() const override;
 

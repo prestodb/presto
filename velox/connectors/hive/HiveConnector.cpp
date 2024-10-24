@@ -89,7 +89,8 @@ std::unique_ptr<DataSink> HiveConnector::createDataSink(
 }
 
 std::unique_ptr<core::PartitionFunction> HivePartitionFunctionSpec::create(
-    int numPartitions) const {
+    int numPartitions,
+    bool localExchange) const {
   std::vector<int> bucketToPartitions;
   if (bucketToPartition_.empty()) {
     // NOTE: if hive partition function spec doesn't specify bucket to partition
@@ -98,6 +99,14 @@ std::unique_ptr<core::PartitionFunction> HivePartitionFunctionSpec::create(
     bucketToPartitions.resize(numBuckets_);
     for (int bucket = 0; bucket < numBuckets_; ++bucket) {
       bucketToPartitions[bucket] = bucket % numPartitions;
+    }
+    if (localExchange) {
+      // Shuffle the map from bucket to partition for local exchange so we don't
+      // use the same map for remote shuffle.
+      std::shuffle(
+          bucketToPartitions.begin(),
+          bucketToPartitions.end(),
+          std::mt19937{0});
     }
   }
   return std::make_unique<velox::connector::hive::HivePartitionFunction>(

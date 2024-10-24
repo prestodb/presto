@@ -1131,8 +1131,11 @@ class PartitionFunction {
 /// Factory class for creating PartitionFunction instances.
 class PartitionFunctionSpec : public ISerializable {
  public:
+  /// If 'localExchange' is true, the partition function is used for local
+  /// exchange within a velox task.
   virtual std::unique_ptr<PartitionFunction> create(
-      int numPartitions) const = 0;
+      int numPartitions,
+      bool localExchange = false) const = 0;
 
   virtual ~PartitionFunctionSpec() = default;
 
@@ -1144,7 +1147,8 @@ using PartitionFunctionSpecPtr = std::shared_ptr<const PartitionFunctionSpec>;
 class GatherPartitionFunctionSpec : public PartitionFunctionSpec {
  public:
   std::unique_ptr<PartitionFunction> create(
-      int /* numPartitions */) const override {
+      int /*numPartitions*/,
+      bool /*localExchange*/) const override {
     VELOX_UNREACHABLE();
   }
 

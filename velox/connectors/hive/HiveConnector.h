@@ -129,7 +129,8 @@ class HivePartitionFunctionSpec : public core::PartitionFunctionSpec {
             std::move(constValues)) {}
 
   std::unique_ptr<core::PartitionFunction> create(
-      int numPartitions) const override;
+      int numPartitions,
+      bool localExchange) const override;
 
   std::string toString() const override;
 

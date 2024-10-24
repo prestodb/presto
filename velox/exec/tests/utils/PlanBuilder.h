@@ -829,6 +829,13 @@ class PlanBuilder {
   /// current plan node).
   PlanBuilder& localPartition(const std::vector<std::string>& keys);
 
+  /// A convenience method to add a LocalPartitionNode with hive partition
+  /// function.
+  PlanBuilder& localPartition(
+      int numBuckets,
+      const std::vector<column_index_t>& channels,
+      const std::vector<VectorPtr>& constValues);
+
   /// A convenience method to add a LocalPartitionNode with a single source (the
   /// current plan node) and hive bucket property.
   PlanBuilder& localPartitionByBucket(

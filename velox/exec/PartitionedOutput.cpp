@@ -139,9 +139,10 @@ PartitionedOutput::PartitionedOutput(
       numDestinations_(planNode->numPartitions()),
       replicateNullsAndAny_(planNode->isReplicateNullsAndAny()),
       partitionFunction_(
-          numDestinations_ == 1
-              ? nullptr
-              : planNode->partitionFunctionSpec().create(numDestinations_)),
+          numDestinations_ == 1 ? nullptr
+                                : planNode->partitionFunctionSpec().create(
+                                      numDestinations_,
+                                      /*localExchange=*/false)),
       outputChannels_(calculateOutputChannels(
           planNode->inputType(),
           planNode->outputType(),

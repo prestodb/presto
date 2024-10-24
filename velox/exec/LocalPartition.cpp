@@ -247,9 +247,10 @@ LocalPartition::LocalPartition(
           ctx->task->getLocalExchangeQueues(ctx->splitGroupId, planNode->id())},
       numPartitions_{queues_.size()},
       partitionFunction_(
-          numPartitions_ == 1
-              ? nullptr
-              : planNode->partitionFunctionSpec().create(numPartitions_)) {
+          numPartitions_ == 1 ? nullptr
+                              : planNode->partitionFunctionSpec().create(
+                                    numPartitions_,
+                                    /*localExchange=*/true)) {
   VELOX_CHECK(numPartitions_ == 1 || partitionFunction_ != nullptr);
 
   for (auto& queue : queues_) {

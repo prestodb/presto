@@ -1721,7 +1721,7 @@ bool Task::checkIfFinishedLocked() {
   }
 
   if (allFinished) {
-    if ((not hasPartitionedOutput()) || partitionedOutputConsumed_) {
+    if (!hasPartitionedOutput() || partitionedOutputConsumed_) {
       taskStats_.endTimeMs = getCurrentTimeMs();
       return true;
     }
@@ -2350,7 +2350,8 @@ ContinueFuture Task::taskDeletionFuture() {
 std::string Task::toString() const {
   std::lock_guard<std::timed_mutex> l(mutex_);
   std::stringstream out;
-  out << "{Task " << shortId(taskId_) << " (" << taskId_ << ")" << std::endl;
+  out << "{Task " << shortId(taskId_) << " (" << taskId_ << ") "
+      << taskStateString(state_) << std::endl;
 
   if (exception_) {
     out << "Error: " << errorMessageLocked() << std::endl;

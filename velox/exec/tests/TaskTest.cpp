@@ -526,7 +526,7 @@ TEST_F(TaskTest, toJson) {
 
   ASSERT_EQ(
       task->toString(),
-      "{Task task-1 (task-1)\n"
+      "{Task task-1 (task-1) Running\n"
       "Plan:\n"
       "-- Project[1][expressions: (p0:INTEGER, multiply(ROW[\"a\"],ROW[\"a\"])), (p1:DOUBLE, plus(ROW[\"b\"],ROW[\"b\"]))] -> p0:INTEGER, p1:DOUBLE\n"
       "  -- TableScan[0][table: hive_table] -> a:INTEGER, b:DOUBLE\n"

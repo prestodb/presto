@@ -16,13 +16,29 @@
 #include <velox/exec/HashPartitionFunction.h>
 #include <velox/exec/VectorHasher.h>
 
+#define XXH_INLINE_ALL
+#include <xxhash.h>
+
 namespace facebook::velox::exec {
+namespace {
+// Gets the hash value for local exchange with given 'rawHash'. 'rawHash'
+// is the value computed by this hash function which is used for remote
+// shuffle across stages like for Prestissimo.
+static inline uint32_t localExchangeHash(uint32_t rawHash) {
+  // Mix the bits so we don't use the same hash used to distribute between
+  // stages.
+  bits::reverseBits(reinterpret_cast<uint8_t*>(&rawHash), sizeof(rawHash));
+  return XXH32(&rawHash, sizeof(rawHash), 0);
+}
+} // namespace
+
 HashPartitionFunction::HashPartitionFunction(
+    bool localExchange,
     int numPartitions,
     const RowTypePtr& inputType,
     const std::vector<column_index_t>& keyChannels,
     const std::vector<VectorPtr>& constValues)
-    : numPartitions_{numPartitions} {
+    : localExchange_{localExchange}, numPartitions_{numPartitions} {
   init(inputType, keyChannels, constValues);
 }
 
@@ -31,7 +47,8 @@ HashPartitionFunction::HashPartitionFunction(
     const RowTypePtr& inputType,
     const std::vector<column_index_t>& keyChannels,
     const std::vector<VectorPtr>& constValues)
-    : numPartitions_{hashBitRange.numPartitions()},
+    : localExchange_{false},
+      numPartitions_{hashBitRange.numPartitions()},
       hashBitRange_(hashBitRange) {
   VELOX_CHECK_GT(hashBitRange.numPartitions(), 0);
   VELOX_CHECK(!keyChannels.empty());
@@ -80,12 +97,24 @@ std::optional<uint32_t> HashPartitionFunction::partition(
 
   partitions.resize(size);
   if (hashBitRange_.has_value()) {
-    for (auto i = 0; i < size; ++i) {
-      partitions[i] = hashBitRange_->partition(hashes_[i]);
+    if (localExchange_) {
+      for (auto i = 0; i < size; ++i) {
+        partitions[i] = hashBitRange_->partition(localExchangeHash(hashes_[i]));
+      }
+    } else {
+      for (auto i = 0; i < size; ++i) {
+        partitions[i] = hashBitRange_->partition(hashes_[i]);
+      }
     }
   } else {
-    for (auto i = 0; i < size; ++i) {
-      partitions[i] = hashes_[i] % numPartitions_;
+    if (localExchange_) {
+      for (auto i = 0; i < size; ++i) {
+        partitions[i] = localExchangeHash(hashes_[i]) % numPartitions_;
+      }
+    } else {
+      for (auto i = 0; i < size; ++i) {
+        partitions[i] = hashes_[i] % numPartitions_;
+      }
     }
   }
 
@@ -93,9 +122,10 @@ std::optional<uint32_t> HashPartitionFunction::partition(
 }
 
 std::unique_ptr<core::PartitionFunction> HashPartitionFunctionSpec::create(
-    int numPartitions) const {
+    int numPartitions,
+    bool localExchange) const {
   return std::make_unique<exec::HashPartitionFunction>(
-      numPartitions, inputType_, keyChannels_, constValues_);
+      localExchange, numPartitions, inputType_, keyChannels_, constValues_);
 }
 
 std::string HashPartitionFunctionSpec::toString() const {
