@@ -116,6 +116,11 @@ public class TestInMemoryCachingHiveMetastore
 
         assertEquals(metastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 2);
+
+        // Test invalidate a specific database
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
+        assertEquals(metastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
+        assertEquals(mockClient.getAccessCount(), 3);
     }
 
     @Test
@@ -131,6 +136,18 @@ public class TestInMemoryCachingHiveMetastore
 
         assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 2);
+
+        // Test invalidate a specific database which will also invalidate all table caches mapped to that database
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
+        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(mockClient.getAccessCount(), 3);
+        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(mockClient.getAccessCount(), 3);
+
+        // Test invalidate a specific database.table which also invalidates the tablesNamesCache for that database
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
+        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(mockClient.getAccessCount(), 4);
     }
 
     public void testInvalidDbGetAllTAbles()
@@ -151,6 +168,23 @@ public class TestInMemoryCachingHiveMetastore
 
         assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 2);
+
+        // Test invalidate a specific database which will also invalidate all table caches mapped to that database
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
+        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 3);
+        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 3);
+
+        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(mockClient.getAccessCount(), 4);
+
+        // Test invalidate a specific table
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
+        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(mockClient.getAccessCount(), 4);
+        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 5);
     }
 
     public void testInvalidDbGetTable()
@@ -176,6 +210,25 @@ public class TestInMemoryCachingHiveMetastore
 
         assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
+
+        // Test invalidate the database which will also invalidate all linked table and partition caches
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
+        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(mockClient.getAccessCount(), 3);
+        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(mockClient.getAccessCount(), 3);
+
+        // Test invalidate a specific table which will also invalidate all linked partition caches
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
+        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(mockClient.getAccessCount(), 4);
+        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(mockClient.getAccessCount(), 4);
+
+        // Test invalidate a specific partition
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key"), ImmutableList.of("testpartition1"));
+        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(mockClient.getAccessCount(), 5);
     }
 
     @Test
@@ -401,6 +454,21 @@ public class TestInMemoryCachingHiveMetastore
         // Fetching both should only result in one batched access
         assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
         assertEquals(mockClient.getAccessCount(), 4);
+
+        // Test invalidate a specific partition
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key"), ImmutableList.of("testpartition1"));
+
+        // This should still be a cache hit
+        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION2)).size(), 1);
+        assertEquals(mockClient.getAccessCount(), 4);
+
+        // This should be a cache miss
+        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1)).size(), 1);
+        assertEquals(mockClient.getAccessCount(), 5);
+
+        // This should be a cache hit
+        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
+        assertEquals(mockClient.getAccessCount(), 5);
     }
 
     @Test
@@ -474,6 +542,16 @@ public class TestInMemoryCachingHiveMetastore
         metastore.invalidateAll();
         metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(mockClient.getAccessCount(), 6);
+
+        // Test invalidate TEST_TABLE, which should not affect any entries linked to TEST_TABLE_WITH_CONSTRAINTS
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
+        metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        assertEquals(mockClient.getAccessCount(), 6);
+
+        // Test invalidate TEST_TABLE_WITH_CONSTRAINTS
+        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        assertEquals(mockClient.getAccessCount(), 9);
     }
 
     public static class MockHiveCluster
