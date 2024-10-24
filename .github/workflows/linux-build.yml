@@ -134,6 +134,7 @@ jobs:
           LIBHDFS3_CONF: "${{ github.workspace }}/scripts/hdfs-client.xml"
         working-directory: _build/release
         run: |
+          export CLASSPATH=`/usr/local/hadoop/bin/hdfs classpath --glob`
           ctest -j 8 --output-on-failure --no-tests=error
 
   ubuntu-debug:

@@ -17,6 +17,7 @@
 #include <folly/Singleton.h>
 #include "gtest/gtest.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/tests/HdfsMiniCluster.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -36,6 +37,7 @@ class InsertIntoHdfsTest : public HiveConnectorTestBase {
  public:
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
+    filesystems::registerHdfsFileSystem();
     if (miniCluster == nullptr) {
       miniCluster = std::make_shared<filesystems::test::HdfsMiniCluster>();
       miniCluster->start();
@@ -104,7 +106,7 @@ TEST_F(InsertIntoHdfsTest, insertIntoHdfsTest) {
   plan = PlanBuilder().tableScan(rowType_).planNode();
 
   auto splits = HiveConnectorTestBase::makeHiveConnectorSplits(
-      fmt::format("{}/{}", outputDirectory, writeFileName),
+      fmt::format("{}{}", outputDirectory, writeFileName),
       1,
       dwio::common::FileFormat::DWRF);
   auto copy = AssertQueryBuilder(plan).split(splits[0]).copyResults(pool());

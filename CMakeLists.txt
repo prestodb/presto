@@ -259,11 +259,9 @@ if(VELOX_ENABLE_ABFS)
 endif()
 
 if(VELOX_ENABLE_HDFS)
-  find_library(
-    LIBHDFS3
-    NAMES libhdfs3.so libhdfs3.dylib
-    HINTS "${CMAKE_SOURCE_DIR}/hawq/depends/libhdfs3/_build/src/" REQUIRED)
-  add_definitions(-DVELOX_ENABLE_HDFS3)
+  add_definitions(-DVELOX_ENABLE_HDFS)
+  # JVM libhdfs requires arrow dependency.
+  set(VELOX_ENABLE_ARROW ON)
 endif()
 
 if(VELOX_ENABLE_PARQUET)

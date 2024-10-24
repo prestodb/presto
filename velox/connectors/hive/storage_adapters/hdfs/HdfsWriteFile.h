@@ -15,10 +15,14 @@
  */
 #pragma once
 
-#include <hdfs/hdfs.h>
 #include "velox/common/file/File.h"
+#include "velox/external/hdfs/hdfs.h"
 
 namespace facebook::velox {
+
+namespace filesystems::arrow::io::internal {
+class LibHdfsShim;
+}
 
 /// Implementation of hdfs write file. Nothing written to the file should be
 /// read back until it is closed.
@@ -34,6 +38,7 @@ class HdfsWriteFile : public WriteFile {
   /// @param blockSize Size of block - pass 0 if you want to use the
   /// default configured values.
   HdfsWriteFile(
+      filesystems::arrow::io::internal::LibHdfsShim* driver,
       hdfsFS hdfsClient,
       std::string_view path,
       int bufferSize = 0,
@@ -55,6 +60,7 @@ class HdfsWriteFile : public WriteFile {
   void close() override;
 
  private:
+  filesystems::arrow::io::internal::LibHdfsShim* driver_;
   /// The configured hdfs filesystem handle.
   hdfsFS hdfsClient_;
   /// The hdfs file handle for write.
