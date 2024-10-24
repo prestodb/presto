@@ -81,6 +81,7 @@
         <dep.j2objc.version>2.8</dep.j2objc.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.commons.compress.version>1.23.0</dep.commons.compress.version>
+        <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -307,6 +308,12 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-orc</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>2.16.0</version>
             </dependency>
 
             <dependency>
@@ -557,7 +564,13 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>3.25.1</version>
+                <version>${dep.protobuf-java.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java-util</artifactId>
+                <version>${dep.protobuf-java.version}</version>
             </dependency>
 
             <dependency>
@@ -2360,6 +2373,17 @@
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoredClassPatterns combine.children="append">
+                            <!-- Duplicate class is being brought in by commons-io & log4j-api -->
+                            <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        </ignoredClassPatterns>
                     </configuration>
                 </plugin>
 

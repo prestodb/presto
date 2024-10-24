@@ -219,6 +219,11 @@ Property Name                                        Description
 ``iceberg.rest.auth.oauth2.token``                   The Bearer token to use for OAUTH2 authentication.
                                                      Example: ``SXVLUXUhIExFQ0tFUiEK``
 
+``iceberg.rest.auth.oauth2.scope``                   The scope to use for OAUTH2 authentication.
+                                                     This property is only applicable when using
+                                                     ``iceberg.rest.auth.oauth2.credential``.
+                                                     Example: ``PRINCIPAL_ROLE:ALL``
+
 ``iceberg.rest.session.type``                        The session type to use when communicating with the REST catalog.
                                                      Available values are ``NONE`` or ``USER`` (default: ``NONE``).
 

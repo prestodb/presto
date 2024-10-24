@@ -212,6 +212,8 @@ void PeriodicMemoryChecker::pushbackMemory() {
   const auto actualFreedBytes = std::max<int64_t>(
       0, static_cast<int64_t>(currentMemBytes) - systemUsedMemoryBytes());
   RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterMemoryPushbackExpectedReductionBytes, freedBytes);
+  RECORD_HISTOGRAM_METRIC_VALUE(
       kCounterMemoryPushbackReductionBytes, actualFreedBytes);
   LOG(INFO) << "Memory pushback shrunk " << velox::succinctBytes(freedBytes)
             << " Effective bytes shrunk: "
