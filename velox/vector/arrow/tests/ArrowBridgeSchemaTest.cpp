@@ -87,6 +87,11 @@ class ArrowBridgeSchemaExportTest : public testing::Test {
       EXPECT_STREQ("+m", schema->format);
       ASSERT_EQ(schema->n_children, 1);
       schema = schema->children[0];
+      // Map data should be a non-nullable struct type
+      ASSERT_EQ(schema->flags & ARROW_FLAG_NULLABLE, 0);
+      ASSERT_EQ(schema->n_children, 2);
+      // Map data key type should be a non-nullable
+      ASSERT_EQ(schema->children[0]->flags & ARROW_FLAG_NULLABLE, 0);
     } else if (type->kind() == TypeKind::ROW) {
       EXPECT_STREQ("+s", schema->format);
     }
