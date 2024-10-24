@@ -195,6 +195,7 @@ JavaClasses:
   - presto-common/src/main/java/com/facebook/presto/common/predicate/ValueSet.java
   - presto-common/src/main/java/com/facebook/presto/common/RuntimeMetric.java
   - presto-common/src/main/java/com/facebook/presto/common/RuntimeUnit.java
+  - presto-function-namespace-managers/src/main/java/com/facebook/presto/functionNamespace/JsonBasedUdfFunctionMetadata.java
   - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaRequirement.java
   - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaScope.java
   - presto-hive-common/src/main/java/com/facebook/presto/hive/BaseHiveColumnHandle.java
@@ -314,6 +315,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorSplit.java
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorTableHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/AggregationFunctionMetadata.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/FunctionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/FunctionKind.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/LongVariableConstraint.java

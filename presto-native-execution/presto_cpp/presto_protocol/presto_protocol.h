@@ -439,6 +439,14 @@ void to_json(json& j, const Aggregation& p);
 void from_json(const json& j, Aggregation& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct AggregationFunctionMetadata {
+  TypeSignature intermediateType = {};
+  bool isOrderSensitive = {};
+};
+void to_json(json& j, const AggregationFunctionMetadata& p);
+void from_json(const json& j, AggregationFunctionMetadata& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 enum class AggregationNodeStep { PARTIAL, FINAL, INTERMEDIATE, SINGLE };
 extern void to_json(json& j, const AggregationNodeStep& e);
 extern void from_json(const json& j, AggregationNodeStep& e);
@@ -1257,6 +1265,10 @@ struct OperatorStats {
   PlanNodeId planNodeId = {};
   String operatorType = {};
   int64_t totalDrivers = {};
+  int64_t isBlockedCalls = {};
+  Duration isBlockedWall = {};
+  Duration isBlockedCpu = {};
+  DataSize isBlockedAllocation = {};
   int64_t addInputCalls = {};
   Duration addInputWall = {};
   Duration addInputCpu = {};
@@ -2322,6 +2334,21 @@ struct JoinNodeStatsEstimate {
 };
 void to_json(json& j, const JoinNodeStatsEstimate& p);
 void from_json(const json& j, JoinNodeStatsEstimate& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct JsonBasedUdfFunctionMetadata {
+  String docString = {};
+  FunctionKind functionKind = {};
+  TypeSignature outputType = {};
+  List<TypeSignature> paramTypes = {};
+  String schema = {};
+  RoutineCharacteristics routineCharacteristics = {};
+  std::shared_ptr<AggregationFunctionMetadata> aggregateMetadata = {};
+  std::shared_ptr<SqlFunctionId> functionId = {};
+  std::shared_ptr<String> version = {};
+};
+void to_json(json& j, const JsonBasedUdfFunctionMetadata& p);
+void from_json(const json& j, JsonBasedUdfFunctionMetadata& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct LambdaDefinitionExpression : public RowExpression {
