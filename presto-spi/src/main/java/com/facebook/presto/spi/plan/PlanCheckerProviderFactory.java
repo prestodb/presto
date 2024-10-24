@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.spi.NodeManager;
+
 public interface PlanCheckerProviderFactory
 {
     String getName();
 
-    PlanCheckerProvider create(SimplePlanFragmentSerde simplePlanFragmentSerde);
+    PlanCheckerProvider create(SimplePlanFragmentSerde simplePlanFragmentSerde, NodeManager nodeManager);
 }

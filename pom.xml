@@ -201,6 +201,7 @@
         <module>presto-singlestore</module>
         <module>presto-hana</module>
         <module>presto-openapi</module>
+        <module>presto-plan-checker-providers</module>
     </modules>
 
     <dependencyManagement>
@@ -472,6 +473,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-prometheus</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-plan-checker-providers</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

@@ -201,6 +201,11 @@ class PrestoServer {
 
   void addServerPeriodicTasks();
 
+  void convertToVeloxPlan(
+      proxygen::HTTPMessage* message,
+      proxygen::ResponseHandler* downstream,
+      const std::vector<std::unique_ptr<folly::IOBuf>>& body);
+
   void reportMemoryInfo(proxygen::ResponseHandler* downstream);
 
   void reportServerInfo(proxygen::ResponseHandler* downstream);
