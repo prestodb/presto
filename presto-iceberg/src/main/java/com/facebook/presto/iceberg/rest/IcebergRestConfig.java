@@ -28,6 +28,7 @@ public class IcebergRestConfig
     private String authenticationServerUri;
     private String credential;
     private String token;
+    private String scope;
 
     @NotNull
     public Optional<String> getServerUri()
@@ -105,6 +106,19 @@ public class IcebergRestConfig
     public IcebergRestConfig setToken(String token)
     {
         this.token = token;
+        return this;
+    }
+
+    public Optional<String> getScope()
+    {
+        return Optional.ofNullable(scope);
+    }
+
+    @Config("iceberg.rest.auth.oauth2.scope")
+    @ConfigDescription("The scope to use for OAUTH2 authentication")
+    public IcebergRestConfig setScope(String scope)
+    {
+        this.scope = scope;
         return this;
     }
 
