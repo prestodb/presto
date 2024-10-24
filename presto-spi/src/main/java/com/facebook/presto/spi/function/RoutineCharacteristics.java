@@ -19,6 +19,7 @@ import com.facebook.drift.annotations.ThriftEnumValue;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -39,6 +40,7 @@ public class RoutineCharacteristics
     public static class Language
     {
         public static final Language SQL = new Language("SQL");
+        public static final Language JAVA = new Language("Java");
         public static final Language CPP = new Language("CPP");
 
         private final String language;
@@ -165,11 +167,13 @@ public class RoutineCharacteristics
         return nullCallClause;
     }
 
+    @JsonIgnore
     public boolean isDeterministic()
     {
         return determinism == DETERMINISTIC;
     }
 
+    @JsonIgnore
     public boolean isCalledOnNullInput()
     {
         return nullCallClause == CALLED_ON_NULL_INPUT;
