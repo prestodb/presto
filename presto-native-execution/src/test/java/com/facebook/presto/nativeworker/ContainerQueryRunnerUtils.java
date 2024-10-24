@@ -93,6 +93,8 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("http-server.http.port", Integer.toString(port));
         properties.setProperty("discovery-server.enabled", "true");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
+        properties.setProperty("list-built-in-functions-only", "false");
+        properties.setProperty("native-execution-enabled", "false");
 
         // Get native worker system properties and add them to the coordinator properties
         Map<String, String> nativeWorkerProperties = NativeQueryRunnerUtils.getNativeWorkerSystemProperties();
@@ -101,6 +103,24 @@ public class ContainerQueryRunnerUtils
         }
 
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
+    }
+
+    public static void createFunctionNamespaceRemoteProperties()
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("function-namespace-manager.name", "rest");
+        properties.setProperty("supported-function-languages", "Java");
+        properties.setProperty("function-implementation-type", "REST");
+        properties.setProperty("rest-based-function-manager.rest.url", "http://localhost:8085");
+
+        String directoryPath = "testcontainers/function-namespace";
+        File directory = new File(directoryPath);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
+        createPropertiesFile("testcontainers/coordinator/etc/function-namespace/remote.properties", properties);
     }
 
     public static void createCoordinatorJvmConfig()
@@ -161,6 +181,7 @@ public class ContainerQueryRunnerUtils
     {
         String scriptContent = "#!/bin/sh\n" +
                 "set -e\n" +
+                "java -jar /opt/presto-remote-server >> log1.txt 2>&1 &\n" +
                 "$PRESTO_HOME/bin/launcher run\n";
         createScriptFile("testcontainers/coordinator/entrypoint.sh", scriptContent);
     }

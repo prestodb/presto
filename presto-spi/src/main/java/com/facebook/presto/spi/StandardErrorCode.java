@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.ErrorType;
 
+import static com.facebook.presto.common.ErrorType.EXTERNAL;
 import static com.facebook.presto.common.ErrorType.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
 import static com.facebook.presto.common.ErrorType.USER_ERROR;
@@ -140,6 +141,7 @@ public enum StandardErrorCode
     EXCEEDED_WRITTEN_INTERMEDIATE_BYTES_LIMIT(0x0002_0012, INSUFFICIENT_RESOURCES),
     TOO_MANY_SIDECARS(0x0002_0013, INTERNAL_ERROR),
     NO_CPP_SIDECARS(0x0002_0014, INTERNAL_ERROR),
+    FUNCTION_SERVER_FAILURE(0X0002_0015, EXTERNAL),
     /**/;
 
     // Error code range 0x0003 is reserved for Presto-on-Spark
