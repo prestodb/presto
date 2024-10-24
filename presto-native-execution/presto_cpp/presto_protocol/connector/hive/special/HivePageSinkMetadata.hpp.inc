@@ -15,14 +15,14 @@
 // dependency Table
 // dependency SchemaTableName
 
-namespace facebook::presto::protocol {
+namespace facebook::presto::protocol::hive {
 
 struct HivePageSinkMetadata {
   SchemaTableName schemaTableName = {};
-  std::shared_ptr<Table> table = {};
+  std::shared_ptr<hive::Table> table = {};
   // TODO Add modifiedPartitions
 };
 void to_json(json& j, const HivePageSinkMetadata& p);
 void from_json(const json& j, HivePageSinkMetadata& p);
 
-} // namespace facebook::presto::protocol
+} // namespace facebook::presto::protocol::hive

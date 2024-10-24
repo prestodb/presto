@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/presto_protocol/ConnectorProtocol.h"
+#include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 
 namespace facebook::presto::protocol {
 

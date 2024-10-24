@@ -12,17 +12,11 @@
  * limitations under the License.
  */
 
-// TpchTransactionHandle is special since
-// the corresponding class in Java is an enum.
-
 namespace facebook::presto::protocol {
 
-struct TpchTransactionHandle : public ConnectorTransactionHandle {
-  String instance = {};
-};
+std::ostream& operator<<(std::ostream& os, const Duration& d);
 
-void to_json(json& j, const TpchTransactionHandle& p);
-
-void from_json(const json& j, TpchTransactionHandle& p);
+void to_json(json& j, const Duration& p);
+void from_json(const json& j, Duration& p);
 
 } // namespace facebook::presto::protocol

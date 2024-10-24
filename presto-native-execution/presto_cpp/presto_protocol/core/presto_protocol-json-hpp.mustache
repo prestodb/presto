@@ -33,10 +33,20 @@
 #include <utility>
 #include "velox/common/encode/Base64.h"
 #include "presto_cpp/external/json/nlohmann/json.hpp"
-#include "presto_cpp/presto_protocol/DataSize.h"
-#include "presto_cpp/presto_protocol/Duration.h"
+#include "presto_cpp/presto_protocol/core/DataSize.h"
+#include "presto_cpp/presto_protocol/core/Duration.h"
 
 using nlohmann::json;
+
+namespace facebook::presto::protocol {
+    enum class NodeSelectionStrategy {
+    HARD_AFFINITY,
+    SOFT_AFFINITY,
+    NO_PREFERENCE
+    };
+    extern void to_json(json& j, const NodeSelectionStrategy& e);
+    extern void from_json(const json& j, NodeSelectionStrategy& e);
+} // namespace facebook::presto::protocol
 
 namespace facebook::presto::protocol {
 
@@ -57,6 +67,7 @@ extern const char* const PRESTO_MAX_SIZE_DEFAULT;
 
 
 extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
+
 
 class Exception : public std::runtime_error {
  public:

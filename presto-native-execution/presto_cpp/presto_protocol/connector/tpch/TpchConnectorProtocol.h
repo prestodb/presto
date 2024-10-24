@@ -12,24 +12,22 @@
  * limitations under the License.
  */
 
-namespace facebook::presto::protocol {
+#pragma once
 
-enum class HiveStorageFormat {
-  ORC,
-  DWRF,
-  ALPHA,
-  PARQUET,
-  AVRO,
-  RCBINARY,
-  RCTEXT,
-  SEQUENCEFILE,
-  JSON,
-  TEXTFILE,
-  CSV,
-  PAGEFILE
-};
+#include "presto_cpp/presto_protocol/connector/tpch/presto_protocol_tpch.h"
+#include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 
-void to_json(json& j, const HiveStorageFormat& p);
-void from_json(const json& j, HiveStorageFormat& p);
+namespace facebook::presto::protocol::tpch {
 
-} // namespace facebook::presto::protocol
+using TpchConnectorProtocol = ConnectorProtocolTemplate<
+    TpchTableHandle,
+    TpchTableLayoutHandle,
+    TpchColumnHandle,
+    NotImplemented,
+    NotImplemented,
+    TpchSplit,
+    TpchPartitioningHandle,
+    TpchTransactionHandle,
+    NotImplemented>;
+
+} // namespace facebook::presto::protocol::tpch
