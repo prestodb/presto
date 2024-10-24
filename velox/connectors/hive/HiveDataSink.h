@@ -384,6 +384,7 @@ struct HiveWriterInfo {
   const std::shared_ptr<memory::MemoryPool> sinkPool;
   const std::shared_ptr<memory::MemoryPool> sortPool;
   int64_t numWrittenRows = 0;
+  int64_t inputSizeInBytes = 0;
 };
 
 /// Identifies a hive writer.

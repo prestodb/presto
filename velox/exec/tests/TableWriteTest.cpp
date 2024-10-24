@@ -2631,6 +2631,7 @@ TEST_P(AllTableWriterTest, tableWriteOutputCheck) {
       std::filesystem::path path{writeFileFullPath};
       const auto actualFileSize = fs::file_size(path);
       ASSERT_EQ(obj["onDiskDataSizeInBytes"].asInt(), actualFileSize);
+      ASSERT_GT(obj["inMemoryDataSizeInBytes"].asInt(), 0);
       ASSERT_EQ(writerInfoObj["fileSize"], actualFileSize);
       if (commitStrategy_ == CommitStrategy::kNoCommit) {
         ASSERT_EQ(writeFileName, targetFileName);
