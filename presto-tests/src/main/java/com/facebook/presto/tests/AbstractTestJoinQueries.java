@@ -2631,7 +2631,7 @@ public abstract class AbstractTestJoinQueries
                 .build();
     }
 
-    private long getTableRowCount(String tableName)
+    protected long getTableRowCount(String tableName)
     {
         String countQuery = "SELECT COUNT(*) FROM " + tableName;
         MaterializedRow countRow = Iterables.getOnlyElement(getQueryRunner().execute(countQuery));

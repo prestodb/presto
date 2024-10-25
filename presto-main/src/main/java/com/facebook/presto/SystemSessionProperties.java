@@ -374,6 +374,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
+    public static final String ENABLE_JDBC_JOIN_QUERY_PUSHDOWN = "enable-join-query-pushdown";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2096,6 +2097,11 @@ public final class SystemSessionProperties
                 booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
                         "Whether to evaluate project node on values node",
                         featuresConfig.getInlineProjectionsOnValues(),
+                        false),
+                booleanProperty(
+                        ENABLE_JDBC_JOIN_QUERY_PUSHDOWN,
+                        "Enable Join Predicate Pushdown for JDBC connectors",
+                        false,
                         false));
     }
 

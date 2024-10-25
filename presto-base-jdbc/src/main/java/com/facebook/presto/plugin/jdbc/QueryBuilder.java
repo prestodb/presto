@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -34,6 +35,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -46,8 +48,11 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -63,6 +68,8 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class QueryBuilder
 {
+    private static final Logger log = Logger.get(QueryBuilder.class);
+
     // not all databases support booleans, so use 1=1 and 1=0 instead
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
@@ -103,11 +110,16 @@ public class QueryBuilder
             String catalog,
             String schema,
             String table,
+            Optional<List<ConnectorTableHandle>> joinPushdownTables,
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<JdbcExpression> additionalPredicate)
             throws SQLException
     {
+        boolean joinPushdownEnabled = checkIfJoinQuery(joinPushdownTables);
+        if (joinPushdownEnabled) {
+            return buildJoinSql(client, session, connection, joinPushdownTables.get(), columns, tupleDomain, additionalPredicate, true);
+        }
         StringBuilder sql = new StringBuilder();
 
         String columnNames = columns.stream()
@@ -132,7 +144,7 @@ public class QueryBuilder
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
-        List<String> clauses = toConjuncts(columns, tupleDomain, accumulator);
+        List<String> clauses = toConjuncts(columns, tupleDomain, accumulator, false);
         if (additionalPredicate.isPresent()) {
             clauses = ImmutableList.<String>builder()
                     .addAll(clauses)
@@ -198,7 +210,80 @@ public class QueryBuilder
                 throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
             }
         }
+        return statement;
+    }
 
+    private boolean checkIfJoinQuery(Optional<List<ConnectorTableHandle>> joinPushdownTables)
+    {
+        return (joinPushdownTables != null && joinPushdownTables.isPresent() && !joinPushdownTables.get().isEmpty());
+    }
+
+    private PreparedStatement buildJoinSql(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            List<ConnectorTableHandle> joinTables,
+            List<JdbcColumnHandle> columns,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<JdbcExpression> additionalPredicate,
+            boolean joinPushdownEnabled)
+            throws SQLException
+    {
+        StringBuilder sql = new StringBuilder();
+        Map<String, String> tableReferencesAndTableAliases = new HashMap<>();
+
+        List<String> selectColumns = getSelectColumns(columns);
+        setTableReferences(joinTables, tableReferencesAndTableAliases);
+
+        sql.append(getJoinProjection(selectColumns));
+        sql.append(getTableReferences(tableReferencesAndTableAliases));
+
+        List<TypeAndValue> accumulator = new ArrayList<>();
+
+        List<String> clauses = toConjuncts(columns, tupleDomain, accumulator, joinPushdownEnabled);
+
+        if (additionalPredicate.isPresent()) {
+            clauses = ImmutableList.<String>builder()
+                    .addAll(clauses)
+                    .add(additionalPredicate.get().getExpression())
+                    .build();
+            accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
+                    //see https://github.com/Ahana-Inc/prestodb/pull/144#discussion_r895353628 for details.
+                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue(), null))
+                    .collect(ImmutableList.toImmutableList()));
+        }
+        if (!clauses.isEmpty()) {
+            sql.append(" WHERE ");
+            sql.append(String.join(" AND ", clauses));
+        }
+        sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
+
+        PreparedStatement statement = client.getPreparedStatement(session, connection, sql.toString());
+
+        for (int i = 0; i < accumulator.size(); i++) {
+            TypeAndValue typeAndValue = accumulator.get(i);
+            int parameterIndex = i + 1;
+            Type type = typeAndValue.getType();
+            WriteFunction writeFunction = getWriteFunction(typeAndValue.getTypeHandle(), client, session, type);
+            Class<?> javaType = type.getJavaType();
+            Object value = typeAndValue.getValue();
+            if (javaType == boolean.class) {
+                ((BooleanWriteFunction) writeFunction).set(statement, parameterIndex, (boolean) value);
+            }
+            else if (javaType == double.class) {
+                ((DoubleWriteFunction) writeFunction).set(statement, parameterIndex, (double) value);
+            }
+            else if (javaType == long.class) {
+                ((LongWriteFunction) writeFunction).set(statement, parameterIndex, (long) value);
+            }
+            else if (javaType == Slice.class) {
+                ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, (Slice) value);
+            }
+            else {
+                //no inspection, unchecked raw types
+                ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
+            }
+        }
         return statement;
     }
 
@@ -221,7 +306,7 @@ public class QueryBuilder
                 validType instanceof CharType;
     }
 
-    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
+    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator, boolean joinPushdownEnabled)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (JdbcColumnHandle column : columns) {
@@ -229,23 +314,23 @@ public class QueryBuilder
             if (isAcceptedType(type)) {
                 Domain domain = tupleDomain.getDomains().get().get(column);
                 if (domain != null) {
-                    builder.add(toPredicate(column.getColumnName(), domain, type, accumulator));
+                    builder.add(toPredicate(column.getColumnName(), domain, column, accumulator, joinPushdownEnabled));
                 }
             }
         }
         return builder.build();
     }
 
-    private String toPredicate(String columnName, Domain domain, Type type, List<TypeAndValue> accumulator)
+    private String toPredicate(String columnName, Domain domain, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator, boolean joinPushdownEnabled)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? quote(columnName) + " IS NULL" : ALWAYS_FALSE;
+            return domain.isNullAllowed() ? getColumnIdentifier(columnName, columnHandle, joinPushdownEnabled) + " IS NULL" : ALWAYS_FALSE;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? ALWAYS_TRUE : quote(columnName) + " IS NOT NULL";
+            return domain.isNullAllowed() ? ALWAYS_TRUE : getColumnIdentifier(columnName, columnHandle, joinPushdownEnabled) + " IS NOT NULL";
         }
 
         List<String> disjuncts = new ArrayList<>();
@@ -258,10 +343,10 @@ public class QueryBuilder
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    rangeConjuncts.add(toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), type, accumulator));
+                    rangeConjuncts.add(toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), columnHandle, accumulator, joinPushdownEnabled));
                 }
                 if (!range.isHighUnbounded()) {
-                    rangeConjuncts.add(toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), type, accumulator));
+                    rangeConjuncts.add(toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), columnHandle, accumulator, joinPushdownEnabled));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 checkState(!rangeConjuncts.isEmpty());
@@ -271,29 +356,36 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), type, accumulator));
+            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), columnHandle, accumulator, joinPushdownEnabled));
         }
         else if (singleValues.size() > 1) {
-            for (Object value : singleValues) {
-                bindValue(value, type, accumulator);
-            }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
-            disjuncts.add(quote(columnName) + " IN (" + values + ")");
         }
 
         // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
         if (domain.isNullAllowed()) {
-            disjuncts.add(quote(columnName) + " IS NULL");
+            disjuncts.add(getColumnIdentifier(columnName, columnHandle, joinPushdownEnabled) + " IS NULL");
         }
 
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String columnName, String operator, Object value, Type type, List<TypeAndValue> accumulator)
+    private String getColumnIdentifier(String columnName, JdbcColumnHandle columnHandle, boolean joinPushdownEnabled)
     {
-        bindValue(value, type, accumulator);
-        return quote(columnName) + " " + operator + " ?";
+        Optional<String> tableAlias = columnHandle.getTableAlias();
+        if (joinPushdownEnabled && tableAlias.isPresent()) {
+            return quote(tableAlias.get()) + "." + quote(columnName);
+        }
+        else {
+            return quote(columnName);
+        }
+    }
+
+    private String toPredicate(String columnName, String operator, Object value, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator, boolean joinPushdownEnabled)
+    {
+        bindValue(value, columnHandle, accumulator);
+        return getColumnIdentifier(columnName, columnHandle, joinPushdownEnabled) + " " + operator + " ?";
     }
 
     private String quote(String name)
@@ -306,5 +398,55 @@ public class QueryBuilder
     {
         checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
         accumulator.add(new TypeAndValue(type, value));
+    }
+
+    private List<String> getSelectColumns(List<JdbcColumnHandle> columns)
+    {
+        List<String> selectColumns = new ArrayList<>();
+        for (JdbcColumnHandle columnHandle : columns) {
+            String column = getColumnAssignment(columnHandle);
+            if (null != column) {
+                selectColumns.add(column);
+            }
+        }
+        return selectColumns;
+    }
+
+    private String getJoinProjection(List<String> selectColumns)
+    {
+        return "SELECT " + String.join(", ", selectColumns) + " FROM ";
+    }
+
+    private String getTableReferences(Map<String, String> tableReferencesAndTableAliases)
+    {
+        return tableReferencesAndTableAliases.entrySet().stream()
+                .map(entry -> entry.getValue() + " " + entry.getKey())
+                .collect(Collectors.joining(", "));
+    }
+
+    private String getColumnAssignment(JdbcColumnHandle columnHandle)
+    {
+        String columnName = columnHandle.getColumnName();
+        Optional<String> columnTableAlias = columnHandle.getTableAlias();
+        return columnTableAlias.map(s -> quote(s) + "." + quote(columnName)).orElseGet(() -> quote(columnName));
+    }
+
+    private void setTableReferences(List<ConnectorTableHandle> joinTables, Map<String, String> tableReferencesAndTableAliases)
+    {
+        for (ConnectorTableHandle table : joinTables) {
+            JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+            /*
+               Schema name is null for connectors like MySQl, SingleStore etc.
+               Such case we are taking catalog name.
+             */
+            String schemaName = (null != tableHandle.getSchemaName() && !tableHandle.getSchemaName().isEmpty()) ? tableHandle.getSchemaName() : tableHandle.getCatalogName();
+            String tableName = tableHandle.getTableName();
+            Optional<String> tableAlias = tableHandle.getTableAlias();
+            String schemaTableName = quote(schemaName) + "." + quote(tableName);
+            if (tableAlias.isPresent()) {
+                String alias = tableAlias.get();
+                tableReferencesAndTableAliases.put(quote(alias), schemaTableName);
+            }
+        }
     }
 }

@@ -50,12 +50,10 @@ public class FunctionTranslator<T>
                 || !translatedExpressions.stream().map(TranslatedExpression::getTranslated).allMatch(Optional::isPresent)) {
             return untranslated(original, translatedExpressions);
         }
-
         List<T> translatedArguments = translatedExpressions.stream()
                 .map(TranslatedExpression::getTranslated)
                 .map(Optional::get)
                 .collect(toImmutableList());
-
         return new TranslatedExpression<>(Optional.of((T) functionMapping.get(functionMetadata).invokeWithArguments(translatedArguments)), original, translatedExpressions);
     }
 

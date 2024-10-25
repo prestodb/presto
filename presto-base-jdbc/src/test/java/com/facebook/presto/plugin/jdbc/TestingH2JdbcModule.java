@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.util.ConfigUtil;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -22,6 +23,7 @@ import org.h2.Driver;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_MIXED_CASE_SUPPORT;
 import static java.lang.String.format;
 
 class TestingH2JdbcModule
@@ -36,7 +38,7 @@ class TestingH2JdbcModule
     @Provides
     public JdbcClient provideJdbcClient(JdbcConnectorId id, BaseJdbcConfig config)
     {
-        return new BaseJdbcClient(id, config, "\"", new DriverConnectionFactory(new Driver(), config));
+        return new H2JdbcClient(id, config);
     }
 
     public static Map<String, String> createProperties()
@@ -44,5 +46,24 @@ class TestingH2JdbcModule
         return ImmutableMap.<String, String>builder()
                 .put("connection-url", format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime()))
                 .build();
+    }
+
+    private class H2JdbcClient
+            extends BaseJdbcClient
+    {
+        boolean enableMixedCaseSupport;
+        public H2JdbcClient(JdbcConnectorId id, BaseJdbcConfig config)
+        {
+            super(id, config, "\"", new DriverConnectionFactory(new Driver(), config));
+            enableMixedCaseSupport = ConfigUtil.getConfig(ENABLE_MIXED_CASE_SUPPORT);
+        }
+
+        // Override case sensitivity behaviour
+        @Override
+        protected String quoted(String name)
+        {
+            name = !enableMixedCaseSupport ? name.toUpperCase() : name;
+            return identifierQuote + name + identifierQuote;
+        }
     }
 }
