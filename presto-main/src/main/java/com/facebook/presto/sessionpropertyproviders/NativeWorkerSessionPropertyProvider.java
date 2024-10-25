@@ -41,6 +41,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
     public static final String NATIVE_WINDOW_SPILL_ENABLED = "native_window_spill_enabled";
     public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
+    public static final String NATIVE_WRITER_FLUSH_THRESHOLD_BYTES = "native_writer_flush_threshold_bytes";
     public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
     public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
     public static final String NATIVE_SPILLER_NUM_PARTITION_BITS = "native_spiller_num_partition_bits";
@@ -122,6 +123,12 @@ public class NativeWorkerSessionPropertyProvider
                         "Native Execution only. Enable writer spilling on native engine",
                         false,
                         !nativeExecution),
+                longProperty(
+                        NATIVE_WRITER_FLUSH_THRESHOLD_BYTES,
+                        "Native Execution only. Minimum memory footprint size required to reclaim memory from a file " +
+                        "writer by flushing its buffered data to disk.",
+                        96L << 20,
+                        false),
                 booleanProperty(
                         NATIVE_ROW_NUMBER_SPILL_ENABLED,
                         "Native Execution only. Enable row number spilling on native engine",

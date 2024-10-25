@@ -168,6 +168,16 @@ SessionProperties::SessionProperties() {
       boolToString(c.writerSpillEnabled()));
 
   addSessionProperty(
+      kWriterFlushThresholdBytes,
+      "Native Execution only. Minimum memory footprint size required "
+      "to reclaim memory from a file writer by flushing its buffered data to "
+      "disk.",
+      BIGINT(),
+      false,
+      QueryConfig::kWriterFlushThresholdBytes,
+      std::to_string(c.writerFlushThresholdBytes()));
+
+  addSessionProperty(
       kRowNumberSpillEnabled,
       "Native Execution only. Enable row number spilling on native engine",
       BOOLEAN(),

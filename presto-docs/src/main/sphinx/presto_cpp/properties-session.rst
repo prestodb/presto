@@ -233,13 +233,14 @@ Native Execution only. Enable topN row number spilling on native engine.
 
 Native Execution only. Enable window spilling on native engine.
 
-``native_writer_spill_enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``native_writer_flush_threshold_bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
-* **Default value:** ``true``
+* **Type:** ``bigint``
+* **Default value:** ``100663296``
 
-Native Execution only. Enable writer spilling on native engine.
+Minimum memory footprint size required to reclaim memory from a file writer by flushing its buffered data to disk.
+Default is 96MB.
 
 ``native_max_output_buffer_size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -131,6 +131,11 @@ class SessionProperties {
   static constexpr const char* kWriterSpillEnabled =
       "native_writer_spill_enabled";
 
+  /// Minimum memory footprint size required to reclaim memory from a file
+  /// writer by flushing its buffered data to disk.
+  static constexpr const char* kWriterFlushThresholdBytes =
+      "native_writer_flush_threshold_bytes";
+
   /// The number of bits (N) used to calculate the spilling partition number for
   /// hash join and RowNumber: 2 ^ N
   static constexpr const char* kSpillerNumPartitionBits =
