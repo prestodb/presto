@@ -1469,7 +1469,7 @@ DEBUG_ONLY_TEST_F(DriverTest, driverThreadContext) {
       "facebook::velox::exec::Values::getOutput",
       std::function<void(const exec::Values*)>([&](const exec::Values* values) {
         ASSERT_TRUE(driverThreadContext() != nullptr);
-        capturedTask = driverThreadContext()->driverCtx.task.get();
+        capturedTask = driverThreadContext()->driverCtx()->task.get();
       }));
   std::vector<RowVectorPtr> batches;
   for (int i = 0; i < 4; ++i) {

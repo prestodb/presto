@@ -622,7 +622,7 @@ void Operator::MemoryReclaimer::enterArbitration() {
     return;
   }
 
-  Driver* const runningDriver = driverThreadCtx->driverCtx.driver;
+  Driver* const runningDriver = driverThreadCtx->driverCtx()->driver;
   if (!FLAGS_velox_memory_pool_capacity_transfer_across_tasks) {
     if (auto opDriver = ensureDriver()) {
       // NOTE: the current running driver might not be the driver of the
@@ -652,7 +652,7 @@ void Operator::MemoryReclaimer::leaveArbitration() noexcept {
     // is not issued from a driver thread.
     return;
   }
-  Driver* const runningDriver = driverThreadCtx->driverCtx.driver;
+  Driver* const runningDriver = driverThreadCtx->driverCtx()->driver;
   if (!FLAGS_velox_memory_pool_capacity_transfer_across_tasks) {
     if (auto opDriver = ensureDriver()) {
       VELOX_CHECK_EQ(

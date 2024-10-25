@@ -32,7 +32,7 @@ void MemoryReclaimer::enterArbitration() {
     return;
   }
 
-  Driver* const driver = driverThreadCtx->driverCtx.driver;
+  Driver* const driver = driverThreadCtx->driverCtx()->driver;
   if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
     // There is no need for arbitration if the associated task has already
     // terminated.
@@ -47,7 +47,7 @@ void MemoryReclaimer::leaveArbitration() noexcept {
     // request is not issued from a driver thread.
     return;
   }
-  Driver* const driver = driverThreadCtx->driverCtx.driver;
+  Driver* const driver = driverThreadCtx->driverCtx()->driver;
   driver->task()->leaveSuspended(driver->state());
 }
 
@@ -169,7 +169,7 @@ uint64_t ParallelMemoryReclaimer::reclaim(
 void memoryArbitrationStateCheck(memory::MemoryPool& pool) {
   const auto* driverThreadCtx = driverThreadContext();
   if (driverThreadCtx != nullptr) {
-    Driver* driver = driverThreadCtx->driverCtx.driver;
+    Driver* driver = driverThreadCtx->driverCtx()->driver;
     if (!driver->state().suspended()) {
       VELOX_FAIL(
           "Driver thread is not suspended under memory arbitration processing: {}, request memory pool: {}",

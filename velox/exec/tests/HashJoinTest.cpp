@@ -6545,9 +6545,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringAllocation) {
                 return;
               }
 
-              auto& driverCtx = driverThreadContext()->driverCtx;
+              const auto* driverCtx = driverThreadContext()->driverCtx();
               ASSERT_EQ(
-                  driverCtx.task->enterSuspended(driverCtx.driver->state()),
+                  driverCtx->task->enterSuspended(driverCtx->driver->state()),
                   StopReason::kNone);
               testData.abortFromRootMemoryPool ? abortPool(pool->root())
                                                : abortPool(pool);
@@ -6555,7 +6555,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringAllocation) {
               // as its driver thread is running and in suspegnsion state.
               ASSERT_GE(pool->root()->usedBytes(), 0);
               ASSERT_EQ(
-                  driverCtx.task->leaveSuspended(driverCtx.driver->state()),
+                  driverCtx->task->leaveSuspended(driverCtx->driver->state()),
                   StopReason::kAlreadyTerminated);
               ASSERT_TRUE(pool->aborted());
               ASSERT_TRUE(pool->root()->aborted());

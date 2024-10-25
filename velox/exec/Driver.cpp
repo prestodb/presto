@@ -1144,7 +1144,6 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kWaitForArbitration";
   }
   VELOX_UNREACHABLE();
-  return "";
 }
 
 DriverThreadContext* driverThreadContext() {
@@ -1153,7 +1152,16 @@ DriverThreadContext* driverThreadContext() {
 
 ScopedDriverThreadContext::ScopedDriverThreadContext(const DriverCtx& driverCtx)
     : savedDriverThreadCtx_(driverThreadCtx),
-      currentDriverThreadCtx_{.driverCtx = driverCtx} {
+      currentDriverThreadCtx_(DriverThreadContext(&driverCtx)) {
+  driverThreadCtx = &currentDriverThreadCtx_;
+}
+
+ScopedDriverThreadContext::ScopedDriverThreadContext(
+    const DriverThreadContext* _driverThreadCtx)
+    : savedDriverThreadCtx_(driverThreadCtx),
+      currentDriverThreadCtx_(
+          _driverThreadCtx == nullptr ? nullptr
+                                      : _driverThreadCtx->driverCtx()) {
   driverThreadCtx = &currentDriverThreadCtx_;
 }
 

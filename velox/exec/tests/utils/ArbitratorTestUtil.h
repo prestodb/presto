@@ -47,7 +47,7 @@ class FakeMemoryReclaimer : public exec::MemoryReclaimer {
     if (driverThreadCtx == nullptr) {
       return;
     }
-    auto* driver = driverThreadCtx->driverCtx.driver;
+    auto* driver = driverThreadCtx->driverCtx()->driver;
     ASSERT_TRUE(driver != nullptr);
     if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
       VELOX_FAIL("Terminate detected when entering suspension");
@@ -59,7 +59,7 @@ class FakeMemoryReclaimer : public exec::MemoryReclaimer {
     if (driverThreadCtx == nullptr) {
       return;
     }
-    auto* driver = driverThreadCtx->driverCtx.driver;
+    auto* driver = driverThreadCtx->driverCtx()->driver;
     ASSERT_TRUE(driver != nullptr);
     driver->task()->leaveSuspended(driver->state());
   }
