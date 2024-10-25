@@ -46,6 +46,10 @@ public abstract class AbstractTestNanQueries
     public static final String SIMPLE_DOUBLE_ARRAY_COLUMN = "simple_double_array";
     public static final String SIMPLE_REAL_ARRAY_COLUMN = "simple_real_array";
 
+    public static final String ARRAY_TABLE_NAME_NO_NULL = "array_nans_table_no_null";
+    public static final String SIMPLE_DOUBLE_ARRAY_COLUMN_NO_NULL = "simple_double_array_no_null";
+    public static final String SIMPLE_REAL_ARRAY_COLUMN_NO_NULL = "simple_real_array_no_null";
+
     public static final String MAP_TABLE_NAME = "map_nans_table";
     public static final String DOUBLE_MAP_COLUMN = "double_map";
     public static final String REAL_MAP_COLUMN = "real_map";
@@ -96,7 +100,19 @@ public abstract class AbstractTestNanQueries
                 "(ARRAY[DOUBLE '0', DOUBLE '1', nan(), DOUBLE '-1', nan(), DOUBLE '1', DOUBLE '1', DOUBLE'0'], ARRAY [REAL '0', REAL '1', CAST(nan() AS REAL), REAL '-1', CAST(nan() AS REAL), REAL '1', REAL '1', REAL '0'])) " +
                 "AS t (" + SIMPLE_DOUBLE_ARRAY_COLUMN + ", " + SIMPLE_REAL_ARRAY_COLUMN + ")";
 
+        @Language("SQL") String createArrayTableNoNullQuery = "" +
+                "CREATE TABLE " + ARRAY_TABLE_NAME_NO_NULL + " AS " +
+                "SELECT * FROM (VALUES " +
+                "(ARRAY[nan(), DOUBLE '0', DOUBLE '1', DOUBLE '-1'], ARRAY[cast(nan() AS REAL), REAL '0', REAL '1', REAL '-1']), " +
+                "(ARRAY[ DOUBLE '0', nan(), DOUBLE '1', DOUBLE '-1'], ARRAY[REAL '0', CAST(nan() AS REAL),  REAL '1', REAL '-1']), " +
+                "(ARRAY[ DOUBLE '0',  DOUBLE '1', DOUBLE '-1', nan()], ARRAY[REAL '0', REAL '1', REAL '-1',  CAST(nan() AS REAL)]), " +
+                "(ARRAY[null, nan(), DOUBLE '200'], ARRAY[null, CAST(nan() AS REAL), REAL '200']), " +
+                "(ARRAY[nan(), nan()], ARRAY[CAST(nan() AS REAL), CAST(nan() AS REAL)]), " +
+                "(ARRAY[DOUBLE '0', DOUBLE '1', nan(), DOUBLE '-1', nan(), DOUBLE '1', DOUBLE '1', DOUBLE'0'], ARRAY [REAL '0', REAL '1', CAST(nan() AS REAL), REAL '-1', CAST(nan() AS REAL), REAL '1', REAL '1', REAL '0'])) " +
+                "AS t (" + SIMPLE_DOUBLE_ARRAY_COLUMN_NO_NULL + ", " + SIMPLE_REAL_ARRAY_COLUMN_NO_NULL + ")";
+
         assertUpdate(createArrayTableQuery, 7);
+        assertUpdate(createArrayTableNoNullQuery, 6);
 
         @Language("SQL") String createMapTableQuery = "" +
                 "CREATE TABLE " + MAP_TABLE_NAME + " AS " +
@@ -728,6 +744,9 @@ public abstract class AbstractTestNanQueries
         // Test the array of arrays function signature
         assertQueryWithSameQueryRunner(
                 format("SELECT array_sort(array_intersect(array_agg(%s))) FROM %s", SIMPLE_DOUBLE_ARRAY_COLUMN, ARRAY_TABLE_NAME),
+                "SELECT NULL");
+        assertQueryWithSameQueryRunner(
+                format("SELECT array_sort(array_intersect(array_agg(%s))) FROM %s", SIMPLE_DOUBLE_ARRAY_COLUMN_NO_NULL, ARRAY_TABLE_NAME_NO_NULL),
                 "SELECT * FROM (VALUES (ARRAY[nan()]))");
     }
 
@@ -737,6 +756,9 @@ public abstract class AbstractTestNanQueries
         // Test the array of arrays function signature
         assertQueryWithSameQueryRunner(
                 format("SELECT array_sort(array_intersect(array_agg(%s))) FROM %s", SIMPLE_REAL_ARRAY_COLUMN, ARRAY_TABLE_NAME),
+                "SELECT NULL");
+        assertQueryWithSameQueryRunner(
+                format("SELECT array_sort(array_intersect(array_agg(%s))) FROM %s", SIMPLE_REAL_ARRAY_COLUMN_NO_NULL, ARRAY_TABLE_NAME_NO_NULL),
                 "SELECT * FROM (VALUES (ARRAY[CAST(nan() AS REAL)]))");
     }
 

@@ -215,6 +215,10 @@ public class TestArrayIntersectFunction
     public void testSqlFunctions()
     {
         assertFunction("array_intersect(ARRAY[ARRAY[1, 3, 5], ARRAY[2, 3, 5], ARRAY[3, 3, 3, 6]])", new ArrayType(INTEGER), ImmutableList.of(3));
+        assertFunction("array_intersect(ARRAY[null, ARRAY[], ARRAY[1, 2, 3]])", new ArrayType(INTEGER), null);
+        assertFunction("array_intersect(ARRAY[ARRAY[], null, ARRAY[1, 2, 3]])", new ArrayType(INTEGER), null);
+        assertFunction("array_intersect(ARRAY[])", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("array_intersect(null)", new ArrayType(UNKNOWN), null);
         assertFunction("array_intersect(ARRAY[ARRAY[], ARRAY[1, 2, 3]])", new ArrayType(INTEGER), ImmutableList.of());
         assertFunction("array_intersect(ARRAY[ARRAY[1, 2, 3], null])", new ArrayType(INTEGER), null);
         assertFunction("array_intersect(ARRAY[ARRAY[DOUBLE'1.1', DOUBLE'2.2', DOUBLE'3.3'], ARRAY[DOUBLE'1.1', DOUBLE'3.4'], ARRAY[DOUBLE'1.0', DOUBLE'1.1', DOUBLE'1.2']])", new ArrayType(DOUBLE), ImmutableList.of(1.1));
