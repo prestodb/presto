@@ -17,10 +17,13 @@ you are expected to uphold this code.
 ## Community
 
 A good first step to getting involved in the Velox project is to participate in
-conversations in GitHub [Issues](https://github.com/facebookincubator/velox/issues) 
-and [Discussions](https://github.com/facebookincubator/velox/discussions), and join the
-[the Velox-OSS Slack workspace](http://velox-oss.slack.com) - please reach out to 
-**velox@meta.com** to get access.
+conversations in GitHub
+[Issues](https://github.com/facebookincubator/velox/issues) and
+[Discussions](https://github.com/facebookincubator/velox/discussions), and join
+the [the Velox-OSS Slack workspace](http://velox-oss.slack.com) - please
+comment on [this
+Discussion](https://github.com/facebookincubator/velox/discussions/11348) to
+get access.
 
 ## Components and Maintainers
 
@@ -56,10 +59,11 @@ maintainers, allowing them to provide more timely feedback and keeping the
 amount of rework from contributors to a minimum.
 
 We encourage new contributors to start with bug fixes and small features so you
-get familiar with the contributing process, while building relationships with
-community members.
-Look for GitHub issues labeled [good first issue](https://github.com/facebookincubator/velox/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or consider adding one of the
-[missing Presto SQL functions](https://github.com/facebookincubator/velox/issues/2262).
+get familiar with the contribution process, while building relationships with
+community members.  Look for GitHub issues labeled [good first
+issue](https://github.com/facebookincubator/velox/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+or consider adding one of the [missing Presto SQL
+functions](https://github.com/facebookincubator/velox/issues/2262).
 
 The contribution process is outlined below:
 
@@ -76,7 +80,7 @@ The contribution process is outlined below:
    * Will the change conflict with another change in progress? If so, work with others to minimize impact.
 
 4. Implement the change.
-   * Always follow the coding best practices outlined in the list below.
+   * Always follow the [coding best practices](#coding-best-practices) outlined below.
    * If the change is large, consider posting a draft Github pull request (PR)
      with the title prefixed with [WIP], and share with collaborators to get early feedback.
    * Give the PR a clear, brief description; when the PR is
@@ -88,9 +92,9 @@ The contribution process is outlined below:
    * Create/submit a Github PR and tag the reviewers identified in Step 3.
 
 5. Review is performed by one or more reviewers.
-   * This normally happens within a few days, but may take longer if the change is
-   large, complex, or if a critical reviewer is unavailable (feel free to ping in the
-   PR).
+   * This normally happens within a few days, but may take longer if the change
+   is large, complex, or if a critical reviewer is unavailable (feel free to
+   ping them in the PR or on Slack).
 
 6. Address feedback and update the PR.
    * After pushing changes, add a comment to the PR mentioning the
@@ -102,7 +106,7 @@ The contribution process is outlined below:
    addressed and resolve the conversation.
 
 7. Iterate on this process until your changes are reviewed and accepted by a 
-   maintainer. At this point, a Meta employee will be required to merge your PR,
+   maintainer. At this point, a Meta employee will be notified to merge your PR,
    due to tooling limitations.
 
 ## Coding Best Practices

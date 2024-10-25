@@ -18,7 +18,7 @@ knowledge. All individuals listed in this page are expected to uphold
 
 ## Project Leadership Council - PLC
 
-The PLC is reponsible for the long-term directional leadership of the project:
+The PLC is responsible for the long-term directional leadership of the project:
 
 * Masha Basmanova - [mbasmanova](https://github.com/mbasmanova) / mbasmanova@meta.com - **Chair**
 * Orri Erling - [oerling](https://github.com/oerling) / oerling@meta.com
