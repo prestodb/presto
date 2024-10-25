@@ -106,6 +106,9 @@ target_link_libraries(
   velox_fuzzer_util
   velox_exec_test_lib
   velox_function_registry
+  velox_file
+  velox_hive_connector
+  velox_fuzzer_util
   GTest::gtest
   GTest::gtest_main)
 

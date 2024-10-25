@@ -19,14 +19,19 @@
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
 #include "velox/common/base/Fs.h"
+#include "velox/common/file/FileSystems.h"
+#include "velox/connectors/hive/HiveConnector.h"
+#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/exec/fuzzer/FuzzerUtil.h"
+#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
-#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/sparksql/Register.h"
 #include "velox/vector/VectorSaver.h"
 
 using namespace facebook::velox;
+using facebook::velox::exec::test::PrestoQueryRunner;
 using facebook::velox::test::ReferenceQueryRunner;
 
 DEFINE_string(
@@ -97,6 +102,19 @@ DEFINE_bool(
     " stored in the string buffers need to be created. If however, the pools"
     " were the same between the vectors then the buffers can simply be shared"
     " between them instead.");
+
+DEFINE_string(
+    reference_db_url,
+    "",
+    "ReferenceDB URI along with port. If set, we use the reference DB as the "
+    "source of truth. Otherwise, use Velox simplified eval path. Example: "
+    "--reference_db_url=http://127.0.0.1:8080");
+
+DEFINE_uint32(
+    req_timeout_ms,
+    10000,
+    "Timeout in milliseconds for HTTP requests made to reference DB, "
+    "such as Presto. Example: --req_timeout_ms=2000");
 
 static bool validateMode(const char* flagName, const std::string& value) {
   static const std::unordered_set<std::string> kModes = {
@@ -221,7 +239,24 @@ int main(int argc, char** argv) {
   }
 
   memory::initializeMemoryManager({});
+
+  filesystems::registerLocalFileSystem();
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>());
+  exec::test::registerHiveConnector({});
+  dwrf::registerDwrfWriterFactory();
+
+  std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
+      facebook::velox::memory::memoryManager()->addRootPool()};
   std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
+  if (FLAGS_registry == "presto" && !FLAGS_reference_db_url.empty()) {
+    referenceQueryRunner = std::make_shared<PrestoQueryRunner>(
+        rootPool.get(),
+        FLAGS_reference_db_url,
+        "expression_runner_test",
+        static_cast<std::chrono::milliseconds>(FLAGS_req_timeout_ms));
+    LOG(INFO) << "Using Presto as the reference DB.";
+  }
 
   test::ExpressionRunner::run(
       FLAGS_input_path,
