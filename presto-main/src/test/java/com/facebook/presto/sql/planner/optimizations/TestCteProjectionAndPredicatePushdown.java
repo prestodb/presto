@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
@@ -128,7 +129,9 @@ public class TestCteProjectionAndPredicatePushdown
     {
         Metadata metadata = getQueryRunner().getMetadata();
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new LogicalCteOptimizer(metadata),
+                new LogicalCteOptimizer(getQueryRunner().getMetadata(), new CostComparator(1, 1, 1),
+                        getQueryRunner().getCostCalculator(),
+                        getQueryRunner().getStatsCalculator()),
                 new PruneUnreferencedOutputs(),
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
