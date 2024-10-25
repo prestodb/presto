@@ -45,3 +45,38 @@ git commit -m "Update documentation"
 # This will get the website updated.
 git push -f upstream update-docs:gh-pages
 ```
+
+## Monthly Updates
+The goal of the monthly update is for Velox users to understand the latest
+improvements and changes to Velox.
+This report is generated manually with the help of the following commands and template.
+
+Command to get the list of contributors and their contribution count in a specific month.
+```
+git log --since='June 1 2024' --until='June 30 2024' --pretty=format:"%an (%ae)" | sort | uniq -c | sort -r
+```
+Command to get the list of contributions in a specific month.
+```
+git log --since='June 1 2024' --until='June 30 2024' --pretty=format:"%h%x09%an%x09%ad%x09%s"
+```
+
+The following template is used to write a monthly update report. The main sections
+are as follows.
+- Documentation
+- Core Library
+- Presto Functions
+- Spark Functions
+- Hive Connector
+- Performance and Correctness
+- Build System
+- Credits
+
+Below are a few monthly update guidelines.
+- New monthly reports [must be added here](monthly-updates/). Each new report
+  must be linked to the [main document](monthly-updates.rst).
+- Each update should be in the imperative, present tense similar to a git commit.
+- In sections where applicable, start new additions with `Add` followed by
+  the fixes using `Fix`, followed by other updates.
+- Group similar contributions together. Example: All Presto scalar functions can be
+  combined in one line.
+- Add a reference to the PR if the update requires more context.
