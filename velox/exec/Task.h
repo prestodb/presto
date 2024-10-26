@@ -766,7 +766,8 @@ class Task : public std::enable_shared_from_this<Task> {
   // customized instance for hash join plan node, otherwise creates a default
   // memory reclaimer.
   std::unique_ptr<memory::MemoryReclaimer> createNodeReclaimer(
-      bool isHashJoinNode) const;
+      const std::function<std::unique_ptr<memory::MemoryReclaimer>()>&
+          reclaimerFactory) const;
 
   // Creates a memory reclaimer instance for an exchange client if the task
   // memory pool has set memory reclaimer. We don't support to reclaim memory

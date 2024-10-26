@@ -483,7 +483,10 @@ velox::memory::MemoryPool* Task::getOrAddNodePool(
     return nodePools_[planNodeId];
   }
   childPools_.push_back(pool_->addAggregateChild(
-      fmt::format("node.{}", planNodeId), createNodeReclaimer(false)));
+      fmt::format("node.{}", planNodeId), createNodeReclaimer([&]() {
+        return exec::ParallelMemoryReclaimer::create(
+            queryCtx_->spillExecutor());
+      })));
   auto* nodePool = childPools_.back().get();
   nodePools_[planNodeId] = nodePool;
   return nodePool;
@@ -499,22 +502,24 @@ memory::MemoryPool* Task::getOrAddJoinNodePool(
     return nodePools_[nodeId];
   }
   childPools_.push_back(pool_->addAggregateChild(
-      fmt::format("node.{}", nodeId), createNodeReclaimer(true)));
+      fmt::format("node.{}", nodeId), createNodeReclaimer([&]() {
+        return HashJoinMemoryReclaimer::create(
+            getHashJoinBridgeLocked(splitGroupId, planNodeId));
+      })));
   auto* nodePool = childPools_.back().get();
   nodePools_[nodeId] = nodePool;
   return nodePool;
 }
 
 std::unique_ptr<memory::MemoryReclaimer> Task::createNodeReclaimer(
-    bool isHashJoinNode) const {
+    const std::function<std::unique_ptr<memory::MemoryReclaimer>()>&
+        reclaimerFactory) const {
   if (pool()->reclaimer() == nullptr) {
     return nullptr;
   }
   // Sets memory reclaimer for the parent node memory pool on the first child
   // operator construction which has set memory reclaimer.
-  return isHashJoinNode
-      ? HashJoinMemoryReclaimer::create()
-      : exec::ParallelMemoryReclaimer::create(queryCtx_->spillExecutor());
+  return reclaimerFactory();
 }
 
 std::unique_ptr<memory::MemoryReclaimer> Task::createExchangeClientReclaimer()

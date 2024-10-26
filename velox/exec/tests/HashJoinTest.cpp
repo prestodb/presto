@@ -24,6 +24,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/HashJoinBridge.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -8287,5 +8288,81 @@ TEST_F(HashJoinTest, nanKeys) {
        makeFlatVector<double>({kNan, kNan}),
        makeFlatVector<int64_t>({1, 2})});
   facebook::velox::test::assertEqualVectors(expected, result);
+}
+
+DEBUG_ONLY_TEST_F(HashJoinTest, spillOnBlockedProbe) {
+  auto blockedOperatorFactoryUniquePtr =
+      std::make_unique<BlockedOperatorFactory>();
+  auto blockedOperatorFactory = blockedOperatorFactoryUniquePtr.get();
+  Operator::registerOperator(std::move(blockedOperatorFactoryUniquePtr));
+
+  std::vector<ContinuePromise> unblockPromises;
+  std::atomic_bool shouldBlock{true};
+  blockedOperatorFactory->setBlockedCb([&](ContinueFuture* future) {
+    if (!shouldBlock) {
+      return BlockingReason::kNotBlocked;
+    }
+    auto [p, f] = makeVeloxContinuePromiseContract("Blocked Operator");
+    *future = std::move(f);
+    unblockPromises.push_back(std::move(p));
+    return BlockingReason::kWaitForConsumer;
+  });
+
+  folly::EventCount arbitrationWait;
+  std::atomic<bool> arbitrationWaitFlag{true};
+  ::facebook::velox::common::testutil::ScopedTestValue _scopedTestValue15(
+      "facebook::velox::exec::HashBuild::finishHashBuild",
+      std::function<void(exec::HashBuild*)>([&](Operator* /* unused */) {
+        arbitrationWaitFlag = false;
+        arbitrationWait.notifyAll();
+      }));
+  std::thread arbitrationThread([&]() {
+    arbitrationWait.await([&]() { return !arbitrationWaitFlag.load(); });
+    memory::memoryManager()->shrinkPools();
+    shouldBlock = false;
+    for (auto& unblockPromise : unblockPromises) {
+      unblockPromise.setValue();
+    }
+  });
+
+  auto rowType = ROW({{"c0", INTEGER()}, {"c1", INTEGER()}});
+  std::vector<RowVectorPtr> vectors = createVectors(1, rowType, fuzzerOpts_);
+  createDuckDbTable(vectors);
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(vectors)
+                  .project({"c0 AS t0", "c1 AS t1"})
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(vectors)
+                          .project({"c0 AS u0", "c1 AS u1"})
+                          .planNode(),
+                      "",
+                      {"t1"},
+                      core::JoinType::kInner)
+                  .addNode([&](std::string id, core::PlanNodePtr input) {
+                    return std::make_shared<BlockedNode>(id, input);
+                  })
+                  .planNode();
+
+  {
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .plan(plan)
+            .queryCtx(newQueryCtx(
+                memory::memoryManager(), executor_.get(), kMemoryCapacity))
+            .spillDirectory(spillDirectory->getPath())
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .maxDrivers(1)
+            .assertResults("SELECT a.c1 from tmp a join tmp b on a.c0 = b.c0");
+    auto joinSpillStats = taskSpilledStats(*task);
+    auto buildSpillStats = joinSpillStats.first;
+    ASSERT_GT(buildSpillStats.spilledBytes, 0);
+  }
+  arbitrationThread.join();
+  waitForAllTasksToBeDeleted(30'000'000);
 }
 } // namespace

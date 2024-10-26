@@ -758,8 +758,26 @@ bool HashBuild::finishHashBuild() {
       RuntimeCounter(timing.wallNanos, RuntimeCounter::Unit::kNanos));
 
   addRuntimeStats();
+
+  // Setup spill function for spilling hash table directly from hash join
+  // bridge after transferring of table ownership.
+  HashJoinTableSpillFunc tableSpillFunc;
+  if (canReclaim()) {
+    VELOX_CHECK_NOT_NULL(spiller_);
+    tableSpillFunc = [hashBitRange = spiller_->hashBits(),
+                      joinNode = joinNode_,
+                      spillConfig = spillConfig(),
+                      spillStats =
+                          &spillStats_](std::shared_ptr<BaseHashTable> table) {
+      return spillHashJoinTable(
+          table, hashBitRange, joinNode, spillConfig, spillStats);
+    };
+  }
   joinBridge_->setHashTable(
-      std::move(table_), std::move(spillPartitions), joinHasNullKeys_);
+      std::move(table_),
+      std::move(spillPartitions),
+      joinHasNullKeys_,
+      std::move(tableSpillFunc));
   if (canSpill()) {
     stateCleared_ = true;
   }
