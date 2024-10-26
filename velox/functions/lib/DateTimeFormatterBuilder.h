@@ -88,6 +88,16 @@ class DateTimeFormatterBuilder {
   /// will be 001
   DateTimeFormatterBuilder& appendWeekOfWeekYear(size_t minDigits);
 
+  /// Appends week of month to formatter builder, e.g: 2
+  ///
+  /// \param minDigits describes the minimum number of digits this format is
+  /// required to represent week of month. The format by default is going
+  /// use as few digits as possible greater than or equal to minDigits to
+  /// represent week of month. e.g. 1999-01-01, with min digit being 1 the
+  /// formatted result will be 1, with min digit being 4 the formatted result
+  /// will be 0001
+  DateTimeFormatterBuilder& appendWeekOfMonth(size_t minDigits);
+
   /// Appends day of week to formatter builder. The number is 0 based with 0 ~ 6
   /// representing Sunday to Saturday respectively
   ///

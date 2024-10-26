@@ -47,10 +47,14 @@ struct Date {
   int32_t dayOfYear = 1;
   bool dayOfYearFormat = false;
 
+  int32_t weekOfMonth = 1;
+  bool weekOfMonthDateFormat = false;
+
   bool centuryFormat = false;
 
   bool isYearOfEra = false; // Year of era cannot be zero or negative.
   bool hasYear = false; // Whether year was explicitly specified.
+  bool hasDayOfWeek = false; // Whether dayOfWeek was explicitly specified.
 
   int32_t hour = 0;
   int32_t minute = 0;
@@ -456,6 +460,7 @@ int64_t parseDayOfWeekText(const char* cur, const char* end, Date& date) {
     auto it = dayOfWeekMap.find(std::string_view(cur, 3));
     if (it != dayOfWeekMap.end()) {
       date.dayOfWeek = it->second.second;
+      date.hasDayOfWeek = true;
       if (end - cur >= it->second.first.size() + 3) {
         if (std::strncmp(
                 cur + 3, it->second.first.data(), it->second.first.size()) ==
@@ -612,6 +617,8 @@ std::string_view getSpecifierName(DateTimeFormatSpecifier specifier) {
       return "TIMEZONE_OFFSET_ID";
     case DateTimeFormatSpecifier::LITERAL_PERCENT:
       return "LITERAL_PERCENT";
+    case DateTimeFormatSpecifier::WEEK_OF_MONTH:
+      return "WEEK_OF_MONTH";
     default: {
       VELOX_UNREACHABLE("[Unexpected date format specifier]");
       return ""; // Make compiler happy.
@@ -628,6 +635,7 @@ int getMaxDigitConsume(
     case DateTimeFormatSpecifier::CENTURY_OF_ERA:
     case DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED:
     case DateTimeFormatSpecifier::FRACTION_OF_SECOND:
+    case DateTimeFormatSpecifier::WEEK_OF_MONTH:
       return curPattern.minRepresentDigits;
 
     case DateTimeFormatSpecifier::YEAR_OF_ERA:
@@ -720,7 +728,9 @@ int32_t parseFromPattern(
       return -1;
     }
     cur += size;
-    date.weekDateFormat = true;
+    if (!date.weekOfMonthDateFormat) {
+      date.weekDateFormat = true;
+    }
     date.dayOfYearFormat = false;
     if (!date.hasYear) {
       date.hasYear = true;
@@ -838,8 +848,10 @@ int32_t parseFromPattern(
         break;
 
       case DateTimeFormatSpecifier::MONTH_OF_YEAR:
-        if (number < 1 || number > 12) {
-          return -1;
+        if (type != DateTimeFormatterType::LENIENT_SIMPLE) {
+          if (number < 1 || number > 12) {
+            return -1;
+          }
         }
         date.month = number;
         date.weekDateFormat = false;
@@ -858,6 +870,7 @@ int32_t parseFromPattern(
         date.day = number;
         date.weekDateFormat = false;
         date.dayOfYearFormat = false;
+        date.weekOfMonthDateFormat = false;
         // Joda has this weird behavior where it returns 1970 as the year by
         // default (if no year is specified), but if either day or month are
         // specified, it fallsback to 2000.
@@ -872,6 +885,7 @@ int32_t parseFromPattern(
         date.dayOfYear = number;
         date.dayOfYearFormat = true;
         date.weekDateFormat = false;
+        date.weekOfMonthDateFormat = false;
         // Joda has this weird behavior where it returns 1970 as the year by
         // default (if no year is specified), but if either day or month are
         // specified, it fallsback to 2000.
@@ -944,6 +958,7 @@ int32_t parseFromPattern(
         date.weekDateFormat = true;
         date.dayOfYearFormat = false;
         date.centuryFormat = false;
+        date.weekOfMonthDateFormat = false;
         date.hasYear = true;
         break;
 
@@ -954,6 +969,7 @@ int32_t parseFromPattern(
         date.week = number;
         date.weekDateFormat = true;
         date.dayOfYearFormat = false;
+        date.weekOfMonthDateFormat = false;
         if (!date.hasYear) {
           date.hasYear = true;
           date.year = 2000;
@@ -961,15 +977,30 @@ int32_t parseFromPattern(
         break;
 
       case DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED:
-        if (number < 1 || number > 7) {
-          return -1;
+        if (type != DateTimeFormatterType::LENIENT_SIMPLE) {
+          if (number < 1 || number > 7) {
+            return -1;
+          }
         }
         date.dayOfWeek = number;
-        date.weekDateFormat = true;
+        date.hasDayOfWeek = true;
+        if (!date.weekOfMonthDateFormat) {
+          date.weekDateFormat = true;
+        }
         date.dayOfYearFormat = false;
         if (!date.hasYear) {
           date.hasYear = true;
           date.year = 2000;
+        }
+        break;
+      case DateTimeFormatSpecifier::WEEK_OF_MONTH:
+        date.weekOfMonthDateFormat = true;
+        date.weekOfMonth = number;
+        date.weekDateFormat = false;
+        date.hasYear = true;
+        // For week of month date format, the default value of dayOfWeek is 7.
+        if (!date.hasDayOfWeek) {
+          date.dayOfWeek = 7;
         }
         break;
 
@@ -1003,6 +1034,7 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
         break;
       case DateTimeFormatSpecifier::DAY_OF_WEEK_0_BASED:
       case DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED:
+      case DateTimeFormatSpecifier::WEEK_OF_MONTH:
         size += std::max((int)token.pattern.minRepresentDigits, 1);
         break;
       case DateTimeFormatSpecifier::DAY_OF_WEEK_TEXT:
@@ -1321,6 +1353,18 @@ int32_t DateTimeFormatter::format(
               result);
           break;
         }
+        case DateTimeFormatSpecifier::WEEK_OF_MONTH: {
+          result += padContent(
+              ceil(
+                  (7 + static_cast<unsigned>(calDate.day()) -
+                   weekday.c_encoding() - 1) /
+                  7.0),
+              '0',
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
+          break;
+        }
         case DateTimeFormatSpecifier::WEEK_YEAR:
         default:
           VELOX_UNSUPPORTED(
@@ -1423,6 +1467,13 @@ Expected<DateTimeResult> DateTimeFormatter::parse(
   } else if (date.dayOfYearFormat) {
     daysSinceEpoch =
         util::daysSinceEpochFromDayOfYear(date.year, date.dayOfYear);
+  } else if (date.weekOfMonthDateFormat) {
+    daysSinceEpoch = util::daysSinceEpochFromWeekOfMonthDate(
+        date.year,
+        date.month,
+        date.weekOfMonth,
+        date.dayOfWeek,
+        this->type_ == DateTimeFormatterType::LENIENT_SIMPLE);
   } else {
     daysSinceEpoch =
         util::daysSinceEpochFromDate(date.year, date.month, date.day);
@@ -1814,6 +1865,9 @@ Expected<std::shared_ptr<DateTimeFormatter>> buildSimpleDateTimeFormatter(
           break;
         case 'w':
           builder.appendWeekOfWeekYear(count);
+          break;
+        case 'W':
+          builder.appendWeekOfMonth(count);
           break;
         case 'x':
           builder.appendWeekYear(count);

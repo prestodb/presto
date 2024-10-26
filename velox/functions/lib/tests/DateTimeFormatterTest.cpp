@@ -2317,4 +2317,128 @@ TEST_F(MysqlDateTimeTest, parseConsecutiveSpecifiers) {
   EXPECT_THROW(parseMysql("1212", "%Y%H"), VeloxUserError);
 }
 
+class SimpleDateTimeFormatterTest : public DateTimeFormatterTest {
+ protected:
+  DateTimeResult parseSimple(
+      const std::string_view& input,
+      const std::string_view& format,
+      bool lenient) {
+    auto dateTimeResultExpected =
+        (*buildSimpleDateTimeFormatter(format, lenient))->parse(input);
+    return dateTimeResult(dateTimeResultExpected);
+  }
+
+  std::string formatSimpleDateTime(
+      const std::string& format,
+      const Timestamp& timestamp,
+      const tz::TimeZone* timezone,
+      bool lenient) const {
+    auto formatter = buildSimpleDateTimeFormatter(format, lenient).value();
+    const auto maxSize = formatter->maxResultSize(timezone);
+    std::string result(maxSize, '\0');
+    auto resultSize =
+        formatter->format(timestamp, timezone, maxSize, result.data());
+    result.resize(resultSize);
+    return result;
+  }
+};
+
+TEST_F(SimpleDateTimeFormatterTest, validSimpleBuild) {
+  // W specifier case.
+  std::vector<DateTimeToken> expected = {
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::WEEK_OF_MONTH, 1})};
+  EXPECT_EQ(expected, (*buildSimpleDateTimeFormatter("W", true))->tokens());
+  EXPECT_EQ(expected, (*buildSimpleDateTimeFormatter("W", false))->tokens());
+}
+
+TEST_F(SimpleDateTimeFormatterTest, parseSimpleWeekOfMonth) {
+  // Common cases for lenient and strict mode.
+  for (bool lenient : {true, false}) {
+    // Format contains year, month, weekOfMonth and dayOfWeek.
+    EXPECT_EQ(
+        fromTimestampString("2024-08-02"),
+        parseSimple("2024 08 01 5", "yyyy MM WW e", lenient).timestamp);
+    EXPECT_EQ(
+        fromTimestampString("2024-08-03"),
+        parseSimple("2024 08 01 6", "yyyy MM WW e", lenient).timestamp);
+    EXPECT_EQ(
+        fromTimestampString("2024-08-09"),
+        parseSimple("2024 08 02 5", "yyyy MM WW e", lenient).timestamp);
+    EXPECT_EQ(
+        fromTimestampString("2024-08-12"),
+        parseSimple("2024 08 03 1", "yyyy MM WW e", lenient).timestamp);
+
+    // Format contains year, month and weekOfMonth.
+    EXPECT_EQ(
+        fromTimestampString("2024-07-28"),
+        parseSimple("2024 08 01", "yyyy MM WW", lenient).timestamp);
+
+    // Format contains year and weekOfMonth.
+    EXPECT_EQ(
+        fromTimestampString("2023-12-31"),
+        parseSimple("2024 01", "yyyy WW", lenient).timestamp);
+
+    // Format contains weekOfMonth.
+    EXPECT_EQ(
+        fromTimestampString("1969-12-28"),
+        parseSimple("1", "W", lenient).timestamp);
+  }
+
+  // Field out of range for lenient mode.
+  EXPECT_EQ(
+      fromTimestampString("2024-09-30"),
+      parseSimple("2024 08 10 1", "yyyy MM WW e", true).timestamp);
+  EXPECT_EQ(
+      fromTimestampString("2024-07-28"),
+      parseSimple("2024 08 01", "yyyy MM WW", true).timestamp);
+  EXPECT_EQ(
+      fromTimestampString("2025-02-24"),
+      parseSimple("2024 15 01 1", "yyyy MM WW e", true).timestamp);
+  EXPECT_EQ(
+      fromTimestampString("2024-07-29"),
+      parseSimple("2024 08 01 9", "yyyy MM WW e", true).timestamp);
+
+  // Field out of range for strict mode.
+  EXPECT_THROW(
+      parseSimple("2024 08 10 1", "yyyy MM WW e", false), VeloxUserError);
+  EXPECT_THROW(parseSimple("2024 08 10", "yyyy MM WW", false), VeloxUserError);
+  EXPECT_THROW(
+      parseSimple("2024 15 01 1", "yyyy MM WW e", false), VeloxUserError);
+  EXPECT_THROW(
+      parseSimple("2024 08 01 9", "yyyy MM WW e", false), VeloxUserError);
+}
+
+TEST_F(SimpleDateTimeFormatterTest, formatResultSize) {
+  EXPECT_EQ(
+      (*buildSimpleDateTimeFormatter("WW", false))->maxResultSize(nullptr), 2);
+  EXPECT_EQ(
+      (*buildSimpleDateTimeFormatter("WW", true))->maxResultSize(nullptr), 2);
+}
+
+TEST_F(SimpleDateTimeFormatterTest, formatWeekOfMonth) {
+  auto* timezone = tz::locateZone("GMT");
+  for (bool lenient : {true, false}) {
+    EXPECT_EQ(
+        formatSimpleDateTime(
+            "W", fromTimestampString("2024-08-01"), timezone, lenient),
+        "1");
+    EXPECT_EQ(
+        formatSimpleDateTime(
+            "W", fromTimestampString("2024-08-10"), timezone, lenient),
+        "2");
+    EXPECT_EQ(
+        formatSimpleDateTime(
+            "W", fromTimestampString("2024-08-11"), timezone, lenient),
+        "3");
+    EXPECT_EQ(
+        formatSimpleDateTime(
+            "W", fromTimestampString("2024-08-15"), timezone, lenient),
+        "3");
+    EXPECT_EQ(
+        formatSimpleDateTime(
+            "W", fromTimestampString("2024-08-30"), timezone, lenient),
+        "5");
+  }
+}
+
 } // namespace facebook::velox::functions
