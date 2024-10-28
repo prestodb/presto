@@ -18,6 +18,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/Macros.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 
 namespace facebook::velox {
 
@@ -93,6 +94,17 @@ struct VariadicFunc {
   FOLLY_ALWAYS_INLINE bool call(
       out_type<velox::Varchar>& /* result */,
       const arg_type<Variadic<velox::Varchar>>& /* arg1 */) {
+    return true;
+  }
+};
+
+template <typename T>
+struct IPPrefixFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<IPPrefix>& /* result */,
+      const arg_type<IPPrefix>& /* arg1 */) {
     return true;
   }
 };

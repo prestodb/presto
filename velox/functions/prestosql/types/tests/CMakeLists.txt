@@ -19,7 +19,8 @@ add_executable(
   TimestampWithTimeZoneTypeTest.cpp
   TypeTestBase.cpp
   UuidTypeTest.cpp
-  IPAddressTypeTest.cpp)
+  IPAddressTypeTest.cpp
+  IPPrefixTypeTest.cpp)
 
 add_test(velox_presto_types_test velox_presto_types_test)
 

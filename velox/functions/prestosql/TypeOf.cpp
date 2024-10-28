@@ -16,6 +16,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/types/UuidType.h"
@@ -78,6 +79,8 @@ std::string typeName(const TypePtr& type) {
     case TypeKind::VARBINARY:
       if (isHyperLogLogType(type)) {
         return "HyperLogLog";
+      } else if (isIPPrefixType(type)) {
+        return "ipprefix";
       }
       return "varbinary";
     case TypeKind::TIMESTAMP:

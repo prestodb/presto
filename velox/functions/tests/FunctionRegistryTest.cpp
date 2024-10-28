@@ -26,6 +26,7 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/tests/RegistryTestUtil.h"
 #include "velox/type/Type.h"
 
@@ -499,6 +500,22 @@ TEST_F(FunctionRegistryOverwriteTest, overwrite) {
   auto& simpleFunctions = exec::simpleFunctions();
   auto signatures = simpleFunctions.getFunctionSignatures("foo");
   ASSERT_EQ(signatures.size(), 1);
+}
+
+TEST_F(FunctionRegistryTest, ipPrefixRegistration) {
+  registerIPPrefixType();
+  registerFunction<IPPrefixFunc, IPPrefix, IPPrefix>({"ipprefix_func"});
+
+  auto& simpleFunctions = exec::simpleFunctions();
+  auto signatures = simpleFunctions.getFunctionSignatures("ipprefix_func");
+  ASSERT_EQ(signatures.size(), 1);
+
+  auto result = resolveFunctionWithMetadata("ipprefix_func", {IPPREFIX()});
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(*result->first, *IPPREFIX());
+  EXPECT_TRUE(result->second.defaultNullBehavior);
+  EXPECT_TRUE(result->second.deterministic);
+  EXPECT_FALSE(result->second.supportsFlattening);
 }
 
 } // namespace facebook::velox

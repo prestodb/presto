@@ -24,20 +24,20 @@ namespace {
 class IPAddressCastTest : public functions::test::FunctionBaseTest {
  protected:
   std::optional<std::string> castToVarchar(
-      const std::optional<std::string> input) {
+      const std::optional<std::string>& input) {
     auto result = evaluateOnce<std::string>(
         "cast(cast(c0 as ipaddress) as varchar)", input);
     return result;
   }
 
   std::optional<int128_t> castFromVarbinary(
-      const std::optional<std::string> input) {
+      const std::optional<std::string>& input) {
     auto result =
         evaluateOnce<int128_t>("cast(from_hex(c0) as ipaddress)", input);
     return result;
   }
 
-  std::optional<std::string> allCasts(const std::optional<std::string> input) {
+  std::optional<std::string> allCasts(const std::optional<std::string>& input) {
     auto result = evaluateOnce<std::string>(
         "cast(cast(cast(cast(c0 as ipaddress) as varbinary) as ipaddress) as varchar)",
         input);
@@ -45,7 +45,7 @@ class IPAddressCastTest : public functions::test::FunctionBaseTest {
   }
 };
 
-int128_t stringToInt128(std::string value) {
+int128_t stringToInt128(const std::string& value) {
   int128_t res = 0;
   for (char c : value) {
     res = res * 10 + c - '0';

@@ -217,6 +217,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "TIMESTAMP WITH TIME ZONE",
           "UUID",
           "IPADDRESS",
+          "IPPREFIX",
       }),
       names);
 
@@ -231,6 +232,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "TIMESTAMP WITH TIME ZONE",
           "UUID",
           "IPADDRESS",
+          "IPPREFIX",
           "FANCY_INT",
       }),
       names);

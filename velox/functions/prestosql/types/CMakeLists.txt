@@ -17,7 +17,8 @@ velox_add_library(
   JsonType.cpp
   TimestampWithTimeZoneType.cpp
   UuidType.cpp
-  IPAddressType.cpp)
+  IPAddressType.cpp
+  IPPrefixType.cpp)
 
 velox_link_libraries(
   velox_presto_types
