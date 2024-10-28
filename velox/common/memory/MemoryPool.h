@@ -1030,7 +1030,7 @@ class MemoryPoolImpl : public MemoryPool {
   std::unique_ptr<MemoryReclaimer> reclaimer_;
 
   // The memory cap in bytes to enforce.
-  int64_t capacity_;
+  tsan_atomic<int64_t> capacity_;
 
   // The number of reservation bytes.
   tsan_atomic<int64_t> reservationBytes_{0};
