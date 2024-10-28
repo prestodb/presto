@@ -304,6 +304,10 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     return state_ == State::kShutdown;
   }
 
+  FOLLY_ALWAYS_INLINE void checkGlobalArbitrationEnabled() const {
+    VELOX_CHECK(globalArbitrationEnabled_, "Global arbitration is not enabled");
+  }
+
   // Invoked to get the arbitration participant by 'name'. The function returns
   // std::nullopt if the underlying query memory pool is destroyed.
   std::optional<ScopedArbitrationParticipant> getParticipant(

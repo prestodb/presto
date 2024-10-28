@@ -325,7 +325,7 @@ void SharedArbitrator::shutdownGlobalArbitration() {
 }
 
 void SharedArbitrator::wakeupGlobalArbitrationThread() {
-  VELOX_CHECK(globalArbitrationEnabled_);
+  checkGlobalArbitrationEnabled();
   VELOX_CHECK_NOT_NULL(globalArbitrationController_);
   incrementGlobalArbitrationWaitCount();
   globalArbitrationThreadCv_.notify_one();
@@ -721,9 +721,12 @@ bool SharedArbitrator::growCapacity(ArbitrationOperation& op) {
   reclaimUnusedCapacity();
   RETURN_IF_TRUE(growWithFreeCapacity(op));
 
-  if (!globalArbitrationEnabled_ &&
-      op.participant()->reclaimableUsedCapacity() >=
-          participantConfig_.minReclaimBytes) {
+  if (!globalArbitrationEnabled_) {
+    if (op.participant()->reclaimableUsedCapacity() <
+        participantConfig_.minReclaimBytes) {
+      return false;
+    }
+
     // NOTE: if global memory arbitration is not enabled, we will try to
     // reclaim from the participant itself before failing this operation.
     reclaim(
@@ -739,7 +742,7 @@ bool SharedArbitrator::growCapacity(ArbitrationOperation& op) {
 }
 
 bool SharedArbitrator::startAndWaitGlobalArbitration(ArbitrationOperation& op) {
-  VELOX_CHECK(globalArbitrationEnabled_);
+  checkGlobalArbitrationEnabled();
   checkIfTimeout(op);
 
   std::unique_ptr<ArbitrationWait> arbitrationWait;

@@ -3708,6 +3708,64 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailure) {
   }
 }
 
+// This test is to verify if a non-reclaimable query fails properly if global
+// arbitration is disabled.
+TEST_F(
+    MockSharedArbitrationTest,
+    arbitrationFailureOnNonReclaimableQueryWithGlobalArbitrationDisabled) {
+  const int64_t memoryCapacity = 128 * MB;
+  for (bool hasMinReclaimBytes : {false, true}) {
+    SCOPED_TRACE(fmt::format("hasMinReclaimBytes {}", hasMinReclaimBytes));
+    // Set min reclaim bytes to avoid reclaim from itself before fail the
+    // arbitration.
+    setupMemory(
+        memoryCapacity,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        hasMinReclaimBytes ? MB : 0,
+        0,
+        0,
+        1.0,
+        nullptr,
+        false);
+    std::shared_ptr<MockTask> task1 = addTask();
+    MockMemoryOperator* op1 = task1->addMemoryOp(false);
+    op1->allocate(memoryCapacity / 4 * 3);
+    ASSERT_EQ(task1->capacity(), memoryCapacity / 4 * 3);
+
+    std::shared_ptr<MockTask> task2 = addTask();
+    MockMemoryOperator* op2 = task2->addMemoryOp(false);
+    VELOX_ASSERT_THROW(
+        op2->allocate(memoryCapacity / 2), "Exceeded memory pool capacity ");
+  }
+}
+
+// This test is to verify if a reclaimable query reclaim from itself before
+// reaching the capacity limit if global arbitration is disabled.
+TEST_F(
+    MockSharedArbitrationTest,
+    reclaimBeforeReachCapacityLimitWhenGlobalArbitrationDisabled) {
+  const int64_t memoryCapacity = 128 * MB;
+  setupMemory(
+      memoryCapacity, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, nullptr, false);
+  std::shared_ptr<MockTask> task1 = addTask();
+  MockMemoryOperator* op1 = task1->addMemoryOp(true);
+  op1->allocate(memoryCapacity / 2);
+  ASSERT_EQ(task1->capacity(), memoryCapacity / 2);
+
+  std::shared_ptr<MockTask> task2 = addTask();
+  MockMemoryOperator* op2 = task2->addMemoryOp(true);
+  op2->allocate(memoryCapacity / 2);
+  ASSERT_EQ(task2->capacity(), memoryCapacity / 2);
+
+  op2->allocate(memoryCapacity / 4);
+}
+
 TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
   const int numTasks = 10;
   const int numOpsPerTask = 5;
