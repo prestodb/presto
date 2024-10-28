@@ -100,13 +100,13 @@ public class RowToRowCast
 
         CallSiteBinder binder = new CallSiteBinder();
 
-        // Embed the MD5 hash code of input and output types into the generated class name instead of the raw type names,
+        // Embed the SHA256 hash code of input and output types into the generated class name instead of the raw type names,
         // which could prevent the class name from hitting the length limitation and invalid characters.
-        byte[] md5Suffix = Hashing.md5().hashBytes((fromType + "$" + toType).getBytes()).asBytes();
+        byte[] sha256Suffix = Hashing.sha256().hashBytes((fromType + "$" + toType).getBytes()).asBytes();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(md5Suffix))),
+                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(sha256Suffix))),
                 type(Object.class));
 
         Parameter properties = arg("properties", SqlFunctionProperties.class);
