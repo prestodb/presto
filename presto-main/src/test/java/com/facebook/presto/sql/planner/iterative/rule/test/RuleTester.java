@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
 
@@ -83,7 +84,7 @@ public class RuleTester
 
     public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats, ConnectorFactory connectorFactory)
     {
-        this(plugins, sessionProperties, new SessionPropertyManager(), nodeCountForStats, connectorFactory);
+        this(plugins, sessionProperties, createTestingSessionPropertyManager(), nodeCountForStats, connectorFactory);
     }
 
     public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, SessionPropertyManager sessionPropertyManager, Optional<Integer> nodeCountForStats, ConnectorFactory connectorFactory)

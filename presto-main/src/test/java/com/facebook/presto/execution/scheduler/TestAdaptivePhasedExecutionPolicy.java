@@ -28,7 +28,6 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
@@ -66,6 +65,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -93,7 +93,7 @@ public class TestAdaptivePhasedExecutionPolicy
     @Test
     public void testCreateExecutionSchedule()
     {
-        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
+        Session session = testSessionBuilder(createTestingSessionPropertyManager(new SystemSessionProperties(
                 new QueryManagerConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
