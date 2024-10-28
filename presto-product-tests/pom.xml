@@ -47,6 +47,12 @@
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-core</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.inject.extensions</groupId>
+                    <artifactId>guice-multibindings</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
