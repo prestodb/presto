@@ -366,6 +366,23 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.0</version>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>org.apache.ratis:ratis-client</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>javax.ws.rs:javax.ws.rs-api</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:node</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:concurrent</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>javax.servlet:javax.servlet-api</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.drift:drift-codec</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.presto:presto-blackhole</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.ratis:ratis-common</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <!-- these tests take a very long time so only run them in the CI server -->
