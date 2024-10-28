@@ -179,6 +179,9 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDiscoveryUri{"discovery.uri"};
   static constexpr std::string_view kMaxDriversPerTask{
       "task.max-drivers-per-task"};
+  static constexpr std::string_view kTaskWriterCount{"task.writer-count"};
+  static constexpr std::string_view kTaskPartitionedWriterCount{
+      "task.partitioned-writer-count"};
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kTaskMaxPartialAggregationMemory{
@@ -694,6 +697,10 @@ class SystemConfig : public ConfigBase {
   std::string remoteFunctionServerSerde() const;
 
   int32_t maxDriversPerTask() const;
+
+  folly::Optional<int32_t> taskWriterCount() const;
+
+  folly::Optional<int32_t> taskPartitionedWriterCount() const;
 
   int32_t concurrentLifespansPerTask() const;
 
