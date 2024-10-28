@@ -1267,12 +1267,9 @@ TEST_F(ColumnWriterTest, TestMapWriterDuplicatedInt64Key) {
   auto batch = b::create(
       *pool, {typename b::row{typename b::pair{5, 3}, typename b::pair{5, 4}}});
 
-  EXPECT_THAT(
-      ([&]() { testMapWriter<T, T>(*pool, batch, /* useFlatMap */ true); }),
-      Throws<
-          facebook::velox::dwio::common::exception::LoggedException>(Property(
-          &facebook::velox::dwio::common::exception::LoggedException::message,
-          HasSubstr("Duplicated key in map: 5"))));
+  VELOX_ASSERT_THROW(
+      (testMapWriter<T, T>(*pool, batch, /* useFlatMap */ true)),
+      "Duplicated key in map: 5");
 }
 
 TEST_F(ColumnWriterTest, TestMapWriterInt32Key) {
@@ -1320,14 +1317,9 @@ TEST_F(ColumnWriterTest, TestMapWriterDuplicatedStringKey) {
       *pool_,
       {b::row{b::pair{"2", "5"}, b::pair{"2", "8"}}}); // Duplicated key: 2
 
-  EXPECT_THAT(
-      ([&]() {
-        testMapWriter<keyType, valueType>(*pool_, batch, /* useFlatMap */ true);
-      }),
-      Throws<
-          facebook::velox::dwio::common::exception::LoggedException>(Property(
-          &facebook::velox::dwio::common::exception::LoggedException::message,
-          HasSubstr("Duplicated key in map: 2"))));
+  VELOX_ASSERT_THROW(
+      (testMapWriter<keyType, valueType>(*pool_, batch, /* useFlatMap */ true)),
+      "Duplicated key in map: 2");
 }
 
 TEST_F(ColumnWriterTest, TestMapWriterDifferentNumericKeyValue) {

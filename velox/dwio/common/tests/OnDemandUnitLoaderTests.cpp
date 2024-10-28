@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/OnDemandUnitLoader.h"
 #include "velox/dwio/common/UnitLoaderTools.h"
 #include "velox/dwio/common/tests/utils/UnitLoaderTestTools.h"
@@ -137,11 +138,9 @@ TEST(OnDemandUnitLoaderTests, SeekOutOfRangeReaderError) {
 
   readerMock.seek(60);
 
-  EXPECT_THAT(
-      [&]() { readerMock.seek(61); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Can't seek to possition 61 in file. Must be up to 60."))));
+  VELOX_ASSERT_THROW(
+      readerMock.seek(61),
+      "Can't seek to possition 61 in file. Must be up to 60.");
 }
 
 TEST(OnDemandUnitLoaderTests, SeekOutOfRange) {
@@ -154,11 +153,7 @@ TEST(OnDemandUnitLoaderTests, SeekOutOfRange) {
 
   unitLoader->onSeek(0, 10);
 
-  EXPECT_THAT(
-      [&]() { unitLoader->onSeek(0, 11); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Row out of range"))));
+  VELOX_ASSERT_THROW(unitLoader->onSeek(0, 11), "Row out of range");
 }
 
 TEST(OnDemandUnitLoaderTests, UnitOutOfRange) {
@@ -169,11 +164,8 @@ TEST(OnDemandUnitLoaderTests, UnitOutOfRange) {
 
   auto unitLoader = factory.create(std::move(units), 0);
   unitLoader->getLoadedUnit(0);
-  EXPECT_THAT(
-      [&]() { unitLoader->getLoadedUnit(1); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Unit out of range"))));
+
+  VELOX_ASSERT_THROW(unitLoader->getLoadedUnit(1), "Unit out of range");
 }
 
 TEST(OnDemandUnitLoaderTests, CanRequestUnitMultipleTimes) {
@@ -209,16 +201,12 @@ TEST(OnDemandUnitLoaderTests, InitialSkip) {
   EXPECT_NO_THROW(getFactoryWithSkip(31));
   EXPECT_NO_THROW(getFactoryWithSkip(59));
   EXPECT_NO_THROW(getFactoryWithSkip(60));
-  EXPECT_THAT(
-      [&]() { getFactoryWithSkip(61); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Can only skip up to the past-the-end row of the file."))));
-  EXPECT_THAT(
-      [&]() { getFactoryWithSkip(100); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Can only skip up to the past-the-end row of the file."))));
+  VELOX_ASSERT_THROW(
+      getFactoryWithSkip(61),
+      "Can only skip up to the past-the-end row of the file.");
+  VELOX_ASSERT_THROW(
+      getFactoryWithSkip(100),
+      "Can only skip up to the past-the-end row of the file.");
 }
 
 TEST(OnDemandUnitLoaderTests, NoUnitButSkip) {
@@ -228,9 +216,7 @@ TEST(OnDemandUnitLoaderTests, NoUnitButSkip) {
   EXPECT_NO_THROW(factory.create(std::move(units), 0));
 
   std::vector<std::unique_ptr<LoadUnit>> units2;
-  EXPECT_THAT(
-      [&]() { factory.create(std::move(units2), 1); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Can only skip up to the past-the-end row of the file."))));
+  VELOX_ASSERT_THROW(
+      factory.create(std::move(units2), 1),
+      "Can only skip up to the past-the-end row of the file.");
 }

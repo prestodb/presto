@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/UnitLoaderTools.h"
 
 using namespace ::testing;
@@ -158,26 +159,14 @@ TEST(UnitLoaderToolsTests, HowMuchToSkip) {
 
   // Test cases
   EXPECT_EQ(testSkip(0, {}), result(0, 0));
-  EXPECT_THAT(
-      [&]() { testSkip(1, {}); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr(kErrorMessage))));
+  VELOX_ASSERT_THROW(testSkip(1, {}), kErrorMessage);
 
   EXPECT_EQ(testSkip(0, {0}), result(1, 0));
-  EXPECT_THAT(
-      [&]() { testSkip(1, {0}); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr(kErrorMessage))));
+  VELOX_ASSERT_THROW(testSkip(1, {0}), kErrorMessage);
 
   EXPECT_EQ(testSkip(0, {1}), result(0, 0));
   EXPECT_EQ(testSkip(1, {1}), result(1, 0));
-  EXPECT_THAT(
-      [&]() { testSkip(2, {1}); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr(kErrorMessage))));
+  VELOX_ASSERT_THROW(testSkip(2, {1}), kErrorMessage);
 
   std::vector<uint64_t> rowCount = {2, 1, 2};
   EXPECT_EQ(testSkip(0, rowCount), result(0, 0));
@@ -186,9 +175,5 @@ TEST(UnitLoaderToolsTests, HowMuchToSkip) {
   EXPECT_EQ(testSkip(3, rowCount), result(2, 0));
   EXPECT_EQ(testSkip(4, rowCount), result(2, 1));
   EXPECT_EQ(testSkip(5, rowCount), result(3, 0));
-  EXPECT_THAT(
-      [&]() { testSkip(6, rowCount); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr(kErrorMessage))));
+  VELOX_ASSERT_THROW(testSkip(6, rowCount), kErrorMessage);
 }

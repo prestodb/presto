@@ -126,11 +126,12 @@ TEST_F(StripeLoadKeysTest, ThirdStripeHasKey) {
 }
 
 TEST_F(StripeLoadKeysTest, KeyMismatch) {
-  EXPECT_THAT(
-      [&]() { runTest(3); },
-      Throws<facebook::velox::dwio::common::exception::LoggedException>(
-          Property(
-              &facebook::velox::dwio::common::exception::LoggedException::
-                  failingExpression,
-              HasSubstr("keys.size() == providers_.size()"))));
+  try {
+    static_cast<void>(runTest(3));
+    FAIL() << "Expected an exception";
+  } catch (const facebook::velox::VeloxException& e) {
+    ASSERT_TRUE(
+        e.failingExpression().find("keys.size() == providers_.size()") !=
+        std::string::npos);
+  }
 }
