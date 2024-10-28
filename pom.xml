@@ -2593,6 +2593,9 @@
                         <skip>${air.check.skip-dependency}</skip>
                         <failOnWarning>${air.check.fail-dependency}</failOnWarning>
                         <ignoreNonCompile>true</ignoreNonCompile>
+                        <ignoredNonTestScopedDependencies>
+                            <ignoredNonTestScopedDependency>javax.inject:javax.inject</ignoredNonTestScopedDependency>
+                        </ignoredNonTestScopedDependencies>
                     </configuration>
                     <dependencies>
                         <dependency>
@@ -2619,6 +2622,39 @@
                     </executions>
                 </plugin>
 
+                <plugin>
+                    <groupId>com.hubspot.maven.plugins</groupId>
+                    <artifactId>dependency-scope-maven-plugin</artifactId>
+                    <version>0.8</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <skip>true</skip> <!-- force skip so that the updated plugin can run-->
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!--Needed to upgrade to the latest version of this plugin which changed groupId-->
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>dependency-scope-maven-plugin</artifactId>
+                    <version>1.0.3</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <skip>${air.check.skip-dependency-scope}</skip>
+                                <fail>${air.check.fail-dependency-scope}</fail>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
 
             </plugins>
         </pluginManagement>
