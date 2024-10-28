@@ -26,7 +26,7 @@ namespace facebook::velox::exec {
 namespace detail {
 
 FOLLY_ALWAYS_INLINE void stdSort(
-    std::vector<char*>& rows,
+    std::vector<char*, memory::StlAllocator<char*>>& rows,
     RowContainer* rowContainer,
     const std::vector<CompareFlags>& compareFlags) {
   std::sort(
@@ -120,7 +120,7 @@ class PrefixSort {
   /// @param rows The result of RowContainer::listRows(), assuming that the
   /// caller (SortBuffer etc.) has already got the result.
   FOLLY_ALWAYS_INLINE static void sort(
-      std::vector<char*>& rows,
+      std::vector<char*, memory::StlAllocator<char*>>& rows,
       memory::MemoryPool* pool,
       RowContainer* rowContainer,
       const std::vector<CompareFlags>& compareFlags,
@@ -143,8 +143,21 @@ class PrefixSort {
     prefixSort.sortInternal(rows);
   }
 
+  /// The stdsort won't require bytes while prefixsort may require buffers
+  /// such as prefix data. The logic is similar to the above function
+  /// PrefixSort::sort but returns the maxmium buffer the sort may need.
+  static uint32_t maxRequiredBytes(
+      memory::MemoryPool* pool,
+      RowContainer* rowContainer,
+      const std::vector<CompareFlags>& compareFlags,
+      const velox::common::PrefixSortConfig& config);
+
  private:
-  void sortInternal(std::vector<char*>& rows);
+  // Estimates the memory required for prefix sort such as prefix buffer and
+  // swap buffer.
+  uint32_t maxRequiredBytes();
+
+  void sortInternal(std::vector<char*, memory::StlAllocator<char*>>& rows);
 
   int compareAllNormalizedKeys(char* left, char* right);
 

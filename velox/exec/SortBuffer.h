@@ -74,6 +74,9 @@ class SortBuffer {
   // Reserves memory for output processing. If reservation cannot be increased,
   // spills enough to make output fit.
   void ensureOutputFits();
+  // Reserves memory for sort. If reservation cannot be increased,
+  // spills enough to make output fit.
+  void ensureSortFits();
   void updateEstimatedOutputRowSize();
   // Invoked to initialize or reset the reusable output buffer to get output.
   void prepareOutput(vector_size_t maxOutputRows);
@@ -113,7 +116,7 @@ class SortBuffer {
   uint64_t numInputRows_ = 0;
   // Used to store the input data in row format.
   std::unique_ptr<RowContainer> data_;
-  std::vector<char*> sortedRows_;
+  std::vector<char*, memory::StlAllocator<char*>> sortedRows_;
 
   // The data type of the rows stored in 'data_' and spilled on disk. The
   // sort key columns are stored first then the non-sorted data columns.

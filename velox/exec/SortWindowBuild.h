@@ -104,7 +104,7 @@ class SortWindowBuild : public WindowBuild {
   // The rows are sorted by partitionKeys + sortKeys. This total
   // ordering can be used to split partitions (with the correct
   // order by) for the processing.
-  std::vector<char*> sortedRows_;
+  std::vector<char*, memory::StlAllocator<char*>> sortedRows_;
 
   // This is a vector that gives the index of the start row
   // (in sortedRows_) of each partition in the RowContainer data_.

@@ -215,7 +215,39 @@ void PrefixSort::extractRowToPrefix(char* row, char* prefix) {
   getAddressFromPrefix(prefix) = row;
 }
 
-void PrefixSort::sortInternal(std::vector<char*>& rows) {
+// static.
+uint32_t PrefixSort::maxRequiredBytes(
+    memory::MemoryPool* pool,
+    RowContainer* rowContainer,
+    const std::vector<CompareFlags>& compareFlags,
+    const velox::common::PrefixSortConfig& config) {
+  if (rowContainer->numRows() < config.threshold) {
+    return 0;
+  }
+  VELOX_DCHECK_EQ(rowContainer->keyTypes().size(), compareFlags.size());
+  const auto sortLayout = PrefixSortLayout::makeSortLayout(
+      rowContainer->keyTypes(), compareFlags, config.maxNormalizedKeySize);
+  if (sortLayout.noNormalizedKeys) {
+    return 0;
+  }
+
+  PrefixSort prefixSort(pool, rowContainer, sortLayout);
+  return prefixSort.maxRequiredBytes();
+}
+
+uint32_t PrefixSort::maxRequiredBytes() {
+  const auto numRows = rowContainer_->numRows();
+  const auto numPages =
+      memory::AllocationTraits::numPages(numRows * sortLayout_.entrySize);
+  // Prefix data size + swap buffer size.
+  return memory::AllocationTraits::pageBytes(numPages) +
+      pool_->preferredSize(checkedPlus<size_t>(
+          sortLayout_.entrySize, AlignedBuffer::kPaddedSize)) +
+      2 * pool_->alignment();
+}
+
+void PrefixSort::sortInternal(
+    std::vector<char*, memory::StlAllocator<char*>>& rows) {
   const auto numRows = rows.size();
   const auto entrySize = sortLayout_.entrySize;
   memory::ContiguousAllocation prefixAllocation;

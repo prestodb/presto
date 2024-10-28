@@ -581,7 +581,7 @@ void Spiller::spill(const RowContainerIterator* startRowIter) {
   checkEmptySpillRuns();
 }
 
-void Spiller::spill(std::vector<char*>& rows) {
+void Spiller::spill(SpillRows& rows) {
   CHECK_NOT_FINALIZED();
   VELOX_CHECK_EQ(type_, Type::kOrderByOutput);
   VELOX_CHECK(!rows.empty());
@@ -705,7 +705,7 @@ bool Spiller::fillSpillRuns(RowContainerIterator* iterator) {
   return lastRun;
 }
 
-void Spiller::fillSpillRun(std::vector<char*>& rows) {
+void Spiller::fillSpillRun(SpillRows& rows) {
   VELOX_CHECK_EQ(bits_.numPartitions(), 1);
   checkEmptySpillRuns();
   uint64_t execTimeNs{0};

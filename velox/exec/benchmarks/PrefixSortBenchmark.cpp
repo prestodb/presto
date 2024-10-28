@@ -144,7 +144,8 @@ class PrefixSortBenchmark {
       RowContainer* rowContainer,
       const std::vector<CompareFlags>& compareFlags) {
     // Copy rows to avoid sort rows already sorted.
-    std::vector<char*> sortedRows = rows;
+    auto sortedRows = std::vector<char*, memory::StlAllocator<char*>>(
+        rows.begin(), rows.end(), *pool_);
     PrefixSort::sort(
         sortedRows, pool_, rowContainer, compareFlags, kDefaultSortConfig);
   }
@@ -153,7 +154,8 @@ class PrefixSortBenchmark {
       const std::vector<char*>& rows,
       RowContainer* rowContainer,
       const std::vector<CompareFlags>& compareFlags) {
-    std::vector<char*> sortedRows = rows;
+    auto sortedRows = std::vector<char*, memory::StlAllocator<char*>>(
+        rows.begin(), rows.end(), *pool_);
     PrefixSort::sort(
         sortedRows, pool_, rowContainer, compareFlags, kStdSortConfig);
   }

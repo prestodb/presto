@@ -51,7 +51,8 @@ SortWindowBuild::SortWindowBuild(
       compareFlags_{makeCompareFlags(numPartitionKeys_, node->sortingOrders())},
       pool_(pool),
       prefixSortConfig_(prefixSortConfig),
-      spillStats_(spillStats) {
+      spillStats_(spillStats),
+      sortedRows_(0, memory::StlAllocator<char*>(*pool)) {
   VELOX_CHECK_NOT_NULL(pool_);
   allKeyInfo_.reserve(partitionKeyInfo_.size() + sortKeyInfo_.size());
   allKeyInfo_.insert(
@@ -252,6 +253,7 @@ void SortWindowBuild::noMoreInput() {
 
 void SortWindowBuild::loadNextPartitionFromSpill() {
   sortedRows_.clear();
+  sortedRows_.shrink_to_fit();
   data_->clear();
 
   for (;;) {
