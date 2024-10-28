@@ -15,17 +15,14 @@
 add_executable(velox_wave_decode_test GpuDecoderTest.cu)
 
 add_test(velox_wave_decode_test velox_wave_decode_test)
+set_tests_properties(velox_wave_decode_test PROPERTIES LABELS cuda_driver)
 
 target_link_libraries(
   velox_wave_decode_test
   velox_wave_decode
   velox_wave_common
   velox_memory
-  velox_time
-  velox_exception
   GTest::gtest
   GTest::gtest_main
-  gflags::gflags
-  glog::glog
   Folly::folly
-  CUDA::nvrtc)
+  fmt::fmt)

@@ -244,7 +244,8 @@ function install_cuda {
     rm cuda-keyring_1.1-1_all.deb
     $SUDO apt update
   fi
-  $SUDO apt install -y cuda-nvcc-$(echo $1 | tr '.' '-') cuda-cudart-dev-$(echo $1 | tr '.' '-')
+  local dashed="$(echo $1 | tr '.' '-')"
+  $SUDO apt install -y cuda-nvcc-$dashed cuda-cudart-dev-$dashed cuda-nvrtc-dev-$dashed cuda-driver-dev-$dashed
 }
 
 function install_velox_deps {

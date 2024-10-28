@@ -14,6 +14,7 @@
 
 add_subdirectory(tests)
 
-velox_add_library(velox_wave_decode GpuDecoder.cu)
+add_library(velox_wave_decode GpuDecoder.cu)
 
-velox_link_libraries(velox_wave_decode velox_wave_common)
+target_link_libraries(
+  velox_wave_decode velox_wave_common)

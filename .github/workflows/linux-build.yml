@@ -115,7 +115,7 @@ jobs:
             "-DVELOX_ENABLE_GCS=ON"
             "-DVELOX_ENABLE_ABFS=ON"
             "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
-            "-DVELOX_ENABLE_GPU=OFF"
+            "-DVELOX_ENABLE_GPU=ON"
             "-DVELOX_MONO_LIBRARY=ON"
           )
           make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}"
@@ -136,7 +136,7 @@ jobs:
         working-directory: _build/release
         run: |
           export CLASSPATH=`/usr/local/hadoop/bin/hdfs classpath --glob`
-          ctest -j 8 --output-on-failure --no-tests=error
+          ctest -j 8 --label-exclude cuda_driver --output-on-failure --no-tests=error
 
   ubuntu-debug:
     runs-on: 8-core-ubuntu

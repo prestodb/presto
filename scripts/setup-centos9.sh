@@ -220,7 +220,8 @@ function install_arrow {
 function install_cuda {
   # See https://developer.nvidia.com/cuda-downloads
   dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
-  dnf install -y cuda-nvcc-$(echo $1 | tr '.' '-') cuda-cudart-devel-$(echo $1 | tr '.' '-')
+  local dashed="$(echo $1 | tr '.' '-')"
+  dnf install -y cuda-nvcc-$dashed cuda-cudart-devel-$dashed cuda-nvrtc-devel-$dashed cuda-driver-devel-$dashed 
 }
 
 function install_velox_deps {
