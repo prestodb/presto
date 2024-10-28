@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static java.util.Locale.ENGLISH;
@@ -54,7 +55,7 @@ public final class TestingSession
 
     public static SessionBuilder testSessionBuilder()
     {
-        return testSessionBuilder(new SessionPropertyManager());
+        return testSessionBuilder(createTestingSessionPropertyManager());
     }
 
     public static SessionBuilder testSessionBuilder(SessionPropertyManager sessionPropertyManager)

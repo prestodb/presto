@@ -30,7 +30,6 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -67,6 +66,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
@@ -455,10 +455,10 @@ public class TestLocalDispatchQuery
                 eventListenerManager,
                 new NodeInfo("test"),
                 UNKNOWN,
-                new SessionPropertyManager(),
+                createTestingSessionPropertyManager(),
                 metadata,
                 new QueryMonitorConfig(),
-                new HistoryBasedPlanStatisticsManager(new ObjectMapper(), new SessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), new FeaturesConfig(), new NodeVersion("1")),
+                new HistoryBasedPlanStatisticsManager(new ObjectMapper(), createTestingSessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), new FeaturesConfig(), new NodeVersion("1")),
                 new FeaturesConfig());
     }
 
