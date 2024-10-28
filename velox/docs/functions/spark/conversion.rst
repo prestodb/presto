@@ -239,3 +239,23 @@ Valid example
   SELECT cast(cast(180 as smallint) as binary); -- [00 B4]
   SELECT cast(cast(180000 as integer) as binary); -- [00 02 BF 20]
   SELECT cast(cast(180000 as bigint) as binary); -- [00 00 00 00 00 02 BF 20]
+
+Cast to Timestamp
+-----------------
+
+From integral types
+^^^^^^^^^^^^^^^^^^^
+
+Casting integral value to timestamp type is allowed.
+The input value is treated as the number of seconds since the epoch (1970-01-01 00:00:00 UTC).
+Supported types are tinyint, smallint, integer and bigint.
+
+Valid example
+
+::
+
+  SELECT cast(0 as timestamp); -- 1970-01-01 00:00:00
+  SELECT cast(1727181032 as timestamp); -- 2024-09-24 12:30:32
+  SELECT cast(9223372036855 as timestamp); -- 294247-01-10 04:00:54.775807
+  SELECT cast(-9223372036855 as timestamp); -- 290308-12-21 19:59:05.224192
+  

@@ -30,6 +30,8 @@ class PrestoCastHooks : public CastHooks {
   Expected<Timestamp> castStringToTimestamp(
       const StringView& view) const override;
 
+  Expected<Timestamp> castIntToTimestamp(int64_t seconds) const override;
+
   // Uses standard cast mode to cast from string to date.
   Expected<int32_t> castStringToDate(
       const StringView& dateString) const override;

@@ -27,6 +27,10 @@ class SparkCastHooks : public exec::CastHooks {
   Expected<Timestamp> castStringToTimestamp(
       const StringView& view) const override;
 
+  /// When casting integral value as timestamp, the input is treated as the
+  /// number of seconds since the epoch (1970-01-01 00:00:00 UTC).
+  Expected<Timestamp> castIntToTimestamp(int64_t seconds) const override;
+
   /// 1) Removes all leading and trailing UTF8 white-spaces before cast. 2) Uses
   /// non-standard cast mode to cast from string to date.
   Expected<int32_t> castStringToDate(

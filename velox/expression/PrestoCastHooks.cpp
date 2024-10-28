@@ -67,6 +67,11 @@ Expected<Timestamp> PrestoCastHooks::castStringToTimestamp(
   return result.first;
 }
 
+Expected<Timestamp> PrestoCastHooks::castIntToTimestamp(int64_t seconds) const {
+  return folly::makeUnexpected(
+      Status::UserError("Conversion to Timestamp is not supported"));
+}
+
 Expected<int32_t> PrestoCastHooks::castStringToDate(
     const StringView& dateString) const {
   // Cast from string to date allows only complete ISO 8601 formatted strings:

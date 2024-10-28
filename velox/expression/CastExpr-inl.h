@@ -276,6 +276,16 @@ void CastExpr::applyCastKernel(
   try {
     auto inputRowValue = input->valueAt(row);
 
+    if constexpr (
+        (FromKind == TypeKind::TINYINT || FromKind == TypeKind::SMALLINT ||
+         FromKind == TypeKind::INTEGER || FromKind == TypeKind::BIGINT) &&
+        ToKind == TypeKind::TIMESTAMP) {
+      const auto castResult =
+          hooks_->castIntToTimestamp((int64_t)inputRowValue);
+      setResultOrError(castResult, row);
+      return;
+    }
+
     // Optimize empty input strings casting by avoiding throwing exceptions.
     if constexpr (
         FromKind == TypeKind::VARCHAR || FromKind == TypeKind::VARBINARY) {
