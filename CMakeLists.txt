@@ -75,6 +75,7 @@ option(
    This will override other build options."
   OFF)
 option(VELOX_MONO_LIBRARY "Build single unified library." OFF)
+option(ENABLE_ALL_WARNINGS "Enable -Wall and -Wextra compiler warnings." ON)
 
 # option() always creates a BOOL variable so we have to use a normal cache
 # variable with STRING type for this option.
@@ -335,7 +336,7 @@ if("${MAX_LINK_JOBS}")
   set(CMAKE_JOB_POOL_LINK link_job_pool)
 endif()
 
-if("${ENABLE_ALL_WARNINGS}")
+if(ENABLE_ALL_WARNINGS)
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(KNOWN_COMPILER_SPECIFIC_WARNINGS
         "-Wno-range-loop-analysis \
