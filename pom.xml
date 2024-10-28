@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.zacblanco.airbase</groupId>
+        <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>upgradeToJava17-SNAPSHOT</version>
+        <version>102</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -38,6 +38,10 @@
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
         </repository>
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
     </repositories>
 
     <pluginRepositories>
@@ -45,18 +49,25 @@
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
         </pluginRepository>
+        <pluginRepository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </pluginRepository>
     </pluginRepositories>
 
     <properties>
+        <project.build.targetJdk>21</project.build.targetJdk>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
 
-        <air.java.version>1.8.0-151</air.java.version>
+        <air.java.version>21</air.java.version>
         <air.maven.version>3.3.9</air.maven.version>
 
+        <dep.guice.version>6.0.0</dep.guice.version>
+        <dep.spotbugs-annotations.version>4.2.2</dep.spotbugs-annotations.version>
         <dep.antlr.version>4.7.1</dep.antlr.version>
         <dep.airlift.version>0.215</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
@@ -76,7 +87,7 @@
         <dep.logback.version>1.2.13</dep.logback.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
-        <dep.asm.version>9.2</dep.asm.version>
+        <dep.asm.version>9.7.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
@@ -96,6 +107,10 @@
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.commons.compress.version>1.23.0</dep.commons.compress.version>
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
+        <dep.plugin.pmd-runtime.version>7.6.0</dep.plugin.pmd-runtime.version>
+        <dep.plugin.pmd.version>3.25.0</dep.plugin.pmd.version>
+        <dep.plugin.modernizer.version>2.9.0</dep.plugin.modernizer.version>
+
 
         <!--
           America/Bahia_Banderas has:
@@ -2313,6 +2328,12 @@
                 <artifactId>cassandra-driver-core</artifactId>
                 <version>3.11.5</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven.shared</groupId>
+                <artifactId>maven-dependency-analyzer</artifactId>
+                <version>1.15.0</version> <!-- Ensure this is the correct version -->
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -2368,7 +2389,11 @@
                 <plugin>
                     <groupId>org.gaul</groupId>
                     <artifactId>modernizer-maven-plugin</artifactId>
+                    <version>${dep.plugin.modernizer.version}</version>
                     <configuration>
+                        <skip>${air.check.skip-modernizer}</skip>
+                        <failOnViolations>${air.check.fail-modernizer}</failOnViolations>
+                        <javaVersion>${air.modernizer.java-version}</javaVersion>
                         <violationsFiles>
                             <violationsFile>${air.main.basedir}/src/modernizer/violations.xml</violationsFile>
                         </violationsFiles>
@@ -2376,6 +2401,21 @@
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
                         </exclusionPatterns>
                     </configuration>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.ow2.asm</groupId>
+                            <artifactId>asm</artifactId>
+                            <version>${dep.asm.version}</version>
+                        </dependency>
+                    </dependencies>
+                    <executions>
+                        <execution>
+                            <id>modernizer</id>
+                            <goals>
+                                <goal>modernizer</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
 
                 <plugin>
@@ -2441,6 +2481,144 @@
                     <artifactId>protobuf-maven-plugin</artifactId>
                     <version>0.5.1</version>
                 </plugin>
+
+                <!-- this will go in airbase but putting it here for testing right now-->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>3.5.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>extra-enforcer-rules</artifactId>
+                            <version>1.9.0</version>
+                        </dependency>
+                    </dependencies>
+                    <executions>
+                        <execution>
+                            <id>default</id>
+                            <phase>validate</phase>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <skip>${air.check.skip-enforcer}</skip>
+                        <fail>${air.check.fail-enforcer}</fail>
+                        <failFast>false</failFast>
+                        <rules>
+                            <!-- The following dependencies are hazardous for builds. -->
+                            <bannedDependencies>
+                                <excludes>
+                                    <!-- clashes with commons-logging:commons-logging -->
+                                    <exclude>commons-logging:commons-logging-api</exclude>
+                                    <!-- clashes with cglib:cglib-nodep -->
+                                    <exclude>cglib:cglib</exclude>
+                                    <!-- old versions of junit repackage hamcrest -->
+                                    <exclude>junit:junit</exclude>
+                                    <!-- use guava -->
+                                    <exclude>com.google.collections:google-collections</exclude>
+                                    <!-- but not the badly numbered ones... -->
+                                    <exclude>com.google.guava:guava</exclude>
+                                    <!-- Contains FindBugs annotations, JSR-305 and JCIP annotations -->
+                                    <exclude>com.google.code.findbugs:annotations</exclude>
+                                    <!-- Use the official version at javax.servlet:javax.servlet-api -->
+                                    <exclude>org.eclipse.jetty.orbit:javax.servlet</exclude>
+                                    <!-- Renamed airlift modules -->
+                                    <exclude>com.facebook.airlift:discovery-experimental</exclude>
+                                    <exclude>com.facebook.airlift:event-experimental</exclude>
+                                    <exclude>com.facebook.airlift:http-client-experimental</exclude>
+                                    <exclude>com.facebook.airlift:jmx-http-experimental</exclude>
+                                    <exclude>com.facebook.airlift:jmx-http-rpc-experimental</exclude>
+                                    <exclude>com.facebook.airlift:rack-experimental</exclude>
+                                    <exclude>com.facebook.airlift:rack-launcher-experimental</exclude>
+                                    <exclude>com.facebook.airlift:rack-packaging-experimental</exclude>
+                                    <exclude>com.facebook.airlift:rack-server-base-experimental</exclude>
+                                </excludes>
+                                <includes>
+                                    <!-- whitelist the well numbered guava releases -->
+                                    <include>com.google.guava:guava:[10.0.1,)</include>
+                                    <!-- newer versions of junit do not repackage hamcrest -->
+                                    <include>junit:junit:[4.11,)</include>
+                                </includes>
+                            </bannedDependencies>
+                            <banDuplicatePomDependencyVersions />
+                            <requireUpperBoundDeps />
+                            <requireMavenVersion>
+                                <version>${air.maven.version}</version>
+                            </requireMavenVersion>
+                            <requireJavaVersion>
+                                <version>${air.java.version}</version>
+                                <display>true</display>
+                                <message>Java version must be ${air.java.version}</message>
+                            </requireJavaVersion>
+                            <enforceBytecodeVersion>
+                                <maxJdkVersion>${project.build.targetJdk}</maxJdkVersion>
+                                <ignoredScopes>test</ignoredScopes>
+                                <excludes>
+                                    <exclude>org.eclipse.jetty:jetty-alpn-java-client</exclude>
+                                    <exclude>org.eclipse.jetty:jetty-alpn-java-server</exclude>
+                                </excludes>
+                            </enforceBytecodeVersion>
+                        </rules>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>com.github.spotbugs</groupId>
+                    <artifactId>spotbugs-maven-plugin</artifactId>
+                    <version>4.2.2</version>
+                    <configuration>
+                        <skip>${air.check.skip-spotbugs}</skip>
+                        <jvmArgs>-Xmx${air.build.jvmsize}</jvmArgs>
+                        <failOnError>${air.check.fail-spotbugs}</failOnError>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>default</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>3.8.0</version>
+                    <configuration>
+                        <skip>${air.check.skip-dependency}</skip>
+                        <failOnWarning>${air.check.fail-dependency}</failOnWarning>
+                        <ignoreNonCompile>true</ignoreNonCompile>
+                    </configuration>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.ow2.asm</groupId>
+                            <artifactId>asm</artifactId>
+                            <version>${dep.asm.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.maven.shared</groupId>
+                            <artifactId>maven-dependency-analyzer</artifactId>
+                            <version>1.15.1</version>
+                            <scope>compile</scope>
+                        </dependency>
+                    </dependencies>
+                    <executions>
+                        <execution>
+                            <id>default</id>
+                            <goals>
+                                <goal>analyze-only</goal>
+                                <goal>analyze-duplicate</goal>
+                            </goals>
+                            <phase>process-test-classes</phase>
+                        </execution>
+                    </executions>
+                </plugin>
+
 
             </plugins>
         </pluginManagement>
