@@ -20,6 +20,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/SerializedPageUtil.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 using namespace facebook::velox;
@@ -90,21 +91,7 @@ class OutputBufferManagerTest : public testing::Test {
       vector_size_t size) {
     auto vector = std::dynamic_pointer_cast<RowVector>(
         BatchMaker::createBatch(rowType, size, *pool_));
-    return toSerializedPage(vector);
-  }
-
-  std::unique_ptr<SerializedPage> toSerializedPage(VectorPtr vector) {
-    auto data = std::make_unique<VectorStreamGroup>(pool_.get());
-    auto size = vector->size();
-    auto range = IndexRange{0, size};
-    data->createStreamTree(
-        std::dynamic_pointer_cast<const RowType>(vector->type()), size);
-    data->append(
-        std::dynamic_pointer_cast<RowVector>(vector), folly::Range(&range, 1));
-    auto listener = bufferManager_->newListener();
-    IOBufOutputStream stream(*pool_, listener.get(), data->size());
-    data->flush(&stream);
-    return std::make_unique<SerializedPage>(stream.getIOBuf(), nullptr, size);
+    return exec::test::toSerializedPage(vector, bufferManager_, pool_.get());
   }
 
   void enqueue(
