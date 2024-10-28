@@ -200,6 +200,7 @@
         <module>presto-singlestore</module>
         <module>presto-hana</module>
         <module>presto-openapi</module>
+        <module>presto-native-sidecar-plugin</module>
     </modules>
 
     <dependencyManagement>
@@ -447,6 +448,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hana</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-session-property-providers</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
