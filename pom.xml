@@ -529,7 +529,17 @@
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>animal-sniffer-annotations</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.google.api.grpc</groupId>
+                        <artifactId>proto-google-common-protos</artifactId>
+                    </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.api.grpc</groupId>
+                <artifactId>proto-google-common-protos</artifactId>
+                <version>2.0.1</version>
             </dependency>
 
             <dependency>

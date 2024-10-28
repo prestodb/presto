@@ -126,6 +126,7 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
