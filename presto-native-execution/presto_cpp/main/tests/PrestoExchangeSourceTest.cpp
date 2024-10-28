@@ -510,10 +510,10 @@ TEST_P(PrestoExchangeSourceTest, basic) {
   serverWrapper.stop();
   EXPECT_EQ(pool_->usedBytes(), 0);
 
-  const auto stats = exchangeSource->stats();
+  const auto stats = exchangeSource->metrics();
   ASSERT_EQ(stats.size(), 2);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), pages.size());
-  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, pages.size());
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, totalBytes(pages));
 }
 
 TEST_P(PrestoExchangeSourceTest, retryState) {
@@ -636,10 +636,10 @@ TEST_P(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
   serverWrapper.stop();
   EXPECT_EQ(pool_->usedBytes(), 0);
 
-  const auto stats = exchangeSource->stats();
+  const auto stats = exchangeSource->metrics();
   ASSERT_EQ(stats.size(), 2);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), 0);
-  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), 0);
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, 0);
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, 0);
 }
 
 TEST_P(PrestoExchangeSourceTest, slowProducer) {
@@ -678,10 +678,10 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   serverWrapper.stop();
   EXPECT_EQ(pool_->usedBytes(), 0);
 
-  const auto stats = exchangeSource->stats();
+  const auto stats = exchangeSource->metrics();
   ASSERT_EQ(stats.size(), 2);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), pages.size());
-  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, pages.size());
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, totalBytes(pages));
 }
 
 DEBUG_ONLY_TEST_P(
