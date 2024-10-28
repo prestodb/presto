@@ -146,6 +146,28 @@ class BaseVector {
   }
 
   template <typename T>
+  T* asChecked() {
+    auto* casted = as<T>();
+    VELOX_CHECK_NOT_NULL(
+        casted,
+        "Wrong type cast expected {}, but got {}",
+        typeid(T).name(),
+        typeid(*this).name());
+    return casted;
+  }
+
+  template <typename T>
+  const T* asChecked() const {
+    auto* casted = as<T>();
+    VELOX_CHECK_NOT_NULL(
+        casted,
+        "Wrong type cast expected {}, but got {}",
+        typeid(T).name(),
+        typeid(*this).name());
+    return casted;
+  }
+
+  template <typename T>
   const FlatVector<T>* asFlatVector() const {
     return dynamic_cast<const FlatVector<T>*>(this);
   }
