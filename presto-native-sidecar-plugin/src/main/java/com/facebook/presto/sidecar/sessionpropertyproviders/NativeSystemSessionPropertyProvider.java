@@ -14,19 +14,30 @@
 
 package com.facebook.presto.sidecar.sessionpropertyproviders;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpUriBuilder;
+import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.sidecar.ForSidecarInfo;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
 
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -42,6 +53,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.tinyIntProperty;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class NativeSystemSessionPropertyProvider
         implements WorkerSessionPropertyProvider
@@ -50,28 +62,44 @@ public class NativeSystemSessionPropertyProvider
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
     private final JsonCodec<List<SessionPropertyMetadata>> nativeSessionPropertiesJsonCodec;
+    private final Supplier<List<PropertyMetadata<?>>> memoizedSessionPropertiesSupplier;
+    private final HttpClient httpClient;
+    private static final String SESSION_PROPERTIES_ENDPOINT = "/v1/properties/session";
 
     @Inject
     public NativeSystemSessionPropertyProvider(
+            @ForSidecarInfo HttpClient httpClient,
             JsonCodec<List<SessionPropertyMetadata>> nativeSessionPropertiesJsonCodec,
             NodeManager nodeManager,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            NativeSystemSessionPropertyProviderConfig config)
     {
         this.nativeSessionPropertiesJsonCodec = requireNonNull(nativeSessionPropertiesJsonCodec, "nativeSessionPropertiesJsonCodec is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.httpClient = requireNonNull(httpClient, "typeManager is null");
+        requireNonNull(config, "config is null");
+        this.memoizedSessionPropertiesSupplier =
+                Suppliers.memoizeWithExpiration(this::fetchSessionProperties, config.getSessionPropertiesCacheExpiration().toMillis(), MILLISECONDS);
     }
 
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
-        return fetchSessionProperties();
+        return memoizedSessionPropertiesSupplier.get();
     }
 
     private List<PropertyMetadata<?>> fetchSessionProperties()
     {
         try {
-            throw new UnsupportedOperationException();
+            List<PropertyMetadata<?>> propertyMetadataList = new ArrayList<>();
+            Request request = prepareGet().setUri(getSidecarLocation()).build();
+            List<SessionPropertyMetadata> nativeSessionProperties = httpClient.execute(request, createJsonResponseHandler(nativeSessionPropertiesJsonCodec));
+            for (SessionPropertyMetadata sessionProperty : nativeSessionProperties) {
+                PropertyMetadata<?> propertyMetadata = toPropertyMetadata(sessionProperty);
+                propertyMetadataList.add(propertyMetadata);
+            }
+            return propertyMetadataList;
         }
         catch (Exception e) {
             throw new PrestoException(INVALID_ARGUMENTS, "Failed to get session properties from sidecar.");
@@ -106,5 +134,16 @@ public class NativeSystemSessionPropertyProvider
             throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown type");
         }
         return propertyMetadata;
+    }
+
+    private URI getSidecarLocation()
+    {
+        Node sidecarNode = nodeManager.getSidecarNode();
+        return HttpUriBuilder.uriBuilder()
+                .scheme("http")
+                .host(sidecarNode.getHost())
+                .port(sidecarNode.getHostAndPort().getPort())
+                .appendPath(SESSION_PROPERTIES_ENDPOINT)
+                .build();
     }
 }
