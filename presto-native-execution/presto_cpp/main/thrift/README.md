@@ -32,7 +32,7 @@ ProtocolToThrift-cpp.mustache     |              |      ProtocolToThrift-hpp.mus
             chevron <-------------+           chevron <-------------+
                |                                 |
                v                                 v
-     ProtocolToThrift.cpp                ProtocolToThrift.cpp
+     ProtocolToThrift.cpp                ProtocolToThrift.h
 </code></pre>
 
 `thrift2json.py` uses ptsd_jbroll a fork of the ptsd Thrift parser to produce a
@@ -44,4 +44,4 @@ conversion from JSON internal srtruct to Thrift structs in
 
 `presto_protocol-to-thrift-json.json` is used by chevron templates
 `ProtocolToThrift-cpp.mustache` and `ProtocolToThrift-hpp.mustache` to produce
-the actual C++ code in `ProtocolToThrift.cpp` and `ProtocolToThrift.cpp`.
+the actual C++ code in `ProtocolToThrift.cpp` and `ProtocolToThrift.h`.
