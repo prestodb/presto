@@ -21,7 +21,7 @@
 
 namespace facebook::velox {
 
-uint64_t DecodedVector::constantNullMask_;
+uint64_t DecodedVector::constantNullMask_{0};
 
 namespace {
 std::vector<vector_size_t> makeConsecutiveIndices(size_t size) {

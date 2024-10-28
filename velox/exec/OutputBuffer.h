@@ -40,8 +40,8 @@ using DataAvailableCallback = std::function<void(
 using DataConsumerActiveCheckCallback = std::function<bool()>;
 
 struct DataAvailable {
-  DataAvailableCallback callback;
-  int64_t sequence;
+  DataAvailableCallback callback{nullptr};
+  int64_t sequence{0};
   std::vector<std::unique_ptr<folly::IOBuf>> data;
   std::vector<int64_t> remainingBytes;
 
@@ -140,7 +140,7 @@ class DestinationBuffer {
 
     /// Whether the result is returned immediately without invoking the `notify'
     /// callback.
-    bool immediate;
+    bool immediate{false};
   };
 
   /// Returns a shallow copy (folly::IOBuf::clone) of the data starting at

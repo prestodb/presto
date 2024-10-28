@@ -449,7 +449,7 @@ void Writer::flushStripe(bool close) {
   uint64_t offset = 0;
   const auto addStream = [&](const DwrfStreamIdentifier& stream,
                              const auto& out) {
-    uint32_t currentIndex;
+    uint32_t currentIndex = 0;
     const auto nodeId = stream.encodingKey().node();
     proto::Stream* s = encodingManager.addStreamToFooter(nodeId, currentIndex);
 

@@ -37,15 +37,19 @@ constexpr int kCtrMode = 1;
 constexpr int kCtrIvLength = 16;
 constexpr int kBufferSizeLength = 4;
 
-#define ENCRYPT_INIT(CTX, ALG)                                        \
-  if (1 != EVP_EncryptInit_ex(CTX, ALG, nullptr, nullptr, nullptr)) { \
-    throw ParquetException("Couldn't init ALG encryption");           \
-  }
+#define ENCRYPT_INIT(CTX, ALG)                                          \
+  do {                                                                  \
+    if (1 != EVP_EncryptInit_ex(CTX, ALG, nullptr, nullptr, nullptr)) { \
+      throw ParquetException("Couldn't init ALG encryption");           \
+    }                                                                   \
+  } while (0)
 
-#define DECRYPT_INIT(CTX, ALG)                                        \
-  if (1 != EVP_DecryptInit_ex(CTX, ALG, nullptr, nullptr, nullptr)) { \
-    throw ParquetException("Couldn't init ALG decryption");           \
-  }
+#define DECRYPT_INIT(CTX, ALG)                                          \
+  do {                                                                  \
+    if (1 != EVP_DecryptInit_ex(CTX, ALG, nullptr, nullptr, nullptr)) { \
+      throw ParquetException("Couldn't init ALG decryption");           \
+    }                                                                   \
+  } while (0)
 
 class AesEncryptor::AesEncryptorImpl {
  public:
@@ -233,7 +237,7 @@ int AesEncryptor::AesEncryptorImpl::GcmEncrypt(
     const uint8_t* aad,
     int aad_len,
     uint8_t* ciphertext) {
-  int len;
+  int len = 0;
   int ciphertext_len;
 
   uint8_t tag[kGcmTagLength];
@@ -281,7 +285,7 @@ int AesEncryptor::AesEncryptorImpl::GcmEncrypt(
   }
 
   // Copying the buffer size, nonce and tag to ciphertext
-  int buffer_size = kNonceLength + ciphertext_len + kGcmTagLength;
+  uint32_t buffer_size = kNonceLength + ciphertext_len + kGcmTagLength;
   if (length_buffer_length_ > 0) {
     ciphertext[3] = static_cast<uint8_t>(0xff & (buffer_size >> 24));
     ciphertext[2] = static_cast<uint8_t>(0xff & (buffer_size >> 16));
@@ -304,7 +308,7 @@ int AesEncryptor::AesEncryptorImpl::CtrEncrypt(
     int key_len,
     const uint8_t* nonce,
     uint8_t* ciphertext) {
-  int len;
+  int len = 0;
   int ciphertext_len;
 
   // Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial
@@ -346,7 +350,7 @@ int AesEncryptor::AesEncryptorImpl::CtrEncrypt(
   ciphertext_len += len;
 
   // Copying the buffer size and nonce to ciphertext
-  int buffer_size = kNonceLength + ciphertext_len;
+  uint32_t buffer_size = kNonceLength + ciphertext_len;
   if (length_buffer_length_ > 0) {
     ciphertext[3] = static_cast<uint8_t>(0xff & (buffer_size >> 24));
     ciphertext[2] = static_cast<uint8_t>(0xff & (buffer_size >> 16));
@@ -593,7 +597,7 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(
     const uint8_t* aad,
     int aad_len,
     uint8_t* plaintext) {
-  int len;
+  int len = 0;
   int plaintext_len;
 
   uint8_t tag[kGcmTagLength];
@@ -603,7 +607,7 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(
 
   if (length_buffer_length_ > 0) {
     // Extract ciphertext length
-    int written_ciphertext_len = ((ciphertext[3] & 0xff) << 24) |
+    uint32_t written_ciphertext_len = ((ciphertext[3] & 0xff) << 24) |
         ((ciphertext[2] & 0xff) << 16) | ((ciphertext[1] & 0xff) << 8) |
         ((ciphertext[0] & 0xff));
 
@@ -672,7 +676,7 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(
     const uint8_t* key,
     int key_len,
     uint8_t* plaintext) {
-  int len;
+  int len = 0;
   int plaintext_len;
 
   uint8_t iv[kCtrIvLength];
@@ -680,7 +684,7 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(
 
   if (length_buffer_length_ > 0) {
     // Extract ciphertext length
-    int written_ciphertext_len = ((ciphertext[3] & 0xff) << 24) |
+    uint32_t written_ciphertext_len = ((ciphertext[3] & 0xff) << 24) |
         ((ciphertext[2] & 0xff) << 16) | ((ciphertext[1] & 0xff) << 8) |
         ((ciphertext[0] & 0xff));
 
@@ -757,8 +761,9 @@ int AesDecryptor::AesDecryptorImpl::Decrypt(
 static std::string ShortToBytesLe(int16_t input) {
   int8_t output[2];
   memset(output, 0, 2);
-  output[1] = static_cast<int8_t>(0xff & (input >> 8));
-  output[0] = static_cast<int8_t>(0xff & (input));
+  uint16_t in = static_cast<uint16_t>(input);
+  output[1] = static_cast<int8_t>(0xff & (in >> 8));
+  output[0] = static_cast<int8_t>(0xff & (in));
 
   return std::string(reinterpret_cast<char const*>(output), 2);
 }

@@ -49,7 +49,7 @@ struct AggregateInfo {
   bool distinct{false};
 
   /// Index of the result column in the output RowVector.
-  column_index_t output;
+  column_index_t output{0};
 
   /// Type of intermediate results. Used for spilling.
   TypePtr intermediateType;

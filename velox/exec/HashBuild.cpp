@@ -893,8 +893,8 @@ void HashBuild::addRuntimeStats() {
   // Report range sizes and number of distinct values for the join keys.
   const auto& hashers = table_->hashers();
   const auto hashTableStats = table_->stats();
-  uint64_t asRange;
-  uint64_t asDistinct;
+  uint64_t asRange{0};
+  uint64_t asDistinct{0};
   auto lockedStats = stats_.wlock();
 
   lockedStats->addInputTiming.add(table_->offThreadBuildTiming());

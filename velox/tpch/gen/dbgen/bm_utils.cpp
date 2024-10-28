@@ -91,7 +91,7 @@
 /* End of lines added by Chuck McDevitt for WIN32 support */
 #include "dbgen/dsstypes.h" // @manual
 
-static char alpha_num[65] =
+static const char* alpha_num =
     "0123456789abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ,";
 
 #if defined(__STDC__) || defined(__cplusplus)

@@ -315,7 +315,7 @@ void deserializeOne<TypeKind::ARRAY>(
   if (array->size() <= index) {
     array->resize(index + 1);
   }
-  vector_size_t offset;
+  vector_size_t offset = 0;
   auto size = deserializeArray(in, *array->elements(), offset);
   array->setOffsetAndSize(index, offset, size);
   result.setNull(index, false);
@@ -331,9 +331,9 @@ void deserializeOne<TypeKind::MAP>(
   if (map->size() <= index) {
     map->resize(index + 1);
   }
-  vector_size_t keyOffset;
+  vector_size_t keyOffset = 0;
   auto keySize = deserializeArray(in, *map->mapKeys(), keyOffset);
-  vector_size_t valueOffset;
+  vector_size_t valueOffset = 0;
   auto valueSize = deserializeArray(in, *map->mapValues(), valueOffset);
   VELOX_CHECK_EQ(keySize, valueSize);
   VELOX_CHECK_EQ(keyOffset, valueOffset);

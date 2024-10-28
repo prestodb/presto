@@ -63,7 +63,7 @@ std::string getAppName() {
  * This machine's name.
  */
 std::string getHostName() {
-  char hostbuf[_POSIX_HOST_NAME_MAX + 1];
+  char hostbuf[_POSIX_HOST_NAME_MAX + 1] = {0};
   if (gethostname(hostbuf, _POSIX_HOST_NAME_MAX + 1) < 0) {
     return "";
   } else {
