@@ -42,6 +42,11 @@
             <artifactId>guice</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>configuration</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -102,6 +107,11 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-client</artifactId>
         </dependency>
     </dependencies>
 </project>
