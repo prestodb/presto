@@ -50,8 +50,8 @@ public class RedisProviderPlugin
     public Iterable<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProviders()
     {
         if (this.propertyMap == null) {
-            log.info("Redis Provider Plugin returned an empty instance");
-            return ImmutableList.of(EmptyPlanStatisticsProvider.getInstance());
+            log.error("Redis Provider Plugin returned an empty instance");
+            throw new RedisProviderInitializationException("Unable to retrieve RedisProviderPlugin");
         }
         if (!(propertyMap.getOrDefault(RedisProviderConfig.COORDINATOR_PROPERTY_NAME, "false").equals("true") &&
                 propertyMap.getOrDefault(RedisProviderConfig.HBO_PROVIDER_ENABLED_NAME, "false").equals("true"))) {
