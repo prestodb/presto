@@ -588,6 +588,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version> <!-- make this parameterizable, and upgrade this in airbase-->
                 <executions>
                     <execution>
                         <id>default-report</id>

@@ -2434,37 +2434,6 @@
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-enforcer-plugin</artifactId>
-                    <configuration>
-                        <rules>
-                            <requireUpperBoundDeps>
-                                <excludes combine.children="append">
-                                    <!-- TODO: fix this in Airlift resolver -->
-                                    <exclude>org.alluxio:alluxio-shaded-client</exclude>
-                                    <exclude>org.codehaus.plexus:plexus-utils</exclude>
-                                    <exclude>com.google.guava:guava</exclude>
-                                    <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
-                                    <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
-                                    <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
-                                </excludes>
-                            </requireUpperBoundDeps>
-                        </rules>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.basepom.maven</groupId>
-                    <artifactId>duplicate-finder-maven-plugin</artifactId>
-                    <configuration>
-                        <ignoredClassPatterns combine.children="append">
-                            <!-- Duplicate class is being brought in by commons-io & log4j-api -->
-                            <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
-                        </ignoredClassPatterns>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-release-plugin</artifactId>
                     <configuration>
                         <preparationGoals>clean verify -DskipTests</preparationGoals>
