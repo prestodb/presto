@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanCheckerProviderContext;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
@@ -40,7 +41,7 @@ public class PlanCheckerProviderManager
     private static final Logger log = Logger.get(PlanCheckerProviderManager.class);
     private static final String PLAN_CHECKER_PROVIDER_NAME = "plan-checker-provider.name";
 
-    private final PlanCheckerProviderContext planCheckerProviderContext;
+    private final SimplePlanFragmentSerde simplePlanFragmentSerde;
     private final Map<String, PlanCheckerProviderFactory> providerFactories = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<PlanCheckerProvider> providers = new CopyOnWriteArrayList<>();
     private final File configDirectory;
@@ -48,7 +49,7 @@ public class PlanCheckerProviderManager
     @Inject
     public PlanCheckerProviderManager(SimplePlanFragmentSerde simplePlanFragmentSerde, PlanCheckerProviderManagerConfig config)
     {
-        this.planCheckerProviderContext = new PlanCheckerProviderContext(requireNonNull(simplePlanFragmentSerde, "planNodeSerde is null"));
+        this.simplePlanFragmentSerde = requireNonNull(simplePlanFragmentSerde, "planNodeSerde is null");
         requireNonNull(config, "config is null");
         this.configDirectory = requireNonNull(config.getPlanCheckerConfigurationDir(), "configDirectory is null");
     }
@@ -61,9 +62,11 @@ public class PlanCheckerProviderManager
         }
     }
 
-    public void loadPlanCheckerProviders()
+    public void loadPlanCheckerProviders(NodeManager nodeManager)
             throws IOException
     {
+        PlanCheckerProviderContext planCheckerProviderContext = new PlanCheckerProviderContext(simplePlanFragmentSerde, nodeManager);
+
         for (File file : listFiles(configDirectory)) {
             if (file.isFile() && file.getName().endsWith(".properties")) {
                 // unlike function namespaces and connectors, we don't have a concept of catalog
@@ -75,7 +78,7 @@ public class PlanCheckerProviderManager
                         file.getAbsoluteFile(),
                         PLAN_CHECKER_PROVIDER_NAME);
                 String planCheckerProviderName = properties.remove(PLAN_CHECKER_PROVIDER_NAME);
-                log.info("-- Loading plan checker provider %s--", planCheckerProviderName);
+                log.info("-- Loading plan checker provider [%s] --", planCheckerProviderName);
                 PlanCheckerProviderFactory providerFactory = providerFactories.get(planCheckerProviderName);
                 checkState(providerFactory != null,
                         "No planCheckerProviderFactory found for '%s'. Available factories were %s", planCheckerProviderName, providerFactories.keySet());
