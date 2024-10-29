@@ -351,6 +351,133 @@ int64_t parseTimezone(const char* cur, const char* end, Date& date) {
   return -1;
 }
 
+// Contains a list of all time zone names in a convenient format for searching.
+//
+// Time zone names without the '/' character (without a prefix) are stored in
+// timeZoneNamesWithoutPrefix ordered by size desc.
+//
+// Time zone names with the '/' character (with a prefix) are stored in a map
+// timeZoneNamePrefixMap from prefix (the string before the first '/') to a
+// vector of strings which contains the suffixes (the strings after the first
+// '/') ordered by size desc.
+struct TimeZoneNameMappings {
+  std::vector<std::string> timeZoneNamesWithoutPrefix;
+  std::unordered_map<std::string, std::vector<std::string>>
+      timeZoneNamePrefixMap;
+};
+
+TimeZoneNameMappings getTimeZoneNameMappings() {
+  // Here we use get_time_zone_names instead of calling get_tzdb and
+  // constructing the list ourselves because there is some unknown issue with
+  // the tz library where the time_zone objects after the first one in the tzdb
+  // will be invalid (contain nullptrs) after the get_tzdb function returns.
+  const std::vector<std::string> timeZoneNames = date::get_time_zone_names();
+
+  TimeZoneNameMappings result;
+  for (size_t i = 0; i < timeZoneNames.size(); i++) {
+    const auto& timeZoneName = timeZoneNames[i];
+    auto separatorPoint = timeZoneName.find('/');
+
+    if (separatorPoint == std::string::npos) {
+      result.timeZoneNamesWithoutPrefix.push_back(timeZoneName);
+    } else {
+      std::string prefix = timeZoneName.substr(0, separatorPoint);
+      std::string suffix = timeZoneName.substr(separatorPoint + 1);
+
+      result.timeZoneNamePrefixMap[prefix].push_back(suffix);
+    }
+  }
+
+  std::sort(
+      result.timeZoneNamesWithoutPrefix.begin(),
+      result.timeZoneNamesWithoutPrefix.end(),
+      [](const std::string& a, const std::string& b) {
+        return b.size() < a.size();
+      });
+
+  for (auto& [prefix, suffixes] : result.timeZoneNamePrefixMap) {
+    std::sort(
+        suffixes.begin(),
+        suffixes.end(),
+        [](const std::string& a, const std::string& b) {
+          return b.size() < a.size();
+        });
+  }
+
+  return result;
+}
+
+int64_t parseTimezoneName(const char* cur, const char* end, Date& date) {
+  // For time zone names we try to greedily find the longest substring starting
+  // from cur that is a valid time zone name. To help speed things along we
+  // treat time zone names as {prefix}/{suffix} (for the first instance of '/')
+  // and create lists of suffixes per prefix. We order these lists by length of
+  // the suffix so once we identify the prefix, we can return the first suffix
+  // we find in the string. We treat time zone names without a prefix (i.e.
+  // without a '/') separately but similarly.
+  static const TimeZoneNameMappings timeZoneNameMappings =
+      getTimeZoneNameMappings();
+
+  if (cur < end) {
+    // Find the first instance of '/' in the remainder of the string
+    const char* separatorPoint = cur;
+    while (separatorPoint < end && *separatorPoint != '/') {
+      ++separatorPoint;
+    }
+
+    // Try to find a time zone with a prefix that includes the speratorPoint.
+    if (separatorPoint != end) {
+      std::string prefix(cur, separatorPoint);
+
+      auto it = timeZoneNameMappings.timeZoneNamePrefixMap.find(prefix);
+      if (it != timeZoneNameMappings.timeZoneNamePrefixMap.end()) {
+        // This is greedy, find the longest suffix for the given prefix that
+        // fits the string. We know the value in the map is already sorted by
+        // length in decreasing order.
+        for (const auto& suffixName : it->second) {
+          if (suffixName.size() <= end - separatorPoint - 1 &&
+              suffixName ==
+                  std::string_view(separatorPoint + 1, suffixName.size())) {
+            auto timeZoneNameSize = prefix.size() + 1 + suffixName.size();
+            date.timezone =
+                tz::locateZone(std::string_view(cur, timeZoneNameSize), false);
+
+            if (!date.timezone) {
+              return -1;
+            }
+
+            return timeZoneNameSize;
+          }
+        }
+      }
+    }
+
+    // If we found a '/' but didn't find a match in the set of time zones with
+    // prefixes, try search before the '/' for a time zone without a prefix. If
+    // we didn't find a '/' then end already equals separatorPoint.
+    end = separatorPoint;
+
+    for (const auto& timeZoneName :
+         timeZoneNameMappings.timeZoneNamesWithoutPrefix) {
+      // Again, this is greedy, find the largest time zone name without a prefix
+      // that fits the string. We know timeZoneNamesWithoutPrefix is already
+      // sorted by length in decreasing order.
+      if (timeZoneName.size() <= end - cur &&
+          timeZoneName == std::string_view(cur, timeZoneName.size())) {
+        date.timezone = tz::locateZone(timeZoneName, false);
+
+        if (!date.timezone) {
+          return -1;
+        }
+
+        return timeZoneName.size();
+      }
+    }
+  }
+
+  return -1;
+}
+
 int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
   // For timezone offset ids, there are three formats allowed by Joda:
   //
@@ -689,7 +816,13 @@ int32_t parseFromPattern(
     bool specifierNext,
     DateTimeFormatterType type) {
   if (curPattern.specifier == DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID) {
-    auto size = parseTimezoneOffset(cur, end, date);
+    int64_t size;
+    if (curPattern.minRepresentDigits < 3) {
+      size = parseTimezoneOffset(cur, end, date);
+    } else {
+      size = parseTimezoneName(cur, end, date);
+    }
+
     if (size == -1) {
       return -1;
     }

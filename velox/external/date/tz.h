@@ -1258,6 +1258,8 @@ operator<<(std::ostream& os, const tzdb& db);
 
 DATE_API const tzdb& get_tzdb();
 
+std::vector<std::string> get_time_zone_names();
+
 class tzdb_list
 {
     std::atomic<tzdb*> head_{nullptr};

@@ -3538,6 +3538,14 @@ get_tzdb()
     return get_tzdb_list().front();
 }
 
+std::vector<std::string> get_time_zone_names() {
+  std::vector<std::string> result;
+  for (const auto& z : get_tzdb().zones) {
+    result.push_back(z.name());
+  }
+  return result;
+}
+
 const time_zone*
 #if HAS_STRING_VIEW
 tzdb::locate_zone(std::string_view tz_name) const
