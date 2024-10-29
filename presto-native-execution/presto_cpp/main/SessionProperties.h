@@ -215,6 +215,11 @@ class SessionProperties {
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "native_max_page_partitioning_buffer_size";
 
+  /// Maximum number of partitions created by a local exchange.
+  /// Affects concurrency for pipelines containing LocalPartitionNode.
+  static constexpr const char* kMaxLocalExchangePartitionCount =
+      "native_max_local_exchange_partition_count";
+
   SessionProperties();
 
   const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
