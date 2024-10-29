@@ -3022,6 +3022,19 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
       parseDatetime(
           "2024-02-25+06:00:99 America/XYZ", "yyyy-MM-dd+HH:mm:99 ZZZ"),
       "Invalid date format: '2024-02-25+06:00:99 America/XYZ'");
+
+  // Test to ensure we do not support parsing time zone long names (to be
+  // consistent with JODA).
+  VELOX_ASSERT_THROW(
+      parseDatetime(
+          "2024-02-25+06:00:99 Pacific Standard Time",
+          "yyyy-MM-dd+HH:mm:99 zzzz"),
+      "Parsing time zone long names is not supported.");
+  VELOX_ASSERT_THROW(
+      parseDatetime(
+          "2024-02-25+06:00:99 Pacific Standard Time",
+          "yyyy-MM-dd+HH:mm:99 zzzzzzzzzz"),
+      "Parsing time zone long names is not supported.");
 }
 
 TEST_F(DateTimeFunctionsTest, formatDateTime) {

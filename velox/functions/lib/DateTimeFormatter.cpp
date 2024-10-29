@@ -828,6 +828,12 @@ int32_t parseFromPattern(
     }
     cur += size;
   } else if (curPattern.specifier == DateTimeFormatSpecifier::TIMEZONE) {
+    // JODA does not support parsing time zone long names, so neither do we for
+    // consistency. The pattern for a time zone long name is 4 or more 'z's.
+    VELOX_USER_CHECK_LT(
+        curPattern.minRepresentDigits,
+        4,
+        "Parsing time zone long names is not supported.");
     auto size = parseTimezone(cur, end, date);
     if (size == -1) {
       return -1;
