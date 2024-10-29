@@ -27,6 +27,11 @@
 #include "velox/type/TimestampConversion.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
+namespace facebook::velox::tz {
+// Defined in TimeZoneLinks.cpp
+extern const std::unordered_map<std::string, std::string>& getTimeZoneLinks();
+} // namespace facebook::velox::tz
+
 namespace facebook::velox::functions {
 
 static thread_local std::string timezoneBuffer = "+00:00";
@@ -1234,7 +1239,9 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
           if (timezone == nullptr) {
             VELOX_USER_FAIL("Timezone unknown");
           }
-          size += timezone->name().length();
+
+          // The longest time zone ID is 32, America/Argentina/ComodRivadavia.
+          size += 32;
         }
         break;
       // Not supported.
@@ -1494,6 +1501,16 @@ int32_t DateTimeFormatter::format(
           if (token.pattern.minRepresentDigits >= 3) {
             // Append the time zone ID.
             const auto& piece = timezone->name();
+
+            static const auto& timeZoneLinks = tz::getTimeZoneLinks();
+            auto timeZoneLinksIter = timeZoneLinks.find(piece);
+            if (timeZoneLinksIter != timeZoneLinks.end()) {
+              const auto& timeZoneLink = timeZoneLinksIter->second;
+              std::memcpy(result, timeZoneLink.data(), timeZoneLink.length());
+              result += timeZoneLink.length();
+              break;
+            }
+
             std::memcpy(result, piece.data(), piece.length());
             result += piece.length();
             break;

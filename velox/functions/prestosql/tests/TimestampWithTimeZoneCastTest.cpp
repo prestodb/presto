@@ -125,7 +125,8 @@ TEST_F(TimestampWithTimeZoneCastTest, toVarchar) {
       "1970-01-01 01:11:37.123 America/New_York",
       "1969-12-31 22:11:37.123 America/Los_Angeles",
       "1970-01-01 14:11:37.123 Asia/Shanghai",
-      "1970-01-01 11:41:37.123 Asia/Calcutta",
+      "1970-01-01 11:41:37.123 Asia/Kolkata", // Asia/Calcutta is linked to
+                                              // Asia/Kolkata.
   });
 
   auto result = evaluate("cast(c0 as varchar)", makeRowVector({input}));

@@ -3340,6 +3340,17 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "Australian Central Western Standard Time",
       formatDatetime(parseTimestamp("1970-10-01"), "zzzz"));
 
+  // Test a time zone name that is linked to another (that gets replaced when
+  // converted to a string).
+  setQueryTimeZone("US/Pacific");
+  EXPECT_EQ("PST", formatDatetime(parseTimestamp("1970-01-01"), "zzz"));
+  EXPECT_EQ(
+      "Pacific Standard Time",
+      formatDatetime(parseTimestamp("1970-01-01"), "zzzz"));
+  EXPECT_EQ(
+      "America/Los_Angeles",
+      formatDatetime(parseTimestamp("1970-01-01"), "ZZZ"));
+
   setQueryTimeZone("Asia/Kolkata");
   // Literal test cases.
   EXPECT_EQ("hello", formatDatetime(parseTimestamp("1970-01-01"), "'hello'"));
