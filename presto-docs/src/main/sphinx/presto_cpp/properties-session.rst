@@ -259,3 +259,12 @@ The maximum size in bytes for the task's buffered output. The buffer is shared a
 The maximum bytes to buffer per PartitionedOutput operator to avoid creating tiny SerializedPages.
 For PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator would buffer up to that number of
 bytes / number of destinations for each destination before producing a SerializedPage. Default is 32MB.
+
+``native_max_local_exchange_partition_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``4294967296``
+
+Maximum number of partitions created by a local exchange.
+Affects concurrency for pipelines containing LocalPartitionNode.

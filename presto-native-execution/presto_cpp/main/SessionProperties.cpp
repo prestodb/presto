@@ -354,6 +354,15 @@ SessionProperties::SessionProperties() {
       // Overrides velox default value. Set it to 1 second to be aligned with
       // Presto Java.
       std::to_string(1000));
+
+  addSessionProperty(
+      kMaxLocalExchangePartitionCount,
+      "Maximum number of partitions created by a local exchange."
+      "Affects concurrency for pipelines containing LocalPartitionNode",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxLocalExchangePartitionCount,
+      std::to_string(c.maxLocalExchangePartitionCount()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&

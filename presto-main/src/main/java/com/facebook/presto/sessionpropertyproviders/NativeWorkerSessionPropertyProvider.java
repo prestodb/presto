@@ -61,6 +61,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_QUERY_TRACE_NODE_IDS = "native_query_trace_node_ids";
     public static final String NATIVE_QUERY_TRACE_MAX_BYTES = "native_query_trace_max_bytes";
     public static final String NATIVE_QUERY_TRACE_REG_EXP = "native_query_trace_task_reg_exp";
+    public static final String NATIVE_MAX_LOCAL_EXCHANGE_PARTITION_COUNT = "native_max_local_exchange_partition_count";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -232,6 +233,12 @@ public class NativeWorkerSessionPropertyProvider
                                 "would buffer up to that number of bytes / number of destinations for each destination before " +
                                 "producing a SerializedPage.",
                         24L << 20,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_MAX_LOCAL_EXCHANGE_PARTITION_COUNT,
+                        "Maximum number of partitions created by a local exchange. " +
+                                "Affects concurrency for pipelines containing LocalPartitionNode",
+                        null,
                         !nativeExecution));
     }
 
