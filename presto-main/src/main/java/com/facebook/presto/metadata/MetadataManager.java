@@ -121,6 +121,7 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.MetadataUtil.getOptionalCatalogMetadata;
 import static com.facebook.presto.metadata.MetadataUtil.getOptionalTableHandle;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
@@ -242,7 +243,7 @@ public class MetadataManager
         return new MetadataManager(
                 new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
-                new SessionPropertyManager(),
+                createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),

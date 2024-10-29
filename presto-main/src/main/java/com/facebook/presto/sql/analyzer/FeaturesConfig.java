@@ -127,17 +127,6 @@ public class FeaturesConfig
     private boolean dictionaryAggregation;
     private boolean spillEnabled;
     private boolean joinSpillingEnabled = true;
-    private boolean aggregationSpillEnabled = true;
-    private boolean topNSpillEnabled = true;
-    private boolean distinctAggregationSpillEnabled = true;
-    private boolean dedupBasedDistinctAggregationSpillEnabled;
-    private boolean distinctAggregationLargeBlockSpillEnabled;
-    private DataSize distinctAggregationLargeBlockSizeThreshold = new DataSize(50, MEGABYTE);
-    private boolean orderByAggregationSpillEnabled = true;
-    private boolean windowSpillEnabled = true;
-    private boolean orderBySpillEnabled = true;
-    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
-    private DataSize topNOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -1186,123 +1175,6 @@ public class FeaturesConfig
         return this;
     }
 
-    @Config("experimental.aggregation-spill-enabled")
-    @ConfigDescription("Spill aggregations if spill is enabled")
-    public FeaturesConfig setAggregationSpillEnabled(boolean aggregationSpillEnabled)
-    {
-        this.aggregationSpillEnabled = aggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isAggregationSpillEnabled()
-    {
-        return aggregationSpillEnabled;
-    }
-
-    @Config("experimental.topn-spill-enabled")
-    @ConfigDescription("Spill TopN if spill is enabled")
-    public FeaturesConfig setTopNSpillEnabled(boolean topNSpillEnabled)
-    {
-        this.topNSpillEnabled = topNSpillEnabled;
-        return this;
-    }
-
-    public boolean isTopNSpillEnabled()
-    {
-        return topNSpillEnabled;
-    }
-
-    @Config("experimental.distinct-aggregation-spill-enabled")
-    @ConfigDescription("Spill distinct aggregations if aggregation spill is enabled")
-    public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
-    {
-        this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isDistinctAggregationSpillEnabled()
-    {
-        return distinctAggregationSpillEnabled;
-    }
-
-    @Config("experimental.dedup-based-distinct-aggregation-spill-enabled")
-    @ConfigDescription("Dedup input data for Distinct Aggregates before spilling")
-    public FeaturesConfig setDedupBasedDistinctAggregationSpillEnabled(boolean dedupBasedDistinctAggregationSpillEnabled)
-    {
-        this.dedupBasedDistinctAggregationSpillEnabled = dedupBasedDistinctAggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isDedupBasedDistinctAggregationSpillEnabled()
-    {
-        return dedupBasedDistinctAggregationSpillEnabled;
-    }
-
-    @Config("experimental.distinct-aggregation-large-block-spill-enabled")
-    @ConfigDescription("Spill large block to a separate spill file")
-    public FeaturesConfig setDistinctAggregationLargeBlockSpillEnabled(boolean distinctAggregationLargeBlockSpillEnabled)
-    {
-        this.distinctAggregationLargeBlockSpillEnabled = distinctAggregationLargeBlockSpillEnabled;
-        return this;
-    }
-
-    public boolean isDistinctAggregationLargeBlockSpillEnabled()
-    {
-        return distinctAggregationLargeBlockSpillEnabled;
-    }
-
-    @Config("experimental.distinct-aggregation-large-block-size-threshold")
-    @ConfigDescription("Block size threshold beyond which it will be spilled into a separate spill file")
-    public FeaturesConfig setDistinctAggregationLargeBlockSizeThreshold(DataSize distinctAggregationLargeBlockSizeThreshold)
-    {
-        this.distinctAggregationLargeBlockSizeThreshold = distinctAggregationLargeBlockSizeThreshold;
-        return this;
-    }
-
-    public DataSize getDistinctAggregationLargeBlockSizeThreshold()
-    {
-        return distinctAggregationLargeBlockSizeThreshold;
-    }
-
-    @Config("experimental.order-by-aggregation-spill-enabled")
-    @ConfigDescription("Spill order-by aggregations if aggregation spill is enabled")
-    public FeaturesConfig setOrderByAggregationSpillEnabled(boolean orderByAggregationSpillEnabled)
-    {
-        this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isOrderByAggregationSpillEnabled()
-    {
-        return orderByAggregationSpillEnabled;
-    }
-
-    @Config("experimental.window-spill-enabled")
-    @ConfigDescription("Enable Window Operator Spilling if spill is enabled")
-    public FeaturesConfig setWindowSpillEnabled(boolean windowSpillEnabled)
-    {
-        this.windowSpillEnabled = windowSpillEnabled;
-        return this;
-    }
-
-    public boolean isWindowSpillEnabled()
-    {
-        return windowSpillEnabled;
-    }
-
-    @Config("experimental.order-by-spill-enabled")
-    @ConfigDescription("Enable Order-by Operator Spilling if spill is enabled")
-    public FeaturesConfig setOrderBySpillEnabled(boolean orderBySpillEnabled)
-    {
-        this.orderBySpillEnabled = orderBySpillEnabled;
-        return this;
-    }
-
-    public boolean isOrderBySpillEnabled()
-    {
-        return orderBySpillEnabled;
-    }
-
     public boolean isIterativeOptimizerEnabled()
     {
         return iterativeOptimizerEnabled;
@@ -1439,30 +1311,6 @@ public class FeaturesConfig
     public double getDefaultWriterReplicationCoefficient()
     {
         return defaultWriterReplicationCoefficient;
-    }
-
-    public DataSize getTopNOperatorUnspillMemoryLimit()
-    {
-        return topNOperatorUnspillMemoryLimit;
-    }
-
-    @Config("experimental.topn-operator-unspill-memory-limit")
-    public FeaturesConfig setTopNOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
-    {
-        this.topNOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
-        return this;
-    }
-
-    public DataSize getAggregationOperatorUnspillMemoryLimit()
-    {
-        return aggregationOperatorUnspillMemoryLimit;
-    }
-
-    @Config("experimental.aggregation-operator-unspill-memory-limit")
-    public FeaturesConfig setAggregationOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
-    {
-        this.aggregationOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
-        return this;
     }
 
     public List<Path> getSpillerSpillPaths()

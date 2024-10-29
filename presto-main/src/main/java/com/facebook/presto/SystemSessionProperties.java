@@ -152,19 +152,7 @@ public final class SystemSessionProperties
     public static final String TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED = "treat_low_confidence_zero_estimation_unknown_enabled";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
-    public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
-    public static final String TOPN_SPILL_ENABLED = "topn_spill_enabled";
-    public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
-    public static final String DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED = "dedup_based_distinct_aggregation_spill_enabled";
-    public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED = "distinct_aggregation_large_block_spill_enabled";
-    public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD = "distinct_aggregation_large_block_size_threshold";
-    public static final String ORDER_BY_AGGREGATION_SPILL_ENABLED = "order_by_aggregation_spill_enabled";
-    public static final String WINDOW_SPILL_ENABLED = "window_spill_enabled";
-    public static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
-    public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
-    public static final String TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT = "topn_operator_unspill_memory_limit";
     public static final String QUERY_MAX_REVOCABLE_MEMORY_PER_NODE = "query_max_revocable_memory_per_node";
-    public static final String TEMP_STORAGE_SPILLER_BUFFER_SIZE = "temp_storage_spiller_buffer_size";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
     public static final String LEGACY_MAP_SUBSCRIPT = "do_not_use_legacy_map_subscript";
@@ -332,49 +320,19 @@ public final class SystemSessionProperties
     public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
     public static final String REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT = "remove_cross_join_with_constant_single_row_input";
     public static final String EAGER_PLAN_VALIDATION_ENABLED = "eager_plan_validation_enabled";
-
-    // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
-    public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
-    public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression_max_array_size_in_reduce";
-    public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
-    public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
-    public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
-    public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
-    public static final String NATIVE_SPILL_WRITE_BUFFER_SIZE = "native_spill_write_buffer_size";
-    public static final String NATIVE_SPILL_FILE_CREATE_CONFIG = "native_spill_file_create_config";
-    public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
-    public static final String NATIVE_WINDOW_SPILL_ENABLED = "native_window_spill_enabled";
-    public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
-    public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
-    public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
-    public static final String NATIVE_SPILLER_NUM_PARTITION_BITS = "native_spiller_num_partition_bits";
-    private static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
-    private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
-    private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
-    public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
-    public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
-    public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_PEELING = "native_debug_disable_expression_with_peeling";
-    public static final String NATIVE_DEBUG_DISABLE_COMMON_SUB_EXPRESSION = "native_debug_disable_common_sub_expressions";
-    public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION = "native_debug_disable_expression_with_memoization";
-    public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS = "native_debug_disable_expression_with_lazy_inputs";
-    public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
-    public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
-    public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
-    public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
-    public static final String NATIVE_QUERY_TRACE_ENABLED = "native_query_trace_enabled";
-    public static final String NATIVE_QUERY_TRACE_DIR = "native_query_trace_dir";
-    public static final String NATIVE_QUERY_TRACE_NODE_IDS = "native_query_trace_node_ids";
-    public static final String NATIVE_QUERY_TRACE_MAX_BYTES = "native_query_trace_max_bytes";
-    public static final String NATIVE_QUERY_TRACE_REG_EXP = "native_query_trace_task_reg_exp";
-    public static final String NATIVE_MAX_PAGE_PARTITIONING_BUFFER_SIZE = "native_max_page_partitioning_buffer_size";
-    public static final String NATIVE_MAX_OUTPUT_BUFFER_SIZE = "native_max_output_buffer_size";
-
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String ENABLE_JDBC_JOIN_QUERY_PUSHDOWN = "enable-join-query-pushdown";
+
+    // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
+    public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
+    private static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
+    private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
+    private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
+    public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -823,73 +781,6 @@ public final class SystemSessionProperties
                         "Enable join spilling",
                         featuresConfig.isJoinSpillingEnabled(),
                         false),
-                booleanProperty(
-                        AGGREGATION_SPILL_ENABLED,
-                        "Enable aggregate spilling if spill_enabled",
-                        featuresConfig.isAggregationSpillEnabled(),
-                        false),
-                booleanProperty(
-                        TOPN_SPILL_ENABLED,
-                        "Enable topN spilling if spill_enabled",
-                        featuresConfig.isTopNSpillEnabled(),
-                        false),
-                booleanProperty(
-                        DISTINCT_AGGREGATION_SPILL_ENABLED,
-                        "Enable spill for distinct aggregations if spill_enabled and aggregation_spill_enabled",
-                        featuresConfig.isDistinctAggregationSpillEnabled(),
-                        false),
-                booleanProperty(
-                        DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED,
-                        "Perform deduplication of input data for distinct aggregates before spilling",
-                        featuresConfig.isDedupBasedDistinctAggregationSpillEnabled(),
-                        false),
-                booleanProperty(
-                        DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED,
-                        "Spill large block to a separate spill file",
-                        featuresConfig.isDistinctAggregationLargeBlockSpillEnabled(),
-                        false),
-                new PropertyMetadata<>(
-                        DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD,
-                        "Block size threshold beyond which it will be spilled into a separate spill file",
-                        VARCHAR,
-                        DataSize.class,
-                        featuresConfig.getDistinctAggregationLargeBlockSizeThreshold(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
-                booleanProperty(
-                        ORDER_BY_AGGREGATION_SPILL_ENABLED,
-                        "Enable spill for order-by aggregations if spill_enabled and aggregation_spill_enabled",
-                        featuresConfig.isOrderByAggregationSpillEnabled(),
-                        false),
-                booleanProperty(
-                        WINDOW_SPILL_ENABLED,
-                        "Enable window spilling if spill_enabled",
-                        featuresConfig.isWindowSpillEnabled(),
-                        false),
-                booleanProperty(
-                        ORDER_BY_SPILL_ENABLED,
-                        "Enable order by spilling if spill_enabled",
-                        featuresConfig.isOrderBySpillEnabled(),
-                        false),
-                new PropertyMetadata<>(
-                        AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
-                        "Experimental: How much memory can should be allocated per aggregation operator in unspilling process",
-                        VARCHAR,
-                        DataSize.class,
-                        featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
-                new PropertyMetadata<>(
-                        TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT,
-                        "How much memory can should be allocated per topN operator in unspilling process",
-                        VARCHAR,
-                        DataSize.class,
-                        featuresConfig.getTopNOperatorUnspillMemoryLimit(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
                 new PropertyMetadata<>(
                         QUERY_MAX_REVOCABLE_MEMORY_PER_NODE,
                         "Maximum amount of revocable memory a query can use",
@@ -897,15 +788,6 @@ public final class SystemSessionProperties
                         DataSize.class,
                         nodeSpillConfig.getMaxRevocableMemoryPerNode(),
                         true,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
-                new PropertyMetadata<>(
-                        TEMP_STORAGE_SPILLER_BUFFER_SIZE,
-                        "Experimental: Buffer size used by TempStorageSingleStreamSpiller",
-                        VARCHAR,
-                        DataSize.class,
-                        nodeSpillConfig.getTempStorageBufferSize(),
-                        false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
                 booleanProperty(
@@ -1648,16 +1530,6 @@ public final class SystemSessionProperties
                         featuresConfig.isOptimizeMultipleApproxPercentileOnSameFieldEnabled(),
                         false),
                 booleanProperty(
-                        NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
-                        "Native Execution only. Enable simplified path in expression evaluation",
-                        false,
-                        false),
-                integerProperty(
-                        NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE,
-                        "Native Execution only. Reduce() function will throw an error if it encounters an array of size greater than this value.",
-                        100000,
-                        false),
-                booleanProperty(
                         NATIVE_AGGREGATION_SPILL_ALL,
                         "Native Execution only. If true and spilling has been triggered during the input " +
                                 "processing, the spiller will spill all the remaining in-memory state to disk before " +
@@ -1665,159 +1537,15 @@ public final class SystemSessionProperties
                                 "output processing stage.",
                         true,
                         false),
-                integerProperty(
-                        NATIVE_MAX_SPILL_LEVEL,
-                        "Native Execution only. The maximum allowed spilling level for hash join build.\n" +
-                                "0 is the initial spilling level, -1 means unlimited.",
-                        4,
-                        false),
-                integerProperty(
-                        NATIVE_MAX_SPILL_FILE_SIZE,
-                        "The max allowed spill file size. If it is zero, then there is no limit.",
-                        0,
-                        false),
-                stringProperty(
-                        NATIVE_SPILL_COMPRESSION_CODEC,
-                        "Native Execution only. The compression algorithm type to compress the spilled data.\n " +
-                                "Supported compression codecs are: ZLIB, SNAPPY, LZO, ZSTD, LZ4 and GZIP. NONE means no compression.",
-                        "zstd",
-                        false),
-                longProperty(
-                        NATIVE_SPILL_WRITE_BUFFER_SIZE,
-                        "Native Execution only. The maximum size in bytes to buffer the serialized spill data before writing to disk for IO efficiency.\n" +
-                                "If set to zero, buffering is disabled.",
-                        1024L * 1024L,
-                        false),
-                stringProperty(
-                        NATIVE_SPILL_FILE_CREATE_CONFIG,
-                        "Native Execution only. Config used to create spill files. This config is \n" +
-                                "provided to underlying file system and the config is free form. The form should be\n" +
-                                "defined by the underlying file system.",
-                        "",
-                        false),
                 booleanProperty(
-                        NATIVE_JOIN_SPILL_ENABLED,
-                        "Native Execution only. Enable join spilling on native engine",
-                        false,
-                        false),
-                booleanProperty(
-                        NATIVE_WINDOW_SPILL_ENABLED,
-                        "Native Execution only. Enable window spilling on native engine",
-                        false,
-                        false),
-                booleanProperty(
-                        NATIVE_WRITER_SPILL_ENABLED,
-                        "Native Execution only. Enable writer spilling on native engine",
-                        false,
-                        false),
-                booleanProperty(
-                        NATIVE_ROW_NUMBER_SPILL_ENABLED,
-                        "Native Execution only. Enable row number spilling on native engine",
-                        false,
-                        false),
-                booleanProperty(
-                        NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED,
-                        "Native Execution only. Enable topN row number spilling on native engine",
-                        false,
-                        false),
-                integerProperty(
-                        NATIVE_SPILLER_NUM_PARTITION_BITS,
-                        "Native Execution only. The number of bits (N) used to calculate the " +
-                                "spilling partition number for hash join and RowNumber: 2 ^ N",
-                        3,
-                        false),
+                        NATIVE_EXECUTION_ENABLED,
+                        "Enable execution on native engine",
+                        featuresConfig.isNativeExecutionEnabled(),
+                        true),
                 booleanProperty(
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
                         "Enable reuse the native process within the same JVM",
                         true,
-                        false),
-                booleanProperty(
-                        NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS,
-                        "If set to true, then during execution of tasks, the output vectors of " +
-                                "every operator are validated for consistency. This is an expensive check " +
-                                "so should only be used for debugging. It can help debug issues where " +
-                                "malformed vector cause failures or crashes by helping identify which " +
-                                "operator is generating them.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_PEELING,
-                        "If set to true, disables optimization in expression evaluation to peel common " +
-                                "dictionary layer from inputs. Should only be used for debugging.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_DEBUG_DISABLE_COMMON_SUB_EXPRESSION,
-                        "If set to true, disables optimization in expression evaluation to reuse cached " +
-                                "results for common sub-expressions. Should only be used for debugging.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION,
-                        "If set to true, disables optimization in expression evaluation to reuse cached " +
-                                "results between subsequent input batches that are dictionary encoded and " +
-                                "have the same alphabet(underlying flat vector). Should only be used for " +
-                                "debugging.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS,
-                        "If set to true, disables optimization in expression evaluation to delay loading " +
-                                "of lazy inputs unless required. Should only be used for debugging.",
-                        false,
-                        true),
-                booleanProperty(
-                        NATIVE_SELECTIVE_NIMBLE_READER_ENABLED,
-                        "Temporary flag to control whether selective Nimble reader should be " +
-                        "used in this query or not.  Will be removed after the selective Nimble " +
-                        "reader is fully rolled out.",
-                        false,
-                        true),
-                longProperty(
-                        NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY,
-                        "The max partial aggregation memory when data reduction is not optimal.",
-                        1L << 24,
-                        false),
-                longProperty(
-                        NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,
-                        "The max partial aggregation memory when data reduction is optimal.",
-                        1L << 26,
-                        false),
-                longProperty(
-                        NATIVE_MAX_SPILL_BYTES,
-                        "The max allowed spill bytes",
-                        100L << 30,
-                        false),
-                booleanProperty(NATIVE_QUERY_TRACE_ENABLED,
-                        "Enables query tracing.",
-                        false,
-                        false),
-                stringProperty(NATIVE_QUERY_TRACE_DIR,
-                        "Base dir of a query to store tracing data.",
-                        "",
-                        false),
-                stringProperty(NATIVE_QUERY_TRACE_NODE_IDS,
-                        "A comma-separated list of plan node ids whose input data will be traced. Empty string if only want to trace the query metadata.",
-                        "",
-                        false),
-                longProperty(NATIVE_QUERY_TRACE_MAX_BYTES,
-                        "The max trace bytes limit. Tracing is disabled if zero.",
-                        0L,
-                        false),
-                stringProperty(NATIVE_QUERY_TRACE_REG_EXP,
-                        "The regexp of traced task id. We only enable trace on a task if its id matches.",
-                        "",
-                        false),
-                longProperty(NATIVE_MAX_OUTPUT_BUFFER_SIZE,
-                        "The maximum size in bytes for the task's buffered output. The buffer is shared among all drivers.",
-                        200L << 20,
-                        false),
-                longProperty(NATIVE_MAX_PAGE_PARTITIONING_BUFFER_SIZE,
-                        "The maximum bytes to buffer per PartitionedOutput operator to avoid creating tiny " +
-                                "SerializedPages. For PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator " +
-                                "would buffer up to that number of bytes / number of destinations for each destination before " +
-                                "producing a SerializedPage.",
-                        24L << 20,
                         false),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
@@ -2478,75 +2206,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
-    public static boolean isAggregationSpillEnabled(Session session)
-    {
-        return session.getSystemProperty(AGGREGATION_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
-    }
-
-    public static boolean isTopNSpillEnabled(Session session)
-    {
-        return session.getSystemProperty(TOPN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
-    }
-
-    public static boolean isDistinctAggregationSpillEnabled(Session session)
-    {
-        return session.getSystemProperty(DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class) && isAggregationSpillEnabled(session);
-    }
-
-    public static boolean isDedupBasedDistinctAggregationSpillEnabled(Session session)
-    {
-        return session.getSystemProperty(DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class);
-    }
-
-    public static boolean isDistinctAggregationLargeBlockSpillEnabled(Session session)
-    {
-        return session.getSystemProperty(DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED, Boolean.class);
-    }
-
-    public static DataSize getDistinctAggregationLargeBlockSizeThreshold(Session session)
-    {
-        return session.getSystemProperty(DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD, DataSize.class);
-    }
-
-    public static boolean isOrderByAggregationSpillEnabled(Session session)
-    {
-        return session.getSystemProperty(ORDER_BY_AGGREGATION_SPILL_ENABLED, Boolean.class) && isAggregationSpillEnabled(session);
-    }
-
-    public static boolean isWindowSpillEnabled(Session session)
-    {
-        return session.getSystemProperty(WINDOW_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
-    }
-
-    public static boolean isOrderBySpillEnabled(Session session)
-    {
-        return session.getSystemProperty(ORDER_BY_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
-    }
-
-    public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
-    {
-        DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
-        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be non-negative", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
-        return memoryLimitForMerge;
-    }
-
-    public static DataSize getTopNOperatorUnspillMemoryLimit(Session session)
-    {
-        DataSize unspillMemoryLimit = session.getSystemProperty(TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
-        checkArgument(unspillMemoryLimit.toBytes() >= 0, "%s must be non-negative", TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT);
-        return unspillMemoryLimit;
-    }
-
     public static DataSize getQueryMaxRevocableMemoryPerNode(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, DataSize.class);
-    }
-
-    public static DataSize getTempStorageSpillerBufferSize(Session session)
-    {
-        DataSize tempStorageSpillerBufferSize = session.getSystemProperty(TEMP_STORAGE_SPILLER_BUFFER_SIZE, DataSize.class);
-        checkArgument(tempStorageSpillerBufferSize.toBytes() >= 0, "%s must be non-negative", TEMP_STORAGE_SPILLER_BUFFER_SIZE);
-        return tempStorageSpillerBufferSize;
     }
 
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)
@@ -2608,6 +2270,11 @@ public final class SystemSessionProperties
     public static boolean shouldPushAggregationThroughJoin(Session session)
     {
         return session.getSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, Boolean.class);
+    }
+
+    public static boolean isNativeExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_ENABLED, Boolean.class);
     }
 
     public static boolean isPushAggregationThroughJoin(Session session)

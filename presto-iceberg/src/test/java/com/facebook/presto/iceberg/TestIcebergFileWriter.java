@@ -63,6 +63,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.toIcebergSchema;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.dataSizeSessionProperty;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.io.Files.createTempDir;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
@@ -78,7 +79,7 @@ public class TestIcebergFileWriter
     public void setup() throws Exception
     {
         ConnectorId connectorId = new ConnectorId("iceberg");
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
+        SessionPropertyManager sessionPropertyManager = createTestingSessionPropertyManager();
 
         sessionPropertyManager.addConnectorSessionProperties(
                 connectorId,

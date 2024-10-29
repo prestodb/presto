@@ -15,8 +15,8 @@
 
 #include "PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
-#include "presto_cpp/presto_protocol/ConnectorProtocol.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
+#include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/PlanNode.h"
@@ -154,7 +154,7 @@ class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
  private:
   std::vector<std::shared_ptr<const velox::connector::hive::HiveColumnHandle>>
   toHiveColumns(
-      const protocol::List<protocol::HiveColumnHandle>& inputColumns,
+      const protocol::List<protocol::hive::HiveColumnHandle>& inputColumns,
       const TypeParser& typeParser,
       bool& hasPartitionColumn) const;
 };

@@ -16,7 +16,6 @@ package com.facebook.presto.server;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.Identity;
@@ -32,6 +31,7 @@ import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestSessionPropertyDefaults
@@ -46,11 +46,11 @@ public class TestSessionPropertyDefaults
         SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, TEST_NODE_VERSION);
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 new SystemSessionPropertyConfiguration(
-                    ImmutableMap.<String, String>builder()
-                            .put(QUERY_MAX_MEMORY, "override")
-                            .put("system_default", "system_default")
-                            .build(),
-                    ImmutableMap.of("override", "overridden")),
+                        ImmutableMap.<String, String>builder()
+                                .put(QUERY_MAX_MEMORY, "override")
+                                .put("system_default", "system_default")
+                                .build(),
+                        ImmutableMap.of("override", "overridden")),
                 ImmutableMap.of(
                         "testCatalog",
                         ImmutableMap.<String, String>builder()
@@ -60,7 +60,7 @@ public class TestSessionPropertyDefaults
         sessionPropertyDefaults.addConfigurationManagerFactory(factory);
         sessionPropertyDefaults.setConfigurationManager(factory.getName(), ImmutableMap.of());
 
-        SessionBuilder sessionBuilder = Session.builder(new SessionPropertyManager())
+        SessionBuilder sessionBuilder = Session.builder(createTestingSessionPropertyManager())
                 .setQueryId(new QueryId("test_query_id"))
                 .setIdentity(new Identity("testUser", Optional.empty()))
                 .setSystemProperty(QUERY_MAX_MEMORY, "1GB")

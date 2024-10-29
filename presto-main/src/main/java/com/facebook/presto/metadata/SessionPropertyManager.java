@@ -24,17 +24,29 @@ import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.session.SessionPropertyContext;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nullable;
@@ -47,35 +59,107 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 public final class SessionPropertyManager
 {
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
     private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
     private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
-
-    public SessionPropertyManager()
-    {
-        this(new SystemSessionProperties());
-    }
+    private final Map<String, WorkerSessionPropertyProvider> workerSessionPropertyProviders;
+    private final Map<String, WorkerSessionPropertyProviderFactory> workerSessionPropertyProviderFactories = new ConcurrentHashMap<>();
+    private final Supplier<Map<String, PropertyMetadata<?>>> memoizedWorkerSessionProperties;
+    private final Optional<NodeManager> nodeManager;
+    private final Optional<TypeManager> functionAndTypeManager;
 
     @Inject
-    public SessionPropertyManager(SystemSessionProperties systemSessionProperties)
+    public SessionPropertyManager(
+            SystemSessionProperties systemSessionProperties,
+            Map<String, WorkerSessionPropertyProvider> workerSessionPropertyProviders,
+            FunctionAndTypeManager functionAndTypeManager,
+            NodeManager nodeManager)
     {
-        this(systemSessionProperties.getSessionProperties());
+        this(systemSessionProperties.getSessionProperties(), workerSessionPropertyProviders, Optional.ofNullable(functionAndTypeManager), Optional.ofNullable(nodeManager));
     }
 
-    public SessionPropertyManager(List<PropertyMetadata<?>> systemSessionProperties)
+    public SessionPropertyManager(
+            List<PropertyMetadata<?>> sessionProperties,
+            Map<String, WorkerSessionPropertyProvider> workerSessionPropertyProviders,
+            Optional<TypeManager> functionAndTypeManager,
+            Optional<NodeManager> nodeManager)
     {
-        addSystemSessionProperties(systemSessionProperties);
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.memoizedWorkerSessionProperties = Suppliers.memoizeWithExpiration(this::getWorkerSessionProperties,
+                1, HOURS);
+        this.workerSessionPropertyProviders = new ConcurrentHashMap<>(workerSessionPropertyProviders);
+        addSystemSessionProperties(sessionProperties);
+    }
+
+    public static SessionPropertyManager createTestingSessionPropertyManager()
+    {
+        return createTestingSessionPropertyManager(new SystemSessionProperties().getSessionProperties(), new JavaFeaturesConfig(), new NodeSpillConfig());
+    }
+
+    public static SessionPropertyManager createTestingSessionPropertyManager(SystemSessionProperties systemSessionProperties)
+    {
+        return createTestingSessionPropertyManager(systemSessionProperties.getSessionProperties(), new JavaFeaturesConfig(), new NodeSpillConfig());
+    }
+
+    public static SessionPropertyManager createTestingSessionPropertyManager(List<PropertyMetadata<?>> sessionProperties)
+    {
+        return createTestingSessionPropertyManager(sessionProperties, new JavaFeaturesConfig(), new NodeSpillConfig());
+    }
+
+    public static SessionPropertyManager createTestingSessionPropertyManager(
+            List<PropertyMetadata<?>> sessionProperties,
+            JavaFeaturesConfig javaFeaturesConfig,
+            NodeSpillConfig nodeSpillConfig)
+    {
+        return new SessionPropertyManager(
+                sessionProperties,
+                ImmutableMap.of(
+                        "java-worker",
+                        new JavaWorkerSessionPropertyProvider(
+                                new FeaturesConfig(),
+                                javaFeaturesConfig,
+                                nodeSpillConfig)),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public void loadSessionPropertyProvider(String sessionPropertyProviderName, Optional<TypeManager> typeManager, Optional<NodeManager> nodeManager)
+    {
+        WorkerSessionPropertyProviderFactory factory = workerSessionPropertyProviderFactories.get(sessionPropertyProviderName);
+        checkState(factory != null, "No factory for session property provider : " + sessionPropertyProviderName);
+        WorkerSessionPropertyProvider sessionPropertyProvider = factory.create(new SessionPropertyContext(typeManager, nodeManager));
+        if (workerSessionPropertyProviders.putIfAbsent(sessionPropertyProviderName, sessionPropertyProvider) != null) {
+            throw new IllegalArgumentException("System session property provider is already registered for property provider : " + sessionPropertyProviderName);
+        }
+    }
+
+    public void loadSessionPropertyProviders()
+    {
+        for (String sessionPropertyProviderName : workerSessionPropertyProviderFactories.keySet()) {
+            loadSessionPropertyProvider(sessionPropertyProviderName, functionAndTypeManager, nodeManager);
+        }
+    }
+
+    public void addSessionPropertyProviderFactory(WorkerSessionPropertyProviderFactory factory)
+    {
+        if (workerSessionPropertyProviderFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("System Session property provider factory" + factory.getName() + "is already registered"));
+        }
     }
 
     public void addSystemSessionProperties(List<PropertyMetadata<?>> systemSessionProperties)
@@ -108,7 +192,9 @@ public final class SessionPropertyManager
     public Optional<PropertyMetadata<?>> getSystemSessionPropertyMetadata(String name)
     {
         requireNonNull(name, "name is null");
-
+        if (systemSessionProperties.get(name) == null) {
+            return Optional.ofNullable(memoizedWorkerSessionProperties.get().get(name));
+        }
         return Optional.ofNullable(systemSessionProperties.get(name));
     }
 
@@ -122,6 +208,20 @@ public final class SessionPropertyManager
         }
 
         return Optional.ofNullable(properties.get(propertyName));
+    }
+
+    private Map<String, PropertyMetadata<?>> getWorkerSessionProperties()
+    {
+        List<PropertyMetadata<?>> workerSessionPropertiesList = workerSessionPropertyProviders.values().stream()
+                .flatMap(manager -> manager.getSessionProperties().stream())
+                .collect(toImmutableList());
+        Map<String, PropertyMetadata<?>> workerSessionProperties = new ConcurrentHashMap<>();
+        workerSessionPropertiesList.forEach(sessionProperty -> {
+            requireNonNull(sessionProperty, "sessionProperty is null");
+            // TODO: Implement fail fast in case of duplicate entries.
+            workerSessionProperties.put(sessionProperty.getName(), sessionProperty);
+        });
+        return workerSessionProperties;
     }
 
     public List<SessionPropertyValue> getAllSessionProperties(Session session, Map<String, ConnectorId> catalogs)
@@ -165,6 +265,19 @@ public final class SessionPropertyManager
             }
         }
 
+        for (PropertyMetadata<?> property : new TreeMap<>(memoizedWorkerSessionProperties.get()).values()) {
+            String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+            String value = systemProperties.getOrDefault(property.getName(), defaultValue);
+            sessionPropertyValues.add(new SessionPropertyValue(
+                    value,
+                    defaultValue,
+                    property.getName(),
+                    Optional.empty(),
+                    property.getName(),
+                    property.getDescription(),
+                    property.getSqlType().getDisplayName(),
+                    property.isHidden()));
+        }
         return sessionPropertyValues.build();
     }
 
@@ -262,6 +375,9 @@ public final class SessionPropertyManager
         if (VarcharType.VARCHAR.equals(type)) {
             return value.toString();
         }
+        if (TinyintType.TINYINT.equals(type)) {
+            return value.toString();
+        }
         if (type instanceof ArrayType || type instanceof MapType) {
             return getJsonCodecForType(type).toJson(value);
         }
@@ -288,6 +404,9 @@ public final class SessionPropertyManager
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.valueOf(value);
         }
+        if (TinyintType.TINYINT.equals(type)) {
+            return Byte.valueOf(value);
+        }
         if (type instanceof ArrayType || type instanceof MapType) {
             return getJsonCodecForType(type).fromJson(value);
         }
@@ -310,6 +429,9 @@ public final class SessionPropertyManager
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Double.class);
+        }
+        if (TinyintType.TINYINT.equals(type)) {
+            return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Byte.class);
         }
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
@@ -339,6 +461,9 @@ public final class SessionPropertyManager
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.class;
+        }
+        if (TinyintType.TINYINT.equals(type)) {
+            return Byte.class;
         }
         throw new PrestoException(INVALID_SESSION_PROPERTY, format("Session property map key type %s is not supported", type));
     }

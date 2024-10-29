@@ -18,7 +18,7 @@
 // This file is generated DO NOT EDIT @generated
 
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 
 namespace facebook::presto {
 
