@@ -14,7 +14,7 @@ env:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: Larger_Runner
     # Required permissions
     permissions:
       pull-requests: read
@@ -31,7 +31,7 @@ jobs:
             - '!presto-docs/**'
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: Larger_Runner
     needs: changes
     strategy:
       fail-fast: false
@@ -45,7 +45,7 @@ jobs:
           - ":presto-tests -P ci-only-distributed-queries"
           - ":presto-tests -P ci-only-aggregation-queries"
           - ":presto-tests -P ci-only-plan-determinism"
-          - ":presto-tests -P ci-only-resource-manager" 
+          - ":presto-tests -P ci-only-resource-manager"
           - ":presto-accumulo"
           - ":presto-cassandra -P test-cassandra-integration-smoke-test"
           - ":presto-hive"
