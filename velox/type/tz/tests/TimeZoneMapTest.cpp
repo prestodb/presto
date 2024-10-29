@@ -259,5 +259,29 @@ TEST(TimeZoneMapTest, getShortName) {
   EXPECT_EQ("PST", toShortName("America/Los_Angeles", ts));
 }
 
+TEST(TimeZoneMapTest, getLongName) {
+  auto toLongName = [&](std::string_view name, size_t ts) {
+    const auto* tz = locateZone(name);
+    EXPECT_NE(tz, nullptr);
+    return tz->getLongName(milliseconds{ts});
+  };
+
+  // Test an offset that maps to an actual time zone.
+  EXPECT_EQ("Coordinated Universal Time", toLongName("+00:00", 0));
+
+  // Test offsets that do not map to named time zones.
+  EXPECT_EQ("+00:01", toLongName("+00:01", 0));
+  EXPECT_EQ("-00:01", toLongName("-00:01", 0));
+  EXPECT_EQ("+01:00", toLongName("+01:00", 0));
+  EXPECT_EQ("-01:01", toLongName("-01:01", 0));
+
+  // In "2024-07-25", America/Los_Angeles was in daylight savings time (UTC-07).
+  size_t ts = 1721890800000;
+  EXPECT_EQ("Pacific Daylight Time", toLongName("America/Los_Angeles", ts));
+
+  // In "2024-01-01", it was not (UTC-08).
+  ts = 1704096000000;
+  EXPECT_EQ("Pacific Standard Time", toLongName("America/Los_Angeles", ts));
+}
 } // namespace
 } // namespace facebook::velox::tz

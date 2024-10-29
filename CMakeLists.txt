@@ -385,6 +385,25 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+  if(ON_APPLE_M1)
+    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/icu4c")
+  else()
+    list(APPEND CMAKE_PREFIX_PATH "/usr/local/opt/icu4c")
+  endif()
+endif()
+
+set_source(ICU)
+resolve_dependency(
+  ICU
+  COMPONENTS
+  data
+  i18n
+  io
+  uc
+  tu
+  test)
+
 set(BOOST_INCLUDE_LIBRARIES
     atomic
     context

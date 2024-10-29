@@ -3272,6 +3272,12 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_EQ("IST", formatDatetime(parseTimestamp("1970-01-01"), "zzz"));
   EXPECT_EQ("IST", formatDatetime(parseTimestamp("1970-01-01"), "zz"));
   EXPECT_EQ("IST", formatDatetime(parseTimestamp("1970-01-01"), "z"));
+  EXPECT_EQ(
+      "India Standard Time",
+      formatDatetime(parseTimestamp("1970-01-01"), "zzzz"));
+  EXPECT_EQ(
+      "India Standard Time",
+      formatDatetime(parseTimestamp("1970-01-01"), "zzzzzzzzzzzzzzzzzzzzzz"));
 
   // Test daylight savings.
   setQueryTimeZone("America/Los_Angeles");
@@ -3281,16 +3287,47 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_EQ("PDT", formatDatetime(parseTimestamp("2024-03-10 03:00"), "z"));
   EXPECT_EQ("PDT", formatDatetime(parseTimestamp("2024-11-03 01:00"), "z"));
   EXPECT_EQ("PST", formatDatetime(parseTimestamp("2024-11-03 02:00"), "z"));
+  EXPECT_EQ(
+      "Pacific Standard Time",
+      formatDatetime(parseTimestamp("1970-01-01"), "zzzz"));
+  EXPECT_EQ(
+      "Pacific Daylight Time",
+      formatDatetime(parseTimestamp("1970-10-01"), "zzzz"));
+  EXPECT_EQ(
+      "Pacific Standard Time",
+      formatDatetime(parseTimestamp("2024-03-10 01:00"), "zzzz"));
+  EXPECT_EQ(
+      "Pacific Daylight Time",
+      formatDatetime(parseTimestamp("2024-03-10 03:00"), "zzzz"));
+  EXPECT_EQ(
+      "Pacific Daylight Time",
+      formatDatetime(parseTimestamp("2024-11-03 01:00"), "zzzz"));
+  EXPECT_EQ(
+      "Pacific Standard Time",
+      formatDatetime(parseTimestamp("2024-11-03 02:00"), "zzzz"));
+
+  // Test ambiguous time.
+  EXPECT_EQ(
+      "PDT", formatDatetime(parseTimestamp("2024-11-03 01:30:00"), "zzz"));
+  EXPECT_EQ(
+      "Pacific Daylight Time",
+      formatDatetime(parseTimestamp("2024-11-03 01:30:00"), "zzzz"));
 
   // Test a long abbreviation.
   setQueryTimeZone("Asia/Colombo");
   EXPECT_EQ("+0530", formatDatetime(parseTimestamp("1970-10-01"), "z"));
+  EXPECT_EQ(
+      "India Standard Time",
+      formatDatetime(parseTimestamp("1970-10-01"), "zzzz"));
+
+  // Test a long long name.
+  setQueryTimeZone("Australia/Eucla");
+  EXPECT_EQ("+0845", formatDatetime(parseTimestamp("1970-10-01"), "z"));
+  EXPECT_EQ(
+      "Australian Central Western Standard Time",
+      formatDatetime(parseTimestamp("1970-10-01"), "zzzz"));
 
   setQueryTimeZone("Asia/Kolkata");
-  // We don't support more than 3 'z's yet.
-  EXPECT_THROW(
-      formatDatetime(parseTimestamp("1970-01-01"), "zzzz"), VeloxRuntimeError);
-
   // Literal test cases.
   EXPECT_EQ("hello", formatDatetime(parseTimestamp("1970-01-01"), "'hello'"));
   EXPECT_EQ("'", formatDatetime(parseTimestamp("1970-01-01"), "''"));

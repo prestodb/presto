@@ -1209,10 +1209,10 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
           // https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
           size += 5;
         } else {
-          VELOX_NYI(
-              "Date format specifier is not yet implemented: {} ({})",
-              getSpecifierName(token.pattern.specifier),
-              token.pattern.minRepresentDigits);
+          // The longest time zone long name is 40, Australian Central Western
+          // Standard Time.
+          // https://www.timeanddate.com/time/zones/
+          size += 50;
         }
 
         break;
@@ -1468,8 +1468,11 @@ int32_t DateTimeFormatter::format(
             std::memcpy(result, abbrev.data(), abbrev.length());
             result += abbrev.length();
           } else {
-            // TODO: implement full name time zone
-            VELOX_NYI("full time zone name is not yet supported");
+            std::string longName = timezone->getLongName(
+                std::chrono::milliseconds(timestamp.toMillis()),
+                tz::TimeZone::TChoose::kEarliest);
+            std::memcpy(result, longName.data(), longName.length());
+            result += longName.length();
           }
         } break;
 

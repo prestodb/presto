@@ -13,30 +13,13 @@
 # limitations under the License.
 include_guard(GLOBAL)
 
-if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-  if(ON_APPLE_M1)
-    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/icu4c")
-  else()
-    list(APPEND CMAKE_PREFIX_PATH "/usr/local/opt/icu4c")
-  endif()
-endif()
-
-# ICU is only needed with Boost build from source
-set_source(ICU)
-resolve_dependency(
-  ICU
-  COMPONENTS
-  data
-  i18n
-  io
-  uc
-  tu
-  test)
-
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/boost)
-if(${ICU_SOURCE} STREQUAL "BUNDLED")
-  # ensure ICU is built before Boost
-  add_dependencies(boost_regex ICU ICU::i18n)
+
+if(ICU_SOURCE)
+  if(${ICU_SOURCE} STREQUAL "BUNDLED")
+    # ensure ICU is built before Boost
+    add_dependencies(boost_regex ICU ICU::i18n)
+  endif()
 endif()
 
 # This prevents system boost from leaking in

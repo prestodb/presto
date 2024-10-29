@@ -20,6 +20,16 @@
 #include <fmt/core.h>
 #include <folly/container/F14Map.h>
 #include <folly/container/F14Set.h>
+
+#include <unicode/locid.h>
+#include <unicode/timezone.h>
+#include <unicode/unistr.h>
+
+// The ICU libraries define TRUE/FALSE macros which frequently conflict with
+// other libraries that use these as enum/variable names.
+#undef TRUE
+#undef FALSE
+
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/external/date/tz.h"
@@ -378,5 +388,49 @@ std::string TimeZone::getShortName(
   }
 
   return getZonedTime(tz_, timePoint, choose).get_info().abbrev;
+}
+
+std::string TimeZone::getLongName(
+    TimeZone::milliseconds timestamp,
+    TimeZone::TChoose choose) const {
+  static const icu::Locale locale("en", "US");
+
+  validateRange(date::sys_time<milliseconds>(timestamp));
+
+  // Time zone offsets only have one name.
+  if (tz_ == nullptr) {
+    return timeZoneName_;
+  }
+
+  // Special case for UTC. ICU uses "GMT" for some reason which is an
+  // abbreviation.
+  if (timeZoneID_ == 0) {
+    return "Coordinated Universal Time";
+  }
+
+  // Get the ICU TimeZone by name
+  std::unique_ptr<icu::TimeZone> tz(icu::TimeZone::createTimeZone(
+      icu::UnicodeString(timeZoneName_.data(), timeZoneName_.length())));
+  VELOX_USER_CHECK_NOT_NULL(tz);
+
+  // According to the documentation this is how to determine if DST applies to
+  // a given timestamp in a given time zone.
+  // https://howardhinnant.github.io/date/tz.html#sys_info
+  date::local_time<milliseconds> timePoint{timestamp};
+  bool isDst = getZonedTime(tz_, timePoint, choose).get_info().save !=
+      std::chrono::minutes(0);
+
+  // Construct the long name for the time zone.
+  // Note that ICU does not have DST information for many time zones prior to
+  // 1970, so it's important to specify it explicitly.
+  icu::UnicodeString longName;
+  tz->getDisplayName(
+      isDst, icu::TimeZone::EDisplayType::LONG, locale, longName);
+
+  // Convert the UnicodeString back to a string and write it out
+  std::string longNameStr;
+  longName.toUTF8String(longNameStr);
+
+  return longNameStr;
 }
 } // namespace facebook::velox::tz

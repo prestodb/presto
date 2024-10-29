@@ -23,4 +23,6 @@ velox_link_libraries(
   velox_external_date
   Boost::regex
   fmt::fmt
-  Folly::folly)
+  Folly::folly
+  ICU::i18n
+  ICU::uc)

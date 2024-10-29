@@ -160,6 +160,14 @@ class TimeZone {
       milliseconds timestamp,
       TChoose choose = TChoose::kFail) const;
 
+  /// Returns the long name of the time zone for the given timestamp, e.g.
+  /// Pacific Standard Time.  Note that the timestamp is needed for time zones
+  /// that support daylight savings time as the long name will change depending
+  /// on the date (e.g. Pacific Standard Time vs Pacific Daylight Time).
+  std::string getLongName(
+      milliseconds timestamp,
+      TChoose choose = TChoose::kFail) const;
+
  private:
   const date::time_zone* tz_{nullptr};
   const std::chrono::minutes offset_{0};
