@@ -14,19 +14,16 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.util.ConfigUtil;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestJoinQueries;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import io.airlift.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static com.facebook.presto.common.constant.ConfigConstants.ENABLE_JDBC_JOIN_QUERY_PUSHDOWN;
 import static com.facebook.presto.plugin.jdbc.JdbcQueryRunner.createJdbcQueryRunner;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
@@ -40,7 +37,6 @@ public class TestJoinQueriesWithPushDown
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        ConfigUtil.setConfigProperty(ENABLE_JDBC_JOIN_QUERY_PUSHDOWN, true);
         return createJdbcQueryRunner(TpchTable.getTables());
     }
 
@@ -122,11 +118,5 @@ public class TestJoinQueriesWithPushDown
         // Both partitioned join and broadcast join should have the same raw input data set.
         assertEquals(partitionJoinQueryInfo.getQueryStats().getRawInputPositions(), broadcastJoinQueryInfo.getQueryStats().getRawInputPositions());
         assertEquals(partitionJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes(), broadcastJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes());
-    }
-
-    @AfterClass
-    public void reset()
-    {
-        ConfigUtil.setConfigProperty(ENABLE_JDBC_JOIN_QUERY_PUSHDOWN, false);
     }
 }

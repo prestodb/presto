@@ -112,6 +112,7 @@ public class QueryBuilder
             String table,
             Optional<List<ConnectorTableHandle>> joinPushdownTables,
             List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<JdbcExpression> additionalPredicate)
             throws SQLException
@@ -249,7 +250,7 @@ public class QueryBuilder
                     .build();
             accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
                     //see https://github.com/Ahana-Inc/prestodb/pull/144#discussion_r895353628 for details.
-                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue(), null))
+                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
                     .collect(ImmutableList.toImmutableList()));
         }
         if (!clauses.isEmpty()) {
@@ -262,26 +263,51 @@ public class QueryBuilder
 
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);
-            int parameterIndex = i + 1;
-            Type type = typeAndValue.getType();
-            WriteFunction writeFunction = getWriteFunction(typeAndValue.getTypeHandle(), client, session, type);
-            Class<?> javaType = type.getJavaType();
-            Object value = typeAndValue.getValue();
-            if (javaType == boolean.class) {
-                ((BooleanWriteFunction) writeFunction).set(statement, parameterIndex, (boolean) value);
+            if (typeAndValue.getType().equals(BigintType.BIGINT)) {
+                statement.setLong(i + 1, (long) typeAndValue.getValue());
             }
-            else if (javaType == double.class) {
-                ((DoubleWriteFunction) writeFunction).set(statement, parameterIndex, (double) value);
+            else if (typeAndValue.getType().equals(IntegerType.INTEGER)) {
+                statement.setInt(i + 1, ((Number) typeAndValue.getValue()).intValue());
             }
-            else if (javaType == long.class) {
-                ((LongWriteFunction) writeFunction).set(statement, parameterIndex, (long) value);
+            else if (typeAndValue.getType().equals(SmallintType.SMALLINT)) {
+                statement.setShort(i + 1, ((Number) typeAndValue.getValue()).shortValue());
             }
-            else if (javaType == Slice.class) {
-                ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, (Slice) value);
+            else if (typeAndValue.getType().equals(TinyintType.TINYINT)) {
+                statement.setByte(i + 1, ((Number) typeAndValue.getValue()).byteValue());
+            }
+            else if (typeAndValue.getType().equals(DoubleType.DOUBLE)) {
+                statement.setDouble(i + 1, (double) typeAndValue.getValue());
+            }
+            else if (typeAndValue.getType().equals(RealType.REAL)) {
+                statement.setFloat(i + 1, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
+            }
+            else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
+                statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
+            }
+            else if (typeAndValue.getType().equals(DateType.DATE)) {
+                long millis = DAYS.toMillis((long) typeAndValue.getValue());
+                statement.setDate(i + 1, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+            }
+            else if (typeAndValue.getType().equals(TimeType.TIME)) {
+                statement.setTime(i + 1, new Time((long) typeAndValue.getValue()));
+            }
+            else if (typeAndValue.getType().equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
+                statement.setTime(i + 1, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
+            }
+            else if (typeAndValue.getType().equals(TimestampType.TIMESTAMP)) {
+                statement.setTimestamp(i + 1, new Timestamp((long) typeAndValue.getValue()));
+            }
+            else if (typeAndValue.getType().equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+                statement.setTimestamp(i + 1, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
+            }
+            else if (typeAndValue.getType() instanceof VarcharType) {
+                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
+            }
+            else if (typeAndValue.getType() instanceof CharType) {
+                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
             }
             else {
-                //no inspection, unchecked raw types
-                ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
+                throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
             }
         }
         return statement;
@@ -394,8 +420,9 @@ public class QueryBuilder
         return quote + name + quote;
     }
 
-    private static void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
+    private static void bindValue(Object value, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
     {
+        Type type = columnHandle.getColumnType();
         checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
         accumulator.add(new TypeAndValue(type, value));
     }

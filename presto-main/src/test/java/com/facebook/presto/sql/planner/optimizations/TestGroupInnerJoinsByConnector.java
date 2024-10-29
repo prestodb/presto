@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.transaction.TransactionId;
-import com.facebook.presto.config.Configuration;
 import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.connector.informationSchema.InformationSchemaColumnHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
@@ -53,6 +52,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
@@ -132,7 +132,7 @@ public class TestGroupInnerJoinsByConnector
                 testConnector));
 
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig());
 
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Session session = testSessionBuilder().setTransactionId(transactionId).build();
@@ -141,8 +141,7 @@ public class TestGroupInnerJoinsByConnector
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.build()));
 
-        Configuration configuration = new Configuration();
-        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata(catalogName, metadata, configuration);
+        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata(catalogName, metadata);
         informationSchemaMetadata.getTableLayouts(
                 createNewSession(transactionId),
                 new InformationSchemaTableHandle(catalogName, "information_schema", "views"),
@@ -201,7 +200,7 @@ public class TestGroupInnerJoinsByConnector
                 connector2));
 
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig());
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Session session = testSessionBuilder().setTransactionId(transactionId).build();
 
@@ -209,15 +208,14 @@ public class TestGroupInnerJoinsByConnector
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.build()));
 
-        Configuration configuration = new Configuration();
-        InformationSchemaMetadata informationSchemaMetadata1 = new InformationSchemaMetadata(catalog1, metadata, configuration);
+        InformationSchemaMetadata informationSchemaMetadata1 = new InformationSchemaMetadata(catalog1, metadata);
         informationSchemaMetadata1.getTableLayouts(
                 createNewSession(transactionId),
                 new InformationSchemaTableHandle(catalog1, "information_schema", "views"),
                 constraint,
                 Optional.empty());
 
-        InformationSchemaMetadata informationSchemaMetadata2 = new InformationSchemaMetadata(catalog2, metadata, configuration);
+        InformationSchemaMetadata informationSchemaMetadata2 = new InformationSchemaMetadata(catalog2, metadata);
         informationSchemaMetadata2.getTableLayouts(
                 createNewSession(transactionId),
                 new InformationSchemaTableHandle(catalog2, "information_schema", "views"),
@@ -264,7 +262,7 @@ public class TestGroupInnerJoinsByConnector
                 testConnector));
 
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig());
 
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Session session = testSessionBuilder().setTransactionId(transactionId).build();
@@ -273,8 +271,7 @@ public class TestGroupInnerJoinsByConnector
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.build()));
 
-        Configuration configuration = new Configuration();
-        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata(catalogName, metadata, configuration);
+        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata(catalogName, metadata);
         informationSchemaMetadata.getTableLayouts(
                 createNewSession(transactionId),
                 new InformationSchemaTableHandle(catalogName, "information_schema", "views"),
@@ -335,7 +332,7 @@ public class TestGroupInnerJoinsByConnector
                 testConnector));
 
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig());
         TestingRowExpressionTranslator sqlToRowExpressionTranslator = new TestingRowExpressionTranslator(metadata);
 
         TransactionId transactionId = transactionManager.beginTransaction(false);
@@ -345,8 +342,7 @@ public class TestGroupInnerJoinsByConnector
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.build()));
 
-        Configuration configuration = new Configuration();
-        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata(catalogName, metadata, configuration);
+        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata(catalogName, metadata);
         informationSchemaMetadata.getTableLayouts(
                 createNewSession(transactionId),
                 new InformationSchemaTableHandle(catalogName, "information_schema", "views"),
