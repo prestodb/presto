@@ -415,9 +415,12 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   // 20% chance of adding a constant vector.
   if (coinToss(0.2)) {
     vector = fuzzConstant(type, vectorSize);
+  } else if (type->isPrimitiveType()) {
+    vector = fuzzFlatPrimitive(type, vectorSize);
+  } else if (type->isOpaque()) {
+    vector = fuzzFlatOpaque(type, vectorSize);
   } else {
-    vector = type->isPrimitiveType() ? fuzzFlatPrimitive(type, vectorSize)
-                                     : fuzzComplex(type, vectorSize);
+    vector = fuzzComplex(type, vectorSize);
   }
 
   if (vectorSize > size) {
@@ -558,6 +561,8 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
     }
 
     return fuzzRow(std::move(childrenVectors), rowType.names(), size);
+  } else if (type->isOpaque()) {
+    return fuzzFlatOpaque(type, size);
   } else {
     VELOX_UNREACHABLE();
   }
@@ -627,6 +632,30 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
       VELOX_UNREACHABLE("Unexpected type: {}", type->toString());
   }
   return nullptr; // no-op.
+}
+
+VectorPtr VectorFuzzer::fuzzFlatOpaque(
+    const TypePtr& type,
+    vector_size_t size) {
+  VELOX_CHECK(type->isOpaque());
+  auto vector = BaseVector::create(type, size, pool_);
+  using TFlat = typename KindToFlatVector<TypeKind::OPAQUE>::type;
+
+  auto& opaqueType = type->asOpaque();
+  auto flatVector = vector->as<TFlat>();
+  auto it = opaqueTypeGenerators_.find(opaqueType.typeIndex());
+  VELOX_CHECK(
+      it != opaqueTypeGenerators_.end(),
+      "generator does not exist for type index. Did you call registerOpaqueTypeGenerator()?");
+  auto& opaqueTypeGenerator = it->second;
+  for (vector_size_t i = 0; i < vector->size(); ++i) {
+    if (coinToss(opts_.nullRatio)) {
+      flatVector->setNull(i, true);
+    } else {
+      flatVector->set(i, opaqueTypeGenerator(rng_));
+    }
+  }
+  return vector;
 }
 
 VectorPtr VectorFuzzer::fuzzDictionary(const VectorPtr& vector) {

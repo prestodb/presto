@@ -335,9 +335,20 @@ class VectorFuzzer {
   /// pointing to (baseVectorSize-1).
   BufferPtr fuzzIndices(vector_size_t size, vector_size_t baseVectorSize);
 
+  template <typename Class>
+  void registerOpaqueTypeGenerator(
+      std::function<std::shared_ptr<Class>(FuzzerGenerator& rng)> generator) {
+    opaqueTypeGenerators_[std::type_index(typeid(Class))] = generator;
+  }
+
  private:
   // Generates a flat vector for primitive types.
   VectorPtr fuzzFlatPrimitive(const TypePtr& type, vector_size_t size);
+
+  // Generates a flat vector for opaque types.
+  // Throws if the type is not OpaqueType<Class>.
+  // Expects registerOpaqueTypeGenerator<Class>() to be called beforehand.
+  VectorPtr fuzzFlatOpaque(const TypePtr& type, vector_size_t size);
 
   // Generates random precision in range [1, maxPrecision]
   // and scale in range [0, random precision generated].
@@ -374,6 +385,15 @@ class VectorFuzzer {
   // function.  C++ does not guarantee the order in which arguments are
   // evaluated, which can lead to inconsistent results across platforms.
   FuzzerGenerator rng_;
+
+  // Since the underlying type of opaque types are transparent to Velox, we
+  // require callers to register a generator for each underlying type, so we're
+  // able to generate random data for opaque types.
+  // This is done via registerOpaqueTypeGenerator().
+  std::unordered_map<
+      std::type_index,
+      std::function<std::shared_ptr<void>(FuzzerGenerator& rng)>>
+      opaqueTypeGenerators_;
 };
 
 /// Generates a random type, including maps, structs, and arrays. maxDepth

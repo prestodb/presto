@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <boost/random/uniform_int_distribution.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -171,6 +172,71 @@ TEST_F(VectorFuzzerTest, flatNotNull) {
 
   vector = fuzzer.fuzzFlatNotNull(MAP(BIGINT(), INTEGER()));
   ASSERT_FALSE(vector->mayHaveNulls());
+}
+
+struct Foo {
+  explicit Foo(int64_t id) : id_(id) {}
+  int64_t id_;
+};
+struct Bar {};
+
+TEST_F(VectorFuzzerTest, flatOpaque) {
+  // Exercises fuzzer.flatOpaque()
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0.5;
+  VectorFuzzer fuzzer(opts, pool());
+  fuzzer.registerOpaqueTypeGenerator<Foo>([](FuzzerGenerator& rng) {
+    int64_t id = boost::random::uniform_int_distribution<int64_t>(1, 10)(rng);
+    return std::make_shared<Foo>(id);
+  });
+  fuzzer.registerOpaqueTypeGenerator<Bar>([](FuzzerGenerator& rng) {
+    throw std::runtime_error("Should not be called");
+    return std::make_shared<Bar>();
+  });
+
+  auto opaqueType = OPAQUE<Foo>();
+  VectorPtr vector = fuzzer.fuzzFlat(opaqueType);
+  ASSERT_EQ(VectorEncoding::Simple::FLAT, vector->encoding());
+  ASSERT_TRUE(vector->type()->kindEquals(opaqueType));
+  ASSERT_EQ(opts.vectorSize, vector->size());
+  ASSERT_TRUE(vector->mayHaveNulls());
+
+  auto flatVector = vector->asFlatVector<std::shared_ptr<void>>();
+  for (auto i = 0; i < vector->size(); ++i) {
+    if (flatVector->isNullAt(i)) {
+      continue;
+    }
+    auto element = std::reinterpret_pointer_cast<Foo>(flatVector->valueAt(i));
+    ASSERT_GT(element->id_, 0);
+    ASSERT_LT(element->id_, 11);
+  }
+}
+
+TEST_F(VectorFuzzerTest, opaque) {
+  // Exercises fuzzer.fuzz() for opaque types.
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0.5;
+  VectorFuzzer fuzzer(opts, pool());
+  fuzzer.registerOpaqueTypeGenerator<Foo>([](FuzzerGenerator& rng) {
+    int64_t id = boost::random::uniform_int_distribution<int64_t>(1, 10)(rng);
+    return std::make_shared<Foo>(id);
+  });
+  fuzzer.registerOpaqueTypeGenerator<Bar>([](FuzzerGenerator& rng) {
+    throw std::runtime_error("Should not be called");
+    return std::make_shared<Bar>();
+  });
+
+  auto opaqueType = OPAQUE<Foo>();
+  VectorPtr vector = fuzzer.fuzz(opaqueType, opts.vectorSize);
+  // There's a chance of the vector being wrapped in a dictionary or made into a
+  // constant.
+  ASSERT_TRUE(
+      vector->encoding() == VectorEncoding::Simple::DICTIONARY ||
+      vector->encoding() == VectorEncoding::Simple::FLAT ||
+      vector->encoding() == VectorEncoding::Simple::CONSTANT);
+  ASSERT_TRUE(vector->type()->kindEquals(opaqueType));
+  ASSERT_EQ(opts.vectorSize, vector->size());
+  ASSERT_TRUE(vector->mayHaveNulls());
 }
 
 TEST_F(VectorFuzzerTest, dictionary) {
