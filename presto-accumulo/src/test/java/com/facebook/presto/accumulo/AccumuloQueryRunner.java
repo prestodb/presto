@@ -185,7 +185,7 @@ public final class AccumuloQueryRunner
      *
      * @return New MiniAccumuloCluster
      */
-    private static MiniAccumuloCluster createMiniAccumuloCluster()
+    public static MiniAccumuloCluster createMiniAccumuloCluster()
             throws IOException, InterruptedException
     {
         // Create MAC directory

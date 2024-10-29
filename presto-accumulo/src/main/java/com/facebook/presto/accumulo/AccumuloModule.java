@@ -32,11 +32,7 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import org.apache.accumulo.core.client.AccumuloException;
-import org.apache.accumulo.core.client.AccumuloSecurityException;
-import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.Instance;
-import org.apache.accumulo.core.client.ZooKeeperInstance;
+import org.apache.accumulo.core.client.Accumulo;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 import org.apache.log4j.JulAppender;
 import org.apache.log4j.Level;
@@ -99,7 +95,7 @@ public class AccumuloModule
         binder.bind(AccumuloTableManager.class).in(Scopes.SINGLETON);
         binder.bind(IndexLookup.class).in(Scopes.SINGLETON);
         binder.bind(ColumnCardinalityCache.class).in(Scopes.SINGLETON);
-        binder.bind(Connector.class).toProvider(ConnectorProvider.class);
+        binder.bind(org.apache.accumulo.core.client.AccumuloClient.class).toProvider(ClientProvider.class);
 
         configBinder(binder).bindConfig(AccumuloConfig.class);
 
@@ -126,10 +122,10 @@ public class AccumuloModule
         }
     }
 
-    private static class ConnectorProvider
-            implements Provider<Connector>
+    private static class ClientProvider
+            implements Provider<org.apache.accumulo.core.client.AccumuloClient>
     {
-        private static final Logger LOG = Logger.get(ConnectorProvider.class);
+        private static final Logger LOG = Logger.get(ClientProvider.class);
 
         private final String instance;
         private final String zooKeepers;
@@ -137,7 +133,7 @@ public class AccumuloModule
         private final String password;
 
         @Inject
-        public ConnectorProvider(AccumuloConfig config)
+        public ClientProvider(AccumuloConfig config)
         {
             requireNonNull(config, "config is null");
             this.instance = config.getInstance();
@@ -147,16 +143,19 @@ public class AccumuloModule
         }
 
         @Override
-        public Connector get()
+        public org.apache.accumulo.core.client.AccumuloClient get()
         {
             try {
-                Instance inst = new ZooKeeperInstance(instance, zooKeepers);
-                Connector connector = inst.getConnector(username, new PasswordToken(password.getBytes(UTF_8)));
+                org.apache.accumulo.core.client.AccumuloClient client =
+                        Accumulo.newClient()
+                                .to(instance, zooKeepers)
+                                .as(username, new PasswordToken(password.getBytes(UTF_8)))
+                                .build();
                 LOG.info("Connection to instance %s at %s established, user %s", instance, zooKeepers, username);
-                return connector;
+                return client;
             }
-            catch (AccumuloException | AccumuloSecurityException e) {
-                throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get connector to Accumulo", e);
+            catch (Exception e) {
+                throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get client to Accumulo", e);
             }
         }
     }

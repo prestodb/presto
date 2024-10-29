@@ -23,7 +23,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import org.apache.accumulo.core.client.Connector;
 
 import javax.inject.Inject;
 
@@ -39,12 +38,12 @@ public class AccumuloPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final AccumuloClient client;
-    private final Connector connector;
+    private final org.apache.accumulo.core.client.AccumuloClient connector;
     private final String username;
 
     @Inject
     public AccumuloPageSinkProvider(
-            Connector connector,
+            org.apache.accumulo.core.client.AccumuloClient connector,
             AccumuloConfig config,
             AccumuloClient client)
     {

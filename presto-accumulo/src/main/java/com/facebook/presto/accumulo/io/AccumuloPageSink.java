@@ -28,11 +28,11 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Mutation;
@@ -83,7 +83,7 @@ public class AccumuloPageSink
     private long numRows;
 
     public AccumuloPageSink(
-            Connector connector,
+            AccumuloClient connector,
             AccumuloTable table,
             String username)
     {

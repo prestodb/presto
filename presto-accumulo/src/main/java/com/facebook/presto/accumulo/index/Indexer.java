@@ -28,20 +28,20 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.UnsignedBytes;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
+import org.apache.accumulo.core.client.lexicoder.Encoder;
 import org.apache.accumulo.core.data.ColumnUpdate;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
 import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.iterators.LongCombiner;
-import org.apache.accumulo.core.iterators.TypedValueCombiner;
 import org.apache.accumulo.core.iterators.user.SummingCombiner;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.accumulo.core.security.ColumnVisibility;
@@ -117,12 +117,12 @@ public class Indexer
 
     private static final byte[] EMPTY_BYTES = new byte[0];
     private static final byte UNDERSCORE = '_';
-    private static final TypedValueCombiner.Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
+    private static final Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
 
     private final AccumuloTable table;
     private final BatchWriter indexWriter;
     private final BatchWriterConfig writerConfig;
-    private final Connector connector;
+    private final AccumuloClient connector;
     private final Map<MetricsKey, AtomicLong> metrics = new HashMap<>();
     private final Multimap<ByteBuffer, ByteBuffer> indexColumns;
     private final Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypes;
@@ -133,7 +133,7 @@ public class Indexer
     private byte[] lastRow;
 
     public Indexer(
-            Connector connector,
+            AccumuloClient connector,
             Authorizations auths,
             AccumuloTable table,
             BatchWriterConfig writerConfig)
@@ -468,7 +468,7 @@ public class Indexer
         return getMetricsTableName(tableName.getSchemaName(), tableName.getTableName());
     }
 
-    public static Pair<byte[], byte[]> getMinMaxRowIds(Connector connector, AccumuloTable table, Authorizations auths)
+    public static Pair<byte[], byte[]> getMinMaxRowIds(AccumuloClient connector, AccumuloTable table, Authorizations auths)
             throws TableNotFoundException
     {
         Scanner scanner = connector.createScanner(table.getMetricsTableName(), auths);
