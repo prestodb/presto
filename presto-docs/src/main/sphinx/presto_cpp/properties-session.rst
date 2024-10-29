@@ -233,6 +233,14 @@ Native Execution only. Enable topN row number spilling on native engine.
 
 Native Execution only. Enable window spilling on native engine.
 
+``native_writer_spill_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. Enable writer spilling on native engine.
+
 ``native_writer_flush_threshold_bytes``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
