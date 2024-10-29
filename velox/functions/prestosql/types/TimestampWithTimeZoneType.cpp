@@ -110,7 +110,7 @@ void castToString(
   const auto* timestamps = input.as<SimpleVector<int64_t>>();
 
   auto expectedFormatter =
-      functions::buildJodaDateTimeFormatter("yyyy-MM-dd HH:mm:ss.SSS zzzz");
+      functions::buildJodaDateTimeFormatter("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
   VELOX_CHECK(
       !expectedFormatter.hasError(),
       "Default format should always be valid, error: {}",

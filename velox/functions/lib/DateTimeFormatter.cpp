@@ -518,7 +518,7 @@ std::string formatFractionOfSecond(
   return toAdd;
 }
 
-int32_t appendTimezoneOffset(int64_t offset, char* result) {
+int32_t appendTimezoneOffset(int64_t offset, char* result, bool includeColon) {
   int pos = 0;
   if (offset >= 0) {
     result[pos++] = '+';
@@ -536,7 +536,9 @@ int32_t appendTimezoneOffset(int64_t offset, char* result) {
     result[pos++] = char(hours % 10 + '0');
   }
 
-  result[pos++] = ':';
+  if (includeColon) {
+    result[pos++] = ':';
+  }
 
   const auto minutes = (offset / 60) % 60;
   if LIKELY (minutes == 0) {
@@ -1068,20 +1070,26 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
         size += std::max((int)token.pattern.minRepresentDigits, 9);
         break;
       case DateTimeFormatSpecifier::TIMEZONE:
-        if (timezone == nullptr) {
-          VELOX_USER_FAIL("Timezone unknown");
-        }
-        size += std::max(
-            token.pattern.minRepresentDigits, timezone->name().length());
+        VELOX_NYI(
+            "Date format specifier is not yet implemented: {} ({})",
+            getSpecifierName(token.pattern.specifier),
+            token.pattern.minRepresentDigits);
+
         break;
       case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID:
-        if (token.pattern.minRepresentDigits != 2) {
-          VELOX_UNSUPPORTED(
-              "Date format specifier is not supported: {} ({})",
-              getSpecifierName(token.pattern.specifier),
-              token.pattern.minRepresentDigits);
+        if (token.pattern.minRepresentDigits == 1) {
+          // 'Z' means output the time zone offset without a colon.
+          size += 8;
+        } else if (token.pattern.minRepresentDigits == 2) {
+          // 'ZZ' means output the time zone offset with a colon.
+          size += 9;
+        } else {
+          // 'ZZZ' (or more) means otuput the time zone ID.
+          if (timezone == nullptr) {
+            VELOX_USER_FAIL("Timezone unknown");
+          }
+          size += timezone->name().length();
         }
-        size += 9;
         break;
       // Not supported.
       case DateTimeFormatSpecifier::WEEK_YEAR:
@@ -1312,35 +1320,28 @@ int32_t DateTimeFormatter::format(
         case DateTimeFormatSpecifier::TIMEZONE: {
           // TODO: implement short name time zone, need a map from full name to
           // short name
-          if (token.pattern.minRepresentDigits <= 3) {
-            VELOX_UNSUPPORTED("short name time zone is not yet supported");
-          }
-          if (timezone == nullptr) {
-            VELOX_USER_FAIL("Timezone unknown");
-          }
-          const auto& piece = timezone->name();
-          std::memcpy(result, piece.data(), piece.length());
-          result += piece.length();
+          VELOX_UNSUPPORTED("time zone name is not yet supported");
         } break;
 
         case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID: {
           // Zone: 'Z' outputs offset without a colon, 'ZZ' outputs the offset
           // with a colon, 'ZZZ' or more outputs the zone id.
-          // TODO Add support for 'Z' and 'ZZZ'.
-          if (token.pattern.minRepresentDigits != 2) {
-            VELOX_UNSUPPORTED(
-                "format is not supported for specifier {} ({})",
-                getSpecifierName(token.pattern.specifier),
-                token.pattern.minRepresentDigits);
-          }
-
           if (offset == 0 && zeroOffsetText.has_value()) {
             std::memcpy(result, zeroOffsetText->data(), zeroOffsetText->size());
             result += zeroOffsetText->size();
             break;
           }
 
-          result += appendTimezoneOffset(offset, result);
+          if (token.pattern.minRepresentDigits >= 3) {
+            // Append the time zone ID.
+            const auto& piece = timezone->name();
+            std::memcpy(result, piece.data(), piece.length());
+            result += piece.length();
+            break;
+          }
+
+          result += appendTimezoneOffset(
+              offset, result, token.pattern.minRepresentDigits == 2);
           break;
         }
         case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR: {
