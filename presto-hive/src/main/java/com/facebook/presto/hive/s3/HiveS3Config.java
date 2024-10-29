@@ -56,11 +56,12 @@ public class HiveS3Config
     private int s3MaxConnections = 500;
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
-    private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
+    private DataSize s3MultipartMinPartSize = new DataSize(10, MEGABYTE);
     private boolean pinS3ClientToCurrentRegion;
     private String s3UserAgentPrefix = "";
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
+    private boolean useStreamingUploads;
 
     public String getS3AwsAccessKey()
     {
@@ -445,6 +446,18 @@ public class HiveS3Config
     public HiveS3Config setSkipGlacierObjects(boolean skipGlacierObjects)
     {
         this.skipGlacierObjects = skipGlacierObjects;
+        return this;
+    }
+
+    public boolean isUseStreamingUploads()
+    {
+        return useStreamingUploads;
+    }
+
+    @Config("hive.s3.use-streaming-uploads")
+    public HiveS3Config setUseStreamingUploads(boolean useStreamingUploads)
+    {
+        this.useStreamingUploads = useStreamingUploads;
         return this;
     }
 }
