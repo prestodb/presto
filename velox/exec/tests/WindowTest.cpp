@@ -18,6 +18,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/RowsStreamingWindowBuild.h"
+#include "velox/exec/SortWindowBuild.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -37,6 +38,31 @@ class WindowTest : public OperatorTestBase {
     window::prestosql::registerAllWindowFunctions();
     filesystems::registerLocalFileSystem();
   }
+
+  common::SpillConfig getSpillConfig(const std::string& spillDir) const {
+    return common::SpillConfig(
+        [spillDir]() -> const std::string& { return spillDir; },
+        [&](uint64_t) {},
+        "0.0.0",
+        0,
+        0,
+        1 << 20,
+        executor_.get(),
+        5,
+        10,
+        0,
+        0,
+        0,
+        0,
+        0,
+        "none");
+  }
+
+  const std::shared_ptr<folly::Executor> executor_{
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          std::thread::hardware_concurrency())};
+
+  tsan_atomic<bool> nonReclaimableSection_{false};
 };
 
 TEST_F(WindowTest, spill) {
@@ -565,6 +591,92 @@ DEBUG_ONLY_TEST_F(WindowTest, frameColumnNullCheck) {
       });
   ASSERT_NO_THROW(
       AssertQueryBuilder(makePlan(inputNoThrow)).copyResults(pool()));
+}
+
+DEBUG_ONLY_TEST_F(WindowTest, reserveMemorySort) {
+  struct {
+    bool usePrefixSort;
+    bool spillEnabled;
+  } testSettings[] = {{false, true}, {true, false}, {true, true}};
+
+  const vector_size_t size = 1'000;
+  auto prefixSortData = makeRowVector(
+      {"d", "p", "s"},
+      {
+          // Payload.
+          makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+          // Partition key.
+          makeFlatVector<int16_t>(size, [](auto row) { return row % 11; }),
+          // Sorting key.
+          makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      });
+  auto prefixSortPlan = std::dynamic_pointer_cast<const core::WindowNode>(
+      PlanBuilder()
+          .values(split(prefixSortData, 10))
+          .window({"row_number() over (partition by p order by s)"})
+          .planNode());
+
+  const std::vector<std::string> fruits = {
+      "apple", "banana", "pear", "grapes", "mango", "grapefruit"};
+  auto nonPrefixSortData = makeRowVector(
+      {"d", "p", "s"},
+      {
+          // Payload.
+          makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+          // Partition key.
+          makeFlatVector<int16_t>(size, [](auto row) { return row % 11; }),
+          // Sorting key.
+          makeFlatVector<StringView>(
+              size,
+              [&fruits](auto row) {
+                return StringView(fruits[row % fruits.size()]);
+              }),
+      });
+  auto nonPrefixSortPlan = std::dynamic_pointer_cast<const core::WindowNode>(
+      PlanBuilder()
+          .values(split(nonPrefixSortData, 10))
+          .window({"row_number() over (partition by p order by s)"})
+          .planNode());
+
+  for (const auto [usePrefixSort, spillEnabled] : testSettings) {
+    SCOPED_TRACE(fmt::format(
+        "usePrefixSort: {}, spillEnabled: {}, ", usePrefixSort, spillEnabled));
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto spillConfig = getSpillConfig(spillDirectory->getPath());
+    folly::Synchronized<common::SpillStats> spillStats;
+    const auto plan = usePrefixSort ? prefixSortPlan : nonPrefixSortPlan;
+    velox::common::PrefixSortConfig prefixSortConfig =
+        velox::common::PrefixSortConfig{
+            std::numeric_limits<int32_t>::max(), 130};
+    auto sortWindowBuild = std::make_unique<SortWindowBuild>(
+        plan,
+        pool_.get(),
+        std::move(prefixSortConfig),
+        spillEnabled ? &spillConfig : nullptr,
+        &nonReclaimableSection_,
+        &spillStats);
+
+    TestScopedSpillInjection scopedSpillInjection(0);
+    const auto data = usePrefixSort ? prefixSortData : nonPrefixSortData;
+    sortWindowBuild->addInput(data);
+
+    std::atomic_bool hasReserveMemory = false;
+    // Reserve memory for sort.
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
+        std::function<void(memory::MemoryPoolImpl*)>(
+            ([&](memory::MemoryPoolImpl* pool) {
+              hasReserveMemory.store(true);
+            })));
+
+    sortWindowBuild->noMoreInput();
+    if (spillEnabled) {
+      // Reserve memory for sort.
+      ASSERT_TRUE(hasReserveMemory);
+    } else {
+      ASSERT_FALSE(hasReserveMemory);
+    }
+  }
 }
 
 } // namespace

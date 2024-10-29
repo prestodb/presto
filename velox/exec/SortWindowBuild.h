@@ -35,6 +35,10 @@ class SortWindowBuild : public WindowBuild {
       tsan_atomic<bool>* nonReclaimableSection,
       folly::Synchronized<common::SpillStats>* spillStats);
 
+  ~SortWindowBuild() {
+    pool_->release();
+  }
+
   bool needsInput() override {
     // No partitions are available yet, so can consume input rows.
     return partitionStartRows_.size() == 0;
@@ -59,6 +63,8 @@ class SortWindowBuild : public WindowBuild {
 
  private:
   void ensureInputFits(const RowVectorPtr& input);
+
+  void ensureSortFits();
 
   void setupSpiller();
 
@@ -109,7 +115,8 @@ class SortWindowBuild : public WindowBuild {
   // This is a vector that gives the index of the start row
   // (in sortedRows_) of each partition in the RowContainer data_.
   // This auxiliary structure helps demarcate partitions.
-  std::vector<vector_size_t> partitionStartRows_;
+  std::vector<vector_size_t, memory::StlAllocator<vector_size_t>>
+      partitionStartRows_;
 
   // Current partition being output. Used to construct WindowPartitions
   // during resetPartition.
