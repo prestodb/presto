@@ -1203,10 +1203,17 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
         size += std::max((int)token.pattern.minRepresentDigits, 9);
         break;
       case DateTimeFormatSpecifier::TIMEZONE:
-        VELOX_NYI(
-            "Date format specifier is not yet implemented: {} ({})",
-            getSpecifierName(token.pattern.specifier),
-            token.pattern.minRepresentDigits);
+        if (token.pattern.minRepresentDigits <= 3) {
+          // The longest abbreviation according to here is 5, e.g. some time
+          // zones use the offset as the abbreviation, like +0530.
+          // https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+          size += 5;
+        } else {
+          VELOX_NYI(
+              "Date format specifier is not yet implemented: {} ({})",
+              getSpecifierName(token.pattern.specifier),
+              token.pattern.minRepresentDigits);
+        }
 
         break;
       case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID:
@@ -1451,9 +1458,19 @@ int32_t DateTimeFormatter::format(
         } break;
 
         case DateTimeFormatSpecifier::TIMEZONE: {
-          // TODO: implement short name time zone, need a map from full name to
-          // short name
-          VELOX_UNSUPPORTED("time zone name is not yet supported");
+          VELOX_USER_CHECK_NOT_NULL(
+              timezone,
+              "The time zone cannot be formatted if it is not present.");
+          if (token.pattern.minRepresentDigits <= 3) {
+            const std::string& abbrev = timezone->getShortName(
+                std::chrono::milliseconds(timestamp.toMillis()),
+                tz::TimeZone::TChoose::kEarliest);
+            std::memcpy(result, abbrev.data(), abbrev.length());
+            result += abbrev.length();
+          } else {
+            // TODO: implement full name time zone
+            VELOX_NYI("full time zone name is not yet supported");
+          }
         } break;
 
         case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID: {

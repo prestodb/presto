@@ -113,6 +113,7 @@ class TimeZone {
   }
 
   using seconds = std::chrono::seconds;
+  using milliseconds = std::chrono::milliseconds;
 
   /// Converts a local time (the time as perceived in the user time zone
   /// represented by this object) to a system time (the corresponding time in
@@ -150,6 +151,14 @@ class TimeZone {
   const date::time_zone* tz() const {
     return tz_;
   }
+
+  /// Returns the short name (abbreviation) of the time zone for the given
+  /// timestamp. Note that the timestamp is needed for time zones that support
+  /// daylight savings time as the short name will change depending on the date
+  /// (e.g. PST/PDT).
+  std::string getShortName(
+      milliseconds timestamp,
+      TChoose choose = TChoose::kFail) const;
 
  private:
   const date::time_zone* tz_{nullptr};

@@ -242,6 +242,21 @@ void validateRangeImpl(time_point<TDuration> timePoint) {
   }
 }
 
+template <typename TDuration>
+date::zoned_time<TDuration> getZonedTime(
+    const date::time_zone* tz,
+    date::local_time<TDuration> timestamp,
+    TimeZone::TChoose choose) {
+  if (choose == TimeZone::TChoose::kFail) {
+    // By default, throws.
+    return date::zoned_time{tz, timestamp};
+  }
+
+  auto dateChoose = (choose == TimeZone::TChoose::kEarliest)
+      ? date::choose::earliest
+      : date::choose::latest;
+  return date::zoned_time{tz, timestamp, dateChoose};
+}
 } // namespace
 
 void validateRange(time_point<std::chrono::seconds> timePoint) {
@@ -337,17 +352,7 @@ TimeZone::seconds TimeZone::to_sys(
     return (timePoint - offset_).time_since_epoch();
   }
 
-  if (choose == TimeZone::TChoose::kFail) {
-    // By default, throws.
-    return date::zoned_time{tz_, timePoint}.get_sys_time().time_since_epoch();
-  }
-
-  auto dateChoose = (choose == TimeZone::TChoose::kEarliest)
-      ? date::choose::earliest
-      : date::choose::latest;
-  return date::zoned_time{tz_, timePoint, dateChoose}
-      .get_sys_time()
-      .time_since_epoch();
+  return getZonedTime(tz_, timePoint, choose).get_sys_time().time_since_epoch();
 }
 
 TimeZone::seconds TimeZone::to_local(TimeZone::seconds timestamp) const {
@@ -361,4 +366,17 @@ TimeZone::seconds TimeZone::to_local(TimeZone::seconds timestamp) const {
   return date::zoned_time{tz_, timePoint}.get_local_time().time_since_epoch();
 }
 
+std::string TimeZone::getShortName(
+    TimeZone::milliseconds timestamp,
+    TimeZone::TChoose choose) const {
+  date::local_time<milliseconds> timePoint{timestamp};
+  validateRange(date::sys_time<milliseconds>(timestamp));
+
+  // Time zone offsets only have one name (no abbreviations).
+  if (tz_ == nullptr) {
+    return timeZoneName_;
+  }
+
+  return getZonedTime(tz_, timePoint, choose).get_info().abbrev;
+}
 } // namespace facebook::velox::tz

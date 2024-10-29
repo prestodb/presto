@@ -3269,6 +3269,28 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_EQ("+05:30", formatDatetime(parseTimestamp("1970-01-01"), "ZZ"));
   EXPECT_EQ("+0530", formatDatetime(parseTimestamp("1970-01-01"), "Z"));
 
+  EXPECT_EQ("IST", formatDatetime(parseTimestamp("1970-01-01"), "zzz"));
+  EXPECT_EQ("IST", formatDatetime(parseTimestamp("1970-01-01"), "zz"));
+  EXPECT_EQ("IST", formatDatetime(parseTimestamp("1970-01-01"), "z"));
+
+  // Test daylight savings.
+  setQueryTimeZone("America/Los_Angeles");
+  EXPECT_EQ("PST", formatDatetime(parseTimestamp("1970-01-01"), "z"));
+  EXPECT_EQ("PDT", formatDatetime(parseTimestamp("1970-10-01"), "z"));
+  EXPECT_EQ("PST", formatDatetime(parseTimestamp("2024-03-10 01:00"), "z"));
+  EXPECT_EQ("PDT", formatDatetime(parseTimestamp("2024-03-10 03:00"), "z"));
+  EXPECT_EQ("PDT", formatDatetime(parseTimestamp("2024-11-03 01:00"), "z"));
+  EXPECT_EQ("PST", formatDatetime(parseTimestamp("2024-11-03 02:00"), "z"));
+
+  // Test a long abbreviation.
+  setQueryTimeZone("Asia/Colombo");
+  EXPECT_EQ("+0530", formatDatetime(parseTimestamp("1970-10-01"), "z"));
+
+  setQueryTimeZone("Asia/Kolkata");
+  // We don't support more than 3 'z's yet.
+  EXPECT_THROW(
+      formatDatetime(parseTimestamp("1970-01-01"), "zzzz"), VeloxRuntimeError);
+
   // Literal test cases.
   EXPECT_EQ("hello", formatDatetime(parseTimestamp("1970-01-01"), "'hello'"));
   EXPECT_EQ("'", formatDatetime(parseTimestamp("1970-01-01"), "''"));
@@ -3313,15 +3335,14 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_THROW(
       formatDatetime(parseTimestamp("1970-01-01"), "'abcd"), VeloxUserError);
 
-  // System errors for patterns we haven't implemented yet.
+  // Time zone name patterns aren't supported when there isn't a time zone
+  // available.
   EXPECT_THROW(
-      formatDatetime(parseTimestamp("1970-01-01"), "z"), VeloxRuntimeError);
+      formatDatetime(parseTimestamp("1970-01-01"), "z"), VeloxUserError);
   EXPECT_THROW(
-      formatDatetime(parseTimestamp("1970-01-01"), "zz"), VeloxRuntimeError);
+      formatDatetime(parseTimestamp("1970-01-01"), "zz"), VeloxUserError);
   EXPECT_THROW(
-      formatDatetime(parseTimestamp("1970-01-01"), "zzz"), VeloxRuntimeError);
-  EXPECT_THROW(
-      formatDatetime(parseTimestamp("1970-01-01"), "zzzz"), VeloxRuntimeError);
+      formatDatetime(parseTimestamp("1970-01-01"), "zzz"), VeloxUserError);
 }
 
 TEST_F(DateTimeFunctionsTest, formatDateTimeTimezone) {
