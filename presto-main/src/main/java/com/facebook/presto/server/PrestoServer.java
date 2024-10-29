@@ -26,6 +26,7 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.airlift.log.LogJmxModule;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
@@ -39,9 +40,11 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.metadata.DiscoveryNodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
@@ -179,8 +182,12 @@ public class PrestoServer
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
-            injector.getInstance(PlanCheckerProviderManager.class).loadPlanCheckerProviders();
-            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
+            PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
+            InternalNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
+            NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
+            PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo.getEnvironment());
+            planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
+
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

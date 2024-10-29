@@ -354,11 +354,6 @@ public class PluginManager
             log.info("Registering node status notification provider %s", nodeStatusNotificationProviderFactory.getName());
             nodeStatusNotificationManager.addNodeStatusNotificationProviderFactory(nodeStatusNotificationProviderFactory);
         }
-
-        for (PlanCheckerProviderFactory planCheckerProviderFactory : plugin.getPlanCheckerProviderFactories()) {
-            log.info("Registering plan checker provider factory %s", planCheckerProviderFactory.getName());
-            planCheckerProviderManager.addPlanCheckerProviderFactory(planCheckerProviderFactory);
-        }
     }
 
     public void installCoordinatorPlugin(CoordinatorPlugin plugin)
@@ -371,6 +366,11 @@ public class PluginManager
         for (WorkerSessionPropertyProviderFactory providerFactory : plugin.getWorkerSessionPropertyProviderFactories()) {
             log.info("Registering system session property provider factory %s", providerFactory.getName());
             metadata.getSessionPropertyManager().addSessionPropertyProviderFactory(providerFactory);
+        }
+
+        for (PlanCheckerProviderFactory planCheckerProviderFactory : plugin.getPlanCheckerProviderFactories()) {
+            log.info("Registering plan checker provider factory %s", planCheckerProviderFactory.getName());
+            planCheckerProviderManager.addPlanCheckerProviderFactory(planCheckerProviderFactory);
         }
     }
 

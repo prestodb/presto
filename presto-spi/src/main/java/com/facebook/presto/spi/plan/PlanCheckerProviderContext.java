@@ -14,19 +14,28 @@
 
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.spi.NodeManager;
+
 import static java.util.Objects.requireNonNull;
 
 public class PlanCheckerProviderContext
 {
     private final SimplePlanFragmentSerde simplePlanFragmentSerde;
+    private final NodeManager nodeManager;
 
-    public PlanCheckerProviderContext(SimplePlanFragmentSerde simplePlanFragmentSerde)
+    public PlanCheckerProviderContext(SimplePlanFragmentSerde simplePlanFragmentSerde, NodeManager nodeManager)
     {
         this.simplePlanFragmentSerde = requireNonNull(simplePlanFragmentSerde, "simplePlanFragmentSerde is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     public SimplePlanFragmentSerde getSimplePlanFragmentSerde()
     {
         return simplePlanFragmentSerde;
+    }
+
+    public NodeManager getNodeManager()
+    {
+        return nodeManager;
     }
 }
