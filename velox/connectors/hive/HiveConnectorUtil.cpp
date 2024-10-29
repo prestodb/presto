@@ -260,10 +260,10 @@ inline bool isSynthesizedColumn(
   return infoColumns.count(name) != 0;
 }
 
-inline bool isRowIndexColumn(
+bool isSpecialColumn(
     const std::string& name,
-    std::shared_ptr<HiveColumnHandle> rowIndexColumn) {
-  return rowIndexColumn != nullptr && rowIndexColumn->name() == name;
+    const std::optional<std::string>& specialName) {
+  return specialName.has_value() && name == *specialName;
 }
 
 } // namespace
@@ -368,7 +368,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
         partitionKeys,
     const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
         infoColumns,
-    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn,
+    const SpecialColumnNames& specialColumns,
     memory::MemoryPool* pool) {
   auto spec = std::make_shared<common::ScanSpec>("root");
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
@@ -377,8 +377,9 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
   for (auto& [subfield, _] : filters) {
     if (auto name = subfield.toString();
         !isSynthesizedColumn(name, infoColumns) &&
-        !isRowIndexColumn(name, rowIndexColumn) &&
         partitionKeys.count(name) == 0) {
+      VELOX_CHECK(!isSpecialColumn(name, specialColumns.rowIndex));
+      VELOX_CHECK(!isSpecialColumn(name, specialColumns.rowId));
       filterSubfields[getColumnName(subfield)].push_back(&subfield);
     }
   }
@@ -387,13 +388,24 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
   for (int i = 0; i < rowType->size(); ++i) {
     auto& name = rowType->nameOf(i);
     auto& type = rowType->childAt(i);
+    if (isSpecialColumn(name, specialColumns.rowIndex)) {
+      VELOX_CHECK(type->isBigint());
+      auto* fieldSpec = spec->addField(name, i);
+      fieldSpec->setColumnType(common::ScanSpec::ColumnType::kRowIndex);
+      continue;
+    }
+    if (isSpecialColumn(name, specialColumns.rowId)) {
+      VELOX_CHECK(type->isRow() && type->size() == 5);
+      auto& rowIdType = type->asRow();
+      auto* fieldSpec = spec->addFieldRecursively(name, rowIdType, i);
+      fieldSpec->setColumnType(common::ScanSpec::ColumnType::kComposite);
+      fieldSpec->childByName(rowIdType.nameOf(0))
+          ->setColumnType(common::ScanSpec::ColumnType::kRowIndex);
+      continue;
+    }
     auto it = outputSubfields.find(name);
     if (it == outputSubfields.end()) {
       auto* fieldSpec = spec->addFieldRecursively(name, *type, i);
-      if (isRowIndexColumn(name, rowIndexColumn)) {
-        VELOX_CHECK(type->isBigint());
-        fieldSpec->setExplicitRowNumber(true);
-      }
       processFieldSpec(dataColumns, type, *fieldSpec);
       filterSubfields.erase(name);
       continue;
@@ -409,12 +421,6 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
       filterSubfields.erase(it);
     }
     auto* fieldSpec = spec->addField(name, i);
-    if (isRowIndexColumn(name, rowIndexColumn)) {
-      VELOX_CHECK(type->isBigint());
-      // Set the flag for the case that the row index column only exists in
-      // remaining filters.
-      fieldSpec->setExplicitRowNumber(true);
-    }
     addSubfields(*type, subfieldSpecs, 1, pool, *fieldSpec);
     processFieldSpec(dataColumns, type, *fieldSpec);
     subfieldSpecs.clear();
@@ -448,7 +454,6 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     if (isSynthesizedColumn(name, infoColumns)) {
       continue;
     }
-    VELOX_CHECK(!isRowIndexColumn(name, rowIndexColumn));
     auto fieldSpec = spec->getOrCreateChild(pair.first);
     fieldSpec->addFilter(*pair.second);
   }

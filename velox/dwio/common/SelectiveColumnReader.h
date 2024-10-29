@@ -494,11 +494,7 @@ class SelectiveColumnReader {
     return StringView(data, value.size());
   }
 
-  // Whether output rows should be filled when there is no column projected out
-  // and there is delete mutation.  Used for row number generation.  The case
-  // for no delete mutation is handled more efficiently outside column reader in
-  // `RowReader::readWithRowNumber'.
-  virtual void setFillMutatedOutputRows(bool /*value*/) {
+  virtual void setCurrentRowNumber(int64_t /*value*/) {
     VELOX_UNREACHABLE("Only struct reader supports this method");
   }
 

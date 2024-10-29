@@ -77,8 +77,7 @@ class SplitReader {
   /// would be called only once per incoming split
   virtual void prepareSplit(
       std::shared_ptr<common::MetadataFilter> metadataFilter,
-      dwio::common::RuntimeStatistics& runtimeStats,
-      const std::shared_ptr<HiveColumnHandle>& rowIndexColumn);
+      dwio::common::RuntimeStatistics& runtimeStats);
 
   virtual uint64_t next(uint64_t size, VectorPtr& output);
 
@@ -114,9 +113,7 @@ class SplitReader {
 
   /// Create the dwio::common::Reader object baseReader_, which will be used to
   /// read the data file's metadata and schema
-  void createReader(
-      std::shared_ptr<common::MetadataFilter> metadataFilter,
-      const std::shared_ptr<HiveColumnHandle>& rowIndexColumn);
+  void createReader(std::shared_ptr<common::MetadataFilter> metadataFilter);
 
   /// Check if the hiveSplit_ is empty. The split is considered empty when
   ///   1) The data file is missing but the user chooses to ignore it
@@ -135,10 +132,6 @@ class SplitReader {
   virtual std::vector<TypePtr> adaptColumns(
       const RowTypePtr& fileType,
       const std::shared_ptr<const velox::RowType>& tableSchema);
-
-  void setRowIndexColumn(
-      const std::shared_ptr<HiveColumnHandle>& rowIndexColumn,
-      bool isExplicit);
 
   void setPartitionValue(
       common::ScanSpec* spec,

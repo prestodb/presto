@@ -54,9 +54,8 @@ IcebergSplitReader::IcebergSplitReader(
 
 void IcebergSplitReader::prepareSplit(
     std::shared_ptr<common::MetadataFilter> metadataFilter,
-    dwio::common::RuntimeStatistics& runtimeStats,
-    const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) {
-  createReader(std::move(metadataFilter), rowIndexColumn);
+    dwio::common::RuntimeStatistics& runtimeStats) {
+  createReader(std::move(metadataFilter));
 
   if (checkIfSplitIsEmpty(runtimeStats)) {
     VELOX_CHECK(emptySplit_);

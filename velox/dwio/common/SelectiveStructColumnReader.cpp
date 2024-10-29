@@ -21,6 +21,163 @@
 
 namespace facebook::velox::dwio::common {
 
+namespace {
+
+bool testFilterOnConstant(const velox::common::ScanSpec& spec) {
+  if (spec.isConstant() && !spec.constantValue()->isNullAt(0)) {
+    // Non-null constant is known value during split scheduling and filters on
+    // them should not be handled at execution level.
+    return true;
+  }
+  // Check filter on missing field.
+  return !spec.hasFilter() || spec.testNull();
+}
+
+// Recursively makes empty RowVectors for positions in 'children' where the
+// corresponding child type in 'rowType' is a row. The reader expects RowVector
+// outputs to be initialized so that the content corresponds to the query schema
+// regardless of the file schema. An empty RowVector can have nullptr for all
+// its non-row children.
+void fillRowVectorChildren(
+    memory::MemoryPool& pool,
+    const RowType& rowType,
+    std::vector<VectorPtr>& children) {
+  for (auto i = 0; i < children.size(); ++i) {
+    const auto& type = rowType.childAt(i);
+    if (type->isRow()) {
+      std::vector<VectorPtr> innerChildren(type->size());
+      fillRowVectorChildren(pool, type->asRow(), innerChildren);
+      children[i] = std::make_shared<RowVector>(
+          &pool, type, nullptr, 0, std::move(innerChildren));
+    }
+  }
+}
+
+VectorPtr tryReuseResult(const VectorPtr& result) {
+  if (!result.unique()) {
+    return nullptr;
+  }
+  switch (result->encoding()) {
+    case VectorEncoding::Simple::ROW:
+      // Do not call prepareForReuse as it would throw away constant vectors
+      // that can be reused.  Reusability of children should be checked in
+      // getValues of child readers (all readers other than struct are
+      // recreating the result vector on each batch currently, so no issue with
+      // reusability now).
+      result->reuseNulls();
+      result->clearContainingLazyAndWrapped();
+      return result;
+    case VectorEncoding::Simple::LAZY: {
+      auto& lazy = static_cast<const LazyVector&>(*result);
+      if (!lazy.isLoaded()) {
+        return nullptr;
+      }
+      return tryReuseResult(lazy.loadedVectorShared());
+    }
+    case VectorEncoding::Simple::DICTIONARY:
+      return tryReuseResult(result->valueVector());
+    default:
+      return nullptr;
+  }
+}
+
+void prepareResult(VectorPtr& result) {
+  if (auto reused = tryReuseResult(result)) {
+    result = std::move(reused);
+    return;
+  }
+  auto& rowType = result->type()->asRow();
+  VLOG(1) << "Reallocating result row vector with " << rowType.size()
+          << " children";
+  std::vector<VectorPtr> children(rowType.size());
+  fillRowVectorChildren(*result->pool(), rowType, children);
+  result = std::make_shared<RowVector>(
+      result->pool(), result->type(), nullptr, 0, std::move(children));
+}
+
+void setConstantField(
+    const VectorPtr& constant,
+    vector_size_t size,
+    VectorPtr& field) {
+  if (field && field->isConstantEncoding() && field.unique() &&
+      field->size() > 0 && field->equalValueAt(constant.get(), 0, 0)) {
+    field->resize(size);
+  } else {
+    field = BaseVector::wrapInConstant(size, 0, constant);
+  }
+}
+
+void setNullField(
+    vector_size_t size,
+    VectorPtr& field,
+    const TypePtr& type,
+    memory::MemoryPool* pool) {
+  if (field && field->isConstantEncoding() && field.unique() &&
+      field->size() > 0 && field->isNullAt(0)) {
+    field->resize(size);
+  } else {
+    field = BaseVector::createNullConstant(type, size, pool);
+  }
+}
+
+void setRowNumberField(
+    int64_t offset,
+    const RowSet& rows,
+    memory::MemoryPool* pool,
+    VectorPtr& field) {
+  VELOX_CHECK_GE(offset, 0);
+  if (field && BaseVector::isVectorWritable(field)) {
+    VELOX_CHECK(
+        *field->type() == *BIGINT(),
+        "Unexpected row number type: {}",
+        field->type()->toString());
+    field->clearAllNulls();
+    field->resize(rows.size());
+  } else {
+    field = std::make_shared<FlatVector<int64_t>>(
+        pool,
+        BIGINT(),
+        nullptr,
+        rows.size(),
+        AlignedBuffer::allocate<int64_t>(rows.size(), pool),
+        std::vector<BufferPtr>());
+  }
+  auto* values = field->asChecked<FlatVector<int64_t>>()->mutableRawValues();
+  for (int i = 0; i < rows.size(); ++i) {
+    values[i] = offset + rows[i];
+  }
+}
+
+void setCompositeField(
+    const velox::common::ScanSpec& spec,
+    int64_t offset,
+    const RowSet& rows,
+    memory::MemoryPool* pool,
+    VectorPtr& field) {
+  VELOX_CHECK(field && field->type()->isRow());
+  prepareResult(field);
+  auto* rowField = field->asChecked<RowVector>();
+  rowField->clearAllNulls();
+  rowField->unsafeResize(rows.size());
+  for (auto& child : spec.children()) {
+    auto& childField = rowField->childAt(child->channel());
+    switch (child->columnType()) {
+      case velox::common::ScanSpec::ColumnType::kRegular:
+        VELOX_CHECK(child->isConstant());
+        setConstantField(child->constantValue(), rows.size(), childField);
+        break;
+      case velox::common::ScanSpec::ColumnType::kRowIndex:
+        setRowNumberField(offset, rows, pool, childField);
+        break;
+      case velox::common::ScanSpec::ColumnType::kComposite:
+        setCompositeField(*child, offset, rows, pool, childField);
+        break;
+    }
+  }
+}
+
+} // namespace
+
 void SelectiveStructColumnReaderBase::filterRowGroups(
     uint64_t rowGroupSize,
     const dwio::common::StatsContext& context,
@@ -79,20 +236,6 @@ void SelectiveStructColumnReaderBase::fillOutputRowsFromMutation(
   }
 }
 
-namespace {
-
-bool testFilterOnConstant(const velox::common::ScanSpec& spec) {
-  if (spec.isConstant() && !spec.constantValue()->isNullAt(0)) {
-    // Non-null constant is known value during split scheduling and filters on
-    // them should not be handled at execution level.
-    return true;
-  }
-  // Check filter on missing field.
-  return !spec.hasFilter() || spec.testNull();
-}
-
-} // namespace
-
 void SelectiveStructColumnReaderBase::next(
     uint64_t numValues,
     VectorPtr& result,
@@ -100,52 +243,61 @@ void SelectiveStructColumnReaderBase::next(
   process::TraceContext trace("SelectiveStructColumnReaderBase::next");
   mutation_ = mutation;
   hasDeletion_ = common::hasDeletion(mutation);
-  if (children_.empty()) {
-    if (hasDeletion_) {
-      if (fillMutatedOutputRows_) {
-        fillOutputRowsFromMutation(numValues);
-        numValues = outputRows_.size();
-      } else {
-        if (mutation->deletedRows) {
-          numValues -= bits::countBits(mutation->deletedRows, 0, numValues);
-        }
-        if (mutation->randomSkip) {
-          numValues *= mutation->randomSkip->sampleRate();
-        }
-      }
-    }
-    for (const auto& childSpec : scanSpec_->children()) {
-      if (isChildConstant(*childSpec) && !testFilterOnConstant(*childSpec)) {
-        numValues = 0;
-        break;
-      }
-    }
+  const RowSet rows(iota(numValues, rows_), numValues);
 
-    // No readers
-    // This can be either count(*) query or a query that select only
-    // constant columns (partition keys or columns missing from an old file
-    // due to schema evolution) or row number column.
-    auto resultRowVector = std::dynamic_pointer_cast<RowVector>(result);
-    resultRowVector->unsafeResize(numValues);
-
-    for (auto& childSpec : scanSpec_->children()) {
-      VELOX_CHECK(childSpec->isConstant() || childSpec->isExplicitRowNumber());
-      if (childSpec->projectOut() && childSpec->isConstant()) {
-        const auto channel = childSpec->channel();
-        resultRowVector->childAt(channel) = BaseVector::wrapInConstant(
-            numValues, 0, childSpec->constantValue());
-      }
-    }
+  if (!children_.empty()) {
+    read(readOffset_, rows, nullptr);
+    getValues(outputRows(), &result);
     return;
   }
 
-  const auto oldSize = rows_.size();
-  rows_.resize(numValues);
-  if (numValues > oldSize) {
-    std::iota(&rows_[oldSize], &rows_[rows_.size()], oldSize);
+  // No child readers.  This can be either count(*) query or a query that select
+  // only constant columns (partition keys or columns missing from an old file
+  // due to schema evolution) or columns not from file (e.g. row numbers).
+  inputRows_ = rows;
+  outputRows_.clear();
+  if (hasDeletion_) {
+    fillOutputRowsFromMutation(numValues);
+    numValues = outputRows_.size();
   }
-  read(readOffset_, rows_, nullptr);
-  getValues(outputRows(), &result);
+  for (const auto& childSpec : scanSpec_->children()) {
+    if (isChildConstant(*childSpec) && !testFilterOnConstant(*childSpec)) {
+      outputRows_.clear();
+      numValues = 0;
+      break;
+    }
+  }
+  prepareResult(result);
+  auto* resultRowVector = result->asChecked<RowVector>();
+  resultRowVector->unsafeResize(numValues);
+  for (auto& childSpec : scanSpec_->children()) {
+    if (!childSpec->projectOut()) {
+      continue;
+    }
+    auto& childField = resultRowVector->childAt(childSpec->channel());
+    if (childSpec->isConstant()) {
+      childField =
+          BaseVector::wrapInConstant(numValues, 0, childSpec->constantValue());
+    } else if (
+        childSpec->columnType() ==
+        velox::common::ScanSpec::ColumnType::kRowIndex) {
+      VELOX_CHECK(!childSpec->hasFilter());
+      setRowNumberField(
+          currentRowNumber_, outputRows(), resultRowVector->pool(), childField);
+    } else if (
+        childSpec->columnType() ==
+        velox::common::ScanSpec::ColumnType::kComposite) {
+      VELOX_CHECK(!childSpec->hasFilter());
+      setCompositeField(
+          *childSpec,
+          currentRowNumber_,
+          outputRows(),
+          resultRowVector->pool(),
+          childField);
+    } else {
+      VELOX_UNREACHABLE();
+    }
+  }
 }
 
 void SelectiveStructColumnReaderBase::read(
@@ -201,7 +353,8 @@ void SelectiveStructColumnReaderBase::read(
       continue;
     }
 
-    if (childSpec->isExplicitRowNumber()) {
+    if (!childSpec->readFromFile()) {
+      VELOX_CHECK(!childSpec->hasFilter());
       continue;
     }
 
@@ -258,7 +411,7 @@ void SelectiveStructColumnReaderBase::recordParentNullsInChildren(
     if (isChildConstant(*childSpec)) {
       continue;
     }
-    if (childSpec->isExplicitRowNumber()) {
+    if (!childSpec->readFromFile()) {
       continue;
     }
 
@@ -290,84 +443,6 @@ bool SelectiveStructColumnReaderBase::isChildMissing(
        childSpec.channel() >= fileType_->size());
 }
 
-namespace {
-
-//   Recursively makes empty RowVectors for positions in 'children'
-//   where the corresponding child type in 'rowType' is a row. The
-//   reader expects RowVector outputs to be initialized so that the
-//   content corresponds to the query schema regardless of the file
-//   schema. An empty RowVector can have nullptr for all its non-row
-//   children.
-void fillRowVectorChildren(
-    memory::MemoryPool& pool,
-    const RowType& rowType,
-    std::vector<VectorPtr>& children) {
-  for (auto i = 0; i < children.size(); ++i) {
-    const auto& type = rowType.childAt(i);
-    if (type->isRow()) {
-      std::vector<VectorPtr> innerChildren(type->size());
-      fillRowVectorChildren(pool, type->asRow(), innerChildren);
-      children[i] = std::make_shared<RowVector>(
-          &pool, type, nullptr, 0, std::move(innerChildren));
-    }
-  }
-}
-
-VectorPtr tryReuseResult(const VectorPtr& result) {
-  if (!result.unique()) {
-    return nullptr;
-  }
-  switch (result->encoding()) {
-    case VectorEncoding::Simple::ROW:
-      // Do not call prepareForReuse as it would throw away constant vectors
-      // that can be reused.  Reusability of children should be checked in
-      // getValues of child readers (all readers other than struct are
-      // recreating the result vector on each batch currently, so no issue with
-      // reusability now).
-      result->reuseNulls();
-      result->clearContainingLazyAndWrapped();
-      return result;
-    case VectorEncoding::Simple::LAZY: {
-      auto& lazy = static_cast<const LazyVector&>(*result);
-      if (!lazy.isLoaded()) {
-        return nullptr;
-      }
-      return tryReuseResult(lazy.loadedVectorShared());
-    }
-    case VectorEncoding::Simple::DICTIONARY:
-      return tryReuseResult(result->valueVector());
-    default:
-      return nullptr;
-  }
-}
-
-void setConstantField(
-    const VectorPtr& constant,
-    vector_size_t size,
-    VectorPtr& field) {
-  if (field && field->isConstantEncoding() && field.unique() &&
-      field->size() > 0 && field->equalValueAt(constant.get(), 0, 0)) {
-    field->resize(size);
-  } else {
-    field = BaseVector::wrapInConstant(size, 0, constant);
-  }
-}
-
-void setNullField(
-    vector_size_t size,
-    VectorPtr& field,
-    const TypePtr& type,
-    memory::MemoryPool* pool) {
-  if (field && field->isConstantEncoding() && field.unique() &&
-      field->size() > 0 && field->isNullAt(0)) {
-    field->resize(size);
-  } else {
-    field = BaseVector::createNullConstant(type, size, pool);
-  }
-}
-
-} // namespace
-
 void SelectiveStructColumnReaderBase::getValues(
     const RowSet& rows,
     VectorPtr* result) {
@@ -378,21 +453,7 @@ void SelectiveStructColumnReaderBase::getValues(
       result->get()->type()->isRow(),
       "Struct reader expects a result of type ROW.");
   auto& rowType = result->get()->type()->asRow();
-  if (auto reused = tryReuseResult(*result)) {
-    *result = std::move(reused);
-  } else {
-    VLOG(1) << "Reallocating result row vector with " << rowType.size()
-            << " children";
-    std::vector<VectorPtr> children(rowType.size());
-    fillRowVectorChildren(*result->get()->pool(), rowType, children);
-    *result = std::make_shared<RowVector>(
-        result->get()->pool(),
-        result->get()->type(),
-        nullptr,
-        0,
-        std::move(children));
-  }
-
+  prepareResult(*result);
   auto* resultRow = static_cast<RowVector*>(result->get());
   resultRow->unsafeResize(rows.size());
   if (rows.empty()) {
@@ -407,14 +468,24 @@ void SelectiveStructColumnReaderBase::getValues(
       continue;
     }
 
-    if (childSpec->isExplicitRowNumber()) {
-      // Row number data is generated after, skip data loading for it.
-      continue;
-    }
     const auto channel = childSpec->channel();
     auto& childResult = resultRow->childAt(channel);
     if (childSpec->isConstant()) {
       setConstantField(childSpec->constantValue(), rows.size(), childResult);
+      continue;
+    }
+
+    if (childSpec->columnType() ==
+        velox::common::ScanSpec::ColumnType::kRowIndex) {
+      setRowNumberField(
+          currentRowNumber_, rows, resultRow->pool(), childResult);
+      continue;
+    }
+
+    if (childSpec->columnType() ==
+        velox::common::ScanSpec::ColumnType::kComposite) {
+      setCompositeField(
+          *childSpec, currentRowNumber_, rows, resultRow->pool(), childResult);
       continue;
     }
 

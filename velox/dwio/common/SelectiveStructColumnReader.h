@@ -98,8 +98,8 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
     return debugString_;
   }
 
-  void setFillMutatedOutputRows(bool value) final {
-    fillMutatedOutputRows_ = value;
+  void setCurrentRowNumber(int64_t value) final {
+    currentRowNumber_ = value;
   }
 
  protected:
@@ -121,12 +121,6 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
             getExceptionContext().message(VeloxException::Type::kSystem)),
         isRoot_(isRoot) {}
 
-  /// Records the number of nulls added by 'this' between the end position of
-  /// each child reader and the end of the range of 'read(). This must be done
-  /// also if a child is not read so that we know how much to skip when seeking
-  /// forward within the row group.
-  void recordParentNullsInChildren(int64_t offset, const RowSet& rows);
-
   bool hasDeletion() const final {
     return hasDeletion_;
   }
@@ -141,7 +135,16 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
         isChildMissing(childSpec);
   }
 
+  std::vector<SelectiveColumnReader*> children_;
+
+ private:
   void fillOutputRowsFromMutation(vector_size_t size);
+
+  /// Records the number of nulls added by 'this' between the end position of
+  /// each child reader and the end of the range of 'read(). This must be done
+  /// also if a child is not read so that we know how much to skip when seeking
+  /// forward within the row group.
+  void recordParentNullsInChildren(int64_t offset, const RowSet& rows);
 
   // Context information obtained from ExceptionContext. Stored here
   // so that LazyVector readers under this can add this to their
@@ -154,7 +157,8 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   // table.
   const bool isRoot_;
 
-  std::vector<SelectiveColumnReader*> children_;
+  // Dense set of rows to read in next().
+  raw_vector<vector_size_t> rows_;
 
   // Sequence number of output batch. Checked against ColumnLoaders
   // created by 'this' to verify they are still valid at load.
@@ -162,16 +166,13 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
 
   int64_t lazyVectorReadOffset_;
 
-  // Dense set of rows to read in next().
-  raw_vector<vector_size_t> rows_;
+  int64_t currentRowNumber_ = -1;
 
   const Mutation* mutation_ = nullptr;
 
   // After read() call mutation_ could go out of scope.  Need to keep this
   // around for lazy columns.
   bool hasDeletion_ = false;
-
-  bool fillMutatedOutputRows_ = false;
 };
 
 class SelectiveStructColumnReader : public SelectiveStructColumnReaderBase {

@@ -2054,13 +2054,19 @@ namespace {
 void verifyRowNumbers(
     RowReader& rowReader,
     memory::MemoryPool* pool,
-    int expectedNumRows) {
-  auto result = BaseVector::create(ROW({{"c0", INTEGER()}}), 0, pool);
+    int expectedNumRows,
+    bool explicitRowNumber = false) {
+  auto result = explicitRowNumber
+      ? BaseVector::create(
+            ROW({{"c0", INTEGER()}, {"$row_number", BIGINT()}}), 0, pool)
+      : BaseVector::create(ROW({{"c0", INTEGER()}}), 0, pool);
   int numRows = 0;
   while (rowReader.next(10, result) > 0) {
     auto* rowVector = result->asUnchecked<RowVector>();
     ASSERT_EQ(2, rowVector->childrenSize());
-    ASSERT_EQ(rowVector->type()->asRow().nameOf(1), "");
+    ASSERT_EQ(
+        rowVector->type()->asRow().nameOf(1),
+        explicitRowNumber ? "$row_number" : "");
     DecodedVector values(*rowVector->childAt(0));
     DecodedVector rowNumbers(*rowVector->childAt(1));
     for (size_t i = 0; i < rowVector->size(); ++i) {
@@ -2118,7 +2124,6 @@ TEST_F(TestReader, setRowNumberColumnInfo) {
   RowNumberColumnInfo rowNumberColumnInfo;
   rowNumberColumnInfo.insertPosition = 1;
   rowNumberColumnInfo.name = "";
-  rowNumberColumnInfo.isExplicit = false;
   rowReaderOpts.setRowNumberColumnInfo(rowNumberColumnInfo);
   {
     SCOPED_TRACE("Selective no filter");
@@ -2148,7 +2153,6 @@ TEST_F(TestReader, reuseRowNumberColumn) {
   RowNumberColumnInfo rowNumberColumnInfo;
   rowNumberColumnInfo.insertPosition = 1;
   rowNumberColumnInfo.name = "";
-  rowNumberColumnInfo.isExplicit = false;
   rowReaderOpts.setRowNumberColumnInfo(rowNumberColumnInfo);
   {
     SCOPED_TRACE("Reuse passed in");
@@ -2194,6 +2198,37 @@ TEST_F(TestReader, reuseRowNumberColumn) {
     auto rowNum = result->asUnchecked<RowVector>()->childAt(1);
     ASSERT_EQ(rowReader->next(3, result), 3);
     ASSERT_NE(rowNum.get(), result->asUnchecked<RowVector>()->childAt(1).get());
+  }
+}
+
+TEST_F(TestReader, explicitRowNumberColumn) {
+  const std::vector<std::vector<int32_t>> integerValues{
+      {0, 1, 2, 3, 4},
+      {5, 6, 7},
+      {8},
+      {},
+      {9, 10, 11, 12, 13, 14, 15},
+  };
+  auto batches = createBatches(integerValues);
+  auto [writer, reader] = createWriterReader(batches, pool());
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addField("c0", 0);
+  spec->addField("$row_number", 1)
+      ->setColumnType(common::ScanSpec::ColumnType::kRowIndex);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+  {
+    SCOPED_TRACE("Selective no filter");
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    verifyRowNumbers(*rowReader, pool(), 16, true);
+  }
+  spec->childByName("c0")->setFilter(
+      common::createBigintValues({1, 4, 5, 7, 11, 14}, false));
+  spec->resetCachedValues(true);
+  {
+    SCOPED_TRACE("Selective with filter");
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    verifyRowNumbers(*rowReader, pool(), 6, true);
   }
 }
 

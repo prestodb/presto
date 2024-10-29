@@ -36,6 +36,12 @@ struct HiveBucketConversion {
   std::vector<std::unique_ptr<HiveColumnHandle>> bucketColumnHandles;
 };
 
+struct RowIdProperties {
+  int64_t metadataVersion;
+  int64_t partitionId;
+  std::string tableGuid;
+};
+
 struct HiveConnectorSplit : public connector::ConnectorSplit {
   const std::string filePath;
   dwio::common::FileFormat fileFormat;
@@ -61,6 +67,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   /// These represent file properties like file size that are used while opening
   /// the file handle.
   std::optional<FileProperties> properties;
+
+  std::optional<RowIdProperties> rowIdProperties;
 
   HiveConnectorSplit(
       const std::string& connectorId,

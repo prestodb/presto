@@ -20,6 +20,7 @@
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/connectors/hive/SplitReader.h"
 #include "velox/connectors/hive/TableHandle.h"
@@ -125,13 +126,14 @@ class HiveDataSource : public DataSource {
       partitionKeys_;
 
   std::shared_ptr<io::IoStatistics> ioStats_;
-  std::shared_ptr<HiveColumnHandle> rowIndexColumn_;
 
  private:
   std::unique_ptr<HivePartitionFunction> setupBucketConversion();
   vector_size_t applyBucketConversion(
       const RowVectorPtr& rowVector,
       BufferPtr& indices);
+
+  void setupRowIdColumn();
 
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows
   // passed. Populates filterEvalCtx_.selectedIndices and selectedBits if only
@@ -157,6 +159,7 @@ class HiveDataSource : public DataSource {
   // Column handles for the Split info columns keyed on their column names.
   std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
       infoColumns_;
+  SpecialColumnNames specialColumns_{};
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
       subfields_;
   SubfieldFilters filters_;

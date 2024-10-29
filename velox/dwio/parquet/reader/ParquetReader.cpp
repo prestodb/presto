@@ -947,8 +947,6 @@ class ParquetRowReader::Impl {
         readerBase_->schemaWithId(), // Id is schema id
         params,
         *options_.scanSpec());
-    columnReader_->setFillMutatedOutputRows(
-        options_.rowNumberColumnInfo().has_value());
     columnReader_->setIsTopLevel();
 
     filterRowGroups();
@@ -1021,6 +1019,7 @@ class ParquetRowReader::Impl {
       return 0;
     }
     VELOX_DCHECK_GT(rowsToRead, 0);
+    columnReader_->setCurrentRowNumber(nextRowNumber());
     if (!options_.rowNumberColumnInfo().has_value()) {
       columnReader_->next(rowsToRead, result, mutation);
     } else {

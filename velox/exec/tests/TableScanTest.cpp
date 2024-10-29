@@ -5213,3 +5213,111 @@ TEST_F(TableScanTest, hugeStripe) {
   }
   ASSERT_EQ(numRows, 4'294'980'000);
 }
+
+TEST_F(TableScanTest, rowId) {
+  const auto rowIdType =
+      ROW({"row_number",
+           "row_group_id",
+           "metadata_version",
+           "partition_id",
+           "table_guid"},
+          {BIGINT(), VARCHAR(), BIGINT(), BIGINT(), VARCHAR()});
+  auto data = makeFlatVector<int64_t>(10, [](auto i) { return i + 1; });
+  auto vector = makeRowVector({data});
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector});
+  auto makeRowIdColumnHandle = [&](auto& name) {
+    return std::make_shared<HiveColumnHandle>(
+        name, HiveColumnHandle::ColumnType::kRowId, rowIdType, rowIdType);
+  };
+  {
+    SCOPED_TRACE("Preload");
+    auto outputType = ROW({"c0", "c1"}, {BIGINT(), rowIdType});
+    auto plan = PlanBuilder()
+                    .startTableScan()
+                    .outputType(outputType)
+                    .assignments({
+                        {"c0", makeColumnHandle("c0", BIGINT(), {})},
+                        {"c1", makeRowIdColumnHandle("c1")},
+                    })
+                    .endTableScan()
+                    .planNode();
+    auto query = AssertQueryBuilder(plan);
+    query.config(core::QueryConfig::kMaxSplitPreloadPerDriver, "4");
+    auto expected = BaseVector::create<RowVector>(outputType, 0, pool());
+    for (int i = 0; i < 10; ++i) {
+      auto split = makeHiveConnectorSplit(file->getPath());
+      split->rowIdProperties = {
+          .metadataVersion = i,
+          .partitionId = 2 * i,
+          .tableGuid = fmt::format("table-guid-{}", i),
+      };
+      query.split(split);
+      auto rowGroupId = split->getFileName();
+      auto newExpected = makeRowVector({
+          data,
+          makeRowVector({
+              makeFlatVector<int64_t>(10, folly::identity),
+              makeConstant(StringView(rowGroupId), 10),
+              makeConstant(split->rowIdProperties->metadataVersion, 10),
+              makeConstant(split->rowIdProperties->partitionId, 10),
+              makeConstant(StringView(split->rowIdProperties->tableGuid), 10),
+          }),
+      });
+      expected->append(newExpected.get());
+    }
+    auto task = query.assertResults(expected);
+    auto stats = getTableScanRuntimeStats(task);
+    ASSERT_GT(stats.at("preloadedSplits").sum, 0);
+  }
+  {
+    SCOPED_TRACE("Remaining filter only");
+    auto remainingFilter =
+        parseExpr("c1.row_number % 2 == 0", ROW({"c1"}, {rowIdType}));
+    auto plan = PlanBuilder()
+                    .startTableScan()
+                    .tableHandle(makeTableHandle({}, remainingFilter))
+                    .outputType(ROW({"c0"}, {BIGINT()}))
+                    .assignments({
+                        {"c0", makeColumnHandle("c0", BIGINT(), {})},
+                        {"c1", makeRowIdColumnHandle("c1")},
+                    })
+                    .endTableScan()
+                    .planNode();
+    auto split = makeHiveConnectorSplit(file->getPath());
+    split->rowIdProperties = {
+        .metadataVersion = 42,
+        .partitionId = 24,
+        .tableGuid = "foo",
+    };
+    auto expected = makeRowVector(
+        {makeFlatVector<int64_t>(5, [](auto i) { return 1 + 2 * i; })});
+    AssertQueryBuilder(plan).split(split).assertResults(expected);
+  }
+  {
+    SCOPED_TRACE("Row ID only");
+    auto plan = PlanBuilder()
+                    .startTableScan()
+                    .outputType(ROW({"c0"}, {rowIdType}))
+                    .assignments({{"c0", makeRowIdColumnHandle("c0")}})
+                    .endTableScan()
+                    .planNode();
+    auto split = makeHiveConnectorSplit(file->getPath());
+    split->rowIdProperties = {
+        .metadataVersion = 42,
+        .partitionId = 24,
+        .tableGuid = "foo",
+    };
+    auto rowGroupId = split->getFileName();
+    auto expected = makeRowVector({
+        makeRowVector({
+            makeFlatVector<int64_t>(10, folly::identity),
+            makeConstant(StringView(rowGroupId), 10),
+            makeConstant(split->rowIdProperties->metadataVersion, 10),
+            makeConstant(split->rowIdProperties->partitionId, 10),
+            makeConstant(StringView(split->rowIdProperties->tableGuid), 10),
+        }),
+    });
+    AssertQueryBuilder(plan).split(split).assertResults(expected);
+  }
+}

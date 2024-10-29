@@ -39,7 +39,7 @@ StructColumnReader::StructColumnReader(
       childSpec->setSubscript(kConstantChildSpecSubscript);
       continue;
     }
-    if (childSpecs[i]->isExplicitRowNumber()) {
+    if (!childSpecs[i]->readFromFile()) {
       continue;
     }
     auto childFileType = fileType_->childByName(childSpec->fieldName());

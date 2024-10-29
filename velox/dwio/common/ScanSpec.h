@@ -22,6 +22,7 @@
 #include "velox/type/Subfield.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/ConstantVector.h"
 #include "velox/vector/LazyVector.h"
 
 #include <vector>
@@ -39,6 +40,12 @@ namespace common {
 // mutable by readers to reflect filter order and other adaptation.
 class ScanSpec {
  public:
+  enum class ColumnType : int8_t {
+    kRegular, // Read from file or constant
+    kRowIndex, // Row number in the file starting from 0
+    kComposite, // A struct with all children not read from file
+  };
+
   static constexpr column_index_t kNoChannel = ~0;
   static constexpr const char* kMapKeysFieldName = "keys";
   static constexpr const char* kMapValuesFieldName = "values";
@@ -97,16 +104,26 @@ class ScanSpec {
     constantValue_ = value;
   }
 
+  template <typename T>
+  void setConstantValue(T val, TypePtr type, memory::MemoryPool* pool) {
+    constantValue_ = std::make_shared<ConstantVector<T>>(
+        pool, 1, false, std::move(type), std::move(val));
+  }
+
   bool isConstant() const {
     return constantValue_ != nullptr;
   }
 
-  void setExplicitRowNumber(bool isExplicitRowNumber) {
-    isExplicitRowNumber_ = isExplicitRowNumber;
+  void setColumnType(ColumnType value) {
+    columnType_ = value;
   }
 
-  bool isExplicitRowNumber() const {
-    return isExplicitRowNumber_;
+  ColumnType columnType() const {
+    return columnType_;
+  }
+
+  bool readFromFile() const {
+    return columnType_ == ColumnType::kRegular && !isConstant();
   }
 
   // Name of the value in its container, i.e. field name in struct or
@@ -354,7 +371,8 @@ class ScanSpec {
   VectorPtr constantValue_;
   bool projectOut_ = false;
 
-  bool isExplicitRowNumber_ = false;
+  ColumnType columnType_ = ColumnType::kRegular;
+
   // True if a string dictionary or flat map in this field should be
   // returned as flat.
   bool makeFlat_ = false;

@@ -169,8 +169,6 @@ void DwrfUnit::ensureDecoders() {
         flatMapContext,
         /*isRoot=*/true);
     selectiveColumnReader_->setIsTopLevel();
-    selectiveColumnReader_->setFillMutatedOutputRows(
-        options_.rowNumberColumnInfo().has_value());
   } else {
     auto requestedType = columnSelector_->getSchemaWithId();
     auto factory = &ColumnReaderFactory::defaultFactory();
@@ -526,19 +524,14 @@ void DwrfRowReader::readNext(
     }
     return;
   }
-
+  auto& columnReader = getSelectiveColumnReader();
+  columnReader->setCurrentRowNumber(previousRow_);
   if (!options_.rowNumberColumnInfo().has_value()) {
-    getSelectiveColumnReader()->next(rowsToRead, result, mutation);
+    columnReader->next(rowsToRead, result, mutation);
     return;
   }
-
   readWithRowNumber(
-      getSelectiveColumnReader(),
-      options_,
-      previousRow_,
-      rowsToRead,
-      mutation,
-      result);
+      columnReader, options_, previousRow_, rowsToRead, mutation, result);
 }
 
 uint64_t DwrfRowReader::skip(uint64_t numValues) {

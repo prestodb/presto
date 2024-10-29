@@ -21,10 +21,11 @@
 namespace facebook::velox {
 
 namespace {
-std::vector<int32_t> iotaData;
+raw_vector<int32_t> iotaData;
 
 bool initializeIota() {
   iotaData.resize(10000);
+  iotaData.resize(iotaData.capacity());
   std::iota(iotaData.begin(), iotaData.end(), 0);
   return true;
 }

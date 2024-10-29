@@ -30,12 +30,10 @@ TEST(OptionsTests, setRowNumberColumnInfoTest) {
   RowNumberColumnInfo rowNumberColumnInfo;
   rowNumberColumnInfo.insertPosition = 0;
   rowNumberColumnInfo.name = "test";
-  rowNumberColumnInfo.isExplicit = true;
   rowReaderOptions.setRowNumberColumnInfo(rowNumberColumnInfo);
   auto rowNumberColumn = rowReaderOptions.rowNumberColumnInfo().value();
   ASSERT_EQ(rowNumberColumnInfo.insertPosition, rowNumberColumn.insertPosition);
   ASSERT_EQ(rowNumberColumnInfo.name, rowNumberColumn.name);
-  ASSERT_EQ(rowNumberColumnInfo.isExplicit, rowNumberColumn.isExplicit);
 }
 
 TEST(OptionsTests, testRowNumberColumnInfoInCopy) {
