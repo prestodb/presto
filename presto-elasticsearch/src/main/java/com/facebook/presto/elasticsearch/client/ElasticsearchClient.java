@@ -492,6 +492,10 @@ public class ElasticsearchClient
                     // Older versions of ElasticSearch supported multiple "type" mappings
                     // for a given index. Newer versions support only one and don't
                     // expose it in the document. Here we skip it if it's present.
+
+                    if (!mappings.elements().hasNext()) {
+                        return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
+                    }
                     mappings = mappings.elements().next();
                 }
 
