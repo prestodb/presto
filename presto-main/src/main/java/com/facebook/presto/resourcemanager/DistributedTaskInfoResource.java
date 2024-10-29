@@ -32,7 +32,10 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 import static com.facebook.presto.server.security.RoleType.ADMIN;
@@ -67,9 +70,16 @@ public class DistributedTaskInfoResource
         proxyTaskInfoResponse(servletRequest, asyncResponse, uriInfo, taskId);
     }
 
-    private URI createTaskInfoUri(BasicQueryInfo queryInfo, UriInfo uriInfo)
+    private URI createTaskInfoUri(BasicQueryInfo queryInfo, TaskId taskId)
     {
-        return UriBuilder.fromUri(queryInfo.getSelf()).replacePath(uriInfo.getPath()).build();
+        try {
+            return UriBuilder.fromUri(queryInfo.getSelf())
+                    .replacePath("/v1/taskInfo/" + URLEncoder.encode(taskId.toString(), StandardCharsets.UTF_8.toString()))
+                    .build();
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError("UTF-8 encoding should always be supported", e);
+        }
     }
 
     private void proxyTaskInfoResponse(HttpServletRequest servletRequest, AsyncResponse asyncResponse, UriInfo uriInfo, TaskId taskId)
@@ -80,7 +90,7 @@ public class DistributedTaskInfoResource
                 .findFirst();
 
         if (queryInfo.isPresent()) {
-            proxyHelper.performRequest(servletRequest, asyncResponse, createTaskInfoUri(queryInfo.get(), uriInfo));
+            proxyHelper.performRequest(servletRequest, asyncResponse, createTaskInfoUri(queryInfo.get(), taskId));
         }
         else {
             asyncResponse.resume(Response.status(NOT_FOUND).type(MediaType.APPLICATION_JSON).build());

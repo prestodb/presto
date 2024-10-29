@@ -387,7 +387,7 @@ public final class QueryResourceUtil
         URI uri = uriInfo.getRequestUriBuilder()
                 .scheme(getScheme(xForwardedProto, uriInfo))
                 .replacePath("ui/query.html")
-                .replaceQuery(queryId.toString())
+                .replaceQuery(urlEncode(queryId.toString()))
                 .build();
         return prependUri(uri, xPrestoPrefixUrl);
     }
@@ -397,10 +397,10 @@ public final class QueryResourceUtil
         UriBuilder uriBuilder = uriInfo.getBaseUriBuilder()
                 .scheme(getScheme(xForwardedProto, uriInfo))
                 .replacePath("/v1/statement/queued")
-                .path(queryId.toString())
-                .path(String.valueOf(token))
+                .path(urlEncode(queryId.toString()))
+                .path(urlEncode(String.valueOf(token)))
                 .replaceQuery("")
-                .queryParam("slug", slug);
+                .queryParam("slug", urlEncode(slug));
         if (binaryResults) {
             uriBuilder.queryParam("binaryResults", "true");
         }
