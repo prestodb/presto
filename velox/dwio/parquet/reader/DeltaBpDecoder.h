@@ -86,6 +86,14 @@ class DeltaBpDecoder {
     return static_cast<int64_t>(totalValuesRemaining_);
   }
 
+  template <typename T>
+  void readValues(T* values, int32_t numValues) {
+    VELOX_DCHECK_LE(numValues, totalValuesRemaining_);
+    for (auto i = 0; i < numValues; i++) {
+      values[i] = T(readLong());
+    }
+  }
+
  private:
   bool getVlqInt(uint64_t& v) {
     uint64_t tmp = 0;

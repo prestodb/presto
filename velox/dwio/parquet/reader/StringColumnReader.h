@@ -31,7 +31,8 @@ class StringColumnReader : public dwio::common::SelectiveColumnReader {
 
   bool hasBulkPath() const override {
     //  Non-dictionary encodings do not have fast path.
-    return scanState_.dictionary.values != nullptr;
+    return !formatData_->as<ParquetData>().isDeltaByteArray() &&
+        scanState_.dictionary.values != nullptr;
   }
 
   void seekToRowGroup(int64_t index) override {

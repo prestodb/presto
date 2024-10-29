@@ -192,6 +192,10 @@ class ParquetData : public dwio::common::FormatData {
     return reader_->isDeltaBinaryPacked();
   }
 
+  bool isDeltaByteArray() const {
+    return reader_->isDeltaByteArray();
+  }
+
   bool parentNullsInLeaves() const override {
     return true;
   }

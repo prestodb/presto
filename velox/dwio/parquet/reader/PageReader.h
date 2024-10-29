@@ -23,6 +23,7 @@
 #include "velox/dwio/common/compression/Compression.h"
 #include "velox/dwio/parquet/reader/BooleanDecoder.h"
 #include "velox/dwio/parquet/reader/DeltaBpDecoder.h"
+#include "velox/dwio/parquet/reader/DeltaByteArrayDecoder.h"
 #include "velox/dwio/parquet/reader/ParquetTypeWithId.h"
 #include "velox/dwio/parquet/reader/RleBpDataDecoder.h"
 #include "velox/dwio/parquet/reader/StringDecoder.h"
@@ -129,6 +130,10 @@ class PageReader {
 
   bool isDeltaBinaryPacked() const {
     return encoding_ == thrift::Encoding::DELTA_BINARY_PACKED;
+  }
+
+  bool isDeltaByteArray() const {
+    return encoding_ == thrift::Encoding::DELTA_BYTE_ARRAY;
   }
 
   /// Returns the range of repdefs for the top level rows covered by the last
@@ -305,6 +310,9 @@ class PageReader {
         nullsFromFastPath = dwio::common::useFastPath<Visitor, true>(visitor);
         auto dictVisitor = visitor.toStringDictionaryColumnVisitor();
         dictionaryIdDecoder_->readWithVisitor<true>(nulls, dictVisitor);
+      } else if (encoding_ == thrift::Encoding::DELTA_BYTE_ARRAY) {
+        nullsFromFastPath = false;
+        deltaByteArrDecoder_->readWithVisitor<true>(nulls, visitor);
       } else {
         nullsFromFastPath = false;
         stringDecoder_->readWithVisitor<true>(nulls, visitor);
@@ -313,6 +321,8 @@ class PageReader {
       if (isDictionary()) {
         auto dictVisitor = visitor.toStringDictionaryColumnVisitor();
         dictionaryIdDecoder_->readWithVisitor<false>(nullptr, dictVisitor);
+      } else if (encoding_ == thrift::Encoding::DELTA_BYTE_ARRAY) {
+        deltaByteArrDecoder_->readWithVisitor<false>(nulls, visitor);
       } else {
         stringDecoder_->readWithVisitor<false>(nulls, visitor);
       }
@@ -489,6 +499,7 @@ class PageReader {
   std::unique_ptr<StringDecoder> stringDecoder_;
   std::unique_ptr<BooleanDecoder> booleanDecoder_;
   std::unique_ptr<DeltaBpDecoder> deltaBpDecoder_;
+  std::unique_ptr<DeltaByteArrayDecoder> deltaByteArrDecoder_;
   // Add decoders for other encodings here.
 };
 
