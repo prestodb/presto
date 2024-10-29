@@ -176,17 +176,9 @@ SessionProperties::SessionProperties() {
       boolToString(c.rowNumberSpillEnabled()));
 
   addSessionProperty(
-      kJoinSpillPartitionBits,
-      "Native Execution only. The number of bits (N) used to calculate the "
-      "spilling partition number for hash join and RowNumber: 2 ^ N",
-      INTEGER(),
-      false,
-      QueryConfig::kJoinSpillPartitionBits,
-      std::to_string(c.rowNumberSpillEnabled()));
-
-  addSessionProperty(
       kSpillerNumPartitionBits,
-      "none",
+      "The number of bits (N) used to calculate the spilling "
+      "partition number for hash join and RowNumber: 2 ^ N",
       TINYINT(),
       false,
       QueryConfig::kSpillNumPartitionBits,

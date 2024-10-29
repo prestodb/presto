@@ -131,11 +131,8 @@ class SessionProperties {
   static constexpr const char* kWriterSpillEnabled =
       "native_writer_spill_enabled";
 
-  /// The number of bits (N) used to calculate the spilling
-  /// partition number for hash join and RowNumber: 2 ^ N
-  static constexpr const char* kJoinSpillPartitionBits =
-      "native_join_spiller_partition_bits";
-
+  /// The number of bits (N) used to calculate the spilling partition number for
+  /// hash join and RowNumber: 2 ^ N
   static constexpr const char* kSpillerNumPartitionBits =
       "native_spiller_num_partition_bits";
 
