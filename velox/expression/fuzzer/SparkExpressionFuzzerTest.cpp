@@ -91,6 +91,7 @@ int main(int argc, char** argv) {
   return FuzzerRunner::run(
       FLAGS_seed,
       skipFunctions,
+      {{}},
       queryConfigs,
       argGenerators,
       referenceQueryRunner);

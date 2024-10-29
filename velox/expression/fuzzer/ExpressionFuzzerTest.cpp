@@ -25,6 +25,7 @@
 #include "velox/functions/prestosql/fuzzer/ModulusArgGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MultiplyArgGenerator.h"
 #include "velox/functions/prestosql/fuzzer/PlusMinusArgGenerator.h"
+#include "velox/functions/prestosql/fuzzer/SortArrayTransformer.h"
 #include "velox/functions/prestosql/fuzzer/TruncateArgGenerator.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
@@ -113,6 +114,13 @@ int main(int argc, char** argv) {
        {"mod", std::make_shared<ModulusArgGenerator>()},
        {"truncate", std::make_shared<TruncateArgGenerator>()}};
 
+  std::unordered_map<std::string, std::shared_ptr<ExprTransformer>>
+      exprTransformers = {
+          {"array_intersect", std::make_shared<SortArrayTransformer>()},
+          {"array_except", std::make_shared<SortArrayTransformer>()},
+          {"map_keys", std::make_shared<SortArrayTransformer>()},
+          {"map_values", std::make_shared<SortArrayTransformer>()}};
+
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
       facebook::velox::memory::memoryManager()->addRootPool()};
   std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
@@ -127,6 +135,7 @@ int main(int argc, char** argv) {
   FuzzerRunner::runFromGtest(
       initialSeed,
       skipFunctions,
+      exprTransformers,
       {{"session_timezone", "America/Los_Angeles"},
        {"adjust_timestamp_to_session_timezone", "true"}},
       argGenerators,

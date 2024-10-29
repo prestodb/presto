@@ -169,6 +169,8 @@ VectorFuzzer::Options getVectorFuzzerOptions() {
 
 ExpressionFuzzer::Options getExpressionFuzzerOptions(
     const std::unordered_set<std::string>& skipFunctions,
+    const std::unordered_map<std::string, std::shared_ptr<ExprTransformer>>&
+        exprTransformers,
     std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner) {
   ExpressionFuzzer::Options opts;
   opts.maxLevelOfNesting = FLAGS_velox_fuzzer_max_level_of_nesting;
@@ -185,11 +187,14 @@ ExpressionFuzzer::Options getExpressionFuzzerOptions(
   opts.useOnlyFunctions = FLAGS_only;
   opts.skipFunctions = skipFunctions;
   opts.referenceQueryRunner = referenceQueryRunner;
+  opts.exprTransformers = exprTransformers;
   return opts;
 }
 
 ExpressionFuzzerVerifier::Options getExpressionFuzzerVerifierOptions(
     const std::unordered_set<std::string>& skipFunctions,
+    const std::unordered_map<std::string, std::shared_ptr<ExprTransformer>>&
+        exprTransformers,
     const std::unordered_map<std::string, std::string>& queryConfigs,
     std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner) {
   ExpressionFuzzerVerifier::Options opts;
@@ -204,8 +209,8 @@ ExpressionFuzzerVerifier::Options getExpressionFuzzerVerifierOptions(
   opts.lazyVectorGenerationRatio = FLAGS_lazy_vector_generation_ratio;
   opts.maxExpressionTreesPerStep = FLAGS_max_expression_trees_per_step;
   opts.vectorFuzzerOptions = getVectorFuzzerOptions();
-  opts.expressionFuzzerOptions =
-      getExpressionFuzzerOptions(skipFunctions, referenceQueryRunner);
+  opts.expressionFuzzerOptions = getExpressionFuzzerOptions(
+      skipFunctions, exprTransformers, referenceQueryRunner);
   opts.queryConfigs = queryConfigs;
   return opts;
 }
@@ -216,12 +221,19 @@ ExpressionFuzzerVerifier::Options getExpressionFuzzerVerifierOptions(
 int FuzzerRunner::run(
     size_t seed,
     const std::unordered_set<std::string>& skipFunctions,
+    const std::unordered_map<std::string, std::shared_ptr<ExprTransformer>>&
+        exprTransformers,
     const std::unordered_map<std::string, std::string>& queryConfigs,
     const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
         argGenerators,
     std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner) {
   runFromGtest(
-      seed, skipFunctions, queryConfigs, argGenerators, referenceQueryRunner);
+      seed,
+      skipFunctions,
+      exprTransformers,
+      queryConfigs,
+      argGenerators,
+      referenceQueryRunner);
   return RUN_ALL_TESTS();
 }
 
@@ -229,6 +241,8 @@ int FuzzerRunner::run(
 void FuzzerRunner::runFromGtest(
     size_t seed,
     const std::unordered_set<std::string>& skipFunctions,
+    const std::unordered_map<std::string, std::shared_ptr<ExprTransformer>>&
+        exprTransformers,
     const std::unordered_map<std::string, std::string>& queryConfigs,
     const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
         argGenerators,
@@ -241,7 +255,7 @@ void FuzzerRunner::runFromGtest(
       signatures,
       seed,
       getExpressionFuzzerVerifierOptions(
-          skipFunctions, queryConfigs, referenceQueryRunner),
+          skipFunctions, exprTransformers, queryConfigs, referenceQueryRunner),
       argGenerators)
       .go();
 }

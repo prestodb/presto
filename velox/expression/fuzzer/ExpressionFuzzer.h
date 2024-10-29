@@ -18,6 +18,7 @@
 
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/exec/fuzzer/ExprTransformer.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/fuzzer/ArgGenerator.h"
@@ -30,6 +31,7 @@
 namespace facebook::velox::fuzzer {
 
 using exec::test::ReferenceQueryRunner;
+using facebook::velox::exec::test::ExprTransformer;
 
 // A tool that can be used to generate random expressions.
 class ExpressionFuzzer {
@@ -100,6 +102,9 @@ class ExpressionFuzzer {
     //   "width_bucket",
     //   "array_sort(array(T),constant function(T,T,bigint)) -> array(T)"}
     std::unordered_set<std::string> skipFunctions;
+
+    std::unordered_map<std::string, std::shared_ptr<ExprTransformer>>
+        exprTransformers;
 
     // When set, when the input size of the generated expressions reaches
     // maxInputsThreshold, fuzzing input columns will reuse one of the existing
