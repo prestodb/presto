@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>102</version>
+        <version>104-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -69,15 +69,16 @@
         <dep.guice.version>6.0.0</dep.guice.version>
         <dep.spotbugs-annotations.version>4.2.2</dep.spotbugs-annotations.version>
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.215</dep.airlift.version>
+        <dep.airlift.version>0.216-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.38</dep.slice.version>
+        <dep.slice.version>0.38-SNAPSHOT</dep.slice.version>
+        <dep.units.version>1.4-SNAPSHOT</dep.units.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.12.560</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>1.38</dep.drift.version>
+        <dep.drift.version>1.40-SNAPSHOT</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.7</dep.joda.version>
@@ -110,7 +111,6 @@
         <dep.plugin.pmd-runtime.version>7.6.0</dep.plugin.pmd-runtime.version>
         <dep.plugin.pmd.version>3.25.0</dep.plugin.pmd.version>
         <dep.plugin.modernizer.version>2.9.0</dep.plugin.modernizer.version>
-
 
         <!--
           America/Bahia_Banderas has:
@@ -237,11 +237,23 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>com.facebook</groupId>
+                <artifactId>slice</artifactId>
+                <version>${dep.slice.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>units</artifactId>
+                <version>${dep.units.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-handler</artifactId>
                 <version>4.1.107.Final</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-testing-docker</artifactId>
@@ -996,12 +1008,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>units</artifactId>
-                <version>1.3</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>concurrent</artifactId>
                 <version>${dep.airlift.version}</version>
@@ -1230,9 +1236,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.resolver</groupId>
+                <groupId>com.facebook.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.4</version>
+                <version>1.7-SNAPSHOT</version>
             </dependency>
 
             <dependency>
