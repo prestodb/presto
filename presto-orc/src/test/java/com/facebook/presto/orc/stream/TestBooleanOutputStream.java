@@ -18,8 +18,8 @@ import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 

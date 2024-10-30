@@ -19,8 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;

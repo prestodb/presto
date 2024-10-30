@@ -20,8 +20,8 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.rcfile.ColumnData;
 import com.facebook.presto.rcfile.EncodeOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 
 import java.math.BigDecimal;
 
@@ -29,7 +29,7 @@ import static com.facebook.presto.common.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.math.RoundingMode.HALF_UP;
 
 public class DecimalEncoding

@@ -19,7 +19,7 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.io.IOException;
 

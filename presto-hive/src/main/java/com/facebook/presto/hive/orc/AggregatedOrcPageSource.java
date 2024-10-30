@@ -28,7 +28,7 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.io.IOException;
 import java.math.BigDecimal;

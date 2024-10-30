@@ -18,10 +18,10 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 
 public final class SessionFunctions
 {

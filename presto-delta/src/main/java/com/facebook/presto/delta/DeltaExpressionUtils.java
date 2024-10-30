@@ -25,7 +25,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.delta.kernel.data.FilteredColumnarBatch;
 import io.delta.kernel.data.Row;
 import io.delta.kernel.internal.InternalScanFileUtils;
@@ -44,7 +44,7 @@ import static com.facebook.presto.delta.DeltaErrorCode.DELTA_INVALID_PARTITION_V
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_UNSUPPORTED_COLUMN_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;

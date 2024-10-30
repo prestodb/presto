@@ -56,7 +56,7 @@ import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
 public class TestRecordingHiveMetastore

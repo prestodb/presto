@@ -49,8 +49,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -76,8 +76,8 @@ import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAG
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;

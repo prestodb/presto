@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.rcfile;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;

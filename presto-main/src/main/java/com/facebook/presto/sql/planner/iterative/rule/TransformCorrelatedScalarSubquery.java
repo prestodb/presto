@@ -30,7 +30,7 @@ import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.util.Optional;
 

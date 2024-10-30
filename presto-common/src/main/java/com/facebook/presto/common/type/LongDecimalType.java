@@ -19,15 +19,15 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.Int128ArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
 import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
 import static com.facebook.presto.common.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.compare;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 
 final class LongDecimalType
         extends DecimalType

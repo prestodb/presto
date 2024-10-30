@@ -40,7 +40,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.util.HashMap;
 import java.util.HashSet;

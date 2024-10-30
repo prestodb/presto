@@ -41,9 +41,9 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 
 import java.io.IOException;
 import java.io.InputStream;

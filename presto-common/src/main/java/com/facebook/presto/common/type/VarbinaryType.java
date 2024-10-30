@@ -16,7 +16,7 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 

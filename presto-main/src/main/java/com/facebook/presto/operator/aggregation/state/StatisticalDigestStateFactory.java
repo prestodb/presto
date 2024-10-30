@@ -19,7 +19,7 @@ import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.operator.aggregation.StatisticalDigest;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.tdigest.TDigest;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.Function;

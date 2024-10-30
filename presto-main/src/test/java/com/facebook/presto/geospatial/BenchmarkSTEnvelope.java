@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.geospatial;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

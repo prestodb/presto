@@ -20,8 +20,8 @@ import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;

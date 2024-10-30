@@ -18,7 +18,7 @@ import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeA
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 public class Int64TimeAndTimestampMicrosPlainValuesDecoder

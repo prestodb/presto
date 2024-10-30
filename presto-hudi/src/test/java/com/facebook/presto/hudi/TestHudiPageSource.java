@@ -14,7 +14,7 @@
 
 package com.facebook.presto.hudi;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.DateType.DATE;

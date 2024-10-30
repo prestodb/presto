@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.rcfile;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.hadoop.io.compress.CodecPool;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionInputStream;

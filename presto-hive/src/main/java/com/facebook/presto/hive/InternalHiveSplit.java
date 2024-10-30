@@ -31,8 +31,8 @@ import java.util.OptionalInt;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static com.facebook.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOfObjectArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 

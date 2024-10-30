@@ -30,7 +30,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNA
 import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.GLUE_EXPRESSION_CHAR_LIMIT;
 import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpressionForSingleDomain;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

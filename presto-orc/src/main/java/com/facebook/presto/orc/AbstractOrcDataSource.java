@@ -14,13 +14,13 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.ChunkedSliceInput;
-import io.airlift.slice.ChunkedSliceInput.BufferReference;
-import io.airlift.slice.ChunkedSliceInput.SliceLoader;
-import io.airlift.slice.FixedLengthSliceInput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.ChunkedSliceInput;
+import com.facebook.slice.ChunkedSliceInput.BufferReference;
+import com.facebook.slice.ChunkedSliceInput.SliceLoader;
+import com.facebook.slice.FixedLengthSliceInput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;

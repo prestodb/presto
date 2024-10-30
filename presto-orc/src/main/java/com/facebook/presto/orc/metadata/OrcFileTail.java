@@ -14,7 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Optional;
 

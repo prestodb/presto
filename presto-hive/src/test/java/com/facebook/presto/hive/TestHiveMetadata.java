@@ -29,7 +29,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.testng.annotations.Test;
 

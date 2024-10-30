@@ -15,13 +15,13 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.type.UuidOperators.castFromVarcharToUuid;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
 public class TestUuidType

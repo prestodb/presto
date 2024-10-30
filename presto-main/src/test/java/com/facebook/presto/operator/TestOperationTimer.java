@@ -14,14 +14,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.XxHash64;
 import org.testng.annotations.Test;
 
 import java.util.Random;
 import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

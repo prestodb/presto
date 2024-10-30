@@ -23,7 +23,7 @@ import java.io.InputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 
 public class Int32RLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder

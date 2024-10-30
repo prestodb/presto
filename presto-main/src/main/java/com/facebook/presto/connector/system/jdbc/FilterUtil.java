@@ -18,7 +18,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Optional;
 

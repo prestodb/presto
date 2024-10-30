@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
+import com.facebook.slice.XxHash64;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
@@ -24,8 +24,8 @@ import java.nio.ByteOrder;
 
 import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
 import static com.facebook.presto.common.type.Decimals.longTenToNth;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Arrays.fill;

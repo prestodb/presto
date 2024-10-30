@@ -23,7 +23,7 @@ import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 

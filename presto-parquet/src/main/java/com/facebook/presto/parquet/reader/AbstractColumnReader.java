@@ -26,7 +26,7 @@ import com.facebook.presto.parquet.ParquetTypeUtils;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.bytes.ByteBufferInputStream;

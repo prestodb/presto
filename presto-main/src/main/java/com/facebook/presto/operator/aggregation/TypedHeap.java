@@ -19,7 +19,7 @@ import com.facebook.presto.common.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 
 public class TypedHeap
 {

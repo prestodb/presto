@@ -38,7 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Comparator;
 import java.util.HashMap;

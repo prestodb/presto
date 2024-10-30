@@ -44,7 +44,7 @@ import static com.facebook.presto.delta.DeltaSessionProperties.PARQUET_DEREFEREN
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 
 /**

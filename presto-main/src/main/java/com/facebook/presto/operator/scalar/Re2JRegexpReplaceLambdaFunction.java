@@ -24,9 +24,9 @@ import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.facebook.presto.type.Re2JRegexp;
 import com.facebook.presto.type.Re2JRegexpType;
 import com.google.re2j.Matcher;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 

@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.page;
 
 import com.facebook.presto.common.io.DataOutput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 
 import static com.facebook.presto.spi.page.PagesSerdeUtil.PAGE_METADATA_SIZE;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;

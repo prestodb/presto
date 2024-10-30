@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -43,7 +43,7 @@ import static com.facebook.presto.operator.scalar.StringFunctions.rightTrim;
 import static com.facebook.presto.operator.scalar.StringFunctions.substr;
 import static com.facebook.presto.operator.scalar.StringFunctions.trim;
 import static com.facebook.presto.operator.scalar.StringFunctions.upper;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
 import static java.lang.Character.getType;

@@ -17,7 +17,7 @@ import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.min;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
@@ -45,7 +45,7 @@ public class ByteArrayUtils
 
     private ByteArrayUtils() {}
 
-    // Adapted from io.airlift.slice.Slice
+    // Adapted from com.facebook.slice.Slice
     public static int compareRanges(byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength)
     {
         long leftAddress = ARRAY_BYTE_BASE_OFFSET + leftOffset;

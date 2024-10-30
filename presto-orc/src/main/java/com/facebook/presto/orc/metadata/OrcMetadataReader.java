@@ -42,8 +42,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.sun.management.ThreadMXBean;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;
@@ -70,8 +70,8 @@ import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatistics
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
-import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
+import static com.facebook.slice.SliceUtf8.lengthOfCodePoint;
+import static com.facebook.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Math.toIntExact;

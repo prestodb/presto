@@ -19,7 +19,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.nio.ByteBuffer;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 
 public class FixedLenByteArrayUuidPlainValuesDecoder

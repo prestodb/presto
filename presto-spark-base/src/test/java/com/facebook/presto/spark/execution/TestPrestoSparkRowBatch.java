@@ -19,7 +19,7 @@ import com.facebook.presto.spark.execution.PrestoSparkRowBatch.PrestoSparkRowBat
 import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowIndex;
 import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowTupleSupplier;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.testng.annotations.Test;
 import scala.Tuple2;

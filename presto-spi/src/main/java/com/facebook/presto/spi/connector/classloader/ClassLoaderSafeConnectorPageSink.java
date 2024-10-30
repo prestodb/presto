@@ -16,7 +16,7 @@ package com.facebook.presto.spi.connector.classloader;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;

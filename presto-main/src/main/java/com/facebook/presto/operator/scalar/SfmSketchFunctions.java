@@ -22,7 +22,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.SfmSketchType;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 public final class SfmSketchFunctions
 {

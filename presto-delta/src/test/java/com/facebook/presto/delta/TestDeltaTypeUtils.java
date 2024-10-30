@@ -15,7 +15,7 @@ package com.facebook.presto.delta;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;

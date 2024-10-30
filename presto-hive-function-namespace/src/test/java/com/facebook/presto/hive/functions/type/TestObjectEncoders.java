@@ -21,7 +21,7 @@ import com.facebook.presto.common.type.TestRowType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.inject.Key;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;

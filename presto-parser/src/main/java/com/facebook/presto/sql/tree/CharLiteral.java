@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.CharMatcher;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public class CharLiteral

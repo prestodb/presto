@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.array;
 
-import io.airlift.slice.SizeOf;
+import com.facebook.slice.SizeOf;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
@@ -22,7 +22,7 @@ import static com.facebook.presto.common.array.BigArrays.INITIAL_SEGMENTS;
 import static com.facebook.presto.common.array.BigArrays.SEGMENT_SIZE;
 import static com.facebook.presto.common.array.BigArrays.offset;
 import static com.facebook.presto.common.array.BigArrays.segment;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static com.facebook.slice.SizeOf.sizeOfIntArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna

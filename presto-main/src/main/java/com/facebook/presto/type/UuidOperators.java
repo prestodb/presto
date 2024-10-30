@@ -25,8 +25,8 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import io.airlift.slice.Slice;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.Slice;
+import com.facebook.slice.XxHash64;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.CAST;
@@ -44,8 +44,8 @@ import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
 import static com.facebook.presto.common.type.UuidType.prestoUuidToJavaUuid;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.util.UUID.randomUUID;
 
 public final class UuidOperators

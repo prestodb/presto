@@ -20,7 +20,7 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.theta.CompactSketch;
 

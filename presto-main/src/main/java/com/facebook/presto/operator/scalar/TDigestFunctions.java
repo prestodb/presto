@@ -26,7 +26,7 @@ import com.facebook.presto.tdigest.Centroid;
 import com.facebook.presto.tdigest.TDigest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;

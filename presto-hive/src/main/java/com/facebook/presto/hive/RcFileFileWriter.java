@@ -26,7 +26,7 @@ import com.facebook.presto.rcfile.RcFileWriter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
-import io.airlift.slice.OutputStreamSliceOutput;
+import com.facebook.slice.OutputStreamSliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 public abstract class Page
 {

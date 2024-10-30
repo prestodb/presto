@@ -20,7 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;
@@ -402,11 +402,11 @@ public interface AccumuloRowSerializer
      * </tr>
      * <tr>
      * <td>VARBINARY</td>
-     * <td>io.airlift.slice.Slice or byte[]</td>
+     * <td>com.facebook.slice.Slice or byte[]</td>
      * </tr>
      * <tr>
      * <td>VARCHAR</td>
-     * <td>io.airlift.slice.Slice or String</td>
+     * <td>com.facebook.slice.Slice or String</td>
      * </tr>
      * </table>
      *

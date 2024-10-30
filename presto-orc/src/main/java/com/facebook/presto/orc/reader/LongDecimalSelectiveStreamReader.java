@@ -20,8 +20,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
-import io.airlift.slice.Slice;
-import io.airlift.slice.UnsafeSlice;
+import com.facebook.slice.Slice;
+import com.facebook.slice.UnsafeSlice;
 
 import java.io.IOException;
 import java.util.Optional;

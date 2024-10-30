@@ -15,7 +15,7 @@ package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import io.airlift.slice.DynamicSliceOutput;
+import com.facebook.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;

@@ -19,9 +19,9 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
+import com.facebook.slice.XxHash64;
 
 import java.util.HashMap;
 import java.util.List;

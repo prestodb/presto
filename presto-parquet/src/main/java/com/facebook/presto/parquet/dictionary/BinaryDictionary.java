@@ -14,7 +14,7 @@
 package com.facebook.presto.parquet.dictionary;
 
 import com.facebook.presto.parquet.DictionaryPage;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.parquet.io.api.Binary;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -22,7 +22,7 @@ import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndian;
 
 public class BinaryDictionary

@@ -47,8 +47,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.sun.management.ThreadMXBean;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.Slice;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;

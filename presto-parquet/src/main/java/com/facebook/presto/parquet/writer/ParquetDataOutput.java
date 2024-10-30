@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.parquet.writer;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 import org.apache.parquet.bytes.BytesInput;
 
 import java.io.IOException;

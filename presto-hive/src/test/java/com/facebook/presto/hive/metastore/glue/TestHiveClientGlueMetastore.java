@@ -86,7 +86,7 @@ import static com.facebook.presto.hive.metastore.glue.PartitionFilterBuilder.DEC
 import static com.facebook.presto.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;

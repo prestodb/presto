@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
-import io.airlift.slice.UnsafeSlice;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
+import com.facebook.slice.UnsafeSlice;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -36,8 +36,8 @@ import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.common.block.BlockUtil.compactSlice;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static com.facebook.slice.SizeOf.sizeOf;
+import static com.facebook.slice.Slices.EMPTY_SLICE;
 import static java.lang.String.format;
 
 /**

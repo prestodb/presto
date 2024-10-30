@@ -16,8 +16,8 @@ package com.facebook.presto.spi;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;

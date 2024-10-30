@@ -27,7 +27,7 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.time.ZoneId;
 import java.util.Map;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.io;
 
-import io.airlift.slice.OutputStreamSliceOutput;
+import com.facebook.slice.OutputStreamSliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;

@@ -28,7 +28,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.UuidOperators.castFromVarcharToUuid;
 import static com.google.common.io.BaseEncoding.base16;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 
 public class TestUuidOperators
         extends AbstractTestFunctions

@@ -21,7 +21,7 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 

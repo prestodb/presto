@@ -18,11 +18,11 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.rcfile.ColumnData;
 import com.facebook.presto.rcfile.EncodeOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
 
 public class ByteEncoding
         implements BinaryColumnEncoding

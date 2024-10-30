@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 /**
  * Reference implementation: https://tools.ietf.org/html/draft-eastlake-fnv-17#section-6

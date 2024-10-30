@@ -19,7 +19,7 @@ import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;

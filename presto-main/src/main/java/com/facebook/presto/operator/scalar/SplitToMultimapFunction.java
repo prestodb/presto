@@ -25,7 +25,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Collection;
 import java.util.Map;

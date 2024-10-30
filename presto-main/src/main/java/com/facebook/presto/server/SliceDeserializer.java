@@ -16,11 +16,11 @@ package com.facebook.presto.server;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.io.IOException;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 
 public class SliceDeserializer
         extends JsonDeserializer<Slice>

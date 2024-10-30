@@ -23,7 +23,7 @@ import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

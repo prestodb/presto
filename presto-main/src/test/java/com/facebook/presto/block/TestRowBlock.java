@@ -38,7 +38,7 @@ import static com.facebook.presto.block.BlockAssertions.createRleBlockWithRandom
 import static com.facebook.presto.common.block.RowBlock.fromFieldBlocks;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Fail.fail;

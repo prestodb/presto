@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.common.io;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 
 import static java.util.Objects.requireNonNull;
 

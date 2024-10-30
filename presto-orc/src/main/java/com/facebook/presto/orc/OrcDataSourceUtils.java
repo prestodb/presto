@@ -14,8 +14,8 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.util.ArrayList;

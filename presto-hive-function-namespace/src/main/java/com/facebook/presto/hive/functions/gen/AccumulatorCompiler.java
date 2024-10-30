@@ -43,7 +43,7 @@ import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
 import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.function.aggregation.LambdaProvider;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;

@@ -28,7 +28,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

@@ -33,7 +33,7 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.slice.InputStreamSliceInput;
+import com.facebook.slice.InputStreamSliceInput;
 
 import javax.annotation.concurrent.NotThreadSafe;
 

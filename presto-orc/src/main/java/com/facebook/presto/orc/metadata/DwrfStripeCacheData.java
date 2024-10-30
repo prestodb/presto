@@ -14,7 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;

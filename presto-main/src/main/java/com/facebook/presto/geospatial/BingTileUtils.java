@@ -22,7 +22,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;

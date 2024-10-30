@@ -15,11 +15,11 @@ package com.facebook.presto.operator.aggregation.noisyaggregation;
 
 import com.facebook.presto.operator.aggregation.state.InitialBooleanValue;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.slice.SizeOf.SIZE_OF_DOUBLE;
 
 /**
  * State class for noisy sum and noisy avg aggregations.

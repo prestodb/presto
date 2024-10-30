@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.execution.buffer.ThriftBufferResult.fromBufferResult;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static com.facebook.slice.Slices.EMPTY_SLICE;
 import static org.testng.Assert.assertEquals;
 
 public class TestThriftBufferResult

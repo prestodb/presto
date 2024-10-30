@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation.noisyaggregation;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.operator.aggregation.noisyaggregation.sketch.SfmSketch;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 

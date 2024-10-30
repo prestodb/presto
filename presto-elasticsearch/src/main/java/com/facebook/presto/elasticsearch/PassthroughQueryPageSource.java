@@ -20,7 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.io.IOException;
 

@@ -26,8 +26,8 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import io.airlift.slice.Slice;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.Slice;
+import com.facebook.slice.XxHash64;
 import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
@@ -52,8 +52,8 @@ import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
-import static io.airlift.slice.SliceUtf8.trim;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.SliceUtf8.trim;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.Math.floorDiv;
 
 public final class TimestampOperators

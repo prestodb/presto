@@ -16,7 +16,7 @@ package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.type.Type;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

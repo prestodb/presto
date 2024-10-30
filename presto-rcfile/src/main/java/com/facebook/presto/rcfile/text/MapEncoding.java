@@ -19,8 +19,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.rcfile.RcFileCorruptionException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 
 public class MapEncoding
         extends BlockEncoding

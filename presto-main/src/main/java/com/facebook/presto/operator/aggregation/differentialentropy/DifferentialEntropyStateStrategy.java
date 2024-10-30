@@ -15,9 +15,9 @@ package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.slice.SizeOf;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SizeOf;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Verify.verify;

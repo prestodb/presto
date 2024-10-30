@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.array;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -35,10 +35,10 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.slice.Slices.wrappedDoubleArray;
-import static io.airlift.slice.Slices.wrappedIntArray;
-import static io.airlift.slice.Slices.wrappedLongArray;
+import static com.facebook.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.wrappedDoubleArray;
+import static com.facebook.slice.Slices.wrappedIntArray;
+import static com.facebook.slice.Slices.wrappedLongArray;
 
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(4)

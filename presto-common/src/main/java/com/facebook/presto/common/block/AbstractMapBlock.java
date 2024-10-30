@@ -14,7 +14,7 @@
 
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -37,7 +37,7 @@ import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange
 import static com.facebook.presto.common.block.MapBlock.createMapBlockInternal;
 import static com.facebook.presto.common.block.MapBlockBuilder.buildHashTable;
 import static com.facebook.presto.common.block.MapBlockBuilder.verify;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

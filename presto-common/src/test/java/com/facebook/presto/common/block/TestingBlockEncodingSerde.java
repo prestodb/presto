@@ -14,8 +14,8 @@
 package com.facebook.presto.common.block;
 
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
 
 import java.util.Optional;
 import java.util.Set;

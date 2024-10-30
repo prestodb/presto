@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.common.type;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.Chars.byteCountWithoutTrailingSpace;
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

@@ -16,13 +16,13 @@ package com.facebook.presto.parquet;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.zstd.ZstdCompressor;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.LZ4;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.ZSTD;
 import static org.testng.Assert.assertEquals;

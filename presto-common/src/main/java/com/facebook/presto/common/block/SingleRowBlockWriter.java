@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.OptionalInt;

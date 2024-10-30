@@ -31,8 +31,8 @@ import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.reader.ColumnChunk;
 import com.facebook.presto.parquet.reader.PageReader;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.openjdk.jol.info.ClassLayout;
 

@@ -18,8 +18,8 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;

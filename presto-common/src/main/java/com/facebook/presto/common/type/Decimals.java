@@ -15,7 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

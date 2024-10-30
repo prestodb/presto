@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -26,10 +26,10 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_SHORT;
 import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;

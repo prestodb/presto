@@ -20,7 +20,7 @@ import com.facebook.presto.parquet.DataPageV2;
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.cache.MetadataReader;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.crypto.AesCipher;
@@ -47,8 +47,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetEncoding;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.SizeOf.sizeOf;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetColumnChunk

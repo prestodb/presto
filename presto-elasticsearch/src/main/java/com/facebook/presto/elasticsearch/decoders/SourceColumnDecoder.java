@@ -14,7 +14,7 @@
 package com.facebook.presto.elasticsearch.decoders;
 
 import com.facebook.presto.common.block.BlockBuilder;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;

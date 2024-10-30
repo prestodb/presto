@@ -45,7 +45,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.TDigestFunctions.TDIGEST_CENTROIDS_ROW_TYPE;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.sort;

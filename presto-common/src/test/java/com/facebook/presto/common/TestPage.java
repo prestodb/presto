@@ -18,8 +18,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.block.VariableWidthBlock;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.UUID;

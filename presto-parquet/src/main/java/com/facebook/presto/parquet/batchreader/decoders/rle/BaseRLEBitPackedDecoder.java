@@ -25,7 +25,7 @@ import java.io.InputStream;
 import static com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder.Mode.PACKED;
 import static com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder.Mode.RLE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.Math.ceil;
 import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndianPaddedOnBitWidth;
 import static org.apache.parquet.bytes.BytesUtils.readUnsignedVarInt;

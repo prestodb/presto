@@ -31,8 +31,8 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.Slice;
+import com.facebook.slice.XxHash64;
 
 import java.math.BigInteger;
 import java.util.List;

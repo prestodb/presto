@@ -22,7 +22,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

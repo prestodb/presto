@@ -44,7 +44,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.HashSet;
 import java.util.Map;

@@ -15,7 +15,7 @@ package com.facebook.presto.decoder.util;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Map;
 

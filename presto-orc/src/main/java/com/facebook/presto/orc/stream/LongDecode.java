@@ -15,7 +15,7 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 
 import java.io.IOException;
 

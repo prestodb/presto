@@ -17,7 +17,7 @@ import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
 import org.testng.annotations.Test;
 

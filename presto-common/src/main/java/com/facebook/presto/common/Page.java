@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;

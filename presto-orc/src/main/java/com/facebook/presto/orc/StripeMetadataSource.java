@@ -20,7 +20,7 @@ import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.stream.OrcInputStream;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.rcfile;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 import org.apache.hadoop.io.WritableUtils;
 import org.testng.annotations.Test;
 

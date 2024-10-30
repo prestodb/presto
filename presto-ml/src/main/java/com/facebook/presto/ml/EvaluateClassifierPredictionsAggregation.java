@@ -22,8 +22,8 @@ import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.util.Locale;
 import java.util.Map;
@@ -31,7 +31,7 @@ import java.util.Set;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Sets.union;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
 import static java.lang.String.format;
 
 @AggregationFunction("evaluate_classifier_predictions")

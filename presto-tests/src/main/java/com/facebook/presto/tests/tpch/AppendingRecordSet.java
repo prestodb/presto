@@ -18,7 +18,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;

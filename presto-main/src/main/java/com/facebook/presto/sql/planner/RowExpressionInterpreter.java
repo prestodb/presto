@@ -48,7 +48,7 @@ import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.joni.Regex;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -112,7 +112,7 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;

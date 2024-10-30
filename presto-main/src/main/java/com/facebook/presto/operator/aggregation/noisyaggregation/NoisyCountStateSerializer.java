@@ -17,9 +17,9 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 

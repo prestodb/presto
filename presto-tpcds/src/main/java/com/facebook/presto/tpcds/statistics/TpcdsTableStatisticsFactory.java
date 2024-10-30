@@ -26,7 +26,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.tpcds.TpcdsColumnHandle;
 import com.teradata.tpcds.Table;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.time.LocalDate;
 import java.util.List;

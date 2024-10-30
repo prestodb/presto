@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.security;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 public interface TokenAuthenticator
 {

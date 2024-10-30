@@ -18,10 +18,10 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.XxHash64;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
@@ -32,7 +32,7 @@ import static com.facebook.presto.orc.writer.SegmentedSliceBlockBuilder.Segments
 import static com.facebook.presto.orc.writer.SegmentedSliceBlockBuilder.Segments.SEGMENT_SIZE;
 import static com.facebook.presto.orc.writer.SegmentedSliceBlockBuilder.Segments.offset;
 import static com.facebook.presto.orc.writer.SegmentedSliceBlockBuilder.Segments.segment;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 
 /**

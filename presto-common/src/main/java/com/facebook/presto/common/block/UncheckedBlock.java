@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 /**
  * Accessors for Block which provide for raw indexing into the underlying data structure of the Block.

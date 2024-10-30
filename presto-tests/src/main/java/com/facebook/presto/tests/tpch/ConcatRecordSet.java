@@ -135,7 +135,7 @@ class ConcatRecordSet
         }
 
         @Override
-        public io.airlift.slice.Slice getSlice(int field)
+        public com.facebook.slice.Slice getSlice(int field)
         {
             checkState(!closed);
             checkPositionIndex(field, types.size());

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.geospatial;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -38,7 +38,7 @@ import static com.facebook.presto.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.geospatial.GeometryBenchmarkUtils.createCirclePolygon;
 import static com.facebook.presto.geospatial.GeometryBenchmarkUtils.loadPolygon;
 import static com.facebook.presto.geospatial.SphericalGeoFunctions.toSphericalGeography;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
 @State(Scope.Thread)

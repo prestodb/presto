@@ -21,7 +21,7 @@ import com.facebook.presto.grpc.udf.GrpcUdfPageFormat;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.protobuf.ByteString;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.util.Optional;
 

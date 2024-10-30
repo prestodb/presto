@@ -16,7 +16,7 @@ package com.facebook.presto.parquet.batchreader.decoders.plain;
 import com.facebook.presto.parquet.batchreader.SimpleSliceInputStream;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.ShortDecimalValuesDecoder;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.openjdk.jol.info.ClassLayout;
 

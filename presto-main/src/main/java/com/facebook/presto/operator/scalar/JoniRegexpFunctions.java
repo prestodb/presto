@@ -29,10 +29,10 @@ import io.airlift.joni.Matcher;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Region;
 import io.airlift.joni.exception.ValueException;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;

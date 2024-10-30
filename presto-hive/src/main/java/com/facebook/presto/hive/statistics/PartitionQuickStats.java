@@ -19,7 +19,7 @@ import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.time.LocalDate;
 import java.time.chrono.ChronoLocalDate;

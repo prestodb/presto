@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import static java.lang.Long.rotateLeft;
 

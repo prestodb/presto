@@ -98,7 +98,7 @@ public class PluginManager
             .add("com.facebook.presto.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("com.fasterxml.jackson.module.afterburner.")
-            .add("io.airlift.slice.")
+            .add("com.facebook.slice.")
             .add("io.airlift.units.")
             .add("org.openjdk.jol.")
             .add("com.facebook.presto.common")

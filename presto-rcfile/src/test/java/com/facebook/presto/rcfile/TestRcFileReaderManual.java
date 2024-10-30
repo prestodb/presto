@@ -17,9 +17,9 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
@@ -28,7 +28,7 @@ import java.util.List;
 
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;

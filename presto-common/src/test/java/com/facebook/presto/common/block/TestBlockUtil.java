@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.SliceTooLargeException;
+import com.facebook.slice.SliceTooLargeException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.block.BlockUtil.MAX_ARRAY_SIZE;

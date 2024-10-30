@@ -17,7 +17,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.parquet.io.api.Binary;
 
 import static com.facebook.presto.common.type.Chars.isCharType;
@@ -25,8 +25,8 @@ import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpace
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.parquet.batchreader.BytesUtils.getLongBigEndian;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.EMPTY_SLICE;
+import static com.facebook.slice.Slices.wrappedBuffer;
 
 public class BinaryColumnReader
         extends AbstractColumnReader

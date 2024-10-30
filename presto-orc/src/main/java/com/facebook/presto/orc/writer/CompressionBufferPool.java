@@ -17,7 +17,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public interface CompressionBufferPool

@@ -16,7 +16,7 @@ package com.facebook.presto.bytecode;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.expression.CastBytecodeExpression;
 import com.facebook.presto.bytecode.instruction.InvokeInstruction;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.lang.reflect.Method;
 import java.util.Collections;

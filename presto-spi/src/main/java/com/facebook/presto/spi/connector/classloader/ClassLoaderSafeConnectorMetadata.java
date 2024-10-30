@@ -51,7 +51,7 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;

@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleBreakdownHistogram;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
 
 import java.util.Map;
 

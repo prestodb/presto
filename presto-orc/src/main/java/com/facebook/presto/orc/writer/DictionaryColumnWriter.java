@@ -32,7 +32,7 @@ import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -50,7 +50,7 @@ import static com.facebook.presto.orc.stream.LongOutputStream.createDataOutputSt
 import static com.facebook.presto.orc.writer.ColumnWriterUtils.buildRowGroupIndexes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;

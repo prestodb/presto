@@ -31,11 +31,11 @@
 
 package com.facebook.presto.tdigest;
 
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -55,11 +55,11 @@ import static com.facebook.presto.tdigest.TDigestUtils.reverse;
 import static com.facebook.presto.tdigest.TDigestUtils.sort;
 import static com.facebook.presto.tdigest.TDigestUtils.weightedAverage;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.wrappedDoubleArray;
+import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.slice.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.sizeOf;
+import static com.facebook.slice.Slices.wrappedDoubleArray;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.ceil;
 import static java.lang.Math.max;

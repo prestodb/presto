@@ -56,7 +56,7 @@ import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;

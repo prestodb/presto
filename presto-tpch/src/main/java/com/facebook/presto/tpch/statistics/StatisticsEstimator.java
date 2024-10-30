@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tpch.statistics;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchTable;
 

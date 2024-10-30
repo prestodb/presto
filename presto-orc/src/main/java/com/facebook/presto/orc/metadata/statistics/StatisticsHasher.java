@@ -15,7 +15,7 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;

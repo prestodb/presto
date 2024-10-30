@@ -18,7 +18,7 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.commons.codec.binary.Hex;
 
 import java.math.BigDecimal;

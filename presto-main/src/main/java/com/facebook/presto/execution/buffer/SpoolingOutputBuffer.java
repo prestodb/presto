@@ -33,8 +33,8 @@ import com.google.common.collect.Range;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.slice.InputStreamSliceInput;
-import io.airlift.slice.SliceInput;
+import com.facebook.slice.InputStreamSliceInput;
+import com.facebook.slice.SliceInput;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;

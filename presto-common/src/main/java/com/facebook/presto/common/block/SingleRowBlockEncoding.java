@@ -14,8 +14,8 @@
 
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
 
 public class SingleRowBlockEncoding
         implements BlockEncoding

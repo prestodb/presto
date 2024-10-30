@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.parquet.batchreader;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 

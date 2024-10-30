@@ -24,7 +24,7 @@ import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.IntegerOperators;
 import com.facebook.presto.type.VarcharOperators;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.apache.commons.math3.util.Precision;
 
 import java.util.function.BiFunction;

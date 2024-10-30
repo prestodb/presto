@@ -23,7 +23,7 @@ import com.facebook.presto.common.block.MapBlockBuilder;
 import com.facebook.presto.common.block.SingleMapBlock;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.MapType;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -48,7 +48,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

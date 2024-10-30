@@ -19,10 +19,10 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 
 import java.io.IOException;
 import java.util.Base64;

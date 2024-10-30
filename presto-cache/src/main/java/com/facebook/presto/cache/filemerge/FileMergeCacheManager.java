@@ -30,7 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 

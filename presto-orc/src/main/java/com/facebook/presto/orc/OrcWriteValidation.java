@@ -49,9 +49,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
+import com.facebook.slice.XxHash64;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;

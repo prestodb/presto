@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.orc.stream;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.slice.UnsafeSlice.getIntUnchecked;
-import static io.airlift.slice.UnsafeSlice.getLongUnchecked;
-import static io.airlift.slice.UnsafeSlice.getShortUnchecked;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.UnsafeSlice.getIntUnchecked;
+import static com.facebook.slice.UnsafeSlice.getLongUnchecked;
+import static com.facebook.slice.UnsafeSlice.getShortUnchecked;
 
 public final class LongBitPacker
 {

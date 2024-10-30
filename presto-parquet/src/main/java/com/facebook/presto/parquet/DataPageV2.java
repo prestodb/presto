@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.parquet.column.statistics.Statistics;
 import org.openjdk.jol.info.ClassLayout;
 

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.stream;
 
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

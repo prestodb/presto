@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.fixedhistogram;
 
-import io.airlift.slice.SizeOf;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.SizeOf;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;

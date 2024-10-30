@@ -23,8 +23,8 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.Re2JRegexp;
 import com.facebook.presto.type.Re2JRegexpType;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 public final class Re2JRegexpFunctions
 {

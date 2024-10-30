@@ -24,8 +24,8 @@ import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchAggregationS
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.apache.datasketches.common.ArrayOfDoublesSerDe;
 import org.apache.datasketches.kll.KllItemsSketch;
 import org.apache.datasketches.memory.WritableMemory;

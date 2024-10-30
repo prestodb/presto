@@ -14,7 +14,7 @@
 package com.facebook.presto.geospatial.serde;
 
 import com.google.common.base.Joiner;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;

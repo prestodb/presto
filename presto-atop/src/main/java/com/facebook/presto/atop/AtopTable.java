@@ -18,7 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.util.Arrays;
 import java.util.List;

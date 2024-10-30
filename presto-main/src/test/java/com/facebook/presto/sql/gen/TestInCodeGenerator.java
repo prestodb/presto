@@ -16,7 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;

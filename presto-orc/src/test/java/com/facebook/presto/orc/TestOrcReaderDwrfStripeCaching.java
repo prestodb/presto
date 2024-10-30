@@ -18,7 +18,7 @@ import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfStripeCache;
 import com.facebook.presto.orc.proto.DwrfProto;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 

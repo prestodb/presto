@@ -25,9 +25,9 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
 import com.google.common.collect.AbstractIterator;
-import io.airlift.slice.InputStreamSliceInput;
-import io.airlift.slice.OutputStreamSliceOutput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.InputStreamSliceInput;
+import com.facebook.slice.OutputStreamSliceOutput;
+import com.facebook.slice.SliceOutput;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;

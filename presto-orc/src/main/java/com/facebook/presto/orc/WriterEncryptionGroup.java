@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.List;
 

@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public final class AtopPageSourceProvider

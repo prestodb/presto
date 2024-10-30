@@ -22,7 +22,7 @@ import org.apache.hadoop.fs.Path;
 import java.io.IOException;
 
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 public final class FileMergeCachingInputStream

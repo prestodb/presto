@@ -35,7 +35,7 @@ import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.VerifyException;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.iceberg.expressions.Expression;
 
 import java.math.BigDecimal;

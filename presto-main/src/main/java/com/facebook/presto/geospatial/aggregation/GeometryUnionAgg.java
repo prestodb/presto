@@ -23,7 +23,7 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY_TYPE_NAME;

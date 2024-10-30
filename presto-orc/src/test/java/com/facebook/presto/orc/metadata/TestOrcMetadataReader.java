@@ -18,9 +18,9 @@ import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.OrcProto;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -31,10 +31,10 @@ import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTrunca
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
-import static io.airlift.slice.SliceUtf8.codePointToUtf8;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.SliceUtf8.codePointToUtf8;
+import static com.facebook.slice.Slices.EMPTY_SLICE;
+import static com.facebook.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MAX_SURROGATE;
 import static java.lang.Character.MIN_CODE_POINT;

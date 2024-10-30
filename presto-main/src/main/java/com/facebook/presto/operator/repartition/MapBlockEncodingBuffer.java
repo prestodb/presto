@@ -30,7 +30,7 @@ package com.facebook.presto.operator.repartition;
 import com.facebook.presto.common.block.ArrayAllocator;
 import com.facebook.presto.common.block.ColumnarMap;
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.common.array.Arrays.ExpansionFactor.LARGE;
@@ -41,8 +41,8 @@ import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.MoreByteArrays.setInts;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_INT_INDEX_SCALE;
 

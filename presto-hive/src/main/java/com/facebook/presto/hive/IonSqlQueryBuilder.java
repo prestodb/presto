@@ -24,7 +24,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.s3select.S3SelectDataType;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.util.ArrayList;

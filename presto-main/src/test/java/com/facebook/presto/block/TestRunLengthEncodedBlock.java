@@ -22,7 +22,7 @@ import com.facebook.presto.common.block.RunLengthBlockEncoding;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.ShortArrayBlockBuilder;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

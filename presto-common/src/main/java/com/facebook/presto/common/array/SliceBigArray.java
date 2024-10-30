@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.array;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 public final class SliceBigArray

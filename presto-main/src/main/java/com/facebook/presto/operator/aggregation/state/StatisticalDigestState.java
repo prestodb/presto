@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.operator.aggregation.StatisticalDigest;
 import com.facebook.presto.spi.function.AccumulatorState;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 public interface StatisticalDigestState<T>
         extends AccumulatorState

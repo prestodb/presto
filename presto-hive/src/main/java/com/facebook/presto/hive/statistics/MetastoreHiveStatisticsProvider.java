@@ -45,7 +45,7 @@ import com.google.common.hash.HashFunction;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

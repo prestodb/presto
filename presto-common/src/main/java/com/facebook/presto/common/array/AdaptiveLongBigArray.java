@@ -17,8 +17,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.SizeOf.sizeOfLongArray;
+import static com.facebook.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOfLongArray;
 
 /**
  * This variation of BigArray is designed to expand segments up to some reasonable extend

@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.airlift.stats.QuantileDigest;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.tdigest.TDigest;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;

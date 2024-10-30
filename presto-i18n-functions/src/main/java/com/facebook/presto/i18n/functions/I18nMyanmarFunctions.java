@@ -19,9 +19,9 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.myanmartools.TransliterateZ2U;
 import com.google.myanmartools.ZawgyiDetector;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 
 public final class I18nMyanmarFunctions
 {

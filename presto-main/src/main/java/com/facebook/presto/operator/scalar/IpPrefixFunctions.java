@@ -22,7 +22,7 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.net.InetAddresses;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.math.BigInteger;
 import java.net.InetAddress;
@@ -42,8 +42,8 @@ import static com.facebook.presto.type.IpPrefixOperators.castFromIpPrefixToIpAdd
 import static com.facebook.presto.type.IpPrefixOperators.castFromVarcharToIpPrefix;
 import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.System.arraycopy;

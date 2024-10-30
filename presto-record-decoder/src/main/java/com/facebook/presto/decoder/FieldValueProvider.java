@@ -15,7 +15,7 @@ package com.facebook.presto.decoder;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 /**
  * Base class for all providers that return values for a selected column.

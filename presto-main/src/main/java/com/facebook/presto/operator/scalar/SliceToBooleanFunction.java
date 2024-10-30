@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 @FunctionalInterface
 public interface SliceToBooleanFunction

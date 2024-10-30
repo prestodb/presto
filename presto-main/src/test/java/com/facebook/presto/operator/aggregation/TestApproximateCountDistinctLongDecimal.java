@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.util.concurrent.ThreadLocalRandom;
 

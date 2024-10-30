@@ -19,7 +19,7 @@ import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.GroupedAccumulatorState;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import libsvm.svm_parameter;
 import org.openjdk.jol.info.ClassLayout;
 

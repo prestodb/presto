@@ -27,9 +27,9 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.slice.InputStreamSliceInput;
-import io.airlift.slice.OutputStreamSliceOutput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.InputStreamSliceInput;
+import com.facebook.slice.OutputStreamSliceOutput;
+import com.facebook.slice.SliceOutput;
 
 import javax.annotation.concurrent.NotThreadSafe;
 

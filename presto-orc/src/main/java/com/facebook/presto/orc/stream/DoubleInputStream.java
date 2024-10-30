@@ -19,7 +19,7 @@ import com.facebook.presto.orc.checkpoint.DoubleStreamCheckpoint;
 
 import java.io.IOException;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public class DoubleInputStream
         implements ValueInputStream<DoubleStreamCheckpoint>

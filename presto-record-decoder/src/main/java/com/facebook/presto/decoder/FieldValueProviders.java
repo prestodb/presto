@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.decoder;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.wrappedBuffer;
 
 /**
  * Simple value providers implementations

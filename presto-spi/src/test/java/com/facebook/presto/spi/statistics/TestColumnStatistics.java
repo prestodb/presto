@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static org.testng.Assert.assertEquals;
 
 public class TestColumnStatistics

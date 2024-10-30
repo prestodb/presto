@@ -36,7 +36,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.util.HashMap;
 import java.util.HashSet;

@@ -15,13 +15,13 @@
 package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.block.AbstractMapBlock.HashTables;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
 
 import java.util.Optional;
 
 import static com.facebook.presto.common.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static io.airlift.slice.Slices.wrappedIntArray;
+import static com.facebook.slice.Slices.wrappedIntArray;
 import static java.lang.String.format;
 
 public class SingleMapBlockEncoding

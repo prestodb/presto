@@ -33,7 +33,7 @@ import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplem
 import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.facebook.presto.testing.AggregationTestUtils;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static com.facebook.slice.SizeOf.sizeOfObjectArray;
 import static java.util.Objects.requireNonNull;
 
 /**

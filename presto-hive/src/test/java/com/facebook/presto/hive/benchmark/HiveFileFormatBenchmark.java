@@ -27,7 +27,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import io.airlift.tpch.OrderColumn;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchEntity;

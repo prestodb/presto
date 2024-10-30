@@ -18,7 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 
 public class TimestampPlainValuesDecoder
         implements TimestampValuesDecoder

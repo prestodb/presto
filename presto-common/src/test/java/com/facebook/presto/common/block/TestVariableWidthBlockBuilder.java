@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -23,9 +23,9 @@ import java.util.List;
 import java.util.Random;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.sizeOf;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.Math.ceil;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.openjdk.jol.info.ClassLayout.parseClass;

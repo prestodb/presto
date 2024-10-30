@@ -23,8 +23,8 @@ import com.facebook.presto.common.type.AbstractPrimitiveType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.google.common.net.InetAddresses;
-import io.airlift.slice.Slice;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.Slice;
+import com.facebook.slice.XxHash64;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;

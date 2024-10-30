@@ -20,9 +20,9 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 
 @Description("textual representation of expression type")
 @ScalarFunction(value = "typeof", calledOnNullInput = true)

@@ -25,9 +25,9 @@ import com.facebook.presto.orc.stream.OrcInputStream;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.io.IOException;
 import java.util.List;

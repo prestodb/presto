@@ -16,12 +16,12 @@ package com.facebook.presto.block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.IntArrayBlockBuilder;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

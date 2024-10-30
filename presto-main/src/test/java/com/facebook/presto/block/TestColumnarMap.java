@@ -21,8 +21,8 @@ import com.facebook.presto.common.block.MapBlockBuilder;
 import com.facebook.presto.common.block.MethodHandleUtil;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.SingleMapBlockWriter;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;

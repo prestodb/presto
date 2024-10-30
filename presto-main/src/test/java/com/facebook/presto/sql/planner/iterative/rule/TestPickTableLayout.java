@@ -40,7 +40,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constr
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.relational.Expressions.variable;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 
 public class TestPickTableLayout
         extends BaseRuleTest

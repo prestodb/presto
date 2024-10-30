@@ -17,8 +17,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.google.common.io.BaseEncoding;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Base64;

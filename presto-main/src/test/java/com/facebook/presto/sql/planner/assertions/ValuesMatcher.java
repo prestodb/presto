@@ -30,7 +30,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.List;
 import java.util.Map;

@@ -17,7 +17,7 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.TestingHiveOrcAggregatedMemoryContext;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

@@ -19,7 +19,7 @@ import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
 
 import java.io.IOException;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
+import static com.facebook.slice.SizeOf.SIZE_OF_FLOAT;
 import static java.lang.Float.floatToRawIntBits;
 
 public class FloatInputStream

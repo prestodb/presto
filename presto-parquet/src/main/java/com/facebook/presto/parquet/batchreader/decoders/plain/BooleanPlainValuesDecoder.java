@@ -18,7 +18,7 @@ import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BooleanVal
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 
 public class BooleanPlainValuesDecoder
         implements BooleanValuesDecoder

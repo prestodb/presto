@@ -17,7 +17,7 @@ import com.facebook.presto.accumulo.Types;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;

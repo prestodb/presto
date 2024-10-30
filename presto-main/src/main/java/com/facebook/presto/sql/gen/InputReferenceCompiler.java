@@ -32,7 +32,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;

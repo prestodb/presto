@@ -24,8 +24,8 @@ import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.google.common.base.Joiner;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.io.IOException;
 import java.util.List;
@@ -35,7 +35,7 @@ import static com.facebook.presto.orc.OrcDataSourceUtils.EXPECTED_FOOTER_SIZE_IN
 import static com.facebook.presto.orc.OrcReader.validateWrite;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 

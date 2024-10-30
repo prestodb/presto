@@ -22,7 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 import java.io.InputStream;
 
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 
 public class RepetitionLevelDecoder
         extends BaseRLEBitPackedDecoder

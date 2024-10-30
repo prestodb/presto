@@ -18,7 +18,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractVariableWidthType;
 import com.facebook.presto.common.type.TypeSignature;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
 

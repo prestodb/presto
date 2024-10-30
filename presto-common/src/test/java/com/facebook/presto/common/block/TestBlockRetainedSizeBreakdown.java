@@ -14,7 +14,7 @@
 package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.type.Type;
-import io.airlift.slice.DynamicSliceOutput;
+import com.facebook.slice.DynamicSliceOutput;
 import it.unimi.dsi.fastutil.Hash.Strategy;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenCustomHashMap;
 import org.testng.annotations.Test;

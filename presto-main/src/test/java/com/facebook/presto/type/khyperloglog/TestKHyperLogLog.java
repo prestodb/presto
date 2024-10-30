@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.type.khyperloglog;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import org.testng.annotations.Test;
 
@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.LongStream;
 
-import static io.airlift.slice.testing.SliceAssertions.assertSlicesEqual;
+import static com.facebook.slice.testing.SliceAssertions.assertSlicesEqual;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

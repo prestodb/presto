@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.noisyaggregation.sketch;
 
-import io.airlift.slice.SizeOf;
-import io.airlift.slice.SliceInput;
+import com.facebook.slice.SizeOf;
+import com.facebook.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.BitSet;

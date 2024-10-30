@@ -15,7 +15,7 @@
 package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.type.Type;
-import io.airlift.slice.SliceInput;
+import com.facebook.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -26,7 +26,7 @@ import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.common.block.RowBlock.createRowBlockInternal;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

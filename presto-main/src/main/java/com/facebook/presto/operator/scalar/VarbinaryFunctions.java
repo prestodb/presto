@@ -22,10 +22,10 @@ import com.facebook.presto.spi.function.SqlType;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.airlift.slice.SpookyHashV2;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
+import com.facebook.slice.SpookyHashV2;
+import com.facebook.slice.XxHash64;
 
 import java.util.Base64;
 import java.util.zip.CRC32;
@@ -33,7 +33,7 @@ import java.util.zip.CRC32;
 import static com.facebook.presto.operator.scalar.HmacFunctions.computeHash;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static com.facebook.slice.Slices.EMPTY_SLICE;
 
 public final class VarbinaryFunctions
 {

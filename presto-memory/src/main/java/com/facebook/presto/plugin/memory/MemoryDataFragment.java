@@ -17,8 +17,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.google.common.base.Preconditions.checkArgument;

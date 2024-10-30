@@ -18,7 +18,7 @@ import com.facebook.presto.druid.DruidClient;
 import com.facebook.presto.druid.DruidConfig;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.hadoop.fs.Path;
 
 import java.util.ArrayList;

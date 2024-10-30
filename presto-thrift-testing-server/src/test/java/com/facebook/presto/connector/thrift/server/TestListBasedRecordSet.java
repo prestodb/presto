@@ -15,7 +15,7 @@ package com.facebook.presto.connector.thrift.server;
 
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;

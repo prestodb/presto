@@ -84,7 +84,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import javax.inject.Inject;
 

@@ -19,9 +19,9 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceUtf8;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceUtf8;
+import com.facebook.slice.Slices;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,9 +31,9 @@ import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpace
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.SliceUtf8.getCodePointAt;
-import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
-import static io.airlift.slice.SliceUtf8.setCodePointAt;
+import static com.facebook.slice.SliceUtf8.getCodePointAt;
+import static com.facebook.slice.SliceUtf8.lengthOfCodePoint;
+import static com.facebook.slice.SliceUtf8.setCodePointAt;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 

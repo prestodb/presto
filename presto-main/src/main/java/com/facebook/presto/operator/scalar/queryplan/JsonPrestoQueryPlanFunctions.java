@@ -32,7 +32,7 @@ import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.planner.planPrinter.JsonRenderer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,7 +47,7 @@ import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.planPrinter.JsonRenderer.JsonRenderedNode;
 import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 
 public final class JsonPrestoQueryPlanFunctions
 {

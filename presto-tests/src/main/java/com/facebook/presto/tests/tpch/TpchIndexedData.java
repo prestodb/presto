@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.airlift.tpch.TpchTable;
 
 import java.util.ArrayList;

@@ -22,7 +22,7 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlParameter;
 import com.facebook.presto.spi.function.SqlParameters;
 import com.facebook.presto.spi.function.SqlType;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 public final class CustomFunctions
 {

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 
 import java.io.IOException;
 import java.util.List;

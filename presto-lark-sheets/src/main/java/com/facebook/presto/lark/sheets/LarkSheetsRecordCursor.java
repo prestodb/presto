@@ -18,8 +18,8 @@ import com.facebook.presto.lark.sheets.api.LarkSheetsApi;
 import com.facebook.presto.lark.sheets.api.SheetValues;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.util.Iterator;
 import java.util.List;

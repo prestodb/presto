@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.common.array;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.SizeOf.sizeOf;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

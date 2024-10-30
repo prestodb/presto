@@ -15,7 +15,7 @@ package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.common.io.DataOutput;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
+import com.facebook.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 
 import java.util.ArrayList;

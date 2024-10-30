@@ -16,8 +16,8 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.math.BigDecimal;
 import java.util.LinkedList;

@@ -15,7 +15,7 @@ package com.facebook.presto.common.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnarRow

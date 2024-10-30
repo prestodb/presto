@@ -16,14 +16,14 @@ package com.facebook.presto.hive.pagefile;
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 
 import java.util.List;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

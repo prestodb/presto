@@ -42,7 +42,7 @@ import static com.facebook.presto.hive.HiveErrorCode.MALFORMED_HIVE_FILE_STATIST
 import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 

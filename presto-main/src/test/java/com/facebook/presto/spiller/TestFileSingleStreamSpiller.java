@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.slice.InputStreamSliceInput;
+import com.facebook.slice.InputStreamSliceInput;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

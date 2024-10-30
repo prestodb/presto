@@ -19,10 +19,10 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.noisyaggregation.sketch.SfmSketch;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.SizeOf;
-import io.airlift.slice.Slice;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.SizeOf;
+import com.facebook.slice.Slice;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 

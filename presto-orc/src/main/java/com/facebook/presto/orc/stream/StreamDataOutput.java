@@ -15,8 +15,8 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.orc.metadata.Stream;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 
 import java.util.function.ToLongFunction;
 

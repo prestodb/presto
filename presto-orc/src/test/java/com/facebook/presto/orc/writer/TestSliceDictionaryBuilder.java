@@ -14,13 +14,13 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.VariableWidthBlock;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertEquals;
 
 public class TestSliceDictionaryBuilder

@@ -16,7 +16,7 @@ package com.facebook.presto.orc;
 import io.airlift.compress.MalformedInputException;
 import io.airlift.compress.snappy.SnappyDecompressor;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Objects.requireNonNull;
 
 class OrcSnappyDecompressor

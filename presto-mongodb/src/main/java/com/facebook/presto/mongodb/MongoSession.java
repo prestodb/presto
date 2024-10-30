@@ -48,7 +48,7 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.DeleteResult;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;

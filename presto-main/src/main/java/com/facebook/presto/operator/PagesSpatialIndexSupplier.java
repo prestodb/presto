@@ -26,7 +26,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.PagesRTreeIndex.GeometryWithPosition;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;

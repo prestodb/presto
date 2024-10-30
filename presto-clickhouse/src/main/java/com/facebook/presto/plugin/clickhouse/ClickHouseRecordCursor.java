@@ -19,7 +19,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.VerifyException;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

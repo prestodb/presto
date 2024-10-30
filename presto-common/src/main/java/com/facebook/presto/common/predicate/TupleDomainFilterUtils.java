@@ -30,7 +30,7 @@ import com.facebook.presto.common.predicate.TupleDomainFilter.OldFloatRange;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -49,7 +49,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;

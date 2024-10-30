@@ -27,8 +27,8 @@ import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.MessageLite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 
 import java.io.IOException;
 import java.io.OutputStream;

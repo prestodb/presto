@@ -18,14 +18,14 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
 
 public class DigestAndPercentileStateSerializer
         implements AccumulatorStateSerializer<DigestAndPercentileState>

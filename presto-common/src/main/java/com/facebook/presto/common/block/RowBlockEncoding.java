@@ -14,11 +14,11 @@
 
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
 
 import static com.facebook.presto.common.block.RowBlock.createRowBlockInternal;
-import static io.airlift.slice.Slices.wrappedIntArray;
+import static com.facebook.slice.Slices.wrappedIntArray;
 
 public class RowBlockEncoding
         implements BlockEncoding

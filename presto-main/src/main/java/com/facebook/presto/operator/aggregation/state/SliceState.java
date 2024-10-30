@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorState;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 public interface SliceState
         extends AccumulatorState

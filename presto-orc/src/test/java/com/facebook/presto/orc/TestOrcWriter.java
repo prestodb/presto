@@ -28,7 +28,7 @@ import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactor
 import com.facebook.presto.orc.writer.StreamLayoutFactory.StreamSizeLayoutFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import io.airlift.units.DataSize;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

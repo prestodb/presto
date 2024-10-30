@@ -14,7 +14,7 @@
 package com.facebook.presto.rcfile;
 
 import com.facebook.presto.common.block.Block;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 
 public interface ColumnEncoding
 {

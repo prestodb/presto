@@ -19,8 +19,8 @@ import org.testng.annotations.Test;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
-import static io.airlift.slice.SizeOf.sizeOfByteArray;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static com.facebook.slice.SizeOf.sizeOfByteArray;
+import static com.facebook.slice.SizeOf.sizeOfIntArray;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 

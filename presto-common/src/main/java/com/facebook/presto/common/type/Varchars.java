@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.common.type;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
-import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
+import static com.facebook.slice.SliceUtf8.offsetOfCodePoint;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 

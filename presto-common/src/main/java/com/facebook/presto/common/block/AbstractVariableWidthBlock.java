@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
+import com.facebook.slice.XxHash64;
 
 import static com.facebook.presto.common.block.BlockUtil.checkValidPosition;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static com.facebook.slice.Slices.EMPTY_SLICE;
 
 public abstract class AbstractVariableWidthBlock
         implements Block

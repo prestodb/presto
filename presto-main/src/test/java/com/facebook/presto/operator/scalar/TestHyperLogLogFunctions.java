@@ -17,7 +17,7 @@ import com.facebook.airlift.stats.cardinality.HyperLogLog;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.List;

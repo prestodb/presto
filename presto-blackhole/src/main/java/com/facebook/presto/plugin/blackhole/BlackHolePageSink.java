@@ -17,7 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.airlift.units.Duration;
 
 import java.util.Collection;

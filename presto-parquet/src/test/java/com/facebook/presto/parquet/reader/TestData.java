@@ -15,15 +15,15 @@ package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.type.Decimals;
 import com.google.common.primitives.Longs;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.util.Random;
 import java.util.function.IntFunction;
 
 import static com.facebook.presto.parquet.batchreader.BytesUtils.propagateSignBit;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.toIntExact;
 
 public final class TestData

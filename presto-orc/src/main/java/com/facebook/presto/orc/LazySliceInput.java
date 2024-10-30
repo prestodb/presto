@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.slice.FixedLengthSliceInput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
+import com.facebook.slice.FixedLengthSliceInput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;

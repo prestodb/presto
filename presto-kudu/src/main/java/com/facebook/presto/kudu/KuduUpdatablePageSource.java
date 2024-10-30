@@ -17,7 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.UpdatablePageSource;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.Delete;
 import org.apache.kudu.client.KeyEncoderAccessor;

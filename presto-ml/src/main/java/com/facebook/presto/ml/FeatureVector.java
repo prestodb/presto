@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableSortedMap;
 import java.util.Map;
 import java.util.SortedMap;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 
 public class FeatureVector
 {

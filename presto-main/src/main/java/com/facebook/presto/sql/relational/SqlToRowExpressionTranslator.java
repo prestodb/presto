@@ -97,7 +97,7 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -164,8 +164,8 @@ import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnon
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.SliceUtf8.countCodePoints;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

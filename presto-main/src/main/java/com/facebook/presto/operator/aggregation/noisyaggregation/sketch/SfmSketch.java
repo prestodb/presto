@@ -15,11 +15,11 @@ package com.facebook.presto.operator.aggregation.noisyaggregation.sketch;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Murmur3Hash128;
-import io.airlift.slice.SizeOf;
-import io.airlift.slice.Slice;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Murmur3Hash128;
+import com.facebook.slice.SizeOf;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;

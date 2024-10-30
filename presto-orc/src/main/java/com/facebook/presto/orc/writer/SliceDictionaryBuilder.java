@@ -16,7 +16,7 @@ package com.facebook.presto.orc.writer;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.array.IntBigArray;
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;

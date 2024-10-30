@@ -14,7 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.StripeReader.StripeId;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Map;
 import java.util.Optional;

@@ -22,7 +22,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.function.Supplier;
 

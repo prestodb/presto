@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
@@ -31,7 +31,7 @@ import static com.facebook.presto.common.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

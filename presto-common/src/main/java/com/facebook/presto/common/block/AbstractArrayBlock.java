@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 
 import javax.annotation.Nullable;
 

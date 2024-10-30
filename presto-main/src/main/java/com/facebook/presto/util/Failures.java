@@ -30,7 +30,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.airlift.slice.SliceTooLargeException;
+import com.facebook.slice.SliceTooLargeException;
 
 import javax.annotation.Nullable;
 

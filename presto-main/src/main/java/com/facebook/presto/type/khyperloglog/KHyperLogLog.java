@@ -16,11 +16,11 @@ package com.facebook.presto.type.khyperloglog;
 
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
 import com.google.common.collect.Sets;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Murmur3Hash128;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Murmur3Hash128;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.Long2DoubleMap;
@@ -41,11 +41,11 @@ import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.slice.Slices.wrappedIntArray;
-import static io.airlift.slice.Slices.wrappedLongArray;
+import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.Slices.wrappedIntArray;
+import static com.facebook.slice.Slices.wrappedLongArray;
 import static java.util.Objects.requireNonNull;
 
 /**

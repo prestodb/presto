@@ -16,10 +16,10 @@ package com.facebook.presto.spi.page;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.spi.spiller.SpillCipher;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -33,7 +33,7 @@ import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.computeSerializedPageChecksum;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readRawPage;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeRawPage;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;

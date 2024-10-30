@@ -35,7 +35,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;

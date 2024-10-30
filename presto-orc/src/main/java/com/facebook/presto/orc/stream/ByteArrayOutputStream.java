@@ -21,7 +21,7 @@ import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;

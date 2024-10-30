@@ -24,7 +24,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock.jsonData;
 import static com.facebook.presto.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

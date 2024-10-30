@@ -17,12 +17,12 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

@@ -18,10 +18,10 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleHistogram;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import io.airlift.slice.SizeOf;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.SizeOf;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;

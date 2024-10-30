@@ -38,7 +38,7 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveTableLayoutHandle.canonicalizeDomainPredicate;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

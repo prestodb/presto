@@ -24,7 +24,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import java.math.BigInteger;
 
 import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 
 public final class ShortDecimalType
         extends DecimalType

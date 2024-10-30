@@ -14,7 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.common.type.Type;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.io.Closeable;
 

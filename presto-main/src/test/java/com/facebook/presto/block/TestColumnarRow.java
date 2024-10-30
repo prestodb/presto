@@ -20,8 +20,8 @@ import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.RowBlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Array;

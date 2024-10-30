@@ -16,8 +16,8 @@ package com.facebook.presto.parquet.reader;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
@@ -31,7 +31,7 @@ import org.apache.parquet.schema.Types;
 import java.util.Random;
 
 import static com.facebook.presto.parquet.reader.TestData.randomBigInteger;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 
 public class BenchmarkLongDecimalColumnReader

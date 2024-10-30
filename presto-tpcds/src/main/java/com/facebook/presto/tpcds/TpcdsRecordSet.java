@@ -23,8 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.teradata.tpcds.Results;
 import com.teradata.tpcds.column.Column;
 import com.teradata.tpcds.column.ColumnType;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.time.LocalDate;
 import java.time.LocalTime;

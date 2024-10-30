@@ -42,7 +42,7 @@ import static com.facebook.presto.cache.TestingCacheUtils.stressTest;
 import static com.facebook.presto.cache.TestingCacheUtils.validateBuffer;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;

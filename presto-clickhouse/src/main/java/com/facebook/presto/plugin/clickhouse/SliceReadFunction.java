@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

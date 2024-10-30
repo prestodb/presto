@@ -26,7 +26,7 @@ import com.facebook.presto.geospatial.rtree.Flatbush;
 import com.facebook.presto.geospatial.rtree.HasExtent;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 

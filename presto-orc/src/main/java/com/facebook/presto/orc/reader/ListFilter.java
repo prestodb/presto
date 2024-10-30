@@ -30,7 +30,7 @@ import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL
 import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.reader.HierarchicalFilter.createHierarchicalFilter;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.Long.numberOfTrailingZeros;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

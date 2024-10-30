@@ -21,7 +21,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 

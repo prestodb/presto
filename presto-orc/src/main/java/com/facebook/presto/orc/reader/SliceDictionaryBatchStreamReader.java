@@ -26,7 +26,7 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthInputStream;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -49,8 +49,8 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMis
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.getRowGroupDictionaryLengthMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.SizeOf.sizeOf;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

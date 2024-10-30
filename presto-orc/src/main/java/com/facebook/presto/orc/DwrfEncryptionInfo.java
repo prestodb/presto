@@ -17,7 +17,7 @@ import com.facebook.presto.orc.metadata.OrcType;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.HashMap;
 import java.util.List;

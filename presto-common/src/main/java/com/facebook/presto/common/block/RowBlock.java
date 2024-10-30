@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.ensureBlocksAreLoaded;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

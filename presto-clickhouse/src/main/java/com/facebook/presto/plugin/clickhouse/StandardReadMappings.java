@@ -48,8 +48,8 @@ import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERR
 import static com.facebook.presto.plugin.clickhouse.DateTimeUtil.getMillisOfDay;
 import static com.facebook.presto.plugin.clickhouse.ReadMapping.longReadMapping;
 import static com.facebook.presto.plugin.clickhouse.ReadMapping.sliceReadMapping;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;

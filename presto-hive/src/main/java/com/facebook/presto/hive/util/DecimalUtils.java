@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 
 import java.math.BigInteger;

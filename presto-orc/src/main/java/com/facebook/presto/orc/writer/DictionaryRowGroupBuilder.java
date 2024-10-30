@@ -21,7 +21,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 
 /**
  * DictionaryRowGroupBuilder is used for building the row group indexes in DictionaryColumnWriter.

@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceTooLargeException;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceTooLargeException;
+import com.facebook.slice.Slices;
 
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.ceil;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;

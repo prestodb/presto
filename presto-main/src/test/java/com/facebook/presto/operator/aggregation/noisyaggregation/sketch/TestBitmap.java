@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.noisyaggregation.sketch;
 
-import io.airlift.slice.SizeOf;
+import com.facebook.slice.SizeOf;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.rcfile;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 public final class ColumnData
 {

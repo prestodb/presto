@@ -14,8 +14,8 @@
 package com.facebook.presto.common.type;
 
 import com.google.common.primitives.Bytes;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -45,9 +45,9 @@ import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.toUns
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.slice.Slices.wrappedIntArray;
-import static io.airlift.slice.Slices.wrappedLongArray;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.Slices.wrappedIntArray;
+import static com.facebook.slice.Slices.wrappedLongArray;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

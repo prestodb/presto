@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 public class TestMergeQuantileDigestFunction

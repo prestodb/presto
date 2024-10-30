@@ -16,8 +16,8 @@ package com.facebook.presto.hive.pagefile;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
-import io.airlift.slice.InputStreamSliceInput;
-import io.airlift.slice.SliceInput;
+import com.facebook.slice.InputStreamSliceInput;
+import com.facebook.slice.SliceInput;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;

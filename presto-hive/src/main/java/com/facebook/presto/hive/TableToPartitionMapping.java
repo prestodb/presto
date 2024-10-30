@@ -25,7 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static com.facebook.slice.SizeOf.sizeOfObjectArray;
 import static java.util.Objects.requireNonNull;
 
 public class TableToPartitionMapping

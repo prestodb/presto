@@ -24,7 +24,7 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Comparator;
 import java.util.List;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.geospatial;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public enum GeometryType

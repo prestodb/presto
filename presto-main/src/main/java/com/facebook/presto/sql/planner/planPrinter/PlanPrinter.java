@@ -112,7 +112,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;

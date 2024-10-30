@@ -29,7 +29,7 @@ import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.util.Failures.internalError;
 import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.util.Objects.requireNonNull;
 

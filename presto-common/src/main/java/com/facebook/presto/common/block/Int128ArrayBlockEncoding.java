@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.common.block;
 
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 
 import static com.facebook.presto.common.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.common.block.EncoderUtil.encodeNullsAsBits;

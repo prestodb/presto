@@ -19,8 +19,8 @@ import static com.facebook.presto.common.array.AdaptiveLongBigArray.INITIAL_SEGM
 import static com.facebook.presto.common.array.AdaptiveLongBigArray.INITIAL_SEGMENT_LENGTH;
 import static com.facebook.presto.common.array.AdaptiveLongBigArray.MAX_SEGMENT_LENGTH;
 import static com.facebook.presto.common.array.AdaptiveLongBigArray.MAX_SEGMENT_SIZE_IN_BYTES;
-import static io.airlift.slice.SizeOf.sizeOfLongArray;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static com.facebook.slice.SizeOf.sizeOfLongArray;
+import static com.facebook.slice.SizeOf.sizeOfObjectArray;
 import static org.testng.Assert.assertEquals;
 
 public class TestAdaptiveLongBigArray

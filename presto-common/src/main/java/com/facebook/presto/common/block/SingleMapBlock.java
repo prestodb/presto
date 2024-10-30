@@ -16,7 +16,7 @@ package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.NotSupportedException;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -28,7 +28,7 @@ import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.AbstractMapBlock.HASH_MULTIPLIER;
 import static com.facebook.presto.common.block.MapBlockBuilder.computePosition;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static com.facebook.slice.SizeOf.sizeOfIntArray;
 import static java.lang.String.format;
 
 public class SingleMapBlock

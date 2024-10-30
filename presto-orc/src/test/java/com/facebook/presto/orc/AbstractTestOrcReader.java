@@ -36,7 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;

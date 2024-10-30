@@ -15,8 +15,8 @@ package com.facebook.presto.sql.tree;
 
 import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.io.BaseEncoding;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.util.Objects;
 import java.util.Optional;

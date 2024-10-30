@@ -28,14 +28,14 @@ import com.facebook.presto.common.predicate.TupleDomainFilter.MultiRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.OldDoubleRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.OldFloatRange;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

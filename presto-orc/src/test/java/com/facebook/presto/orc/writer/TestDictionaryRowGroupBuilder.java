@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import java.util.Random;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.util.Arrays.fill;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

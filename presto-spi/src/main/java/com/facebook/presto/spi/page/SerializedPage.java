@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.page;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;

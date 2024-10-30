@@ -14,9 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.google.common.primitives.Booleans;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

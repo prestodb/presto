@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.util;
 
-import io.airlift.slice.XxHash64;
+import com.facebook.slice.XxHash64;
 
 import static java.lang.Long.toHexString;
 import static java.nio.charset.StandardCharsets.UTF_8;

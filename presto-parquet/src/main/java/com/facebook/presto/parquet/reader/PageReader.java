@@ -17,7 +17,7 @@ import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DataPageV1;
 import com.facebook.presto.parquet.DataPageV2;
 import com.facebook.presto.parquet.DictionaryPage;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.parquet.crypto.AesCipher;
 import org.apache.parquet.crypto.ModuleCipherFactory;
 import org.apache.parquet.format.BlockCipher;
@@ -30,8 +30,8 @@ import java.util.Iterator;
 import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetCompressionUtils.decompress;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.SizeOf.sizeOf;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 
 public class PageReader

@@ -62,7 +62,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.HashSet;
 import java.util.List;

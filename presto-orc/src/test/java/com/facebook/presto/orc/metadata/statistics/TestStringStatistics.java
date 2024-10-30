@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
-import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.EMPTY_SLICE;
+import static com.facebook.slice.Slices.utf8Slice;
 
 public class TestStringStatistics
         extends AbstractRangeStatisticsTest<StringStatistics, Slice>

@@ -25,7 +25,7 @@ import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempDataSink;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;
-import io.airlift.slice.InputStreamSliceInput;
+import com.facebook.slice.InputStreamSliceInput;
 
 import java.io.IOException;
 import java.io.InputStream;

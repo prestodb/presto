@@ -26,8 +26,8 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.InputStreamSliceInput;
-import io.airlift.slice.SliceInput;
+import com.facebook.slice.InputStreamSliceInput;
+import com.facebook.slice.SliceInput;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.ThreadSafe;

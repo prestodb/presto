@@ -20,7 +20,7 @@ import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -32,8 +32,8 @@ import static com.facebook.presto.block.BlockAssertions.createRandomDictionaryBl
 import static com.facebook.presto.block.BlockAssertions.createRandomLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;

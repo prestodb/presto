@@ -15,9 +15,9 @@ package com.facebook.presto.redis.decoder.hash;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 
 class HashRedisValueProvider
         extends FieldValueProvider

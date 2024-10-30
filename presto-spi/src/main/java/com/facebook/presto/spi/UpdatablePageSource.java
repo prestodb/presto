@@ -15,7 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;

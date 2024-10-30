@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 public interface SliceBooleanState
         extends TwoNullableValueState

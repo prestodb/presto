@@ -23,7 +23,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.mongodb.client.MongoCursor;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
@@ -51,8 +51,8 @@ import static com.facebook.presto.mongodb.TypeUtils.isRowType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static com.facebook.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static java.util.stream.Collectors.toList;
 
 public class MongoPageSource

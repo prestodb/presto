@@ -21,7 +21,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.io.IOException;
 import java.util.List;

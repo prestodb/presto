@@ -38,7 +38,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.time.Instant;
 import java.time.LocalDate;

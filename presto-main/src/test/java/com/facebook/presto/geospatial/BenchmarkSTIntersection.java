@@ -15,7 +15,7 @@ package com.facebook.presto.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -40,7 +40,7 @@ import static com.facebook.presto.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.geospatial.GeoFunctions.stIntersection;
 import static com.facebook.presto.geospatial.GeometryBenchmarkUtils.loadPolygon;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 
 @State(Scope.Thread)
 @Fork(3)

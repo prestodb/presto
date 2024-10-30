@@ -31,7 +31,7 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 import io.airlift.units.DataSize;
 
 import java.util.List;

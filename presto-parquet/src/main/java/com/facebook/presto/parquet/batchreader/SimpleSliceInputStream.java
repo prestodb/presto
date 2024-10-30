@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.parquet.batchreader;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.UnsafeSlice;
+import com.facebook.slice.Slice;
+import com.facebook.slice.UnsafeSlice;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.ml;
 
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.ml.TestUtils.getDataset;

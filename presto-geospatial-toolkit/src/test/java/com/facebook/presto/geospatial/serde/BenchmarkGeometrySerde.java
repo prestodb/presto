@@ -15,7 +15,7 @@ package com.facebook.presto.geospatial.serde;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.base.Joiner;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

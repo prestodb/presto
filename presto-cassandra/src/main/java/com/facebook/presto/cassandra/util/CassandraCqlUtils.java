@@ -21,7 +21,7 @@ import com.facebook.presto.cassandra.CassandraTableHandle;
 import com.facebook.presto.cassandra.CassandraType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Arrays;
 import java.util.HashSet;

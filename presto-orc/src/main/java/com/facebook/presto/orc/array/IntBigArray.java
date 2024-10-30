@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.array;
 
-import io.airlift.slice.SizeOf;
+import com.facebook.slice.SizeOf;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
@@ -22,7 +22,7 @@ import static com.facebook.presto.orc.array.BigArrays.INITIAL_SEGMENTS;
 import static com.facebook.presto.orc.array.BigArrays.SEGMENT_SIZE;
 import static com.facebook.presto.orc.array.BigArrays.offset;
 import static com.facebook.presto.orc.array.BigArrays.segment;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static com.facebook.slice.SizeOf.sizeOfIntArray;
 
 /**
  * This class is a copy of IntBigArray.java in presto-array module.

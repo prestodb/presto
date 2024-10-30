@@ -19,9 +19,9 @@ import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 import io.lettuce.core.codec.RedisCodec;
 
 import java.nio.ByteBuffer;

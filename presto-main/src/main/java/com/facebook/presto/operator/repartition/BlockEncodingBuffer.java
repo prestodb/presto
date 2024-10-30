@@ -14,7 +14,7 @@
 
 package com.facebook.presto.operator.repartition;
 
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 
 public interface BlockEncodingBuffer
 {

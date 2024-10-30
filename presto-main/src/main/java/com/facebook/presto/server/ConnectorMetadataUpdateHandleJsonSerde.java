@@ -19,7 +19,7 @@ import com.facebook.presto.spi.ConnectorTypeSerde;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 

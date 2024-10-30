@@ -15,11 +15,11 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.common.array.LongBigArray;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 
 public class LongDecimalWithOverflowAndLongStateFactory
         implements AccumulatorStateFactory<LongDecimalWithOverflowAndLongState>

@@ -15,7 +15,7 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 /**
  * A window index contains the sorted values for a window partition.

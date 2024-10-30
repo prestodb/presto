@@ -16,7 +16,7 @@ package com.facebook.presto.hive.functions.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 
 import java.math.BigDecimal;

@@ -22,7 +22,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import javax.annotation.Nullable;
 

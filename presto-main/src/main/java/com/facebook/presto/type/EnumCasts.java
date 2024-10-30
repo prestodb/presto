@@ -22,7 +22,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;

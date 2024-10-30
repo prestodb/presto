@@ -16,8 +16,8 @@ package com.facebook.presto.thrift.api.datatypes;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.common.type.Type;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import javax.annotation.Nullable;
 

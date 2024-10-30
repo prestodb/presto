@@ -15,7 +15,7 @@
 package com.facebook.presto.tpcds;
 
 import com.facebook.presto.spi.statistics.Estimate;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Optional;
 

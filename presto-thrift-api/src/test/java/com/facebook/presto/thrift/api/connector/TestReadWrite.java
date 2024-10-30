@@ -23,7 +23,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;

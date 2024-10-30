@@ -14,7 +14,7 @@
 package com.facebook.presto.cache;
 
 import com.facebook.presto.hive.CacheQuota;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import javax.annotation.concurrent.ThreadSafe;
 

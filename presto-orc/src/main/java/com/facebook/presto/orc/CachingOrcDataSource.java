@@ -15,7 +15,7 @@ package com.facebook.presto.orc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 
 import java.io.IOException;
 import java.util.Map;

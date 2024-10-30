@@ -47,7 +47,7 @@ import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.facebook.slice.Slices.utf8Slice;
 import static io.airlift.tpch.CustomerColumn.MARKET_SEGMENT;
 import static io.airlift.tpch.CustomerColumn.NAME;
 import static io.airlift.tpch.LineItemColumn.LINE_NUMBER;

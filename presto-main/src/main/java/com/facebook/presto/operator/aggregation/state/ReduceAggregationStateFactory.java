@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 public class ReduceAggregationStateFactory

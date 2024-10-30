@@ -15,7 +15,7 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 
 import java.util.Optional;
 

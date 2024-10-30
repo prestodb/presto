@@ -15,7 +15,7 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.SliceTooLargeException;
+import com.facebook.slice.SliceTooLargeException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;

@@ -22,8 +22,8 @@ import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.Slice;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;

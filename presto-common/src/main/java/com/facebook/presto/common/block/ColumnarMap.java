@@ -17,7 +17,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnarMap

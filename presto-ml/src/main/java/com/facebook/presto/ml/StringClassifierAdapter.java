@@ -15,10 +15,10 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.ml.type.ModelType;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.BasicSliceInput;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import java.util.HashMap;
 import java.util.Map;

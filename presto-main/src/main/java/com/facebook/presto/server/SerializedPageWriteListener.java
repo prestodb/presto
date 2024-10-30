@@ -15,7 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.page.SerializedPage;
-import io.airlift.slice.SliceOutput;
+import com.facebook.slice.SliceOutput;
 
 import javax.servlet.AsyncContext;
 import javax.servlet.ServletOutputStream;
@@ -28,7 +28,7 @@ import java.util.List;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.PAGE_METADATA_SIZE;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPageMetadata;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.Slices.allocate;
+import static com.facebook.slice.Slices.allocate;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 

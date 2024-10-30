@@ -39,7 +39,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;

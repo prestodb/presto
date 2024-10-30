@@ -15,13 +15,13 @@ package com.facebook.presto.parquet.batchreader.decoders.delta;
 
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.LongDecimalValuesDecoder;
-import io.airlift.slice.Slice;
+import com.facebook.slice.Slice;
 import org.apache.parquet.column.values.ValuesReader;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigInteger;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Objects.requireNonNull;
 
 /**

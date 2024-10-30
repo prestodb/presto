@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.parquet.reader;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;

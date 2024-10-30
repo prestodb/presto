@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.common.type;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 
 import static com.facebook.presto.common.type.Varchars.byteCount;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
-import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static com.facebook.slice.SliceUtf8.countCodePoints;
 import static java.util.Objects.requireNonNull;
 
 public final class Chars

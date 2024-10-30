@@ -15,7 +15,7 @@
 package com.facebook.presto.operator;
 
 import com.google.common.primitives.Bytes;
-import io.airlift.slice.ByteArrays;
+import com.facebook.slice.ByteArrays;
 import org.testng.annotations.Test;
 
 import java.util.List;

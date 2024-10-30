@@ -15,10 +15,10 @@ package com.facebook.presto.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Doubles;
-import io.airlift.slice.SizeOf;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.Slices;
+import com.facebook.slice.SizeOf;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceInput;
+import com.facebook.slice.Slices;
 import it.unimi.dsi.fastutil.Arrays;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;

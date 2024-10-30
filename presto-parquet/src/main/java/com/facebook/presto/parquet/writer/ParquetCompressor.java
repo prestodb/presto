@@ -16,7 +16,7 @@ package com.facebook.presto.parquet.writer;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
 import io.airlift.compress.zstd.ZstdCompressor;
-import io.airlift.slice.Slices;
+import com.facebook.slice.Slices;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
