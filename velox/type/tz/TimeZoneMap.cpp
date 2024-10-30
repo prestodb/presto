@@ -267,6 +267,38 @@ date::zoned_time<TDuration> getZonedTime(
       : date::choose::latest;
   return date::zoned_time{tz, timestamp, dateChoose};
 }
+
+template <typename TDuration>
+TDuration toSysImpl(
+    const TDuration& timestamp,
+    const TimeZone::TChoose choose,
+    const date::time_zone* tz,
+    const std::chrono::minutes offset) {
+  date::local_time<TDuration> timePoint{timestamp};
+  validateRange(date::sys_time<TDuration>{timestamp});
+
+  if (tz == nullptr) {
+    // We can ignore `choose` as time offset conversions are always linear.
+    return (timePoint - offset).time_since_epoch();
+  }
+
+  return getZonedTime(tz, timePoint, choose).get_sys_time().time_since_epoch();
+}
+
+template <typename TDuration>
+TDuration toLocalImpl(
+    const TDuration& timestamp,
+    const date::time_zone* tz,
+    const std::chrono::minutes offset) {
+  date::sys_time<TDuration> timePoint{timestamp};
+  validateRange(timePoint);
+
+  // If this is an offset time zone.
+  if (tz == nullptr) {
+    return (timePoint + offset).time_since_epoch();
+  }
+  return date::zoned_time{tz, timePoint}.get_local_time().time_since_epoch();
+}
 } // namespace
 
 void validateRange(time_point<std::chrono::seconds> timePoint) {
@@ -354,26 +386,22 @@ int16_t getTimeZoneID(int32_t offsetMinutes) {
 TimeZone::seconds TimeZone::to_sys(
     TimeZone::seconds timestamp,
     TimeZone::TChoose choose) const {
-  date::local_seconds timePoint{timestamp};
-  validateRange(date::sys_seconds{timestamp});
+  return toSysImpl(timestamp, choose, tz_, offset_);
+}
 
-  if (tz_ == nullptr) {
-    // We can ignore `choose` as time offset conversions are always linear.
-    return (timePoint - offset_).time_since_epoch();
-  }
-
-  return getZonedTime(tz_, timePoint, choose).get_sys_time().time_since_epoch();
+TimeZone::milliseconds TimeZone::to_sys(
+    TimeZone::milliseconds timestamp,
+    TimeZone::TChoose choose) const {
+  return toSysImpl(timestamp, choose, tz_, offset_);
 }
 
 TimeZone::seconds TimeZone::to_local(TimeZone::seconds timestamp) const {
-  date::sys_seconds timePoint{timestamp};
-  validateRange(timePoint);
+  return toLocalImpl(timestamp, tz_, offset_);
+}
 
-  // If this is an offset time zone.
-  if (tz_ == nullptr) {
-    return (timePoint + offset_).time_since_epoch();
-  }
-  return date::zoned_time{tz_, timePoint}.get_local_time().time_since_epoch();
+TimeZone::milliseconds TimeZone::to_local(
+    TimeZone::milliseconds timestamp) const {
+  return toLocalImpl(timestamp, tz_, offset_);
 }
 
 std::string TimeZone::getShortName(

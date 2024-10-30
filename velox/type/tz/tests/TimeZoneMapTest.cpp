@@ -124,12 +124,12 @@ TEST(TimeZoneMapTest, timePointBoundary) {
 
   auto trySysYear = [&](year y) {
     auto date = year_month_day(y, month(1), day(1));
-    return tz->to_sys(sys_days{date}.time_since_epoch());
+    return tz->to_sys(seconds(sys_days{date}.time_since_epoch()));
   };
 
   auto tryLocalYear = [&](year y) {
     auto date = year_month_day(y, month(1), day(1));
-    return tz->to_local(sys_days{date}.time_since_epoch());
+    return tz->to_local(seconds(sys_days{date}.time_since_epoch()));
   };
 
   EXPECT_NO_THROW(trySysYear(year(0)));

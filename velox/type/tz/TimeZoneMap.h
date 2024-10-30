@@ -133,12 +133,15 @@ class TimeZone {
   };
 
   seconds to_sys(seconds timestamp, TChoose choose = TChoose::kFail) const;
+  milliseconds to_sys(milliseconds timestamp, TChoose choose = TChoose::kFail)
+      const;
 
   /// Do the opposite conversion. Taking a system time (the time as perceived in
   /// GMT), convert to the same instant in time as observed in the user local
   /// time represented by this object). Note that this conversion is not
   /// susceptible to the error above.
   seconds to_local(seconds timestamp) const;
+  milliseconds to_local(milliseconds timestamp) const;
 
   const std::string& name() const {
     return timeZoneName_;

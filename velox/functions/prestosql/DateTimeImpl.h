@@ -23,6 +23,7 @@
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/TimestampConversion.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -221,9 +222,37 @@ FOLLY_ALWAYS_INLINE int64_t addToTimestampWithTimezone(
     int64_t timestampWithTimezone,
     const DateTimeUnit unit,
     const int32_t value) {
-  auto timestamp = unpackTimestampUtc(timestampWithTimezone);
-  auto finalTimeStamp = addToTimestamp(timestamp, unit, (int32_t)value);
-  return pack(finalTimeStamp, unpackZoneKeyId(timestampWithTimezone));
+  {
+    int64_t finalSysMs;
+    if (unit < DateTimeUnit::kDay) {
+      auto originalTimestamp = unpackTimestampUtc(timestampWithTimezone);
+      finalSysMs =
+          addToTimestamp(originalTimestamp, unit, (int32_t)value).toMillis();
+    } else {
+      // Use local time to handle crossing daylight savings time boundaries.
+      // E.g. the "day" when the clock moves back an hour is 25 hours long, and
+      // the day it moves forward is 23 hours long. Daylight savings time
+      // doesn't affect time units less than a day, and will produce incorrect
+      // results if we use local time.
+      const tz::TimeZone* timeZone =
+          tz::locateZone(unpackZoneKeyId(timestampWithTimezone));
+      auto originalTimestamp =
+          Timestamp::fromMillis(timeZone
+                                    ->to_local(std::chrono::milliseconds(
+                                        unpackMillisUtc(timestampWithTimezone)))
+                                    .count());
+      auto updatedTimeStamp =
+          addToTimestamp(originalTimestamp, unit, (int32_t)value);
+      finalSysMs =
+          timeZone
+              ->to_sys(
+                  std::chrono::milliseconds(updatedTimeStamp.toMillis()),
+                  tz::TimeZone::TChoose::kEarliest)
+              .count();
+    }
+
+    return pack(finalSysMs, unpackZoneKeyId(timestampWithTimezone));
+  }
 }
 
 FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
