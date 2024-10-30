@@ -65,6 +65,15 @@ endif()
 set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK
                                                 presto_link_job_pool)
 
+add_executable(presto_qaag_test QaagFunctionsTest.cpp)
+add_test(
+  NAME presto_qaag_test
+  COMMAND presto_qaag_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(presto_qaag_test velox_functions_test_lib presto_magen
+                      GTest::gtest GTest::gtest_main)
+
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_executable(presto_server_remote_function_test
                  JsonSignatureParserTest.cpp RemoteFunctionRegistererTest.cpp)

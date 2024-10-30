@@ -11,3 +11,4 @@
 # limitations under the License.
 add_subdirectory(main)
 add_subdirectory(presto_protocol)
+add_subdirectory(external)

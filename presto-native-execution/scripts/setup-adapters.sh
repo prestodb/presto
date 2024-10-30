@@ -12,7 +12,9 @@
 # limitations under the License.
 
 # Propagate errors and improve debugging.
-set -eufx -o pipefail
+# set -eufx -o pipefail
+set -e
+set -x
 
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
 if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]

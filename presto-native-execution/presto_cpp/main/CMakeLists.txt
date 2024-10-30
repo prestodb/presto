@@ -14,7 +14,9 @@ add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
+add_subdirectory(governance)
 add_subdirectory(connectors)
+
 
 add_library(
   presto_server_lib
@@ -52,6 +54,7 @@ target_link_libraries(
   presto_http
   presto_operators
   presto_velox_plan_conversion
+  presto_magen
   velox_abfs
   velox_aggregates
   velox_caching
