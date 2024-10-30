@@ -20,6 +20,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
+#include "presto_cpp/main/types/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"

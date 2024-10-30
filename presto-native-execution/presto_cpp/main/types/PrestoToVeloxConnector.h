@@ -15,17 +15,25 @@
 
 #include "PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
-#include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/PlanNode.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::presto {
-
+using namespace velox;
 class PrestoToVeloxConnector;
-
+template <typename T>
+std::string toJsonString(const T& value) {
+  return ((json)value).dump();
+}
+TypePtr stringToType(
+    const std::string& typeString,
+    const TypeParser& typeParser);
+std::vector<common::Subfield> toRequiredSubfields(
+    const protocol::List<protocol::Subfield>& subfields);
 void registerPrestoToVeloxConnector(
     std::unique_ptr<const PrestoToVeloxConnector> connector);
 
@@ -106,108 +114,5 @@ class PrestoToVeloxConnector {
   explicit PrestoToVeloxConnector(std::string connectorName)
       : connectorName_(std::move(connectorName)) {}
   const std::string connectorName_;
-};
-
-class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
- public:
-  explicit HivePrestoToVeloxConnector(std::string connectorName)
-      : PrestoToVeloxConnector(std::move(connectorName)) {}
-
-  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
-      const protocol::ConnectorId& catalogId,
-      const protocol::ConnectorSplit* connectorSplit) const final;
-
-  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
-      const protocol::ColumnHandle* column,
-      const TypeParser& typeParser) const final;
-
-  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
-      const protocol::TableHandle& tableHandle,
-      const VeloxExprConverter& exprConverter,
-      const TypeParser& typeParser,
-      std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
-      const final;
-
-  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
-  toVeloxInsertTableHandle(
-      const protocol::CreateHandle* createHandle,
-      const TypeParser& typeParser) const final;
-
-  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
-  toVeloxInsertTableHandle(
-      const protocol::InsertHandle* insertHandle,
-      const TypeParser& typeParser) const final;
-
-  std::unique_ptr<velox::core::PartitionFunctionSpec>
-  createVeloxPartitionFunctionSpec(
-      const protocol::ConnectorPartitioningHandle* partitioningHandle,
-      const std::vector<int>& bucketToPartition,
-      const std::vector<velox::column_index_t>& channels,
-      const std::vector<velox::VectorPtr>& constValues,
-      bool& effectivelyGather) const final;
-
-  std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
-      const final;
-
- private:
-  std::vector<std::shared_ptr<const velox::connector::hive::HiveColumnHandle>>
-  toHiveColumns(
-      const protocol::List<protocol::hive::HiveColumnHandle>& inputColumns,
-      const TypeParser& typeParser,
-      bool& hasPartitionColumn) const;
-};
-
-class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
- public:
-  explicit IcebergPrestoToVeloxConnector(std::string connectorName)
-      : PrestoToVeloxConnector(std::move(connectorName)) {}
-
-  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
-      const protocol::ConnectorId& catalogId,
-      const protocol::ConnectorSplit* connectorSplit) const final;
-
-  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
-      const protocol::ColumnHandle* column,
-      const TypeParser& typeParser) const final;
-
-  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
-      const protocol::TableHandle& tableHandle,
-      const VeloxExprConverter& exprConverter,
-      const TypeParser& typeParser,
-      std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
-      const final;
-
-  std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
-      const final;
-};
-
-class TpchPrestoToVeloxConnector final : public PrestoToVeloxConnector {
- public:
-  explicit TpchPrestoToVeloxConnector(std::string connectorName)
-      : PrestoToVeloxConnector(std::move(connectorName)) {}
-
-  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
-      const protocol::ConnectorId& catalogId,
-      const protocol::ConnectorSplit* connectorSplit) const final;
-
-  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
-      const protocol::ColumnHandle* column,
-      const TypeParser& typeParser) const final;
-
-  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
-      const protocol::TableHandle& tableHandle,
-      const VeloxExprConverter& exprConverter,
-      const TypeParser& typeParser,
-      std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
-      const final;
-
-  std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
-      const final;
 };
 } // namespace facebook::presto

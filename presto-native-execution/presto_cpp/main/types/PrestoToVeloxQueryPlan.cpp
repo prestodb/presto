@@ -40,12 +40,6 @@ namespace facebook::presto {
 
 namespace {
 
-TypePtr stringToType(
-    const std::string& typeString,
-    const TypeParser& typeParser) {
-  return typeParser.parse(typeString);
-}
-
 std::vector<std::string> getNames(const protocol::Assignments& assignments) {
   std::vector<std::string> names;
   names.reserve(assignments.assignments.size());
@@ -75,11 +69,6 @@ RowTypePtr toRowType(
   }
 
   return ROW(std::move(names), std::move(types));
-}
-
-template <typename T>
-std::string toJsonString(const T& value) {
-  return ((json)value).dump();
 }
 
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
