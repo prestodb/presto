@@ -2953,6 +2953,155 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestampWithTimezone) {
           "day",
           TimestampWithTimezone(a, "America/Los_Angeles"),
           TimestampWithTimezone(b, "America/Los_Angeles")));
+
+  auto dateDiffAndCast = [&](std::optional<std::string> unit,
+                             std::optional<std::string> timestampString1,
+                             std::optional<std::string> timestampString2) {
+    return evaluateOnce<int64_t>(
+        "date_diff(c0, cast(c1 as timestamp with time zone), cast(c2 as timestamp with time zone))",
+        unit,
+        timestampString1,
+        timestampString2);
+  };
+
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "hour",
+          "2024-03-10 01:50:00 America/Los_Angeles",
+          "2024-03-10 03:50:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      0,
+      dateDiffAndCast(
+          "hour",
+          "2024-11-03 01:50:00 America/Los_Angeles",
+          "2024-11-03 01:50:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "hour",
+          "2024-11-03 01:50:00 America/Los_Angeles",
+          "2024-11-03 00:50:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "day",
+          "2024-11-03 00:00:00 America/Los_Angeles",
+          "2024-11-04 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "week",
+          "2024-11-03 00:00:00 America/Los_Angeles",
+          "2024-11-10 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "month",
+          "2024-11-03 00:00:00 America/Los_Angeles",
+          "2024-12-03 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "quarter",
+          "2024-11-03 00:00:00 America/Los_Angeles",
+          "2025-02-03 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "year",
+          "2024-11-03 00:00:00 America/Los_Angeles",
+          "2025-11-03 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "day",
+          "2024-11-04 00:00:00 America/Los_Angeles",
+          "2024-11-03 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "week",
+          "2024-11-04 00:00:00 America/Los_Angeles",
+          "2024-10-28 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "month",
+          "2024-11-04 00:00:00 America/Los_Angeles",
+          "2024-10-04 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "quarter",
+          "2024-11-04 00:00:00 America/Los_Angeles",
+          "2024-08-04 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "year",
+          "2024-11-04 00:00:00 America/Los_Angeles",
+          "2023-11-04 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "day",
+          "2024-03-10 00:00:00 America/Los_Angeles",
+          "2024-03-11 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "week",
+          "2024-03-10 00:00:00 America/Los_Angeles",
+          "2024-03-17 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "month",
+          "2024-03-10 00:00:00 America/Los_Angeles",
+          "2024-04-10 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "quarter",
+          "2024-03-10 00:00:00 America/Los_Angeles",
+          "2024-06-10 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      1,
+      dateDiffAndCast(
+          "year",
+          "2024-03-10 00:00:00 America/Los_Angeles",
+          "2025-03-10 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "day",
+          "2024-03-11 00:00:00 America/Los_Angeles",
+          "2024-03-10 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "week",
+          "2024-03-11 00:00:00 America/Los_Angeles",
+          "2024-03-04 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "month",
+          "2024-03-11 00:00:00 America/Los_Angeles",
+          "2024-02-11 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "quarter",
+          "2024-03-11 00:00:00 America/Los_Angeles",
+          "2023-12-11 00:00:00 America/Los_Angeles"));
+  EXPECT_EQ(
+      -1,
+      dateDiffAndCast(
+          "year",
+          "2024-03-11 00:00:00 America/Los_Angeles",
+          "2023-03-11 00:00:00 America/Los_Angeles"));
 }
 
 TEST_F(DateTimeFunctionsTest, parseDatetime) {

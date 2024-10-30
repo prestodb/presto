@@ -386,6 +386,45 @@ FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
   VELOX_UNREACHABLE("Unsupported datetime unit");
 }
 
+FOLLY_ALWAYS_INLINE int64_t diffTimestampWithTimeZone(
+    const DateTimeUnit unit,
+    const int64_t fromTimestampWithTimeZone,
+    const int64_t toTimestampWithTimeZone) {
+  auto fromTimeZoneId = unpackZoneKeyId(fromTimestampWithTimeZone);
+  auto toTimeZoneId = unpackZoneKeyId(toTimestampWithTimeZone);
+  VELOX_CHECK_EQ(
+      fromTimeZoneId,
+      toTimeZoneId,
+      "diffTimestampWithTimeZone must receive timestamps in the same time zone.");
+
+  Timestamp fromTimestamp;
+  Timestamp toTimestamp;
+
+  if (unit < DateTimeUnit::kDay) {
+    fromTimestamp = unpackTimestampUtc(fromTimestampWithTimeZone);
+    toTimestamp = unpackTimestampUtc(toTimestampWithTimeZone);
+  } else {
+    // Use local time to handle crossing daylight savings time boundaries.
+    // E.g. the "day" when the clock moves back an hour is 25 hours long, and
+    // the day it moves forward is 23 hours long. Daylight savings time
+    // doesn't affect time units less than a day, and will produce incorrect
+    // results if we use local time.
+    const tz::TimeZone* timeZone = tz::locateZone(fromTimeZoneId);
+    fromTimestamp = Timestamp::fromMillis(
+        timeZone
+            ->to_local(std::chrono::milliseconds(
+                unpackMillisUtc(fromTimestampWithTimeZone)))
+            .count());
+    toTimestamp =
+        Timestamp::fromMillis(timeZone
+                                  ->to_local(std::chrono::milliseconds(
+                                      unpackMillisUtc(toTimestampWithTimeZone)))
+                                  .count());
+  }
+
+  return diffTimestamp(unit, fromTimestamp, toTimestamp);
+}
+
 FOLLY_ALWAYS_INLINE
 int64_t diffDate(
     const DateTimeUnit unit,

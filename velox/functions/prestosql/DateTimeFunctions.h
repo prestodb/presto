@@ -1384,11 +1384,12 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
     // Presto's behavior is to use the time zone of the first parameter to
     // perform the calculation. Note that always normalizing to UTC is not
     // correct as calculations may cross daylight savings boundaries.
-    auto timestamp1 = this->toTimestamp(timestampWithTz1, false);
-    auto timestamp2 = this->toTimestamp(timestampWithTz2, true);
-    timestamp2.toTimezone(*tz::locateZone(unpackZoneKeyId(*timestampWithTz1)));
+    auto timeZoneId = unpackZoneKeyId(*timestampWithTz1);
 
-    result = diffTimestamp(unit, timestamp1, timestamp2);
+    result = diffTimestampWithTimeZone(
+        unit,
+        *timestampWithTz1,
+        pack(unpackMillisUtc(*timestampWithTz2), timeZoneId));
   }
 };
 
