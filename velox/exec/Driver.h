@@ -27,7 +27,7 @@
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/QueryCtx.h"
-#include "velox/exec/QueryTraceConfig.h"
+#include "velox/exec/TraceConfig.h"
 
 namespace facebook::velox::exec {
 
@@ -291,7 +291,7 @@ struct DriverCtx {
 
   const core::QueryConfig& queryConfig() const;
 
-  const std::optional<trace::QueryTraceConfig>& traceConfig() const;
+  const std::optional<trace::TraceConfig>& traceConfig() const;
 
   velox::memory::MemoryPool* addOperatorPool(
       const core::PlanNodeId& planNodeId,

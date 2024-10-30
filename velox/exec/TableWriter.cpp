@@ -126,7 +126,7 @@ void TableWriter::addInput(RowVectorPtr input) {
   if (input->size() == 0) {
     return;
   }
-  traceInput(input);
+
   std::vector<VectorPtr> mappedChildren;
   mappedChildren.reserve(inputMapping_.size());
   for (const auto i : inputMapping_) {

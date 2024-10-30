@@ -24,8 +24,8 @@
 #include "velox/common/hyperloglog/SparseHll.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/PartitionedOutput.h"
-#include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/TableWriter.h"
+#include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -143,10 +143,15 @@ TEST_F(PartitionedOutputReplayerTest, defaultConsumer) {
       executor_.get(),
       consumerExecutor.get(),
       [&](auto /* unused */, auto /* unused */) {});
-  ASSERT_NO_THROW(
-      PartitionedOutputReplayer(
-          traceRoot, originalTask->taskId(), planNodeId, 0, "PartitionedOutput")
-          .run());
+
+  ASSERT_NO_THROW(PartitionedOutputReplayer(
+                      traceRoot,
+                      originalTask->queryCtx()->queryId(),
+                      originalTask->taskId(),
+                      planNodeId,
+                      0,
+                      "PartitionedOutput")
+                      .run());
 }
 
 TEST_F(PartitionedOutputReplayerTest, basic) {
@@ -223,6 +228,7 @@ TEST_F(PartitionedOutputReplayerTest, basic) {
     replayedPartitionedResults.resize(testParam.numPartitions);
     PartitionedOutputReplayer(
         traceRoot,
+        originalTask->queryCtx()->queryId(),
         originalTask->taskId(),
         planNodeId,
         0,

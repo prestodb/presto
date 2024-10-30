@@ -18,7 +18,7 @@
 
 #include "velox/common/memory/Memory.h"
 #include "velox/exec/PartitionedOutput.h"
-#include "velox/exec/QueryTraceUtil.h"
+#include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/tool/trace/PartitionedOutputReplayer.h"
@@ -105,13 +105,20 @@ void consumeAllData(
 }
 
 PartitionedOutputReplayer::PartitionedOutputReplayer(
-    const std::string& rootDir,
+    const std::string& traceDir,
+    const std::string& queryId,
     const std::string& taskId,
     const std::string& nodeId,
     const int32_t pipelineId,
     const std::string& operatorType,
     const ConsumerCallBack& consumerCb)
-    : OperatorReplayerBase(rootDir, taskId, nodeId, pipelineId, operatorType),
+    : OperatorReplayerBase(
+          traceDir,
+          queryId,
+          taskId,
+          nodeId,
+          pipelineId,
+          operatorType),
       originalNode_(dynamic_cast<const core::PartitionedOutputNode*>(
           core::PlanNode::findFirstNode(
               planFragment_.get(),

@@ -14,33 +14,32 @@
  * limitations under the License.
  */
 
-#include "velox/exec/QueryTraceScan.h"
+#include "velox/exec/OperatorTraceScan.h"
 
-#include "QueryTraceUtil.h"
+#include "velox/exec/TraceUtil.h"
 
 namespace facebook::velox::exec::trace {
 
-QueryTraceScan::QueryTraceScan(
+OperatorTraceScan::OperatorTraceScan(
     int32_t operatorId,
     DriverCtx* driverCtx,
-    const std::shared_ptr<const core::QueryTraceScanNode>& queryTraceScanNode)
+    const std::shared_ptr<const core::TraceScanNode>& traceScanNode)
     : SourceOperator(
           driverCtx,
-          queryTraceScanNode->outputType(),
+          traceScanNode->outputType(),
           operatorId,
-          queryTraceScanNode->id(),
-          "QueryReplayScan") {
-  const auto dataDir = getDataDir(
-      queryTraceScanNode->traceDir(),
-      driverCtx->pipelineId,
-      driverCtx->driverId);
-  traceReader_ = std::make_unique<QueryDataReader>(
-      dataDir,
-      queryTraceScanNode->outputType(),
+          traceScanNode->id(),
+          "OperatorTraceScan") {
+  traceReader_ = std::make_unique<OperatorTraceInputReader>(
+      getOpTraceDirectory(
+          traceScanNode->traceDir(),
+          traceScanNode->pipelineId(),
+          driverCtx->driverId),
+      traceScanNode->outputType(),
       memory::MemoryManager::getInstance()->tracePool());
 }
 
-RowVectorPtr QueryTraceScan::getOutput() {
+RowVectorPtr OperatorTraceScan::getOutput() {
   RowVectorPtr batch;
   if (traceReader_->read(batch)) {
     return batch;
@@ -49,7 +48,7 @@ RowVectorPtr QueryTraceScan::getOutput() {
   return nullptr;
 }
 
-bool QueryTraceScan::isFinished() {
+bool OperatorTraceScan::isFinished() {
   return finished_;
 }
 

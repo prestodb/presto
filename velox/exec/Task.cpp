@@ -24,14 +24,14 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/HashBuild.h"
+#include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/LocalPlanner.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/NestedLoopJoinBuild.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/OutputBufferManager.h"
-#include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/Task.h"
+#include "velox/exec/TraceUtil.h"
 
 using facebook::velox::common::testutil::TestValue;
 
@@ -304,7 +304,7 @@ Task::Task(
         dynamic_cast<const folly::InlineLikeExecutor*>(queryCtx_->executor()));
   }
 
-  maybeInitQueryTrace();
+  maybeInitTrace();
 }
 
 Task::~Task() {
@@ -2888,7 +2888,7 @@ std::shared_ptr<ExchangeClient> Task::getExchangeClientLocked(
   return exchangeClients_[pipelineId];
 }
 
-std::optional<trace::QueryTraceConfig> Task::maybeMakeTraceConfig() const {
+std::optional<trace::TraceConfig> Task::maybeMakeTraceConfig() const {
   const auto& queryConfig = queryCtx_->queryConfig();
   if (!queryConfig.queryTraceEnabled()) {
     return std::nullopt;
@@ -2906,41 +2906,62 @@ std::optional<trace::QueryTraceConfig> Task::maybeMakeTraceConfig() const {
     return std::nullopt;
   }
 
-  const auto traceDir =
-      fmt::format("{}/{}", queryConfig.queryTraceDir(), taskId_);
-  const auto queryTraceNodes = queryConfig.queryTraceNodeIds();
-  if (queryTraceNodes.empty()) {
-    LOG(INFO) << "Trace metadata for task: " << taskId_;
-    return trace::QueryTraceConfig(traceDir);
-  }
+  const auto traceNodes = queryConfig.queryTraceNodeIds();
+  VELOX_USER_CHECK(!traceNodes.empty(), "Query trace nodes are not set");
 
-  std::vector<std::string> nodes;
-  folly::split(',', queryTraceNodes, nodes);
-  std::unordered_set<std::string> nodeSet(nodes.begin(), nodes.end());
-  VELOX_CHECK_EQ(nodeSet.size(), nodes.size());
-  LOG(INFO) << "Trace data for task " << taskId_ << " with plan nodes "
-            << queryTraceNodes;
+  const auto traceDir = trace::getTaskTraceDirectory(
+      queryConfig.queryTraceDir(), queryCtx_->queryId(), taskId_);
+
+  std::vector<std::string> traceNodeIds;
+  folly::split(',', traceNodes, traceNodeIds);
+  std::unordered_set<std::string> traceNodeIdSet(
+      traceNodeIds.begin(), traceNodeIds.end());
+  VELOX_USER_CHECK_EQ(
+      traceNodeIdSet.size(),
+      traceNodeIds.size(),
+      "Duplicate trace nodes found: {}",
+      folly::join(", ", traceNodeIds));
+
+  bool foundTraceNode{false};
+  for (const auto& traceNodeId : traceNodeIds) {
+    if (core::PlanNode::findFirstNode(
+            planFragment_.planNode.get(),
+            [traceNodeId](const core::PlanNode* node) -> bool {
+              return node->id() == traceNodeId;
+            })) {
+      foundTraceNode = true;
+      break;
+    }
+  }
+  VELOX_USER_CHECK(
+      foundTraceNode,
+      "Trace plan nodes not found from task {}: {}",
+      taskId_,
+      folly::join(",", traceNodeIdSet));
+
+  LOG(INFO) << "Trace input for plan nodes " << traceNodes << " from task "
+            << taskId_;
 
   trace::UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB =
       [this](uint64_t bytes) {
-        return queryCtx_->updateTracedBytesAndCheckLimit(bytes);
+        queryCtx_->updateTracedBytesAndCheckLimit(bytes);
       };
-  return trace::QueryTraceConfig(
-      std::move(nodeSet),
+  return trace::TraceConfig(
+      std::move(traceNodeIdSet),
       traceDir,
       std::move(updateAndCheckTraceLimitCB),
       queryConfig.queryTraceTaskRegExp());
 }
 
-void Task::maybeInitQueryTrace() {
+void Task::maybeInitTrace() {
   if (!traceConfig_) {
     return;
   }
 
   trace::createTraceDirectory(traceConfig_->queryTraceDir);
-  const auto queryMetadatWriter = std::make_unique<trace::QueryMetadataWriter>(
+  const auto metadataWriter = std::make_unique<trace::TaskTraceMetadataWriter>(
       traceConfig_->queryTraceDir, memory::traceMemoryPool());
-  queryMetadatWriter->write(queryCtx_, planFragment_.planNode);
+  metadataWriter->write(queryCtx_, planFragment_.planNode);
 }
 
 void Task::testingVisitDrivers(const std::function<void(Driver*)>& callback) {

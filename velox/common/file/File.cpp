@@ -170,9 +170,10 @@ void LocalReadFile::preadInternal(uint64_t offset, uint64_t length, char* pos)
   VELOX_CHECK_EQ(
       bytesRead,
       length,
-      "fread failure in LocalReadFile::PReadInternal, {} vs {}.",
+      "fread failure in LocalReadFile::PReadInternal, {} vs {}: {}",
       bytesRead,
-      length);
+      length,
+      folly::errnoStr(errno));
 }
 
 std::string_view

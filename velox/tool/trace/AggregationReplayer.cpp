@@ -15,7 +15,7 @@
  */
 
 #include "velox/tool/trace/AggregationReplayer.h"
-#include "velox/exec/QueryDataReader.h"
+#include "velox/exec/OperatorTraceReader.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
 using namespace facebook::velox;

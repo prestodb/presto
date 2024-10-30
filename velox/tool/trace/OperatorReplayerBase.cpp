@@ -16,11 +16,9 @@
 
 #include <folly/json.h>
 
-#include "velox/common/serialization/Serializable.h"
 #include "velox/core/PlanNode.h"
-#include "velox/exec/QueryMetadataReader.h"
-#include "velox/exec/QueryTraceTraits.h"
-#include "velox/exec/QueryTraceUtil.h"
+#include "velox/exec/TaskTraceReader.h"
+#include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
@@ -29,30 +27,31 @@ using namespace facebook::velox;
 
 namespace facebook::velox::tool::trace {
 OperatorReplayerBase::OperatorReplayerBase(
-    std::string rootDir,
+    std::string traceDir,
+    std::string queryId,
     std::string taskId,
     std::string nodeId,
     int32_t pipelineId,
     std::string operatorType)
-    : taskId_(std::move(taskId)),
+    : queryId_(std::string(queryId)),
+      taskId_(std::move(taskId)),
       nodeId_(std::move(nodeId)),
       pipelineId_(pipelineId),
       operatorType_(std::move(operatorType)),
-      rootDir_(std::move(rootDir)),
-      taskDir_(fmt::format("{}/{}", rootDir_, taskId_)),
-      nodeDir_(fmt::format("{}/{}", taskDir_, nodeId_)) {
-  VELOX_USER_CHECK(!rootDir_.empty());
+      taskTraceDir_(
+          exec::trace::getTaskTraceDirectory(traceDir, queryId_, taskId_)),
+      nodeTraceDir_(exec::trace::getNodeTraceDirectory(taskTraceDir_, nodeId_)),
+      fs_(filesystems::getFileSystem(taskTraceDir_, nullptr)),
+      maxDrivers_(exec::trace::getNumDrivers(nodeTraceDir_, pipelineId_, fs_)) {
+  VELOX_USER_CHECK(!taskTraceDir_.empty());
   VELOX_USER_CHECK(!taskId_.empty());
   VELOX_USER_CHECK(!nodeId_.empty());
   VELOX_USER_CHECK_GE(pipelineId_, 0);
   VELOX_USER_CHECK(!operatorType_.empty());
-  const auto metadataReader = exec::trace::QueryMetadataReader(
-      taskDir_, memory::MemoryManager::getInstance()->tracePool());
-  metadataReader.read(queryConfigs_, connectorConfigs_, planFragment_);
+  const auto taskMetaReader = exec::trace::TaskTraceMetadataReader(
+      taskTraceDir_, memory::MemoryManager::getInstance()->tracePool());
+  taskMetaReader.read(queryConfigs_, connectorConfigs_, planFragment_);
   queryConfigs_[core::QueryConfig::kQueryTraceEnabled] = "false";
-  fs_ = filesystems::getFileSystem(rootDir_, nullptr);
-  maxDrivers_ =
-      exec::trace::getNumDrivers(rootDir_, taskId_, nodeId_, pipelineId_, fs_);
 }
 
 RowVectorPtr OperatorReplayerBase::run() {
@@ -69,7 +68,10 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() const {
       planFragment_.get(),
       [this](const core::PlanNode* node) { return node->id() == nodeId_; });
   return exec::test::PlanBuilder()
-      .traceScan(nodeDir_, exec::trace::getDataType(planFragment_, nodeId_))
+      .traceScan(
+          nodeTraceDir_,
+          pipelineId_,
+          exec::trace::getDataType(planFragment_, nodeId_))
       .addNode(replayNodeFactory(replayNode))
       .planNode();
 }

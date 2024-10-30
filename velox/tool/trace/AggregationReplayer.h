@@ -24,13 +24,15 @@ namespace facebook::velox::tool::trace {
 class AggregationReplayer : public OperatorReplayerBase {
  public:
   AggregationReplayer(
-      const std::string& rootDir,
+      const std::string& traceDir,
+      const std::string& queryId,
       const std::string& taskId,
       const std::string& nodeId,
       const int32_t pipelineId,
       const std::string& operatorType)
       : OperatorReplayerBase(
-            rootDir,
+            traceDir,
+            queryId,
             taskId,
             nodeId,
             pipelineId,

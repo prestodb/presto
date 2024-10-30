@@ -222,9 +222,10 @@ PlanBuilder& PlanBuilder::values(
 
 PlanBuilder& PlanBuilder::traceScan(
     const std::string& traceNodeDir,
+    uint32_t pipelineId,
     const RowTypePtr& outputType) {
-  planNode_ = std::make_shared<core::QueryTraceScanNode>(
-      nextPlanNodeId(), traceNodeDir, outputType);
+  planNode_ = std::make_shared<core::TraceScanNode>(
+      nextPlanNodeId(), traceNodeDir, pipelineId, outputType);
   return *this;
 }
 

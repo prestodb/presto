@@ -2355,15 +2355,15 @@ folly::dynamic PlanNode::serialize() const {
   return obj;
 }
 
-const std::vector<PlanNodePtr>& QueryTraceScanNode::sources() const {
+const std::vector<PlanNodePtr>& TraceScanNode::sources() const {
   return kEmptySources;
 }
 
-std::string QueryTraceScanNode::traceDir() const {
+std::string TraceScanNode::traceDir() const {
   return traceDir_;
 }
 
-void QueryTraceScanNode::addDetails(std::stringstream& stream) const {
+void TraceScanNode::addDetails(std::stringstream& stream) const {
   stream << "Trace dir: " << traceDir_;
 }
 

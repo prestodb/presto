@@ -14,30 +14,27 @@
  * limitations under the License.
  */
 
-#include "velox/exec/QueryMetadataWriter.h"
-#include "velox/common/config/Config.h"
+#include "velox/exec/TaskTraceWriter.h"
 #include "velox/common/file/File.h"
 #include "velox/core/PlanNode.h"
 #include "velox/core/QueryCtx.h"
-#include "velox/exec/QueryTraceTraits.h"
+#include "velox/exec/Trace.h"
+#include "velox/exec/TraceUtil.h"
 
 namespace facebook::velox::exec::trace {
 
-QueryMetadataWriter::QueryMetadataWriter(
+TaskTraceMetadataWriter::TaskTraceMetadataWriter(
     std::string traceDir,
     memory::MemoryPool* pool)
     : traceDir_(std::move(traceDir)),
       fs_(filesystems::getFileSystem(traceDir_, nullptr)),
-      metaFilePath_(fmt::format(
-          "{}/{}",
-          traceDir_,
-          QueryTraceTraits::kQueryMetaFileName)),
+      traceFilePath_(getTaskTraceMetaFilePath(traceDir_)),
       pool_(pool) {
   VELOX_CHECK_NOT_NULL(fs_);
-  VELOX_CHECK(!fs_->exists(metaFilePath_));
+  VELOX_CHECK(!fs_->exists(traceFilePath_));
 }
 
-void QueryMetadataWriter::write(
+void TaskTraceMetadataWriter::write(
     const std::shared_ptr<core::QueryCtx>& queryCtx,
     const core::PlanNodePtr& planNode) {
   VELOX_CHECK(!finished_, "Query metadata can only be written once");
@@ -59,12 +56,12 @@ void QueryMetadataWriter::write(
   }
 
   folly::dynamic metaObj = folly::dynamic::object;
-  metaObj[QueryTraceTraits::kQueryConfigKey] = queryConfigObj;
-  metaObj[QueryTraceTraits::kConnectorPropertiesKey] = connectorPropertiesObj;
-  metaObj[QueryTraceTraits::kPlanNodeKey] = planNode->serialize();
+  metaObj[TraceTraits::kQueryConfigKey] = queryConfigObj;
+  metaObj[TraceTraits::kConnectorPropertiesKey] = connectorPropertiesObj;
+  metaObj[TraceTraits::kPlanNodeKey] = planNode->serialize();
 
   const auto metaStr = folly::toJson(metaObj);
-  const auto file = fs_->openFileForWrite(metaFilePath_);
+  const auto file = fs_->openFileForWrite(traceFilePath_);
   file->append(metaStr);
   file->close();
 }

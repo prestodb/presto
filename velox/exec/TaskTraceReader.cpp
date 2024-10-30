@@ -14,44 +14,40 @@
  * limitations under the License.
  */
 
-#include "velox/exec/QueryMetadataReader.h"
+#include "velox/exec/TaskTraceReader.h"
 
-#include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/PlanNode.h"
-#include "velox/exec/QueryTraceTraits.h"
-#include "velox/exec/QueryTraceUtil.h"
+#include "velox/exec/Trace.h"
+#include "velox/exec/TraceUtil.h"
 
 namespace facebook::velox::exec::trace {
 
-QueryMetadataReader::QueryMetadataReader(
+TaskTraceMetadataReader::TaskTraceMetadataReader(
     std::string traceDir,
     memory::MemoryPool* pool)
     : traceDir_(std::move(traceDir)),
       fs_(filesystems::getFileSystem(traceDir_, nullptr)),
-      metaFilePath_(fmt::format(
-          "{}/{}",
-          traceDir_,
-          QueryTraceTraits::kQueryMetaFileName)),
+      traceFilePath_(getTaskTraceMetaFilePath(traceDir_)),
       pool_(pool) {
   VELOX_CHECK_NOT_NULL(fs_);
-  VELOX_CHECK(fs_->exists(metaFilePath_));
+  VELOX_CHECK(fs_->exists(traceFilePath_));
 }
 
-void QueryMetadataReader::read(
+void TaskTraceMetadataReader::read(
     std::unordered_map<std::string, std::string>& queryConfigs,
     std::unordered_map<
         std::string,
         std::unordered_map<std::string, std::string>>& connectorProperties,
     core::PlanNodePtr& queryPlan) const {
-  folly::dynamic metaObj = getMetadata(metaFilePath_, fs_);
-  const auto& queryConfigObj = metaObj[QueryTraceTraits::kQueryConfigKey];
+  folly::dynamic metaObj = getTaskMetadata(traceFilePath_, fs_);
+  const auto& queryConfigObj = metaObj[TraceTraits::kQueryConfigKey];
   for (const auto& [key, value] : queryConfigObj.items()) {
     queryConfigs[key.asString()] = value.asString();
   }
 
   const auto& connectorPropertiesObj =
-      metaObj[QueryTraceTraits::kConnectorPropertiesKey];
+      metaObj[TraceTraits::kConnectorPropertiesKey];
   for (const auto& [connectorId, configs] : connectorPropertiesObj.items()) {
     const auto connectorIdStr = connectorId.asString();
     connectorProperties[connectorIdStr] = {};
@@ -61,6 +57,6 @@ void QueryMetadataReader::read(
   }
 
   queryPlan = ISerializable::deserialize<core::PlanNode>(
-      metaObj[QueryTraceTraits::kPlanNodeKey], pool_);
+      metaObj[TraceTraits::kPlanNodeKey], pool_);
 }
 } // namespace facebook::velox::exec::trace

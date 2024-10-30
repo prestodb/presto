@@ -16,8 +16,8 @@
 
 #include <folly/executors/IOThreadPoolExecutor.h>
 
-#include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/TableWriter.h"
+#include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/tool/trace/TableWriterReplayer.h"
 

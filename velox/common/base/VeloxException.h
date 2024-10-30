@@ -105,6 +105,9 @@ inline constexpr auto kNoCacheSpace = "NO_CACHE_SPACE"_fs;
 /// An error raised when spill bytes exceeds limits.
 inline constexpr auto kSpillLimitExceeded = "SPILL_LIMIT_EXCEEDED"_fs;
 
+/// An error raised when trace bytes exceeds limits.
+inline constexpr auto kTraceLimitExceeded = "TRACE_LIMIT_EXCEEDED"_fs;
+
 /// Errors indicating file read corruptions.
 inline constexpr auto kFileCorruption = "FILE_CORRUPTION"_fs;
 

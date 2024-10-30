@@ -33,7 +33,7 @@ velox_link_libraries(
   glog::glog
   gflags::gflags)
 
-add_executable(velox_query_replayer QueryReplayer.cpp)
+add_executable(velox_query_replayer TraceReplayerMain.cpp)
 
 target_link_libraries(
   velox_query_replayer

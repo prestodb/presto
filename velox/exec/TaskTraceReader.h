@@ -18,23 +18,23 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/PlanNode.h"
-#include "velox/core/QueryCtx.h"
-#include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec::trace {
-class QueryMetadataWriter {
+class TaskTraceMetadataReader {
  public:
-  explicit QueryMetadataWriter(std::string traceDir, memory::MemoryPool* pool);
+  TaskTraceMetadataReader(std::string traceDir, memory::MemoryPool* pool);
 
-  void write(
-      const std::shared_ptr<core::QueryCtx>& queryCtx,
-      const core::PlanNodePtr& planNode);
+  void read(
+      std::unordered_map<std::string, std::string>& queryConfigs,
+      std::unordered_map<
+          std::string,
+          std::unordered_map<std::string, std::string>>& connectorProperties,
+      core::PlanNodePtr& queryPlan) const;
 
  private:
   const std::string traceDir_;
   const std::shared_ptr<filesystems::FileSystem> fs_;
-  const std::string metaFilePath_;
+  const std::string traceFilePath_;
   memory::MemoryPool* const pool_;
-  bool finished_{false};
 };
 } // namespace facebook::velox::exec::trace

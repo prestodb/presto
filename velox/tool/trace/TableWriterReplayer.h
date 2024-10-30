@@ -27,13 +27,20 @@ namespace facebook::velox::tool::trace {
 class TableWriterReplayer final : public OperatorReplayerBase {
  public:
   TableWriterReplayer(
-      const std::string& rootDir,
+      const std::string& traceDir,
+      const std::string& queryId,
       const std::string& taskId,
       const std::string& nodeId,
       const int32_t pipelineId,
       const std::string& operatorType,
       const std::string& replayOutputDir)
-      : OperatorReplayerBase(rootDir, taskId, nodeId, pipelineId, operatorType),
+      : OperatorReplayerBase(
+            traceDir,
+            queryId,
+            taskId,
+            nodeId,
+            pipelineId,
+            operatorType),
         replayOutputDir_(replayOutputDir) {
     VELOX_CHECK(!replayOutputDir_.empty());
   }

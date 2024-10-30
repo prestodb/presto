@@ -24,10 +24,10 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/hyperloglog/SparseHll.h"
+#include "velox/exec/OperatorTraceReader.h"
 #include "velox/exec/PartitionFunction.h"
-#include "velox/exec/QueryDataReader.h"
-#include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/TableWriter.h"
+#include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -297,6 +297,7 @@ TEST_F(TableWriterReplayerTest, basic) {
   const auto traceOutputDir = TempDirectoryPath::create();
   const auto result = TableWriterReplayer(
                           traceRoot,
+                          task->queryCtx()->queryId(),
                           task->taskId(),
                           "1",
                           0,
@@ -422,6 +423,7 @@ TEST_F(TableWriterReplayerTest, partitionWrite) {
   const auto traceOutputDir = TempDirectoryPath::create();
   TableWriterReplayer(
       traceRoot,
+      task->queryCtx()->queryId(),
       task->taskId(),
       tableWriteNodeId,
       0,

@@ -21,11 +21,11 @@
 #include "velox/exec/LocalPartition.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/MergeSource.h"
-#include "velox/exec/QueryMetadataWriter.h"
-#include "velox/exec/QueryTraceConfig.h"
 #include "velox/exec/Split.h"
 #include "velox/exec/TaskStats.h"
 #include "velox/exec/TaskStructs.h"
+#include "velox/exec/TaskTraceWriter.h"
+#include "velox/exec/TraceConfig.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec {
@@ -139,7 +139,7 @@ class Task : public std::enable_shared_from_this<Task> {
   }
 
   /// Returns query trace config if specified.
-  const std::optional<trace::QueryTraceConfig>& queryTraceConfig() const {
+  const std::optional<trace::TraceConfig>& traceConfig() const {
     return traceConfig_;
   }
 
@@ -980,11 +980,11 @@ class Task : public std::enable_shared_from_this<Task> {
       int32_t pipelineId) const;
 
   // Builds the query trace config.
-  std::optional<trace::QueryTraceConfig> maybeMakeTraceConfig() const;
+  std::optional<trace::TraceConfig> maybeMakeTraceConfig() const;
 
   // Create a 'QueryMetadtaWriter' to trace the query metadata if the query
   // trace enabled.
-  void maybeInitQueryTrace();
+  void maybeInitTrace();
 
   // Universally unique identifier of the task. Used to identify the task when
   // calling TaskListener.
@@ -1004,7 +1004,7 @@ class Task : public std::enable_shared_from_this<Task> {
 
   core::PlanFragment planFragment_;
 
-  const std::optional<trace::QueryTraceConfig> traceConfig_;
+  const std::optional<trace::TraceConfig> traceConfig_;
 
   // Hook in the system wide task list.
   TaskListEntry taskListEntry_;

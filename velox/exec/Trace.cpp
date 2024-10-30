@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "velox/exec/Trace.h"
 
-#include <string>
+#include <fmt/core.h>
+
+#include "velox/common/base/SuccinctPrinter.h"
 
 namespace facebook::velox::exec::trace {
-/// Defines the shared constants used by query trace implementation.
-struct QueryTraceTraits {
-  static inline const std::string kPlanNodeKey = "planNode";
-  static inline const std::string kQueryConfigKey = "queryConfig";
-  static inline const std::string kDataTypeKey = "rowType";
-  static inline const std::string kConnectorPropertiesKey =
-      "connectorProperties";
-  static inline const std::string kTraceLimitExceededKey = "traceLimitExceeded";
 
-  static inline const std::string kQueryMetaFileName = "query_meta.json";
-  static inline const std::string kDataSummaryFileName = "data_summary.json";
-  static inline const std::string kDataFileName = "trace.data";
-};
+std::string OperatorTraceSummary::toString() const {
+  return fmt::format(
+      "opType {}, inputRows {}, peakMemory {}",
+      opType,
+      inputRows,
+      succinctBytes(peakMemory));
+}
 } // namespace facebook::velox::exec::trace

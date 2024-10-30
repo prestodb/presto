@@ -18,7 +18,7 @@
 
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
-#include "velox/exec/QueryDataReader.h"
+#include "velox/exec/OperatorTraceReader.h"
 
 namespace facebook::velox::exec::trace {
 /// This is a scan operator for query replay. It uses traced data from a
@@ -38,13 +38,12 @@ namespace facebook::velox::exec::trace {
 /// It can be found from the QueryReplayScanNode. However the pipeline ID and
 /// driver ID are only known during operator creation, so we need to figure out
 /// the input traced data file and the output type dynamically.
-class QueryTraceScan final : public SourceOperator {
+class OperatorTraceScan final : public SourceOperator {
  public:
-  QueryTraceScan(
+  OperatorTraceScan(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      const std::shared_ptr<const core::QueryTraceScanNode>&
-          queryTraceScanNode);
+      const std::shared_ptr<const core::TraceScanNode>& traceScanNode);
 
   RowVectorPtr getOutput() override;
 
@@ -55,7 +54,7 @@ class QueryTraceScan final : public SourceOperator {
   bool isFinished() override;
 
  private:
-  std::unique_ptr<QueryDataReader> traceReader_;
+  std::unique_ptr<OperatorTraceInputReader> traceReader_;
   bool finished_{false};
 };
 

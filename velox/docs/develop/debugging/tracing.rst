@@ -57,7 +57,7 @@ The tracing framework consists of three components:
 Query Trace Writer
 ^^^^^^^^^^^^^^^^^^
 
-**QueryMetadataWriter** records the query metadata during task creation,
+**TaskTraceMetadataWriter** records the query metadata during task creation,
 serializes, and writes them into a file in JSON format. There are two kinds
 of metadata:
 
@@ -66,20 +66,20 @@ of metadata:
 - Plan fragment of the task (also known as a plan node tree). It can be serialized
   as a JSON object, which is already supported in Velox.
 
-**QueryDataWriter** records the input vectors from the target operator, which are
+**OperatorTraceWriter** records the input vectors from the target operator, which are
 serialized and written as a binary file.
 
 Query Trace Reader
 ^^^^^^^^^^^^^^^^^^
 
-**QueryMetadataReader** can load the query metadata JSON file, and extract the query
+**TaskTraceMetadataReader** can load the query metadata JSON file, and extract the query
 configurations, connector properties, and the plan fragment.
 
 **QueryDataReader** can read and deserialize the input vectors of the target operator.
 It is used as the utility to replay the input data as a source operator in the target
 operator replay.
 
-**NOTE**: `QueryDataWriter` serializes and flushes the input vectors in batches,
+**NOTE**: `OperatorTraceWriter` serializes and flushes the input vectors in batches,
 allowing it to replay the input process using the same sequence of batches.
 
 Query Trace Util

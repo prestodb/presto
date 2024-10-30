@@ -95,8 +95,8 @@ const core::QueryConfig& DriverCtx::queryConfig() const {
   return task->queryCtx()->queryConfig();
 }
 
-const std::optional<trace::QueryTraceConfig>& DriverCtx::traceConfig() const {
-  return task->queryTraceConfig();
+const std::optional<trace::TraceConfig>& DriverCtx::traceConfig() const {
+  return task->traceConfig();
 }
 
 velox::memory::MemoryPool* DriverCtx::addOperatorPool(
@@ -618,6 +618,7 @@ StopReason Driver::runInternal(
                   lockedStats->addInputVector(
                       resultBytes, intermediateResult->size());
                 }
+                nextOp->traceInput(intermediateResult);
                 TestValue::adjust(
                     "facebook::velox::exec::Driver::runInternal::addInput",
                     nextOp);

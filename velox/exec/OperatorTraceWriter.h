@@ -16,21 +16,27 @@
 
 #pragma once
 
-#include "QueryTraceConfig.h"
+#include "TraceConfig.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/exec/QueryTraceTraits.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/VectorStream.h"
+
+namespace facebook::velox::exec {
+class Operator;
+}
 
 namespace facebook::velox::exec::trace {
 
 /// Used to serialize and write the input vectors from a given operator into a
 /// file.
-class QueryDataWriter {
+class OperatorTraceWriter {
  public:
-  explicit QueryDataWriter(
-      std::string path,
+  /// 'traceOp' is the operator to trace. 'traceDir' specifies the trace
+  /// directory for the operator.
+  explicit OperatorTraceWriter(
+      Operator* traceOp,
+      std::string traceDir,
       memory::MemoryPool* pool,
       UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB);
 
@@ -38,18 +44,16 @@ class QueryDataWriter {
   void write(const RowVectorPtr& rows);
 
   /// Closes the data file and writes out the data summary.
-  ///
-  /// @param limitExceeded A flag indicates the written data bytes exceed the
-  /// limit causing the 'QueryDataWriter' to finish early.
-  void finish(bool limitExceeded = false);
+  void finish();
 
  private:
   // Flushes the trace data summaries to the disk.
   //
   // TODO: add more summaries such as number of rows etc.
-  void writeSummary(bool limitExceeded = false) const;
+  void writeSummary() const;
 
-  const std::string dirPath_;
+  Operator* const traceOp_;
+  const std::string traceDir_;
   // TODO: make 'useLosslessTimestamp' configuerable.
   const serializer::presto::PrestoVectorSerde::PrestoOptions options_ = {
       true,
@@ -58,9 +62,11 @@ class QueryDataWriter {
   const std::shared_ptr<filesystems::FileSystem> fs_;
   memory::MemoryPool* const pool_;
   const UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB_;
-  std::unique_ptr<WriteFile> dataFile_;
+
+  std::unique_ptr<WriteFile> traceFile_;
   TypePtr dataType_;
   std::unique_ptr<VectorStreamGroup> batch_;
+  bool limitExceeded_{false};
   bool finished_{false};
 };
 

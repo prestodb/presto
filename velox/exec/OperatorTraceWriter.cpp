@@ -14,31 +14,32 @@
  * limitations under the License.
  */
 
-#include "velox/exec/QueryDataWriter.h"
+#include "velox/exec/OperatorTraceWriter.h"
 
 #include <utility>
-#include "velox/common/base/SpillStats.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/exec/QueryTraceTraits.h"
-#include "velox/serializers/PrestoSerializer.h"
+#include "velox/exec/Operator.h"
+#include "velox/exec/Trace.h"
+#include "velox/exec/TraceUtil.h"
 
 namespace facebook::velox::exec::trace {
 
-QueryDataWriter::QueryDataWriter(
-    std::string path,
+OperatorTraceWriter::OperatorTraceWriter(
+    Operator* traceOp,
+    std::string traceDir,
     memory::MemoryPool* pool,
     UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB)
-    : dirPath_(std::move(path)),
-      fs_(filesystems::getFileSystem(dirPath_, nullptr)),
+    : traceOp_(traceOp),
+      traceDir_(std::move(traceDir)),
+      fs_(filesystems::getFileSystem(traceDir_, nullptr)),
       pool_(pool),
       updateAndCheckTraceLimitCB_(std::move(updateAndCheckTraceLimitCB)) {
-  dataFile_ = fs_->openFileForWrite(
-      fmt::format("{}/{}", dirPath_, QueryTraceTraits::kDataFileName));
-  VELOX_CHECK_NOT_NULL(dataFile_);
+  traceFile_ = fs_->openFileForWrite(getOpTraceInputFilePath(traceDir_));
+  VELOX_CHECK_NOT_NULL(traceFile_);
 }
 
-void QueryDataWriter::write(const RowVectorPtr& rows) {
+void OperatorTraceWriter::write(const RowVectorPtr& rows) {
   if (FOLLY_UNLIKELY(finished_)) {
     return;
   }
@@ -61,37 +62,36 @@ void QueryDataWriter::write(const RowVectorPtr& rows) {
   batch_->flush(&out);
   batch_->clear();
   auto iobuf = out.getIOBuf();
-  if (FOLLY_UNLIKELY(
-          updateAndCheckTraceLimitCB_(iobuf->computeChainDataLength()))) {
-    finish(true);
-    return;
-  }
-  dataFile_->append(std::move(iobuf));
+  updateAndCheckTraceLimitCB_(iobuf->computeChainDataLength());
+  traceFile_->append(std::move(iobuf));
 }
 
-void QueryDataWriter::finish(bool limitExceeded) {
+void OperatorTraceWriter::finish() {
   if (finished_) {
     return;
   }
 
   VELOX_CHECK_NOT_NULL(
-      dataFile_, "The query data writer has already been finished");
-  dataFile_->close();
-  dataFile_.reset();
+      traceFile_, "The query data writer has already been finished");
+  traceFile_->close();
+  traceFile_.reset();
   batch_.reset();
-  writeSummary(limitExceeded);
+  writeSummary();
   finished_ = true;
 }
 
-void QueryDataWriter::writeSummary(bool limitExceeded) const {
-  const auto summaryFilePath =
-      fmt::format("{}/{}", dirPath_, QueryTraceTraits::kDataSummaryFileName);
+void OperatorTraceWriter::writeSummary() const {
+  const auto summaryFilePath = getOpTraceSummaryFilePath(traceDir_);
   const auto file = fs_->openFileForWrite(summaryFilePath);
   folly::dynamic obj = folly::dynamic::object;
   if (dataType_ != nullptr) {
-    obj[QueryTraceTraits::kDataTypeKey] = dataType_->serialize();
+    obj[TraceTraits::kDataTypeKey] = dataType_->serialize();
   }
-  obj[QueryTraceTraits::kTraceLimitExceededKey] = limitExceeded;
+  obj[OperatorTraceTraits::kOpTypeKey] = traceOp_->operatorType();
+  const auto stats = traceOp_->stats(/*clear=*/false);
+  obj[OperatorTraceTraits::kPeakMemoryKey] =
+      stats.memoryStats.peakTotalMemoryReservation;
+  obj[OperatorTraceTraits::kInputRowsKey] = stats.inputPositions;
   file->append(folly::toJson(obj));
   file->close();
 }

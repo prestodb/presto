@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-#include "velox/exec/QueryTraceConfig.h"
+#include "velox/exec/TraceConfig.h"
 
 #include <utility>
 
+#include "velox/common/base/Exceptions.h"
+
 namespace facebook::velox::exec::trace {
 
-QueryTraceConfig::QueryTraceConfig(
+TraceConfig::TraceConfig(
     std::unordered_set<std::string> _queryNodeIds,
     std::string _queryTraceDir,
     UpdateAndCheckTraceLimitCB _updateAndCheckTraceLimitCB,
@@ -28,13 +30,7 @@ QueryTraceConfig::QueryTraceConfig(
     : queryNodes(std::move(_queryNodeIds)),
       queryTraceDir(std::move(_queryTraceDir)),
       updateAndCheckTraceLimitCB(std::move(_updateAndCheckTraceLimitCB)),
-      taskRegExp(std::move(_taskRegExp)) {}
-
-QueryTraceConfig::QueryTraceConfig(std::string _queryTraceDir)
-    : QueryTraceConfig(
-          std::unordered_set<std::string>{},
-          std::move(_queryTraceDir),
-          [](uint64_t) { return false; },
-          ".*") {}
-
+      taskRegExp(std::move(_taskRegExp)) {
+  VELOX_CHECK(!queryNodes.empty(), "Query trace nodes cannot be empty");
+}
 } // namespace facebook::velox::exec::trace

@@ -26,10 +26,10 @@
 #include "velox/common/hyperloglog/SparseHll.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/OperatorTraceReader.h"
 #include "velox/exec/PartitionFunction.h"
-#include "velox/exec/QueryDataReader.h"
-#include "velox/exec/QueryTraceUtil.h"
 #include "velox/exec/TableWriter.h"
+#include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -198,10 +198,14 @@ TEST_F(AggregationReplayerTest, test) {
             .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
             .copyResults(pool(), task);
 
-    const auto replayingResult =
-        AggregationReplayer(
-            traceRoot, task->taskId(), traceNodeId_, 0, "Aggregation")
-            .run();
+    const auto replayingResult = AggregationReplayer(
+                                     traceRoot,
+                                     task->queryCtx()->queryId(),
+                                     task->taskId(),
+                                     traceNodeId_,
+                                     0,
+                                     "Aggregation")
+                                     .run();
     assertEqualResults({results}, {replayingResult});
   }
 }

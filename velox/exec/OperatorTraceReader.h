@@ -18,16 +18,16 @@
 
 #include "velox/common/file/FileInputStream.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/core/PlanNode.h"
-#include "velox/core/QueryCtx.h"
+#include "velox/exec/Trace.h"
 #include "velox/serializers/PrestoSerializer.h"
-#include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec::trace {
 
-class QueryDataReader {
+/// Used to read an operator trace input.
+class OperatorTraceInputReader {
  public:
-  explicit QueryDataReader(
+  /// 'traceDir' specifies the operator trace directory.
+  OperatorTraceInputReader(
       std::string traceDir,
       RowTypePtr dataType,
       memory::MemoryPool* pool);
@@ -37,16 +37,33 @@ class QueryDataReader {
   bool read(RowVectorPtr& batch) const;
 
  private:
-  std::unique_ptr<common::FileInputStream> getDataInputStream() const;
+  std::unique_ptr<common::FileInputStream> getInputStream() const;
 
   const std::string traceDir_;
   const serializer::presto::PrestoVectorSerde::PrestoOptions readOptions_{
       true,
       common::CompressionKind_ZSTD, // TODO: Use trace config.
-      /*nullsFirst=*/true};
+      /*_nullsFirst=*/true};
   const std::shared_ptr<filesystems::FileSystem> fs_;
   const RowTypePtr dataType_;
   memory::MemoryPool* const pool_;
-  const std::unique_ptr<common::FileInputStream> dataStream_;
+  const std::unique_ptr<common::FileInputStream> inputStream_;
+};
+
+/// Used to read an operator trace summary.
+class OperatorTraceSummaryReader {
+ public:
+  /// 'traceDir' specifies the operator trace directory.
+  OperatorTraceSummaryReader(std::string traceDir, memory::MemoryPool* pool);
+
+  /// Read and return the operator trace 'summary'. The function throws if it
+  /// fails.
+  OperatorTraceSummary read() const;
+
+ private:
+  const std::string traceDir_;
+  const std::shared_ptr<filesystems::FileSystem> fs_;
+  memory::MemoryPool* const pool_;
+  const std::unique_ptr<ReadFile> summaryFile_;
 };
 } // namespace facebook::velox::exec::trace

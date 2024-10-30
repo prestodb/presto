@@ -20,6 +20,7 @@
 #include <vector>
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/PlanNode.h"
+#include "velox/exec/Task.h"
 #include "velox/type/Type.h"
 
 #include <folly/dynamic.h>
@@ -28,6 +29,52 @@ namespace facebook::velox::exec::trace {
 
 /// Creates a directory to store the query trace metdata and data.
 void createTraceDirectory(const std::string& traceDir);
+
+/// Returns the trace directory for a given query.
+std::string getQueryTraceDirectory(
+    const std::string& traceDir,
+    const std::string& queryId);
+
+/// Returns the trace directory for a given query task.
+std::string getTaskTraceDirectory(
+    const std::string& traceDir,
+    const Task& task);
+
+std::string getTaskTraceDirectory(
+    const std::string& traceDir,
+    const std::string& queryId,
+    const std::string& taskId);
+
+/// Returns the file path for a given task's metadata trace file.
+std::string getTaskTraceMetaFilePath(const std::string& taskTraceDir);
+
+/// Returns the trace directory for a given traced plan node.
+std::string getNodeTraceDirectory(
+    const std::string& taskTraceDir,
+    const std::string& nodeId);
+
+/// Returns the trace directory for a given traced pipeline.
+std::string getPipelineTraceDirectory(
+    const std::string& nodeTraceDir,
+    uint32_t pipelineId);
+
+/// Returns the trace directory for a given traced operator.
+std::string getOpTraceDirectory(
+    const std::string& taskTraceDir,
+    const std::string& nodeId,
+    uint32_t pipelineId,
+    uint32_t driverId);
+
+std::string getOpTraceDirectory(
+    const std::string& nodeTraceDir,
+    int pipelineId,
+    int driverId);
+
+/// Returns the file path for a given operator's traced input file.
+std::string getOpTraceInputFilePath(const std::string& opTraceDir);
+
+/// Returns the file path for a given operator's traced input file.
+std::string getOpTraceSummaryFilePath(const std::string& opTraceDir);
 
 /// Extracts the input data type for the trace scan operator. The function first
 /// uses the traced node id to find traced operator's plan node from the traced
@@ -48,28 +95,32 @@ RowTypePtr getDataType(
     const std::string& tracedNodeId,
     size_t sourceIndex = 0);
 
-/// Extracts the number of drivers by listing the number of sub-directors under
-/// the trace directory for a given pipeline.
-uint8_t getNumDrivers(
-    const std::string& rootDir,
-    const std::string& taskId,
-    const std::string& nodeId,
-    int32_t pipelineId,
+/// Extracts the driver ids by listing the sub-directors under the trace
+/// directory for a given pipeline and decode the sub-directory names to get
+/// driver id. 'nodeTraceDir' is the trace directory of the plan node.
+std::vector<uint32_t> listDriverIds(
+    const std::string& nodeTraceDir,
+    uint32_t pipelineId,
     const std::shared_ptr<filesystems::FileSystem>& fs);
 
-/// Extracts task ids of the query tracing by listing the trace directory.
+/// Extracts the number of drivers by listing the number of sub-directors under
+/// the trace directory for a given pipeline. 'nodeTraceDir' is the trace
+/// directory of the plan node.
+size_t getNumDrivers(
+    const std::string& nodeTraceDir,
+    uint32_t pipelineId,
+    const std::shared_ptr<filesystems::FileSystem>& fs);
+
+/// Extracts task ids of the query tracing by listing the query trace directory.
+/// 'traceDir' is the root trace directory. 'queryId' is the query id.
 std::vector<std::string> getTaskIds(
     const std::string& traceDir,
+    const std::string& queryId,
     const std::shared_ptr<filesystems::FileSystem>& fs);
 
 /// Gets the metadata from a given task metadata file which includes query plan,
 /// configs and connector properties.
-folly::dynamic getMetadata(
-    const std::string& metadataFile,
+folly::dynamic getTaskMetadata(
+    const std::string& taskMetaFilePath,
     const std::shared_ptr<filesystems::FileSystem>& fs);
-
-/// Gets the traced data directory. 'traceaDir' is the trace directory for a
-/// given plan node, which is $traceRoot/$taskId/$nodeId.
-std::string
-getDataDir(const std::string& traceDir, int pipelineId, int driverId);
 } // namespace facebook::velox::exec::trace

@@ -322,9 +322,12 @@ class PlanBuilder {
   /// Adds a QueryReplayNode for query tracing.
   ///
   /// @param traceNodeDir The trace directory for a given plan node.
+  /// @param pipelineId The pipeline id for the traced operator instantiated
+  /// from the given plan node.
   /// @param outputType The type of the tracing data.
   PlanBuilder& traceScan(
       const std::string& traceNodeDir,
+      uint32_t pipelineId,
       const RowTypePtr& outputType);
 
   /// Add an ExchangeNode.

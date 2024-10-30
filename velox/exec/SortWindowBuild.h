@@ -35,7 +35,7 @@ class SortWindowBuild : public WindowBuild {
       tsan_atomic<bool>* nonReclaimableSection,
       folly::Synchronized<common::SpillStats>* spillStats);
 
-  ~SortWindowBuild() {
+  ~SortWindowBuild() override {
     pool_->release();
   }
 

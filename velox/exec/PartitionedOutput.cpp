@@ -233,8 +233,6 @@ void PartitionedOutput::estimateRowSizes() {
 }
 
 void PartitionedOutput::addInput(RowVectorPtr input) {
-  traceInput(input);
-
   initializeInput(std::move(input));
   initializeDestinations();
   initializeSizeBuffers();

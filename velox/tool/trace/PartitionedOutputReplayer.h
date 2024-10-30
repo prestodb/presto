@@ -41,7 +41,8 @@ class PartitionedOutputReplayer final : public OperatorReplayerBase {
       std::function<void(uint32_t, std::unique_ptr<folly::IOBuf>)>;
 
   PartitionedOutputReplayer(
-      const std::string& rootDir,
+      const std::string& traceDir,
+      const std::string& queryId,
       const std::string& taskId,
       const std::string& nodeId,
       const int32_t pipelineId,

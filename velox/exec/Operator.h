@@ -21,7 +21,7 @@
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/JoinBridge.h"
-#include "velox/exec/QueryDataWriter.h"
+#include "velox/exec/OperatorTraceWriter.h"
 #include "velox/exec/Spiller.h"
 #include "velox/type/Filter.h"
 
@@ -408,7 +408,6 @@ class Operator : public BaseRuntimeStatWriter {
   /// e.g. the first operator in the pipeline.
   virtual void noMoreInput() {
     noMoreInput_ = true;
-    finishTrace();
   }
 
   /// Returns a RowVector with the result columns. Returns nullptr if
@@ -483,13 +482,7 @@ class Operator : public BaseRuntimeStatWriter {
 
   /// Frees all resources associated with 'this'. No other methods
   /// should be called after this.
-  virtual void close() {
-    input_ = nullptr;
-    results_.clear();
-    recordSpillStats();
-    // Release the unused memory reservation on close.
-    operatorCtx_->pool()->release();
-  }
+  virtual void close();
 
   // Returns true if 'this' never has more output rows than input rows.
   virtual bool isFilter() const {
@@ -781,7 +774,7 @@ class Operator : public BaseRuntimeStatWriter {
 
   folly::Synchronized<OperatorStats> stats_;
   folly::Synchronized<common::SpillStats> spillStats_;
-  std::unique_ptr<trace::QueryDataWriter> inputTracer_;
+  std::unique_ptr<trace::OperatorTraceWriter> inputTracer_;
 
   /// Indicates if an operator is under a non-reclaimable execution section.
   /// This prevents the memory arbitrator from reclaiming memory from this
