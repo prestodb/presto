@@ -57,14 +57,17 @@ class ExpressionVerifier {
         options_(options),
         referenceQueryRunner_{referenceQueryRunner} {}
 
-  // Executes expressions both using common path (all evaluation
-  // optimizations) and simplified path. Additionally, a list of column
-  // indices can be passed via 'columnsToWrapInLazy' which specify the
-  // columns/children in the input row vector that should be wrapped in a lazy
-  // layer before running it through the common evaluation path. The list can
-  // contain negative column indices that represent lazy vectors that should be
-  // preloaded before being fed to the evaluator. This list is sorted on the
-  // absolute value of the entries.
+  // Executes expressions using common path (all evaluation
+  // optimizations) and compares the result with either the simplified path or a
+  // reference query runner. An optional selectivity vector 'rowsToVerify' can
+  // be passed which specifies which rows to evaluate and verify. If its not
+  // provided (by passing std::nullopt) then all rows will be verified.
+  // Additionally, a list of column indices can be passed via
+  // 'columnsToWrapInLazy' which specify the columns/children in the input row
+  // vector that should be wrapped in a lazy layer before running it through the
+  // common evaluation path. The list can contain negative column indices that
+  // represent lazy vectors that should be preloaded before being fed to the
+  // evaluator. This list is sorted on the absolute value of the entries.
   // Returns:
   //  - result of evaluating the expressions if both paths succeeded and
   //  returned the exact same vectors.
@@ -74,6 +77,7 @@ class ExpressionVerifier {
   fuzzer::ResultOrError verify(
       const std::vector<core::TypedExprPtr>& plans,
       const RowVectorPtr& rowVector,
+      const std::optional<SelectivityVector>& rowsToVerify,
       VectorPtr&& resultVector,
       bool canThrow,
       std::vector<int> columnsToWarpInLazy = {});
@@ -112,5 +116,6 @@ void computeMinimumSubExpression(
     VectorFuzzer& fuzzer,
     const std::vector<core::TypedExprPtr>& plans,
     const RowVectorPtr& rowVector,
+    const std::optional<SelectivityVector>& rowsToVerify,
     const std::vector<int>& columnsToWrapInLazy);
 } // namespace facebook::velox::test

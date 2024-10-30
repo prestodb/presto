@@ -49,6 +49,16 @@ struct AlwaysThrowsRuntimeErrorFunction {
   }
 };
 
+template <typename T>
+struct ThrowsRuntimeErrorOnEvenInputFunction {
+  template <typename TResult, typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TResult&, const TInput& in) {
+    if (in % 2 == 0) {
+      VELOX_FAIL("expected");
+    }
+  }
+};
+
 void removeDirecrtoryIfExist(
     std::shared_ptr<filesystems::FileSystem>& localFs,
     const std::string& folderPath) {
@@ -102,7 +112,8 @@ TEST_F(ExpressionVerifierUnitTest, persistReproInfo) {
     auto plan = parseExpression("always_throws(c0)", asRowType(data->type()));
 
     removeDirecrtoryIfExist(localFs, reproPath);
-    VELOX_ASSERT_THROW(verifier.verify({plan}, data, nullptr, false), "");
+    VELOX_ASSERT_THROW(
+        verifier.verify({plan}, data, std::nullopt, nullptr, false), "");
     EXPECT_TRUE(localFs->exists(reproPath));
     EXPECT_FALSE(localFs->list(reproPath).empty());
     removeDirecrtoryIfExist(localFs, reproPath);
@@ -120,6 +131,25 @@ TEST_F(ExpressionVerifierUnitTest, persistReproInfo) {
     registerFunction<AlwaysThrowsRuntimeErrorFunction, int32_t, int32_t>(
         {"always_throws"});
     testReproPersistency(verifier, reproPath, localFs);
+  }
+}
+
+TEST_F(ExpressionVerifierUnitTest, subsetOfRowsToVerify) {
+  // Verify that rows passed to verify() are the only ones evaluated.
+  ExpressionVerifierOptions options;
+  ExpressionVerifier verifier{&execCtx_, options, nullptr};
+  {
+    registerFunction<ThrowsRuntimeErrorOnEvenInputFunction, int32_t, int32_t>(
+        {"always_throws"});
+    auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
+    auto plan = parseExpression("always_throws(c0)", asRowType(data->type()));
+    VELOX_ASSERT_THROW(
+        verifier.verify({plan}, data, std::nullopt, nullptr, false), "");
+
+    SelectivityVector rows(data->size());
+    rows.setValid(1, false);
+    rows.updateBounds();
+    verifier.verify({plan}, data, rows, nullptr, false);
   }
 }
 

@@ -197,6 +197,7 @@ void ExpressionRunner::run(
       verifier.verify(
           typedExprs,
           inputVector,
+          std::nullopt,
           std::move(resultVector),
           true,
           columnsToWrapInLazy);
@@ -209,6 +210,7 @@ void ExpressionRunner::run(
             fuzzer,
             typedExprs,
             inputVector,
+            std::nullopt,
             columnsToWrapInLazy);
       }
       throw;

@@ -68,11 +68,35 @@ bool defaultNullRowsSkipped(const exec::ExprSet& exprSet) {
   }
   return false;
 }
+
+// Returns a RowVector with only the rows specified in 'rows'. Does not maintain
+// encodings.
+RowVectorPtr reduceToSelectedRows(
+    const RowVectorPtr& rowVector,
+    const SelectivityVector& rows) {
+  if (rows.isAllSelected()) {
+    return rowVector;
+  }
+  BufferPtr indices = allocateIndices(rows.end(), rowVector->pool());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  vector_size_t cnt = 0;
+  rows.applyToSelected([&](vector_size_t row) { rawIndices[cnt++] = row; });
+  VELOX_CHECK_GT(cnt, 0);
+  indices->setSize(cnt * sizeof(vector_size_t));
+  // Top level row vector is not expected to be encoded, therefore we copy
+  // instead of wrapping in the indices.
+  RowVectorPtr reducedVector = std::dynamic_pointer_cast<RowVector>(
+      BaseVector::create(rowVector->type(), cnt, rowVector->pool()));
+  SelectivityVector rowsToCopy(cnt);
+  reducedVector->copy(rowVector.get(), rowsToCopy, rawIndices);
+  return reducedVector;
+}
 } // namespace
 
 fuzzer::ResultOrError ExpressionVerifier::verify(
     const std::vector<core::TypedExprPtr>& plans,
     const RowVectorPtr& rowVector,
+    const std::optional<SelectivityVector>& rowsToVerify,
     VectorPtr&& resultVector,
     bool canThrow,
     std::vector<int> columnsToWrapInLazy) {
@@ -132,7 +156,12 @@ fuzzer::ResultOrError ExpressionVerifier::verify(
   std::exception_ptr exceptionSimplifiedPtr;
 
   VLOG(1) << "Starting common eval execution.";
-  SelectivityVector rows{rowVector ? rowVector->size() : 1};
+  SelectivityVector rows;
+  if (rowsToVerify.has_value()) {
+    rows = *rowsToVerify;
+  } else {
+    rows = SelectivityVector{rowVector ? rowVector->size() : 1};
+  }
 
   // Execute with common expression eval path. Some columns of the input row
   // vector will be wrapped in lazy as specified in 'columnsToWrapInLazy'.
@@ -171,7 +200,8 @@ fuzzer::ResultOrError ExpressionVerifier::verify(
           copiedInput,
           BaseVector::copy(*inputRowVector),
           "Copy of original input",
-          "Input after common");
+          "Input after common",
+          rows);
     }
   } catch (const VeloxException& e) {
     if (e.errorCode() == error_code::kUnsupportedInputUncatchable) {
@@ -201,9 +231,11 @@ fuzzer::ResultOrError ExpressionVerifier::verify(
 
   if (referenceQueryRunner_ != nullptr) {
     VLOG(1) << "Execute with reference DB.";
-    auto projectionPlan = makeProjectionPlan(rowVector, plans);
+    auto inputRowVector = rowVector;
+    inputRowVector = reduceToSelectedRows(rowVector, rows);
+    auto projectionPlan = makeProjectionPlan(inputRowVector, plans);
     auto referenceResultOrError = computeReferenceResults(
-        projectionPlan, {rowVector}, referenceQueryRunner_.get());
+        projectionPlan, {inputRowVector}, referenceQueryRunner_.get());
 
     auto referenceEvalResult = referenceResultOrError.first;
 
@@ -246,6 +278,7 @@ fuzzer::ResultOrError ExpressionVerifier::verify(
               nullptr,
               commonEvalResult[0]->size(),
               commonEvalResult);
+          commonEvalResultRow = reduceToSelectedRows(commonEvalResultRow, rows);
           VELOX_CHECK(
               exec::test::assertEqualResults(
                   referenceEvalResult.value(),
@@ -280,7 +313,8 @@ fuzzer::ResultOrError ExpressionVerifier::verify(
           copy,
           BaseVector::copy(*rowVector),
           "Copy of original input",
-          "Input after simplified");
+          "Input after simplified",
+          rows);
     } catch (const VeloxException& e) {
       if (e.errorCode() == error_code::kUnsupportedInputUncatchable) {
         unsupportedInputUncatchableError = true;
@@ -479,12 +513,13 @@ class MinimalSubExpressionFinder {
   void findMinimalExpression(
       core::TypedExprPtr plan,
       const RowVectorPtr& rowVector,
+      const std::optional<SelectivityVector>& rowsToVerify,
       const std::vector<int>& columnsToWrapInLazy) {
-    if (verifyWithResults(plan, rowVector, columnsToWrapInLazy)) {
+    if (verifyWithResults(plan, rowVector, rowsToVerify, columnsToWrapInLazy)) {
       errorExit("Retry should have failed");
     }
-    bool minimalFound =
-        findMinimalRecursive(plan, rowVector, columnsToWrapInLazy);
+    bool minimalFound = findMinimalRecursive(
+        plan, rowVector, rowsToVerify, columnsToWrapInLazy);
     if (minimalFound) {
       errorExit("Found minimal failing expression.");
     } else {
@@ -504,13 +539,15 @@ class MinimalSubExpressionFinder {
   bool findMinimalRecursive(
       core::TypedExprPtr plan,
       const RowVectorPtr& rowVector,
+      const std::optional<SelectivityVector>& rowsToVerify,
       const std::vector<int>& columnsToWrapInLazy) {
     bool anyFailed = false;
     for (auto& input : plan->inputs()) {
-      if (!verifyWithResults(input, rowVector, columnsToWrapInLazy)) {
+      if (!verifyWithResults(
+              input, rowVector, rowsToVerify, columnsToWrapInLazy)) {
         anyFailed = true;
-        bool minimalFound =
-            findMinimalRecursive(input, rowVector, columnsToWrapInLazy);
+        bool minimalFound = findMinimalRecursive(
+            input, rowVector, rowsToVerify, columnsToWrapInLazy);
         if (minimalFound) {
           return true;
         }
@@ -519,10 +556,10 @@ class MinimalSubExpressionFinder {
     if (!anyFailed) {
       LOG(INFO) << "Failed with all children succeeding: " << plan->toString();
       // Re-running the minimum failed. Put breakpoint here to debug.
-      verifyWithResults(plan, rowVector, columnsToWrapInLazy);
+      verifyWithResults(plan, rowVector, rowsToVerify, columnsToWrapInLazy);
       if (!columnsToWrapInLazy.empty()) {
         LOG(INFO) << "Trying without lazy:";
-        if (verifyWithResults(plan, rowVector, {})) {
+        if (verifyWithResults(plan, rowVector, rowsToVerify, {})) {
           LOG(INFO) << "Minimal failure succeeded without lazy vectors";
         }
       }
@@ -539,14 +576,16 @@ class MinimalSubExpressionFinder {
   bool verifyWithResults(
       core::TypedExprPtr plan,
       const RowVectorPtr& rowVector,
+      const std::optional<SelectivityVector>& rowsToVerify,
       const std::vector<int>& columnsToWrapInLazy) {
     VectorPtr result;
     LOG(INFO) << "Running with empty results vector :" << plan->toString();
-    bool emptyResult = verifyPlan(plan, rowVector, columnsToWrapInLazy, result);
+    bool emptyResult =
+        verifyPlan(plan, rowVector, rowsToVerify, columnsToWrapInLazy, result);
     LOG(INFO) << "Running with non empty vector :" << plan->toString();
     result = vectorFuzzer_.fuzzFlat(plan->type());
     bool filledResult =
-        verifyPlan(plan, rowVector, columnsToWrapInLazy, result);
+        verifyPlan(plan, rowVector, rowsToVerify, columnsToWrapInLazy, result);
     if (emptyResult != filledResult) {
       LOG(ERROR) << fmt::format(
           "Different results for empty vs populated ! Empty result = {} filledResult = {}",
@@ -561,6 +600,7 @@ class MinimalSubExpressionFinder {
   bool verifyPlan(
       core::TypedExprPtr plan,
       const RowVectorPtr& rowVector,
+      const std::optional<SelectivityVector>& rowsToVerify,
       const std::vector<int>& columnsToWrapInLazy,
       VectorPtr results) {
     // Turn off unnecessary logging.
@@ -571,6 +611,7 @@ class MinimalSubExpressionFinder {
       verifier_.verify(
           {plan},
           rowVector,
+          rowsToVerify,
           results ? BaseVector::copy(*results) : nullptr,
           true, // canThrow
           columnsToWrapInLazy);
@@ -591,6 +632,7 @@ void computeMinimumSubExpression(
     VectorFuzzer& fuzzer,
     const std::vector<core::TypedExprPtr>& plans,
     const RowVectorPtr& rowVector,
+    const std::optional<SelectivityVector>& rowsToVerify,
     const std::vector<int>& columnsToWrapInLazy) {
   auto finder = MinimalSubExpressionFinder(std::move(minimalVerifier), fuzzer);
   if (plans.size() > 1) {
@@ -602,7 +644,8 @@ void computeMinimumSubExpression(
   for (auto plan : plans) {
     LOG(INFO) << "============================================";
     LOG(INFO) << "Finding minimal subexpression for plan:" << plan->toString();
-    finder.findMinimalExpression(plan, rowVector, columnsToWrapInLazy);
+    finder.findMinimalExpression(
+        plan, rowVector, rowsToVerify, columnsToWrapInLazy);
     LOG(INFO) << "============================================";
   }
 }
