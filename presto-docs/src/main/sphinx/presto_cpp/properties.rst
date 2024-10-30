@@ -307,7 +307,7 @@ The LinuxMemoryChecker can be enabled by setting the CMake flag ``PRESTO_MEMORY_
 The following properties for PeriodicMemoryChecker are as follows:
 
 ``system-mem-pushback-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
