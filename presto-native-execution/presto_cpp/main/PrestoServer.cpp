@@ -16,8 +16,8 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <glog/logging.h>
-#include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
+#include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/SignalHandler.h"
@@ -49,7 +49,11 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
+#ifdef VELOX_ENABLE_FORWARD_COMPATIBILITY
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
+#else
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
+#endif
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/tpch/TpchConnector.h"
@@ -1278,7 +1282,11 @@ void PrestoServer::registerFileSystems() {
   velox::filesystems::registerLocalFileSystem();
   velox::filesystems::registerS3FileSystem();
   velox::filesystems::registerHdfsFileSystem();
+#ifdef VELOX_ENABLE_FORWARD_COMPATIBILITY
+  velox::filesystems::registerGcsFileSystem();
+#else
   velox::filesystems::registerGCSFileSystem();
+#endif
   velox::filesystems::abfs::registerAbfsFileSystem();
 }
 
