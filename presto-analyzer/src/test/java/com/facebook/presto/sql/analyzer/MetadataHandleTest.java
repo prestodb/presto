@@ -53,10 +53,10 @@ public class MetadataHandleTest
     {
         Optional<ViewDefinition> viewDefinitionOptional = metadataHandle.getViewDefinition(QualifiedObjectName.valueOf("tpch.s1.t1"));
         assertTrue(viewDefinitionOptional.isPresent());
-        ViewDefinition viewDefinition = viewDefinitionOptional.get();
-        assertEquals("tpch", viewDefinition.getCatalog().get());
-        assertEquals("s1", viewDefinition.getSchema().get());
-        assertEquals("user", viewDefinition.getOwner().get());
+        ViewDefinition viewDefinition = viewDefinitionOptional.orElseThrow();
+        assertEquals("tpch", viewDefinition.getCatalog().orElseThrow());
+        assertEquals("s1", viewDefinition.getSchema().orElseThrow());
+        assertEquals("user", viewDefinition.getOwner().orElseThrow());
         assertEquals("select a from t1", viewDefinition.getOriginalSql());
         assertFalse(viewDefinition.isRunAsInvoker());
     }
