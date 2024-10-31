@@ -834,9 +834,6 @@ void SharedArbitrator::globalArbitrationMain() {
 }
 
 void SharedArbitrator::runGlobalArbitration() {
-  TestValue::adjust(
-      "facebook::velox::memory::SharedArbitrator::runGlobalArbitration", this);
-
   const uint64_t startTimeMs = getCurrentTimeMs();
   uint64_t totalReclaimedBytes{0};
   bool reclaimByAbort{false};
@@ -844,6 +841,9 @@ void SharedArbitrator::runGlobalArbitration() {
   std::unordered_set<uint64_t> reclaimedParticipants;
   std::unordered_set<uint64_t> failedParticipants;
   bool allParticipantsReclaimed{false};
+
+  TestValue::adjust(
+      "facebook::velox::memory::SharedArbitrator::runGlobalArbitration", this);
 
   size_t round{0};
   for (;; ++round) {
@@ -860,7 +860,7 @@ void SharedArbitrator::runGlobalArbitration() {
       //
       // TODO: make the time based condition check configurable.
       reclaimByAbort =
-          (getCurrentTimeMs() - startTimeMs) < maxArbitrationTimeMs_ / 2 &&
+          (getCurrentTimeMs() - startTimeMs) > maxArbitrationTimeMs_ / 2 &&
           (reclaimByAbort || (allParticipantsReclaimed && reclaimedBytes == 0));
       if (!reclaimByAbort) {
         reclaimedBytes = reclaimUsedMemoryBySpill(

@@ -1677,6 +1677,87 @@ DEBUG_ONLY_TEST_F(
   ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].sum, 1);
 }
 
+DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, globalArbitrationAbortTimeRatio) {
+  const int64_t memoryCapacity = 512 << 20;
+  const uint64_t memoryPoolInitCapacity = memoryCapacity / 2;
+  const int64_t maxArbitrationTimeMs = 2'000;
+  const int64_t abortTimeThresholdMs = maxArbitrationTimeMs / 2;
+
+  setupMemory(
+      memoryCapacity,
+      0,
+      memoryPoolInitCapacity,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      kMemoryReclaimThreadsHwMultiplier,
+      nullptr,
+      true,
+      maxArbitrationTimeMs);
+
+  test::SharedArbitratorTestHelper arbitratorHelper(arbitrator_);
+
+  for (uint64_t pauseTimeMs :
+       {abortTimeThresholdMs / 2,
+        (maxArbitrationTimeMs - abortTimeThresholdMs) / 2}) {
+    auto task1 = addTask(memoryCapacity);
+    auto* op1 = task1->addMemoryOp(false);
+    op1->allocate(memoryCapacity / 2);
+
+    auto task2 = addTask(memoryCapacity / 2);
+    auto* op2 = task2->addMemoryOp(false);
+    op2->allocate(memoryCapacity / 2);
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::memory::SharedArbitrator::runGlobalArbitration",
+        std::function<void(const SharedArbitrator*)>(
+            ([&](const SharedArbitrator* /*unused*/) {
+              std::this_thread::sleep_for(
+                  std::chrono::milliseconds(pauseTimeMs));
+            })));
+
+    std::unordered_map<std::string, RuntimeMetric> runtimeStats;
+    auto statsWriter = std::make_unique<TestRuntimeStatWriter>(runtimeStats);
+    setThreadLocalRunTimeStatWriter(statsWriter.get());
+    const auto prevGlobalArbitrationRuns =
+        arbitratorHelper.globalArbitrationRuns();
+    op1->allocate(memoryCapacity / 2);
+
+    ASSERT_EQ(
+        runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
+    ASSERT_GT(
+        runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
+    ASSERT_EQ(
+        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].count, 1);
+    ASSERT_EQ(
+        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].sum, 1);
+    ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
+    ASSERT_TRUE(task1->error() == nullptr);
+    ASSERT_EQ(task1->capacity(), memoryCapacity);
+    ASSERT_TRUE(task2->error() != nullptr);
+    VELOX_ASSERT_THROW(
+        std::rethrow_exception(task2->error()),
+        "Memory pool aborted to reclaim used memory");
+
+    const auto deltaGlobalArbitrationRuns =
+        arbitratorHelper.globalArbitrationRuns() - prevGlobalArbitrationRuns;
+    if (pauseTimeMs < abortTimeThresholdMs) {
+      ASSERT_GT(deltaGlobalArbitrationRuns, 2);
+    } else {
+      // In SharedArbitrator::runGlobalArbitration()
+      // First loop attempting spill, global run update.
+      // Second loop abort, resume waiter. Global run update and the assert
+      // below is a race condition, hence ASSERT_LE
+      ASSERT_LE(deltaGlobalArbitrationRuns, 2);
+    }
+  }
+}
+
 DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, multipleGlobalRuns) {
   const int64_t memoryCapacity = 512 << 20;
   const uint64_t memoryPoolInitCapacity = memoryCapacity / 2;

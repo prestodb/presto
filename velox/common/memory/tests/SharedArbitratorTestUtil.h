@@ -65,6 +65,10 @@ class SharedArbitratorTestHelper {
     return arbitrator_->globalArbitrationController_.get();
   }
 
+  uint64_t globalArbitrationRuns() const {
+    return arbitrator_->globalArbitrationRuns_;
+  }
+
   bool hasShutdown() const {
     std::lock_guard<std::mutex> l(arbitrator_->stateLock_);
     return arbitrator_->hasShutdownLocked();
