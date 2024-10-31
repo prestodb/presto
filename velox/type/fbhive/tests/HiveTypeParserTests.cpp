@@ -183,6 +183,7 @@ TEST(FbHive, parseOpaque) {
   HiveTypeParser parser;
   auto t = parser.parse("opaque<bar>");
   ASSERT_EQ(t->toString(), "OPAQUE<facebook::velox::type::fbhive::Foo>");
+  unregisterOpaqueType<Foo>("bar");
 }
 
 TEST(FbHive, parseUnregisteredOpaque) {
@@ -192,5 +193,6 @@ TEST(FbHive, parseUnregisteredOpaque) {
   VELOX_ASSERT_THROW(
       parser.parse("opaque<Foo>"),
       "Could not find type 'Foo'. Did you call registerOpaqueType?");
+  unregisterOpaqueType<Foo>("bar");
 }
 } // namespace facebook::velox::type::fbhive

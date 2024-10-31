@@ -41,6 +41,7 @@ TEST(HiveTypeSerializer, opaque) {
   std::shared_ptr<const Type> type = OPAQUE<Foo>();
   auto result = HiveTypeSerializer::serialize(type);
   EXPECT_EQ(result, "opaque<bar>");
+  unregisterOpaqueType<Foo>("bar");
 }
 
 TEST(HiveTypeSerializer, unregisteredOpaque) {

@@ -2037,6 +2037,16 @@ bool registerOpaqueType(const std::string& alias) {
       getOpaqueAliasByTypeIndex().emplace(typeIndex, alias).second;
 }
 
+/// Unregisters an opaque type. Returns true if the type was unregistered.
+/// Currently, it is only used for testing to provide isolation between tests
+/// when using the same alias.
+template <typename Class>
+bool unregisterOpaqueType(const std::string& alias) {
+  auto typeIndex = std::type_index(typeid(Class));
+  return getTypeIndexByOpaqueAlias().erase(alias) == 1 &&
+      getOpaqueAliasByTypeIndex().erase(typeIndex) == 1;
+}
+
 /// Return true if a custom type with the specified name exists.
 bool customTypeExists(const std::string& name);
 
