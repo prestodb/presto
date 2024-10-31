@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    CALL procedure_name ( [ name => ] expression [, ...] )
+    CALL procedure_name ( [ name => ] expression [, ...] [,] )
 
 Description
 -----------

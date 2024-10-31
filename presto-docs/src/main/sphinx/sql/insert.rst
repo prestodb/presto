@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    INSERT INTO table_name [ ( column [, ... ] ) ] query
+    INSERT INTO table_name [ ( column [, ... ] [,] ) ] query
 
 Description
 -----------

@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    DROP [TEMPORARY] FUNCTION [ IF EXISTS ] qualified_function_name [ ( parameter_type[, ...] ) ]
+    DROP [TEMPORARY] FUNCTION [ IF EXISTS ] qualified_function_name [ ( parameter_type[, ...] [,] ) ]
 
 
 Description

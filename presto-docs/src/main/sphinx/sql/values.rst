@@ -7,14 +7,14 @@ Synopsis
 
 .. code-block:: none
 
-    VALUES row [, ...]
+    VALUES row [, ...] [,]
 
 
 where ``row`` is a single expression or
 
 .. code-block:: none
 
-    ( column_expression [, ...] )
+    ( column_expression [, ...] [,] )
 
 
 Description

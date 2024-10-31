@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    SHOW CREATE FUNCTION function_name [ ( parameter_type[, ...] ) ]
+    SHOW CREATE FUNCTION function_name [ ( parameter_type[, ...] [,] ) ]
 
 Description
 -----------

@@ -3266,12 +3266,20 @@ public class TestSqlParser
         assertEquivalentStatement("SELECT ARRAY_AGG(a,), FROM table_foo,", "SELECT ARRAY_AGG(a) FROM table_foo");
         assertEquivalentStatement("SELECT ARRAY_AGG(a,), FROM table_foo,", "SELECT ARRAY_AGG(a) FROM table_foo");
         assertEquivalentStatement("ALTER FUNCTION prod.default.tan(double,) CALLED ON NULL INPUT", "ALTER FUNCTION prod.default.tan(double) CALLED ON NULL INPUT");
+        assertEquivalentStatement("ALTER TABLE IF EXISTS users ADD UNIQUE (first_name, last_name,) DISABLED", "ALTER TABLE IF EXISTS users ADD UNIQUE (first_name, last_name) DISABLED");
+        assertEquivalentStatement("CALL test(name => 'apple', id => 123,)", "CALL test(name => 'apple', id => 123)");
+        assertEquivalentStatement("CREATE SCHEMA IF NOT EXISTS traffic with (a = 1, b=2, )", "CREATE SCHEMA IF NOT EXISTS traffic with (a = 1, b=2)");
+        assertEquivalentStatement("CREATE TABLE orders_by_date COMMENT 'Summary of orders by date' WITH (format = 'ORC',) AS SELECT orderdate, sum(totalprice) AS price, FROM orders GROUP BY orderdate,", "CREATE TABLE orders_by_date COMMENT 'Summary of orders by date' WITH (format = 'ORC') AS SELECT orderdate, sum(totalprice) AS price FROM orders GROUP BY orderdate");
         assertEquivalentStatement("ANALYZE hive.default.sales WITH (partitions = ARRAY[ARRAY['1992-01-01'], ARRAY['1992-01-02']],)", "ANALYZE hive.default.sales WITH (partitions = ARRAY[ARRAY['1992-01-01'], ARRAY['1992-01-02']])");
         assertEquivalentStatement("CREATE FUNCTION example.default.tan(x double, ) RETURNS double RETURN x", "CREATE FUNCTION example.default.tan(x double) RETURNS double return x");
         assertEquivalentStatement("explain select *,foo, from t where a = 1", "explain select *,foo from t where a = 1");
+        assertEquivalentStatement("DROP FUNCTION IF EXISTS example.default.tan(double,)", "DROP FUNCTION IF EXISTS example.default.tan(double)");
         assertEquivalentStatement("START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY,", "START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY");
+        assertEquivalentStatement("GRANT INSERT, SELECT, ON orders TO alice", "GRANT INSERT, SELECT ON orders TO alice");
+        assertEquivalentStatement("REVOKE INSERT, SELECT, ON orders FROM alice", "REVOKE INSERT, SELECT ON orders FROM alice");
         assertEquivalentExpression("(VALUES 1, 2, 3,)", "(VALUES 1, 2, 3)");
         assertEquivalentExpression("(VALUES (1, 'a'),  (2, 'b',),  (3, 'c',),)", "(VALUES (1, 'a'), (2, 'b'), (3, 'c'))");
+        assertEquivalentStatement("START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE,", "START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE");
     }
 
     @Test
