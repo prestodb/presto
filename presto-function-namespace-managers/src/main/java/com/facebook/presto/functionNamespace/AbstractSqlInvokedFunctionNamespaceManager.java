@@ -167,7 +167,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     {
         checkCatalog(functionName);
         if (transactionHandle.isPresent()) {
-            return transactions.get(transactionHandle.get()).loadAndGetFunctionsTransactional(functionName);
+            return transactions.get(transactionHandle.orElseThrow()).loadAndGetFunctionsTransactional(functionName);
         }
         return fetchFunctionsDirect(functionName);
     }
@@ -198,7 +198,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         // This is the only assumption in this class that we're dealing with sql-invoked regular function.
         SqlFunctionId functionId = new SqlFunctionId(signature.getName(), signature.getArgumentTypes());
         if (transactionHandle.isPresent()) {
-            return transactions.get(transactionHandle.get()).getFunctionHandle(functionId);
+            return transactions.get(transactionHandle.orElseThrow()).getFunctionHandle(functionId);
         }
         FunctionCollection collection = new FunctionCollection();
         collection.loadAndGetFunctionsTransactional(signature.getName());
@@ -326,7 +326,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
             case THRIFT:
             case GRPC:
                 checkArgument(function.getFunctionHandle().isPresent(), "Need functionHandle to get function implementation");
-                return new RemoteScalarFunctionImplementation(function.getFunctionHandle().get(), function.getRoutineCharacteristics().getLanguage(), implementationType);
+                return new RemoteScalarFunctionImplementation(function.getFunctionHandle().orElseThrow(), function.getRoutineCharacteristics().getLanguage(), implementationType);
             case JAVA:
                 throw new IllegalStateException(
                         format("SqlInvokedFunction %s has BUILTIN implementation type but %s cannot manage BUILTIN functions", function.getSignature().getName(), this.getClass()));
@@ -361,7 +361,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                         function.getAggregationMetadata().isPresent(),
                         "Need aggregationMetadata to get aggregation function implementation");
 
-                AggregationFunctionMetadata aggregationMetadata = function.getAggregationMetadata().get();
+                AggregationFunctionMetadata aggregationMetadata = function.getAggregationMetadata().orElseThrow();
                 return new SqlInvokedAggregationFunctionImplementation(
                         typeManager.getType(aggregationMetadata.getIntermediateType()),
                         typeManager.getType(function.getSignature().getReturnType()),
