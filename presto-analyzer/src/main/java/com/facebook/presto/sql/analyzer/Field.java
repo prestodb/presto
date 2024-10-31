@@ -128,7 +128,7 @@ public class Field
 
     public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
-        return !prefix.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
+        return !prefix.isPresent() || relationAlias.isPresent() && relationAlias.orElseThrow().hasSuffix(prefix.orElseThrow());
     }
 
     /*
@@ -159,7 +159,7 @@ public class Field
         }
 
         // TODO: need to know whether the qualified name and the name of this field were quoted
-        return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
+        return matchesPrefix(name.getPrefix()) && this.name.orElseThrow().equalsIgnoreCase(name.getSuffix());
     }
 
     @Override
@@ -167,7 +167,7 @@ public class Field
     {
         StringBuilder result = new StringBuilder();
         if (relationAlias.isPresent()) {
-            result.append(relationAlias.get())
+            result.append(relationAlias.orElseThrow())
                     .append(".");
         }
 
