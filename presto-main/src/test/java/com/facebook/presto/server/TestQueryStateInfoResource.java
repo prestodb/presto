@@ -80,6 +80,15 @@ public class TestQueryStateInfoResource
         QueryResults queryResults2 = client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         client.execute(prepareGet().setUri(queryResults2.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
+
+        Request request3 = preparePost()
+                .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
+                .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
+                .setHeader(PRESTO_USER, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaX")
+                .build();
+        QueryResults queryResults3 = client.execute(request3, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        client.execute(prepareGet().setUri(queryResults3.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+
         // queries are started in the background, so they may not all be immediately visible
         while (true) {
             List<BasicQueryInfo> queryInfos = client.execute(
@@ -105,7 +114,7 @@ public class TestQueryStateInfoResource
                 prepareGet().setUri(server.resolve("/v1/queryState")).build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-        assertEquals(infos.size(), 2);
+        assertEquals(infos.size(), 3);
     }
 
     @Test
@@ -116,6 +125,16 @@ public class TestQueryStateInfoResource
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
         assertEquals(infos.size(), 1);
+    }
+
+    @Test
+    public void testTimeoutOnEvilRegex()
+    {
+        List<QueryStateInfo> infos = client.execute(
+                prepareGet().setUri(server.resolve("/v1/queryState?user=^(a+)+$")).build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+
+        assertEquals(infos.size(), 3);
     }
 
     @Test
