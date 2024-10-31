@@ -64,7 +64,7 @@ public class SemanticException
     private static String formatMessage(String formatString, Optional<NodeLocation> location, Object[] args)
     {
         if (location.isPresent()) {
-            NodeLocation nodeLocation = location.get();
+            NodeLocation nodeLocation = location.orElseThrow();
             return format("line %s:%s: %s", nodeLocation.getLineNumber(), nodeLocation.getColumnNumber(), format(formatString, args));
         }
         return format(formatString, args);
