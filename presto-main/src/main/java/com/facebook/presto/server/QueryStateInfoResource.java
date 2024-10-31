@@ -119,6 +119,21 @@ public class QueryStateInfoResource
         }
     }
 
+
+    private static boolean matchesWithTimeout(Pattern pattern, String str, int seconds)
+    {
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run()
+            {
+                long startTime = System.currentTimeMillis();
+                Matcher interruptableMatcher = pattern.matcher(new InterruptibleCharSequence(input));
+                interruptableMatcher.find(); // runs for a long time!
+                System.out.println("Regex took:" + (System.currentTimeMillis() - startTime) + "ms");
+            }
+        };
+    }
+
     private QueryStateInfo getQueryStateInfo(
             BasicQueryInfo queryInfo,
             boolean includeAllQueryProgressStats,
