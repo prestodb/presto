@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -45,6 +46,14 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -107,7 +116,7 @@ public class QueryStateInfoResource
 
             List<QueryStateInfo> queryStateInfos = queryInfos.stream()
                     .filter(queryInfo -> includeAllQueries || !queryInfo.getState().isDone())
-                    .filter(queryInfo -> userPattern.map(pattern -> pattern.matcher(queryInfo.getSession().getUser()).matches()).orElse(true))
+                    .filter(queryInfo -> matchesWithTimeout(userPattern, queryInfo.getSession().getUser(), 10000))
                     .map(queryInfo -> getQueryStateInfo(
                             queryInfo,
                             includeAllQueryProgressStats,
@@ -120,18 +129,21 @@ public class QueryStateInfoResource
     }
 
 
-    private static boolean matchesWithTimeout(Pattern pattern, String str, int seconds)
+    private static boolean matchesWithTimeout(Optional<Pattern> pattern, String input, long timeoutMillis)
     {
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run()
-            {
-                long startTime = System.currentTimeMillis();
-                Matcher interruptableMatcher = pattern.matcher(new InterruptibleCharSequence(input));
-                interruptableMatcher.find(); // runs for a long time!
-                System.out.println("Regex took:" + (System.currentTimeMillis() - startTime) + "ms");
-            }
-        };
+        if (!pattern.isPresent()) {
+            return true;
+        }
+        Pattern rawPattern = pattern.get();
+        Callable<Boolean> callable = () -> rawPattern.matcher(input).matches();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Boolean> result = executor.submit(callable);
+        try {
+            return result.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        }
+        catch (Exception e) {
+            return true;
+        }
     }
 
     private QueryStateInfo getQueryStateInfo(
