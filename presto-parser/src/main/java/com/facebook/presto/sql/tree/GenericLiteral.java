@@ -45,7 +45,7 @@ public final class GenericLiteral
             // we explicitly disallow "X" as type name, so if the user arrived here,
             // it must be because that he intended to give a binaryLiteral instead, but
             // added whitespace between the X and quote
-            throw new ParsingException("Spaces are not allowed between 'X' and the starting quote of a binary literal", location.get());
+            throw new ParsingException("Spaces are not allowed between 'X' and the starting quote of a binary literal", location.orElseThrow());
         }
         this.type = type;
         this.value = value;

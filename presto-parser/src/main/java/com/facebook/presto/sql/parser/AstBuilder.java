@@ -215,7 +215,7 @@ import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOp
 import static com.facebook.presto.sql.tree.TableVersionExpression.timestampExpression;
 import static com.facebook.presto.sql.tree.TableVersionExpression.versionExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -564,19 +564,19 @@ class AstBuilder
                 .filter(p -> p.constraintEnabled() != null)
                 .findFirst();
         boolean enabled = !enabledSpecification.isPresent() ||
-                enabledSpecification.get().constraintEnabled().DISABLED() == null;
+                enabledSpecification.orElseThrow().constraintEnabled().DISABLED() == null;
 
         Optional<SqlBaseParser.ConstraintQualifierContext> relySpecification = constraintQualifierContext.stream()
                 .filter(p -> p.constraintRely() != null)
                 .findFirst();
         boolean rely = !relySpecification.isPresent() ||
-                relySpecification.get().constraintRely().NOT() == null;
+                relySpecification.orElseThrow().constraintRely().NOT() == null;
 
         Optional<SqlBaseParser.ConstraintQualifierContext> enforcedSpecification = constraintQualifierContext.stream()
                 .filter(p -> p.constraintEnforced() != null)
                 .findFirst();
         boolean enforced = !enforcedSpecification.isPresent() ||
-                enforcedSpecification.get().constraintEnforced().NOT() == null;
+                enforcedSpecification.orElseThrow().constraintEnforced().NOT() == null;
 
         return new ConstraintSpecification(getLocation(context),
                 Optional.empty(),
@@ -1325,21 +1325,21 @@ class AstBuilder
 
         if (operator.equals(LogicalBinaryExpression.Operator.OR) &&
                 (mixedAndOrOperatorParenthesisCheck(right, context.right, LogicalBinaryExpression.Operator.AND) ||
-                 mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.AND))) {
+                        mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.AND))) {
             warningForMixedAndOr = true;
         }
 
         if (operator.equals(LogicalBinaryExpression.Operator.AND) &&
                 (mixedAndOrOperatorParenthesisCheck(right, context.right, LogicalBinaryExpression.Operator.OR) ||
-                 mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.OR))) {
+                        mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.OR))) {
             warningForMixedAndOr = true;
         }
 
         if (warningForMixedAndOr) {
             warningConsumer.accept(new ParsingWarning(
                     "The query contains OR and AND operators without proper parentheses. "
-                    + "Make sure the operators are guarded by parentheses in order "
-                    + "to fetch logically correct results.",
+                            + "Make sure the operators are guarded by parentheses in order "
+                            + "to fetch logically correct results.",
                     context.getStart().getLine(), context.getStart().getCharPositionInLine()));
         }
 
@@ -1863,7 +1863,7 @@ class AstBuilder
             check(!distinct, "DISTINCT not valid for 'try' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'try' function", context);
 
-            return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
+            return new TryExpression(getLocation(context), (Expression) visit(context.expression().stream().collect(onlyElement())));
         }
 
         if (name.toString().equalsIgnoreCase("$internal$bind")) {
@@ -2741,7 +2741,7 @@ class AstBuilder
             if (((LogicalBinaryExpression) expression).getOperator().equals(operator)) {
                 if (node.children.get(0) instanceof SqlBaseParser.ValueExpressionDefaultContext) {
                     return !(((SqlBaseParser.PredicatedContext) node).valueExpression().getChild(0) instanceof
-                        SqlBaseParser.ParenthesizedExpressionContext);
+                            SqlBaseParser.ParenthesizedExpressionContext);
                 }
                 else {
                     return true;

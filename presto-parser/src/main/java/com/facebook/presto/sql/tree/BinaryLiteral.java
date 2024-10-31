@@ -44,10 +44,10 @@ public class BinaryLiteral
         requireNonNull(value, "value is null");
         String hexString = WHITESPACE_PATTERN.matcher(value).replaceAll("").toUpperCase();
         if (NOT_HEX_DIGIT_PATTERN.matcher(hexString).matches()) {
-            throw new ParsingException("Binary literal can only contain hexadecimal digits", location.get());
+            throw new ParsingException("Binary literal can only contain hexadecimal digits", location.orElseThrow());
         }
         if (hexString.length() % 2 != 0) {
-            throw new ParsingException("Binary literal must contain an even number of digits", location.get());
+            throw new ParsingException("Binary literal must contain an even number of digits", location.orElseThrow());
         }
         this.value = Slices.wrappedBuffer(BaseEncoding.base16().decode(hexString));
     }

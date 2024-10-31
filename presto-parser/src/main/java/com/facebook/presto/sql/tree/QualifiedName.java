@@ -15,15 +15,14 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.isEmpty;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -47,8 +46,8 @@ public class QualifiedName
     public static QualifiedName of(Iterable<String> originalParts)
     {
         requireNonNull(originalParts, "originalParts is null");
-        checkArgument(!isEmpty(originalParts), "originalParts is empty");
-        List<String> parts = ImmutableList.copyOf(transform(originalParts, part -> part.toLowerCase(ENGLISH)));
+        checkArgument(Streams.stream(originalParts).findAny().isPresent(), "originalParts is empty");
+        List<String> parts = Streams.stream(originalParts).map(part -> part.toLowerCase(ENGLISH)).collect(toImmutableList());
 
         return new QualifiedName(ImmutableList.copyOf(originalParts), parts);
     }
@@ -102,7 +101,7 @@ public class QualifiedName
 
     public String getSuffix()
     {
-        return Iterables.getLast(parts);
+        return Streams.findLast(parts.stream()).orElseThrow();
     }
 
     @Override

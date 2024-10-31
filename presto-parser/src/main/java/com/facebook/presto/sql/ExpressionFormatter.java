@@ -96,7 +96,7 @@ import java.util.function.Function;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -220,8 +220,8 @@ public final class ExpressionFormatter
         protected String visitParameter(Parameter node, Void context)
         {
             if (parameters.isPresent()) {
-                checkArgument(node.getPosition() < parameters.get().size(), "Invalid parameter number %s.  Max value is %s", node.getPosition(), parameters.get().size() - 1);
-                return process(parameters.get().get(node.getPosition()), context);
+                checkArgument(node.getPosition() < parameters.orElseThrow().size(), "Invalid parameter number %s.  Max value is %s", node.getPosition(), parameters.orElseThrow().size() - 1);
+                return process(parameters.orElseThrow().get(node.getPosition()), context);
             }
             return "?";
         }
@@ -296,7 +296,7 @@ public final class ExpressionFormatter
                     .append(node.getStartField());
 
             if (node.getEndField().isPresent()) {
-                builder.append(" TO ").append(node.getEndField().get());
+                builder.append(" TO ").append(node.getEndField().orElseThrow());
             }
             return builder.toString();
         }
@@ -367,7 +367,7 @@ public final class ExpressionFormatter
                     .append('(').append(arguments);
 
             if (node.getOrderBy().isPresent()) {
-                builder.append(' ').append(formatOrderBy(node.getOrderBy().get(), parameters));
+                builder.append(' ').append(formatOrderBy(node.getOrderBy().orElseThrow(), parameters));
             }
 
             builder.append(')');
@@ -377,11 +377,11 @@ public final class ExpressionFormatter
             }
 
             if (node.getFilter().isPresent()) {
-                builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), context));
+                builder.append(" FILTER ").append(visitFilter(node.getFilter().orElseThrow(), context));
             }
 
             if (node.getWindow().isPresent()) {
-                builder.append(" OVER ").append(visitWindow(node.getWindow().get(), context));
+                builder.append(" OVER ").append(visitWindow(node.getWindow().orElseThrow(), context));
             }
 
             return builder.toString();
@@ -458,7 +458,7 @@ public final class ExpressionFormatter
                     .append(process(node.getTrueValue(), context));
             if (node.getFalseValue().isPresent()) {
                 builder.append(", ")
-                        .append(process(node.getFalseValue().get(), context));
+                        .append(process(node.getFalseValue().orElseThrow(), context));
             }
             builder.append(")");
             return builder.toString();
@@ -523,7 +523,7 @@ public final class ExpressionFormatter
         protected String visitAllColumns(AllColumns node, Void context)
         {
             if (node.getPrefix().isPresent()) {
-                return node.getPrefix().get() + ".*";
+                return node.getPrefix().orElseThrow() + ".*";
             }
 
             return "*";
@@ -612,10 +612,10 @@ public final class ExpressionFormatter
                 parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
             }
             if (node.getOrderBy().isPresent()) {
-                parts.add(formatOrderBy(node.getOrderBy().get(), parameters));
+                parts.add(formatOrderBy(node.getOrderBy().orElseThrow(), parameters));
             }
             if (node.getFrame().isPresent()) {
-                parts.add(process(node.getFrame().get(), context));
+                parts.add(process(node.getFrame().orElseThrow(), context));
             }
 
             return '(' + Joiner.on(' ').join(parts) + ')';
@@ -632,7 +632,7 @@ public final class ExpressionFormatter
                 builder.append("BETWEEN ")
                         .append(process(node.getStart(), context))
                         .append(" AND ")
-                        .append(process(node.getEnd().get(), context));
+                        .append(process(node.getEnd().orElseThrow(), context));
             }
             else {
                 builder.append(process(node.getStart(), context));
@@ -648,11 +648,11 @@ public final class ExpressionFormatter
                 case UNBOUNDED_PRECEDING:
                     return "UNBOUNDED PRECEDING";
                 case PRECEDING:
-                    return process(node.getValue().get(), context) + " PRECEDING";
+                    return process(node.getValue().orElseThrow(), context) + " PRECEDING";
                 case CURRENT_ROW:
                     return "CURRENT ROW";
                 case FOLLOWING:
-                    return process(node.getValue().get(), context) + " FOLLOWING";
+                    return process(node.getValue().orElseThrow(), context) + " FOLLOWING";
                 case UNBOUNDED_FOLLOWING:
                     return "UNBOUNDED FOLLOWING";
             }
@@ -759,7 +759,7 @@ public final class ExpressionFormatter
             if (groupingElement instanceof SimpleGroupBy) {
                 List<Expression> columns = ((SimpleGroupBy) groupingElement).getExpressions();
                 if (columns.size() == 1) {
-                    result = formatExpression(getOnlyElement(columns), parameters);
+                    result = formatExpression(columns.stream().collect(onlyElement()), parameters);
                 }
                 else {
                     result = formatGroupingSet(columns, parameters);
