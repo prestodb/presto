@@ -73,7 +73,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38-SNAPSHOT</dep.slice.version>
         <dep.units.version>1.4-SNAPSHOT</dep.units.version>
-        <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
+        <dep.testing-mysql-server-8.version>0.8-SNAPSHOT</dep.testing-mysql-server-8.version>
         <dep.aws-sdk.version>1.12.560</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
@@ -91,7 +91,6 @@
         <dep.asm.version>9.7.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
-        <dep.slf4j.version>1.7.32</dep.slf4j.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>0.19.0</dep.druid.version>
@@ -104,7 +103,7 @@
         <dep.errorprone.version>2.18.0</dep.errorprone.version>
         <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.11.0</dep.jackson.version>
-        <dep.j2objc.version>2.8</dep.j2objc.version>
+        <dep.j2objc.version>3.0.0</dep.j2objc.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.commons.compress.version>1.23.0</dep.commons.compress.version>
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
@@ -123,7 +122,7 @@
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>4g</air.test.jvmsize>
-        <grpc.version>1.64.0</grpc.version>
+        <grpc.version>1.66.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
         <presto-maven-plugin.version>upgradeToJava17-v1</presto-maven-plugin.version>
@@ -1239,6 +1238,12 @@
                 <groupId>com.facebook.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
                 <version>1.7-SNAPSHOT</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1389,6 +1394,12 @@
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-jackson</artifactId>
                 <version>0.11.5</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1466,7 +1477,13 @@
             <dependency>
                 <groupId>com.facebook.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.33</version>
+                <version>1.34-SNAPSHOT</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1548,11 +1565,19 @@
             <dependency>
                 <groupId>com.google.auth</groupId>
                 <artifactId>google-auth-library-oauth2-http</artifactId>
-                <version>0.12.0</version>
+                <version>1.29.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.errorprone</groupId>
+                        <artifactId>error_prone_annotations</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1776,13 +1801,13 @@
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpclient</artifactId>
-                <version>4.5.5</version>
+                <version>4.5.14</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
-                <version>4.4.9</version>
+                <version>4.4.16</version>
             </dependency>
 
             <dependency>
@@ -1833,14 +1858,14 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>testing-mysql-server-5</artifactId>
-                <version>${dep.testing-mysql-server-5.version}</version>
+                <artifactId>testing-mysql-server-8</artifactId>
+                <version>${dep.testing-mysql-server-8.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>testing-mysql-server-base</artifactId>
-                <version>${dep.testing-mysql-server-5.version}</version>
+                <version>${dep.testing-mysql-server-8.version}</version>
             </dependency>
 
             <dependency>
