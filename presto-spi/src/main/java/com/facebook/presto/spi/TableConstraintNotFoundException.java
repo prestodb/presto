@@ -25,7 +25,7 @@ public class TableConstraintNotFoundException
 
     public TableConstraintNotFoundException(Optional<String> constraintName)
     {
-        this(constraintName, format("Constraint '%s' not found", constraintName.get()));
+        this(constraintName, format("Constraint '%s' not found", constraintName.orElseThrow()));
     }
 
     public TableConstraintNotFoundException(Optional<String> constraintName, String message)
