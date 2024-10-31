@@ -561,7 +561,7 @@ public class TestTupleDomain
                                 .put(B, Domain.singleValue(VARCHAR, utf8Slice("value")))
                                 .put(C, Domain.onlyNull(BIGINT))
                                 .put(D, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), true))
-                                .build())).get(),
+                                .build())).orElseThrow(),
                 ImmutableMap.of(
                         B, NullableValue.of(VARCHAR, utf8Slice("value")),
                         C, NullableValue.asNull(BIGINT)));
@@ -576,7 +576,7 @@ public class TestTupleDomain
     @Test
     public void testExtractFixedValuesFromAll()
     {
-        assertEquals(TupleDomain.extractFixedValues(TupleDomain.all()).get(), ImmutableMap.of());
+        assertEquals(TupleDomain.extractFixedValues(TupleDomain.all()).orElseThrow(), ImmutableMap.of());
     }
 
     @Test
@@ -654,7 +654,7 @@ public class TestTupleDomain
                 .put("3", Domain.singleValue(BIGINT, 3L))
                 .build();
 
-        assertEquals(transformed.getDomains().get(), expected);
+        assertEquals(transformed.getDomains().orElseThrow(), expected);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

@@ -433,10 +433,10 @@ public interface ConnectorMetadata
             return Optional.empty();
         }
 
-        ConnectorPartitioningHandle partitioningHandle = layout.getTablePartitioning().get().getPartitioningHandle();
+        ConnectorPartitioningHandle partitioningHandle = layout.getTablePartitioning().orElseThrow().getPartitioningHandle();
         Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
-        List<String> partitionColumns = layout.getTablePartitioning().get().getPartitioningColumns().stream()
+        List<String> partitionColumns = layout.getTablePartitioning().orElseThrow().getPartitioningColumns().stream()
                 .map(columnNamesByHandle::get)
                 .collect(toList());
 
