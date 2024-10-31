@@ -2009,6 +2009,34 @@ bool registerCustomType(
     const std::string& name,
     std::unique_ptr<const CustomTypeFactories> factories);
 
+// See registerOpaqueType() for documentation on type index and opaque type
+// alias.
+std::unordered_map<std::string, std::type_index>& getTypeIndexByOpaqueAlias();
+
+// Reverse of getTypeIndexByOpaqueAlias() when we need to look up the opaque
+// alias by its type index.
+std::unordered_map<std::type_index, std::string>& getOpaqueAliasByTypeIndex();
+
+std::type_index getTypeIdForOpaqueTypeAlias(const std::string& name);
+
+std::string getOpaqueAliasForTypeId(std::type_index typeIndex);
+
+/// OpaqueType represents a type that is not part of the Velox type system.
+/// To identify the underlying type we use std::type_index which is stable
+/// within the same process. However, it is not necessarily stable across
+/// processes.
+///
+/// So if we were to serialize an opaque type using its std::type_index, we
+/// might not be able to deserialize it in another process. To solve this
+/// problem, we require that both the serializing and deserializing processes
+/// register the opaque type using registerOpaqueType() with the same alias.
+template <typename Class>
+bool registerOpaqueType(const std::string& alias) {
+  auto typeIndex = std::type_index(typeid(Class));
+  return getTypeIndexByOpaqueAlias().emplace(alias, typeIndex).second &&
+      getOpaqueAliasByTypeIndex().emplace(typeIndex, alias).second;
+}
+
 /// Return true if a custom type with the specified name exists.
 bool customTypeExists(const std::string& name);
 

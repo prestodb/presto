@@ -58,6 +58,10 @@ std::string HiveTypeSerializer::visit(const Type& type) const {
       return "map<" + visitChildren(type.asMap()) + ">";
     case TypeKind::ROW:
       return "struct<" + visitChildren(type.asRow()) + ">";
+    case TypeKind::OPAQUE: {
+      auto typeAlias = getOpaqueAliasForTypeId(type.asOpaque().typeIndex());
+      return "opaque<" + typeAlias + ">";
+    }
     default:
       VELOX_UNSUPPORTED("unsupported type: " + type.toString());
   }

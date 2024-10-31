@@ -42,6 +42,7 @@ enum class TokenType {
   String,
   Binary,
   Timestamp,
+  Opaque,
   List,
   Map,
   Struct,
@@ -88,6 +89,8 @@ struct Token {
   bool isValidType() const;
 
   bool isEOS() const;
+
+  bool isOpaqueType() const;
 };
 
 struct TokenAndRemaining : public Token {

@@ -885,6 +885,18 @@ typeFactories() {
 
 } // namespace
 
+std::unordered_map<std::string, std::type_index>& getTypeIndexByOpaqueAlias() {
+  static std::unordered_map<std::string, std::type_index>
+      typeIndexByOpaqueAlias;
+  return typeIndexByOpaqueAlias;
+}
+
+std::unordered_map<std::type_index, std::string>& getOpaqueAliasByTypeIndex() {
+  static std::unordered_map<std::type_index, std::string>
+      opaqueAliasByTypeIndexMap;
+  return opaqueAliasByTypeIndexMap;
+}
+
 bool registerCustomType(
     const std::string& name,
     std::unique_ptr<const CustomTypeFactories> factories) {
@@ -1204,6 +1216,24 @@ TypePtr getType(
   }
 
   return getCustomType(name);
+}
+
+std::type_index getTypeIdForOpaqueTypeAlias(const std::string& name) {
+  auto it = getTypeIndexByOpaqueAlias().find(name);
+  VELOX_CHECK(
+      it != getTypeIndexByOpaqueAlias().end(),
+      "Could not find type '{}'. Did you call registerOpaqueType?",
+      name);
+  return it->second;
+}
+
+std::string getOpaqueAliasForTypeId(std::type_index typeIndex) {
+  auto it = getOpaqueAliasByTypeIndex().find(typeIndex);
+  VELOX_CHECK(
+      it != getOpaqueAliasByTypeIndex().end(),
+      "Could not find type index '{}'. Did you call registerOpaqueType?",
+      typeIndex.name());
+  return it->second;
 }
 
 } // namespace facebook::velox

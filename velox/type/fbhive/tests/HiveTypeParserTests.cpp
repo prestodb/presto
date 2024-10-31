@@ -176,4 +176,21 @@ TEST(FbHive, parseSpecialChar) {
   ASSERT_EQ(t->toString(), "ROW<\"a$_#\":INTEGER>");
 }
 
+struct Foo {};
+TEST(FbHive, parseOpaque) {
+  // Use a custom name to highlight this is just an alias.
+  registerOpaqueType<Foo>("bar");
+  HiveTypeParser parser;
+  auto t = parser.parse("opaque<bar>");
+  ASSERT_EQ(t->toString(), "OPAQUE<facebook::velox::type::fbhive::Foo>");
+}
+
+TEST(FbHive, parseUnregisteredOpaque) {
+  // Use a custom name to highlight this is just an alias.
+  registerOpaqueType<Foo>("bar");
+  HiveTypeParser parser;
+  VELOX_ASSERT_THROW(
+      parser.parse("opaque<Foo>"),
+      "Could not find type 'Foo'. Did you call registerOpaqueType?");
+}
 } // namespace facebook::velox::type::fbhive

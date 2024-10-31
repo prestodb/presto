@@ -33,9 +33,29 @@ TEST(HiveTypeSerializer, primitive) {
   EXPECT_EQ(result, "bigint");
 }
 
+struct Foo {};
 TEST(HiveTypeSerializer, opaque) {
-  std::shared_ptr<const velox::Type> type = velox::OPAQUE<bool>();
+  // Use a custom name to highlight this is just an alias.
+  registerOpaqueType<Foo>("bar");
+
+  std::shared_ptr<const Type> type = OPAQUE<Foo>();
+  auto result = HiveTypeSerializer::serialize(type);
+  EXPECT_EQ(result, "opaque<bar>");
+}
+
+TEST(HiveTypeSerializer, unregisteredOpaque) {
+  // did not call registerOpaqueType<Foo>("Foo")
+  std::shared_ptr<const Type> type = OPAQUE<Foo>();
   VELOX_ASSERT_THROW(
-      HiveTypeSerializer::serialize(type), "unsupported type: OPAQUE<bool>");
+      HiveTypeSerializer::serialize(type),
+      fmt::format(
+          "Could not find type index '{}'. Did you call registerOpaqueType?",
+          type->asOpaque().typeIndex().name()));
+}
+
+TEST(HiveTypeSerializer, unsupported) {
+  std::shared_ptr<const Type> type = UNKNOWN();
+  VELOX_ASSERT_THROW(
+      HiveTypeSerializer::serialize(type), "unsupported type: UNKNOWN");
 }
 } // namespace facebook::velox::type::fbhive
