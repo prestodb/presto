@@ -36,9 +36,15 @@ class CompactRowSerializerTest : public ::testing::Test,
   void serialize(RowVectorPtr rowVector, std::ostream* output) {
     auto numRows = rowVector->size();
 
-    std::vector<IndexRange> rows(numRows);
-    for (int i = 0; i < numRows; i++) {
-      rows[i] = IndexRange{i, 1};
+    // Serialize with different range size.
+    std::vector<IndexRange> rows;
+    vector_size_t offset = 0;
+    vector_size_t rangeSize = 1;
+    while (offset < numRows) {
+      auto size = std::min<vector_size_t>(rangeSize, numRows - offset);
+      rows.push_back(IndexRange{offset, size});
+      offset += size;
+      rangeSize = checkedMultiply<vector_size_t>(rangeSize, 2);
     }
 
     auto arena = std::make_unique<StreamArena>(pool_.get());
@@ -47,7 +53,8 @@ class CompactRowSerializerTest : public ::testing::Test,
         serde_->createIterativeSerializer(rowType, numRows, arena.get());
 
     Scratch scratch;
-    serializer->append(rowVector, folly::Range(rows.data(), numRows), scratch);
+    serializer->append(
+        rowVector, folly::Range(rows.data(), rows.size()), scratch);
     auto size = serializer->maxSerializedSize();
     OStreamOutputStream out(output);
     serializer->flush(&out);

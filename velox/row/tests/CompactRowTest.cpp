@@ -49,35 +49,68 @@ class CompactRowTest : public ::testing::Test, public VectorTestBase {
 
     auto rowType = asRowType(data->type());
     auto numRows = data->size();
+    std::vector<size_t> rowSize(numRows);
+    std::vector<size_t> offsets(numRows);
 
     CompactRow row(data);
 
     size_t totalSize = 0;
     if (auto fixedRowSize = CompactRow::fixedRowSize(rowType)) {
       totalSize = fixedRowSize.value() * numRows;
+      for (auto i = 0; i < numRows; ++i) {
+        rowSize[i] = fixedRowSize.value();
+        offsets[i] = fixedRowSize.value() * i;
+      }
     } else {
       for (auto i = 0; i < numRows; ++i) {
-        totalSize += row.rowSize(i);
+        rowSize[i] = row.rowSize(i);
+        offsets[i] = totalSize;
+        totalSize += rowSize[i];
       }
     }
 
-    std::vector<std::string_view> serialized;
-
     BufferPtr buffer = AlignedBuffer::allocate<char>(totalSize, pool(), 0);
     auto* rawBuffer = buffer->asMutable<char>();
-    size_t offset = 0;
-    for (auto i = 0; i < numRows; ++i) {
-      auto size = row.serialize(i, rawBuffer + offset);
-      serialized.push_back(std::string_view(rawBuffer + offset, size));
-      offset += size;
+    {
+      // Test serialize row-by-row.
+      size_t offset = 0;
+      std::vector<std::string_view> serialized;
+      for (auto i = 0; i < numRows; ++i) {
+        auto size = row.serialize(i, rawBuffer + offset);
+        serialized.push_back(std::string_view(rawBuffer + offset, size));
+        offset += size;
 
-      VELOX_CHECK_EQ(size, row.rowSize(i), "Row {}: {}", i, data->toString(i));
+        VELOX_CHECK_EQ(
+            size, row.rowSize(i), "Row {}: {}", i, data->toString(i));
+      }
+
+      VELOX_CHECK_EQ(offset, totalSize);
+
+      auto copy = CompactRow::deserialize(serialized, rowType, pool());
+      assertEqualVectors(data, copy);
     }
+    {
+      // Test serialize by range.
+      memset(rawBuffer, 0, totalSize);
 
-    VELOX_CHECK_EQ(offset, totalSize);
+      std::vector<std::string_view> serialized;
+      vector_size_t offset = 0;
+      vector_size_t rangeSize = 1;
+      // Serialize with different range size.
+      while (offset < numRows) {
+        auto size = std::min<vector_size_t>(rangeSize, numRows - offset);
+        row.serialize(offset, size, offsets.data() + offset, rawBuffer);
+        offset += size;
+        rangeSize = checkedMultiply<vector_size_t>(rangeSize, 2);
+      }
 
-    auto copy = CompactRow::deserialize(serialized, rowType, pool());
-    assertEqualVectors(data, copy);
+      for (auto i = 0; i < numRows; ++i) {
+        serialized.push_back(
+            std::string_view(rawBuffer + offsets[i], rowSize[i]));
+      }
+      auto copy = CompactRow::deserialize(serialized, rowType, pool());
+      assertEqualVectors(data, copy);
+    }
   }
 };
 

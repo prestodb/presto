@@ -38,6 +38,9 @@ TIMESTAMP          8
 UNKNOWN            0
 ================   ==============================================
 
+Timestamps are serialized with microsecond precision to align with Spark's
+handling of timestamps.
+
 Strings (VARCHAR and VARBINARY) use 4 bytes for size plus the length of the
 string. Empty string uses 4 bytes. 1-character string uses 5 bytes.
 20-character ASCII string uses 24 bytes. Null strings do not take up space
