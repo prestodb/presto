@@ -21,8 +21,8 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.google.common.net.InetAddresses;
 import com.facebook.slice.Slice;
+import com.google.common.net.InetAddresses;
 
 import java.math.BigInteger;
 import java.net.InetAddress;

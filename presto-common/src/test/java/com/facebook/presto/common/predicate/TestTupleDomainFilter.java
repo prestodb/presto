@@ -27,9 +27,9 @@ import com.facebook.presto.common.predicate.TupleDomainFilter.LongDecimalRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.MultiRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.OldDoubleRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.OldFloatRange;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;

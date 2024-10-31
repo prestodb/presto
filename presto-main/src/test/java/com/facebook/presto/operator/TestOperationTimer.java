@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 import java.util.Random;
 import java.util.function.Consumer;
 
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static com.facebook.slice.Slices.wrappedBuffer;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

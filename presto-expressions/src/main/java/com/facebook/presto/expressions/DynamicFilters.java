@@ -27,8 +27,8 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
@@ -36,10 +36,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
-import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;

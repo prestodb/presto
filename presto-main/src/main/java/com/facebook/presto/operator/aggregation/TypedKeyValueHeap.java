@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.slice.SizeOf.sizeOf;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 
 public class TypedKeyValueHeap

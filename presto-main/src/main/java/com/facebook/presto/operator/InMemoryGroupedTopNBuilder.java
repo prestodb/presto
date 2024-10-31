@@ -37,12 +37,12 @@ import java.util.PrimitiveIterator;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.facebook.slice.SizeOf.sizeOf;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 

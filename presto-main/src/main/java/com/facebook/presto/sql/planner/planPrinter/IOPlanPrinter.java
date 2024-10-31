@@ -40,11 +40,11 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.IOPlanBuilder;
+import com.facebook.slice.Slice;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableSet;
-import com.facebook.slice.Slice;
 
 import java.util.HashSet;
 import java.util.Map;

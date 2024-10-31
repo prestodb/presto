@@ -16,10 +16,10 @@ package com.facebook.presto.server;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorTypeSerde;
+import com.facebook.slice.Slices;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.facebook.slice.Slices;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 

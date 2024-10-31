@@ -223,6 +223,7 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.util.FinalizerService;
 import com.facebook.presto.util.GcStatusMonitor;
 import com.facebook.presto.version.EmbedVersion;
+import com.facebook.slice.Slice;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -234,7 +235,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
-import com.facebook.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
-import com.google.common.primitives.Bytes;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import com.google.common.primitives.Bytes;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;

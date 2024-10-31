@@ -26,8 +26,8 @@ import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

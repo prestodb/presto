@@ -19,8 +19,8 @@ import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;

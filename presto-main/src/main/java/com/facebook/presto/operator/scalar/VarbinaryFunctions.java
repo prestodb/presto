@@ -19,13 +19,13 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.google.common.hash.Hashing;
-import com.google.common.io.BaseEncoding;
-import com.google.common.primitives.Ints;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
 import com.facebook.slice.SpookyHashV2;
 import com.facebook.slice.XxHash64;
+import com.google.common.hash.Hashing;
+import com.google.common.io.BaseEncoding;
+import com.google.common.primitives.Ints;
 
 import java.util.Base64;
 import java.util.zip.CRC32;

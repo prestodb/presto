@@ -35,10 +35,10 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.slice.Slices;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.facebook.slice.Slices;
 
 import java.time.Instant;
 import java.time.LocalDate;

@@ -25,8 +25,8 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.Re
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

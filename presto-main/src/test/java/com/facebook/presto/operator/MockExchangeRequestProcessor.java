@@ -24,11 +24,11 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.slice.DynamicSliceOutput;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableListMultimap;
-import com.facebook.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 
 import java.net.URI;

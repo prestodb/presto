@@ -23,11 +23,11 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceOutput;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;

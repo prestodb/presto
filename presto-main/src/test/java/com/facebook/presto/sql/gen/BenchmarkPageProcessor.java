@@ -27,8 +27,8 @@ import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.TestPageProcessor;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -77,8 +77,8 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
-import static com.google.common.base.Preconditions.checkState;
 import static com.facebook.slice.Slices.utf8Slice;
+import static com.google.common.base.Preconditions.checkState;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)

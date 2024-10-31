@@ -15,15 +15,15 @@
 package com.facebook.presto.type.setdigest;
 
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
-import com.google.common.primitives.Shorts;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Murmur3Hash128;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceInput;
 import com.facebook.slice.SliceOutput;
 import com.facebook.slice.Slices;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+import com.google.common.primitives.Shorts;
 import it.unimi.dsi.fastutil.longs.Long2ShortRBTreeMap;
 import it.unimi.dsi.fastutil.longs.Long2ShortSortedMap;
 import it.unimi.dsi.fastutil.longs.LongBidirectionalIterator;
@@ -35,12 +35,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.slice.SizeOf.SIZE_OF_INT;
 import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.slice.SizeOf.SIZE_OF_SHORT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**

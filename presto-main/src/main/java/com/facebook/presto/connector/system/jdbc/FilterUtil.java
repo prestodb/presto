@@ -16,9 +16,9 @@ package com.facebook.presto.connector.system.jdbc;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.slice.Slice;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import com.facebook.slice.Slice;
 
 import java.util.Optional;
 

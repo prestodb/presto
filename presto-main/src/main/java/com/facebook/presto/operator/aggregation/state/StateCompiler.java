@@ -41,11 +41,11 @@ import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
+import com.facebook.slice.Slice;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.annotation.Annotation;

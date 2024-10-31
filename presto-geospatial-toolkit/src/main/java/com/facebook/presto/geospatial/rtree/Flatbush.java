@@ -25,8 +25,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.slice.SizeOf.sizeOf;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;

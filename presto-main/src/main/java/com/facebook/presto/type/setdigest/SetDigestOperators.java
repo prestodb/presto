@@ -21,9 +21,9 @@ import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
 
 import static com.facebook.presto.common.function.OperatorType.CAST;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class SetDigestOperators
 {

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import io.airlift.compress.Compressor;
-import io.airlift.compress.lz4.Lz4Compressor;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import io.airlift.compress.Compressor;
+import io.airlift.compress.lz4.Lz4Compressor;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

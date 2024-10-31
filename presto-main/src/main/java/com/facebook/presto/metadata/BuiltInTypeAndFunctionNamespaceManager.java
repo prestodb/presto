@@ -288,6 +288,7 @@ import com.facebook.presto.type.setdigest.BuildSetDigestAggregation;
 import com.facebook.presto.type.setdigest.MergeSetDigestAggregation;
 import com.facebook.presto.type.setdigest.SetDigestFunctions;
 import com.facebook.presto.type.setdigest.SetDigestOperators;
+import com.facebook.slice.Slice;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -296,7 +297,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import com.facebook.slice.Slice;
 
 import javax.annotation.concurrent.ThreadSafe;
 

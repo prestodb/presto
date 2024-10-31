@@ -22,13 +22,13 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.facebook.presto.type.JoniRegexpType;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 import io.airlift.joni.Matcher;
 import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Region;
-import com.facebook.slice.DynamicSliceOutput;
-import com.facebook.slice.Slice;
-import com.facebook.slice.SliceOutput;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-
 import com.facebook.slice.Slice;
 
 import java.util.Objects;

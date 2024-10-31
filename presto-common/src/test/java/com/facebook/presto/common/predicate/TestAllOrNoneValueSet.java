@@ -17,9 +17,9 @@ import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.slice.Slices;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;

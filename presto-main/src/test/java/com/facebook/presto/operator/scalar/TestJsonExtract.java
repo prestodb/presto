@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

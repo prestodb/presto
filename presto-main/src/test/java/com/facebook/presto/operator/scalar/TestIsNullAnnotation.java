@@ -26,8 +26,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.slice.Slices.utf8Slice;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class TestIsNullAnnotation
         extends AbstractTestFunctions

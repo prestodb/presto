@@ -17,8 +17,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.google.common.net.InetAddresses;
 import com.facebook.slice.Slices;
+import com.google.common.net.InetAddresses;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;

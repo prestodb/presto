@@ -19,9 +19,9 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.RegexLibrary;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

@@ -20,8 +20,8 @@ import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.InvokeInstruction;
 import com.facebook.presto.common.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Method;
 import java.util.List;

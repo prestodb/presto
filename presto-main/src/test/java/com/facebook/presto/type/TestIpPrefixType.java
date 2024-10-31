@@ -15,9 +15,9 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.google.common.net.InetAddresses;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import com.google.common.net.InetAddresses;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.type.IpPrefixType.IPPREFIX;

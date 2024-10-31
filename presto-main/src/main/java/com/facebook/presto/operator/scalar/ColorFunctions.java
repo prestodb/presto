@@ -20,8 +20,8 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.Constraint;
-import com.google.common.annotations.VisibleForTesting;
 import com.facebook.slice.Slice;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.awt.Color;
 

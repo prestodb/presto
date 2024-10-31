@@ -20,11 +20,11 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.JoniRegexpType;
 import com.facebook.presto.type.LiteralParameter;
+import com.facebook.slice.Slice;
 import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
 import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Syntax;
-import com.facebook.slice.Slice;
 
 import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;

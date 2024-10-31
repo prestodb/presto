@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.CharMatcher;
 import com.facebook.slice.Slice;
+import com.google.common.base.CharMatcher;
 
 import java.util.Objects;
 import java.util.Optional;

@@ -38,9 +38,9 @@ import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.GroupedAccumulatorState;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.util.Reflection;
+import com.facebook.slice.Slice;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.facebook.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 

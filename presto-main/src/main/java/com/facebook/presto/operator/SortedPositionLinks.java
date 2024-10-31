@@ -29,8 +29,8 @@ import java.util.function.IntFunction;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
-import static com.google.common.base.Preconditions.checkState;
 import static com.facebook.slice.SizeOf.sizeOf;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -21,8 +21,8 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.SqlType;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;

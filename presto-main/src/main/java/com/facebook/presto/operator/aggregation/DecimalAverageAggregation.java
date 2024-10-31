@@ -32,10 +32,10 @@ import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
 import com.facebook.presto.spi.function.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
+import com.facebook.slice.Slice;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;

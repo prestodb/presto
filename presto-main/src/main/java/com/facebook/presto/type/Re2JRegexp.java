@@ -17,10 +17,10 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.slice.Slice;
 import com.google.re2j.Matcher;
 import com.google.re2j.Options;
 import com.google.re2j.Pattern;
-import com.facebook.slice.Slice;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;

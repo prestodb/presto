@@ -23,10 +23,10 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.facebook.presto.type.Re2JRegexp;
 import com.facebook.presto.type.Re2JRegexpType;
-import com.google.re2j.Matcher;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceOutput;
+import com.google.re2j.Matcher;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 

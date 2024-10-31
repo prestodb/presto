@@ -43,8 +43,8 @@ import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.P
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.facebook.slice.Slices.wrappedLongArray;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ChecksumAggregationFunction
         extends SqlAggregationFunction

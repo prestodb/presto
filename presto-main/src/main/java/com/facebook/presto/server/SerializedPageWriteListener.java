@@ -27,8 +27,8 @@ import java.util.List;
 
 import static com.facebook.presto.spi.page.PagesSerdeUtil.PAGE_METADATA_SIZE;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPageMetadata;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.slice.Slices.allocate;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 

@@ -14,10 +14,10 @@
 package com.facebook.presto.type.khyperloglog;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.slice.Slice;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
-import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;

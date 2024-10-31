@@ -23,11 +23,11 @@ import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.Set;
 
+import static com.facebook.slice.SizeOf.sizeOf;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.facebook.slice.SizeOf.sizeOf;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 

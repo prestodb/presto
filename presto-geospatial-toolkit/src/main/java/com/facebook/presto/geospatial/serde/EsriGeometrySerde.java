@@ -33,11 +33,11 @@ import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.annotations.VisibleForTesting;
 import com.facebook.slice.BasicSliceInput;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceInput;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nullable;
 

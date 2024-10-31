@@ -17,10 +17,10 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.SourceLocation;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -136,6 +136,7 @@ public final class LambdaDefinitionExpression
             throw new IllegalArgumentException(format(message, messageArgs));
         }
     }
+
     private static class CanonicalizeExpression
             implements RowExpressionVisitor<String, Void>
     {

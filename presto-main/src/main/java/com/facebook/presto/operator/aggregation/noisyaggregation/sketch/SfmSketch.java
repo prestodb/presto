@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation.noisyaggregation.sketch;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.facebook.slice.BasicSliceInput;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Murmur3Hash128;
 import com.facebook.slice.SizeOf;
 import com.facebook.slice.Slice;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;

@@ -48,13 +48,13 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Primitives;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceOutput;
 import com.facebook.slice.SliceUtf8;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Primitives;
 
 import java.util.List;
 import java.util.Optional;

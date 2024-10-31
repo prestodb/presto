@@ -29,10 +29,10 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlType;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.facebook.slice.Slice;
 import com.facebook.slice.XxHash64;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.math.BigInteger;
 import java.util.List;

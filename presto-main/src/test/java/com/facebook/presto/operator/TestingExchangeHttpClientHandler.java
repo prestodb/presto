@@ -21,11 +21,11 @@ import com.facebook.airlift.http.client.testing.TestingResponse;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
+import com.facebook.slice.DynamicSliceOutput;
 import com.google.common.base.Splitter;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.facebook.slice.DynamicSliceOutput;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;

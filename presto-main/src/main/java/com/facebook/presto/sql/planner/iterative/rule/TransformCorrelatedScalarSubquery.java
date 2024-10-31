@@ -29,8 +29,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slices;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.common.block;
 
-import com.google.common.collect.ImmutableSet;
 import com.facebook.slice.SliceInput;
 import com.facebook.slice.SliceOutput;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 import java.util.Set;

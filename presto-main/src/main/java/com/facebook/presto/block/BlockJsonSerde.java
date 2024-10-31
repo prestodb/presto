@@ -15,6 +15,10 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
+import com.facebook.slice.Slices;
 import com.fasterxml.jackson.core.Base64Variants;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -22,10 +26,6 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import com.facebook.slice.DynamicSliceOutput;
-import com.facebook.slice.Slice;
-import com.facebook.slice.SliceOutput;
-import com.facebook.slice.Slices;
 
 import javax.inject.Inject;
 

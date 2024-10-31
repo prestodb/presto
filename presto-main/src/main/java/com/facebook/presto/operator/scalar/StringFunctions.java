@@ -27,12 +27,12 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.CodePointsType;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
-import com.google.common.primitives.Ints;
 import com.facebook.slice.InvalidCodePointException;
 import com.facebook.slice.InvalidUtf8Exception;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceUtf8;
 import com.facebook.slice.Slices;
+import com.google.common.primitives.Ints;
 
 import java.text.Normalizer;
 import java.util.OptionalInt;

@@ -28,11 +28,11 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
+import com.facebook.slice.Slice;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.facebook.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Collection;

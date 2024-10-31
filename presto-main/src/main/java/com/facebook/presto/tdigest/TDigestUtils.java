@@ -424,7 +424,7 @@ public final class TDigestUtils
         order[j] = t;
     }
 
-    private static void swap(int i, int j, double[] key, double[]...values)
+    private static void swap(int i, int j, double[] key, double[]... values)
     {
         double t = key[i];
         key[i] = key[j];

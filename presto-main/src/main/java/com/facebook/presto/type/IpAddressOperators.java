@@ -23,9 +23,9 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.google.common.net.InetAddresses;
 import com.facebook.slice.Slice;
 import com.facebook.slice.XxHash64;
+import com.google.common.net.InetAddresses;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;

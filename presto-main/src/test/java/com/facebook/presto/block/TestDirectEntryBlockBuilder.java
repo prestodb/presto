@@ -27,9 +27,9 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;

@@ -33,9 +33,9 @@ import static com.facebook.presto.operator.project.SelectedPositions.positionsLi
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.Failures.internalError;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.facebook.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;

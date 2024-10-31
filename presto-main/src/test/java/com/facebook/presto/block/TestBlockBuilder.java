@@ -18,9 +18,9 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import com.google.common.collect.ImmutableList;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 

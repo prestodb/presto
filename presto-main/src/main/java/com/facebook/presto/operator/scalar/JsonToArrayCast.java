@@ -28,10 +28,10 @@ import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.util.JsonCastException;
 import com.facebook.presto.util.JsonUtil.BlockBuilderAppender;
+import com.facebook.slice.Slice;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
-import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 

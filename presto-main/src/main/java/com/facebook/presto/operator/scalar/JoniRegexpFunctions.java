@@ -25,14 +25,14 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.JoniRegexpType;
-import io.airlift.joni.Matcher;
-import io.airlift.joni.Regex;
-import io.airlift.joni.Region;
-import io.airlift.joni.exception.ValueException;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceOutput;
 import com.facebook.slice.Slices;
+import io.airlift.joni.Matcher;
+import io.airlift.joni.Regex;
+import io.airlift.joni.Region;
+import io.airlift.joni.exception.ValueException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;

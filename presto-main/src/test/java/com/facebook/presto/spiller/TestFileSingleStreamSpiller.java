@@ -22,11 +22,11 @@ import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.slice.InputStreamSliceInput;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.facebook.slice.InputStreamSliceInput;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

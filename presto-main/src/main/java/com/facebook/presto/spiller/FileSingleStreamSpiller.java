@@ -20,6 +20,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.spiller.SpillCipher;
+import com.facebook.slice.InputStreamSliceInput;
+import com.facebook.slice.OutputStreamSliceOutput;
+import com.facebook.slice.SliceOutput;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -27,9 +30,6 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.facebook.slice.InputStreamSliceInput;
-import com.facebook.slice.OutputStreamSliceOutput;
-import com.facebook.slice.SliceOutput;
 
 import javax.annotation.concurrent.NotThreadSafe;
 

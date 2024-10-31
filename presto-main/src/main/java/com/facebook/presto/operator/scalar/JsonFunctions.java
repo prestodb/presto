@@ -28,15 +28,15 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.JsonPathType;
 import com.facebook.presto.type.LiteralParameter;
+import com.facebook.slice.DynamicSliceOutput;
+import com.facebook.slice.Slice;
+import com.facebook.slice.SliceOutput;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Doubles;
-import com.facebook.slice.DynamicSliceOutput;
-import com.facebook.slice.Slice;
-import com.facebook.slice.SliceOutput;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -47,6 +47,7 @@ import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.facebook.presto.util.JsonUtil.truncateIfNecessaryForErrorMessage;
+import static com.facebook.slice.Slices.utf8Slice;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -58,7 +59,6 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
-import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 
 public final class JsonFunctions

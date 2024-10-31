@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.slice.Slice;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.facebook.slice.Slice;
 
 import java.io.IOException;
 

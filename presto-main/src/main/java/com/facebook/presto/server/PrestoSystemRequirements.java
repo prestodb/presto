@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.google.common.base.StandardSystemProperty;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import com.google.common.base.StandardSystemProperty;
 import org.joda.time.DateTime;
 
 import javax.management.MBeanServer;

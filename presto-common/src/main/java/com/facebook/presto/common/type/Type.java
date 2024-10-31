@@ -18,8 +18,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.fasterxml.jackson.annotation.JsonValue;
 import com.facebook.slice.Slice;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.List;
 

@@ -27,9 +27,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.slice.Slice;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 

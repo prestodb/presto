@@ -43,10 +43,10 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.facebook.presto.testing.TestingTaskContext;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 

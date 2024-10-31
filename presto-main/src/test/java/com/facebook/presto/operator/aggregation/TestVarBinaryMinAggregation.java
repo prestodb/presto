@@ -16,11 +16,11 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
-import com.facebook.slice.Slice;
-import com.facebook.slice.Slices;
 
 import java.util.List;
 

@@ -22,9 +22,9 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractPrimitiveType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.google.common.net.InetAddresses;
 import com.facebook.slice.Slice;
 import com.facebook.slice.XxHash64;
+import com.google.common.net.InetAddresses;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;

@@ -21,11 +21,11 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceOutput;
 import com.facebook.slice.Slices;
+import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 

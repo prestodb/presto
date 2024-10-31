@@ -20,9 +20,9 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.approxmostfrequent.stream.StreamSummary;
+import com.facebook.slice.Slice;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.facebook.slice.Slice;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 

@@ -37,10 +37,10 @@ import java.util.Optional;
 import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.common.array.Arrays.ExpansionOption.INITIALIZE;
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
+import static com.facebook.slice.SizeOf.sizeOf;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.facebook.slice.SizeOf.sizeOf;
 import static java.lang.Integer.max;
 import static java.util.Objects.requireNonNull;
 

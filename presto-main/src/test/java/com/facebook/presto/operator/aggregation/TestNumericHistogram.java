@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.slice.Slice;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.facebook.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;

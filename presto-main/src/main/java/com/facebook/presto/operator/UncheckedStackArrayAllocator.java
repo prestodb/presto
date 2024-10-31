@@ -20,10 +20,10 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Arrays;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.slice.SizeOf.sizeOfByteArray;
 import static com.facebook.slice.SizeOf.sizeOfIntArray;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**

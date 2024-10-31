@@ -15,12 +15,12 @@
 package com.facebook.presto.type.khyperloglog;
 
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
-import com.google.common.collect.Sets;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.Murmur3Hash128;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceInput;
 import com.facebook.slice.SliceOutput;
+import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.Long2DoubleMap;
@@ -39,13 +39,13 @@ import java.util.List;
 import java.util.PrimitiveIterator;
 import java.util.stream.LongStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.slice.SizeOf.SIZE_OF_INT;
 import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.slice.Slices.wrappedIntArray;
 import static com.facebook.slice.Slices.wrappedLongArray;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**

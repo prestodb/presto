@@ -23,11 +23,11 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.operator.PageBufferClient.PagesResponse;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.slice.InputStreamSliceInput;
+import com.facebook.slice.SliceInput;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.facebook.slice.InputStreamSliceInput;
-import com.facebook.slice.SliceInput;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.ThreadSafe;

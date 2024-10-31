@@ -29,10 +29,10 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
-import com.google.common.collect.ImmutableList;
-import com.google.common.io.BaseEncoding;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.BaseEncoding;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

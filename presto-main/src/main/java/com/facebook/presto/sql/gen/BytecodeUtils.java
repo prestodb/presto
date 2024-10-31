@@ -30,11 +30,11 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.sql.gen.InputReferenceCompiler.InputReferenceNode;
+import com.facebook.slice.Slice;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
-import com.facebook.slice.Slice;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;

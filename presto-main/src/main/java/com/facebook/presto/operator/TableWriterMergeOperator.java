@@ -23,9 +23,9 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.slice.Slice;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.facebook.slice.Slice;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -39,10 +39,10 @@ import static com.facebook.presto.operator.TableWriterUtils.FRAGMENT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.ROW_COUNT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.createStatisticsPage;
 import static com.facebook.presto.operator.TableWriterUtils.extractStatisticsRows;
+import static com.facebook.slice.Slices.wrappedBuffer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.facebook.slice.Slices.wrappedBuffer;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 

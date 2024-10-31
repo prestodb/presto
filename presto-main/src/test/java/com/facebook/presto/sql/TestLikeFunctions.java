@@ -15,9 +15,9 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.joni.Regex;
 import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
+import io.airlift.joni.Regex;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;

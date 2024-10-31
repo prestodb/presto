@@ -24,10 +24,10 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import com.facebook.slice.Slice;
 import com.facebook.slice.XxHash64;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;

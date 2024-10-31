@@ -26,8 +26,8 @@ import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
-import com.google.common.annotations.VisibleForTesting;
 import com.facebook.slice.SizeOf;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.concurrent.NotThreadSafe;
 

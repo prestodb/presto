@@ -18,8 +18,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.slice.SizeOf.sizeOf;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class TypedHeap
 {

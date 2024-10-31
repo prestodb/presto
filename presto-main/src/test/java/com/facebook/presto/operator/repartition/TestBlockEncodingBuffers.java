@@ -25,10 +25,10 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.UncheckedStackArrayAllocator;
-import com.google.common.collect.ImmutableList;
-import com.google.common.io.Closer;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.SliceOutput;
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -73,10 +73,10 @@ import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuff
 import static com.facebook.presto.operator.repartition.MapBlockEncodingBuffer.HASH_MULTIPLIER;
 import static com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.decodeBlock;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.slice.SizeOf.SIZE_OF_INT;
 import static com.facebook.slice.SizeOf.SIZE_OF_LONG;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

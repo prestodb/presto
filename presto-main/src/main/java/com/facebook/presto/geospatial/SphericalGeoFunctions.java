@@ -55,8 +55,8 @@ import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize
 import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.google.common.base.Preconditions.checkState;
 import static com.facebook.slice.Slices.utf8Slice;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.PI;

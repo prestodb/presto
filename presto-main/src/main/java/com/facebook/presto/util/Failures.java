@@ -28,9 +28,9 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
+import com.facebook.slice.SliceTooLargeException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.facebook.slice.SliceTooLargeException;
 
 import javax.annotation.Nullable;
 

@@ -30,8 +30,8 @@ import com.facebook.presto.spi.function.aggregation.AggregationMetadata.Accumula
 import com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
+import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;

@@ -30,9 +30,9 @@ import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.planner.planPrinter.JsonRenderer;
+import com.facebook.slice.Slice;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.facebook.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.HashMap;

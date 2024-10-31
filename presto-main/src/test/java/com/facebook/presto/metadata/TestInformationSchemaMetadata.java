@@ -35,11 +35,11 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.slice.Slice;
+import com.facebook.slice.Slices;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.facebook.slice.Slice;
-import com.facebook.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

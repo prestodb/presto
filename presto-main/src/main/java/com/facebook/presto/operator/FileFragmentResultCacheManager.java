@@ -20,14 +20,14 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.Split.SplitIdentifier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.slice.InputStreamSliceInput;
+import com.facebook.slice.OutputStreamSliceOutput;
+import com.facebook.slice.SliceOutput;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
 import com.google.common.collect.AbstractIterator;
-import com.facebook.slice.InputStreamSliceInput;
-import com.facebook.slice.OutputStreamSliceOutput;
-import com.facebook.slice.SliceOutput;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;

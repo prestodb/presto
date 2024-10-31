@@ -39,8 +39,8 @@ import static com.facebook.presto.geospatial.GeoFunctions.stEnvelope;
 import static com.facebook.presto.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.geospatial.GeoFunctions.stIntersects;
 import static com.facebook.presto.geospatial.GeometryBenchmarkUtils.loadPolygon;
-import static com.google.common.base.Verify.verify;
 import static com.facebook.slice.Slices.utf8Slice;
+import static com.google.common.base.Verify.verify;
 
 @State(Scope.Thread)
 @Fork(3)

@@ -19,8 +19,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.type.LikeFunctions;
-import io.airlift.joni.Regex;
 import com.facebook.slice.Slice;
+import io.airlift.joni.Regex;
 
 import java.util.Map;
 

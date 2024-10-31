@@ -23,8 +23,8 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
-import com.google.common.primitives.Ints;
 import com.facebook.slice.Slice;
+import com.google.common.primitives.Ints;
 
 import java.util.Comparator;
 import java.util.List;

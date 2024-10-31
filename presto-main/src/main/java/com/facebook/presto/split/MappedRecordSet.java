@@ -16,8 +16,8 @@ package com.facebook.presto.split;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.google.common.primitives.Ints;
 import com.facebook.slice.Slice;
+import com.google.common.primitives.Ints;
 
 import java.util.List;
 

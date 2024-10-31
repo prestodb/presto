@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.google.common.primitives.Booleans;
 import com.facebook.slice.DynamicSliceOutput;
 import com.facebook.slice.SliceOutput;
 import com.facebook.slice.Slices;
+import com.google.common.primitives.Booleans;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

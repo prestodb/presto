@@ -28,13 +28,13 @@ import com.facebook.presto.spi.storage.TempDataSink;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.util.FinalizerService;
+import com.facebook.slice.InputStreamSliceInput;
+import com.facebook.slice.SliceInput;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
-import com.facebook.slice.InputStreamSliceInput;
-import com.facebook.slice.SliceInput;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;

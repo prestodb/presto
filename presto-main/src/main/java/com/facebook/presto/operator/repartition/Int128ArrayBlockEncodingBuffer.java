@@ -29,16 +29,16 @@ package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.common.block.ArrayAllocator;
 import com.facebook.presto.common.block.Block;
-import com.google.common.annotations.VisibleForTesting;
 import com.facebook.slice.SliceOutput;
+import com.google.common.annotations.VisibleForTesting;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.common.array.Arrays.ExpansionFactor.LARGE;
 import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setLongUnchecked;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_LONG_INDEX_SCALE;
 

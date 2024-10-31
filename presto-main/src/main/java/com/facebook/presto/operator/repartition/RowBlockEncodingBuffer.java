@@ -29,9 +29,9 @@ package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.common.block.ArrayAllocator;
 import com.facebook.presto.common.block.ColumnarRow;
+import com.facebook.slice.SliceOutput;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects.ToStringHelper;
-import com.facebook.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -42,9 +42,9 @@ import static com.facebook.presto.common.array.Arrays.ExpansionOption.NONE;
 import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.facebook.slice.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.slice.SizeOf.SIZE_OF_INT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_INT_INDEX_SCALE;
 

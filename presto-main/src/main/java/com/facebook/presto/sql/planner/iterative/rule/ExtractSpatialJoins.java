@@ -98,10 +98,10 @@ import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialC
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static com.facebook.presto.util.SpatialJoinUtils.flip;
 import static com.facebook.presto.util.SpatialJoinUtils.getFlippedFunctionHandle;
+import static com.facebook.slice.Slices.utf8Slice;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.facebook.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

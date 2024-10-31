@@ -60,7 +60,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
-import org.sonatype.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.Artifact;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;

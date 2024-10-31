@@ -18,10 +18,10 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.LiteralParameter;
-import com.google.common.collect.ImmutableList;
 import com.facebook.slice.Slice;
 import com.facebook.slice.SliceUtf8;
 import com.facebook.slice.Slices;
+import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,11 +29,11 @@ import java.util.List;
 import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.facebook.slice.SliceUtf8.getCodePointAt;
 import static com.facebook.slice.SliceUtf8.lengthOfCodePoint;
 import static com.facebook.slice.SliceUtf8.setCodePointAt;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 

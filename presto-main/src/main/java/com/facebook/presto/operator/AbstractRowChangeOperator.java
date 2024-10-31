@@ -19,8 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.facebook.slice.Slice;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -31,8 +31,8 @@ import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.operator.PageSinkCommitStrategy.NO_COMMIT;
-import static com.google.common.base.Preconditions.checkState;
 import static com.facebook.slice.Slices.wrappedBuffer;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractRowChangeOperator
