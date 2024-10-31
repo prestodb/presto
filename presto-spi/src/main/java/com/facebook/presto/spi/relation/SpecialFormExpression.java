@@ -53,7 +53,7 @@ public class SpecialFormExpression
                 .map(x -> x.getSourceLocation())
                 .filter(Optional::isPresent)
                 .findFirst()
-                .map(x -> x.get()),
+                .map(x -> x.orElseThrow()),
                 form, returnType, arguments);
     }
 
