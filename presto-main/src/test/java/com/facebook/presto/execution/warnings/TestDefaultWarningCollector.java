@@ -62,7 +62,7 @@ public class TestDefaultWarningCollector
         assertEquals(warningCollector.getWarnings().size(), 0);
     }
 
-    @Test(expectedExceptions = {PrestoException.class})
+    @Test(expectedExceptions = PrestoException.class)
     public void testWarningAsErrorThrowsException()
     {
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig(), WarningHandlingLevel.AS_ERROR);

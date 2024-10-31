@@ -79,17 +79,17 @@ public class TestPullConstantsAboveGroupBy
         RuleTester tester = new RuleTester(ImmutableList.of(), ImmutableMap.of("optimize_constant_grouping_keys", "false", "rewrite_expression_with_constant_expression", "false"));
 
         tester.assertThat(new PullConstantsAboveGroupBy())
-            .on(p -> p.aggregation(ab -> ab
-                    .source(
-                            p.project(
-                                    Assignments.builder()
-                                            .put(p.variable("COL"), p.rowExpression("COL"))
-                                            .put(p.variable("CONST_COL"), p.rowExpression("1"))
-                                            .build(),
-                                    p.values(p.variable("COL"))))
-                    .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL)"))
-                    .singleGroupingSet(p.variable("CONST_COL"), p.variable("COL"))))
-            .doesNotFire();
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.project(
+                                        Assignments.builder()
+                                                .put(p.variable("COL"), p.rowExpression("COL"))
+                                                .put(p.variable("CONST_COL"), p.rowExpression("1"))
+                                                .build(),
+                                        p.values(p.variable("COL"))))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL)"))
+                        .singleGroupingSet(p.variable("CONST_COL"), p.variable("COL"))))
+                .doesNotFire();
     }
 
     @Test
@@ -137,7 +137,7 @@ public class TestPullConstantsAboveGroupBy
                                         SINGLE,
                                         project(ImmutableMap.of(
                                                         "CONST_COL", expression("1")),
-                                        values("COL")))));
+                                                values("COL")))));
     }
 
     @Test
