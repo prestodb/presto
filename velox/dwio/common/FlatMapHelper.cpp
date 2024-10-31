@@ -528,7 +528,8 @@ void copyOffsetsFromConstInput(
     const BaseVector& source,
     vector_size_t sourceIndex,
     vector_size_t count) {
-  auto nullCount = copyNulls(target, targetIndex, source, sourceIndex, count);
+  VELOX_DEBUG_ONLY const auto nullCount =
+      copyNulls(target, targetIndex, source, sourceIndex, count);
   VELOX_DCHECK_EQ(nullCount, count, "Expecting constant null vector input");
   // We cannot track the last non-null index efficiently across copy
   // invocations. In order to make it easier for computing child offset, we

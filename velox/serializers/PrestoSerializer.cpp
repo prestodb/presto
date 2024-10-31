@@ -4245,8 +4245,6 @@ void PrestoVectorSerde::deserializeSingleColumn(
   VELOX_CHECK_EQ(
       prestoOptions.compressionKind,
       common::CompressionKind::CompressionKind_NONE);
-  const bool useLosslessTimestamp = prestoOptions.useLosslessTimestamp;
-
   if (*result && result->unique()) {
     VELOX_CHECK(
         *(*result)->type() == *type,

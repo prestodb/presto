@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
     });
 
     int wstatus;
-    int w = waitpid(pid, &wstatus, WUNTRACED | WCONTINUED);
+    waitpid(pid, &wstatus, WUNTRACED | WCONTINUED);
     LOG(INFO) << "Test completed";
     completed = true;
     sleepPromise.setValue(true);

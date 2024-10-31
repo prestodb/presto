@@ -114,7 +114,6 @@ void EvalCtx::copyError(
     vector_size_t fromIndex,
     EvalErrorsPtr& to,
     vector_size_t toIndex) const {
-  const auto fromSize = from.size();
   if (from.hasErrorAt(fromIndex)) {
     ensureErrorsVectorSize(to, toIndex + 1);
     to->copyError(from, fromIndex, toIndex);

@@ -31,7 +31,6 @@ int main() {
   constexpr int sampleSize = 100;
   constexpr int32_t lo = 100, hi = 1000;
   constexpr double mu = 5.0, sigma = 2.0;
-  constexpr double p = 0.25;
   constexpr double nullProbability = 0.38;
 
   auto normal = std::normal_distribution<double>(mu, sigma);

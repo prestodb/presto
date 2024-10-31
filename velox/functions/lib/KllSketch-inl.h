@@ -417,8 +417,7 @@ int KllSketch<T, A, C>::findLevelToCompact() const {
 
 template <typename T, typename A, typename C>
 void KllSketch<T, A, C>::addEmptyTopLevelToCompletelyFullSketch() {
-  const uint32_t curTotalCap = levels_.back();
-
+  VELOX_DEBUG_ONLY const uint32_t curTotalCap = levels_.back();
   // Make sure that we are following a certain growth scheme.
   VELOX_DCHECK_EQ(levels_[0], 0);
   VELOX_DCHECK_EQ(items_.size(), curTotalCap);

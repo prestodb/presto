@@ -65,7 +65,6 @@ struct ArrayInsert {
 
       out.reserve(newArrayLength);
       int32_t posIdx = *pos - 1;
-      int32_t nextIdx = 0;
       for (int32_t i = 0; i < newArrayLength; i++) {
         if (i == posIdx) {
           item ? out.push_back(*item) : out.add_null();

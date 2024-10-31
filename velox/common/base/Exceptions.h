@@ -334,6 +334,7 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
 #define VELOX_DCHECK_NE(e1, e2, ...) VELOX_CHECK_NE(e1, e2, ##__VA_ARGS__)
 #define VELOX_DCHECK_NULL(e, ...) VELOX_CHECK_NULL(e, ##__VA_ARGS__)
 #define VELOX_DCHECK_NOT_NULL(e, ...) VELOX_CHECK_NOT_NULL(e, ##__VA_ARGS__)
+#define VELOX_DEBUG_ONLY
 #else
 #define VELOX_DCHECK(expr, ...) VELOX_CHECK(true)
 #define VELOX_DCHECK_GT(e1, e2, ...) VELOX_CHECK(true)
@@ -344,6 +345,7 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
 #define VELOX_DCHECK_NE(e1, e2, ...) VELOX_CHECK(true)
 #define VELOX_DCHECK_NULL(e, ...) VELOX_CHECK(true)
 #define VELOX_DCHECK_NOT_NULL(e, ...) VELOX_CHECK(true)
+#define VELOX_DEBUG_ONLY [[maybe_unused]]
 #endif
 
 #define VELOX_FAIL(...)                                             \

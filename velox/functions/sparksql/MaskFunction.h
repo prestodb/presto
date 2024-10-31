@@ -209,8 +209,7 @@ struct MaskFunction {
       // it with the length of replacing character. Inequality indicates the
       // replacing character includes more than one unicode characters.
       int size;
-      auto codePoint = utf8proc_codepoint(
-          &maskCharData[0], maskCharData + maskCharSize, size);
+      utf8proc_codepoint(&maskCharData[0], maskCharData + maskCharSize, size);
       VELOX_USER_CHECK_EQ(
           maskCharSize,
           size,
