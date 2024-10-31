@@ -73,7 +73,7 @@ public class TableConstraintsHolder
         {
             Optional<TableConstraint<R>> mappedConstraint = tableConstraint.rebaseConstraint(assignments);
             if (mappedConstraint.isPresent()) {
-                mappedTableConstraints.add(mappedConstraint.get());
+                mappedTableConstraints.add(mappedConstraint.orElseThrow());
             }
         });
         return mappedTableConstraints;
