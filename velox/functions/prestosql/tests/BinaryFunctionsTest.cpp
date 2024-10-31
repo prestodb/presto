@@ -635,8 +635,10 @@ TEST_F(BinaryFunctionsTest, toIEEE754Bits64) {
   EXPECT_EQ(
       hexToDec("7FF8000000000000"),
       toIEEE754Bits64(std::numeric_limits<double>::quiet_NaN()));
+  // NaNs are normalized when generating output to ensure they are equal as all
+  // NaNs are considered equal
   EXPECT_EQ(
-      hexToDec("7FF4000000000000"),
+      hexToDec("7FF8000000000000"),
       toIEEE754Bits64(std::numeric_limits<double>::signaling_NaN()));
   EXPECT_EQ(
       hexToDec("FFF0000000000000"),
@@ -698,6 +700,11 @@ TEST_F(BinaryFunctionsTest, toIEEE754Bits32) {
   EXPECT_EQ(
       hexToDec("7FC00000"),
       toIEEE754Bits32(std::numeric_limits<float>::quiet_NaN()));
+  // NaNs are normalized when generating output to ensure they are equal as all
+  // NaNs are considered equal
+  EXPECT_EQ(
+      hexToDec("7FC00000"),
+      toIEEE754Bits32(std::numeric_limits<float>::signaling_NaN()));
   EXPECT_EQ(
       hexToDec("7F800000"),
       toIEEE754Bits32(std::numeric_limits<float>::infinity()));

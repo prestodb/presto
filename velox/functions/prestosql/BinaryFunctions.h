@@ -388,7 +388,11 @@ struct ToIEEE754Bits64 {
       out_type<Varbinary>& result,
       const arg_type<double>& input) {
     static constexpr auto kTypeLength = sizeof(int64_t);
-    auto value = folly::Endian::big(input);
+    // Since we consider NaNs with different binary representation as equal, we
+    // normalize them to a single value to ensure the output is equal too.
+    auto value = std::isnan(input)
+        ? folly::Endian::big(std::numeric_limits<double>::quiet_NaN())
+        : folly::Endian::big(input);
     result.setNoCopy(
         StringView(reinterpret_cast<const char*>(&value), kTypeLength));
   }
@@ -416,7 +420,11 @@ struct ToIEEE754Bits32 {
       out_type<Varbinary>& result,
       const arg_type<float>& input) {
     static constexpr auto kTypeLength = sizeof(int32_t);
-    auto value = folly::Endian::big(input);
+    // Since we consider NaNs with different binary representation as equal, we
+    // normalize them to a single value to ensure the output is equal too.
+    auto value = std::isnan(input)
+        ? folly::Endian::big(std::numeric_limits<float>::quiet_NaN())
+        : folly::Endian::big(input);
     result.setNoCopy(
         StringView(reinterpret_cast<const char*>(&value), kTypeLength));
   }
