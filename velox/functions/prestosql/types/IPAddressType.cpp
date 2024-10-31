@@ -15,13 +15,7 @@
  */
 
 #include "velox/functions/prestosql/types/IPAddressType.h"
-#include <folly/IPAddress.h>
 #include "velox/expression/CastExpr.h"
-
-static constexpr int kIPV4AddressBytes = 4;
-static constexpr int kIPV4ToV6FFIndex = 10;
-static constexpr int kIPV4ToV6Index = 12;
-static constexpr int kIPAddressBytes = 16;
 
 namespace facebook::velox {
 
@@ -97,7 +91,7 @@ class IPAddressCastOperator : public exec::CastOperator {
 
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       const auto intAddr = ipaddresses->valueAt(row);
-      memcpy(&addrBytes, &intAddr, kIPAddressBytes);
+      memcpy(&addrBytes, &intAddr, ipaddress::kIPAddressBytes);
 
       std::reverse(addrBytes.begin(), addrBytes.end());
       folly::IPAddressV6 v6Addr(addrBytes);
@@ -123,9 +117,10 @@ class IPAddressCastOperator : public exec::CastOperator {
 
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       const auto ipAddressString = ipAddressStrings->valueAt(row);
+      auto maybeIpAsInt128 =
+          ipaddress::tryGetIPv6asInt128FromString(ipAddressString);
 
-      auto maybeIp = folly::IPAddress::tryFromString(ipAddressString);
-      if (maybeIp.hasError()) {
+      if (maybeIpAsInt128.hasError()) {
         if (threadSkipErrorDetails()) {
           context.setStatus(row, Status::UserError());
         } else {
@@ -135,13 +130,7 @@ class IPAddressCastOperator : public exec::CastOperator {
         }
         return;
       }
-      folly::IPAddress addr = maybeIp.value();
-      auto addrBytes = folly::IPAddress::createIPv6(addr).toByteArray();
-
-      std::reverse(addrBytes.begin(), addrBytes.end());
-      memcpy(&intAddr, &addrBytes, kIPAddressBytes);
-
-      flatResult->set(row, intAddr);
+      flatResult->set(row, maybeIpAsInt128.value());
     });
   }
 
@@ -156,12 +145,12 @@ class IPAddressCastOperator : public exec::CastOperator {
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       const auto intAddr = ipaddresses->valueAt(row);
       folly::ByteArray16 addrBytes;
-      memcpy(&addrBytes, &intAddr, kIPAddressBytes);
+      memcpy(&addrBytes, &intAddr, ipaddress::kIPAddressBytes);
       std::reverse(addrBytes.begin(), addrBytes.end());
 
       exec::StringWriter<false> result(flatResult, row);
-      result.resize(kIPAddressBytes);
-      memcpy(result.data(), &addrBytes, kIPAddressBytes);
+      result.resize(ipaddress::kIPAddressBytes);
+      memcpy(result.data(), &addrBytes, ipaddress::kIPAddressBytes);
       result.finalize();
     });
   }
@@ -179,15 +168,15 @@ class IPAddressCastOperator : public exec::CastOperator {
       folly::ByteArray16 addrBytes = {};
       const auto ipAddressBinary = ipAddressBinaries->valueAt(row);
 
-      if (ipAddressBinary.size() == kIPV4AddressBytes) {
-        addrBytes[kIPV4ToV6FFIndex] = 0xFF;
-        addrBytes[kIPV4ToV6FFIndex + 1] = 0xFF;
+      if (ipAddressBinary.size() == ipaddress::kIPV4AddressBytes) {
+        addrBytes[ipaddress::kIPV4ToV6FFIndex] = 0xFF;
+        addrBytes[ipaddress::kIPV4ToV6FFIndex + 1] = 0xFF;
         memcpy(
-            &addrBytes[kIPV4ToV6Index],
+            &addrBytes[ipaddress::kIPV4ToV6Index],
             ipAddressBinary.data(),
-            kIPV4AddressBytes);
-      } else if (ipAddressBinary.size() == kIPAddressBytes) {
-        memcpy(&addrBytes, ipAddressBinary.data(), kIPAddressBytes);
+            ipaddress::kIPV4AddressBytes);
+      } else if (ipAddressBinary.size() == ipaddress::kIPAddressBytes) {
+        memcpy(&addrBytes, ipAddressBinary.data(), ipaddress::kIPAddressBytes);
       } else {
         if (threadSkipErrorDetails()) {
           context.setStatus(row, Status::UserError());
@@ -202,7 +191,7 @@ class IPAddressCastOperator : public exec::CastOperator {
       }
 
       std::reverse(addrBytes.begin(), addrBytes.end());
-      memcpy(&intAddr, &addrBytes, kIPAddressBytes);
+      memcpy(&intAddr, &addrBytes, ipaddress::kIPAddressBytes);
       flatResult->set(row, intAddr);
     });
   }

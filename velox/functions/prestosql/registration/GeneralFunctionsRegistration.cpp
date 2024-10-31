@@ -21,6 +21,7 @@
 #include "velox/functions/prestosql/GreatestLeast.h"
 #include "velox/functions/prestosql/InPredicate.h"
 #include "velox/functions/prestosql/Reduce.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::functions {
@@ -57,6 +58,7 @@ void registerAllGreatestLeastFunctions(const std::string& prefix) {
   registerGreatestLeastFunction<Date>(prefix);
   registerGreatestLeastFunction<Timestamp>(prefix);
   registerGreatestLeastFunction<TimestampWithTimezone>(prefix);
+  registerGreatestLeastFunction<IPAddress>(prefix);
 }
 } // namespace
 

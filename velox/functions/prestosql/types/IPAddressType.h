@@ -15,13 +15,37 @@
  */
 #pragma once
 
+#include <folly/IPAddress.h>
+
 #include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
 
+namespace ipaddress {
+constexpr int kIPV4AddressBytes = 4;
+constexpr int kIPV4ToV6FFIndex = 10;
+constexpr int kIPV4ToV6Index = 12;
+constexpr int kIPAddressBytes = 16;
+
+inline folly::Expected<int128_t, folly::IPAddressFormatError>
+tryGetIPv6asInt128FromString(const std::string& ipAddressStr) {
+  auto maybeIp = folly::IPAddress::tryFromString(ipAddressStr);
+  if (maybeIp.hasError()) {
+    return folly::makeUnexpected(maybeIp.error());
+  }
+
+  int128_t intAddr;
+  folly::IPAddress addr = maybeIp.value();
+  auto addrBytes = folly::IPAddress::createIPv6(addr).toByteArray();
+  std::reverse(addrBytes.begin(), addrBytes.end());
+  memcpy(&intAddr, &addrBytes, kIPAddressBytes);
+  return intAddr;
+}
+} // namespace ipaddress
+
 class IPAddressType : public HugeintType {
-  IPAddressType() = default;
+  IPAddressType() : HugeintType(/*providesCustomComparison*/ true) {}
 
  public:
   static const std::shared_ptr<const IPAddressType>& get() {
@@ -29,6 +53,19 @@ class IPAddressType : public HugeintType {
         new IPAddressType()};
 
     return instance;
+  }
+
+  int32_t compare(const int128_t& left, const int128_t& right) const override {
+    const auto leftAddrBytes = toIPv6ByteArray(left);
+    const auto rightAddrBytes = toIPv6ByteArray(right);
+    return memcmp(
+        leftAddrBytes.begin(),
+        rightAddrBytes.begin(),
+        ipaddress::kIPAddressBytes);
+  }
+
+  uint64_t hash(const int128_t& value) const override {
+    return folly::hasher<int128_t>()(value);
   }
 
   bool equivalent(const Type& other) const override {
@@ -50,6 +87,16 @@ class IPAddressType : public HugeintType {
     obj["type"] = name();
     return obj;
   }
+
+ private:
+  static folly::ByteArray16 toIPv6ByteArray(const int128_t& ipAddr) {
+    folly::ByteArray16 bytes{{0}};
+    memcpy(bytes.data(), &ipAddr, sizeof(ipAddr));
+    // Reverse because the velox is always on little endian system
+    // and the byte array needs to be big endian (network byte order)
+    std::reverse(bytes.begin(), bytes.end());
+    return bytes;
+  }
 };
 
 FOLLY_ALWAYS_INLINE bool isIPAddressType(const TypePtr& type) {
@@ -67,7 +114,7 @@ struct IPAddressT {
   static constexpr const char* typeName = "ipaddress";
 };
 
-using IPAddress = CustomType<IPAddressT>;
+using IPAddress = CustomType<IPAddressT, /*providesCustomComparison*/ true>;
 
 void registerIPAddressType();
 

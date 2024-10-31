@@ -286,6 +286,46 @@ TEST_F(GreatestLeastTest, leastDate) {
       DATE());
 }
 
+TEST_F(GreatestLeastTest, greatestLeastIpAddress) {
+  auto greatest = [&](const std::optional<std::string>& a,
+                      const std::optional<std::string>& b,
+                      const std::optional<std::string>& c) {
+    return evaluateOnce<std::string>(
+        "cast(greatest(cast(c0 as ipaddress), cast(c1 as ipaddress), cast(c2 as ipaddress)) as varchar)",
+        a,
+        b,
+        c);
+  };
+
+  auto least = [&](const std::optional<std::string>& a,
+                   const std::optional<std::string>& b,
+                   const std::optional<std::string>& c) {
+    return evaluateOnce<std::string>(
+        "cast(least(cast(c0 as ipaddress), cast(c1 as ipaddress), cast(c2 as ipaddress)) as varchar)",
+        a,
+        b,
+        c);
+  };
+
+  auto greatestValue = greatest(
+      "1.1.1.1", "255.255.255.255", "2001:0db8:0000:0000:0000:ff00:0042:832");
+  EXPECT_EQ("2001:db8::ff00:42:832", greatestValue.value());
+
+  auto leastValue = least(
+      "1.1.1.1", "255.255.255.255", "2001:0db8:0000:0000:0000:ff00:0042:832");
+  EXPECT_EQ("1.1.1.1", leastValue.value());
+
+  auto greatestValueWithNulls =
+      greatest("1.1.1.1", "255.255.255.255", std::nullopt);
+  EXPECT_FALSE(greatestValueWithNulls.has_value());
+
+  auto leastValueWithNulls = least(
+      std::nullopt,
+      "255.255.255.255",
+      "2001:0db8:0000:0000:0000:ff00:0042:832");
+  EXPECT_FALSE(leastValueWithNulls.has_value());
+}
+
 TEST_F(GreatestLeastTest, stringBuffersMoved) {
   runTest<StringView>(
       "least(c0, c1)",

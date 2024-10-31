@@ -16,6 +16,7 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Comparisons.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Type.h"
 
@@ -30,6 +31,7 @@ void registerNonSimdizableScalar(const std::vector<std::string>& aliases) {
   registerFunction<T, TReturn, Timestamp, Timestamp>(aliases);
   registerFunction<T, TReturn, TimestampWithTimezone, TimestampWithTimezone>(
       aliases);
+  registerFunction<T, TReturn, IPAddress, IPAddress>(aliases);
 }
 } // namespace
 
@@ -37,6 +39,7 @@ void registerComparisonFunctions(const std::string& prefix) {
   // Comparison functions also need TimestampWithTimezoneType,
   // independent of DateTimeFunctions
   registerTimestampWithTimeZoneType();
+  registerIPAddressType();
 
   registerNonSimdizableScalar<EqFunction, bool>({prefix + "eq"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_eq, prefix + "eq");
@@ -116,6 +119,8 @@ void registerComparisonFunctions(const std::string& prefix) {
       TimestampWithTimezone,
       TimestampWithTimezone,
       TimestampWithTimezone>({prefix + "between"});
+  registerFunction<BetweenFunction, bool, IPAddress, IPAddress, IPAddress>(
+      {prefix + "between"});
 }
 
 } // namespace facebook::velox::functions
