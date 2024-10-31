@@ -232,7 +232,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.teradata</groupId>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>re2j-td</artifactId>
         </dependency>
 
@@ -334,8 +334,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.sonatype.aether</groupId>
-            <artifactId>aether-api</artifactId>
+            <groupId>org.apache.maven.resolver</groupId>
+            <artifactId>maven-resolver-api</artifactId>
         </dependency>
 
         <dependency>

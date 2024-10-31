@@ -434,9 +434,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.teradata</groupId>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>re2j-td</artifactId>
-                <version>1.4</version>
+                <version>1.5-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -1229,9 +1229,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.sonatype.aether</groupId>
-                <artifactId>aether-api</artifactId>
-                <version>1.13.1</version>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-api</artifactId>
+                <version>1.9.22</version>
             </dependency>
 
             <dependency>
