@@ -17,6 +17,7 @@ EnumMap:
   ExchangeNode:
     Type: ExchangeNodeType
     Scope: ExchangeNodeScope
+    Encoding: ExchangeEncoding
 
   LimitNode:
     Step: LimitNodeStep
@@ -314,3 +315,4 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTransactionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/AggregationFunctionMetadata.java
   - presto-function-namespace-managers/src/main/java/com/facebook/presto/functionNamespace/json/JsonBasedUdfFunctionMetadata.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/ExchangeEncoding.java

@@ -67,4 +67,8 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testSetSessionJavaWorkerSessionProperty() {}
+
+    @Override
+    @Ignore
+    public void testRowWiseExchange() {}
 }

@@ -11,27 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.connector;
+package com.facebook.presto.spi.plan;
 
-public interface ConnectorPartitioningHandle
+public enum ExchangeEncoding
 {
-    default boolean isSingleNode()
-    {
-        return false;
-    }
-
-    default boolean isCoordinatorOnly()
-    {
-        return false;
-    }
-
-    default boolean isBroadcast()
-    {
-        return false;
-    }
-
-    default boolean isArbitrary()
-    {
-        return false;
-    }
+    COLUMNAR,
+    ROW_WISE,
 }
