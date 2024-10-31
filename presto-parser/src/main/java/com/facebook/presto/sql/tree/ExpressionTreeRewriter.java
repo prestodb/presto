@@ -399,7 +399,7 @@ public final class ExpressionTreeRewriter<C>
             Expression trueValue = rewrite(node.getTrueValue(), context.get());
             Expression falseValue = null;
             if (node.getFalseValue().isPresent()) {
-                falseValue = rewrite(node.getFalseValue().get(), context.get());
+                falseValue = rewrite(node.getFalseValue().orElseThrow(), context.get());
             }
 
             if ((condition != node.getCondition()) || (trueValue != node.getTrueValue()) || (falseValue != node.getFalseValue().orElse(null))) {
@@ -532,41 +532,41 @@ public final class ExpressionTreeRewriter<C>
 
             Optional<Expression> filter = node.getFilter();
             if (filter.isPresent()) {
-                Expression filterExpression = filter.get();
+                Expression filterExpression = filter.orElseThrow();
                 Expression newFilterExpression = rewrite(filterExpression, context.get());
                 filter = Optional.of(newFilterExpression);
             }
 
             Optional<Window> rewrittenWindow = node.getWindow();
             if (node.getWindow().isPresent()) {
-                Window window = node.getWindow().get();
+                Window window = node.getWindow().orElseThrow();
 
                 List<Expression> partitionBy = rewrite(window.getPartitionBy(), context);
 
                 Optional<OrderBy> orderBy = Optional.empty();
                 if (window.getOrderBy().isPresent()) {
-                    orderBy = Optional.of(rewriteOrderBy(window.getOrderBy().get(), context));
+                    orderBy = Optional.of(rewriteOrderBy(window.getOrderBy().orElseThrow(), context));
                 }
 
                 Optional<WindowFrame> rewrittenFrame = window.getFrame();
                 if (rewrittenFrame.isPresent()) {
-                    WindowFrame frame = rewrittenFrame.get();
+                    WindowFrame frame = rewrittenFrame.orElseThrow();
 
                     FrameBound start = frame.getStart();
                     if (start.getValue().isPresent()) {
-                        Expression value = rewrite(start.getValue().get(), context.get());
-                        if (value != start.getValue().get()) {
+                        Expression value = rewrite(start.getValue().orElseThrow(), context.get());
+                        if (value != start.getValue().orElseThrow()) {
                             start = new FrameBound(start.getType(), value);
                         }
                     }
 
                     Optional<FrameBound> rewrittenEnd = frame.getEnd();
                     if (rewrittenEnd.isPresent()) {
-                        Optional<Expression> value = rewrittenEnd.get().getValue();
+                        Optional<Expression> value = rewrittenEnd.orElseThrow().getValue();
                         if (value.isPresent()) {
-                            Expression rewrittenValue = rewrite(value.get(), context.get());
-                            if (rewrittenValue != value.get()) {
-                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
+                            Expression rewrittenValue = rewrite(value.orElseThrow(), context.get());
+                            if (rewrittenValue != value.orElseThrow()) {
+                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.orElseThrow().getType(), rewrittenValue));
                             }
                         }
                     }
@@ -959,14 +959,14 @@ public final class ExpressionTreeRewriter<C>
 
     private static <T> boolean sameElements(Optional<T> a, Optional<T> b)
     {
-        if (!a.isPresent() && !b.isPresent()) {
+        if (a.isEmpty() && b.isEmpty()) {
             return true;
         }
         else if (a.isPresent() != b.isPresent()) {
             return false;
         }
 
-        return a.get() == b.get();
+        return a.orElseThrow() == b.orElseThrow();
     }
 
     @SuppressWarnings("ObjectEquality")
