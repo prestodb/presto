@@ -322,7 +322,7 @@ public class FileBasedAccessControl
         for (SessionPropertyAccessControlRule rule : sessionPropertyRules) {
             Optional<Boolean> allowed = rule.match(identity.getUser(), property);
             if (allowed.isPresent()) {
-                return allowed.get();
+                return allowed.orElseThrow();
             }
         }
         return false;
@@ -337,7 +337,7 @@ public class FileBasedAccessControl
         for (TableAccessControlRule rule : tableRules) {
             Optional<Set<TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), tableName);
             if (tablePrivileges.isPresent()) {
-                return tablePrivileges.get().containsAll(ImmutableSet.copyOf(requiredPrivileges));
+                return tablePrivileges.orElseThrow().containsAll(ImmutableSet.copyOf(requiredPrivileges));
             }
         }
         return false;
@@ -348,7 +348,7 @@ public class FileBasedAccessControl
         for (SchemaAccessControlRule rule : schemaRules) {
             Optional<Boolean> owner = rule.match(identity.getUser(), schemaName);
             if (owner.isPresent()) {
-                return owner.get();
+                return owner.orElseThrow();
             }
         }
         return false;
