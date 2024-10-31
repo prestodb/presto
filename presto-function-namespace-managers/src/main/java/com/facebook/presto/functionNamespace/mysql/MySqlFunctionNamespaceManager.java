@@ -50,7 +50,7 @@ import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.hash.Hashing.sha256;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
@@ -121,7 +121,7 @@ public class MySqlFunctionNamespaceManager
         if (!type.isPresent()) {
             throw new PrestoException(NOT_FOUND, format("Type %s not found", typeName));
         }
-        return type.get();
+        return type.orElseThrow();
     }
 
     @Override
@@ -142,7 +142,7 @@ public class MySqlFunctionNamespaceManager
         if (!function.isPresent()) {
             throw new InvalidFunctionHandleException(functionHandle);
         }
-        return sqlInvokedFunctionToMetadata(function.get());
+        return sqlInvokedFunctionToMetadata(function.orElseThrow());
     }
 
     @Override
@@ -153,7 +153,7 @@ public class MySqlFunctionNamespaceManager
         if (!function.isPresent()) {
             throw new InvalidFunctionHandleException(functionHandle);
         }
-        return sqlInvokedFunctionToImplementation(function.get());
+        return sqlInvokedFunctionToImplementation(function.orElseThrow());
     }
 
     @Override
@@ -189,16 +189,16 @@ public class MySqlFunctionNamespaceManager
         jdbi.useTransaction(handle -> {
             FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
             Optional<SqlInvokedFunctionRecord> latestVersion = transactionDao.getLatestRecordForUpdate(hash(function.getFunctionId()), function.getFunctionId());
-            if (!replace && latestVersion.isPresent() && !latestVersion.get().isDeleted()) {
+            if (!replace && latestVersion.isPresent() && !latestVersion.orElseThrow().isDeleted()) {
                 throw new PrestoException(ALREADY_EXISTS, "Function already exists: " + function.getFunctionId());
             }
 
-            if (!latestVersion.isPresent() || !latestVersion.get().getFunction().hasSameDefinitionAs(function)) {
+            if (!latestVersion.isPresent() || !latestVersion.orElseThrow().getFunction().hasSameDefinitionAs(function)) {
                 long newVersion = latestVersion.map(SqlInvokedFunctionRecord::getFunction).map(MySqlFunctionNamespaceManager::getLongVersion).orElse(0L) + 1;
                 insertSqlInvokedFunction(transactionDao, function, newVersion);
             }
-            else if (latestVersion.get().isDeleted()) {
-                SqlInvokedFunction latest = latestVersion.get().getFunction();
+            else if (latestVersion.orElseThrow().isDeleted()) {
+                SqlInvokedFunction latest = latestVersion.orElseThrow().getFunction();
                 checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
                 transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), false);
             }
@@ -250,7 +250,7 @@ public class MySqlFunctionNamespaceManager
                 transactionDao.setDeleted(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getObjectName());
             }
             else {
-                SqlInvokedFunction latest = getOnlyElement(functions);
+                SqlInvokedFunction latest = functions.stream().collect(onlyElement());
                 checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
                 transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), true);
             }
@@ -263,7 +263,7 @@ public class MySqlFunctionNamespaceManager
     {
         List<SqlInvokedFunctionRecord> records = new ArrayList<>();
         if (parameterTypes.isPresent()) {
-            SqlFunctionId functionId = new SqlFunctionId(functionName, parameterTypes.get());
+            SqlFunctionId functionId = new SqlFunctionId(functionName, parameterTypes.orElseThrow());
             functionNamespaceDao.getLatestRecordForUpdate(hash(functionId), functionId).ifPresent(records::add);
         }
         else {
