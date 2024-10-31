@@ -192,7 +192,7 @@ public final class PrestoThriftRangeValueSet
 
         public static PrestoThriftMarker fromMarker(Marker marker)
         {
-            PrestoThriftBlock value = marker.getValueBlock().isPresent() ? fromBlock(marker.getValueBlock().get(), marker.getType()) : null;
+            PrestoThriftBlock value = marker.getValueBlock().isPresent() ? fromBlock(marker.getValueBlock().orElseThrow(), marker.getType()) : null;
             return new PrestoThriftMarker(value, fromBound(marker.getBound()));
         }
     }
