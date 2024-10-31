@@ -139,9 +139,9 @@ TEST_F(TraceUtilTest, getTaskIds) {
   fs->mkdir(trace::getTaskTraceDirectory(rootPath, queryId, taskId2));
   auto taskIds = getTaskIds(rootPath, queryId, fs);
   ASSERT_EQ(taskIds.size(), 2);
-  std::set<std::string> taskIdSet({taskId1, taskId2});
-  ASSERT_EQ(*taskIds.begin(), taskId1);
-  ASSERT_EQ(*taskIds.rbegin(), taskId2);
+  std::sort(taskIds.begin(), taskIds.end());
+  ASSERT_EQ(taskIds[0], taskId1);
+  ASSERT_EQ(taskIds[1], taskId2);
 }
 
 TEST_F(TraceUtilTest, getDriverIds) {
