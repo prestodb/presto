@@ -95,7 +95,7 @@ public final class TestingBlockEncodingSerde
             // see if a replacement block should be written instead
             Optional<Block> replacementBlock = blockEncoding.replacementBlockForWrite(block);
             if (replacementBlock.isPresent()) {
-                block = replacementBlock.get();
+                block = replacementBlock.orElseThrow();
                 continue;
             }
 

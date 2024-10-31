@@ -80,7 +80,7 @@ public class NamedTypeSignature
     public String toString()
     {
         if (fieldName.isPresent()) {
-            return format("%s %s", fieldName.get(), typeSignature);
+            return format("%s %s", fieldName.orElseThrow(), typeSignature);
         }
         return typeSignature.toString();
     }

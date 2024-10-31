@@ -92,7 +92,7 @@ public final class SqlTime
     public String toString()
     {
         if (isLegacyTimestamp()) {
-            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(formatter);
+            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(sessionTimeZoneKey.orElseThrow().getId())).format(formatter);
         }
         else {
             return Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).format(formatter);
