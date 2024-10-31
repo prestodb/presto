@@ -95,7 +95,7 @@ class ErrorHandler
             // pick the candidate tokens associated largest token index processed (i.e., the path that consumed the most input)
             String expected = candidates.asMap().entrySet().stream()
                     .max(Comparator.comparing(Map.Entry::getKey))
-                    .get()
+                    .orElseThrow()
                     .getValue().stream()
                     .sorted()
                     .collect(Collectors.joining(", "));
