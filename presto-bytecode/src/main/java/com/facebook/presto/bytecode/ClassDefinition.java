@@ -24,13 +24,12 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.bytecode.Access.INTERFACE;
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Access.toAccessModifier;
-import static com.google.common.collect.Iterables.any;
-import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.V1_8;
@@ -131,7 +130,7 @@ public class ClassDefinition
     {
         // Generic signature if super class or any interface is generic
         String signature = null;
-        if (superClass.isGeneric() || any(interfaces, ParameterizedType::isGeneric)) {
+        if (superClass.isGeneric() || interfaces.stream().anyMatch(ParameterizedType::isGeneric)) {
             signature = genericClassSignature(superClass, interfaces);
         }
 
@@ -293,14 +292,14 @@ public class ClassDefinition
             ParameterizedType... interfaceTypes)
     {
         return Joiner.on("").join(
-                concat(ImmutableList.of(classType), ImmutableList.copyOf(interfaceTypes)));
+                Stream.concat(ImmutableList.of(classType).stream(), ImmutableList.copyOf(interfaceTypes).stream()).iterator());
     }
 
     public static String genericClassSignature(
             ParameterizedType classType,
             List<ParameterizedType> interfaceTypes)
     {
-        return Joiner.on("").join(concat(ImmutableList.of(classType), interfaceTypes));
+        return Joiner.on("").join(Stream.concat(ImmutableList.of(classType).stream(), interfaceTypes.stream()).iterator());
     }
 
     @Override
