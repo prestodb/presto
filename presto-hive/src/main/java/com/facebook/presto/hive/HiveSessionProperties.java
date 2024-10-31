@@ -125,6 +125,7 @@ public final class HiveSessionProperties
     public static final String MAX_INITIAL_SPLITS = "max_initial_splits";
     public static final String FILE_SPLITTABLE = "file_splittable";
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
+    private static final String HUDI_TABLES_USE_MERGED_VIEW = "hudi_tables_use_merged_view";
     private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
     public static final String PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED = "parallel_parsing_of_partition_values_enabled";
     public static final String QUICK_STATS_ENABLED = "quick_stats_enabled";
@@ -607,6 +608,11 @@ public final class HiveSessionProperties
                         HUDI_METADATA_ENABLED,
                         "For Hudi tables prefer to fetch the list of file names, sizes and other metadata from the internal metadata table rather than storage",
                         hiveClientConfig.isHudiMetadataEnabled(),
+                        false),
+                stringProperty(
+                        HUDI_TABLES_USE_MERGED_VIEW,
+                        "For Hudi tables, use merged view to read data",
+                        hiveClientConfig.getHudiTablesUseMergedView(),
                         false),
                 booleanProperty(
                         PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED,
@@ -1099,6 +1105,12 @@ public final class HiveSessionProperties
     public static boolean isHudiMetadataEnabled(ConnectorSession session)
     {
         return session.getProperty(HUDI_METADATA_ENABLED, Boolean.class);
+    }
+
+    public static String getHudiTablesUseMergedView(ConnectorSession session)
+    {
+        String hudiTablesUseMergedView = session.getProperty(HUDI_TABLES_USE_MERGED_VIEW, String.class);
+        return hudiTablesUseMergedView == null ? "" : hudiTablesUseMergedView;
     }
 
     public static boolean isReadTableConstraints(ConnectorSession session)
