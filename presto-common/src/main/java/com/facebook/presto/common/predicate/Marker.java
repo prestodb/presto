@@ -63,7 +63,7 @@ public final class Marker
         if (!valueBlock.isPresent() && bound == Bound.EXACTLY) {
             throw new IllegalArgumentException("Can not be equal to unbounded");
         }
-        if (valueBlock.isPresent() && valueBlock.get().getPositionCount() != 1) {
+        if (valueBlock.isPresent() && valueBlock.orElseThrow().getPositionCount() != 1) {
             throw new IllegalArgumentException("value block should only have one position");
         }
         this.type = type;
@@ -126,7 +126,7 @@ public final class Marker
         if (!valueBlock.isPresent()) {
             throw new IllegalStateException("No value to get");
         }
-        return Utils.blockToNativeValue(type, valueBlock.get());
+        return Utils.blockToNativeValue(type, valueBlock.orElseThrow());
     }
 
     public Object getPrintableValue(SqlFunctionProperties properties)
@@ -134,7 +134,7 @@ public final class Marker
         if (!valueBlock.isPresent()) {
             throw new IllegalStateException("No value to get");
         }
-        return type.getObjectValue(properties, valueBlock.get(), 0);
+        return type.getObjectValue(properties, valueBlock.orElseThrow(), 0);
     }
 
     @JsonProperty
@@ -170,7 +170,7 @@ public final class Marker
         if (isUpperUnbounded() || isLowerUnbounded() || other.isUpperUnbounded() || other.isLowerUnbounded()) {
             return false;
         }
-        if (type.compareTo(valueBlock.get(), 0, other.valueBlock.get(), 0) != 0) {
+        if (type.compareTo(valueBlock.orElseThrow(), 0, other.valueBlock.orElseThrow(), 0) != 0) {
             return false;
         }
         return (bound == Bound.EXACTLY && other.bound != Bound.EXACTLY) ||
@@ -229,7 +229,7 @@ public final class Marker
         }
         // INVARIANT: value and o.value are present
 
-        int compare = type.compareTo(valueBlock.get(), 0, o.valueBlock.get(), 0);
+        int compare = type.compareTo(valueBlock.orElseThrow(), 0, o.valueBlock.orElseThrow(), 0);
         if (compare == 0) {
             if (bound == o.bound) {
                 return 0;
@@ -261,7 +261,7 @@ public final class Marker
     {
         int hash = Objects.hash(type, bound);
         if (valueBlock.isPresent()) {
-            hash = hash * 31 + (int) type.hash(valueBlock.get(), 0);
+            hash = hash * 31 + (int) type.hash(valueBlock.orElseThrow(), 0);
         }
         return hash;
     }
@@ -279,7 +279,7 @@ public final class Marker
         return Objects.equals(this.type, other.type)
                 && Objects.equals(this.bound, other.bound)
                 && ((this.valueBlock.isPresent()) == (other.valueBlock.isPresent()))
-                && (!this.valueBlock.isPresent() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
+                && (!this.valueBlock.isPresent() || type.equalTo(this.valueBlock.orElseThrow(), 0, other.valueBlock.orElseThrow(), 0));
     }
 
     public String toString(SqlFunctionProperties properties)

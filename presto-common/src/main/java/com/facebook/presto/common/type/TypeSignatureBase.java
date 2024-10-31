@@ -105,13 +105,13 @@ public class TypeSignatureBase
     public QualifiedObjectName getTypeName()
     {
         checkArgument(typeName.isPresent(), "TypeSignatureBase %s does not have type name", toString());
-        return typeName.get();
+        return typeName.orElseThrow();
     }
 
     public String getStandardTypeBase()
     {
         checkArgument(standardTypeBase.isPresent(), "TypeSignatureBase %s does not have standard type base", toString());
-        return standardTypeBase.get();
+        return standardTypeBase.orElseThrow();
     }
 
     @ThriftField(1)
@@ -165,8 +165,8 @@ public class TypeSignatureBase
     {
         if (standardTypeBase.isPresent() && typeName.isPresent()) {
             // user defined type
-            return format("%s:%s", typeName.get(), standardTypeBase.get());
+            return format("%s:%s", typeName.orElseThrow(), standardTypeBase.orElseThrow());
         }
-        return standardTypeBase.orElseGet(() -> typeName.get().toString());
+        return standardTypeBase.orElseGet(() -> typeName.orElseThrow().toString());
     }
 }

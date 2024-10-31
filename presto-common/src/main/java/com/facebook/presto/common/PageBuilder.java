@@ -71,18 +71,16 @@ public class PageBuilder
         pageBuilderStatus = new PageBuilderStatus(maxPageBytes);
         blockBuilders = new BlockBuilder[types.size()];
 
-        if (templateBlockBuilders.isPresent()) {
-            BlockBuilder[] templates = templateBlockBuilders.get();
+        templateBlockBuilders.ifPresentOrElse(templates -> {
             checkArgument(templates.length == types.size(), "Size of templates and types should match");
             for (int i = 0; i < blockBuilders.length; i++) {
                 blockBuilders[i] = templates[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
             }
-        }
-        else {
+        }, () -> {
             for (int i = 0; i < blockBuilders.length; i++) {
                 blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), initialExpectedEntries);
             }
-        }
+        });
     }
 
     public void reset()

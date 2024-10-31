@@ -332,7 +332,7 @@ public class TypeSignature
                 if (nextPositionIndex == -1 || nextPositionIndex > endIndex) {
                     nextPositionIndex = endIndex;
                 }
-                otherAncestors.add(parseParentName(signature.substring(position, nextPositionIndex)).get());
+                otherAncestors.add(parseParentName(signature.substring(position, nextPositionIndex)).orElseThrow());
                 position = nextPositionIndex + 2;
             }
 
