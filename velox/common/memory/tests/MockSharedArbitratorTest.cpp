@@ -3283,14 +3283,26 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, reclaimWithNoCandidate) {
 }
 
 TEST_F(MockSharedArbitrationTest, arbitrateBySelfMemoryReclaim) {
-  const std::vector<bool> isLeafReclaimables = {true, false};
-  for (const auto isLeafReclaimable : isLeafReclaimables) {
+  for (const auto isLeafReclaimable : {true, false}) {
     SCOPED_TRACE(fmt::format("isLeafReclaimable {}", isLeafReclaimable));
     const uint64_t memCapacity = 128 * MB;
     const uint64_t reservedCapacity = 8 * MB;
     const uint64_t poolReservedCapacity = 4 * MB;
     setupMemory(
-        memCapacity, reservedCapacity, reservedCapacity, poolReservedCapacity);
+        memCapacity,
+        reservedCapacity,
+        reservedCapacity,
+        poolReservedCapacity,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        kMemoryReclaimThreadsHwMultiplier,
+        nullptr,
+        false);
     std::shared_ptr<MockTask> task = addTask(kMemoryCapacity);
     auto* memOp = addMemoryOp(task, isLeafReclaimable);
     const int allocateSize = 8 * MB;
@@ -3305,7 +3317,6 @@ TEST_F(MockSharedArbitrationTest, arbitrateBySelfMemoryReclaim) {
           memOp->allocate(memCapacity), "Exceeded memory pool cap");
       ASSERT_EQ(oldNumRequests + 1, arbitrator_->stats().numRequests);
       ASSERT_EQ(arbitrator_->stats().numFailures, 1);
-      continue;
     } else {
       memOp->allocate(memCapacity / 2);
       ASSERT_EQ(oldNumRequests + 1, arbitrator_->stats().numRequests);
