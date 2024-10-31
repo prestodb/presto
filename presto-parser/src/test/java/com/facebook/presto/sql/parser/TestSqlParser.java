@@ -3264,6 +3264,14 @@ public class TestSqlParser
         assertEquivalentStatement("SELECT (SELECT a, b, FROM table1), (SELECT c, d, FROM table2),", "SELECT (SELECT a, b FROM table1), (SELECT c, d FROM table2)");
         assertEquivalentStatement("SELECT JSON_OBJECT('key', value,), FROM table_foo,", "SELECT JSON_OBJECT('key', value) FROM table_foo");
         assertEquivalentStatement("SELECT ARRAY_AGG(a,), FROM table_foo,", "SELECT ARRAY_AGG(a) FROM table_foo");
+        assertEquivalentStatement("SELECT ARRAY_AGG(a,), FROM table_foo,", "SELECT ARRAY_AGG(a) FROM table_foo");
+        assertEquivalentStatement("ALTER FUNCTION prod.default.tan(double,) CALLED ON NULL INPUT", "ALTER FUNCTION prod.default.tan(double) CALLED ON NULL INPUT");
+        assertEquivalentStatement("ANALYZE hive.default.sales WITH (partitions = ARRAY[ARRAY['1992-01-01'], ARRAY['1992-01-02']],)", "ANALYZE hive.default.sales WITH (partitions = ARRAY[ARRAY['1992-01-01'], ARRAY['1992-01-02']])");
+        assertEquivalentStatement("CREATE FUNCTION example.default.tan(x double, ) RETURNS double RETURN x", "CREATE FUNCTION example.default.tan(x double) RETURNS double return x");
+        assertEquivalentStatement("explain select *,foo, from t where a = 1", "explain select *,foo from t where a = 1");
+        assertEquivalentStatement("START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY,", "START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY");
+        assertEquivalentExpression("(VALUES 1, 2, 3,)", "(VALUES 1, 2, 3)");
+        assertEquivalentExpression("(VALUES (1, 'a'),  (2, 'b',),  (3, 'c',),)", "(VALUES (1, 'a'), (2, 'b'), (3, 'c'))");
     }
 
     @Test
