@@ -3248,6 +3248,22 @@ public class TestSqlParser
         assertEquivalentStatement("insert into t values (1, 2,)", "insert into t values (1, 2)");
         assertEquivalentStatement("insert into t (i, j, ) values (1, 2)", "insert into t (i, j) values (1, 2)");
         assertEquivalentStatement("update t set i = 1, j = 2,", "update t set i = 1, j = 2");
+        assertEquivalentStatement("SELECT 1,2,", "SELECT 1,2");
+        assertEquivalentStatement("SELECT 1,   (2+2)  ,    ", "SELECT 1,(2+2)");
+        assertEquivalentStatement("SELECT a, b AS alias,", "SELECT a, b AS alias");
+        assertEquivalentStatement("SELECT MAX(a), MIN(b),", "SELECT MAX(a), MIN(b)");
+        assertEquivalentStatement("SELECT (SELECT 1,), (SELECT 2,)", "SELECT (SELECT 1), (SELECT 2)");
+        assertEquivalentStatement("SELECT a.*, b.*, FROM table_a a JOIN table_b b ON a.id = b.id,", "SELECT a.*, b.* FROM table_a a JOIN table_b b ON a.id = b.id");
+        assertEquivalentStatement("SELECT a, COUNT(b), FROM table_foo GROUP BY a,", "SELECT a, COUNT(b) FROM table_foo GROUP BY a");
+        assertEquivalentStatement("SELECT a, b, FROM table_foo ORDER BY a, b,", "SELECT a, b FROM table_foo ORDER BY a, b");
+        assertEquivalentStatement("SELECT DISTINCT a, b, FROM table_foo,", "SELECT DISTINCT a, b FROM table_foo");
+        assertEquivalentStatement("SELECT CASE WHEN a > 1 THEN 'yes' ELSE 'no' END, b, FROM table_foo,", "SELECT CASE WHEN a > 1 THEN 'yes' ELSE 'no' END, b FROM table_foo");
+        assertEquivalentStatement("SELECT a, ROW_NUMBER() OVER (PARTITION BY b ORDER BY c), FROM table_foo,", "SELECT a, ROW_NUMBER() OVER (PARTITION BY b ORDER BY c) FROM table_foo");
+        assertEquivalentStatement("WITH cte AS (SELECT 1,2,) SELECT * FROM cte,", "WITH cte AS (SELECT 1,2) SELECT * FROM cte");
+        assertEquivalentStatement("SELECT a, b, FROM table1 UNION SELECT c, d, FROM table2,", "SELECT a, b FROM table1 UNION SELECT c, d FROM table2");
+        assertEquivalentStatement("SELECT (SELECT a, b, FROM table1), (SELECT c, d, FROM table2),", "SELECT (SELECT a, b FROM table1), (SELECT c, d FROM table2)");
+        assertEquivalentStatement("SELECT JSON_OBJECT('key', value,), FROM table_foo,", "SELECT JSON_OBJECT('key', value) FROM table_foo");
+        assertEquivalentStatement("SELECT ARRAY_AGG(a,), FROM table_foo,", "SELECT ARRAY_AGG(a) FROM table_foo");
     }
 
     @Test
