@@ -3097,6 +3097,16 @@ public class TestSqlParser
         }
     }
 
+    private static void assertEquivalentExpression(String input, String expected)
+    {
+        assertParsed(input, SQL_PARSER.createExpression(input), SQL_PARSER.createExpression(expected));
+    }
+
+    private static void assertEquivalentStatement(String input, String expected)
+    {
+        assertParsed(input, SQL_PARSER.createStatement(input), SQL_PARSER.createStatement(expected));
+    }
+
     private static void assertInvalidStatement(String expression, String expectedErrorMessageRegex)
     {
         try {
@@ -3215,6 +3225,18 @@ public class TestSqlParser
 
         assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR VERSION AS OF 8772871542276440693",
                 new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
+    }
+
+    @Test
+    public void testTrailingComma()
+    {
+        assertEquivalentStatement("SELECT 1,2,", "SELECT 1,2");
+        assertEquivalentStatement("SELECT 1,   (2+2)  ,    ", "SELECT 1,(2+2)");
+        assertEquivalentStatement("SELECT *, FROM (select 'ab',),", "SELECT * FROM (select 'ab')");
+        assertEquivalentStatement("SELECT 1,2,a, FROM x,y,z as b,", "SELECT 1,2,a FROM x,y,z as b");
+        assertEquivalentStatement("SELECT 'a', 'b',", "SELECT 'a','b'");
+        assertEquivalentStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS,)", "CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)");
+        assertEquivalentStatement("CREATE TABLE bar (a VARCHAR  , )", "CREATE TABLE bar (a VARCHAR)");
     }
 
     @Test
