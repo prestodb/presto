@@ -64,7 +64,7 @@ public class Table
     public List<Node> getChildren()
     {
         if (tableVersionExpression.isPresent()) {
-            return ImmutableList.of(tableVersionExpression.get());
+            return ImmutableList.of(tableVersionExpression.orElseThrow());
         }
         return ImmutableList.of();
     }
