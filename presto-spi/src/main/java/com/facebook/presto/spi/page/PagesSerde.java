@@ -63,7 +63,7 @@ public class PagesSerde
         this.compressor = requireNonNull(compressor, "compressor is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
         this.spillCipher = requireNonNull(spillCipher, "spillCipher is null");
-        checkState(!spillCipher.isPresent() || !spillCipher.get().isDestroyed(), "spillCipher is already destroyed");
+        checkState(!spillCipher.isPresent() || !spillCipher.orElseThrow().isDestroyed(), "spillCipher is already destroyed");
         this.checksumEnabled = checksumEnabled;
     }
 
@@ -89,7 +89,7 @@ public class PagesSerde
 
         if (ENCRYPTED.isSet(serializedPage.getPageCodecMarkers())) {
             checkState(spillCipher.isPresent(), "Page is encrypted, but spill cipher is missing");
-            slice = Slices.wrappedBuffer(spillCipher.get().decrypt(slice.toByteBuffer()));
+            slice = Slices.wrappedBuffer(spillCipher.orElseThrow().decrypt(slice.toByteBuffer()));
         }
 
         if (COMPRESSED.isSet(serializedPage.getPageCodecMarkers())) {
@@ -98,7 +98,7 @@ public class PagesSerde
             int uncompressedSize = serializedPage.getUncompressedSizeInBytes();
             ByteBuffer decompressionBuffer = ByteBuffer.allocate(uncompressedSize);
 
-            decompressor.get().decompress(slice.toByteBuffer(), decompressionBuffer);
+            decompressor.orElseThrow().decompress(slice.toByteBuffer(), decompressionBuffer);
             ((Buffer) decompressionBuffer).flip();
             checkState(decompressionBuffer.remaining() == uncompressedSize, "page size changed after decompression into decompressionBuffer");
 
@@ -124,9 +124,9 @@ public class PagesSerde
         byte markers = PageCodecMarker.none();
 
         if (compressor.isPresent()) {
-            int maxCompressedSize = compressor.get().maxCompressedLength(uncompressedSize);
+            int maxCompressedSize = compressor.orElseThrow().maxCompressedLength(uncompressedSize);
             compressionBuffer = ensureCapacity(compressionBuffer, maxCompressedSize);
-            int compressedSize = compressor.get().compress(
+            int compressedSize = compressor.orElseThrow().compress(
                     (byte[]) slice.getBase(),
                     (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET),
                     uncompressedSize,
@@ -141,7 +141,7 @@ public class PagesSerde
         }
 
         if (spillCipher.isPresent()) {
-            slice = Slices.wrappedBuffer(spillCipher.get().encrypt(slice.toByteBuffer()));
+            slice = Slices.wrappedBuffer(spillCipher.orElseThrow().encrypt(slice.toByteBuffer()));
             markers = ENCRYPTED.set(markers);
         }
         else if (!slice.isCompact()) {

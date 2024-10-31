@@ -72,7 +72,7 @@ public final class DistinctLimitNode
         this.distinctVariables = unmodifiableList(distinctVariables);
         this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
         this.timeoutMillis = timeoutMillis;
-        checkArgument(!hashVariable.isPresent() || !distinctVariables.contains(hashVariable.get()), "distinctVariables should not contain hash variable");
+        checkArgument(!hashVariable.isPresent() || !distinctVariables.contains(hashVariable.orElseThrow()), "distinctVariables should not contain hash variable");
     }
 
     @Override
