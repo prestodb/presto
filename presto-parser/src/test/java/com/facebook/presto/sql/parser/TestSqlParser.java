@@ -3237,6 +3237,17 @@ public class TestSqlParser
         assertEquivalentStatement("SELECT 'a', 'b',", "SELECT 'a','b'");
         assertEquivalentStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS,)", "CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)");
         assertEquivalentStatement("CREATE TABLE bar (a VARCHAR  , )", "CREATE TABLE bar (a VARCHAR)");
+        assertEquivalentStatement("select 1,2, from (values(1)),(values(2)),", "select 1,2 from (values(1)),(values(2))");
+        assertEquivalentStatement("select 1,2, from (values(1,2,))", "select 1,2 from (values(1,2))");
+        assertEquivalentStatement("select 1,2, group by 1,2,", "select 1,2 group by 1,2");
+        assertEquivalentStatement("select 1,2, order by 1,2,", "select 1,2 order by 1,2");
+        assertEquivalentStatement("select coalesce(1,2,)", "select coalesce(1,2)");
+        assertEquivalentStatement("select row_number() over (order by 1,2,)", "select row_number() over (order by 1,2)");
+        assertEquivalentStatement("select row_number() over (partition by 1,2,)", "select row_number() over (partition by 1,2)");
+        assertEquivalentStatement("create table t (i int, j int,)", "create table t (i int, j int)");
+        assertEquivalentStatement("insert into t values (1, 2,)", "insert into t values (1, 2)");
+        assertEquivalentStatement("insert into t (i, j, ) values (1, 2)", "insert into t (i, j) values (1, 2)");
+        assertEquivalentStatement("update t set i = 1, j = 2,", "update t set i = 1, j = 2");
     }
 
     @Test
