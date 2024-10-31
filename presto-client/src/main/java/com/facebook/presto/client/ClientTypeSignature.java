@@ -206,7 +206,7 @@ public class ClientTypeSignature
                 .map(ClientTypeSignatureParameter::getNamedTypeSignature)
                 .map(parameter -> {
                     if (parameter.getName().isPresent()) {
-                        return format("%s %s", parameter.getName().get(), parameter.getTypeSignature().toString());
+                        return format("%s %s", parameter.getName().orElseThrow(), parameter.getTypeSignature().toString());
                     }
                     return parameter.getTypeSignature().toString();
                 })
