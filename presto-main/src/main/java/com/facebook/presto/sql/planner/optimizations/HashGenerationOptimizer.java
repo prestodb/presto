@@ -587,6 +587,7 @@ public class HashGenerationOptimizer
                             .build(),
                     partitionVariables.map(newHashVariables::get),
                     partitioningScheme.isReplicateNullsAndAny(),
+                    partitioningScheme.getEncoding(),
                     partitioningScheme.getBucketToPartition());
 
             // add hash variables to sources

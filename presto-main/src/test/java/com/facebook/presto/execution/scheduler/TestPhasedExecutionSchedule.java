@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
@@ -164,7 +165,8 @@ public class TestPhasedExecutionSchedule
                 fragments[0].getPartitioningScheme().getOutputLayout(),
                 false,
                 Optional.empty(),
-                REPARTITION);
+                REPARTITION,
+                COLUMNAR);
 
         return createFragment(planNode);
     }

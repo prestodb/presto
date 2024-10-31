@@ -4635,6 +4635,45 @@ void from_json(const json& j, ExchangeNodeType& e) {
           ->first;
 }
 } // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<ExchangeEncoding, json> ExchangeEncoding_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {ExchangeEncoding::COLUMNAR, "COLUMNAR"},
+        {ExchangeEncoding::ROW_WISE, "ROW_WISE"}};
+void to_json(json& j, const ExchangeEncoding& e) {
+  static_assert(
+      std::is_enum<ExchangeEncoding>::value,
+      "ExchangeEncoding must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExchangeEncoding_enum_table),
+      std::end(ExchangeEncoding_enum_table),
+      [e](const std::pair<ExchangeEncoding, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(ExchangeEncoding_enum_table))
+           ? it
+           : std::begin(ExchangeEncoding_enum_table))
+          ->second;
+}
+void from_json(const json& j, ExchangeEncoding& e) {
+  static_assert(
+      std::is_enum<ExchangeEncoding>::value,
+      "ExchangeEncoding must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExchangeEncoding_enum_table),
+      std::end(ExchangeEncoding_enum_table),
+      [&j](const std::pair<ExchangeEncoding, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(ExchangeEncoding_enum_table))
+           ? it
+           : std::begin(ExchangeEncoding_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -4791,6 +4830,13 @@ void to_json(json& j, const PartitioningScheme& p) {
       "replicateNullsAndAny");
   to_json_key(
       j,
+      "encoding",
+      p.encoding,
+      "PartitioningScheme",
+      "ExchangeEncoding",
+      "encoding");
+  to_json_key(
+      j,
       "bucketToPartition",
       p.bucketToPartition,
       "PartitioningScheme",
@@ -4827,6 +4873,13 @@ void from_json(const json& j, PartitioningScheme& p) {
       "PartitioningScheme",
       "bool",
       "replicateNullsAndAny");
+  from_json_key(
+      j,
+      "encoding",
+      p.encoding,
+      "PartitioningScheme",
+      "ExchangeEncoding",
+      "encoding");
   from_json_key(
       j,
       "bucketToPartition",
@@ -7997,6 +8050,13 @@ void to_json(json& j, const RemoteSourceNode& p) {
       "RemoteSourceNode",
       "ExchangeNodeType",
       "exchangeType");
+  to_json_key(
+      j,
+      "encoding",
+      p.encoding,
+      "RemoteSourceNode",
+      "ExchangeEncoding",
+      "encoding");
 }
 
 void from_json(const json& j, RemoteSourceNode& p) {
@@ -8037,6 +8097,13 @@ void from_json(const json& j, RemoteSourceNode& p) {
       "RemoteSourceNode",
       "ExchangeNodeType",
       "exchangeType");
+  from_json_key(
+      j,
+      "encoding",
+      p.encoding,
+      "RemoteSourceNode",
+      "ExchangeEncoding",
+      "encoding");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

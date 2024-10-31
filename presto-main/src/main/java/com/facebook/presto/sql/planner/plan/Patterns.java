@@ -316,4 +316,17 @@ public class Patterns
             return property("rows", ValuesNode::getRows);
         }
     }
+
+    public static class Exchange
+    {
+        public static Property<ExchangeNode, ExchangeNode.Scope> scope()
+        {
+            return property("scope", ExchangeNode::getScope);
+        }
+
+        public static Property<ExchangeNode, ExchangeNode.Type> type()
+        {
+            return property("type", ExchangeNode::getType);
+        }
+    }
 }

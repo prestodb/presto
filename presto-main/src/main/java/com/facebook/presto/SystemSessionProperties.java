@@ -332,6 +332,7 @@ public final class SystemSessionProperties
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
+    public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1824,6 +1825,11 @@ public final class SystemSessionProperties
                 booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
                         "Whether to evaluate project node on values node",
                         featuresConfig.getInlineProjectionsOnValues(),
+                        false),
+                integerProperty(
+                        NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING,
+                        "Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only",
+                        queryManagerConfig.getMinColumnarEncodingChannelsToPreferRowWiseEncoding(),
                         false));
     }
 
@@ -3099,5 +3105,10 @@ public final class SystemSessionProperties
     public static boolean isInlineProjectionsOnValues(Session session)
     {
         return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
+    }
+
+    public static int getMinColumnarEncodingChannelsToPreferRowWiseEncoding(Session session)
+    {
+        return session.getSystemProperty(NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING, Integer.class);
     }
 }

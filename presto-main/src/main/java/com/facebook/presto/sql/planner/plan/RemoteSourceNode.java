@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.ExchangeEncoding;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -28,6 +29,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -40,6 +42,7 @@ public class RemoteSourceNode
     private final boolean ensureSourceOrdering;
     private final Optional<OrderingScheme> orderingScheme;
     private final ExchangeNode.Type exchangeType; // This is needed to "unfragment" to compute stats correctly.
+    private final ExchangeEncoding encoding;
 
     public RemoteSourceNode(
             Optional<SourceLocation> sourceLocation,
@@ -49,7 +52,8 @@ public class RemoteSourceNode
             List<VariableReferenceExpression> outputVariables,
             boolean ensureSourceOrdering,
             Optional<OrderingScheme> orderingScheme,
-            ExchangeNode.Type exchangeType)
+            ExchangeNode.Type exchangeType,
+            ExchangeEncoding encoding)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
@@ -58,6 +62,7 @@ public class RemoteSourceNode
         this.ensureSourceOrdering = ensureSourceOrdering;
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
+        this.encoding = requireNonNull(encoding, "encoding is null");
     }
 
     @JsonCreator
@@ -68,9 +73,10 @@ public class RemoteSourceNode
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("ensureSourceOrdering") boolean ensureSourceOrdering,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
-            @JsonProperty("exchangeType") ExchangeNode.Type exchangeType)
+            @JsonProperty("exchangeType") ExchangeNode.Type exchangeType,
+            @JsonProperty("encoding") ExchangeEncoding encoding)
     {
-        this(sourceLocation, id, Optional.empty(), sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType);
+        this(sourceLocation, id, Optional.empty(), sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, encoding);
     }
 
     public RemoteSourceNode(
@@ -82,7 +88,7 @@ public class RemoteSourceNode
             Optional<OrderingScheme> orderingScheme,
             ExchangeNode.Type exchangeType)
     {
-        this(sourceLocation, id, ImmutableList.of(sourceFragmentId), outputVariables, ensureSourceOrdering, orderingScheme, exchangeType);
+        this(sourceLocation, id, ImmutableList.of(sourceFragmentId), outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, COLUMNAR);
     }
 
     @Override
@@ -122,6 +128,12 @@ public class RemoteSourceNode
         return exchangeType;
     }
 
+    @JsonProperty
+    public ExchangeEncoding getEncoding()
+    {
+        return encoding;
+    }
+
     @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
@@ -138,6 +150,6 @@ public class RemoteSourceNode
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new RemoteSourceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType);
+        return new RemoteSourceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, encoding);
     }
 }

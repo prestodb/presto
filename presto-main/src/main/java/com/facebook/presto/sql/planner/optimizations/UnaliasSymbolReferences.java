@@ -334,6 +334,7 @@ public class UnaliasSymbolReferences
                     outputs.build(),
                     canonicalize(node.getPartitioningScheme().getHashColumn()),
                     node.getPartitioningScheme().isReplicateNullsAndAny(),
+                    node.getPartitioningScheme().getEncoding(),
                     node.getPartitioningScheme().getBucketToPartition());
 
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme().map(this::canonicalizeAndDistinct);
@@ -398,7 +399,8 @@ public class UnaliasSymbolReferences
                     canonicalizeAndDistinct(node.getOutputVariables()),
                     node.isEnsureSourceOrdering(),
                     node.getOrderingScheme().map(this::canonicalizeAndDistinct),
-                    node.getExchangeType());
+                    node.getExchangeType(),
+                    node.getEncoding());
         }
 
         @Override
