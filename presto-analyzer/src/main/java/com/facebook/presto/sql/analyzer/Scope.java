@@ -31,7 +31,7 @@ import static com.facebook.presto.sql.analyzer.SemanticExceptions.ambiguousAttri
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -74,7 +74,7 @@ public class Scope
             if (scope.queryBoundary) {
                 return scope.parent;
             }
-            scope = scope.parent.get();
+            scope = scope.parent.orElseThrow();
         }
 
         return Optional.empty();
@@ -137,14 +137,14 @@ public class Scope
             throw ambiguousAttributeException(node, name);
         }
         else if (matches.size() == 1) {
-            return Optional.of(asResolvedField(getOnlyElement(matches), fieldIndexOffset, local));
+            return Optional.of(asResolvedField(matches.stream().collect(onlyElement()), fieldIndexOffset, local));
         }
         else {
             if (isColumnReference(name, relation)) {
                 return Optional.empty();
             }
             if (parent.isPresent()) {
-                return parent.get().resolveField(node, name, fieldIndexOffset + relation.getAllFieldCount(), local && !queryBoundary);
+                return parent.orElseThrow().resolveField(node, name, fieldIndexOffset + relation.getAllFieldCount(), local && !queryBoundary);
             }
             return Optional.empty();
         }
@@ -173,7 +173,7 @@ public class Scope
     private static boolean isColumnReference(QualifiedName name, RelationType relation)
     {
         while (name.getPrefix().isPresent()) {
-            name = name.getPrefix().get();
+            name = name.getPrefix().orElseThrow();
             if (!relation.resolveFields(name).isEmpty()) {
                 return true;
             }
@@ -188,7 +188,7 @@ public class Scope
         }
 
         if (parent.isPresent()) {
-            return parent.get().getNamedQuery(name);
+            return parent.orElseThrow().getNamedQuery(name);
         }
 
         return Optional.empty();
