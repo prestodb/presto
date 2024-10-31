@@ -41,7 +41,7 @@ public class Scope
     Scope(Optional<ParameterizedType> thisType, Iterable<Parameter> parameters)
     {
         if (thisType.isPresent()) {
-            thisVariable = new Variable("this", thisType.get());
+            thisVariable = new Variable("this", thisType.orElseThrow());
             variables.put("this", thisVariable);
             allVariables.add(thisVariable);
         }
