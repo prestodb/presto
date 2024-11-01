@@ -292,6 +292,6 @@ public class SimplePagesHashStrategy
 
     private int getSortChannel()
     {
-        return sortChannel.get();
+        return sortChannel.orElseThrow();
     }
 }

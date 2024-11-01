@@ -179,7 +179,7 @@ public class GatherAndMergeWindows
     private static boolean dependsOn(WindowNode parent, WindowNode child)
     {
         return parent.getPartitionBy().stream().anyMatch(child.getCreatedVariable()::contains)
-                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderByVariables().stream()
+                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().orElseThrow().getOrderByVariables().stream()
                 .anyMatch(child.getCreatedVariable()::contains))
                 || parent.getWindowFunctions().values().stream()
                 .map(function -> VariablesExtractor.extractUnique(function.getFunctionCall().getArguments()))
@@ -189,7 +189,7 @@ public class GatherAndMergeWindows
                 .map(function -> function.getFrame())
                 .map(frame -> ImmutableList.of(frame.getStartValue(), frame.getEndValue(), frame.getSortKeyCoercedForFrameStartComparison(), frame.getSortKeyCoercedForFrameEndComparison()))
                 .flatMap(Collection::stream)
-                .anyMatch(x -> x.isPresent() && child.getCreatedVariable().contains(x.get()));
+                .anyMatch(x -> x.isPresent() && child.getCreatedVariable().contains(x.orElseThrow()));
     }
 
     public static class MergeAdjacentWindowsOverProjects
@@ -301,8 +301,8 @@ public class GatherAndMergeWindows
                 return -1;
             }
 
-            OrderingScheme o1OrderingScheme = o1.getOrderingScheme().get();
-            OrderingScheme o2OrderingScheme = o2.getOrderingScheme().get();
+            OrderingScheme o1OrderingScheme = o1.getOrderingScheme().orElseThrow();
+            OrderingScheme o2OrderingScheme = o2.getOrderingScheme().orElseThrow();
             Iterator<VariableReferenceExpression> iterator1 = o1OrderingScheme.getOrderByVariables().iterator();
             Iterator<VariableReferenceExpression> iterator2 = o2OrderingScheme.getOrderByVariables().iterator();
 

@@ -262,7 +262,7 @@ public final class Session
     public TransactionId getRequiredTransactionId()
     {
         checkState(transactionId.isPresent(), "Not in a transaction");
-        return transactionId.get();
+        return transactionId.orElseThrow();
     }
 
     public boolean isClientTransactionSupport()
@@ -409,7 +409,7 @@ public final class Session
                     .getConnectorId();
 
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetRole(transactionId, identity, context, role.getRole().get(), catalogName);
+                accessControl.checkCanSetRole(transactionId, identity, context, role.getRole().orElseThrow(), catalogName);
             }
             roles.put(connectorId.getCatalogName(), role);
 

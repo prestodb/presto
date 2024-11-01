@@ -216,7 +216,7 @@ public class TaskInfoFetcher
         AtomicBoolean done = new AtomicBoolean();
         StateChangeListener<Optional<TaskInfo>> fireOnceStateChangeListener = finalTaskInfo -> {
             if (finalTaskInfo.isPresent() && done.compareAndSet(false, true)) {
-                stateChangeListener.stateChanged(finalTaskInfo.get());
+                stateChangeListener.stateChanged(finalTaskInfo.orElseThrow());
             }
         };
         finalTaskInfo.addStateChangeListener(fireOnceStateChangeListener);

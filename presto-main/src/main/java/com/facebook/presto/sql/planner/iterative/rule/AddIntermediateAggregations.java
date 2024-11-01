@@ -50,7 +50,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 /**
  * Adds INTERMEDIATE aggregations between an un-grouped FINAL aggregation and its preceding
@@ -111,7 +111,7 @@ public class AddIntermediateAggregations
             return Result.empty();
         }
 
-        PlanNode source = rewrittenSource.get();
+        PlanNode source = rewrittenSource.orElseThrow();
 
         if (getTaskConcurrency(session) > 1) {
             Map<VariableReferenceExpression, Aggregation> variableToAggregations = inputsAsOutputs(aggregation.getAggregations(), types);
@@ -157,7 +157,7 @@ public class AddIntermediateAggregations
             if (!planNode.isPresent()) {
                 return Optional.empty();
             }
-            builder.add(planNode.get());
+            builder.add(planNode.orElseThrow());
         }
         return Optional.of(node.replaceChildren(builder.build()));
     }
@@ -215,7 +215,7 @@ public class AddIntermediateAggregations
             if (!(aggregation.getArguments().size() == 1 && !aggregation.getOrderBy().isPresent() && !aggregation.getFilter().isPresent())) {
                 return ImmutableMap.of();
             }
-            VariableReferenceExpression input = getOnlyElement(extractAggregationUniqueVariables(entry.getValue()));
+            VariableReferenceExpression input = extractAggregationUniqueVariables(entry.getValue()).stream().collect(onlyElement());
             // Return type of intermediate aggregation is the same as the input type.
             RowExpression argumentExpr = aggregation.getCall().getArguments().get(0);
             Type returnType = argumentExpr.getType();

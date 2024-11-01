@@ -78,7 +78,7 @@ public class QuerySessionSupplier
     {
         Session session = createSessionBuilder(queryId, context, warningCollectorFactory).build();
         if (context.getTransactionId().isPresent()) {
-            session = session.beginTransactionId(context.getTransactionId().get(), transactionManager, accessControl);
+            session = session.beginTransactionId(context.getTransactionId().orElseThrow(), transactionManager, accessControl);
         }
         return session;
     }
@@ -102,7 +102,7 @@ public class QuerySessionSupplier
                 .setRuntimeStats(context.getRuntimeStats());
 
         if (forcedSessionTimeZone.isPresent()) {
-            sessionBuilder.setTimeZoneKey(forcedSessionTimeZone.get());
+            sessionBuilder.setTimeZoneKey(forcedSessionTimeZone.orElseThrow());
         }
         else if (context.getTimeZoneId() != null) {
             sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));

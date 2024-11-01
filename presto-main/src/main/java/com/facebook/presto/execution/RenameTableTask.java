@@ -77,7 +77,7 @@ public class RenameTableTask
         }
         accessControl.checkCanRenameTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, target);
 
-        metadata.renameTable(session, tableHandle.get(), target);
+        metadata.renameTable(session, tableHandle.orElseThrow(), target);
 
         return immediateFuture(null);
     }

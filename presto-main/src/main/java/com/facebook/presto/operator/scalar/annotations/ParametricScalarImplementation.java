@@ -143,7 +143,7 @@ public class ParametricScalarImplementation
                 }
 
                 Class<?> argumentType = functionAndTypeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
-                Class<?> argumentNativeContainerType = argumentNativeContainerTypes.get(i).get();
+                Class<?> argumentNativeContainerType = argumentNativeContainerTypes.get(i).orElseThrow();
                 if (argumentNativeContainerType != Object.class && argumentNativeContainerType != argumentType) {
                     return Optional.empty();
                 }
@@ -546,8 +546,8 @@ public class ParametricScalarImplementation
                     checkCondition(!encounteredNonDependencyAnnotation, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has parameters annotated with Dependency annotations that appears after other parameters", method);
 
                     // check if only declared typeParameters and literalParameters are used
-                    validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameterNames, literalParameters);
-                    dependencies.add(createDependency(implementationDependency.get(), literalParameters));
+                    validateImplementationDependencyAnnotation(method, implementationDependency.orElseThrow(), typeParameterNames, literalParameters);
+                    dependencies.add(createDependency(implementationDependency.orElseThrow(), literalParameters));
 
                     i++;
                 }
@@ -662,7 +662,7 @@ public class ParametricScalarImplementation
             }
 
             checkArgument(optionalConstructor.isPresent(), "Method [%s] is an instance method. It must be in a class annotated with @ScalarFunction, and the class is required to have a public constructor.", method);
-            Constructor<?> constructor = optionalConstructor.get();
+            Constructor<?> constructor = optionalConstructor.orElseThrow();
             Set<TypeParameter> constructorTypeParameters = Stream.of(constructor.getAnnotationsByType(TypeParameter.class))
                     .collect(ImmutableSet.toImmutableSet());
             checkArgument(constructorTypeParameters.containsAll(typeParameters), "Method [%s] is an instance method and requires a public constructor containing all type parameters: %s", method, typeParameters);

@@ -139,7 +139,7 @@ public class TransactionBuilder
         }
         else {
             // Check if we can merge with the existing transaction
-            TransactionInfo transactionInfo = transactionManager.getTransactionInfo(session.getTransactionId().get());
+            TransactionInfo transactionInfo = transactionManager.getTransactionInfo(session.getTransactionId().orElseThrow());
             checkState(transactionInfo.getIsolationLevel().meetsRequirementOf(isolationLevel), "Cannot provide %s isolation with existing transaction isolation: %s", isolationLevel, transactionInfo.getIsolationLevel());
             checkState(!transactionInfo.isReadOnly() || readOnly, "Cannot provide read-write semantics with existing read-only transaction");
             checkState(!transactionInfo.isAutoCommitContext() && !singleStatement, "Cannot combine auto commit transactions");
@@ -155,10 +155,10 @@ public class TransactionBuilder
         finally {
             if (managedTransaction && transactionSession.getTransactionId().flatMap(transactionManager::getOptionalTransactionInfo).isPresent()) {
                 if (success) {
-                    getFutureValue(transactionManager.asyncCommit(transactionSession.getTransactionId().get()));
+                    getFutureValue(transactionManager.asyncCommit(transactionSession.getTransactionId().orElseThrow()));
                 }
                 else {
-                    transactionManager.asyncAbort(transactionSession.getTransactionId().get());
+                    transactionManager.asyncAbort(transactionSession.getTransactionId().orElseThrow());
                 }
             }
         }

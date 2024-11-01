@@ -122,7 +122,7 @@ import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -245,7 +245,7 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
 
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
-        assertEquals(getOnlyElement(remoteTask.getTaskStatus().getFailures()).getMessage(), "TaskUpdate size of 1.97kB has exceeded the limit of 1kB");
+        assertEquals(remoteTask.getTaskStatus().getFailures().stream().collect(onlyElement()).getMessage(), "TaskUpdate size of 1.97kB has exceeded the limit of 1kB");
     }
 
     @Test(dataProvider = "getUpdateSize")
@@ -301,7 +301,7 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
 
-        ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
+        ErrorCode actualErrorCode = remoteTask.getTaskStatus().getFailures().stream().collect(onlyElement()).getErrorCode();
         switch (failureScenario) {
             case TASK_MISMATCH:
             case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:

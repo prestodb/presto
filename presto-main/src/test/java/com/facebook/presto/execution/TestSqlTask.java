@@ -169,7 +169,7 @@ public class TestSqlTask
         Optional<BufferInfo> taskBufferInfo = sqlTask.getOutputBufferInfo().getBuffers().stream().filter(buffer -> buffer.getBufferId().equals(OUT)).findFirst();
         assertTrue(taskBufferInfo.isPresent());
         // Buffer still remains as acknowledgement has not been received
-        assertEquals(taskBufferInfo.get().getPageBufferInfo().getBufferedBytes(), pagesRetanedSizeInBytes);
+        assertEquals(taskBufferInfo.orElseThrow().getPageBufferInfo().getBufferedBytes(), pagesRetanedSizeInBytes);
 
         for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
             results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, MEGABYTE)).get();
@@ -177,7 +177,7 @@ public class TestSqlTask
             assertEquals(results.getBufferedBytes(), pagesRetanedSizeInBytes);
             taskBufferInfo = sqlTask.getOutputBufferInfo().getBuffers().stream().filter(buffer -> buffer.getBufferId().equals(OUT)).findFirst();
             assertTrue(taskBufferInfo.isPresent());
-            assertEquals(taskBufferInfo.get().getPageBufferInfo().getBufferedBytes(), pagesRetanedSizeInBytes);
+            assertEquals(taskBufferInfo.orElseThrow().getPageBufferInfo().getBufferedBytes(), pagesRetanedSizeInBytes);
         }
         assertEquals(results.getSerializedPages().size(), 0);
 

@@ -45,9 +45,9 @@ import java.util.Optional;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
@@ -80,7 +80,7 @@ public class DistributedQueryResource
     {
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
         List<BasicQueryInfo> queries;
-        int limit = firstNonNull(limitFilter, Integer.MAX_VALUE);
+        int limit = requireNonNullElse(limitFilter, Integer.MAX_VALUE);
         if (limit <= 0) {
             throw new WebApplicationException(Response
                     .status(BAD_REQUEST)
@@ -168,6 +168,6 @@ public class DistributedQueryResource
             return;
         }
 
-        proxyHelper.performRequest(servletRequest, asyncResponse, uriBuilderFrom(queryInfo.get().getSelf()).replacePath(uriInfo.getPath()).build());
+        proxyHelper.performRequest(servletRequest, asyncResponse, uriBuilderFrom(queryInfo.orElseThrow().getSelf()).replacePath(uriInfo.getPath()).build());
     }
 }

@@ -67,7 +67,7 @@ public class RenameColumnTask
             return immediateFuture(null);
         }
 
-        TableHandle tableHandle = tableHandleOptional.get();
+        TableHandle tableHandle = tableHandleOptional.orElseThrow();
 
         String source = statement.getSource().getValueLowerCase();
         String target = statement.getTarget().getValueLowerCase();

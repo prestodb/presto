@@ -114,10 +114,10 @@ public class QualifiedTablePrefix
             return new SchemaTablePrefix();
         }
         else if (!tableName.isPresent()) {
-            return new SchemaTablePrefix(schemaName.get());
+            return new SchemaTablePrefix(schemaName.orElseThrow());
         }
         else {
-            return new SchemaTablePrefix(schemaName.get(), tableName.get());
+            return new SchemaTablePrefix(schemaName.orElseThrow(), tableName.orElseThrow());
         }
     }
 

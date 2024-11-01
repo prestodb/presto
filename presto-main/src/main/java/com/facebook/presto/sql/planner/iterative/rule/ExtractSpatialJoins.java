@@ -63,7 +63,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -101,6 +100,7 @@ import static com.facebook.presto.util.SpatialJoinUtils.getFlippedFunctionHandle
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -268,7 +268,7 @@ public class ExtractSpatialJoins
         public Result apply(JoinNode joinNode, Captures captures, Context context)
         {
             checkArgument(joinNode.getFilter().isPresent());
-            RowExpression filter = joinNode.getFilter().get();
+            RowExpression filter = joinNode.getFilter().orElseThrow();
             List<CallExpression> spatialFunctions = extractSupportedSpatialFunctions(filter, functionAndTypeManager);
             for (CallExpression spatialFunction : spatialFunctions) {
                 Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager);
@@ -311,7 +311,7 @@ public class ExtractSpatialJoins
         RowExpression radius;
         Optional<VariableReferenceExpression> newRadiusVariable;
         CallExpression newComparison;
-        if (spatialComparisonMetadata.getOperatorType().get() == OperatorType.LESS_THAN || spatialComparisonMetadata.getOperatorType().get() == OperatorType.LESS_THAN_OR_EQUAL) {
+        if (spatialComparisonMetadata.getOperatorType().orElseThrow() == OperatorType.LESS_THAN || spatialComparisonMetadata.getOperatorType().orElseThrow() == OperatorType.LESS_THAN_OR_EQUAL) {
             // ST_Distance(a, b) <= r
             radius = spatialComparison.getArguments().get(1);
             Set<VariableReferenceExpression> radiusVariables = extractUnique(radius);
@@ -334,7 +334,7 @@ public class ExtractSpatialJoins
             Set<VariableReferenceExpression> radiusVariables = extractUnique(radius);
             if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
                 newRadiusVariable = newRadiusVariable(context, radius);
-                OperatorType flippedOperatorType = flip(spatialComparisonMetadata.getOperatorType().get());
+                OperatorType flippedOperatorType = flip(spatialComparisonMetadata.getOperatorType().orElseThrow());
                 FunctionHandle flippedHandle = getFlippedFunctionHandle(spatialComparison, metadata.getFunctionAndTypeManager());
                 newComparison = new CallExpression(
                         spatialComparison.getSourceLocation(),
@@ -442,12 +442,12 @@ public class ExtractSpatialJoins
             rightPartitionVariable = Optional.of(context.getVariableAllocator().newVariable(newSecondArgument.getSourceLocation(), "pid", INTEGER));
 
             if (alignment > 0) {
-                newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, functionAndTypeManager, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radius);
+                newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.orElseThrow(), kdbTree.orElseThrow(), newFirstArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, functionAndTypeManager, newRightNode, rightPartitionVariable.orElseThrow(), kdbTree.orElseThrow(), newSecondArgument, radius);
             }
             else {
-                newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newSecondArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, functionAndTypeManager, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radius);
+                newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.orElseThrow(), kdbTree.orElseThrow(), newSecondArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, functionAndTypeManager, newRightNode, rightPartitionVariable.orElseThrow(), kdbTree.orElseThrow(), newFirstArgument, radius);
             }
         }
 
@@ -517,7 +517,7 @@ public class ExtractSpatialJoins
 
     private static KdbTree loadKdbTree(String tableName, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
     {
-        QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().get(), session.getSchema().get());
+        QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().orElseThrow(), session.getSchema().orElseThrow());
         TableHandle tableHandle = metadata.getMetadataResolver(session).getTableHandle(name)
                 .orElseThrow(() -> new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Table not found: %s", name)));
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
@@ -526,7 +526,7 @@ public class ExtractSpatialJoins
                 .collect(toImmutableList());
         checkSpatialPartitioningTable(visibleColumnHandles.size() == 1, "Expected single column for table %s, but found %s columns", name, columnHandles.size());
 
-        ColumnHandle kdbTreeColumn = Iterables.getOnlyElement(visibleColumnHandles);
+        ColumnHandle kdbTreeColumn = visibleColumnHandles.stream().collect(onlyElement());
 
         TableLayoutResult layout = metadata.getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.of(ImmutableSet.of(kdbTreeColumn)));
         TableHandle newTableHandle = layout.getLayout().getNewTableHandle();
@@ -568,7 +568,7 @@ public class ExtractSpatialJoins
         }
 
         checkSpatialPartitioningTable(kdbTree.isPresent(), "Expected exactly one row for table %s, but got none", name);
-        return kdbTree.get();
+        return kdbTree.orElseThrow();
     }
 
     private static void checkSpatialPartitioningTable(boolean condition, String message, Object... arguments)

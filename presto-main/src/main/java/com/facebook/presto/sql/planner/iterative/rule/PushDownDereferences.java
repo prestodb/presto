@@ -67,7 +67,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.unnest;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -285,7 +285,7 @@ public class PushDownDereferences
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
                 builder.put(entry.getKey(), replaceDereferences(entry.getValue(), pushdownDereferences));
             }
-            return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), result.getTransformedPlan().get(), builder.build()));
+            return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), result.getTransformedPlan().orElseThrow(), builder.build()));
         }
 
         protected abstract Result pushDownDereferences(Context context, N targetNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions);
@@ -315,7 +315,7 @@ public class PushDownDereferences
         @Override
         protected Result pushDownDereferences(Context context, N targetNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
-            PlanNode source = getOnlyElement(targetNode.getSources());
+            PlanNode source = targetNode.getSources().stream().collect(onlyElement());
 
             Map<VariableReferenceExpression, RowExpression> dereferencesMap = expressions.inverse().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -585,6 +585,6 @@ public class PushDownDereferences
 
     private static VariableReferenceExpression getBase(RowExpression expression)
     {
-        return getOnlyElement(extractAll(expression));
+        return extractAll(expression).stream().collect(onlyElement());
     }
 }

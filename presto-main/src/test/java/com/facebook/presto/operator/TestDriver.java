@@ -123,7 +123,7 @@ public class TestDriver
                     Optional.empty()),
             new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
             testSessionBuilder().setSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, "true").build(),
-            new ObjectMapper()).get();
+            new ObjectMapper()).orElseThrow();
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;

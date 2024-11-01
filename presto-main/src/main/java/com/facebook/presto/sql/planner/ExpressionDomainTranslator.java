@@ -77,8 +77,8 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQU
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Collections.emptyMap;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -102,7 +102,7 @@ public final class ExpressionDomainTranslator
             return FALSE_LITERAL;
         }
 
-        Map<String, Domain> domains = tupleDomain.getDomains().get();
+        Map<String, Domain> domains = tupleDomain.getDomains().orElseThrow();
         return domains.entrySet().stream()
                 .sorted(comparing(entry -> entry.getKey()))
                 .map(entry -> toPredicate(entry.getValue(), new SymbolReference(entry.getKey())))
@@ -167,7 +167,7 @@ public final class ExpressionDomainTranslator
 
         Expression excludedPointsExpression = new NotExpression(new InPredicate(reference, new InListExpression(excludedPoints)));
         if (excludedPoints.size() == 1) {
-            excludedPointsExpression = new ComparisonExpression(NOT_EQUAL, reference, getOnlyElement(excludedPoints));
+            excludedPointsExpression = new ComparisonExpression(NOT_EQUAL, reference, excludedPoints.stream().collect(onlyElement()));
         }
 
         return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
@@ -208,7 +208,7 @@ public final class ExpressionDomainTranslator
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(new ComparisonExpression(EQUAL, reference, getOnlyElement(singleValues)));
+            disjuncts.add(new ComparisonExpression(EQUAL, reference, singleValues.stream().collect(onlyElement())));
         }
         else if (singleValues.size() > 1) {
             disjuncts.add(new InPredicate(reference, new InListExpression(singleValues)));
@@ -227,7 +227,7 @@ public final class ExpressionDomainTranslator
 
         Expression predicate;
         if (values.size() == 1) {
-            predicate = new ComparisonExpression(EQUAL, reference, getOnlyElement(values));
+            predicate = new ComparisonExpression(EQUAL, reference, values.stream().collect(onlyElement()));
         }
         else {
             predicate = new InPredicate(reference, new InListExpression(values));
@@ -341,9 +341,9 @@ public final class ExpressionDomainTranslator
                         // 2) If one TupleDomain is a superset of the other (e.g. left TupleDomain => (a > 0, b > 0 && b < 10), right TupleDomain => (a > 5, b = 5))
                         boolean matchingSingleSymbolDomains = !leftTupleDomain.isNone()
                                 && !rightTupleDomain.isNone()
-                                && leftTupleDomain.getDomains().get().size() == 1
-                                && rightTupleDomain.getDomains().get().size() == 1
-                                && leftTupleDomain.getDomains().get().keySet().equals(rightTupleDomain.getDomains().get().keySet());
+                                && leftTupleDomain.getDomains().orElseThrow().size() == 1
+                                && rightTupleDomain.getDomains().orElseThrow().size() == 1
+                                && leftTupleDomain.getDomains().orElseThrow().keySet().equals(rightTupleDomain.getDomains().orElseThrow().keySet());
                         boolean oneSideIsSuperSet = leftTupleDomain.contains(rightTupleDomain) || rightTupleDomain.contains(leftTupleDomain);
 
                         if (matchingSingleSymbolDomains || oneSideIsSuperSet) {
@@ -371,7 +371,7 @@ public final class ExpressionDomainTranslator
             if (!optionalNormalized.isPresent()) {
                 return super.visitComparisonExpression(node, complement);
             }
-            NormalizedSimpleComparison normalized = optionalNormalized.get();
+            NormalizedSimpleComparison normalized = optionalNormalized.orElseThrow();
 
             Expression symbolExpression = normalized.getSymbolExpression();
             if (symbolExpression instanceof SymbolReference) {
@@ -411,7 +411,7 @@ public final class ExpressionDomainTranslator
                         castSourceType, castExpression.getExpression(), normalized.getValue(), normalized.getComparisonOperator());
 
                 if (coercedExpression.isPresent()) {
-                    return process(coercedExpression.get(), complement);
+                    return process(coercedExpression.orElseThrow(), complement);
                 }
 
                 return super.visitComparisonExpression(node, complement);

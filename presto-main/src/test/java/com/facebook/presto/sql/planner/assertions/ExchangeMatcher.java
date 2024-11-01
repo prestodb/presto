@@ -64,7 +64,7 @@ final class ExchangeMatcher
                 return NO_MATCH;
             }
 
-            if (!orderingSchemeMatches(orderBy, exchangeNode.getOrderingScheme().get(), symbolAliases)) {
+            if (!orderingSchemeMatches(orderBy, exchangeNode.getOrderingScheme().orElseThrow(), symbolAliases)) {
                 return NO_MATCH;
             }
         }

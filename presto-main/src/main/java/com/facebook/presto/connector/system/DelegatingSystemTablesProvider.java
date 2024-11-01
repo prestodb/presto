@@ -59,7 +59,7 @@ public class DelegatingSystemTablesProvider
                 .map(delegate -> delegate.getSystemTable(session, tableName))
                 .filter(Optional::isPresent)
                 // this ensures there is 0 or 1 element in stream
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toOptional());
     }
 }

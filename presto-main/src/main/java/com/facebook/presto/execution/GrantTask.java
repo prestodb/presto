@@ -58,7 +58,7 @@ public class GrantTask
 
         Set<Privilege> privileges;
         if (statement.getPrivileges().isPresent()) {
-            privileges = statement.getPrivileges().get().stream()
+            privileges = statement.getPrivileges().orElseThrow().stream()
                     .map(privilege -> parsePrivilege(statement, privilege))
                     .collect(toImmutableSet());
         }

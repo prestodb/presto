@@ -171,7 +171,7 @@ public class CreateTableTask
                 TableMetadata likeTableMetadata = metadata.getTableMetadata(session, likeTable);
 
                 Optional<LikeClause.PropertiesOption> propertiesOption = likeClause.getPropertiesOption();
-                if (propertiesOption.isPresent() && propertiesOption.get().equals(LikeClause.PropertiesOption.INCLUDING)) {
+                if (propertiesOption.isPresent() && propertiesOption.orElseThrow().equals(LikeClause.PropertiesOption.INCLUDING)) {
                     if (includingProperties) {
                         throw new SemanticException(NOT_SUPPORTED, statement, "Only one LIKE clause can specify INCLUDING PROPERTIES");
                     }
@@ -201,7 +201,7 @@ public class CreateTableTask
 
         constraints.stream()
                 .filter(c -> c.getName().isPresent())
-                .collect(Collectors.groupingBy(c -> c.getName().get(), Collectors.counting()))
+                .collect(Collectors.groupingBy(c -> c.getName().orElseThrow(), Collectors.counting()))
                 .forEach((constraintName, count) -> {
                     if (count > 1) {
                         throw new PrestoException(SYNTAX_ERROR, format("Constraint name '%s' specified more than once", constraintName));

@@ -212,7 +212,7 @@ public class LogicalPlanner
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
     {
-        TableHandle targetTable = analysis.getAnalyzeTarget().get();
+        TableHandle targetTable = analysis.getAnalyzeTarget().orElseThrow();
 
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
@@ -264,7 +264,7 @@ public class LogicalPlanner
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
     {
-        QualifiedObjectName destination = analysis.getCreateTableDestination().get();
+        QualifiedObjectName destination = analysis.getCreateTableDestination().orElseThrow();
 
         RelationPlan plan = createRelationPlan(analysis, query, new SqlPlannerContext(0));
 
@@ -297,7 +297,7 @@ public class LogicalPlanner
 
     private RelationPlan createRefreshMaterializedViewPlan(Analysis analysis, RefreshMaterializedView refreshMaterializedViewStatement)
     {
-        Analysis.RefreshMaterializedViewAnalysis viewAnalysis = analysis.getRefreshMaterializedViewAnalysis().get();
+        Analysis.RefreshMaterializedViewAnalysis viewAnalysis = analysis.getRefreshMaterializedViewAnalysis().orElseThrow();
 
         TableHandle tableHandle = viewAnalysis.getTarget();
         List<ColumnHandle> columnHandles = viewAnalysis.getColumns();
@@ -308,7 +308,7 @@ public class LogicalPlanner
 
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
     {
-        Analysis.Insert insertAnalysis = analysis.getInsert().get();
+        Analysis.Insert insertAnalysis = analysis.getInsert().orElseThrow();
 
         TableHandle tableHandle = insertAnalysis.getTarget();
         List<ColumnHandle> columnHandles = insertAnalysis.getColumns();
@@ -603,7 +603,7 @@ public class LogicalPlanner
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         int aliasPosition = 0;
         for (Field field : plan.getDescriptor().getVisibleFields()) {
-            String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getValue() : field.getName().get();
+            String columnName = columnAliases.isPresent() ? columnAliases.orElseThrow().get(aliasPosition).getValue() : field.getName().orElseThrow();
             columns.add(new ColumnMetadata(columnName, field.getType()));
             aliasPosition++;
         }
@@ -638,7 +638,7 @@ public class LogicalPlanner
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (tableLayout.isPresent()) {
             List<VariableReferenceExpression> partitionFunctionArguments = new ArrayList<>();
-            tableLayout.get().getPartitionColumns().stream()
+            tableLayout.orElseThrow().getPartitionColumns().stream()
                     .mapToInt(columnNames::indexOf)
                     .mapToObj(variables::get)
                     .forEach(partitionFunctionArguments::add);
@@ -646,7 +646,7 @@ public class LogicalPlanner
             List<VariableReferenceExpression> outputLayout = new ArrayList<>(variables);
 
             partitioningScheme = Optional.of(new PartitioningScheme(
-                    Partitioning.create(tableLayout.get().getPartitioning(), partitionFunctionArguments),
+                    Partitioning.create(tableLayout.orElseThrow().getPartitioning(), partitionFunctionArguments),
                     outputLayout));
         }
         return partitioningScheme;

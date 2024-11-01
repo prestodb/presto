@@ -440,7 +440,7 @@ public class InMemoryTransactionManager
             Map<String, ConnectorId> catalogNames = new HashMap<>();
             catalogByName.values().stream()
                     .filter(Optional::isPresent)
-                    .map(Optional::get)
+                    .map(Optional::orElseThrow)
                     .forEach(catalog -> catalogNames.put(catalog.getCatalogName(), catalog.getConnectorId()));
 
             catalogManager.getCatalogs().stream()
@@ -456,7 +456,7 @@ public class InMemoryTransactionManager
                 catalog = catalogManager.getCatalog(catalogName);
                 catalogByName.put(catalogName, catalog);
                 if (catalog.isPresent()) {
-                    registerCatalog(catalog.get());
+                    registerCatalog(catalog.orElseThrow());
                 }
 
                 if (companionCatalogs.containsKey(catalogName)) {
@@ -464,7 +464,7 @@ public class InMemoryTransactionManager
                     checkArgument(
                             companionCatalog.isPresent(),
                             format("Invalid config, no catalog exists for catalog name %s: %s", catalogName, companionCatalogs.get(catalogName)));
-                    registerCatalog(companionCatalog.get());
+                    registerCatalog(companionCatalog.orElseThrow());
                 }
             }
             return catalog.map(Catalog::getConnectorId);

@@ -35,7 +35,7 @@ public interface Lookup
     default PlanNode resolve(PlanNode node)
     {
         if (node instanceof GroupReference) {
-            return resolveGroup(node).collect(toOptional()).get();
+            return resolveGroup(node).collect(toOptional()).orElseThrow();
         }
         return node;
     }

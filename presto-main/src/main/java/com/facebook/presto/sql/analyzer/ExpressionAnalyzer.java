@@ -114,7 +114,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.slice.SliceUtf8;
@@ -196,7 +195,7 @@ import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnon
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
@@ -459,8 +458,8 @@ public class ExpressionAnalyzer
         {
             if (context.getContext().isInLambda()) {
                 Optional<ResolvedField> resolvedField = context.getContext().getScope().tryResolveField(node, QualifiedName.of(node.getName()));
-                if (resolvedField.isPresent() && context.getContext().getFieldToLambdaArgumentDeclaration().containsKey(FieldId.from(resolvedField.get()))) {
-                    return setExpressionType(node, resolvedField.get().getType());
+                if (resolvedField.isPresent() && context.getContext().getFieldToLambdaArgumentDeclaration().containsKey(FieldId.from(resolvedField.orElseThrow()))) {
+                    return setExpressionType(node, resolvedField.orElseThrow().getType());
                 }
             }
             Type type = symbolTypes.get(node);
@@ -506,9 +505,9 @@ public class ExpressionAnalyzer
                     subfield = Optional.of(resolvedSubfield.getSubfield());
                 }
                 if (tableName.isPresent() && subfield.isPresent()) {
-                    tableColumnAndSubfieldReferences.put(tableName.get(), subfield.get());
+                    tableColumnAndSubfieldReferences.put(tableName.orElseThrow(), subfield.orElseThrow());
                     if (!context.getContext().getUnusedExpressionsForAccessControl().contains(NodeRef.of(node))) {
-                        tableColumnAndSubfieldReferencesForAccessControl.put(tableName.get(), subfield.get());
+                        tableColumnAndSubfieldReferencesForAccessControl.put(tableName.orElseThrow(), subfield.orElseThrow());
                     }
                 }
             }
@@ -529,14 +528,14 @@ public class ExpressionAnalyzer
                 Scope scope = context.getContext().getScope();
                 Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
                 if (resolvedField.isPresent()) {
-                    return handleResolvedField(node, resolvedField.get(), context);
+                    return handleResolvedField(node, resolvedField.orElseThrow(), context);
                 }
                 // otherwise, try to match it to an enum literal (eg Mood.HAPPY)
                 if (!scope.isColumnReference(qualifiedName)) {
                     Optional<TypeWithName> enumType = tryResolveEnumLiteralType(qualifiedName, functionAndTypeResolver);
                     if (enumType.isPresent()) {
-                        setExpressionType(node.getBase(), enumType.get());
-                        return setExpressionType(node, enumType.get());
+                        setExpressionType(node.getBase(), enumType.orElseThrow());
+                        return setExpressionType(node, enumType.orElseThrow());
                     }
                     if (outerScopeSymbolTypes.containsKey(NodeRef.of(node))) {
                         return setExpressionType(node, outerScopeSymbolTypes.get(NodeRef.of(node)));
@@ -655,7 +654,7 @@ public class ExpressionAnalyzer
 
             Type type;
             if (node.getFalseValue().isPresent()) {
-                type = coerceToSingleType(context, node, "Result types for IF must be the same: %s vs %s", node.getTrueValue(), node.getFalseValue().get());
+                type = coerceToSingleType(context, node, "Result types for IF must be the same: %s vs %s", node.getTrueValue(), node.getFalseValue().orElseThrow());
             }
             else {
                 type = process(node.getTrueValue(), context);
@@ -769,7 +768,7 @@ public class ExpressionAnalyzer
             Type patternType = getVarcharType(node.getPattern(), context);
             coerceType(context, node.getPattern(), patternType, "Pattern for LIKE expression");
             if (node.getEscape().isPresent()) {
-                Expression escape = node.getEscape().get();
+                Expression escape = node.getEscape().orElseThrow();
                 Type escapeType = getVarcharType(escape, context);
                 coerceType(context, escape, escapeType, "Escape for LIKE expression");
             }
@@ -982,7 +981,7 @@ public class ExpressionAnalyzer
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
             if (node.getWindow().isPresent()) {
-                Window window = node.getWindow().get();
+                Window window = node.getWindow().orElseThrow();
                 for (Expression expression : window.getPartitionBy()) {
                     process(expression, context);
                     Type type = getExpressionType(expression);
@@ -1000,18 +999,18 @@ public class ExpressionAnalyzer
                 }
 
                 if (window.getFrame().isPresent()) {
-                    WindowFrame frame = window.getFrame().get();
+                    WindowFrame frame = window.getFrame().orElseThrow();
 
                     if (frame.getType() == ROWS) {
                         if (frame.getStart().getValue().isPresent()) {
-                            Expression startValue = frame.getStart().getValue().get();
+                            Expression startValue = frame.getStart().getValue().orElseThrow();
                             Type type = process(startValue, context);
                             if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
                                 throw new SemanticException(TYPE_MISMATCH, node, "Window frame ROWS start value type must be INTEGER or BIGINT (actual %s)", type);
                             }
                         }
-                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                            Expression endValue = frame.getEnd().get().getValue().get();
+                        if (frame.getEnd().isPresent() && frame.getEnd().orElseThrow().getValue().isPresent()) {
+                            Expression endValue = frame.getEnd().orElseThrow().getValue().orElseThrow();
                             Type type = process(endValue, context);
                             if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
                                 throw new SemanticException(TYPE_MISMATCH, node, "Window frame ROWS end value type must be INTEGER or BIGINT (actual %s)", type);
@@ -1020,12 +1019,12 @@ public class ExpressionAnalyzer
                     }
                     else if (frame.getType() == RANGE) {
                         if (frame.getStart().getValue().isPresent()) {
-                            Expression startValue = frame.getStart().getValue().get();
+                            Expression startValue = frame.getStart().getValue().orElseThrow();
                             analyzeFrameRangeOffset(startValue, frame.getStart().getType(), context, window);
                         }
-                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                            Expression endValue = frame.getEnd().get().getValue().get();
-                            analyzeFrameRangeOffset(endValue, frame.getEnd().get().getType(), context, window);
+                        if (frame.getEnd().isPresent() && frame.getEnd().orElseThrow().getValue().isPresent()) {
+                            Expression endValue = frame.getEnd().orElseThrow().getValue().orElseThrow();
+                            analyzeFrameRangeOffset(endValue, frame.getEnd().orElseThrow().getType(), context, window);
                         }
                     }
                     else if (frame.getType() == GROUPS) {
@@ -1033,17 +1032,17 @@ public class ExpressionAnalyzer
                             if (!window.getOrderBy().isPresent()) {
                                 throw new SemanticException(MISSING_ORDER_BY, window, "Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
                             }
-                            Expression startValue = frame.getStart().getValue().get();
+                            Expression startValue = frame.getStart().getValue().orElseThrow();
                             Type type = process(startValue, context);
                             if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
                                 throw new SemanticException(TYPE_MISMATCH, node, "Window frame GROUPS start value type must be INTEGER or BIGINT (actual %s)", type);
                             }
                         }
-                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                        if (frame.getEnd().isPresent() && frame.getEnd().orElseThrow().getValue().isPresent()) {
                             if (!window.getOrderBy().isPresent()) {
                                 throw new SemanticException(MISSING_ORDER_BY, window, "Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
                             }
-                            Expression endValue = frame.getEnd().get().getValue().get();
+                            Expression endValue = frame.getEnd().orElseThrow().getValue().orElseThrow();
                             Type type = process(endValue, context);
                             if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
                                 throw new SemanticException(TYPE_MISMATCH, node, "Window frame GROUPS end value type must be INTEGER or BIGINT (actual %s)", type);
@@ -1059,7 +1058,7 @@ public class ExpressionAnalyzer
             }
 
             if (node.getFilter().isPresent()) {
-                Expression expression = node.getFilter().get();
+                Expression expression = node.getFilter().orElseThrow();
                 process(expression, context);
             }
 
@@ -1111,7 +1110,7 @@ public class ExpressionAnalyzer
             FunctionMetadata functionMetadata = functionAndTypeResolver.getFunctionMetadata(function);
 
             if (node.getOrderBy().isPresent()) {
-                for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
+                for (SortItem sortItem : node.getOrderBy().orElseThrow().getSortItems()) {
                     Type sortKeyType = process(sortItem.getSortKey(), context);
                     if (!sortKeyType.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
@@ -1171,7 +1170,7 @@ public class ExpressionAnalyzer
         private String createWarningMessage(Node node, String message)
         {
             if (node.getLocation().isPresent()) {
-                return format("%s Expression:%s line %s:%s", message, node, node.getLocation().get().getLineNumber(), node.getLocation().get().getColumnNumber());
+                return format("%s Expression:%s line %s:%s", message, node, node.getLocation().orElseThrow().getLineNumber(), node.getLocation().orElseThrow().getColumnNumber());
             }
             else {
                 return format("%s Expression:%s", message, node);
@@ -1183,11 +1182,11 @@ public class ExpressionAnalyzer
             if (!window.getOrderBy().isPresent()) {
                 throw new SemanticException(MISSING_ORDER_BY, window, "Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
             }
-            OrderBy orderBy = window.getOrderBy().get();
+            OrderBy orderBy = window.getOrderBy().orElseThrow();
             if (orderBy.getSortItems().size() != 1) {
                 throw new SemanticException(INVALID_ORDER_BY, orderBy, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: %s)", orderBy.getSortItems().size());
             }
-            Expression sortKey = Iterables.getOnlyElement(orderBy.getSortItems()).getSortKey();
+            Expression sortKey = orderBy.getSortItems().stream().collect(onlyElement()).getSortKey();
             Type sortKeyType = getExpressionType(sortKey);
             if (!isNumericType(sortKeyType) && !isDateTimeType(sortKeyType)) {
                 throw new SemanticException(TYPE_MISMATCH, sortKey, "Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: %s)", sortKeyType);
@@ -1207,7 +1206,7 @@ public class ExpressionAnalyzer
             }
 
             // resolve function to calculate frame boundary value (add / subtract offset from sortKey)
-            SortItem.Ordering ordering = Iterables.getOnlyElement(orderBy.getSortItems()).getOrdering();
+            SortItem.Ordering ordering = orderBy.getSortItems().stream().collect(onlyElement()).getOrdering();
             OperatorType operatorType;
             FunctionHandle function;
             if ((boundType == PRECEDING && ordering == ASCENDING) || (boundType == FOLLOWING && ordering == DESCENDING)) {
@@ -1424,7 +1423,7 @@ public class ExpressionAnalyzer
                 scalarSubqueries.add(NodeRef.of(node));
             }
 
-            Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
+            Type type = queryScope.getRelationType().getVisibleFields().stream().collect(onlyElement()).getType();
             return setExpressionType(node, type);
         }
 
@@ -1586,13 +1585,13 @@ public class ExpressionAnalyzer
                 return;
             }
             tableColumnAndSubfieldReferences.put(
-                    resolvedSubfield.get().getResolvedField().getField().getOriginTable().get(),
-                    resolvedSubfield.get().getSubfield());
+                    resolvedSubfield.orElseThrow().getResolvedField().getField().getOriginTable().orElseThrow(),
+                    resolvedSubfield.orElseThrow().getSubfield());
 
             if (!context.getContext().getUnusedExpressionsForAccessControl().contains(NodeRef.of(node))) {
                 tableColumnAndSubfieldReferencesForAccessControl.put(
-                        resolvedSubfield.get().getResolvedField().getField().getOriginTable().get(),
-                        resolvedSubfield.get().getSubfield());
+                        resolvedSubfield.orElseThrow().getResolvedField().getField().getOriginTable().orElseThrow(),
+                        resolvedSubfield.orElseThrow().getSubfield());
             }
         }
 
@@ -1657,9 +1656,9 @@ public class ExpressionAnalyzer
             // coerce types if possible
             Optional<Type> superTypeOptional = functionAndTypeResolver.getCommonSuperType(firstType, secondType);
             if (superTypeOptional.isPresent()
-                    && functionAndTypeResolver.canCoerce(firstType, superTypeOptional.get())
-                    && functionAndTypeResolver.canCoerce(secondType, superTypeOptional.get())) {
-                Type superType = superTypeOptional.get();
+                    && functionAndTypeResolver.canCoerce(firstType, superTypeOptional.orElseThrow())
+                    && functionAndTypeResolver.canCoerce(secondType, superTypeOptional.orElseThrow())) {
+                Type superType = superTypeOptional.orElseThrow();
                 if (!firstType.equals(superType)) {
                     addOrReplaceExpressionCoercion(first, firstType, superType);
                 }
@@ -1681,7 +1680,7 @@ public class ExpressionAnalyzer
                 if (!newSuperType.isPresent()) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message, superType.getDisplayName());
                 }
-                superType = newSuperType.get();
+                superType = newSuperType.orElseThrow();
             }
 
             // verify all expressions can be coerced to the superType

@@ -53,7 +53,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -126,7 +126,7 @@ public class WindowFilterPushDown
                         idAllocator.getNextId(),
                         rewrittenSource,
                         node.getPartitionBy(),
-                        getOnlyElement(node.getWindowFunctions().keySet()),
+                        node.getWindowFunctions().keySet().stream().collect(onlyElement()),
                         Optional.empty(),
                         false,
                         Optional.empty());
@@ -185,7 +185,7 @@ public class WindowFilterPushDown
             }
             else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionAndTypeManager()) && isOptimizeTopNRowNumber(session)) {
                 WindowNode windowNode = (WindowNode) source;
-                VariableReferenceExpression rowNumberVariable = getOnlyElement(windowNode.getCreatedVariable());
+                VariableReferenceExpression rowNumberVariable = windowNode.getCreatedVariable().stream().collect(onlyElement());
                 OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberVariable);
 
                 if (upperBound.isPresent()) {
@@ -207,7 +207,7 @@ public class WindowFilterPushDown
             }
 
             // Remove the row number domain because it is absorbed into the node
-            Map<VariableReferenceExpression, Domain> newDomains = tupleDomain.getDomains().get().entrySet().stream()
+            Map<VariableReferenceExpression, Domain> newDomains = tupleDomain.getDomains().orElseThrow().entrySet().stream()
                     .filter(entry -> !entry.getKey().equals(rowNumberVariable))
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -228,7 +228,7 @@ public class WindowFilterPushDown
             if (tupleDomain.isNone()) {
                 return false;
             }
-            Domain domain = tupleDomain.getDomains().get().get(variable);
+            Domain domain = tupleDomain.getDomains().orElseThrow().get(variable);
             return domain.getValues().equals(ValueSet.ofRanges(Range.lessThanOrEqual(domain.getType(), upperBound)));
         }
 
@@ -238,7 +238,7 @@ public class WindowFilterPushDown
                 return OptionalInt.empty();
             }
 
-            Domain rowNumberDomain = tupleDomain.getDomains().get().get(variable);
+            Domain rowNumberDomain = tupleDomain.getDomains().orElseThrow().get(variable);
             if (rowNumberDomain == null) {
                 return OptionalInt.empty();
             }
@@ -268,7 +268,7 @@ public class WindowFilterPushDown
         private static RowNumberNode mergeLimit(RowNumberNode node, int newRowCountPerPartition)
         {
             if (node.getMaxRowCountPerPartition().isPresent()) {
-                newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().get(), newRowCountPerPartition);
+                newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().orElseThrow(), newRowCountPerPartition);
             }
             return new RowNumberNode(node.getSourceLocation(), node.getId(), node.getSource(), node.getPartitionBy(), node.getRowNumberVariable(), Optional.of(newRowCountPerPartition), false, node.getHashVariable());
         }
@@ -280,7 +280,7 @@ public class WindowFilterPushDown
                     idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
-                    getOnlyElement(windowNode.getCreatedVariable()),
+                    windowNode.getCreatedVariable().stream().collect(onlyElement()),
                     limit,
                     false,
                     Optional.empty());
@@ -296,7 +296,7 @@ public class WindowFilterPushDown
             if (node.getWindowFunctions().size() != 1) {
                 return false;
             }
-            VariableReferenceExpression rowNumberVariable = getOnlyElement(node.getWindowFunctions().keySet());
+            VariableReferenceExpression rowNumberVariable = node.getWindowFunctions().keySet().stream().collect(onlyElement());
             return isRowNumberMetadata(functionAndTypeManager, functionAndTypeManager.getFunctionMetadata(node.getWindowFunctions().get(rowNumberVariable).getFunctionHandle()));
         }
 

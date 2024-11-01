@@ -36,7 +36,6 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 
@@ -63,6 +62,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Integer.min;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -232,7 +232,7 @@ public class ExpressionEquivalence
                 // only consider distinct arguments
                 Set<RowExpression> distinctArguments = ImmutableSet.copyOf(flattenedArguments);
                 if (distinctArguments.size() == 1) {
-                    return Iterables.getOnlyElement(distinctArguments);
+                    return distinctArguments.stream().collect(onlyElement());
                 }
 
                 // canonicalize the argument order (i.e., sort them)

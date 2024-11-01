@@ -94,7 +94,7 @@ public class ExceededMemoryLimitException
     private static void performHeapDumpIfEnabled(boolean heapDumpOnExceededMemoryLimitEnabled, Optional<String> heapDumpFilePath)
     {
         if (heapDumpOnExceededMemoryLimitEnabled && heapDumpFilePath.isPresent()) {
-            dumpHeap(heapDumpFilePath.get());
+            dumpHeap(heapDumpFilePath.orElseThrow());
         }
     }
 

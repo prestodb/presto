@@ -29,7 +29,6 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
@@ -72,7 +71,7 @@ import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskIn
 import static com.facebook.presto.server.TaskResourceUtils.isThriftRequest;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -122,7 +121,7 @@ public class TaskResource
     {
         List<TaskInfo> allTaskInfo = taskManager.getAllTaskInfo();
         if (shouldSummarize(uriInfo)) {
-            allTaskInfo = ImmutableList.copyOf(transform(allTaskInfo, TaskInfo::summarize));
+            allTaskInfo = allTaskInfo.stream().map(TaskInfo::summarize).collect(toImmutableList());
         }
         return allTaskInfo;
     }

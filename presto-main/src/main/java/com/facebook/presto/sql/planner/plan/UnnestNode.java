@@ -21,10 +21,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,6 +32,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -83,7 +84,7 @@ public class UnnestNode
     {
         ImmutableList.Builder<VariableReferenceExpression> outputSymbolsBuilder = ImmutableList.<VariableReferenceExpression>builder()
                 .addAll(replicateVariables)
-                .addAll(Iterables.concat(unnestVariables.values()));
+                .addAll(unnestVariables.values().stream().flatMap(Collection::stream).iterator());
         ordinalityVariable.ifPresent(outputSymbolsBuilder::add);
         return outputSymbolsBuilder.build();
     }
@@ -127,7 +128,7 @@ public class UnnestNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnnestNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), replicateVariables, unnestVariables, ordinalityVariable);
+        return new UnnestNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.stream().collect(onlyElement()), replicateVariables, unnestVariables, ordinalityVariable);
     }
 
     @Override
