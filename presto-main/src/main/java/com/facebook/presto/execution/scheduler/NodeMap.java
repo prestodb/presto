@@ -93,7 +93,7 @@ public class NodeMap
     public NodeProvider getNodeProvider(int nodeCount)
     {
         if (consistentHashingNodeProvider.isPresent()) {
-            return (key) -> consistentHashingNodeProvider.get().get(key, nodeCount);
+            return (key) -> consistentHashingNodeProvider.orElseThrow().get(key, nodeCount);
         }
         ModularHashingNodeProvider modularHashingNodeProvider = new ModularHashingNodeProvider(allNodes);
         return (key) -> modularHashingNodeProvider.get(key, nodeCount);

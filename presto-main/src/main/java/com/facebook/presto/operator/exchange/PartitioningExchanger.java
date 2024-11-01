@@ -89,7 +89,7 @@ class PartitioningExchanger
     {
         // hash value is pre-computed, only needs to extract that channel
         if (hashChannel.isPresent()) {
-            return new Page(inputPage.getBlock(hashChannel.get()));
+            return new Page(inputPage.getBlock(hashChannel.orElseThrow()));
         }
 
         // extract partitioning channels

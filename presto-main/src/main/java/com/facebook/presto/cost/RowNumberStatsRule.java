@@ -68,7 +68,7 @@ public class RowNumberStatsRule
         // assuming no skew
         double rowsPerPartition = sourceRowsCount / partitionCount;
         if (node.getMaxRowCountPerPartition().isPresent()) {
-            rowsPerPartition = min(rowsPerPartition, node.getMaxRowCountPerPartition().get());
+            rowsPerPartition = min(rowsPerPartition, node.getMaxRowCountPerPartition().orElseThrow());
         }
 
         double outputRowsCount = sourceRowsCount;

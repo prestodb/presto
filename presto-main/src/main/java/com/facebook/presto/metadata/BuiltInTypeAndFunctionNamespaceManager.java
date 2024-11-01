@@ -1156,7 +1156,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         Optional<OperatorType> operatorType = tryGetOperatorType(signature.getName());
         if (operatorType.isPresent()) {
             return new FunctionMetadata(
-                    operatorType.get(),
+                    operatorType.orElseThrow(),
                     signature.getArgumentTypes(),
                     signature.getReturnType(),
                     signature.getKind(),
@@ -1351,7 +1351,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             Optional<BoundVariables> boundVariables = new SignatureBinder(functionAndTypeManager, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, returnType);
             if (boundVariables.isPresent()) {
-                return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypeSignatureProviders.size());
+                return new SpecializedFunctionKey(candidate, boundVariables.orElseThrow(), argumentTypeSignatureProviders.size());
             }
         }
 
@@ -1364,7 +1364,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             if (!boundVariables.isPresent()) {
                 continue;
             }
-            Signature boundSignature = applyBoundVariables(candidate.getSignature(), boundVariables.get(), argumentTypes.size());
+            Signature boundSignature = applyBoundVariables(candidate.getSignature(), boundVariables.orElseThrow(), argumentTypes.size());
 
             if (!functionAndTypeManager.isTypeOnlyCoercion(functionAndTypeManager.getType(boundSignature.getReturnType()), returnType)) {
                 continue;
@@ -1381,7 +1381,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 continue;
             }
 
-            return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypes.size());
+            return new SpecializedFunctionKey(candidate, boundVariables.orElseThrow(), argumentTypes.size());
         }
 
         // TODO: this is a hack and should be removed

@@ -142,7 +142,7 @@ public class SetBuilderOperator
         this.setSupplier = requireNonNull(setSupplier, "setProvider is null");
 
         if (requireNonNull(hashChannel, "hashChannel is null").isPresent()) {
-            this.sourceChannels = new int[]{setChannel, hashChannel.get()};
+            this.sourceChannels = new int[]{setChannel, hashChannel.orElseThrow()};
         }
         else {
             this.sourceChannels = new int[]{setChannel};

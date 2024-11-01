@@ -111,7 +111,7 @@ class OperationTimer
 
     private static long currentThreadAllocation()
     {
-        return THREAD_MX_BEAN.getThreadAllocatedBytes(Thread.currentThread().getId());
+        return THREAD_MX_BEAN.getThreadAllocatedBytes(Thread.currentThread().threadId());
     }
 
     private static long nanosBetween(long start, long end)

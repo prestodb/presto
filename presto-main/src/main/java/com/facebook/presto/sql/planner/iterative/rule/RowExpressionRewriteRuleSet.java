@@ -247,7 +247,7 @@ public class RowExpressionRewriteRuleSet
                 return Result.empty();
             }
 
-            RowExpression filter = joinNode.getFilter().get();
+            RowExpression filter = joinNode.getFilter().orElseThrow();
             RowExpression rewritten = rewriter.rewrite(filter, context);
 
             if (filter.equals(rewritten)) {
@@ -355,7 +355,7 @@ public class RowExpressionRewriteRuleSet
                     applyNode.getId(),
                     applyNode.getInput(),
                     applyNode.getSubquery(),
-                    rewrittenAssignments.get(),
+                    rewrittenAssignments.orElseThrow(),
                     applyNode.getCorrelation(),
                     applyNode.getOriginSubqueryError(),
                     applyNode.getMayParticipateInAntiJoin()));
@@ -514,7 +514,7 @@ public class RowExpressionRewriteRuleSet
                 return Result.empty();
             }
 
-            Optional<StatisticAggregations> rewrittenStatisticsAggregation = translateStatisticAggregation(node.getStatisticsAggregation().get(), context);
+            Optional<StatisticAggregations> rewrittenStatisticsAggregation = translateStatisticAggregation(node.getStatisticsAggregation().orElseThrow(), context);
 
             if (rewrittenStatisticsAggregation.isPresent()) {
                 return Result.ofPlanNode(new TableFinishNode(
@@ -571,7 +571,7 @@ public class RowExpressionRewriteRuleSet
                 return Result.empty();
             }
 
-            Optional<StatisticAggregations> rewrittenStatisticsAggregation = translateStatisticAggregation(node.getStatisticsAggregation().get(), context);
+            Optional<StatisticAggregations> rewrittenStatisticsAggregation = translateStatisticAggregation(node.getStatisticsAggregation().orElseThrow(), context);
 
             if (rewrittenStatisticsAggregation.isPresent()) {
                 return Result.ofPlanNode(new TableWriterNode(

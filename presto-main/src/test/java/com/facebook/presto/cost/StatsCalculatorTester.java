@@ -66,7 +66,7 @@ public class StatsCalculatorTester
     private static LocalQueryRunner createQueryRunner(Session session)
     {
         LocalQueryRunner queryRunner = new LocalQueryRunner(session);
-        queryRunner.createCatalog(session.getCatalog().get(),
+        queryRunner.createCatalog(session.getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
         return queryRunner;

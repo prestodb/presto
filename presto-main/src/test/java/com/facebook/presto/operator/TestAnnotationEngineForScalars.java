@@ -59,7 +59,7 @@ import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTA
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -437,7 +437,7 @@ public class TestAnnotationEngineForScalars
         assertEquals(functions.size(), 1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar.getImplementations(), 1, 0, 1);
-        assertEquals(getOnlyElement(scalar.getImplementations().getExactImplementations().keySet()), exactSignature);
+        assertEquals(scalar.getImplementations().getExactImplementations().keySet().stream().collect(onlyElement()), exactSignature);
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());

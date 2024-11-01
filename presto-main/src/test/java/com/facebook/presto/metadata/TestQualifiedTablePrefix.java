@@ -44,7 +44,7 @@ public class TestQualifiedTablePrefix
         assertEquals("catalog", tableName.getCatalogName());
         assertTrue(tableName.hasSchemaName());
 
-        assertEquals("schema", tableName.getSchemaName().get());
+        assertEquals("schema", tableName.getSchemaName().orElseThrow());
         assertFalse(tableName.hasTableName());
     }
 
@@ -55,10 +55,10 @@ public class TestQualifiedTablePrefix
         assertEquals("catalog", tableName.getCatalogName());
 
         assertTrue(tableName.hasSchemaName());
-        assertEquals("schema", tableName.getSchemaName().get());
+        assertEquals("schema", tableName.getSchemaName().orElseThrow());
 
         assertTrue(tableName.hasTableName());
-        assertEquals("table", tableName.getTableName().get());
+        assertEquals("table", tableName.getTableName().orElseThrow());
     }
 
     @Test

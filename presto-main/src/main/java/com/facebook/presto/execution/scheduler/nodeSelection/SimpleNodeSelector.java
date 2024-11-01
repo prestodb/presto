@@ -190,9 +190,9 @@ public class SimpleNodeSelector
                         split.getTransactionHandle(),
                         split.getConnectorSplit(),
                         split.getLifespan(),
-                        new SplitContext(chosenNodeInfo.get().isCacheable()));
+                        new SplitContext(chosenNodeInfo.orElseThrow().isCacheable()));
 
-                InternalNode chosenNode = chosenNodeInfo.get().getInternalNode();
+                InternalNode chosenNode = chosenNodeInfo.orElseThrow().getInternalNode();
                 assignment.put(chosenNode, split);
                 assignmentStats.addAssignedSplit(chosenNode, splitWeight);
             }

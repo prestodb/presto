@@ -27,7 +27,6 @@ import com.facebook.slice.Slice;
 import com.facebook.slice.Slices;
 import com.facebook.slice.XxHash64;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -54,10 +53,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.UpdateMemory.NOOP;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -237,7 +238,8 @@ public class BenchmarkGroupByHash
         List<Type> types = Collections.nCopies(channelCount, BIGINT);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         if (hashEnabled) {
-            types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
+            types = Stream.concat(types.stream(), ImmutableList.of(BIGINT).stream())
+                    .collect(toImmutableList());
         }
 
         PageBuilder pageBuilder = new PageBuilder(types);
@@ -264,7 +266,7 @@ public class BenchmarkGroupByHash
         List<Type> types = Collections.nCopies(channelCount, VARCHAR);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         if (hashEnabled) {
-            types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
+            types = Stream.concat(types.stream(), ImmutableList.of(BIGINT).stream()).collect(toImmutableList());
         }
 
         PageBuilder pageBuilder = new PageBuilder(types);

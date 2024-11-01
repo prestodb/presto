@@ -211,7 +211,7 @@ final class ShowQueriesRewrite
         {
             Statement statement = (Statement) process(node.getStatement(), null);
             return new Explain(
-                    node.getLocation().get(),
+                    node.getLocation().orElseThrow(),
                     node.isAnalyze(),
                     node.isVerbose(),
                     statement,
@@ -239,7 +239,7 @@ final class ShowQueriesRewrite
             if (likePattern.isPresent()) {
                 Expression likePredicate = new LikePredicate(
                         identifier("table_name"),
-                        new StringLiteral(likePattern.get()),
+                        new StringLiteral(likePattern.orElseThrow()),
                         showTables.getEscape().map(StringLiteral::new));
                 predicate = logicalAnd(predicate, likePredicate);
             }
@@ -259,7 +259,7 @@ final class ShowQueriesRewrite
 
             Optional<QualifiedName> tableName = showGrants.getTableName();
             if (tableName.isPresent()) {
-                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
+                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.orElseThrow());
 
                 if (!metadataResolver.getView(qualifiedTableName).isPresent() &&
                         !metadataResolver.getTableHandle(qualifiedTableName).isPresent()) {
@@ -313,7 +313,7 @@ final class ShowQueriesRewrite
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(Identifier::getValueLowerCase).orElseGet(() -> session.getCatalog().get());
+            String catalog = node.getCatalog().map(Identifier::getValueLowerCase).orElseGet(() -> session.getCatalog().orElseThrow());
 
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), catalog);
@@ -336,7 +336,7 @@ final class ShowQueriesRewrite
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(Identifier::getValueLowerCase).orElseGet(() -> session.getCatalog().get());
+            String catalog = node.getCatalog().map(Identifier::getValueLowerCase).orElseGet(() -> session.getCatalog().orElseThrow());
             PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), catalog);
@@ -357,7 +357,7 @@ final class ShowQueriesRewrite
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get());
+            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().orElseThrow());
             accessControl.checkCanShowSchemas(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
@@ -365,7 +365,7 @@ final class ShowQueriesRewrite
             if (likePattern.isPresent()) {
                 predicate = Optional.of(new LikePredicate(
                         identifier("schema_name"),
-                        new StringLiteral(likePattern.get()),
+                        new StringLiteral(likePattern.orElseThrow()),
                         node.getEscape().map(StringLiteral::new)));
             }
 
@@ -386,7 +386,7 @@ final class ShowQueriesRewrite
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(identifier("Catalog"), new StringLiteral(likePattern.get()), node.getEscape().map(StringLiteral::new)));
+                predicate = Optional.of(new LikePredicate(identifier("Catalog"), new StringLiteral(likePattern.orElseThrow()), node.getEscape().map(StringLiteral::new)));
             }
 
             return simpleQuery(
@@ -472,7 +472,7 @@ final class ShowQueriesRewrite
                     throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", objectName);
                 }
 
-                Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
+                Query query = parseView(viewDefinition.orElseThrow().getOriginalSql(), objectName, node);
                 String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.empty()), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
@@ -490,11 +490,11 @@ final class ShowQueriesRewrite
                     throw new SemanticException(MISSING_TABLE, node, "Materialized view '%s' does not exist", objectName);
                 }
 
-                Query query = parseView(materializedViewDefinition.get().getOriginalSql(), objectName, node);
+                Query query = parseView(materializedViewDefinition.orElseThrow().getOriginalSql(), objectName, node);
 
-                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.orElseThrow()).getMetadata();
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
+                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.orElseThrow().getConnectorId());
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateMaterializedView createMaterializedView = new CreateMaterializedView(
@@ -520,15 +520,15 @@ final class ShowQueriesRewrite
                     throw new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", objectName);
                 }
 
-                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.orElseThrow()).getMetadata();
 
                 Set<String> notNullColumns = connectorTableMetadata.getTableConstraintsHolder().getTableConstraints()
                         .stream()
                         .filter(constraint -> constraint instanceof NotNullConstraint)
-                        .map(constraint -> constraint.getColumns().stream().findFirst().get())
+                        .map(constraint -> constraint.getColumns().stream().findFirst().orElseThrow())
                         .collect(toImmutableSet());
 
-                Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
+                Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.orElseThrow().getConnectorId());
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
@@ -543,7 +543,7 @@ final class ShowQueriesRewrite
                         .collect(toList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
+                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.orElseThrow().getConnectorId());
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 columns.addAll(connectorTableMetadata.getTableConstraintsHolder().getTableConstraints()
@@ -568,7 +568,7 @@ final class ShowQueriesRewrite
                             return Optional.empty();
                         })
                         .filter(Optional::isPresent)
-                        .map(Optional::get)
+                        .map(Optional::orElseThrow)
                         .map(ConstraintSpecification.class::cast)
                         .collect(toImmutableList()));
 
@@ -590,7 +590,7 @@ final class ShowQueriesRewrite
             QualifiedObjectName functionName = qualifyObjectName(node.getName());
             Collection<? extends SqlFunction> functions = metadata.getFunctionAndTypeManager().getFunctions(session, functionName);
             if (node.getParameterTypes().isPresent()) {
-                List<TypeSignature> parameterTypes = node.getParameterTypes().get().stream()
+                List<TypeSignature> parameterTypes = node.getParameterTypes().orElseThrow().stream()
                         .map(TypeSignature::parseTypeSignature)
                         .collect(toImmutableList());
                 functions = functions.stream()
@@ -791,7 +791,7 @@ final class ShowQueriesRewrite
             if (likePattern.isPresent()) {
                 predicate = and(predicate, new LikePredicate(
                         identifier("name"),
-                        new StringLiteral(likePattern.get()),
+                        new StringLiteral(likePattern.orElseThrow()),
                         node.getEscape().map(StringLiteral::new)));
             }
 

@@ -54,7 +54,7 @@ import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.P
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 public class DecimalSumAggregation
         extends SqlAggregationFunction
@@ -91,7 +91,7 @@ public class DecimalSumAggregation
     @Override
     public BuiltInAggregationFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type inputType = getOnlyElement(applyBoundVariables(functionAndTypeManager, getSignature().getArgumentTypes(), boundVariables));
+        Type inputType = applyBoundVariables(functionAndTypeManager, getSignature().getArgumentTypes(), boundVariables).stream().collect(onlyElement());
         Type outputType = applyBoundVariables(functionAndTypeManager, getSignature().getReturnType(), boundVariables);
         return generateAggregation(inputType, outputType);
     }

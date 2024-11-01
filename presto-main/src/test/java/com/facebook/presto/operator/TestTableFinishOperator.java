@@ -63,7 +63,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -159,12 +159,12 @@ public class TestTableFinishOperator
 
         assertEquals(tableFinisher.getFragments(), ImmutableList.of(Slices.wrappedBuffer(new byte[] {1}), Slices.wrappedBuffer(new byte[] {2})));
         assertEquals(tableFinisher.getComputedStatistics().size(), 1);
-        assertEquals(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().size(), 1);
+        assertEquals(tableFinisher.getComputedStatistics().stream().collect(onlyElement()).getColumnStatistics().size(), 1);
         Block expectedStatisticsBlock = new LongArrayBlockBuilder(null, 1)
                 .writeLong(7)
                 .closeEntry()
                 .build();
-        assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
+        assertBlockEquals(BIGINT, tableFinisher.getComputedStatistics().stream().collect(onlyElement()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
 
         TableFinishInfo tableFinishInfo = operator.getInfo();
         assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
@@ -233,7 +233,7 @@ public class TestTableFinishOperator
         // expect lifespan committer to be called and pages published
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, LIFESPAN_COMMIT, false), 9).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(11, new byte[] {10}, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, LIFESPAN_COMMIT, true), null).build().get(0));
-        assertEquals(getOnlyElement(pageSinkCommitter.getCommittedFragments()), ImmutableList.of(Slices.wrappedBuffer(new byte[] {10})));
+        assertEquals(pageSinkCommitter.getCommittedFragments().stream().collect(onlyElement()), ImmutableList.of(Slices.wrappedBuffer(new byte[] {10})));
 
         assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
         assertEquals(driverContext.getMemoryUsage(), 0);
@@ -257,12 +257,12 @@ public class TestTableFinishOperator
         assertEquals(tableFinisher.getFragments(), ImmutableList.of(Slices.wrappedBuffer(new byte[] {2}), Slices.wrappedBuffer(new byte[] {5}), Slices.wrappedBuffer(new byte[] {
                 10})));
         assertEquals(tableFinisher.getComputedStatistics().size(), 1);
-        assertEquals(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().size(), 1);
+        assertEquals(tableFinisher.getComputedStatistics().stream().collect(onlyElement()).getColumnStatistics().size(), 1);
         Block expectedStatisticsBlock = new LongArrayBlockBuilder(null, 1)
                 .writeLong(9)
                 .closeEntry()
                 .build();
-        assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
+        assertBlockEquals(BIGINT, tableFinisher.getComputedStatistics().stream().collect(onlyElement()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
 
         TableFinishInfo tableFinishInfo = operator.getInfo();
         assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);

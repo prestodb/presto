@@ -28,7 +28,6 @@ import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.type.Constraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nullable;
 
@@ -61,6 +60,7 @@ import static com.facebook.presto.operator.annotations.ImplementationDependency.
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.reflect.Modifier.isPublic;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Arrays.asList;
@@ -97,7 +97,7 @@ public class FunctionsParserHelper
                         .map(TypeSignature::getBase)
                         .collect(toImmutableSet());
                 checkArgument(argumentTypes.size() == 1, "Operator dependency must only have arguments of a single type");
-                String argumentType = Iterables.getOnlyElement(argumentTypes);
+                String argumentType = argumentTypes.stream().collect(onlyElement());
                 if (COMPARABLE_TYPE_OPERATORS.contains(operator)) {
                     comparableRequired.add(argumentType);
                 }
@@ -129,7 +129,7 @@ public class FunctionsParserHelper
         if (!signatureOld.isPresent()) {
             return;
         }
-        checkArgument(signatureOld.get().equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.get(), signatureNew);
+        checkArgument(signatureOld.orElseThrow().equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.orElseThrow(), signatureNew);
     }
 
     @SafeVarargs

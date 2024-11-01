@@ -43,7 +43,7 @@ public class RemoveRedundantTopNColumns
     {
         OrderingScheme orderingScheme = node.getOrderingScheme();
 
-        LogicalProperties sourceLogicalProperties = ((GroupReference) node.getSource()).getLogicalProperties().get();
+        LogicalProperties sourceLogicalProperties = ((GroupReference) node.getSource()).getLogicalProperties().orElseThrow();
         OrderingScheme newOrderingScheme = pruneOrderingColumns(orderingScheme, sourceLogicalProperties);
 
         if (newOrderingScheme.equals(orderingScheme)) {

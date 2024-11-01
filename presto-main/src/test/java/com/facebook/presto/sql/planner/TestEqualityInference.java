@@ -28,7 +28,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -196,18 +195,18 @@ public class TestEqualityInference
 
         // There should be equalities in the scope, that only use c1 and are all inferable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesVariableScope(matchesVariables("c1"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), isInferenceCandidate(METADATA)));
+        assertTrue(equalityPartition.getScopeEqualities().stream().allMatch(matchesVariableScope(matchesVariables("c1"))));
+        assertTrue(equalityPartition.getScopeEqualities().stream().allMatch(isInferenceCandidate(METADATA)));
 
         // There should be equalities in the inverse scope, that never use c1 and are all inferable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesVariableScope(not(matchesVariables("c1")))));
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), isInferenceCandidate(METADATA)));
+        assertTrue(equalityPartition.getScopeComplementEqualities().stream().allMatch(matchesVariableScope(not(matchesVariables("c1")))));
+        assertTrue(equalityPartition.getScopeComplementEqualities().stream().allMatch(isInferenceCandidate(METADATA)));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
-        assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(matchesVariables("c1"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), isInferenceCandidate(METADATA)));
+        assertTrue(equalityPartition.getScopeStraddlingEqualities().stream().anyMatch(matchesStraddlingScope(matchesVariables("c1"))));
+        assertTrue(equalityPartition.getScopeStraddlingEqualities().stream().allMatch(isInferenceCandidate(METADATA)));
 
         // There should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
@@ -243,18 +242,18 @@ public class TestEqualityInference
 
         // There should be equalities in the scope, that only use a* and b* symbols and are all inferable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesVariableScope(variableBeginsWith("a", "b"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), isInferenceCandidate(METADATA)));
+        assertTrue(equalityPartition.getScopeEqualities().stream().allMatch(matchesVariableScope(variableBeginsWith("a", "b"))));
+        assertTrue(equalityPartition.getScopeEqualities().stream().allMatch(isInferenceCandidate(METADATA)));
 
         // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesVariableScope(not(variableBeginsWith("a", "b")))));
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), isInferenceCandidate(METADATA)));
+        assertTrue(equalityPartition.getScopeComplementEqualities().stream().allMatch(matchesVariableScope(not(variableBeginsWith("a", "b")))));
+        assertTrue(equalityPartition.getScopeComplementEqualities().stream().allMatch(isInferenceCandidate(METADATA)));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
-        assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(variableBeginsWith("a", "b"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), isInferenceCandidate(METADATA)));
+        assertTrue(equalityPartition.getScopeStraddlingEqualities().stream().anyMatch(matchesStraddlingScope(variableBeginsWith("a", "b"))));
+        assertTrue(equalityPartition.getScopeStraddlingEqualities().stream().allMatch(isInferenceCandidate(METADATA)));
 
         // Again, there should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
@@ -356,14 +355,14 @@ public class TestEqualityInference
 
     private static Predicate<RowExpression> matchesVariableScope(final Predicate<VariableReferenceExpression> variableScope)
     {
-        return expression -> Iterables.all(VariablesExtractor.extractUnique(expression), variableScope);
+        return expression -> VariablesExtractor.extractUnique(expression).stream().allMatch(variableScope);
     }
 
     private static Predicate<RowExpression> matchesStraddlingScope(final Predicate<VariableReferenceExpression> variableScope)
     {
         return expression -> {
             Set<VariableReferenceExpression> variables = VariablesExtractor.extractUnique(expression);
-            return Iterables.any(variables, variableScope) && Iterables.any(variables, not(variableScope));
+            return variables.stream().anyMatch(variableScope) && variables.stream().anyMatch(not(variableScope));
         };
     }
 
@@ -511,7 +510,7 @@ public class TestEqualityInference
             CallExpression call = (CallExpression) expression;
             Optional<OperatorType> expressionOperatorType = METADATA.getFunctionAndTypeManager().getFunctionMetadata(call.getFunctionHandle()).getOperatorType();
             if (expressionOperatorType.isPresent()) {
-                return expressionOperatorType.get() == type;
+                return expressionOperatorType.orElseThrow() == type;
             }
         }
         return false;

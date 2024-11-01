@@ -316,7 +316,7 @@ public class OptimizedTypedSet
             boolean secondValueNull = secondBlock.isNull(positionWithinSecondBlock);
             Object secondValue = secondValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, secondBlock, positionWithinSecondBlock);
             try {
-                return !(boolean) elementIsDistinctFrom.get().invoke(firstValue, firstValueNull, secondValue, secondValueNull);
+                return !(boolean) elementIsDistinctFrom.orElseThrow().invoke(firstValue, firstValueNull, secondValue, secondValueNull);
             }
             catch (Throwable t) {
                 throw internalError(t);

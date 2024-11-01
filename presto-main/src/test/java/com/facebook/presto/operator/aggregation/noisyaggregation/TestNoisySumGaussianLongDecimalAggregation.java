@@ -57,7 +57,7 @@ public class TestNoisySumGaussianLongDecimalAggregation
 
     private static final double DEFAULT_TEST_STANDARD_DEVIATION = 1.0;
     private static final BiFunction<Object, Object, Boolean> equalDoubleAssertion =
-            (actual, expected) -> Math.abs(new Double(actual.toString()) - new Double(expected.toString())) <= 1e-12;
+            (actual, expected) -> Math.abs(Double.parseDouble(actual.toString()) - Double.parseDouble(expected.toString())) <= 1e-12;
 
     @Test
     public void testNoisySumGaussianDecimalDefinitions()
@@ -149,8 +149,8 @@ public class TestNoisySumGaussianLongDecimalAggregation
         JavaAggregationFunctionImplementation noisySumGaussian = getFunction(LONG_DECIMAL_TYPE, DOUBLE);
 
         BiFunction<Object, Object, Boolean> withinSomeStdAssertion = (actual, expected) -> {
-            double actualValue = new Double(actual.toString());
-            double expectedValue = new Double(expected.toString());
+            double actualValue = Double.parseDouble(actual.toString());
+            double expectedValue = Double.parseDouble(expected.toString());
             return expectedValue - 50 * DEFAULT_TEST_STANDARD_DEVIATION <= actualValue && actualValue <= expectedValue + 50 * DEFAULT_TEST_STANDARD_DEVIATION;
         };
 
@@ -287,8 +287,8 @@ public class TestNoisySumGaussianLongDecimalAggregation
         JavaAggregationFunctionImplementation noisySumGaussian = getFunction(LONG_DECIMAL_TYPE, DOUBLE, DOUBLE, DOUBLE);
 
         BiFunction<Object, Object, Boolean> withinSomeStdDoubleAssertion = (actual, expected) -> {
-            double actualValue = new Double(actual.toString());
-            double expectedValue = new Double(expected.toString());
+            double actualValue = Double.parseDouble(actual.toString());
+            double expectedValue = Double.parseDouble(expected.toString());
             return expectedValue - 5 * DEFAULT_TEST_STANDARD_DEVIATION <= actualValue && actualValue <= expectedValue + 5 * DEFAULT_TEST_STANDARD_DEVIATION;
         };
 

@@ -42,7 +42,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -98,7 +98,7 @@ public class RewriteSpatialPartitioningAggregation
             QualifiedObjectName name = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
-                RowExpression geometry = getOnlyElement(aggregation.getArguments());
+                RowExpression geometry = aggregation.getArguments().stream().collect(onlyElement());
                 VariableReferenceExpression envelopeVariable = context.getVariableAllocator().newVariable(aggregation.getCall().getSourceLocation(), "envelope", geometryType);
                 if (isFunctionNameMatch(geometry, "ST_Envelope")) {
                     envelopeAssignments.put(envelopeVariable, geometry);

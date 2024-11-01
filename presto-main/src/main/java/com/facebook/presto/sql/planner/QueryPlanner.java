@@ -87,8 +87,8 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -99,6 +99,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isSkipRedundantSort;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -133,14 +134,15 @@ import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.ROWS;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 class QueryPlanner
 {
@@ -191,7 +193,7 @@ class QueryPlanner
         builder = handleSubqueries(builder, query, orderBy);
         List<Expression> outputs = analysis.getOutputExpressions(query);
         builder = handleSubqueries(builder, query, outputs);
-        builder = project(builder, Iterables.concat(orderBy, outputs));
+        builder = project(builder, Stream.concat(orderBy.stream(), outputs.stream()).toList());
         builder = sort(builder, query);
         builder = offset(builder, query.getOffset());
         builder = limit(builder, query);
@@ -219,25 +221,25 @@ class QueryPlanner
                 // ORDER BY requires both output and source fields to be visible if there are no aggregations
                 builder = project(builder, outputs, fromRelationPlan);
                 outputs = toSymbolReferences(computeOutputs(builder, outputs));
-                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()));
+                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().orElseThrow()));
             }
             else {
                 // ORDER BY requires output fields, groups and translated aggregations to be visible for queries with aggregation
-                List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
-                builder = project(builder, Iterables.concat(outputs, orderByAggregates));
+                List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().orElseThrow());
+                builder = project(builder, Stream.concat(outputs.stream(), orderByAggregates.stream()).toList());
                 outputs = toSymbolReferences(computeOutputs(builder, outputs));
                 List<Expression> complexOrderByAggregatesToRemap = orderByAggregates.stream()
                         .filter(expression -> !analysis.isColumnReference(expression))
                         .collect(toImmutableList());
-                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()), complexOrderByAggregatesToRemap);
+                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().orElseThrow()), complexOrderByAggregatesToRemap);
             }
 
-            builder = window(builder, node.getOrderBy().get());
+            builder = window(builder, node.getOrderBy().orElseThrow());
         }
 
         List<Expression> orderBy = analysis.getOrderByExpressions(node);
         builder = handleSubqueries(builder, node, orderBy);
-        builder = project(builder, Iterables.concat(orderBy, outputs));
+        builder = project(builder, Stream.concat(orderBy.stream(), outputs.stream()).toList());
 
         builder = distinct(builder, node);
         builder = sort(builder, node);
@@ -260,7 +262,7 @@ class QueryPlanner
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().get(), field.getType());
+            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().orElseThrow(), field.getType());
             outputVariablesBuilder.add(variable);
             columns.put(variable, analysis.getColumn(field));
             fields.add(field);
@@ -285,7 +287,7 @@ class QueryPlanner
         PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot());
 
         if (node.getWhere().isPresent()) {
-            builder = filter(builder, node.getWhere().get(), node);
+            builder = filter(builder, node.getWhere().orElseThrow(), node);
         }
 
         // create delete node
@@ -323,10 +325,10 @@ class QueryPlanner
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
-            String name = field.getName().get();
+            String name = field.getName().orElseThrow();
             int index = targetColumnNames.indexOf(name);
             if (index >= 0) {
-                VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().get(), field.getType());
+                VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().orElseThrow(), field.getType());
                 outputVariablesBuilder.add(variable);
                 columns.put(variable, analysis.getColumn(field));
                 fields.add(field);
@@ -353,7 +355,7 @@ class QueryPlanner
         PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot());
 
         if (node.getWhere().isPresent()) {
-            builder = filter(builder, node.getWhere().get(), node);
+            builder = filter(builder, node.getWhere().orElseThrow(), node);
         }
 
         builder = builder.appendProjections(orderedColumnValues, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, sqlPlannerContext);
@@ -418,7 +420,7 @@ class QueryPlanner
 
         if (node.getFrom().isPresent()) {
             relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
-                    .process(node.getFrom().get(), sqlPlannerContext);
+                    .process(node.getFrom().orElseThrow(), sqlPlannerContext);
         }
         else {
             relationPlan = planImplicitTable();
@@ -479,7 +481,7 @@ class QueryPlanner
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions, RelationPlan parentRelationPlan)
     {
-        return project(subPlan, Iterables.concat(expressions, toSymbolReferences(parentRelationPlan.getFieldMappings())));
+        return project(subPlan, Stream.concat(Streams.stream(expressions), toSymbolReferences(parentRelationPlan.getFieldMappings()).stream()).toList());
     }
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions)
@@ -549,7 +551,7 @@ class QueryPlanner
         for (Expression expression : expressions) {
             Type type = analysis.getType(expression);
             Type coercion = analysis.getCoercion(expression);
-            VariableReferenceExpression variable = newVariable(variableAllocator, expression, firstNonNull(coercion, type));
+            VariableReferenceExpression variable = newVariable(variableAllocator, expression, requireNonNullElse(coercion, type));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
                 rewritten = new Cast(
@@ -631,7 +633,7 @@ class QueryPlanner
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getOrderBy)
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .map(OrderBy::getSortItems)
                 .flatMap(List::stream)
                 .map(SortItem::getSortKey)
@@ -641,13 +643,13 @@ class QueryPlanner
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getFilter)
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .forEach(arguments::add);
 
-        Iterable<Expression> inputs = Iterables.concat(groupByExpressions, arguments.build());
+        Iterable<Expression> inputs = Stream.concat(groupByExpressions.stream(), arguments.build().stream()).toList();
         subPlan = handleSubqueries(subPlan, node, inputs);
 
-        if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
+        if (Streams.stream(inputs).findAny().isPresent()) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
             subPlan = project(subPlan, inputs);
         }
 
@@ -691,7 +693,7 @@ class QueryPlanner
             Analysis.GroupingSetAnalysis groupingSetAnalysis = analysis.getGroupingSets(node);
             columnOnlyGroupingSets = enumerateGroupingSets(groupingSetAnalysis);
 
-            if (node.getGroupBy().get().isDistinct()) {
+            if (node.getGroupBy().orElseThrow().isDistinct()) {
                 columnOnlyGroupingSets = columnOnlyGroupingSets.stream()
                         .distinct()
                         .collect(toImmutableList());
@@ -719,7 +721,7 @@ class QueryPlanner
         Optional<VariableReferenceExpression> groupIdVariable = Optional.empty();
         if (groupingSets.size() > 1) {
             groupIdVariable = Optional.of(variableAllocator.newVariable("groupId", BIGINT));
-            GroupIdNode groupId = new GroupIdNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subPlan.getRoot(), groupingSets, groupingSetMappings, aggregationArguments, groupIdVariable.get());
+            GroupIdNode groupId = new GroupIdNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subPlan.getRoot(), groupingSets, groupingSetMappings, aggregationArguments, groupIdVariable.orElseThrow());
             subPlan = new PlanBuilder(groupingTranslations, groupId);
         }
         else {
@@ -911,7 +913,7 @@ class QueryPlanner
         }
 
         for (FunctionCall windowFunction : windowFunctions) {
-            Window window = windowFunction.getWindow().get();
+            Window window = windowFunction.getWindow().orElseThrow();
 
             // Extract frame
             WindowFrame.Type frameType = RANGE;
@@ -921,15 +923,15 @@ class QueryPlanner
             Optional<Expression> endValue = Optional.empty();
 
             if (window.getFrame().isPresent()) {
-                WindowFrame frame = window.getFrame().get();
+                WindowFrame frame = window.getFrame().orElseThrow();
                 frameType = frame.getType();
 
                 frameStartType = frame.getStart().getType();
                 startValue = frame.getStart().getValue();
 
                 if (frame.getEnd().isPresent()) {
-                    frameEndType = frame.getEnd().get().getType();
-                    endValue = frame.getEnd().get().getValue();
+                    frameEndType = frame.getEnd().orElseThrow().getType();
+                    endValue = frame.getEnd().orElseThrow().getValue();
                 }
             }
 
@@ -937,13 +939,13 @@ class QueryPlanner
             ImmutableList.Builder<Expression> inputsBuilder = ImmutableList.<Expression>builder()
                     .addAll(windowFunction.getArguments())
                     .addAll(window.getPartitionBy())
-                    .addAll(Iterables.transform(getSortItemsFromOrderBy(window.getOrderBy()), SortItem::getSortKey));
+                    .addAll(getSortItemsFromOrderBy(window.getOrderBy()).stream().map(SortItem::getSortKey).toList());
 
             if (startValue.isPresent()) {
-                inputsBuilder.add(startValue.get());
+                inputsBuilder.add(startValue.orElseThrow());
             }
             if (endValue.isPresent()) {
-                inputsBuilder.add(endValue.get());
+                inputsBuilder.add(endValue.orElseThrow());
             }
 
             ImmutableList<Expression> inputs = inputsBuilder.build();
@@ -965,7 +967,7 @@ class QueryPlanner
             Optional<VariableReferenceExpression> sortKeyCoercedForFrameStartComparison = Optional.empty();
             Optional<VariableReferenceExpression> sortKeyCoercedForFrameEndComparison = Optional.empty();
 
-            if (window.getFrame().isPresent() && window.getFrame().get().getType() == RANGE) {
+            if (window.getFrame().isPresent() && window.getFrame().orElseThrow().getType() == RANGE) {
                 // record sortKey coercions for reuse
                 Map<Type, VariableReferenceExpression> sortKeyCoercions = new HashMap<>();
 
@@ -981,12 +983,12 @@ class QueryPlanner
                 frameEnd = plan.getFrameBoundSymbol();
                 sortKeyCoercedForFrameEndComparison = plan.getSortKeyCoercedForFrameBoundComparison();
             }
-            else if (window.getFrame().isPresent() && (window.getFrame().get().getType() == ROWS || window.getFrame().get().getType() == GROUPS)) {
-                frameStart = window.getFrame().get().getStart().getValue().map(coercions::get);
-                frameEnd = window.getFrame().get().getEnd().flatMap(FrameBound::getValue).map(coercions::get);
+            else if (window.getFrame().isPresent() && (window.getFrame().orElseThrow().getType() == ROWS || window.getFrame().orElseThrow().getType() == GROUPS)) {
+                frameStart = window.getFrame().orElseThrow().getStart().getValue().map(coercions::get);
+                frameEnd = window.getFrame().orElseThrow().getEnd().flatMap(FrameBound::getValue).map(coercions::get);
             }
             else if (window.getFrame().isPresent()) {
-                throw new IllegalArgumentException("unexpected window frame type: " + window.getFrame().get().getType());
+                throw new IllegalArgumentException("unexpected window frame type: " + window.getFrame().orElseThrow().getType());
             }
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
@@ -1098,7 +1100,7 @@ class QueryPlanner
         // It requires adding certain projections to the plan so that the operator can determine frame bounds.
 
         // First, append filter to validate offset values. They mustn't be negative or null.
-        VariableReferenceExpression offsetSymbol = coercions.get(frameOffset.get());
+        VariableReferenceExpression offsetSymbol = coercions.get(frameOffset.orElseThrow());
         Expression zeroOffset = zeroOfType(TypeProvider.viewOf(variableAllocator.getVariables()).get(offsetSymbol));
         FunctionHandle fail = metadata.getFunctionAndTypeManager().resolveFunction(Optional.empty(), Optional.empty(), QualifiedObjectName.valueOf("presto.default.fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
@@ -1121,11 +1123,11 @@ class QueryPlanner
         // Then, coerce the sortKey so that we can add / subtract the offset.
         // Note: for that we cannot rely on the usual mechanism of using the coerce() method. The coerce() method can only handle one coercion for a node,
         // while the sortKey node might require several different coercions, e.g. one for frame start and one for frame end.
-        Expression sortKey = Iterables.getOnlyElement(window.getOrderBy().get().getSortItems()).getSortKey();
+        Expression sortKey = window.getOrderBy().orElseThrow().getSortItems().stream().collect(onlyElement()).getSortKey();
         VariableReferenceExpression sortKeyCoercedForFrameBoundCalculation = coercions.get(sortKey);
         Optional<Type> coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundCalculation);
         if (coercion.isPresent()) {
-            Type expectedType = coercion.get();
+            Type expectedType = coercion.orElseThrow();
             VariableReferenceExpression alreadyCoerced = sortKeyCoercions.get(expectedType);
             if (alreadyCoerced != null) {
                 sortKeyCoercedForFrameBoundCalculation = alreadyCoerced;
@@ -1150,7 +1152,7 @@ class QueryPlanner
 
         // Next, pre-project the function which combines sortKey with the offset.
         // Note: if frameOffset needs a coercion, it was added before by a call to coerce() method.
-        FunctionHandle function = frameBoundCalculationFunction.get();
+        FunctionHandle function = frameBoundCalculationFunction.orElseThrow();
         FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(function);
         QualifiedObjectName name = functionMetadata.getName();
         Expression functionCall = new FunctionCall(
@@ -1171,7 +1173,7 @@ class QueryPlanner
         Optional<VariableReferenceExpression> sortKeyCoercedForFrameBoundComparison = Optional.of(coercions.get(sortKey));
         coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundComparison);
         if (coercion.isPresent()) {
-            Type expectedType = coercion.get();
+            Type expectedType = coercion.orElseThrow();
             VariableReferenceExpression alreadyCoerced = sortKeyCoercions.get(expectedType);
             if (alreadyCoerced != null) {
                 sortKeyCoercedForFrameBoundComparison = Optional.of(alreadyCoerced);
@@ -1252,15 +1254,15 @@ class QueryPlanner
 
     private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderBy> orderBy, List<Expression> orderByExpressions)
     {
-        if (!orderBy.isPresent() || (isSkipRedundantSort(session)) && analysis.isOrderByRedundant(orderBy.get())) {
+        if (!orderBy.isPresent() || (isSkipRedundantSort(session)) && analysis.isOrderByRedundant(orderBy.orElseThrow())) {
             return subPlan;
         }
 
         PlanNode planNode;
         OrderingScheme orderingScheme = toOrderingScheme(
                 orderByExpressions.stream().map(subPlan::translate).collect(toImmutableList()),
-                orderBy.get().getSortItems().stream().map(PlannerUtils::toSortOrder).collect(toImmutableList()));
-        planNode = new SortNode(getSourceLocation(orderBy.get()), idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
+                orderBy.orElseThrow().getSortItems().stream().map(PlannerUtils::toSortOrder).collect(toImmutableList()));
+        planNode = new SortNode(getSourceLocation(orderBy.orElseThrow()), idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
 
         return subPlan.withNewRoot(planNode);
     }
@@ -1273,10 +1275,10 @@ class QueryPlanner
 
         return subPlan.withNewRoot(
                 new OffsetNode(
-                        getSourceLocation(offset.get()),
+                        getSourceLocation(offset.orElseThrow()),
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
-                        analysis.getOffset(offset.get())));
+                        analysis.getOffset(offset.orElseThrow())));
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, Query node)
@@ -1295,13 +1297,13 @@ class QueryPlanner
             return subPlan;
         }
 
-        if (!limit.get().equalsIgnoreCase("all")) {
+        if (!limit.orElseThrow().equalsIgnoreCase("all")) {
             try {
-                long limitValue = Long.parseLong(limit.get());
+                long limitValue = Long.parseLong(limit.orElseThrow());
                 subPlan = subPlan.withNewRoot(new LimitNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subPlan.getRoot(), limitValue, FINAL));
             }
             catch (NumberFormatException e) {
-                throw new PrestoException(INVALID_LIMIT_CLAUSE, format("Invalid limit: %s", limit.get()));
+                throw new PrestoException(INVALID_LIMIT_CLAUSE, format("Invalid limit: %s", limit.orElseThrow()));
             }
         }
 

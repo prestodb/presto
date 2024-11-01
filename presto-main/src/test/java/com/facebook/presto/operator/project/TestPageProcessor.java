@@ -480,7 +480,7 @@ public class TestPageProcessor
         while (totalPositionCount < rows) {
             Optional<Page> page = output.next();
             assertTrue(page.isPresent());
-            long positionCount = page.get().getPositionCount();
+            long positionCount = page.orElseThrow().getPositionCount();
             totalPositionCount += positionCount;
             // skip the first read && skip the last read, which can be a partial page
             if (positionCount > 1 && totalPositionCount != rows) {
@@ -514,7 +514,7 @@ public class TestPageProcessor
         while (totalPositionCount < rows) {
             Optional<Page> page = output.next();
             assertTrue(page.isPresent());
-            long positionCount = page.get().getPositionCount();
+            long positionCount = page.orElseThrow().getPositionCount();
             totalPositionCount += positionCount;
             // the batch size doesn't get smaller than 1
             if (positionCount > 1 && previousPositionCount != 1) {

@@ -63,7 +63,7 @@ public class PageSourceManager
         Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter = table.getDynamicFilter();
 
         // directly return the result if the given constraint is always false
-        if (dynamicFilter.isPresent() && dynamicFilter.get().get().isNone()) {
+        if (dynamicFilter.isPresent() && dynamicFilter.orElseThrow().get().isNone()) {
             return new FixedPageSource(ImmutableList.of());
         }
 
@@ -73,7 +73,7 @@ public class PageSourceManager
                     split.getTransactionHandle(),
                     split.getConnectorSplit(),
                     split.getLifespan(),
-                    new SplitContext(split.getSplitContext().isCacheable(), dynamicFilter.get().get()));
+                    new SplitContext(split.getSplitContext().isCacheable(), dynamicFilter.orElseThrow().get()));
         }
 
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
@@ -82,7 +82,7 @@ public class PageSourceManager
                     split.getTransactionHandle(),
                     connectorSession,
                     split.getConnectorSplit(),
-                    table.getLayout().get(),
+                    table.getLayout().orElseThrow(),
                     columns,
                     split.getSplitContext(),
                     runtimeStats);
