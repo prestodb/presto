@@ -35,6 +35,18 @@ class RowContainerTestBase : public testing::Test,
       facebook::velox::serializer::presto::PrestoVectorSerde::
           registerVectorSerde();
     }
+    if (!isRegisteredVectorSerde()) {
+      facebook::velox::serializer::presto::PrestoVectorSerde::
+          registerVectorSerde();
+    }
+    if (!isRegisteredVectorSerde()) {
+      facebook::velox::serializer::presto::PrestoVectorSerde::
+          registerVectorSerde();
+    }
+    if (!isRegisteredVectorSerde()) {
+      facebook::velox::serializer::presto::PrestoVectorSerde::
+          registerVectorSerde();
+    }
     filesystems::registerLocalFileSystem();
   }
 

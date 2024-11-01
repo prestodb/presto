@@ -18,6 +18,7 @@ velox_add_library(
   OperatorReplayerBase.cpp
   PartitionedOutputReplayer.cpp
   TableWriterReplayer.cpp
+  FilterProjectReplayer.cpp
   TraceReplayRunner.cpp)
 
 velox_link_libraries(
@@ -34,7 +35,7 @@ velox_link_libraries(
   glog::glog
   gflags::gflags)
 
-add_executable(velox_query_replayer TraceReplayerMain.cpp)
+add_executable(velox_query_replayer TraceReplayerMain.cpp TraceReplayRunner.cpp)
 
 target_link_libraries(
   velox_query_replayer

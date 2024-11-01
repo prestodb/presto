@@ -67,7 +67,7 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() const {
   const auto* replayNode = core::PlanNode::findFirstNode(
       planFragment_.get(),
       [this](const core::PlanNode* node) { return node->id() == nodeId_; });
-  return exec::test::PlanBuilder()
+  return exec::test::PlanBuilder(planNodeIdGenerator_)
       .traceScan(
           nodeTraceDir_,
           pipelineId_,

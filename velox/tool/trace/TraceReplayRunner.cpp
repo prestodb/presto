@@ -41,6 +41,7 @@
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/tool/trace/AggregationReplayer.h"
+#include "velox/tool/trace/FilterProjectReplayer.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
 #include "velox/tool/trace/PartitionedOutputReplayer.h"
 #include "velox/tool/trace/TableWriterReplayer.h"
@@ -103,6 +104,14 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
         FLAGS_operator_type);
   } else if (FLAGS_operator_type == "PartitionedOutput") {
     replayer = std::make_unique<tool::trace::PartitionedOutputReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        FLAGS_pipeline_id,
+        FLAGS_operator_type);
+  } else if (FLAGS_operator_type == "FilterProject") {
+    replayer = std::make_unique<tool::trace::FilterProjectReplayer>(
         FLAGS_root_dir,
         FLAGS_query_id,
         FLAGS_task_id,
