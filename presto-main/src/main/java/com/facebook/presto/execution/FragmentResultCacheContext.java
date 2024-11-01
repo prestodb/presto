@@ -71,13 +71,13 @@ public class FragmentResultCacheContext
             return Optional.empty();
         }
 
-        String hashedCanonicalPlanFragment = generateHashedCanonicalPlanFragment(canonicalPlanFragment.get(), objectMapper);
+        String hashedCanonicalPlanFragment = generateHashedCanonicalPlanFragment(canonicalPlanFragment.orElseThrow(), objectMapper);
         if (hashedCanonicalPlanFragment == null) {
             return Optional.empty();
         }
         return Optional.of(new FragmentResultCacheContext(
                 fragmentResultCacheManager,
-                canonicalPlanFragment.get(),
+                canonicalPlanFragment.orElseThrow(),
                 hashedCanonicalPlanFragment,
                 objectMapper));
     }

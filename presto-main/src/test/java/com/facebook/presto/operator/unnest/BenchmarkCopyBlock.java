@@ -135,7 +135,7 @@ public class BenchmarkCopyBlock
         public void setup()
         {
             Metadata metadata = createTestMetadataManager();
-            Type type = getType(metadata, typeSignature).get();
+            Type type = getType(metadata, typeSignature).orElseThrow();
 
             for (int i = 0; i < BLOCK_COUNT; i++) {
                 blocks.add(createRandomBlockForType(

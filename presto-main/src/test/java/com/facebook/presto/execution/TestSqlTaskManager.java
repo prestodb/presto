@@ -175,14 +175,14 @@ public class TestSqlTaskManager
                     .findFirst();
             assertTrue(taskBufferInfo.isPresent());
             // Buffer still remains as acknowledgement has not been received
-            assertEquals(taskBufferInfo.get().getPageBufferInfo().getBufferedBytes(), retainedPageSize);
+            assertEquals(taskBufferInfo.orElseThrow().getPageBufferInfo().getBufferedBytes(), retainedPageSize);
             // Once acknowledged, the retained size of the data page is removed from the buffer
             sqlTaskManager.acknowledgeTaskResults(taskId, OUT, results.getNextToken());
             taskBufferInfo = sqlTaskManager.getOutputBufferInfo(TASK_ID).getBuffers().stream()
                     .filter(bufferInfo -> bufferInfo.getBufferId().equals(OUT))
                     .findFirst();
             assertTrue(taskBufferInfo.isPresent());
-            assertEquals(taskBufferInfo.get().getPageBufferInfo().getBufferedBytes(), 0);
+            assertEquals(taskBufferInfo.orElseThrow().getPageBufferInfo().getBufferedBytes(), 0);
 
             sqlTaskManager.cancelTask(TASK_ID);
             taskInfo = sqlTaskManager.getTaskInfo(taskId);

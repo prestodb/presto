@@ -101,7 +101,7 @@ public class BytecodeGeneratorContext
     {
         Optional<BytecodeNode> instance = Optional.empty();
         if (function instanceof BuiltInScalarFunctionImplementation && ((BuiltInScalarFunctionImplementation) function).getInstanceFactory().isPresent()) {
-            FieldDefinition field = cachedInstanceBinder.getCachedInstance(((BuiltInScalarFunctionImplementation) function).getInstanceFactory().get());
+            FieldDefinition field = cachedInstanceBinder.getCachedInstance(((BuiltInScalarFunctionImplementation) function).getInstanceFactory().orElseThrow());
             instance = Optional.of(scope.getThis().getField(field));
         }
         return generateInvocation(scope, name, function, instance, arguments, callSiteBinder, outputBlockVariableAndType);

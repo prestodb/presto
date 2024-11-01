@@ -67,7 +67,7 @@ public final class NullabilityAnalyzer
             FunctionMetadata function = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
             Optional<OperatorType> operator = function.getOperatorType();
             if (operator.isPresent()) {
-                switch (operator.get()) {
+                switch (operator.orElseThrow()) {
                     case SATURATED_FLOOR_CAST:
                     case CAST: {
                         if (!isCastTypeOnlyCoercion(call)) {

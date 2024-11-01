@@ -111,7 +111,7 @@ public final class MetadataUtil
             throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Session catalog must be set");
         }
 
-        return sessionCatalog.get();
+        return sessionCatalog.orElseThrow();
     }
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
@@ -120,14 +120,14 @@ public final class MetadataUtil
         String schemaName = session.getSchema().orElse(null);
 
         if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
+            List<String> parts = schema.orElseThrow().getParts();
             if (parts.size() > 2) {
-                throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.get());
+                throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.orElseThrow());
             }
             if (parts.size() == 2) {
                 catalogName = parts.get(0);
             }
-            schemaName = schema.get().getSuffix();
+            schemaName = schema.orElseThrow().getSuffix();
         }
 
         if (catalogName == null) {
@@ -174,7 +174,7 @@ public final class MetadataUtil
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, table.getCatalogName());
         if (catalog.isPresent()) {
-            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogMetadata catalogMetadata = catalog.orElseThrow();
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
@@ -198,7 +198,7 @@ public final class MetadataUtil
         GrantorSpecification.Type type = specification.getType();
         switch (type) {
             case PRINCIPAL:
-                return createPrincipal(specification.getPrincipal().get());
+                return createPrincipal(specification.getPrincipal().orElseThrow());
             case CURRENT_USER:
                 return new PrestoPrincipal(USER, session.getIdentity().getUser());
             case CURRENT_ROLE:
@@ -228,7 +228,7 @@ public final class MetadataUtil
         if (!session.getCatalog().isPresent() || !session.getSchema().isPresent()) {
             return false;
         }
-        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
+        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), table);
         return metadata.getMetadataResolver(session).getTableHandle(name).isPresent();
     }
 

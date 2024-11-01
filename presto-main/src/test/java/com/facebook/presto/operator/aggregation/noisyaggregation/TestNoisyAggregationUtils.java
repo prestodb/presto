@@ -24,18 +24,18 @@ import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
 
 public class TestNoisyAggregationUtils
 {
-    public static final BiFunction<Object, Object, Boolean> notEqualDoubleAssertion = (actual, expected) -> !new Double(actual.toString()).equals(new Double(expected.toString()));
+    public static final BiFunction<Object, Object, Boolean> notEqualDoubleAssertion = (actual, expected) -> !(Double.parseDouble(actual.toString()) == Double.parseDouble(expected.toString()));
 
     public static final BiFunction<Object, Object, Boolean> equalDoubleAssertion =
-            (actual, expected) -> Math.abs(new Double(actual.toString()) - new Double(expected.toString())) <= 1e-12;
+            (actual, expected) -> Math.abs(Double.parseDouble(actual.toString()) - Double.parseDouble(expected.toString())) <= 1e-12;
 
-    public static final BiFunction<Object, Object, Boolean> equalLongAssertion = (actual, expected) -> new Long(actual.toString()).equals(new Long(expected.toString()));
+    public static final BiFunction<Object, Object, Boolean> equalLongAssertion = (actual, expected) -> Long.parseLong(actual.toString()) == Long.parseLong((expected.toString()));
 
     public static final double DEFAULT_TEST_STANDARD_DEVIATION = 1.0;
 
     public static final BiFunction<Object, Object, Boolean> withinSomeStdAssertion = (actual, expected) -> {
-        double actualValue = new Double(actual.toString());
-        double expectedValue = new Double(expected.toString());
+        double actualValue = Double.parseDouble(actual.toString());
+        double expectedValue = Double.parseDouble(expected.toString());
         return expectedValue - 50 * DEFAULT_TEST_STANDARD_DEVIATION <= actualValue && actualValue <= expectedValue + 50 * DEFAULT_TEST_STANDARD_DEVIATION;
     };
 

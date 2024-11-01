@@ -19,13 +19,14 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.RowPageBuilder.rowPageBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class RowPagesBuilder
@@ -124,7 +125,7 @@ public class RowPagesBuilder
     {
         ImmutableList.Builder<Page> resultPages = ImmutableList.builder();
         for (Page page : pages) {
-            resultPages.add(TypeUtils.getHashPage(page, types, hashChannels.get()));
+            resultPages.add(TypeUtils.getHashPage(page, types, hashChannels.orElseThrow()));
         }
         return resultPages.build();
     }
@@ -132,7 +133,7 @@ public class RowPagesBuilder
     public List<Type> getTypes()
     {
         if (hashEnabled) {
-            return ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BigintType.BIGINT)));
+            return Stream.concat(types.stream(), ImmutableList.of(BigintType.BIGINT).stream()).collect(toImmutableList());
         }
         return types;
     }

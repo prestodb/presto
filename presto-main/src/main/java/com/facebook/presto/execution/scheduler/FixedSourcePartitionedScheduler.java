@@ -184,7 +184,7 @@ public class FixedSourcePartitionedScheduler
                     nodes.stream(),
                     (node, id) -> stage.scheduleTask(node, toIntExact(id)))
                     .filter(Optional::isPresent)
-                    .map(Optional::get)
+                    .map(Optional::orElseThrow)
                     .collect(toImmutableList());
             scheduledTasks = true;
 
@@ -201,10 +201,10 @@ public class FixedSourcePartitionedScheduler
                 if (anySourceSchedulingFinished) {
                     throw new IllegalStateException("Recover after any source scheduling finished is not supported");
                 }
-                groupedLifespanScheduler.get().onTaskFailed(tasksToRecover.poll(), sourceSchedulers);
+                groupedLifespanScheduler.orElseThrow().onTaskFailed(tasksToRecover.poll(), sourceSchedulers);
             }
 
-            if (groupedLifespanScheduler.get().allLifespanExecutionFinished()) {
+            if (groupedLifespanScheduler.orElseThrow().allLifespanExecutionFinished()) {
                 for (SourceScheduler sourceScheduler : sourceSchedulers) {
                     sourceScheduler.notifyAllLifespansFinishedExecution();
                 }
@@ -215,7 +215,7 @@ public class FixedSourcePartitionedScheduler
                 //
                 // Invoke schedule method to get a new SettableFuture every time.
                 // Reusing previously returned SettableFuture could lead to the ListenableFuture retaining too many listeners.
-                blocked.add(groupedLifespanScheduler.get().schedule(sourceSchedulers.get(0)));
+                blocked.add(groupedLifespanScheduler.orElseThrow().schedule(sourceSchedulers.get(0)));
             }
         }
 
@@ -242,7 +242,7 @@ public class FixedSourcePartitionedScheduler
                 splitsScheduled += schedule.getSplitsScheduled();
                 if (schedule.getBlockedReason().isPresent()) {
                     blocked.add(schedule.getBlocked());
-                    blockedReason = blockedReason.combineWith(schedule.getBlockedReason().get());
+                    blockedReason = blockedReason.combineWith(schedule.getBlockedReason().orElseThrow());
                 }
                 else {
                     verify(schedule.getBlocked().isDone(), "blockedReason not provided when scheduler is blocked");
@@ -327,7 +327,7 @@ public class FixedSourcePartitionedScheduler
 
         public InternalNode getNodeForBucket(int bucketId)
         {
-            return bucketNodeMap.getAssignedNode(bucketId).get();
+            return bucketNodeMap.getAssignedNode(bucketId).orElseThrow();
         }
     }
 

@@ -68,7 +68,7 @@ public class UseTask
     private void checkAndSetCatalog(Use statement, Metadata metadata, QueryStateMachine stateMachine, Session session)
     {
         if (statement.getCatalog().isPresent()) {
-            String catalog = statement.getCatalog().get().getValueLowerCase();
+            String catalog = statement.getCatalog().orElseThrow().getValueLowerCase();
             if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
                 throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
             }

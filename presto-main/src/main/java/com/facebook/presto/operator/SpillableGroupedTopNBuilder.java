@@ -147,7 +147,7 @@ public class SpillableGroupedTopNBuilder
 
         // Collect all spill streams to merge-sort
         List<WorkProcessor<Page>> sortedPageStreams = ImmutableList.<WorkProcessor<Page>>builder()
-                .addAll(spiller.get().getSpills().stream()
+                .addAll(spiller.orElseThrow().getSpills().stream()
                         .map(WorkProcessor::fromIterator)
                         .collect(toImmutableList()))
                 .build();
@@ -230,7 +230,7 @@ public class SpillableGroupedTopNBuilder
         if (spiller.isPresent()) {
             checkState(spillInProgress.isDone());
             verify(inputInMemoryGroupedTopNBuilder.isEmpty());
-            spiller.get().commit();
+            spiller.orElseThrow().commit();
         }
         updateMemoryReservations();
     }
@@ -260,7 +260,7 @@ public class SpillableGroupedTopNBuilder
                 }
 
                 if (inputIsPresent) {
-                    Page inputPage = inputPageOptional.get();
+                    Page inputPage = inputPageOptional.orElseThrow();
                     boolean done = outputInMemoryGroupedTopNBuilder.processPage(inputPage).process();
                     if (!done) {
                         return blocked(memoryWaitingFutureSupplier.get());
@@ -292,7 +292,7 @@ public class SpillableGroupedTopNBuilder
         }
 
         // start spilling process with current content of the inMemoryGroupedTopNBuilder builder...
-        spillInProgress = spiller.get().spill(inputInMemoryGroupedTopNBuilder.buildHashSortedIntermediateResult());
+        spillInProgress = spiller.orElseThrow().spill(inputInMemoryGroupedTopNBuilder.buildHashSortedIntermediateResult());
         // ... and immediately create new inMemoryGroupedTopNBuilder so effectively memory ownership
         // over inMemoryGroupedTopNBuilder is transferred from this thread to a spilling thread
         initializeInputInMemoryGroupedTopNBuilder();

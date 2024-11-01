@@ -20,7 +20,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -28,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -96,7 +96,7 @@ public class OffsetNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OffsetNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), count);
+        return new OffsetNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.stream().collect(onlyElement()), count);
     }
 
     @Override

@@ -45,7 +45,6 @@ import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
@@ -295,7 +294,7 @@ public class EffectivePredicateExtractor
                             .filter(nullVariableScope)
                             .collect(toImmutableList());
 
-                    if (Iterables.isEmpty(variables)) {
+                    if (variables.stream().findAny().isEmpty()) {
                         continue;
                     }
 

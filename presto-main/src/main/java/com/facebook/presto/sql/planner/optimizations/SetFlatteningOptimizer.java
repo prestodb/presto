@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 
 import java.util.List;
@@ -121,14 +120,14 @@ public class SetFlatteningOptimizer
                     flattenedSources.addAll(rewrittenSetOperation.getSources());
                     planChanged = true;
                     for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getVariableMapping().entrySet()) {
-                        VariableReferenceExpression inputVariable = Iterables.get(entry.getValue(), i);
+                        VariableReferenceExpression inputVariable = entry.getValue().stream().skip(i).findFirst().orElseThrow();
                         flattenedVariableMap.putAll(entry.getKey(), rewrittenSetOperation.getVariableMapping().get(inputVariable));
                     }
                 }
                 else {
                     flattenedSources.add(rewrittenSource);
                     for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getVariableMapping().entrySet()) {
-                        flattenedVariableMap.put(entry.getKey(), Iterables.get(entry.getValue(), i));
+                        flattenedVariableMap.put(entry.getKey(), entry.getValue().stream().skip(i).findFirst().orElseThrow());
                     }
                 }
             }

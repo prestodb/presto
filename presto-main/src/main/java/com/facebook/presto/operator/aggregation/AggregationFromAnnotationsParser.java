@@ -39,7 +39,7 @@ import static com.facebook.presto.operator.aggregation.AggregationImplementation
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationFromAnnotationsParser
@@ -96,7 +96,7 @@ public class AggregationFromAnnotationsParser
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
-            Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
+            Method outputFunction = getOutputFunctions(aggregationDefinition, stateClass).stream().collect(onlyElement());
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                 AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                 implementationsBuilder.addImplementation(implementation);
@@ -124,7 +124,7 @@ public class AggregationFromAnnotationsParser
                         stateClass.toGenericString(),
                         stateSerializerFactories.size(),
                         aggregationDefinition.toGenericString()));
-        return Optional.of(getOnlyElement(stateSerializerFactories));
+        return Optional.of(stateSerializerFactories.stream().collect(onlyElement()));
     }
 
     private static AggregationHeader parseHeader(AnnotatedElement aggregationDefinition)
@@ -182,7 +182,7 @@ public class AggregationFromAnnotationsParser
                 .collect(toImmutableList());
 
         checkArgument(combineFunctions.size() == 1, String.format("There must be exactly one @CombineFunction in class %s for the @AggregationState %s ", clazz.toGenericString(), stateClass.toGenericString()));
-        return getOnlyElement(combineFunctions);
+        return combineFunctions.stream().collect(onlyElement());
     }
 
     private static List<Method> getOutputFunctions(Class<?> clazz, Class<?> stateClass)

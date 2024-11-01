@@ -253,10 +253,10 @@ public abstract class BasePlanFragmenter
     public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
     {
         if (node.getTablePartitioningScheme().isPresent()) {
-            context.get().setDistribution(node.getTablePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+            context.get().setDistribution(node.getTablePartitioningScheme().orElseThrow().getPartitioning().getHandle(), metadata, session);
         }
         if (node.getPreferredShufflePartitioningScheme().isPresent()) {
-            context.get().setDistribution(node.getPreferredShufflePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+            context.get().setDistribution(node.getPreferredShufflePartitioningScheme().orElseThrow().getPartitioning().getHandle(), metadata, session);
         }
         return context.defaultRewrite(node, context.get());
     }
@@ -436,7 +436,7 @@ public abstract class BasePlanFragmenter
 
         public FragmentProperties setSingleNodeDistribution()
         {
-            if (partitioningHandle.isPresent() && partitioningHandle.get().isSingleNode()) {
+            if (partitioningHandle.isPresent() && partitioningHandle.orElseThrow().isSingleNode()) {
                 // already single node distribution
                 return this;
             }
@@ -458,7 +458,7 @@ public abstract class BasePlanFragmenter
                 return this;
             }
 
-            PartitioningHandle currentPartitioning = this.partitioningHandle.get();
+            PartitioningHandle currentPartitioning = this.partitioningHandle.orElseThrow();
 
             if (isCompatibleSystemPartitioning(currentPartitioning, distribution)) {
                 return this;
@@ -499,13 +499,13 @@ public abstract class BasePlanFragmenter
             checkArgument(isCoordinatorOnlyDistribution(node),
                     "PlanNode type %s doesn't support COORDINATOR_DISTRIBUTION", node.getClass());
 
-            if (partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnly()) {
+            if (partitioningHandle.isPresent() && partitioningHandle.orElseThrow().isCoordinatorOnly()) {
                 // already single node distribution
                 return this;
             }
 
             // only system SINGLE can be upgraded to COORDINATOR_ONLY
-            checkState(!partitioningHandle.isPresent() || partitioningHandle.get().equals(SINGLE_DISTRIBUTION),
+            checkState(!partitioningHandle.isPresent() || partitioningHandle.orElseThrow().equals(SINGLE_DISTRIBUTION),
                     "Cannot overwrite partitioning with %s (currently set to %s)",
                     COORDINATOR_DISTRIBUTION,
                     partitioningHandle);
@@ -538,7 +538,7 @@ public abstract class BasePlanFragmenter
 
         public PartitioningHandle getPartitioningHandle()
         {
-            return partitioningHandle.get();
+            return partitioningHandle.orElseThrow();
         }
 
         public Set<PlanNodeId> getPartitionedSources()

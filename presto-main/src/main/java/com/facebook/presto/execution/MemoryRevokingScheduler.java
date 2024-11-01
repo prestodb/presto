@@ -274,7 +274,7 @@ public class MemoryRevokingScheduler
         List<TaskContext> taskContexts = sqlTasks.stream()
                 .map(SqlTask::getTaskContext)
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toImmutableList());
         return MemoryRevokingSchedulerUtils.getMemoryAlreadyBeingRevoked(taskContexts, targetRevokingLimit);
     }
@@ -315,7 +315,7 @@ public class MemoryRevokingScheduler
         for (SqlTask task : sqlTasks) {
             Optional<TaskContext> taskContext = task.getTaskContext();
             if (taskContext.isPresent()) {
-                taskContext.get().accept(visitor, remainingBytesToRevokeAtomic);
+                taskContext.orElseThrow().accept(visitor, remainingBytesToRevokeAtomic);
                 if (remainingBytesToRevokeAtomic.get() <= 0) {
                     // No further revoking required
                     return;

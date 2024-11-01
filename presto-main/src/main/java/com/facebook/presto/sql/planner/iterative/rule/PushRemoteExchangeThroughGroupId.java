@@ -43,7 +43,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.groupId;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -107,7 +107,7 @@ public final class PushRemoteExchangeThroughGroupId
     {
         GroupIdNode groupIdNode = captures.get(GROUP_ID);
 
-        List<VariableReferenceExpression> inputs = getOnlyElement(node.getInputs());
+        List<VariableReferenceExpression> inputs = node.getInputs().stream().collect(onlyElement());
         inputs = removeVariable(inputs, groupIdNode.getGroupIdVariable());
         inputs = replaceAlias(inputs, groupIdNode.getGroupingColumns());
 

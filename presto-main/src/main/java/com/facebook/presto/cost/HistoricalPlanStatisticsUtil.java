@@ -45,7 +45,7 @@ public class HistoricalPlanStatisticsUtil
         Optional<Integer> similarStatsIndex = getSimilarStatsIndex(historicalPlanStatistics, inputTableStatistics, historyMatchingThreshold);
 
         if (similarStatsIndex.isPresent()) {
-            return Optional.of(lastRunsStatistics.get(similarStatsIndex.get()));
+            return Optional.of(lastRunsStatistics.get(similarStatsIndex.orElseThrow()));
         }
 
         // TODO: Use linear regression to predict stats if we have only 1 table.
@@ -68,7 +68,7 @@ public class HistoricalPlanStatisticsUtil
 
         Optional<Integer> similarStatsIndex = getSimilarStatsIndex(historicalPlanStatistics, inputTableStatistics, config.getHistoryMatchingThreshold());
         if (similarStatsIndex.isPresent()) {
-            newLastRunsStatistics.remove(similarStatsIndex.get().intValue());
+            newLastRunsStatistics.remove(similarStatsIndex.orElseThrow().intValue());
         }
 
         newLastRunsStatistics.add(new HistoricalPlanStatisticsEntry(current, inputTableStatistics, historicalPlanStatisticsEntryInfo));

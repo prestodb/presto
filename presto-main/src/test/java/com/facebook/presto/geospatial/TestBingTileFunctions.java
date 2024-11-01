@@ -717,7 +717,7 @@ public class TestBingTileFunctions
 
         // Complex input polygon
         String filePath = getResourceFile("too_large_polygon.txt").getAbsolutePath();
-        String largeWkt = Files.lines(Paths.get(filePath)).findFirst().get();
+        String largeWkt = Files.lines(Paths.get(filePath)).findFirst().orElseThrow();
         assertFunction(
                 "cardinality(geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16))",
                 BIGINT,

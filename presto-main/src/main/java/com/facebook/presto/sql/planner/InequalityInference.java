@@ -25,7 +25,6 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
@@ -50,7 +49,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 
 public class InequalityInference
@@ -100,7 +98,7 @@ public class InequalityInference
                         return compareAndExtractInequalities(it.next(), it.next());
                     })
                     .filter(Optional::isPresent)
-                    .map(Optional::get)
+                    .map(Optional::orElseThrow)
                     .collect(toImmutableSet());
 
             exploredCombinations.addAll(newCombinations);
@@ -116,10 +114,10 @@ public class InequalityInference
     private Optional<RowExpression> compareAndExtractInequalities(RowExpression expression1, RowExpression expression2)
     {
         CallExpression firstConjunct = (CallExpression) expression1;
-        OperatorType firstOperatorType = functionAndTypeManager.getFunctionMetadata(firstConjunct.getFunctionHandle()).getOperatorType().get();
+        OperatorType firstOperatorType = functionAndTypeManager.getFunctionMetadata(firstConjunct.getFunctionHandle()).getOperatorType().orElseThrow();
 
         CallExpression secondConjunct = (CallExpression) expression2;
-        OperatorType secondOperatorType = functionAndTypeManager.getFunctionMetadata(secondConjunct.getFunctionHandle()).getOperatorType().get();
+        OperatorType secondOperatorType = functionAndTypeManager.getFunctionMetadata(secondConjunct.getFunctionHandle()).getOperatorType().orElseThrow();
 
         // Get the inference operator, or empty if no inference possible.
         Optional<OperatorType> inferenceOperatorType = getComparisonInferenceOperatorType(secondOperatorType, firstOperatorType);
@@ -157,13 +155,13 @@ public class InequalityInference
 
         if (!inferredFirstArgument.isPresent() ||
                 !inferredSecondArgument.isPresent() ||
-                (outerVariables.isPresent() && Iterables.any(variablesReferencedInInferredPredicate, in(outerVariables.get())))) {
+                (outerVariables.isPresent() && variablesReferencedInInferredPredicate.stream().anyMatch(in(outerVariables.orElseThrow())))) {
             return Optional.empty();
         }
 
         // Build and return the new predicate
-        FunctionHandle inferredComparatorFunctionHandle = functionAndTypeManager.resolveOperator(inferenceOperatorType.get(), fromTypes(inferredFirstArgument.get().getType(), inferredSecondArgument.get().getType()));
-        return Optional.of(new CallExpression(inferenceOperatorType.toString(), inferredComparatorFunctionHandle, BOOLEAN, ImmutableList.of(inferredFirstArgument.get(), inferredSecondArgument.get())));
+        FunctionHandle inferredComparatorFunctionHandle = functionAndTypeManager.resolveOperator(inferenceOperatorType.orElseThrow(), fromTypes(inferredFirstArgument.orElseThrow().getType(), inferredSecondArgument.orElseThrow().getType()));
+        return Optional.of(new CallExpression(inferenceOperatorType.toString(), inferredComparatorFunctionHandle, BOOLEAN, ImmutableList.of(inferredFirstArgument.orElseThrow(), inferredSecondArgument.orElseThrow())));
     }
 
     // Get comparison operator for inferring comparison predicates given operators from
@@ -237,7 +235,8 @@ public class InequalityInference
 
         private Builder extractInequalityInferenceCandidates(RowExpression expression)
         {
-            Iterable<RowExpression> candidates = filter(extractConjuncts(expression), isInequalityInferenceCandidate());
+            Iterable<RowExpression> candidates = extractConjuncts(expression).stream()
+                    .filter(isInequalityInferenceCandidate()).collect(toImmutableList());
             for (RowExpression conjunct : candidates) {
                 addInequalityInferenceCandidate(conjunct);
             }
@@ -257,7 +256,7 @@ public class InequalityInference
             if (isOperation(expression, GREATER_THAN, functionAndTypeManager) ||
                     isOperation(expression, GREATER_THAN_OR_EQUAL, functionAndTypeManager)) {
                 CallExpression callExpression = (CallExpression) expression;
-                OperatorType operatorType = functionAndTypeManager.getFunctionMetadata(callExpression.getFunctionHandle()).getOperatorType().get();
+                OperatorType operatorType = functionAndTypeManager.getFunctionMetadata(callExpression.getFunctionHandle()).getOperatorType().orElseThrow();
                 operatorType = OperatorType.flip(operatorType);
                 FunctionHandle functionHandle = functionAndTypeManager.resolveOperator(operatorType, swapPair(fromTypes(callExpression.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()))));
                 expression = new CallExpression(operatorType.getOperator(), functionHandle, BOOLEAN, swapPair(callExpression.getArguments()));

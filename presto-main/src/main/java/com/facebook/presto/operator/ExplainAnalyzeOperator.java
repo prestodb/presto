@@ -149,18 +149,18 @@ public class ExplainAnalyzeOperator
 
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
         checkState(queryInfo.getOutputStage().isPresent(), "Output stage is missing");
-        checkState(queryInfo.getOutputStage().get().getSubStages().size() == 1, "Expected one sub stage of explain node");
+        checkState(queryInfo.getOutputStage().orElseThrow().getSubStages().size() == 1, "Expected one sub stage of explain node");
 
-        if (!hasFinalStageInfo(queryInfo.getOutputStage().get())) {
+        if (!hasFinalStageInfo(queryInfo.getOutputStage().orElseThrow())) {
             return null;
         }
         String plan;
         switch (format) {
             case TEXT:
-                plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession(), verbose);
+                plan = textDistributedPlan(queryInfo.getOutputStage().orElseThrow().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession(), verbose);
                 break;
             case JSON:
-                plan = jsonDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession());
+                plan = jsonDistributedPlan(queryInfo.getOutputStage().orElseThrow().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession());
                 break;
             default:
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "Explain format not supported: " + format);

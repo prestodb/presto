@@ -109,8 +109,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
@@ -268,7 +266,7 @@ public class PlanPrinter
             builder.append(formatFragment(
                     functionAndTypeManager,
                     session,
-                    stageInfo.getPlan().get(),
+                    stageInfo.getPlan().orElseThrow(),
                     Optional.of(stageInfo),
                     Optional.of(aggregatedStats),
                     verbose));
@@ -332,7 +330,7 @@ public class PlanPrinter
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
         List<PlanFragment> allFragments = getAllStages(Optional.of(outputStageInfo)).stream()
                 .map(StageInfo::getPlan)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toImmutableList());
         return formatJsonFragmentList(allFragments, Optional.of(aggregatedStats), functionAndTypeManager, session);
     }
@@ -354,7 +352,7 @@ public class PlanPrinter
     private String formatSourceLocation(Optional<SourceLocation> sourceLocation)
     {
         if (sourceLocation.isPresent()) {
-            return " (" + sourceLocation.get().toString() + ")";
+            return " (" + sourceLocation.orElseThrow().toString() + ")";
         }
 
         return "";
@@ -387,8 +385,8 @@ public class PlanPrinter
                 fragment.getPartitioning()));
 
         if (stageInfo.isPresent()) {
-            StageExecutionStats stageExecutionStats = stageInfo.get().getLatestAttemptExecutionInfo().getStats();
-            List<TaskInfo> tasks = stageInfo.get().getLatestAttemptExecutionInfo().getTasks();
+            StageExecutionStats stageExecutionStats = stageInfo.orElseThrow().getLatestAttemptExecutionInfo().getStats();
+            List<TaskInfo> tasks = stageInfo.orElseThrow().getLatestAttemptExecutionInfo().getTasks();
 
             double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
             double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
@@ -473,7 +471,7 @@ public class PlanPrinter
     {
         List<PlanFragment> allFragments = getAllStages(Optional.of(stageInfo)).stream()
                 .map(StageInfo::getPlan)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .sorted(Comparator.comparing(PlanFragment::getId))
                 .collect(toImmutableList());
         return printDistributedFromFragments(allFragments, functionAndTypeManager, session);
@@ -722,7 +720,9 @@ public class PlanPrinter
         @Override
         public Void visitWindow(WindowNode node, Void context)
         {
-            List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
+            List<String> partitionBy = node.getPartitionBy().stream()
+                    .map(Functions.toStringFunction())
+                    .collect(toImmutableList());
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
@@ -749,7 +749,7 @@ public class PlanPrinter
                 args.add(format("partition by (%s)", builder));
             }
             if (node.getOrderingScheme().isPresent()) {
-                OrderingScheme orderingScheme = node.getOrderingScheme().get();
+                OrderingScheme orderingScheme = node.getOrderingScheme().orElseThrow();
                 args.add(format("order by (%s)", Stream.concat(
                         orderingScheme.getOrderByVariables().stream()
                                 .limit(node.getPreSortedOrderPrefix())
@@ -804,14 +804,16 @@ public class PlanPrinter
         @Override
         public Void visitRowNumber(RowNumberNode node, Void context)
         {
-            List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
+            List<String> partitionBy = node.getPartitionBy().stream()
+                    .map(Functions.toStringFunction())
+                    .collect(toImmutableList());
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
                 args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
             }
 
             if (node.getMaxRowCountPerPartition().isPresent()) {
-                args.add(format("limit = %s", node.getMaxRowCountPerPartition().get()));
+                args.add(format("limit = %s", node.getMaxRowCountPerPartition().orElseThrow()));
             }
 
             NodeRepresentation nodeOutput = addNode(node,
@@ -830,7 +832,7 @@ public class PlanPrinter
             if (stageExecutionStrategy.isPresent()) {
                 nodeOutput = addNode(node,
                         "TableScan",
-                        format("[%s, grouped = %s]", table, stageExecutionStrategy.get().isScanGroupedExecution(node.getId())));
+                        format("[%s, grouped = %s]", table, stageExecutionStrategy.orElseThrow().isScanGroupedExecution(node.getId())));
             }
             else {
                 nodeOutput = addNode(node, "TableScan", format("[%s]", table));
@@ -880,7 +882,7 @@ public class PlanPrinter
         {
             NodeRepresentation nodeOutput;
             if (node.getValuesNodeLabel().isPresent()) {
-                nodeOutput = addNode(node, format("Values converted from TableScan[%s]", node.getValuesNodeLabel().get()));
+                nodeOutput = addNode(node, format("Values converted from TableScan[%s]", node.getValuesNodeLabel().orElseThrow()));
             }
             else {
                 nodeOutput = addNode(node, "Values");
@@ -917,10 +919,10 @@ public class PlanPrinter
 
             PlanNode sourceNode;
             if (filterNode.isPresent()) {
-                sourceNode = filterNode.get().getSource();
+                sourceNode = filterNode.orElseThrow().getSource();
             }
             else {
-                sourceNode = projectNode.get().getSource();
+                sourceNode = projectNode.orElseThrow().getSource();
             }
 
             Optional<TableScanNode> scanNode;
@@ -938,18 +940,18 @@ public class PlanPrinter
             if (scanNode.isPresent()) {
                 operatorName += "Scan";
                 formatString += "table = %s, ";
-                TableHandle table = scanNode.get().getTable();
+                TableHandle table = scanNode.orElseThrow().getTable();
                 arguments.add(table);
                 if (stageExecutionStrategy.isPresent()) {
                     formatString += "grouped = %s, ";
-                    arguments.add(stageExecutionStrategy.get().isScanGroupedExecution(scanNode.get().getId()));
+                    arguments.add(stageExecutionStrategy.orElseThrow().isScanGroupedExecution(scanNode.orElseThrow().getId()));
                 }
             }
 
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
                 formatString += "filterPredicate = %s, ";
-                RowExpression predicate = filterNode.get().getPredicate();
+                RowExpression predicate = filterNode.orElseThrow().getPredicate();
                 DynamicFilterExtractResult dynamicFilterExtractResult = extractDynamicFilters(predicate);
                 arguments.add(formatter.apply(logicalRowExpressions.combineConjuncts(dynamicFilterExtractResult.getStaticConjuncts())));
 
@@ -965,7 +967,7 @@ public class PlanPrinter
             if (projectNode.isPresent()) {
                 operatorName += "Project";
                 formatString += "projectLocality = %s, ";
-                arguments.add(projectNode.get().getLocality());
+                arguments.add(projectNode.orElseThrow().getLocality());
             }
 
             if (formatString.length() > 1) {
@@ -975,7 +977,7 @@ public class PlanPrinter
 
             List<PlanNodeId> allNodes = Stream.of(scanNode, filterNode, projectNode)
                     .filter(Optional::isPresent)
-                    .map(Optional::get)
+                    .map(Optional::orElseThrow)
                     .map(PlanNode::getId)
                     .collect(toList());
 
@@ -988,12 +990,12 @@ public class PlanPrinter
                     ImmutableList.of());
 
             if (projectNode.isPresent()) {
-                printAssignments(nodeOutput, projectNode.get().getAssignments());
+                printAssignments(nodeOutput, projectNode.orElseThrow().getAssignments());
             }
 
             if (scanNode.isPresent()) {
                 PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
-                printTableScanInfo(nodeOutput, scanNode.get(), nodeStats);
+                printTableScanInfo(nodeOutput, scanNode.orElseThrow(), nodeStats);
                 return null;
             }
 
@@ -1007,7 +1009,7 @@ public class PlanPrinter
 
             if (table.getLayout().isPresent()) {
                 // TODO: find a better way to do this
-                ConnectorTableLayoutHandle layout = table.getLayout().get();
+                ConnectorTableLayoutHandle layout = table.getLayout().orElseThrow();
                 if (!table.getConnectorHandle().toString().equals(layout.toString())) {
                     nodeOutput.appendDetailsLine("LAYOUT: %s", layout);
                 }
@@ -1037,7 +1039,7 @@ public class PlanPrinter
                 if (!predicate.isAll()) {
                     Set<ColumnHandle> outputs = ImmutableSet.copyOf(node.getAssignments().values());
 
-                    predicate.getDomains().get()
+                    predicate.getDomains().orElseThrow()
                             .entrySet().stream()
                             .filter(entry -> !outputs.contains(entry.getKey()))
                             .forEach(entry -> {
@@ -1090,7 +1092,9 @@ public class PlanPrinter
         @Override
         public Void visitTopN(TopNNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderByVariables(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
+            Iterable<String> keys = node.getOrderingScheme().getOrderByVariables().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .collect(toImmutableList());
 
             addNode(node,
                     format("TopN%s", node.getStep() == TopNNode.Step.PARTIAL ? "Partial" : ""),
@@ -1101,7 +1105,9 @@ public class PlanPrinter
         @Override
         public Void visitSort(SortNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderByVariables(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
+            Iterable<String> keys = node.getOrderingScheme().getOrderByVariables().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .collect(toImmutableList());
 
             addNode(node,
                     format("%sSort", node.isPartial() ? "Partial" : ""),
@@ -1199,7 +1205,7 @@ public class PlanPrinter
         public Void visitExchange(ExchangeNode node, Void context)
         {
             if (node.getOrderingScheme().isPresent()) {
-                OrderingScheme orderingScheme = node.getOrderingScheme().get();
+                OrderingScheme orderingScheme = node.getOrderingScheme().orElseThrow();
                 List<String> orderBy = orderingScheme.getOrderByVariables()
                         .stream()
                         .map(input -> input + " " + orderingScheme.getOrdering(input))
@@ -1317,7 +1323,7 @@ public class PlanPrinter
         private void printConstraint(NodeRepresentation nodeOutput, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
         {
             checkArgument(!constraint.isNone());
-            Map<ColumnHandle, Domain> domains = constraint.getDomains().get();
+            Map<ColumnHandle, Domain> domains = constraint.getDomains().orElseThrow();
             if (!constraint.isAll() && domains.containsKey(column)) {
                 nodeOutput.appendDetailsLine("    :: %s", formatDomain(domains.get(column).simplify()));
             }
@@ -1461,7 +1467,7 @@ public class PlanPrinter
     {
         List<VariableReferenceExpression> variables = stream(hashes)
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toList());
 
         if (variables.isEmpty()) {

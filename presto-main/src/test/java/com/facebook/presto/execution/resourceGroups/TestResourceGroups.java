@@ -892,19 +892,19 @@ public class TestResourceGroups
         assertEquals(rootInfo.getSubGroups().size(), 2);
         Optional<ResourceGroupInfo> rootAInfo = getResourceGroupInfoForId(rootA, rootInfo);
         assertTrue(rootAInfo.isPresent());
-        assertNotNull(rootAInfo.get().getSubGroups());
-        assertEquals(rootAInfo.get().getSubGroups().size(), 1);
-        Optional<ResourceGroupInfo> rootAXInfo = getResourceGroupInfoForId(rootAX, rootAInfo.get());
+        assertNotNull(rootAInfo.orElseThrow().getSubGroups());
+        assertEquals(rootAInfo.orElseThrow().getSubGroups().size(), 1);
+        Optional<ResourceGroupInfo> rootAXInfo = getResourceGroupInfoForId(rootAX, rootAInfo.orElseThrow());
         // dynamic resource groups should not be returned.
         assertFalse(rootAXInfo.isPresent());
-        Optional<ResourceGroupInfo> rootAYInfo = getResourceGroupInfoForId(rootAY, rootAInfo.get());
+        Optional<ResourceGroupInfo> rootAYInfo = getResourceGroupInfoForId(rootAY, rootAInfo.orElseThrow());
         assertTrue(rootAYInfo.isPresent());
-        assertNotNull(rootAYInfo.get().getSubGroups());
-        assertEquals(rootAYInfo.get().getSubGroups().size(), 0);
+        assertNotNull(rootAYInfo.orElseThrow().getSubGroups());
+        assertEquals(rootAYInfo.orElseThrow().getSubGroups().size(), 0);
         Optional<ResourceGroupInfo> rootBInfo = getResourceGroupInfoForId(rootB, rootInfo);
         assertTrue(rootBInfo.isPresent());
-        assertNotNull(rootBInfo.get().getSubGroups());
-        assertEquals(rootBInfo.get().getSubGroups().size(), 0);
+        assertNotNull(rootBInfo.orElseThrow().getSubGroups());
+        assertEquals(rootBInfo.orElseThrow().getSubGroups().size(), 0);
     }
 
     private Optional<ResourceGroupInfo> getResourceGroupInfoForId(InternalResourceGroup rootA, ResourceGroupInfo rootInfo)

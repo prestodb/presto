@@ -65,8 +65,8 @@ public class RevokeRolesTask
                 .filter(principal -> principal.getType() == ROLE)
                 .map(PrestoPrincipal::getName)
                 .forEach(specifiedRoles::add);
-        if (grantor.isPresent() && grantor.get().getType() == ROLE) {
-            specifiedRoles.add(grantor.get().getName());
+        if (grantor.isPresent() && grantor.orElseThrow().getType() == ROLE) {
+            specifiedRoles.add(grantor.orElseThrow().getName());
         }
 
         for (String role : specifiedRoles) {

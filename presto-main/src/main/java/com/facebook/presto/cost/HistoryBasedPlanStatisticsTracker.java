@@ -134,12 +134,12 @@ public class HistoryBasedPlanStatisticsTracker
         // If track_history_stats_from_failed_queries is set to true, we do not require that the query is successful
         boolean trackStatsForFailedQueries = trackHistoryStatsFromFailedQuery(session);
         boolean querySucceed = queryInfo.getFailureInfo() == null;
-        if ((!querySucceed && !trackStatsForFailedQueries) || !queryInfo.getOutputStage().isPresent() || !queryInfo.getOutputStage().get().getPlan().isPresent()) {
+        if ((!querySucceed && !trackStatsForFailedQueries) || !queryInfo.getOutputStage().isPresent() || !queryInfo.getOutputStage().orElseThrow().getPlan().isPresent()) {
             return ImmutableMap.of();
         }
 
         // Only update statistics for SELECT/INSERT queries
-        if (!queryInfo.getQueryType().isPresent() || !ALLOWED_QUERY_TYPES.contains(queryInfo.getQueryType().get())) {
+        if (!queryInfo.getQueryType().isPresent() || !ALLOWED_QUERY_TYPES.contains(queryInfo.getQueryType().orElseThrow())) {
             return ImmutableMap.of();
         }
 
@@ -148,7 +148,7 @@ public class HistoryBasedPlanStatisticsTracker
             return ImmutableMap.of();
         }
 
-        StageInfo outputStage = queryInfo.getOutputStage().get();
+        StageInfo outputStage = queryInfo.getOutputStage().orElseThrow();
         List<StageInfo> allStages = ImmutableList.of();
         if (querySucceed) {
             allStages = outputStage.getAllStages();
@@ -179,8 +179,8 @@ public class HistoryBasedPlanStatisticsTracker
             if (!stageInfo.getPlan().isPresent()) {
                 continue;
             }
-            boolean isScaledWriterStage = stageInfo.getPlan().isPresent() && stageInfo.getPlan().get().getPartitioning().equals(SCALED_WRITER_DISTRIBUTION);
-            PlanNode root = stageInfo.getPlan().get().getRoot();
+            boolean isScaledWriterStage = stageInfo.getPlan().isPresent() && stageInfo.getPlan().orElseThrow().getPartitioning().equals(SCALED_WRITER_DISTRIBUTION);
+            PlanNode root = stageInfo.getPlan().orElseThrow().getRoot();
             for (PlanNode planNode : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
                 if ((!planNode.getStatsEquivalentPlanNode().isPresent() && !isAggregation(planNode, AggregationNode.Step.PARTIAL)) || planNodeIdsDynamicFilter.contains(planNode.getId())) {
                     continue;
@@ -219,13 +219,13 @@ public class HistoryBasedPlanStatisticsTracker
                     tableWriterNodeStatistics = new TableWriterNodeStatistics(Estimate.of(stageInfo.getLatestAttemptExecutionInfo().getStats().getTotalTasks()));
                 }
 
-                PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().get();
+                PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().orElseThrow();
                 for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
                     Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(
                             canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, strategy)));
                     if (planNodeCanonicalInfo.isPresent()) {
-                        String hash = planNodeCanonicalInfo.get().getHash();
-                        List<PlanStatistics> inputTableStatistics = planNodeCanonicalInfo.get().getInputTableStatistics();
+                        String hash = planNodeCanonicalInfo.orElseThrow().getHash();
+                        List<PlanStatistics> inputTableStatistics = planNodeCanonicalInfo.orElseThrow().getInputTableStatistics();
                         PlanNodeWithHash planNodeWithHash = new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(hash));
                         // Plan node added after HistoricalStatisticsEquivalentPlanMarkingOptimizer will have the same hash as its source node. If the source node is not join or
                         // table writer node, the newly added node will have the same hash but no join/table writer statistics, hence we need to overwrite in this case.
@@ -248,7 +248,7 @@ public class HistoryBasedPlanStatisticsTracker
                         if (isAggregation(planNode, AggregationNode.Step.FINAL) && ((AggregationNode) planNode).getAggregationId().isPresent() && trackPartialAggregationHistory(session)) {
                             // we're doing a depth-first traversal of the plan tree: cache the final agg so that when we encounter the partial agg we can come back
                             // and update the partial agg statistics
-                            aggregationNodeMap.put(((AggregationNode) planNode).getAggregationId().get(), new FinalAggregationStatsInfo(planNodeWithHash, planStatsWithSourceInfo));
+                            aggregationNodeMap.put(((AggregationNode) planNode).getAggregationId().orElseThrow(), new FinalAggregationStatsInfo(planNodeWithHash, planStatsWithSourceInfo));
                         }
                     }
                 }
@@ -265,7 +265,7 @@ public class HistoryBasedPlanStatisticsTracker
                 if (!dynamicFilterNodeMap.containsKey(planNodeId)) {
                     dynamicFilterNodeMap.put(planNodeId, new HashSet<>());
                 }
-                dynamicFilterNodeMap.get(planNodeId).addAll(planNodeStats.getDynamicFilterStats().get().getProducerNodeIds());
+                dynamicFilterNodeMap.get(planNodeId).addAll(planNodeStats.getDynamicFilterStats().orElseThrow().getProducerNodeIds());
             }
         });
         if (dynamicFilterNodeMap.isEmpty()) {
@@ -277,7 +277,7 @@ public class HistoryBasedPlanStatisticsTracker
             if (!stageInfo.getPlan().isPresent()) {
                 continue;
             }
-            PlanNode root = stageInfo.getPlan().get().getRoot();
+            PlanNode root = stageInfo.getPlan().orElseThrow().getRoot();
             for (PlanNode planNode : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
                 for (PlanNode child : planNode.getSources()) {
                     reversePlanTree.putEdge(child.getId(), planNode.getId());
@@ -311,12 +311,12 @@ public class HistoryBasedPlanStatisticsTracker
             PartialAggregationStatistics partialAggregationStatistics,
             Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatisticsMap)
     {
-        if (!partialAggregationNode.getAggregationId().isPresent() || !aggregationNodeStats.containsKey(partialAggregationNode.getAggregationId().get())) {
+        if (!partialAggregationNode.getAggregationId().isPresent() || !aggregationNodeStats.containsKey(partialAggregationNode.getAggregationId().orElseThrow())) {
             return;
         }
 
         // find the stats for the matching final aggregation node (the partial and the final node share the same aggregationId)
-        FinalAggregationStatsInfo finalAggregationStatsInfo = aggregationNodeStats.get(partialAggregationNode.getAggregationId().get());
+        FinalAggregationStatsInfo finalAggregationStatsInfo = aggregationNodeStats.get(partialAggregationNode.getAggregationId().orElseThrow());
         PlanStatisticsWithSourceInfo planStatisticsWithSourceInfo = finalAggregationStatsInfo.getPlanStatisticsWithSourceInfo();
         PlanStatistics planStatisticsFinalAgg = planStatisticsWithSourceInfo.getPlanStatistics();
         planStatisticsFinalAgg = planStatisticsFinalAgg.updateAggregationStatistics(partialAggregationStatistics);
@@ -364,7 +364,7 @@ public class HistoryBasedPlanStatisticsTracker
         // partial aggregation nodes have no stats equivalent plan node: use original output variables
         List<VariableReferenceExpression> outputVariables = planNode.getOutputVariables();
         if (planNode.getStatsEquivalentPlanNode().isPresent()) {
-            outputVariables = planNode.getStatsEquivalentPlanNode().get().getOutputVariables();
+            outputVariables = planNode.getStatsEquivalentPlanNode().orElseThrow().getOutputVariables();
         }
         outputBytes += outputVariables.stream()
                 .mapToDouble(variable -> variable.getType() instanceof FixedWidthType ? outputPositions * ((FixedWidthType) variable.getType()).getFixedSize() : 0)
@@ -401,10 +401,10 @@ public class HistoryBasedPlanStatisticsTracker
                             HistoryBasedSourceInfo historyBasedSourceInfo = (HistoryBasedSourceInfo) entry.getValue().getSourceInfo();
                             return updatePlanStatistics(
                                     historicalPlanStatistics,
-                                    historyBasedSourceInfo.getInputTableStatistics().get(),
+                                    historyBasedSourceInfo.getInputTableStatistics().orElseThrow(),
                                     entry.getValue().getPlanStatistics(),
                                     config,
-                                    historyBasedSourceInfo.getHistoricalPlanStatisticsEntryInfo().get());
+                                    historyBasedSourceInfo.getHistoricalPlanStatisticsEntryInfo().orElseThrow());
                         }));
 
         if (!newPlanStatistics.isEmpty()) {
