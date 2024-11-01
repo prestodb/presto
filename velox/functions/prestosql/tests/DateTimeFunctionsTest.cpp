@@ -3572,6 +3572,38 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "America/Los_Angeles",
       formatDatetime(parseTimestamp("1970-01-01"), "ZZZ"));
 
+  // Test the Etc/... time zones.
+  auto testFormatTimeZoneID =
+      [&](const std::string& inputTimeZoneID,
+          const std::string& expectedFormattedTimeZoneID) {
+        setQueryTimeZone(inputTimeZoneID);
+        EXPECT_EQ(
+            expectedFormattedTimeZoneID,
+            formatDatetime(parseTimestamp("1970-01-01"), "ZZZ"));
+      };
+  testFormatTimeZoneID("Etc/GMT", "UTC");
+  testFormatTimeZoneID("Etc/GMT+0", "UTC");
+  testFormatTimeZoneID("Etc/GMT+1", "-01:00");
+  testFormatTimeZoneID("Etc/GMT+10", "-10:00");
+  testFormatTimeZoneID("Etc/GMT+12", "-12:00");
+  testFormatTimeZoneID("Etc/GMT-0", "UTC");
+  testFormatTimeZoneID("Etc/GMT-2", "+02:00");
+  testFormatTimeZoneID("Etc/GMT-11", "+11:00");
+  testFormatTimeZoneID("Etc/GMT-14", "+14:00");
+  testFormatTimeZoneID("Etc/GMT0", "UTC");
+  testFormatTimeZoneID("Etc/Greenwich", "UTC");
+  testFormatTimeZoneID("Etc/UCT", "UTC");
+  testFormatTimeZoneID("Etc/Universal", "UTC");
+  testFormatTimeZoneID("Etc/UTC", "UTC");
+  testFormatTimeZoneID("Etc/Zulu", "UTC");
+  // These do not explicitly start with "Etc/" but they link to time zone IDs
+  // that do.
+  testFormatTimeZoneID("GMT0", "UTC");
+  testFormatTimeZoneID("Greenwich", "UTC");
+  testFormatTimeZoneID("UCT", "UTC");
+  testFormatTimeZoneID("UTC", "UTC");
+  testFormatTimeZoneID("Zulu", "UTC");
+
   setQueryTimeZone("Asia/Kolkata");
   // Literal test cases.
   EXPECT_EQ("hello", formatDatetime(parseTimestamp("1970-01-01"), "'hello'"));

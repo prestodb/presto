@@ -115,8 +115,15 @@ def main():
             if columns[0] != "Link":
                 continue
 
+            # Officially the GMT/UTC time zone IDs start with Etc/ so Joda
+            # includes this in its link files. Joda ends up removing this
+            # prefix at runtime though, so we just skip ahead and do it here.
+            tz_value = columns[1]
+            if tz_value == "Etc/GMT" or tz_value == "Etc/UTC":
+                tz_value = "UTC"
+
             entries.append(
-                entry_template.substitute(tz_key=columns[2], tz_value=columns[1])
+                entry_template.substitute(tz_key=columns[2], tz_value=tz_value)
             )
 
     print(cpp_template.substitute(entries="\n".join(entries)))
