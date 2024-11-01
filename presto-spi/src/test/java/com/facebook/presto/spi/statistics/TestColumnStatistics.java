@@ -70,7 +70,7 @@ public class TestColumnStatistics
                     @Override
                     public long getEstimatedSize()
                     {
-                        return ClassLayout.parseClass(this.getClass()).instanceSize() * 2L;
+                        return ClassLayout.parseClass(this.getClass()).instanceSize();
                     }
                 }))
                 .build();

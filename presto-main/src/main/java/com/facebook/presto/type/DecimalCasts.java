@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import jdk.internal.math.FloatingDecimal;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -501,20 +502,19 @@ public final class DecimalCasts
     private static Slice internalDoubleToLongDecimal(double value, long precision, long scale)
     {
         if (Double.isInfinite(value) || Double.isNaN(value)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", FloatingDecimal.toJavaFormatString(value), precision, scale));
         }
 
         try {
-            // todo consider changing this implementation to more performant one which does not use intermediate String objects
-            BigDecimal bigDecimal = BigDecimal.valueOf(value).setScale(intScale(scale), HALF_UP);
+            BigDecimal bigDecimal = new BigDecimal(FloatingDecimal.toJavaFormatString(value)).setScale(intScale(scale), HALF_UP);
             Slice decimal = Decimals.encodeScaledValue(bigDecimal);
             if (overflows(decimal, intScale(precision))) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", FloatingDecimal.toJavaFormatString(value), precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", FloatingDecimal.toJavaFormatString(value), precision, scale));
         }
     }
 
@@ -547,20 +547,20 @@ public final class DecimalCasts
     {
         float floatValue = intBitsToFloat(intScale(value));
         if (Float.isInfinite(floatValue) || Float.isNaN(floatValue)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", FloatingDecimal.toJavaFormatString(floatValue), precision, scale));
         }
 
         try {
             // todo consider changing this implementation to more performant one which does not use intermediate String objects
-            BigDecimal bigDecimal = new BigDecimal(String.valueOf(floatValue)).setScale(intScale(scale), HALF_UP);
+            BigDecimal bigDecimal = new BigDecimal(FloatingDecimal.toJavaFormatString(floatValue)).setScale(intScale(scale), HALF_UP);
             Slice decimal = Decimals.encodeScaledValue(bigDecimal);
             if (overflows(decimal, intScale(precision))) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", FloatingDecimal.toJavaFormatString(floatValue), precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", FloatingDecimal.toJavaFormatString(floatValue), precision, scale));
         }
     }
 

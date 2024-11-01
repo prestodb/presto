@@ -24,6 +24,7 @@ import com.facebook.slice.XxHash64;
 import com.google.common.math.DoubleMath;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import jdk.internal.math.FloatingDecimal;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.CAST;
@@ -126,7 +127,7 @@ public final class DoubleOperators
             return DoubleMath.roundToInt(value, HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to integer", value), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to integer", FloatingDecimal.toJavaFormatString(value)), e);
         }
     }
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import jdk.internal.math.FloatingDecimal;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
@@ -241,12 +242,12 @@ public class TestDoubleOperators
         assertFunction("cast(17.5E0 as integer)", INTEGER, 18);
         assertFunction("cast(-17.5E0 as integer)", INTEGER, -18);
 
-        assertFunction("cast(" + Math.nextDown(0x1.0p31f) + " as integer)", INTEGER, (int) Math.nextDown(0x1.0p31f));
+        assertFunction("cast(" + FloatingDecimal.toJavaFormatString(Math.nextDown(0x1.0p31f)) + " as integer)", INTEGER, (int) Math.nextDown(0x1.0p31f));
         assertInvalidFunction("cast(" + 0x1.0p31 + " as integer)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(" + Math.nextUp(0x1.0p31f) + " as integer)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(" + Math.nextDown(-0x1.0p31f) + " as integer)", INVALID_CAST_ARGUMENT);
         assertFunction("cast(" + -0x1.0p31 + " as integer)", INTEGER, (int) -0x1.0p31);
-        assertFunction("cast(" + Math.nextUp(-0x1.0p31f) + " as integer)", INTEGER, (int) Math.nextUp(-0x1.0p31f));
+        assertFunction("cast(" + FloatingDecimal.toJavaFormatString(Math.nextUp(-0x1.0p31f)) + " as integer)", INTEGER, (int) Math.nextUp(-0x1.0p31f));
 
         assertInvalidFunction("cast(9.3E9 as integer)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(-9.3E9 as integer)", INVALID_CAST_ARGUMENT);

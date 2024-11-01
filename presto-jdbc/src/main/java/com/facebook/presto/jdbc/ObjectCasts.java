@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
+import jdk.internal.math.FloatingDecimal;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
@@ -202,7 +204,7 @@ final class ObjectCasts
                 return BigDecimal.valueOf(((Number) x).longValue());
             }
             if ((x instanceof Float) || (x instanceof Double)) {
-                return BigDecimal.valueOf(((Number) x).doubleValue());
+                return new BigDecimal(FloatingDecimal.toJavaFormatString(((Number) x).doubleValue()));
             }
             if (x instanceof String) {
                 return new BigDecimal((String) x);

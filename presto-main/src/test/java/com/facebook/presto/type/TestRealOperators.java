@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import jdk.internal.math.FloatingDecimal;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
@@ -222,7 +223,7 @@ public class TestRealOperators
         assertInvalidFunction("CAST(cast(nan() AS REAL) as INTEGER)", INVALID_CAST_ARGUMENT, "Unable to cast NaN to integer");
         assertInvalidFunction("CAST(cast(infinity() AS REAL) as INTEGER)", INVALID_CAST_ARGUMENT, "Unable to cast Infinity to integer");
         assertInvalidFunction("CAST(cast(-infinity() AS REAL) as INTEGER)", INVALID_CAST_ARGUMENT, "Unable to cast -Infinity to integer");
-        assertInvalidFunction("CAST(REAL '" + (Integer.MAX_VALUE + 0.6) + "' as INTEGER)", INVALID_CAST_ARGUMENT, "Unable to cast 2.14748365E9 to integer");
+        assertInvalidFunction("CAST(REAL '" + FloatingDecimal.toJavaFormatString(Integer.MAX_VALUE + 0.6) + "' as INTEGER)", INVALID_CAST_ARGUMENT, "Unable to cast 2.14748365E9 to integer");
     }
 
     @Test

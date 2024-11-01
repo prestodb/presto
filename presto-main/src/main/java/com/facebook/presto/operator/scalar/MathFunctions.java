@@ -31,6 +31,7 @@ import com.facebook.presto.type.LiteralParameter;
 import com.facebook.presto.util.SecureRandomGeneration;
 import com.facebook.slice.Slice;
 import com.google.common.primitives.Doubles;
+import jdk.internal.math.FloatingDecimal;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.CauchyDistribution;
@@ -372,7 +373,7 @@ public final class MathFunctions
             }
         }
 
-        return BigDecimal.valueOf(num).setScale((int) decimals, BigDecimal.ROUND_DOWN).doubleValue();
+        return new BigDecimal(FloatingDecimal.toJavaFormatString(num)).setScale((int) decimals, BigDecimal.ROUND_DOWN).doubleValue();
     }
 
     @Description("truncate to float by dropping digits after decimal point")
