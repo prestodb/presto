@@ -17,7 +17,7 @@
 #include <ios>
 #include <iosfwd>
 
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 
 namespace nlohmann {
 
