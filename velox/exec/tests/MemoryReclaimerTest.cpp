@@ -71,7 +71,7 @@ TEST_F(MemoryReclaimerTest, enterArbitrationTest) {
     fakeTask_->testingIncrementThreads();
     if (underDriverContext) {
       driver->state().setThread();
-      ScopedDriverThreadContext scopedDriverThreadCtx{*driver->driverCtx()};
+      ScopedDriverThreadContext scopedDriverThreadCtx{driver->driverCtx()};
       reclaimer->enterArbitration();
       ASSERT_TRUE(driver->state().isOnThread());
       ASSERT_TRUE(driver->state().suspended());

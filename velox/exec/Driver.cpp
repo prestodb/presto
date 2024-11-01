@@ -317,7 +317,7 @@ RowVectorPtr Driver::next(ContinueFuture* future) {
   auto self = shared_from_this();
   facebook::velox::process::ScopedThreadDebugInfo scopedInfo(
       self->driverCtx()->threadDebugInfo);
-  ScopedDriverThreadContext scopedDriverThreadContext(*self->driverCtx());
+  ScopedDriverThreadContext scopedDriverThreadContext(self->driverCtx());
   std::shared_ptr<BlockingState> blockingState;
   RowVectorPtr result;
   const auto stop = runInternal(self, blockingState, result);
@@ -759,7 +759,7 @@ void Driver::run(std::shared_ptr<Driver> self) {
   process::TraceContext trace("Driver::run");
   facebook::velox::process::ScopedThreadDebugInfo scopedInfo(
       self->driverCtx()->threadDebugInfo);
-  ScopedDriverThreadContext scopedDriverThreadContext(*self->driverCtx());
+  ScopedDriverThreadContext scopedDriverThreadContext(self->driverCtx());
   std::shared_ptr<BlockingState> blockingState;
   RowVectorPtr nullResult;
   auto reason = self->runInternal(self, blockingState, nullResult);
@@ -1151,9 +1151,9 @@ DriverThreadContext* driverThreadContext() {
   return driverThreadCtx;
 }
 
-ScopedDriverThreadContext::ScopedDriverThreadContext(const DriverCtx& driverCtx)
+ScopedDriverThreadContext::ScopedDriverThreadContext(const DriverCtx* driverCtx)
     : savedDriverThreadCtx_(driverThreadCtx),
-      currentDriverThreadCtx_(DriverThreadContext(&driverCtx)) {
+      currentDriverThreadCtx_(DriverThreadContext(driverCtx)) {
   driverThreadCtx = &currentDriverThreadCtx_;
 }
 

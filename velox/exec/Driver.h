@@ -753,7 +753,7 @@ class DriverThreadContext {
 /// starts/leaves the driver thread.
 class ScopedDriverThreadContext {
  public:
-  explicit ScopedDriverThreadContext(const DriverCtx& driverCtx);
+  explicit ScopedDriverThreadContext(const DriverCtx* driverCtx);
   explicit ScopedDriverThreadContext(
       const DriverThreadContext* _driverThreadCtx);
   ~ScopedDriverThreadContext();
