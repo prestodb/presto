@@ -450,7 +450,9 @@ class MockSharedArbitrationTest : public testing::Test {
           kMemoryReclaimThreadsHwMultiplier,
       std::function<void(MemoryPool&)> arbitrationStateCheckCb = nullptr,
       bool globalArtbitrationEnabled = true,
-      uint64_t arbitrationTimeoutMs = 5 * 60 * 1'000) {
+      uint64_t arbitrationTimeoutMs = 5 * 60 * 1'000,
+      bool globalArbitrationWithoutSpill = false,
+      double globalArbitrationAbortTimeRatio = 0.5) {
     MemoryManagerOptions options;
     options.allocatorCapacity = memoryCapacity;
     std::string arbitratorKind = "SHARED";
@@ -483,7 +485,9 @@ class MockSharedArbitrationTest : public testing::Test {
         {std::string(ExtraConfig::kMemoryReclaimMaxWaitTime),
          folly::to<std::string>(arbitrationTimeoutMs) + "ms"},
         {std::string(ExtraConfig::kGlobalArbitrationEnabled),
-         folly::to<std::string>(globalArtbitrationEnabled)}};
+         folly::to<std::string>(globalArtbitrationEnabled)},
+        {std::string(ExtraConfig::kGlobalArbitrationWithoutSpill),
+         folly::to<std::string>(globalArbitrationWithoutSpill)}};
     options.arbitrationStateCheckCb = std::move(arbitrationStateCheckCb);
     options.checkUsageLeak = true;
     manager_ = std::make_unique<MemoryManager>(options);
@@ -595,6 +599,14 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
       SharedArbitrator::ExtraConfig::memoryReclaimThreadsHwMultiplier(
           emptyConfigs),
       SharedArbitrator::ExtraConfig::kDefaultMemoryReclaimThreadsHwMultiplier);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::globalArbitrationWithoutSpill(
+          emptyConfigs),
+      SharedArbitrator::ExtraConfig::kDefaultGlobalArbitrationWithoutSpill);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::globalArbitrationAbortTimeRatio(
+          emptyConfigs),
+      SharedArbitrator::ExtraConfig::kDefaultGlobalArbitrationAbortTimeRatio);
 
   // Testing custom values
   std::unordered_map<std::string, std::string> configs;
@@ -620,6 +632,11 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
   configs[std::string(
       SharedArbitrator::ExtraConfig::kMemoryReclaimThreadsHwMultiplier)] =
       "1.0";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationWithoutSpill)] = "true";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationAbortTimeRatio)] = "0.8";
+
   ASSERT_EQ(SharedArbitrator::ExtraConfig::reservedCapacity(configs), 100);
   ASSERT_EQ(
       SharedArbitrator::ExtraConfig::memoryPoolInitialCapacity(configs),
@@ -642,6 +659,12 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
   ASSERT_EQ(
       SharedArbitrator::ExtraConfig::memoryReclaimThreadsHwMultiplier(configs),
       1.0);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::globalArbitrationWithoutSpill(configs),
+      true);
+  ASSERT_EQ(
+      SharedArbitrator::ExtraConfig::globalArbitrationAbortTimeRatio(configs),
+      0.8);
 
   // Testing invalid values
   configs[std::string(SharedArbitrator::ExtraConfig::kReservedCapacity)] =
@@ -666,6 +689,12 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
       "invalid";
   configs[std::string(
       SharedArbitrator::ExtraConfig::kMemoryReclaimThreadsHwMultiplier)] =
+      "invalid";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationWithoutSpill)] =
+      "invalid";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationAbortTimeRatio)] =
       "invalid";
 
   VELOX_ASSERT_THROW(
@@ -700,6 +729,12 @@ TEST_F(MockSharedArbitrationTest, extraConfigs) {
       "Failed while parsing SharedArbitrator configs");
   VELOX_ASSERT_THROW(
       SharedArbitrator::ExtraConfig::memoryReclaimThreadsHwMultiplier(configs),
+      "Failed while parsing SharedArbitrator configs");
+  VELOX_ASSERT_THROW(
+      SharedArbitrator::ExtraConfig::globalArbitrationWithoutSpill(configs),
+      "Failed while parsing SharedArbitrator configs");
+  VELOX_ASSERT_THROW(
+      SharedArbitrator::ExtraConfig::globalArbitrationAbortTimeRatio(configs),
       "Failed while parsing SharedArbitrator configs");
   // Invalid memory reclaim executor hw multiplier.
   VELOX_ASSERT_THROW(
@@ -1681,8 +1716,9 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, globalArbitrationAbortTimeRatio) {
   const int64_t memoryCapacity = 512 << 20;
   const uint64_t memoryPoolInitCapacity = memoryCapacity / 2;
   const int64_t maxArbitrationTimeMs = 2'000;
-  const int64_t abortTimeThresholdMs = maxArbitrationTimeMs / 2;
-
+  const double globalArbitrationAbortTimeRatio = 0.5;
+  const int64_t abortTimeThresholdMs =
+      maxArbitrationTimeMs * globalArbitrationAbortTimeRatio;
   setupMemory(
       memoryCapacity,
       0,
@@ -1698,7 +1734,9 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, globalArbitrationAbortTimeRatio) {
       kMemoryReclaimThreadsHwMultiplier,
       nullptr,
       true,
-      maxArbitrationTimeMs);
+      maxArbitrationTimeMs,
+      false,
+      globalArbitrationAbortTimeRatio);
 
   test::SharedArbitratorTestHelper arbitratorHelper(arbitrator_);
 
@@ -1756,6 +1794,56 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, globalArbitrationAbortTimeRatio) {
       ASSERT_LE(deltaGlobalArbitrationRuns, 2);
     }
   }
+}
+
+TEST_F(MockSharedArbitrationTest, globalArbitrationWithoutSpill) {
+  const int64_t memoryCapacity = 512 << 20;
+  const uint64_t memoryPoolInitCapacity = memoryCapacity / 2;
+  setupMemory(
+      memoryCapacity,
+      0,
+      memoryPoolInitCapacity,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      kMemoryReclaimThreadsHwMultiplier,
+      nullptr,
+      true,
+      5 * 60 * 1'000,
+      true);
+  auto triggerTask = addTask(memoryCapacity);
+  auto* triggerOp = triggerTask->addMemoryOp(false);
+  triggerOp->allocate(memoryCapacity / 2);
+
+  auto abortTask = addTask(memoryCapacity / 2);
+  auto* abortOp = abortTask->addMemoryOp(true);
+  abortOp->allocate(memoryCapacity / 2);
+  ASSERT_EQ(triggerTask->capacity(), memoryCapacity / 2);
+
+  std::unordered_map<std::string, RuntimeMetric> runtimeStats;
+  auto statsWriter = std::make_unique<TestRuntimeStatWriter>(runtimeStats);
+  setThreadLocalRunTimeStatWriter(statsWriter.get());
+  triggerOp->allocate(memoryCapacity / 2);
+
+  ASSERT_EQ(
+      runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
+  ASSERT_GT(runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
+  ASSERT_EQ(
+      runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].count, 1);
+  ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].sum, 1);
+  ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
+
+  ASSERT_TRUE(triggerTask->error() == nullptr);
+  ASSERT_EQ(triggerTask->capacity(), memoryCapacity);
+  ASSERT_TRUE(abortTask->error() != nullptr);
+  VELOX_ASSERT_THROW(
+      std::rethrow_exception(abortTask->error()),
+      "Memory pool aborted to reclaim used memory");
 }
 
 DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, multipleGlobalRuns) {

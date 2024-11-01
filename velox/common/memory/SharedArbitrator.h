@@ -199,6 +199,25 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     static uint32_t globalArbitrationMemoryReclaimPct(
         const std::unordered_map<std::string, std::string>& configs);
 
+    /// The ratio used with 'memory-reclaim-max-wait-time', beyond which, global
+    /// arbitration will no longer reclaim memory by spilling, but instead
+    /// directly abort. It is only in effect when 'global-arbitration-enabled'
+    /// is true
+    static constexpr std::string_view kGlobalArbitrationAbortTimeRatio{
+        "global-arbitration-abort-time-ratio"};
+    static constexpr double kDefaultGlobalArbitrationAbortTimeRatio{0.5};
+    static double globalArbitrationAbortTimeRatio(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    /// If true, global arbitration will not reclaim memory by spilling, but
+    /// only by aborting. This flag is only effective if
+    /// 'global-arbitration-enabled' is true
+    static constexpr std::string_view kGlobalArbitrationWithoutSpill{
+        "global-arbitration-without-spill"};
+    static constexpr bool kDefaultGlobalArbitrationWithoutSpill{false};
+    static bool globalArbitrationWithoutSpill(
+        const std::unordered_map<std::string, std::string>& configs);
+
     /// If true, do sanity check on the arbitrator state on destruction.
     ///
     /// TODO: deprecate this flag after all the existing memory leak use cases
@@ -376,6 +395,15 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   // Invoked by global arbitration control thread to run global arbitration.
   void runGlobalArbitration();
+
+  // Helper method used by 'runGlobalArbitration()' to decide if current
+  // iteration of global run should directly reclaim capacity by aborting
+  // queries.
+  bool globalArbitrationShouldReclaimByAbort(
+      uint64_t globalRunElapsedTimeMs,
+      bool hasReclaimedByAbort,
+      bool allParticipantsReclaimed,
+      uint64_t lastReclaimedBytes) const;
 
   // Invoked to get the global arbitration target in bytes.
   uint64_t getGlobalArbitrationTarget();
@@ -565,6 +593,8 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   const double memoryReclaimThreadsHwMultiplier_;
   const bool globalArbitrationEnabled_;
   const uint32_t globalArbitrationMemoryReclaimPct_;
+  const double globalArbitrationAbortTimeRatio_;
+  const bool globalArbitrationWithoutSpill_;
 
   // The executor used to reclaim memory from multiple participants in parallel
   // at the background for global arbitration or external memory reclamation.
