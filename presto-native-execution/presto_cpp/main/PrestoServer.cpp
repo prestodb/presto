@@ -16,8 +16,9 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <glog/logging.h>
-#include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
+#include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/SystemConnector.h"
@@ -48,7 +49,11 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
+#ifdef VELOX_ENABLE_FORWARD_COMPATIBILITY
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
+#else
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
+#endif
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/tpch/TpchConnector.h"
@@ -565,6 +570,8 @@ void PrestoServer::run() {
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
 
+  addMemoryCheckerPeriodicTask();
+
   // Start everything. After the return from the following call we are shutting
   // down.
   httpServer_->start(getHttpServerFilters());
@@ -583,6 +590,8 @@ void PrestoServer::run() {
   periodicTaskManager_->stop();
 
   stopAdditionalPeriodicTasks();
+
+  stopMemoryCheckerPeriodicTask();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
@@ -966,6 +975,18 @@ void PrestoServer::updateAnnouncerDetails() {
   }
 }
 
+void PrestoServer::addMemoryCheckerPeriodicTask() {
+  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
+    folly::Singleton<PeriodicMemoryChecker>::try_get()->start();
+  }
+}
+
+void PrestoServer::stopMemoryCheckerPeriodicTask() {
+  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
+    folly::Singleton<PeriodicMemoryChecker>::try_get()->stop();
+  }
+}
+
 void PrestoServer::addServerPeriodicTasks() {
   periodicTaskManager_->addTask(
       [server = this]() { server->populateMemAndCPUInfo(); },
@@ -1261,7 +1282,11 @@ void PrestoServer::registerFileSystems() {
   velox::filesystems::registerLocalFileSystem();
   velox::filesystems::registerS3FileSystem();
   velox::filesystems::registerHdfsFileSystem();
+#ifdef VELOX_ENABLE_FORWARD_COMPATIBILITY
+  velox::filesystems::registerGcsFileSystem();
+#else
   velox::filesystems::registerGCSFileSystem();
+#endif
   velox::filesystems::abfs::registerAbfsFileSystem();
 }
 

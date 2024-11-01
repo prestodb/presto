@@ -68,6 +68,6 @@ public final class ArrayIntersectFunction
     @SqlType("array<T>")
     public static String arrayIntersectArray()
     {
-        return "RETURN reduce(input, null, (s, x) -> IF((s IS NULL), x, array_intersect(s, x)), (s) -> s)";
+        return "RETURN reduce(input, IF((cardinality(input) = 0), ARRAY[], input[1]), (s, x) -> array_intersect(s, x), (s) -> s)";
     }
 }

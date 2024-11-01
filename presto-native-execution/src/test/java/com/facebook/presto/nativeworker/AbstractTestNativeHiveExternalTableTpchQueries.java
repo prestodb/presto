@@ -41,7 +41,6 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupp
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.createExternalTable;
 import static com.facebook.presto.nativeworker.SymlinkManifestGeneratorUtils.cleanupSymlinkData;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
-import static java.lang.String.format;
 
 public abstract class AbstractTestNativeHiveExternalTableTpchQueries
         extends AbstractTestNativeTpchQueries
@@ -114,7 +113,9 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
         for (String tableName : TPCH_TABLES) {
             dropTableIfExists(javaQueryRunner, HIVE, TPCH, tableName);
         }
-        assertUpdate(format("DROP SCHEMA IF EXISTS %s.%s", HIVE, TPCH));
+
+        // https://github.com/prestodb/presto/issues/23908
+        // assertUpdate(format("DROP SCHEMA IF EXISTS %s.%s", HIVE, TPCH));
 
         File dataDirectory = ((DistributedQueryRunner) javaQueryRunner).getCoordinator().getDataDirectory().resolve(HIVE_DATA).toFile();
         Path symlinkTableDataPath = dataDirectory.toPath().getParent().resolve(SYMLINK_FOLDER);

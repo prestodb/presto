@@ -123,6 +123,7 @@ jobs:
                     -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
                     -DPRESTO_ENABLE_JWT=ON \
                     -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
+                    -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
                     -DCMAKE_PREFIX_PATH=/usr/local \
                     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
                     -DMAX_LINK_JOBS=2

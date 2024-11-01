@@ -24,6 +24,11 @@ add_executable(
   TaskManagerTest.cpp
   QueryContextManagerTest.cpp)
 
+if(DEFINED PRESTO_MEMORY_CHECKER_TYPE AND PRESTO_MEMORY_CHECKER_TYPE STREQUAL
+                                          "LINUX_MEMORY_CHECKER")
+  target_sources(presto_server_test PRIVATE LinuxMemoryCheckerTest.cpp)
+endif()
+
 add_test(
   NAME presto_server_test
   COMMAND presto_server_test
