@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Optional;
 
@@ -32,7 +33,7 @@ final class FilterUtil
             return Optional.empty();
         }
 
-        Domain domain = constraint.getDomains().get().get(index);
+        Domain domain = constraint.getDomains().orElseThrow().get(index);
         if ((domain == null) || !domain.isSingleValue()) {
             return Optional.empty();
         }
@@ -48,24 +49,25 @@ final class FilterUtil
     {
         QualifiedTablePrefix prefix = new QualifiedTablePrefix(catalog);
         if (schema.isPresent()) {
-            prefix = new QualifiedTablePrefix(catalog, schema.get());
+            prefix = new QualifiedTablePrefix(catalog, schema.orElseThrow());
             if (table.isPresent()) {
-                prefix = new QualifiedTablePrefix(catalog, schema.get(), table.get());
+                prefix = new QualifiedTablePrefix(catalog, schema.orElseThrow(), table.orElseThrow());
             }
         }
         return prefix;
     }
 
+    @SuppressModernizer
     public static <T> Iterable<T> filter(Iterable<T> items, Optional<T> filter)
     {
         if (!filter.isPresent()) {
             return items;
         }
-        return Iterables.filter(items, Predicates.equalTo(filter.get()));
+        return Iterables.filter(items, Predicates.equalTo(filter.orElseThrow()));
     }
 
     public static <T> boolean emptyOrEquals(Optional<T> value, T other)
     {
-        return !value.isPresent() || value.get().equals(other);
+        return !value.isPresent() || value.orElseThrow().equals(other);
     }
 }

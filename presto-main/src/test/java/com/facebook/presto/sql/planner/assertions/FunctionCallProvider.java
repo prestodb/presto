@@ -80,7 +80,7 @@ class FunctionCallProvider
                 name,
                 Joiner.on(", ").join(args),
                 orderBy.isEmpty() ? "" : " ORDER BY " + Joiner.on(", ").join(orderBy),
-                frame.isPresent() ? frame.get().toString() : "");
+                frame.isPresent() ? frame.orElseThrow().toString() : "");
     }
 
     public FunctionCall getExpectedValue(SymbolAliases aliases)
@@ -126,7 +126,7 @@ class FunctionCallProvider
 
             return Objects.equals(name, other.getName()) &&
                     other.getWindow().isPresent() &&
-                    Objects.equals(frame, other.getWindow().get().getFrame()) &&
+                    Objects.equals(frame, other.getWindow().orElseThrow().getFrame()) &&
                     Objects.equals(distinct, other.isDistinct()) &&
                     Objects.equals(getArguments(), other.getArguments());
         }

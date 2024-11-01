@@ -141,9 +141,9 @@ public class ShowStatsRewrite
             if (node.getRelation() instanceof TableSubquery) {
                 Query query = ((TableSubquery) node.getRelation()).getQuery();
                 QuerySpecification specification = (QuerySpecification) query.getQueryBody();
-                Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty()), parameters, warningCollector);
+                Plan plan = queryExplainer.orElseThrow().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty()), parameters, warningCollector);
                 Set<String> columns = validateShowStatsSubquery(node, query, specification, plan);
-                Table table = (Table) specification.getFrom().get();
+                Table table = (Table) specification.getFrom().orElseThrow();
                 Constraint<ColumnHandle> constraint = getConstraint(plan);
                 return rewriteShowStats(node, table, constraint, columns);
             }
@@ -171,7 +171,7 @@ public class ShowStatsRewrite
 
             check(!filterNode.isPresent(), node, "Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
             check(querySpecification.getFrom().isPresent(), node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
-            check(querySpecification.getFrom().get() instanceof Table, node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
+            check(querySpecification.getFrom().orElseThrow() instanceof Table, node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
             check(!query.getWith().isPresent(), node, "WITH is not supported by SHOW STATS SELECT clause");
             check(!querySpecification.getOrderBy().isPresent(), node, "ORDER BY is not supported in SHOW STATS SELECT clause");
             check(!querySpecification.getLimit().isPresent(), node, "LIMIT is not supported by SHOW STATS SELECT clause");
@@ -245,7 +245,7 @@ public class ShowStatsRewrite
                 return Constraint.alwaysFalse();
             }
 
-            return new Constraint<>(scanNode.get().getCurrentConstraint());
+            return new Constraint<>(scanNode.orElseThrow().getCurrentConstraint());
         }
 
         private TableHandle getTableHandle(ShowStats node, QualifiedName table)

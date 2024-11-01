@@ -72,7 +72,7 @@ public class PredicateStitcher
     {
         Optional<With> rewrittenWith = Optional.empty();
         if (node.getWith().isPresent()) {
-            rewrittenWith = Optional.of((With) process(node.getWith().get(), context));
+            rewrittenWith = Optional.of((With) process(node.getWith().orElseThrow(), context));
         }
 
         return new Query(
@@ -95,7 +95,7 @@ public class PredicateStitcher
         if (node.getFrom().isPresent()) {
             return new QuerySpecification(
                     node.getSelect(),
-                    Optional.of((Relation) process(node.getFrom().get(), context)),
+                    Optional.of((Relation) process(node.getFrom().orElseThrow(), context)),
                     node.getWhere(),
                     node.getGroupBy(),
                     node.getHaving(),

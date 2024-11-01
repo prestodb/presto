@@ -100,7 +100,7 @@ public class LeftJoinWithArrayContainsToEquiJoinCondition
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        RowExpression filterPredicate = node.getFilter().get();
+        RowExpression filterPredicate = node.getFilter().orElseThrow();
         List<VariableReferenceExpression> leftInput = node.getLeft().getOutputVariables();
         List<VariableReferenceExpression> rightInput = node.getRight().getOutputVariables();
         List<RowExpression> andConjuncts = extractConjuncts(filterPredicate);
@@ -108,9 +108,9 @@ public class LeftJoinWithArrayContainsToEquiJoinCondition
         if (!arrayContains.isPresent()) {
             return Result.empty();
         }
-        List<RowExpression> remainingConjuncts = andConjuncts.stream().filter(rowExpression -> !rowExpression.equals(arrayContains.get())).collect(toImmutableList());
-        RowExpression array = ((CallExpression) arrayContains.get()).getArguments().get(0);
-        RowExpression element = ((CallExpression) arrayContains.get()).getArguments().get(1);
+        List<RowExpression> remainingConjuncts = andConjuncts.stream().filter(rowExpression -> !rowExpression.equals(arrayContains.orElseThrow())).collect(toImmutableList());
+        RowExpression array = ((CallExpression) arrayContains.orElseThrow()).getArguments().get(0);
+        RowExpression element = ((CallExpression) arrayContains.orElseThrow()).getArguments().get(1);
         checkState(array.getType() instanceof ArrayType && ((ArrayType) array.getType()).getElementType().equals(element.getType()));
 
         PlanNode newLeft = node.getLeft();

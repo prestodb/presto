@@ -97,7 +97,7 @@ public class IndexBuildDriverFactoryProvider
 
         if (dynamicTupleFilterFactory.isPresent()) {
             // Bind in a dynamic tuple filter if necessary
-            operatorFactories.add(dynamicTupleFilterFactory.get().filterWithTuple(indexKeyTuple));
+            operatorFactories.add(dynamicTupleFilterFactory.orElseThrow().filterWithTuple(indexKeyTuple));
         }
 
         operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer, INDEX_BUILDER));

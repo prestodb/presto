@@ -184,7 +184,7 @@ public class PrefilterForLimitingAggregation
                 // Since we duplicate the source of the aggregation - we want to restrict it to simple scan/filter/project
                 // so we can do this opportunistic optimization without too much latency/cpu overhead to support common BI usecases
                 if (scanNode.isPresent() &&
-                        !isAllLowCardinalityGroupByKeys(aggregationNode, scanNode.get(), session, statsCalculator, types, limitNode.getCount())) {
+                        !isAllLowCardinalityGroupByKeys(aggregationNode, scanNode.orElseThrow(), session, statsCalculator, types, limitNode.getCount())) {
                     PlanNode rewrittenAggregation = addPrefilter(aggregationNode, limitNode.getCount());
                     if (rewrittenAggregation != aggregationNode) {
                         planChanged = true;
@@ -225,8 +225,8 @@ public class PrefilterForLimitingAggregation
                     SystemSessionProperties.getPrefilterForGroupbyLimitTimeoutMS(session));
 
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            RowExpression leftHashExpression = getHashExpression(functionAndTypeManager, keys).get();
-            RowExpression rightHashExpression = getHashExpression(functionAndTypeManager, timedDistinctLimitNode.getOutputVariables()).get();
+            RowExpression leftHashExpression = getHashExpression(functionAndTypeManager, keys).orElseThrow();
+            RowExpression rightHashExpression = getHashExpression(functionAndTypeManager, timedDistinctLimitNode.getOutputVariables()).orElseThrow();
 
             Type mapType = createMapType(functionAndTypeManager, BIGINT, BOOLEAN);
             PlanNode rightProjectNode = projectExpressions(timedDistinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(rightHashExpression, constant(TRUE, BOOLEAN)), ImmutableList.of());

@@ -323,7 +323,7 @@ public class TestExchangeClient
         // client should have sent only 2 requests: one to get all pages and once to get the done signal
         Optional<PageBufferClientStatus> clientStatusOptional = exchangeClient.getStatus().getPageBufferClientStatuses().stream().filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location)).findFirst();
         assertTrue(clientStatusOptional.isPresent());
-        assertStatus(clientStatusOptional.get(), "closed", "not scheduled");
+        assertStatus(clientStatusOptional.orElseThrow(), "closed", "not scheduled");
     }
 
     @Test
@@ -480,13 +480,13 @@ public class TestExchangeClient
                 .stream()
                 .filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location1)).findFirst();
         assertTrue(clientStatusOptional1.isPresent());
-        assertStatus(clientStatusOptional1.get(), "closed", "not scheduled");
+        assertStatus(clientStatusOptional1.orElseThrow(), "closed", "not scheduled");
 
         Optional<PageBufferClientStatus> clientStatusOptional2 = exchangeClientStatus.getPageBufferClientStatuses()
                 .stream()
                 .filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location2)).findFirst();
         assertTrue(clientStatusOptional2.isPresent());
-        assertStatus(clientStatusOptional2.get(), "closed", "not scheduled");
+        assertStatus(clientStatusOptional2.orElseThrow(), "closed", "not scheduled");
     }
 
     private static Page createPage(int size)

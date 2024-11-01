@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -25,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.common.Utils.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -106,8 +106,8 @@ public final class DeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        checkArgument(newChildren.size() == 1);
-        return new DeleteNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), rowId, outputVariables, inputDistribution);
+        Utils.checkArgument(newChildren.size() == 1);
+        return new DeleteNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), rowId, outputVariables, Optional.empty());
     }
 
     @Override

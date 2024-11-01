@@ -49,7 +49,7 @@ public class StrictAssignedSymbolsMatcher
                 return null;
             }
 
-            expected.add(assigned.get());
+            expected.add(assigned.orElseThrow());
         }
 
         return expected.build();

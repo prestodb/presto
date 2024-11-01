@@ -390,10 +390,10 @@ public class AddLocalExchanges
                 // !isPresent() indicates the property was satisfied completely
                 preGroupedSymbols = groupingKeys;
             }
-            else if (matchResult.get(0).get().getColumns().size() < groupingKeys.size() && isSegmentedAggregationEnabled(session)) {
+            else if (matchResult.get(0).orElseThrow().getColumns().size() < groupingKeys.size() && isSegmentedAggregationEnabled(session)) {
                 // If the result size = original groupingKeys size: all grouping keys are not pre-grouped, can't enable segmented aggregation
                 // Otherwise: partial grouping keys are pre-grouped, can enable segmented aggregation, the result represents the grouping keys that's not pre-grouped
-                preGroupedSymbols = groupingKeys.stream().filter(groupingKey -> !matchResult.get(0).get().getColumns().contains(groupingKey)).collect(toImmutableList());
+                preGroupedSymbols = groupingKeys.stream().filter(groupingKey -> !matchResult.get(0).orElseThrow().getColumns().contains(groupingKey)).collect(toImmutableList());
             }
 
             AggregationNode result = new AggregationNode(
@@ -466,7 +466,7 @@ public class AddLocalExchanges
             if (!node.getInputDistribution().isPresent()) {
                 return visitPlan(node, parentPreferences);
             }
-            DeleteNode.InputDistribution inputDistribution = node.getInputDistribution().get();
+            DeleteNode.InputDistribution inputDistribution = node.getInputDistribution().orElseThrow();
             StreamPreferredProperties childRequirements = parentPreferences
                     .constrainTo(node.getSource().getOutputVariables())
                     .withDefaultParallelism(session)
@@ -663,7 +663,7 @@ public class AddLocalExchanges
                                 idAllocator.getNextId(),
                                 LOCAL,
                                 source.getNode(),
-                                originalTableWriterNode.getTablePartitioningScheme().get()),
+                                originalTableWriterNode.getTablePartitioningScheme().orElseThrow()),
                         source.getProperties());
                 tableWriter = deriveProperties(
                         new TableWriterNode(
@@ -774,7 +774,7 @@ public class AddLocalExchanges
                         REPARTITION,
                         LOCAL,
                         new PartitioningScheme(
-                                Partitioning.create(FIXED_HASH_DISTRIBUTION, preferredPartitionColumns.get()),
+                                Partitioning.create(FIXED_HASH_DISTRIBUTION, preferredPartitionColumns.orElseThrow()),
                                 node.getOutputVariables()),
                         sources,
                         inputLayouts,
@@ -944,7 +944,7 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         LOCAL,
                         planWithProperties.getNode(),
-                        requiredPartitionColumns.get(),
+                        requiredPartitionColumns.orElseThrow(),
                         Optional.empty());
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }

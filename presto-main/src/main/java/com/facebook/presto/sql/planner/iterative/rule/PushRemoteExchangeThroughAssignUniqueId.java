@@ -33,7 +33,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 /**
  * Pushes RemoteExchange node down through the AssignUniqueId to preserve
@@ -84,7 +84,7 @@ public final class PushRemoteExchangeThroughAssignUniqueId
                                 partitioningScheme.getEncoding(),
                                 partitioningScheme.getBucketToPartition()),
                         ImmutableList.of(assignUniqueId.getSource()),
-                        ImmutableList.of(removeVariable(getOnlyElement(node.getInputs()), assignUniqueId.getIdVariable())),
+                        ImmutableList.of(removeVariable(node.getInputs().stream().collect(onlyElement()), assignUniqueId.getIdVariable())),
                         node.isEnsureSourceOrdering(),
                         Optional.empty()),
                 assignUniqueId.getIdVariable()));

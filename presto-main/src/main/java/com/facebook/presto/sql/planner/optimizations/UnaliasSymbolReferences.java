@@ -79,7 +79,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
@@ -746,7 +745,7 @@ public class UnaliasSymbolReferences
         private Optional<VariableReferenceExpression> canonicalize(Optional<VariableReferenceExpression> variable)
         {
             if (variable.isPresent()) {
-                return Optional.of(canonicalize(variable.get()));
+                return Optional.of(canonicalize(variable.orElseThrow()));
             }
             return Optional.empty();
         }
@@ -840,7 +839,7 @@ public class UnaliasSymbolReferences
             for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : setOperationVariableMap.entrySet()) {
                 VariableReferenceExpression canonicalOutputVariable = canonicalize(entry.getKey());
                 if (addVariables.add(canonicalOutputVariable)) {
-                    result.put(canonicalOutputVariable, ImmutableList.copyOf(Iterables.transform(entry.getValue(), this::canonicalize)));
+                    result.put(canonicalOutputVariable, entry.getValue().stream().map(this::canonicalize).collect(toImmutableList()));
                 }
             }
             return result;

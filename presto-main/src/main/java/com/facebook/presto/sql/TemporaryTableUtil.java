@@ -64,6 +64,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -80,7 +81,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
 import static java.util.function.Function.identity;
 
@@ -114,8 +114,8 @@ public class TemporaryTableUtil
         verify(!selectedLayout.getLayout().getColumns().isPresent(), "temporary table layout must provide all the columns");
         if (expectedPartitioningMetadata.isPresent()) {
             TableLayout.TablePartitioning expectedPartitioning = new TableLayout.TablePartitioning(
-                    expectedPartitioningMetadata.get().getPartitioningHandle(),
-                    expectedPartitioningMetadata.get().getPartitionColumns().stream()
+                    expectedPartitioningMetadata.orElseThrow().getPartitioningHandle(),
+                    expectedPartitioningMetadata.orElseThrow().getPartitionColumns().stream()
                             .map(columnHandles::get)
                             .collect(toImmutableList()));
             verify(selectedLayout.getLayout().getTablePartitioning().equals(Optional.of(expectedPartitioning)), "invalid temporary table partitioning");
@@ -138,7 +138,7 @@ public class TemporaryTableUtil
     {
         ImmutableMap.Builder<VariableReferenceExpression, ColumnMetadata> result = ImmutableMap.builder();
         int column = 0;
-        for (VariableReferenceExpression outputVariable : concat(outputVariables, constantPartitioningVariables)) {
+        for (VariableReferenceExpression outputVariable : Stream.concat(outputVariables.stream(), constantPartitioningVariables.stream()).toList()) {
             String columnName = format("_c%d_%s", column, outputVariable.getName());
             result.put(outputVariable, new ColumnMetadata(columnName, outputVariable.getType()));
             column++;

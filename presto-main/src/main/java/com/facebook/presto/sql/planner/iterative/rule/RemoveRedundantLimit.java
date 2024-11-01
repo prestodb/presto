@@ -40,7 +40,7 @@ public class RemoveRedundantLimit
     private static boolean isAtMost(LimitNode node)
     {
         return ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
-                ((GroupReference) node.getSource()).getLogicalProperties().get().isAtMost(node.getCount());
+                ((GroupReference) node.getSource()).getLogicalProperties().orElseThrow().isAtMost(node.getCount());
     }
 
     @Override

@@ -35,7 +35,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -196,8 +196,8 @@ public class SqlTaskExecution
             ImmutableList.Builder<DriverSplitRunnerFactory> driverRunnerFactoriesWithDriverGroupLifeCycle = ImmutableList.builder();
             for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
                 Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
-                if (sourceId.isPresent() && tableScanSources.contains(sourceId.get())) {
-                    driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
+                if (sourceId.isPresent() && tableScanSources.contains(sourceId.orElseThrow())) {
+                    driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.orElseThrow(), new DriverSplitRunnerFactory(driverFactory, true));
                 }
                 else {
                     switch (driverFactory.getPipelineExecutionStrategy()) {
@@ -311,7 +311,7 @@ public class SqlTaskExecution
                 if (!sourceId.isPresent()) {
                     continue;
                 }
-                TaskSource sourceUpdate = updatedRemoteSources.get(sourceId.get());
+                TaskSource sourceUpdate = updatedRemoteSources.get(sourceId.orElseThrow());
                 if (sourceUpdate == null) {
                     continue;
                 }
@@ -351,10 +351,11 @@ public class SqlTaskExecution
             }
         }
 
-        for (DriverSplitRunnerFactory driverSplitRunnerFactory :
-                Iterables.concat(driverRunnerFactoriesWithSplitLifeCycle.values(), driverRunnerFactoriesWithTaskLifeCycle, driverRunnerFactoriesWithDriverGroupLifeCycle)) {
-            driverSplitRunnerFactory.closeDriverFactoryIfFullyCreated();
-        }
+        Streams.concat(
+                driverRunnerFactoriesWithSplitLifeCycle.values().stream(),
+                driverRunnerFactoriesWithTaskLifeCycle.stream(),
+                driverRunnerFactoriesWithDriverGroupLifeCycle.stream())
+                .forEach(DriverSplitRunnerFactory::closeDriverFactoryIfFullyCreated);
 
         // update maxAcknowledgedSplit
         maxAcknowledgedSplit = sources.stream()
@@ -440,7 +441,7 @@ public class SqlTaskExecution
                     if (!optionalSchedulingPlanNode.isPresent()) {
                         break;
                     }
-                    PlanNodeId schedulingPlanNode = optionalSchedulingPlanNode.get();
+                    PlanNodeId schedulingPlanNode = optionalSchedulingPlanNode.orElseThrow();
 
                     DriverSplitRunnerFactory partitionedDriverRunnerFactory = driverRunnerFactoriesWithSplitLifeCycle.get(schedulingPlanNode);
 
@@ -956,7 +957,7 @@ public class SqlTaskExecution
             // add remote sources
             Optional<PlanNodeId> sourceId = driver.getSourceId();
             if (sourceId.isPresent()) {
-                TaskSource taskSource = remoteSources.get(sourceId.get());
+                TaskSource taskSource = remoteSources.get(sourceId.orElseThrow());
                 if (taskSource != null) {
                     driver.updateSource(taskSource);
                 }

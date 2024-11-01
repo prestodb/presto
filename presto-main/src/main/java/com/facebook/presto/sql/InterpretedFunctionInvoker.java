@@ -125,7 +125,7 @@ public class InterpretedFunctionInvoker
         }
 
         try {
-            return method.bindTo(builtInImplementation.getInstanceFactory().get().invoke());
+            return method.bindTo(builtInImplementation.getInstanceFactory().orElseThrow().invoke());
         }
         catch (Throwable throwable) {
             throw propagate(throwable);

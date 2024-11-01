@@ -129,7 +129,7 @@ public class IndexJoinOptimizer
                         session);
                 if (leftIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
-                    Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(leftIndexCandidate.get(), ImmutableSet.copyOf(leftJoinVariables));
+                    Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(leftIndexCandidate.orElseThrow(), ImmutableSet.copyOf(leftJoinVariables));
                     checkState(!trace.isEmpty() && leftJoinVariables.containsAll(trace.keySet()));
                 }
 
@@ -141,7 +141,7 @@ public class IndexJoinOptimizer
                         session);
                 if (rightIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
-                    Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(rightIndexCandidate.get(), ImmutableSet.copyOf(rightJoinVariables));
+                    Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(rightIndexCandidate.orElseThrow(), ImmutableSet.copyOf(rightJoinVariables));
                     checkState(!trace.isEmpty() && rightJoinVariables.containsAll(trace.keySet()));
                 }
 
@@ -150,15 +150,15 @@ public class IndexJoinOptimizer
                         // Prefer the right candidate over the left candidate
                         PlanNode indexJoinNode = null;
                         if (rightIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(leftRewritten.getSourceLocation(), idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(leftRewritten.getSourceLocation(), idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.orElseThrow(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), Optional.empty(), Optional.empty());
                         }
                         else if (leftIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(rightRewritten.getSourceLocation(), idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(rightRewritten.getSourceLocation(), idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.orElseThrow(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), Optional.empty(), Optional.empty());
                         }
 
                         if (indexJoinNode != null) {
                             if (node.getFilter().isPresent()) {
-                                indexJoinNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
+                                indexJoinNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), indexJoinNode, node.getFilter().orElseThrow());
                             }
 
                             if (!indexJoinNode.getOutputVariables().equals(node.getOutputVariables())) {
@@ -177,7 +177,7 @@ public class IndexJoinOptimizer
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
                             planChanged = true;
-                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.orElseThrow(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator);
                         }
                         break;
 
@@ -185,7 +185,7 @@ public class IndexJoinOptimizer
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
                             planChanged = true;
-                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.orElseThrow(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator);
                         }
                         break;
 
@@ -319,7 +319,7 @@ public class IndexJoinOptimizer
                 // No index available, so give up by returning something
                 return node;
             }
-            ResolvedIndex resolvedIndex = optionalResolvedIndex.get();
+            ResolvedIndex resolvedIndex = optionalResolvedIndex.orElseThrow();
 
             Map<ColumnHandle, VariableReferenceExpression> inverseAssignments = node.getAssignments().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));

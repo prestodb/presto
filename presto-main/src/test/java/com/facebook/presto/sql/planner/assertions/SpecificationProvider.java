@@ -94,12 +94,12 @@ public class SpecificationProvider
                 actual.getOrderingScheme().map(orderingScheme -> orderingScheme.getOrderByVariables().stream()
                                 .map(VariableReferenceExpression::getName)
                                 .collect(toImmutableSet())
-                                .equals(expected.getOrderingScheme().get().getOrderByVariables().stream()
+                                .equals(expected.getOrderingScheme().orElseThrow().getOrderByVariables().stream()
                                         .map(VariableReferenceExpression::getName)
                                         .collect(toImmutableSet())) &&
                                 orderingScheme.getOrderingsMap().entrySet().stream()
                                         .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue))
-                                        .equals(expected.getOrderingScheme().get().getOrderingsMap().entrySet().stream()
+                                        .equals(expected.getOrderingScheme().orElseThrow().getOrderingsMap().entrySet().stream()
                                                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue))))
                         .orElse(true);
     }

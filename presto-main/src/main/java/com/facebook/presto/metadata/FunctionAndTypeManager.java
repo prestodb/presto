@@ -298,7 +298,7 @@ public class FunctionAndTypeManager
         }
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
-        return functionNamespaceManager.get().getFunctionMetadata(functionHandle);
+        return functionNamespaceManager.orElseThrow().getFunctionMetadata(functionHandle);
     }
 
     @Override
@@ -312,9 +312,9 @@ public class FunctionAndTypeManager
             Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
                 if (signature.getTypeSignatureBase().hasTypeName()) {
-                    return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type.get());
+                    return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type.orElseThrow());
                 }
-                return type.get();
+                return type.orElseThrow();
             }
         }
 
@@ -396,7 +396,7 @@ public class FunctionAndTypeManager
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = session.getTransactionId().map(
                 id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
-        return functionNamespaceManager.get().getFunctions(transactionHandle, functionName);
+        return functionNamespaceManager.orElseThrow().getFunctions(transactionHandle, functionName);
     }
 
     public void createFunction(SqlInvokedFunction function, boolean replace)
@@ -405,7 +405,7 @@ public class FunctionAndTypeManager
         if (!functionNamespaceManager.isPresent()) {
             throw new PrestoException(GENERIC_USER_ERROR, format("Cannot create function in function namespace: %s", function.getFunctionId().getFunctionName().getCatalogSchemaName()));
         }
-        functionNamespaceManager.get().createFunction(function, replace);
+        functionNamespaceManager.orElseThrow().createFunction(function, replace);
     }
 
     public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
@@ -414,14 +414,14 @@ public class FunctionAndTypeManager
         if (!functionNamespaceManager.isPresent()) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName));
         }
-        functionNamespaceManager.get().alterFunction(functionName, parameterTypes, alterRoutineCharacteristics);
+        functionNamespaceManager.orElseThrow().alterFunction(functionName, parameterTypes, alterRoutineCharacteristics);
     }
 
     public void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName());
         if (functionNamespaceManager.isPresent()) {
-            functionNamespaceManager.get().dropFunction(functionName, parameterTypes, exists);
+            functionNamespaceManager.orElseThrow().dropFunction(functionName, parameterTypes, exists);
         }
         else if (!exists) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName.getCatalogSchemaName()));
@@ -444,10 +444,10 @@ public class FunctionAndTypeManager
     {
         if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE)) {
             if (sessionFunctions.isPresent()) {
-                Collection<SqlFunction> candidates = SessionFunctionUtils.getFunctions(sessionFunctions.get(), functionName);
+                Collection<SqlFunction> candidates = SessionFunctionUtils.getFunctions(sessionFunctions.orElseThrow(), functionName);
                 Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
                 if (match.isPresent()) {
-                    return SessionFunctionUtils.getFunctionHandle(sessionFunctions.get(), match.get());
+                    return SessionFunctionUtils.getFunctionHandle(sessionFunctions.orElseThrow(), match.orElseThrow());
                 }
             }
 
@@ -478,7 +478,7 @@ public class FunctionAndTypeManager
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(userDefinedType.getUserDefinedTypeName().getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for user defined type %", userDefinedType.getUserDefinedTypeName());
-        functionNamespaceManager.get().addUserDefinedType(userDefinedType);
+        functionNamespaceManager.orElseThrow().addUserDefinedType(userDefinedType);
     }
 
     public List<Type> getTypes()
@@ -513,21 +513,21 @@ public class FunctionAndTypeManager
         }
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
-        return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
+        return functionNamespaceManager.orElseThrow().getScalarFunctionImplementation(functionHandle);
     }
 
     public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
-        return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle, this);
+        return functionNamespaceManager.orElseThrow().getAggregateFunctionImplementation(functionHandle, this);
     }
 
     public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkState(functionNamespaceManager.isPresent(), format("FunctionHandle %s should have a serving function namespace", functionHandle));
-        return functionNamespaceManager.get().executeFunction(source, functionHandle, inputPage, channels, this);
+        return functionNamespaceManager.orElseThrow().executeFunction(source, functionHandle, inputPage, channels, this);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
@@ -608,7 +608,7 @@ public class FunctionAndTypeManager
             throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
         }
 
-        return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), match.get());
+        return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), match.orElseThrow());
     }
 
     public FunctionHandle lookupCast(CastType castType, Type fromType, Type toType)
@@ -652,7 +652,7 @@ public class FunctionAndTypeManager
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
-        UserDefinedType userDefinedType = functionNamespaceManager.get()
+        UserDefinedType userDefinedType = functionNamespaceManager.orElseThrow()
                 .getUserDefinedType(signature.getTypeSignatureBase().getTypeName())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown type " + signature));
         checkArgument(userDefinedType.getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "A UserDefinedType must be based on static types.");
@@ -677,7 +677,7 @@ public class FunctionAndTypeManager
 
         Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
         if (match.isPresent()) {
-            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
+            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.orElseThrow());
         }
 
         if (functionName.getObjectName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {

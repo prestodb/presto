@@ -148,11 +148,11 @@ public class MaterializedViewColumnMappingExtractor
                 Optional<TableColumn> firstBaseColumn = tryGetOriginalTableColumn(outputDescriptorList.get(firstRelationIndex).getFieldByIndex(fieldIndex));
                 Optional<TableColumn> secondBaseColumn = tryGetOriginalTableColumn(outputDescriptorList.get(firstRelationIndex - 1).getFieldByIndex(fieldIndex));
                 if (firstBaseColumn.isPresent() && secondBaseColumn.isPresent()) {
-                    mappedBaseColumns.computeIfAbsent(firstBaseColumn.get(), k -> new HashSet<>()).add(secondBaseColumn.get());
-                    mappedBaseColumns.computeIfAbsent(secondBaseColumn.get(), k -> new HashSet<>()).add(firstBaseColumn.get());
+                    mappedBaseColumns.computeIfAbsent(firstBaseColumn.orElseThrow(), k -> new HashSet<>()).add(secondBaseColumn.orElseThrow());
+                    mappedBaseColumns.computeIfAbsent(secondBaseColumn.orElseThrow(), k -> new HashSet<>()).add(firstBaseColumn.orElseThrow());
 
-                    directMappedBaseColumns.computeIfAbsent(firstBaseColumn.get(), k -> new HashSet<>()).add(secondBaseColumn.get());
-                    directMappedBaseColumns.computeIfAbsent(secondBaseColumn.get(), k -> new HashSet<>()).add(firstBaseColumn.get());
+                    directMappedBaseColumns.computeIfAbsent(firstBaseColumn.orElseThrow(), k -> new HashSet<>()).add(secondBaseColumn.orElseThrow());
+                    directMappedBaseColumns.computeIfAbsent(secondBaseColumn.orElseThrow(), k -> new HashSet<>()).add(firstBaseColumn.orElseThrow());
                 }
             }
         }
@@ -199,12 +199,12 @@ public class MaterializedViewColumnMappingExtractor
         Optional<TableColumn> leftBaseColumn = tryGetOriginalTableColumn(left);
         Optional<TableColumn> rightBaseColumn = tryGetOriginalTableColumn(right);
         if (leftBaseColumn.isPresent() && rightBaseColumn.isPresent()) {
-            mappedBaseColumns.computeIfAbsent(leftBaseColumn.get(), k -> new HashSet<>()).add(rightBaseColumn.get());
-            mappedBaseColumns.computeIfAbsent(rightBaseColumn.get(), k -> new HashSet<>()).add(leftBaseColumn.get());
+            mappedBaseColumns.computeIfAbsent(leftBaseColumn.orElseThrow(), k -> new HashSet<>()).add(rightBaseColumn.orElseThrow());
+            mappedBaseColumns.computeIfAbsent(rightBaseColumn.orElseThrow(), k -> new HashSet<>()).add(leftBaseColumn.orElseThrow());
 
             if (context.getTopJoinNode().getType().equals(INNER)) {
-                directMappedBaseColumns.computeIfAbsent(leftBaseColumn.get(), k -> new HashSet<>()).add(rightBaseColumn.get());
-                directMappedBaseColumns.computeIfAbsent(rightBaseColumn.get(), k -> new HashSet<>()).add(leftBaseColumn.get());
+                directMappedBaseColumns.computeIfAbsent(leftBaseColumn.orElseThrow(), k -> new HashSet<>()).add(rightBaseColumn.orElseThrow());
+                directMappedBaseColumns.computeIfAbsent(rightBaseColumn.orElseThrow(), k -> new HashSet<>()).add(leftBaseColumn.orElseThrow());
             }
         }
 
@@ -218,8 +218,8 @@ public class MaterializedViewColumnMappingExtractor
         return analysis.getOutputDescriptor(viewQuery).getVisibleFields().stream()
                 .filter(field -> field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent())
                 .collect(toImmutableMap(
-                        field -> field.getName().get(),
-                        field -> new TableColumn(toSchemaTableName(field.getOriginTable().get()), field.getOriginColumnName().get(), true)));
+                        field -> field.getName().orElseThrow(),
+                        field -> new TableColumn(toSchemaTableName(field.getOriginTable().orElseThrow()), field.getOriginColumnName().orElseThrow(), true)));
     }
 
     private static Map<String, Map<SchemaTableName, String>> getColumnMappings(Analysis analysis, Map<TableColumn, Set<TableColumn>> columnMappings)
@@ -250,8 +250,8 @@ public class MaterializedViewColumnMappingExtractor
     private static Optional<TableColumn> tryGetOriginalTableColumn(Field field)
     {
         if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-            SchemaTableName table = toSchemaTableName(field.getOriginTable().get());
-            String column = field.getOriginColumnName().get();
+            SchemaTableName table = toSchemaTableName(field.getOriginTable().orElseThrow());
+            String column = field.getOriginColumnName().orElseThrow();
             return Optional.of(new TableColumn(table, column, true));
         }
         return Optional.empty();

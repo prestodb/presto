@@ -94,11 +94,11 @@ public class MetadataUtils
 
         Map<String, ColumnHandle> columnHandles = session.getRuntimeStats().profileNanos(
                 GET_COLUMN_HANDLE_TIME_NANOS,
-                () -> metadataResolver.getColumnHandles(tableHandle.get()));
+                () -> metadataResolver.getColumnHandles(tableHandle.orElseThrow()));
 
         List<ColumnMetadata> columnsMetadata = session.getRuntimeStats().profileNanos(
                 GET_COLUMN_METADATA_TIME_NANOS,
-                () -> metadataResolver.getColumns(tableHandle.get()));
+                () -> metadataResolver.getColumns(tableHandle.orElseThrow()));
 
         return new TableColumnMetadata(tableHandle, columnHandles, columnsMetadata);
     }

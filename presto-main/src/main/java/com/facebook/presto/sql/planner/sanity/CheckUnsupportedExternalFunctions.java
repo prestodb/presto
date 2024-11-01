@@ -77,8 +77,8 @@ public class CheckUnsupportedExternalFunctions
         @Override
         public Void visitJoin(JoinNode node, Void context)
         {
-            if (node.getFilter().isPresent() && node.getFilter().get().accept(externalCallExpressionChecker, null)) {
-                throw new PrestoException(NOT_SUPPORTED, format("External function in join filter is not supported: %s", node.getFilter().get()));
+            if (node.getFilter().isPresent() && node.getFilter().orElseThrow().accept(externalCallExpressionChecker, null)) {
+                throw new PrestoException(NOT_SUPPORTED, format("External function in join filter is not supported: %s", node.getFilter().orElseThrow()));
             }
 
             node.getSources().forEach(child -> child.accept(this, context));

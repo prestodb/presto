@@ -156,7 +156,7 @@ public class MaterializedViewQueryOptimizer
         }
         // If a query specification has a Table as a source, it can potentially be rewritten,
         // so hand control over to QuerySpecificationRewriter via rewriteQuerySpecificationIfCompatible
-        Relation from = node.getFrom().get();
+        Relation from = node.getFrom().orElseThrow();
         if (from instanceof Table) {
             return rewriteQuerySpecificationIfCompatible(node, (Table) from);
         }
@@ -193,7 +193,7 @@ public class MaterializedViewQueryOptimizer
     {
         QueryBody newQueryBody = processSameType(node.getQueryBody());
         Optional<With> newWith = node.getWith().map(this::processSameType);
-        boolean withSame = !newWith.isPresent() || node.getWith().get() == newWith.get();
+        boolean withSame = !newWith.isPresent() || node.getWith().orElseThrow() == newWith.orElseThrow();
         if (withSame && node.getQueryBody() == newQueryBody) {
             return node;
         }
@@ -338,7 +338,7 @@ public class MaterializedViewQueryOptimizer
         Optional<String> errorMessage = MaterializedViewRewriteQueryShapeValidator.validate(querySpecification);
 
         if (errorMessage.isPresent()) {
-            log.warn("Rewrite failed for base table %s with error message { %s }. ", baseTable.getName(), errorMessage.get());
+            log.warn("Rewrite failed for base table %s with error message { %s }. ", baseTable.getName(), errorMessage.orElseThrow());
             return querySpecification;
         }
 
@@ -448,7 +448,7 @@ public class MaterializedViewQueryOptimizer
             if (!node.getFrom().isPresent()) {
                 throw new IllegalArgumentException("visitQuerySpecification should not be invoked for an empty FROM clause");
             }
-            Relation relation = node.getFrom().get();
+            Relation relation = node.getFrom().orElseThrow();
             if (relation instanceof AliasedRelation) {
                 removablePrefix = Optional.of(((AliasedRelation) relation).getAlias());
                 relation = ((AliasedRelation) relation).getRelation();
@@ -462,12 +462,12 @@ public class MaterializedViewQueryOptimizer
             }
             if (node.getGroupBy().isPresent()) {
                 ImmutableSet.Builder<Expression> expressionsInGroupByBuilder = ImmutableSet.builder();
-                for (GroupingElement element : node.getGroupBy().get().getGroupingElements()) {
+                for (GroupingElement element : node.getGroupBy().orElseThrow().getGroupingElements()) {
                     element = removeGroupingElementPrefix(element, removablePrefix);
                     Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
                     if (groupByOfMaterializedView.isPresent()) {
                         for (Expression expression : element.getExpressions()) {
-                            if (!groupByOfMaterializedView.get().contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression)) {
+                            if (!groupByOfMaterializedView.orElseThrow().contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression)) {
                                 throw new IllegalStateException(format("Grouping element %s is not present in materialized view groupBy field", element));
                             }
                         }
@@ -484,7 +484,7 @@ public class MaterializedViewQueryOptimizer
                 if (!node.getWhere().isPresent()) {
                     throw new IllegalStateException("Query with no where clause is not rewritable by materialized view with where clause");
                 }
-                Scope scope = extractScope(baseTable, node, materializedViewInfo.getWhereClause().get());
+                Scope scope = extractScope(baseTable, node, materializedViewInfo.getWhereClause().orElseThrow());
 
                 // Given base query's filter condition and materialized view's filter condition, the goal is to check if materialized view's
                 // filters contain Base's filters (Base implies materialized view).
@@ -493,8 +493,8 @@ public class MaterializedViewQueryOptimizer
                 // If the resulting domain is none, then A^~B is false. Thus A implies B.
                 // For more information and examples: https://fb.quip.com/WwmxA40jLMxR
                 // TODO: Implement method that utilizes external SAT solver libraries. https://github.com/prestodb/presto/issues/16536
-                RowExpression materializedViewWhereCondition = convertToRowExpression(materializedViewInfo.getWhereClause().get(), scope);
-                RowExpression baseQueryWhereCondition = convertToRowExpression(node.getWhere().get(), scope);
+                RowExpression materializedViewWhereCondition = convertToRowExpression(materializedViewInfo.getWhereClause().orElseThrow(), scope);
+                RowExpression baseQueryWhereCondition = convertToRowExpression(node.getWhere().orElseThrow(), scope);
                 RowExpression rewriteLogicExpression = and(baseQueryWhereCondition,
                         call(baseQueryWhereCondition.getSourceLocation(),
                                 "not",
@@ -546,8 +546,8 @@ public class MaterializedViewQueryOptimizer
             Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
             // TODO: Replace this logic with rule-based validation framework.
             if (groupByOfMaterializedView.isPresent() &&
-                    validateExpressionForGroupBy(groupByOfMaterializedView.get(), expression) &&
-                    (!expressionsInGroupBy.isPresent() || !expressionsInGroupBy.get().contains(expression))) {
+                    validateExpressionForGroupBy(groupByOfMaterializedView.orElseThrow(), expression) &&
+                    (!expressionsInGroupBy.isPresent() || !expressionsInGroupBy.orElseThrow().contains(expression))) {
                 throw new IllegalStateException("Query a column presents in materialized view group by: " + expression.toString());
             }
 
@@ -640,7 +640,7 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitRelation(Relation node, Void context)
         {
-            if (materializedViewInfo.getBaseTable().isPresent() && node.equals(materializedViewInfo.getBaseTable().get())) {
+            if (materializedViewInfo.getBaseTable().isPresent() && node.equals(materializedViewInfo.getBaseTable().orElseThrow())) {
                 return materializedView;
             }
             throw new IllegalStateException("Mismatching table or non-supporting relation format in base query");
@@ -824,8 +824,8 @@ public class MaterializedViewQueryOptimizer
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
 
-            for (ColumnHandle columnHandle : metadata.getColumnHandles(session, tableHandle.get()).values()) {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
+            for (ColumnHandle columnHandle : metadata.getColumnHandles(session, tableHandle.orElseThrow()).values()) {
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.orElseThrow(), columnHandle);
                 fields.add(Field.newUnqualified(whereClause.getLocation(), columnMetadata.getName(), columnMetadata.getType()));
             }
 
@@ -839,13 +839,13 @@ public class MaterializedViewQueryOptimizer
             TupleDomain<String> baseQueryDomain = TupleDomain.all();
 
             if (querySpecification.getWhere().isPresent() && isMaterializedViewPartitionFilteringEnabled(session)) {
-                Expression baseQueryWhereClause = querySpecification.getWhere().get();
+                Expression baseQueryWhereClause = querySpecification.getWhere().orElseThrow();
 
                 Relation from = querySpecification.getFrom().orElseThrow(() -> new IllegalStateException("from should be present"));
 
                 Table table;
                 if (from instanceof Table) {
-                    table = (Table) querySpecification.getFrom().get();
+                    table = (Table) querySpecification.getFrom().orElseThrow();
                 }
                 else if (from instanceof AliasedRelation && ((AliasedRelation) from).getRelation() instanceof Table) {
                     table = (Table) ((AliasedRelation) from).getRelation();

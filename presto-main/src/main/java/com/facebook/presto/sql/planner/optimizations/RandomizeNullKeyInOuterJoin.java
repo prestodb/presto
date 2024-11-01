@@ -225,7 +225,7 @@ public class RandomizeNullKeyInOuterJoin
 
         private static boolean isPartitionedJoin(JoinNode joinNode)
         {
-            return joinNode.getDistributionType().isPresent() && joinNode.getDistributionType().get() == PARTITIONED;
+            return joinNode.getDistributionType().isPresent() && joinNode.getDistributionType().orElseThrow() == PARTITIONED;
         }
 
         public boolean isPlanChanged()

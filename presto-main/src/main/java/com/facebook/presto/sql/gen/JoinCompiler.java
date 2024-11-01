@@ -793,7 +793,7 @@ public class JoinCompiler
 
         Variable thisVariable = compareMethod.getThis();
 
-        int index = sortChannel.get();
+        int index = sortChannel.orElseThrow();
         BytecodeExpression type = constantType(callSiteBinder, types.get(index));
 
         BytecodeExpression leftBlock = thisVariable
@@ -836,7 +836,7 @@ public class JoinCompiler
 
         Variable thisVariable = isSortChannelPositionNullMethod.getThis();
 
-        int index = sortChannel.get();
+        int index = sortChannel.orElseThrow();
 
         BytecodeExpression block = thisVariable
                 .getField(channelFields.get(index))

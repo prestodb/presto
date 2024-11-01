@@ -28,7 +28,7 @@ import java.util.Optional;
 import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 /**
  * This optimizers looks for InPredicate expressions in ApplyNodes and replaces the nodes with SemiJoin nodes.
@@ -72,13 +72,13 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
             return Result.empty();
         }
 
-        RowExpression expression = getOnlyElement(applyNode.getSubqueryAssignments().getExpressions());
+        RowExpression expression = applyNode.getSubqueryAssignments().getExpressions().stream().collect(onlyElement());
         if (!(expression instanceof InSubqueryExpression)) {
             return Result.empty();
         }
         InSubqueryExpression inPredicate = (InSubqueryExpression) expression;
 
-        VariableReferenceExpression semiJoinVariable = getOnlyElement(applyNode.getSubqueryAssignments().getVariables());
+        VariableReferenceExpression semiJoinVariable = applyNode.getSubqueryAssignments().getVariables().stream().collect(onlyElement());
 
         SemiJoinNode replacement = new SemiJoinNode(
                 applyNode.getSourceLocation(),

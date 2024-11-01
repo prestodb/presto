@@ -191,7 +191,7 @@ public class AddNotNullFiltersToJoinNode
                     }
                 };
 
-        joinFilter.get().accept(isNotNullExtractingVisitor, builder);
+        joinFilter.orElseThrow().accept(isNotNullExtractingVisitor, builder);
         return builder.build();
     }
 
@@ -236,7 +236,7 @@ public class AddNotNullFiltersToJoinNode
 
             switch (notNullInferenceStrategy) {
                 case INFER_FROM_STANDARD_OPERATORS:
-                    if (!functionMetadata.getOperatorType().isPresent() || functionMetadata.getOperatorType().get().isCalledOnNullInput()) {
+                    if (!functionMetadata.getOperatorType().isPresent() || functionMetadata.getOperatorType().orElseThrow().isCalledOnNullInput()) {
                         // We can't map this CallExpression to an OperatorType OR
                         // this OperatorType can be called on NULL inputs, so we can't make NOT NULL inferences on it's arguments
                         return null;

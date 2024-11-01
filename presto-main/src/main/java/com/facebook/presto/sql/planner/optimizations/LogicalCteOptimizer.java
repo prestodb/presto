@@ -43,13 +43,14 @@ import com.google.common.graph.Traverser;
 import com.google.common.graph.ValueGraphBuilder;
 
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getCteHeuristicReplicationThreshold;
@@ -456,7 +457,7 @@ public class LogicalCteOptimizer
         // a -> b indicates that a needs to be processed before b
         private MutableGraph<String> materializedCteDependencyGraph;
 
-        private Stack<String> activeCteStack;
+        private Deque<String> activeCteStack;
 
         private Set<String> complexCtes;
 
@@ -468,7 +469,7 @@ public class LogicalCteOptimizer
             // The cte graph will never have cycles because sql won't allow it
             cteReferenceDependencyGraph = ValueGraphBuilder.directed().allowsSelfLoops(false).build();
             materializedCteDependencyGraph = GraphBuilder.directed().allowsSelfLoops(false).build();
-            activeCteStack = new Stack<>();
+            activeCteStack = new LinkedList<>();
             complexCtes = new HashSet<>();
             candidatesForMaterilization = new HashSet<>();
         }

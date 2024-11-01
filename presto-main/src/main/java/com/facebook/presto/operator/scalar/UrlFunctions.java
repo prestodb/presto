@@ -29,7 +29,6 @@ import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
@@ -165,10 +164,7 @@ public final class UrlFunctions
     public static Slice urlDecode(@SqlType("varchar(x)") Slice value)
     {
         try {
-            return slice(URLDecoder.decode(value.toStringUtf8(), UTF_8.name()));
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
+            return slice(URLDecoder.decode(value.toStringUtf8(), UTF_8));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);

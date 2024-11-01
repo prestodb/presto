@@ -71,7 +71,7 @@ public class MemoryResource
         }
 
         if (RESERVED_POOL.getId().equals(poolId) && memoryManager.getReservedPool().isPresent()) {
-            return toSuccessfulResponse(memoryManager.getReservedPool().get().getInfo());
+            return toSuccessfulResponse(memoryManager.getReservedPool().orElseThrow().getInfo());
         }
 
         return Response.status(NOT_FOUND).build();

@@ -86,9 +86,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static com.google.common.collect.Streams.findLast;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -185,7 +185,7 @@ public class SectionExecutionFactory
                 remoteTaskFactory,
                 splitSourceFactory,
                 attemptId);
-        StageExecutionAndScheduler rootStage = getLast(sectionStages);
+        StageExecutionAndScheduler rootStage = findLast(sectionStages.stream()).orElseThrow();
         rootStage.getStageExecution().setOutputBuffers(outputBuffers);
         return new SectionExecution(rootStage, sectionStages);
     }
@@ -240,7 +240,7 @@ public class SectionExecutionFactory
                     splitSourceFactory,
                     attemptId);
             stageExecutionAndSchedulers.addAll(subTree);
-            childStagesBuilder.add(getLast(subTree).getStageExecution());
+            childStagesBuilder.add(findLast(subTree.stream()).orElseThrow().getStageExecution());
         }
         Set<SqlStageExecution> childStageExecutions = childStagesBuilder.build();
         stageExecution.addStateChangeListener(newState -> {
@@ -286,7 +286,7 @@ public class SectionExecutionFactory
         Optional<Predicate<Node>> nodePredicate = getNodePoolSelectionPredicate(plan);
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // nodes are selected dynamically based on the constraints of the splits and the system load
-            Map.Entry<PlanNodeId, SplitSource> entry = getOnlyElement(splitSources.entrySet());
+            Map.Entry<PlanNodeId, SplitSource> entry = splitSources.entrySet().stream().collect(onlyElement());
             PlanNodeId planNodeId = entry.getKey();
             SplitSource splitSource = entry.getValue();
             ConnectorId connectorId = splitSource.getConnectorId();
@@ -351,7 +351,7 @@ public class SectionExecutionFactory
                     verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
 
                     if (bucketNodeMap.hasInitialMap()) {
-                        stageNodeList = bucketNodeMap.getBucketToNode().get().stream()
+                        stageNodeList = bucketNodeMap.getBucketToNode().orElseThrow().stream()
                                 .distinct()
                                 .collect(toImmutableList());
                     }
@@ -388,9 +388,9 @@ public class SectionExecutionFactory
                     stageExecution.registerStageTaskRecoveryCallback(taskId -> {
                         checkArgument(taskId.getStageExecutionId().getStageId().equals(stageId), "The task did not execute this stage");
                         checkArgument(parentStageExecution.isPresent(), "Parent stage execution must exist");
-                        checkArgument(parentStageExecution.get().getAllTasks().size() == 1, "Parent stage should only have one task for recoverable grouped execution");
+                        checkArgument(parentStageExecution.orElseThrow().getAllTasks().size() == 1, "Parent stage should only have one task for recoverable grouped execution");
 
-                        parentStageExecution.get().removeRemoteSourceIfSingleTaskStage(taskId);
+                        parentStageExecution.orElseThrow().removeRemoteSourceIfSingleTaskStage(taskId);
                         fixedSourcePartitionedScheduler.recover(taskId);
                     });
                 }

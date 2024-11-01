@@ -90,6 +90,6 @@ public class SetPropertiesTask
         }
 
         accessControl.checkCanSetTableProperties(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, properties);
-        metadata.setTableProperties(session, tableHandle.get(), properties);
+        metadata.setTableProperties(session, tableHandle.orElseThrow(), properties);
     }
 }

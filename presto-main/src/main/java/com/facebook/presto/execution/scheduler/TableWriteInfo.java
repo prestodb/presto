@@ -45,7 +45,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
@@ -89,7 +89,7 @@ public class TableWriteInfo
     private static Optional<ExecutionWriterTarget> createWriterTarget(Optional<TableFinishNode> finishNodeOptional, Metadata metadata, Session session)
     {
         if (finishNodeOptional.isPresent()) {
-            TableWriterNode.WriterTarget target = finishNodeOptional.get().getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            TableWriterNode.WriterTarget target = finishNodeOptional.orElseThrow().getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             if (target instanceof TableWriterNode.CreateName) {
                 TableWriterNode.CreateName create = (TableWriterNode.CreateName) target;
                 return Optional.of(new ExecutionWriterTarget.CreateHandle(metadata.beginCreateTable(session, create.getConnectorId().getCatalogName(), create.getTableMetadata(), create.getLayout()), create.getSchemaTableName()));
@@ -139,8 +139,8 @@ public class TableWriteInfo
 
     private static Optional<DeleteScanInfo> createDeleteScanInfo(StreamingSubPlan plan, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
     {
-        if (writerTarget.isPresent() && writerTarget.get() instanceof ExecutionWriterTarget.DeleteHandle) {
-            DeleteNode delete = getOnlyElement(findPlanNodes(plan, DeleteNode.class));
+        if (writerTarget.isPresent() && writerTarget.orElseThrow() instanceof ExecutionWriterTarget.DeleteHandle) {
+            DeleteNode delete = findPlanNodes(plan, DeleteNode.class).stream().collect(onlyElement());
             return createDeleteScanInfo(delete, writerTarget, metadata, session);
         }
         return Optional.empty();
@@ -148,8 +148,8 @@ public class TableWriteInfo
 
     private static Optional<DeleteScanInfo> createDeleteScanInfo(PlanNode planNode, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
     {
-        if (writerTarget.isPresent() && writerTarget.get() instanceof ExecutionWriterTarget.DeleteHandle) {
-            DeleteNode delete = findSinglePlanNode(planNode, DeleteNode.class).get();
+        if (writerTarget.isPresent() && writerTarget.orElseThrow() instanceof ExecutionWriterTarget.DeleteHandle) {
+            DeleteNode delete = findSinglePlanNode(planNode, DeleteNode.class).orElseThrow();
             return createDeleteScanInfo(delete, writerTarget, metadata, session);
         }
         return Optional.empty();
@@ -157,7 +157,7 @@ public class TableWriteInfo
 
     private static Optional<DeleteScanInfo> createDeleteScanInfo(DeleteNode delete, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
     {
-        TableHandle tableHandle = ((ExecutionWriterTarget.DeleteHandle) writerTarget.get()).getHandle();
+        TableHandle tableHandle = ((ExecutionWriterTarget.DeleteHandle) writerTarget.orElseThrow()).getHandle();
         TableScanNode tableScan = getDeleteTableScan(delete);
         TupleDomain<ColumnHandle> originalEnforcedConstraint = tableScan.getEnforcedConstraint();
         TableLayoutResult layoutResult = metadata.getLayout(
@@ -184,7 +184,7 @@ public class TableWriteInfo
             case 0:
                 return Optional.empty();
             case 1:
-                return Optional.of(getOnlyElement(allMatches));
+                return Optional.of(allMatches.stream().collect(onlyElement()));
             default:
                 throw new IllegalArgumentException(format("Multiple matches found for class %s", clazz));
         }

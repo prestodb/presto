@@ -344,8 +344,8 @@ public class CursorProcessorCompiler
         Parameter cursor = arg("cursor", RecordCursor.class);
 
         ImmutableList.Builder<MethodDefinition> methods = ImmutableList.builder();
-        int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).get();
-        int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).get();
+        int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).orElseThrow();
+        int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).orElseThrow();
         for (int i = startLevel; i <= maxLevel; i++) {
             if (commonSubExpressionsByLevel.containsKey(i)) {
                 for (Map.Entry<RowExpression, VariableReferenceExpression> entry : commonSubExpressionsByLevel.get(i).entrySet()) {

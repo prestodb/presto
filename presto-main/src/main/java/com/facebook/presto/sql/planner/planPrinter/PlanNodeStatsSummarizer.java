@@ -23,6 +23,7 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.operator.WindowInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;
@@ -34,7 +35,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctDataSize;
@@ -107,7 +107,7 @@ public class PlanNodeStatsSummarizer
 
             Set<PlanNodeId> processedNodes = new HashSet<>();
             PlanNodeId inputPlanNode = pipelineStats.getOperatorSummaries().iterator().next().getPlanNodeId();
-            PlanNodeId outputPlanNode = getLast(pipelineStats.getOperatorSummaries()).getPlanNodeId();
+            PlanNodeId outputPlanNode = Streams.findLast(pipelineStats.getOperatorSummaries().stream()).orElseThrow().getPlanNodeId();
 
             // Gather input statistics
             for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {

@@ -109,6 +109,6 @@ public class RemoveRedundantAggregateDistinct
                                 .map(VariableReferenceExpression.class::cast))
                 .collect(toImmutableSet());
 
-        return ((GroupReference) node.getSource()).getLogicalProperties().get().isDistinct(varAndGroupingKeySet);
+        return ((GroupReference) node.getSource()).getLogicalProperties().orElseThrow().isDistinct(varAndGroupingKeySet);
     }
 }

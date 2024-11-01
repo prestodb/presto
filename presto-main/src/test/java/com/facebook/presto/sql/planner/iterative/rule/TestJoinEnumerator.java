@@ -222,7 +222,7 @@ public class TestJoinEnumerator
 
         if (equiJoinExpressionInlined.isPresent()) {
             assertNotNull(expectedEquiJoinClause);
-            assertTrue(verifier.process(expression(expectedEquiJoinClause), equiJoinExpressionInlined.get()));
+            assertTrue(verifier.process(expression(expectedEquiJoinClause), equiJoinExpressionInlined.orElseThrow()));
         }
         else {
             assertNull(expectedEquiJoinClause);
@@ -233,7 +233,7 @@ public class TestJoinEnumerator
 
         if (joinFilter.isPresent()) {
             assertNotNull(expectedJoinFilter);
-            assertTrue(verifier.process(expression(expectedJoinFilter), joinFilter.get()));
+            assertTrue(verifier.process(expression(expectedJoinFilter), joinFilter.orElseThrow()));
         }
         else {
             assertNull(expectedJoinFilter);

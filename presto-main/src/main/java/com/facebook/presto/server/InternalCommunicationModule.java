@@ -46,10 +46,10 @@ public class InternalCommunicationModule
             config.setTrustStorePath(internalCommunicationConfig.getTrustStorePath());
             config.setTrustStorePassword(internalCommunicationConfig.getTrustStorePassword());
             if (internalCommunicationConfig.getIncludedCipherSuites().isPresent()) {
-                config.setHttpsIncludedCipherSuites(internalCommunicationConfig.getIncludedCipherSuites().get());
+                config.setHttpsIncludedCipherSuites(internalCommunicationConfig.getIncludedCipherSuites().orElseThrow());
             }
             if (internalCommunicationConfig.getExcludeCipherSuites().isPresent()) {
-                config.setHttpsExcludedCipherSuites(internalCommunicationConfig.getExcludeCipherSuites().get());
+                config.setHttpsExcludedCipherSuites(internalCommunicationConfig.getExcludeCipherSuites().orElseThrow());
             }
         });
 

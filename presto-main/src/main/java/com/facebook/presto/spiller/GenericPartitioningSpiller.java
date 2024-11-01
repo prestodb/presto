@@ -184,7 +184,7 @@ public class GenericPartitioningSpiller
             spiller = Optional.of(closer.register(spillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext(GenericPartitioningSpiller.class.getSimpleName()))));
             spillers[partition] = spiller;
         }
-        return spiller.get();
+        return spiller.orElseThrow();
     }
 
     @Override

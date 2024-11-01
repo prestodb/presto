@@ -136,7 +136,7 @@ public class MergingPageOutput
 
             Optional<Page> next = currentInput.next();
             if (next.isPresent()) {
-                process(next.get());
+                process(next.orElseThrow());
             }
             else {
                 break;
@@ -185,7 +185,7 @@ public class MergingPageOutput
 
             Optional<Page> next = currentInput.next();
             if (next.isPresent()) {
-                Page nextPage = next.get();
+                Page nextPage = next.orElseThrow();
                 if (nextPage.getPositionCount() >= MAX_BATCH_SIZE) {
                     // Return pages exceeding the target size directly without accumulating
                     return nextPage;

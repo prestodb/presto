@@ -55,7 +55,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.relational.Expressions.comparisonExpression;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -109,7 +109,7 @@ public class TransformExistsApplyToLateralNode
             return Result.empty();
         }
 
-        RowExpression expression = getOnlyElement(parent.getSubqueryAssignments().getExpressions());
+        RowExpression expression = parent.getSubqueryAssignments().getExpressions().stream().collect(onlyElement());
         if (!(expression instanceof ExistsExpression)) {
             return Result.empty();
         }
@@ -124,7 +124,7 @@ public class TransformExistsApplyToLateralNode
     {
         checkState(applyNode.getSubquery().getOutputVariables().isEmpty(), "Expected subquery output variables to be pruned");
 
-        VariableReferenceExpression exists = getOnlyElement(applyNode.getSubqueryAssignments().getVariables());
+        VariableReferenceExpression exists = applyNode.getSubqueryAssignments().getVariables().stream().collect(onlyElement());
         VariableReferenceExpression subqueryTrue = context.getVariableAllocator().newVariable(exists.getSourceLocation(), "subqueryTrue", BOOLEAN);
 
         Assignments.Builder assignments = Assignments.builder();
@@ -161,7 +161,7 @@ public class TransformExistsApplyToLateralNode
     private PlanNode rewriteToDefaultAggregation(ApplyNode parent, Context context)
     {
         VariableReferenceExpression count = context.getVariableAllocator().newVariable("count", BIGINT);
-        VariableReferenceExpression exists = getOnlyElement(parent.getSubqueryAssignments().getVariables());
+        VariableReferenceExpression exists = parent.getSubqueryAssignments().getVariables().stream().collect(onlyElement());
 
         return new LateralJoinNode(
                 parent.getSourceLocation(),

@@ -169,7 +169,7 @@ public class HashSemiJoinOperator
             else {
                 boolean contains;
                 if (hashBlock.isPresent()) {
-                    long rawHash = BIGINT.getLong(hashBlock.get(), position);
+                    long rawHash = BIGINT.getLong(hashBlock.orElseThrow(), position);
                     contains = channelSet.contains(position, probeJoinPage, rawHash);
                 }
                 else {
