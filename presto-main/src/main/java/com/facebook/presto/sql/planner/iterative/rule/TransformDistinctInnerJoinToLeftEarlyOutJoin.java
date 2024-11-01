@@ -45,7 +45,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.Join.type;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.google.common.collect.Iterators.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 /**
  * This optimizer looks for a distinct aggregation above an inner join and
@@ -106,7 +106,7 @@ public class TransformDistinctInnerJoinToLeftEarlyOutJoin
             return Result.empty();
         }
 
-        EquiJoinClause equiJoinClause = getOnlyElement(innerJoin.getCriteria().listIterator());
+        EquiJoinClause equiJoinClause = innerJoin.getCriteria().stream().collect(onlyElement());
         VariableReferenceExpression sourceJoinVariable = equiJoinClause.getLeft();
         VariableReferenceExpression filteringSourceJoinVariable = equiJoinClause.getRight();
         VariableReferenceExpression semiJoinVariable = context.getVariableAllocator().newVariable("semijoinvariable", BOOLEAN, "eoj");
@@ -174,7 +174,7 @@ public class TransformDistinctInnerJoinToLeftEarlyOutJoin
         Set<VariableReferenceExpression> joinInputVariablesLeft = ImmutableSet.copyOf(joinNode.getLeft().getOutputVariables());
         Set<VariableReferenceExpression> joinOutputVariables = ImmutableSet.copyOf(joinNode.getOutputVariables());
 
-        LogicalProperties aggregationNodelogicalProperties = context.getLogicalPropertiesProvider().get().getAggregationProperties(aggregationNode);
+        LogicalProperties aggregationNodelogicalProperties = context.getLogicalPropertiesProvider().orElseThrow().getAggregationProperties(aggregationNode);
         if (!aggregationNodelogicalProperties.canBeHomogenized(joinInputVariablesRight, groupingVariables)) {
             return false;
         }

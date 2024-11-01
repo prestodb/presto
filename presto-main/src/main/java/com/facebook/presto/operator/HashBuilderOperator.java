@@ -457,7 +457,7 @@ public class HashBuilderOperator
     public void finishMemoryRevoke()
     {
         checkState(finishMemoryRevoke.isPresent(), "Cannot finish unknown revoking");
-        finishMemoryRevoke.get().run();
+        finishMemoryRevoke.orElseThrow().run();
         finishMemoryRevoke = Optional.empty();
     }
 
@@ -541,7 +541,7 @@ public class HashBuilderOperator
     {
         checkState(state == State.LOOKUP_SOURCE_BUILT);
         verify(lookupSourceNotNeeded.isPresent());
-        if (!lookupSourceNotNeeded.get().isDone()) {
+        if (!lookupSourceNotNeeded.orElseThrow().isDone()) {
             return;
         }
 
@@ -586,13 +586,13 @@ public class HashBuilderOperator
     private void finishLookupSourceUnspilling()
     {
         checkState(state == State.INPUT_UNSPILLING);
-        if (!unspillInProgress.get().isDone()) {
+        if (!unspillInProgress.orElseThrow().isDone()) {
             // Pages have not been unspilled yet.
             return;
         }
 
         // Use Queue so that Pages already consumed by Index are not retained by us.
-        Queue<Page> pages = new ArrayDeque<>(getDone(unspillInProgress.get()));
+        Queue<Page> pages = new ArrayDeque<>(getDone(unspillInProgress.orElseThrow()));
         unspillInProgress = Optional.empty();
         long sizeOfUnSpilledPages = pages.stream()
                 .mapToLong(Page::getSizeInBytes)

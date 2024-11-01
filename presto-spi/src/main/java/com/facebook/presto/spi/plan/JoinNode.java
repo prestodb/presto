@@ -130,16 +130,16 @@ public class JoinNode
         if (distributionType.isPresent()) {
             // The implementation of full outer join only works if the data is hash partitioned.
             checkArgument(
-                    !(distributionType.get() == REPLICATED && type.mustPartition()),
+                    !(distributionType.orElseThrow() == REPLICATED && type.mustPartition()),
                     format("%s join do not work with %s distribution type",
                             type,
-                            distributionType.get()));
+                            distributionType.orElseThrow()));
             // It does not make sense to PARTITION when there is nothing to partition on
             checkArgument(
-                    !(distributionType.get() == PARTITIONED && type.mustReplicate(criteria)),
+                    !(distributionType.orElseThrow() == PARTITIONED && type.mustReplicate(criteria)),
                     format("Equi criteria are empty, so %s join should not have %s distribution type",
                             type,
-                            distributionType.get()));
+                            distributionType.orElseThrow()));
         }
 
         for (VariableReferenceExpression variableReferenceExpression : dynamicFilters.values()) {
@@ -165,7 +165,7 @@ public class JoinNode
                 rightMinPosition = Optional.of(i);
             }
         }
-        checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output variables are before right output variables");
+        checkState(!rightMinPosition.isPresent() || rightMinPosition.orElseThrow() > leftMaxPosition, "Not all left output variables are before right output variables");
     }
 
     public JoinNode flipChildren()

@@ -99,7 +99,7 @@ public class StreamPreferredProperties
 
     public StreamPreferredProperties withFixedParallelism()
     {
-        if (distribution.isPresent() && distribution.get() == FIXED) {
+        if (distribution.isPresent() && distribution.orElseThrow() == FIXED) {
             return this;
         }
         return fixedParallelism();
@@ -129,13 +129,13 @@ public class StreamPreferredProperties
         Iterable<VariableReferenceExpression> desiredPartitioning = partitionVariables;
         if (partitioningColumns.isPresent()) {
             if (exactColumnOrder) {
-                if (partitioningColumns.get().equals(desiredPartitioning)) {
+                if (partitioningColumns.orElseThrow().equals(desiredPartitioning)) {
                     return this;
                 }
             }
             else {
                 // If there are common columns between our requirements and the desired partitionSymbols, both can be satisfied in one shot
-                Set<VariableReferenceExpression> common = Sets.intersection(ImmutableSet.copyOf(desiredPartitioning), ImmutableSet.copyOf(partitioningColumns.get()));
+                Set<VariableReferenceExpression> common = Sets.intersection(ImmutableSet.copyOf(desiredPartitioning), ImmutableSet.copyOf(partitioningColumns.orElseThrow()));
 
                 // If we find common partitioning columns, use them, else use child's partitioning columns
                 if (!common.isEmpty()) {
@@ -170,13 +170,13 @@ public class StreamPreferredProperties
 
         if (distribution.isPresent()) {
             StreamDistribution actualDistribution = actualProperties.getDistribution();
-            if (distribution.get() == SINGLE && actualDistribution != SINGLE) {
+            if (distribution.orElseThrow() == SINGLE && actualDistribution != SINGLE) {
                 return false;
             }
-            else if (distribution.get() == FIXED && actualDistribution != FIXED) {
+            else if (distribution.orElseThrow() == FIXED && actualDistribution != FIXED) {
                 return false;
             }
-            else if (distribution.get() == MULTIPLE && actualDistribution != FIXED && actualDistribution != MULTIPLE) {
+            else if (distribution.orElseThrow() == MULTIPLE && actualDistribution != FIXED && actualDistribution != MULTIPLE) {
                 return false;
             }
         }
@@ -188,9 +188,9 @@ public class StreamPreferredProperties
         // is there a preference for a specific partitioning scheme?
         if (partitioningColumns.isPresent()) {
             if (exactColumnOrder) {
-                return actualProperties.isExactlyPartitionedOn(partitioningColumns.get());
+                return actualProperties.isExactlyPartitionedOn(partitioningColumns.orElseThrow());
             }
-            return actualProperties.isPartitionedOn(partitioningColumns.get());
+            return actualProperties.isPartitionedOn(partitioningColumns.orElseThrow());
         }
 
         return true;
@@ -198,12 +198,12 @@ public class StreamPreferredProperties
 
     public boolean isSingleStreamPreferred()
     {
-        return distribution.isPresent() && distribution.get() == SINGLE;
+        return distribution.isPresent() && distribution.orElseThrow() == SINGLE;
     }
 
     public boolean isParallelPreferred()
     {
-        return distribution.isPresent() && distribution.get() != SINGLE;
+        return distribution.isPresent() && distribution.orElseThrow() != SINGLE;
     }
 
     public Optional<List<VariableReferenceExpression>> getPartitioningColumns()
@@ -232,7 +232,7 @@ public class StreamPreferredProperties
             if (!translated.isPresent()) {
                 return Optional.empty();
             }
-            newPartitioningColumns.add(translated.get());
+            newPartitioningColumns.add(translated.orElseThrow());
         }
         return Optional.of(newPartitioningColumns.build());
     }
@@ -260,13 +260,13 @@ public class StreamPreferredProperties
 
         ImmutableSet<VariableReferenceExpression> availableVariables = ImmutableSet.copyOf(variables);
         if (exactColumnOrder) {
-            if (availableVariables.containsAll(partitioningColumns.get())) {
+            if (availableVariables.containsAll(partitioningColumns.orElseThrow())) {
                 return this;
             }
             return any();
         }
 
-        List<VariableReferenceExpression> common = partitioningColumns.get().stream()
+        List<VariableReferenceExpression> common = partitioningColumns.orElseThrow().stream()
                 .filter(availableVariables::contains)
                 .collect(toImmutableList());
         if (common.isEmpty()) {

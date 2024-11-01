@@ -237,8 +237,8 @@ public final class PlanMatchPattern
         aggregations.entrySet().forEach(
                 aggregation ->
                 {
-                    if (aggregation.getKey().isPresent() && masks.containsKey(new Symbol(aggregation.getKey().get()))) {
-                        result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue(), masks.get(new Symbol(aggregation.getKey().get()))));
+                    if (aggregation.getKey().isPresent() && masks.containsKey(new Symbol(aggregation.getKey().orElseThrow()))) {
+                        result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue(), masks.get(new Symbol(aggregation.getKey().orElseThrow()))));
                     }
                     else {
                         result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue()));
@@ -967,7 +967,7 @@ public final class PlanMatchPattern
                 .findFirst();
 
         if (planNodeMatcher.isPresent()) {
-            builder.append("(").append(planNodeMatcher.get().getNodeClass().getSimpleName()).append(")");
+            builder.append("(").append(planNodeMatcher.orElseThrow().getNodeClass().getSimpleName()).append(")");
         }
 
         builder.append("\n");

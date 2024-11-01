@@ -75,7 +75,7 @@ public final class GroupingOperationRewriter
             // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
             return new SubscriptExpression(
                     new ArrayConstructor(groupingResults),
-                    new ArithmeticBinaryExpression(ADD, createSymbolReference(groupIdVariable.get()), new GenericLiteral("BIGINT", "1")));
+                    new ArithmeticBinaryExpression(ADD, createSymbolReference(groupIdVariable.orElseThrow()), new GenericLiteral("BIGINT", "1")));
         }
     }
 

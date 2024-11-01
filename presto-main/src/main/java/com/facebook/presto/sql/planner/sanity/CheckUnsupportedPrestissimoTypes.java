@@ -89,7 +89,7 @@ public class CheckUnsupportedPrestissimoTypes
             node.getAggregations().forEach((variable, aggregation) -> {
                 aggregation.getCall().accept(unsupportedTypeChecker, null);
                 if (aggregation.getFilter().isPresent()) {
-                    aggregation.getFilter().get().accept(unsupportedTypeChecker, null);
+                    aggregation.getFilter().orElseThrow().accept(unsupportedTypeChecker, null);
                 }
             });
 

@@ -97,7 +97,7 @@ public class CreateMaterializedViewTask
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + viewName.getCatalogName()));
         List<ColumnMetadata> columnMetadata = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ColumnMetadata(field.getName().get(), field.getType()))
+                .map(field -> new ColumnMetadata(field.getName().orElseThrow(), field.getType()))
                 .collect(toImmutableList());
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());

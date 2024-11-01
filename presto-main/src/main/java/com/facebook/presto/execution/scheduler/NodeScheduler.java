@@ -420,7 +420,7 @@ public class NodeScheduler
             if (!optionalNode.isPresent()) {
                 throw new PrestoException(NO_NODES_AVAILABLE, format("No assignment for split in bucketNodeMap. Split Info: %s", split.getConnectorSplit().getInfoMap()));
             }
-            InternalNode node = optionalNode.get();
+            InternalNode node = optionalNode.orElseThrow();
             boolean isCacheable = bucketNodeMap.isSplitCacheable(split);
             SplitWeight splitWeight = split.getSplitWeight();
 

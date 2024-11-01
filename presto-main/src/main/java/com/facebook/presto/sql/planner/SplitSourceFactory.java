@@ -72,7 +72,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class SplitSourceFactory
@@ -147,8 +147,8 @@ public class SplitSourceFactory
             // get dataSource for table
             TableHandle table;
             Optional<DeleteScanInfo> deleteScanInfo = context.getTableWriteInfo().getDeleteScanInfo();
-            if (deleteScanInfo.isPresent() && deleteScanInfo.get().getId() == node.getId()) {
-                table = deleteScanInfo.get().getTableHandle();
+            if (deleteScanInfo.isPresent() && deleteScanInfo.orElseThrow().getId() == node.getId()) {
+                table = deleteScanInfo.orElseThrow().getTableHandle();
             }
             else {
                 table = node.getTable();
@@ -246,7 +246,7 @@ public class SplitSourceFactory
                     Map<PlanNodeId, SplitSource> nodeSplits = node.getSource().accept(this, context);
                     // TODO: when this happens we should switch to either BERNOULLI or page sampling
                     if (nodeSplits.size() == 1) {
-                        PlanNodeId planNodeId = getOnlyElement(nodeSplits.keySet());
+                        PlanNodeId planNodeId = nodeSplits.keySet().stream().collect(onlyElement());
                         SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.get(planNodeId), node.getSampleRatio());
                         return ImmutableMap.of(planNodeId, sampledSplitSource);
                     }

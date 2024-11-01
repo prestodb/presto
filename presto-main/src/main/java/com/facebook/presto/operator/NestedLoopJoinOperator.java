@@ -165,7 +165,7 @@ public class NestedLoopJoinOperator
         if (buildPages == null) {
             Optional<NestedLoopJoinPages> nestedLoopJoinPages = tryGetFutureValue(nestedLoopJoinPagesFuture);
             if (nestedLoopJoinPages.isPresent()) {
-                buildPages = nestedLoopJoinPages.get().getPages();
+                buildPages = nestedLoopJoinPages.orElseThrow().getPages();
             }
         }
         return buildPages != null;

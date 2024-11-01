@@ -82,7 +82,7 @@ public class TestRowExpressionTranslator
                 new TestFunctionTranslator(functionAndTypeManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
-        assertEquals(translatedExpression.getTranslated().get(), "LNof(1 BITWISE_AND col1)");
+        assertEquals(translatedExpression.getTranslated().orElseThrow(), "LNof(1 BITWISE_AND col1)");
     }
 
     @Test
@@ -98,7 +98,7 @@ public class TestRowExpressionTranslator
                 new TestFunctionTranslator(functionAndTypeManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
-        assertEquals(translatedExpression.getTranslated().get(), "col1 TEST_AND col2");
+        assertEquals(translatedExpression.getTranslated().orElseThrow(), "col1 TEST_AND col2");
     }
 
     @Test
@@ -142,7 +142,7 @@ public class TestRowExpressionTranslator
                 new TestFunctionTranslator(functionAndTypeManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
-        assertEquals(translatedExpression.getTranslated().get(), "NOT_2 true");
+        assertEquals(translatedExpression.getTranslated().orElseThrow(), "NOT_2 true");
     }
 
     @Test
@@ -157,7 +157,7 @@ public class TestRowExpressionTranslator
                 new TestFunctionTranslator(functionAndTypeManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
-        assertEquals(translatedExpression.getTranslated().get(), "col1 -|- col2");
+        assertEquals(translatedExpression.getTranslated().orElseThrow(), "col1 -|- col2");
     }
 
     @Test
@@ -172,7 +172,7 @@ public class TestRowExpressionTranslator
                 new TestFunctionTranslator(functionAndTypeManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
-        assertEquals(translatedExpression.getTranslated().get(), "col1 LT col2");
+        assertEquals(translatedExpression.getTranslated().orElseThrow(), "col1 LT col2");
     }
 
     @Test
@@ -236,7 +236,7 @@ public class TestRowExpressionTranslator
             assertTrue(translatedExpressions.get(0).getTranslated().isPresent());
             assertTrue(translatedExpressions.get(1).getTranslated().isPresent());
             return new TranslatedExpression<>(
-                    Optional.of(translatedExpressions.get(0).getTranslated().get() + " TEST_AND " + translatedExpressions.get(1).getTranslated().get()),
+                    Optional.of(translatedExpressions.get(0).getTranslated().orElseThrow() + " TEST_AND " + translatedExpressions.get(1).getTranslated().orElseThrow()),
                     specialFormExpression,
                     translatedExpressions);
         }

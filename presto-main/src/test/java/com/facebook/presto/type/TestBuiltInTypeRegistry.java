@@ -360,7 +360,7 @@ public class TestBuiltInTypeRegistry
         public CompatibilityAssertion hasCommonSuperType(Type expected)
         {
             assertTrue(commonSuperType.isPresent(), "Expected commonSuperType to be present");
-            assertEquals(commonSuperType.get(), expected, "commonSuperType");
+            assertEquals(commonSuperType.orElseThrow(), expected, "commonSuperType");
             return this;
         }
 

@@ -1328,22 +1328,22 @@ public final class JsonUtil
             Map<String, Integer> caseSensitiveWhenMatching = new HashMap<>();
             Map<String, Integer> caseInsensitiveWhenMatching = new HashMap<>();
             if (sqlFunctionProperties.isLegacyJsonCast()) {
-                fieldToIndex.get().entrySet().stream()
+                fieldToIndex.orElseThrow().entrySet().stream()
                         .forEach(entry -> caseInsensitiveWhenMatching.put(
-                                entry.getKey().getName().get().toLowerCase(ENGLISH),
+                                entry.getKey().getName().orElseThrow().toLowerCase(ENGLISH),
                                 entry.getValue()));
             }
             else {
-                fieldToIndex.get().entrySet().stream()
+                fieldToIndex.orElseThrow().entrySet().stream()
                         .forEach(entry -> {
                             if (entry.getKey().isDelimited()) {
                                 caseSensitiveWhenMatching.put(
-                                        entry.getKey().getName().get(),
+                                        entry.getKey().getName().orElseThrow(),
                                         entry.getValue());
                             }
                             else {
                                 caseInsensitiveWhenMatching.put(
-                                        entry.getKey().getName().get().toLowerCase(ENGLISH),
+                                        entry.getKey().getName().orElseThrow().toLowerCase(ENGLISH),
                                         entry.getValue());
                             }
                         });

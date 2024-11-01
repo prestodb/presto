@@ -74,7 +74,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
@@ -505,7 +504,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitTopN(final TopNNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderByVariables(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
+            Iterator<String> keys = node.getOrderingScheme().getOrderByVariables().stream().map(input -> input + " " + node.getOrderingScheme().getOrdering(input)).iterator();
             printNode(node, format("TopN[%s]", node.getCount()), Joiner.on(", ").join(keys), NODE_COLORS.get(NodeType.TOPN));
             return node.getSource().accept(this, context);
         }
@@ -543,7 +542,7 @@ public final class GraphvizPrinter
         public Void visitValues(ValuesNode node, Void context)
         {
             if (node.getValuesNodeLabel().isPresent()) {
-                printNode(node, format("Values converted from TableScan[%s]", node.getValuesNodeLabel().get()), NODE_COLORS.get(NodeType.TABLESCAN));
+                printNode(node, format("Values converted from TableScan[%s]", node.getValuesNodeLabel().orElseThrow()), NODE_COLORS.get(NodeType.TABLESCAN));
             }
             else {
                 printNode(node, "Values", NODE_COLORS.get(NodeType.TABLESCAN));
@@ -572,7 +571,7 @@ public final class GraphvizPrinter
                 details.append(getDynamicFilterAssignments(node));
             }
 
-            String distributionType = node.getDistributionType().isPresent() ? node.getDistributionType().get().toString() : "UNKNOWN";
+            String distributionType = node.getDistributionType().isPresent() ? node.getDistributionType().orElseThrow().toString() : "UNKNOWN";
             final String joinType = node.isCrossJoin() ? "CrossJoin" : node.getType().getJoinLabel();
             String label = format("%s[%s]", joinType, distributionType);
 
@@ -594,7 +593,7 @@ public final class GraphvizPrinter
                 details.append(getDynamicFilterAssignments(node));
             }
 
-            String label = format("SemiJoin[%s]", node.getDistributionType().isPresent() ? node.getDistributionType().get().toString() : "UNKNOWN");
+            String label = format("SemiJoin[%s]", node.getDistributionType().isPresent() ? node.getDistributionType().orElseThrow().toString() : "UNKNOWN");
 
             printNode(node, label, details.toString(), NODE_COLORS.get(NodeType.JOIN));
 

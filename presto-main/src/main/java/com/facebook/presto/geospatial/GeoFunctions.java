@@ -1246,7 +1246,7 @@ public final class GeoFunctions
     {
         Optional<String> geoJson = jsonFromJtsGeometry(deserialize(input));
         if (geoJson.isPresent()) {
-            return utf8Slice(geoJson.get());
+            return utf8Slice(geoJson.orElseThrow());
         }
         else {
             return null;

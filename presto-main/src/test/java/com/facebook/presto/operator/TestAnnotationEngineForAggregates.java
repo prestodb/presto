@@ -72,7 +72,7 @@ import static com.facebook.presto.operator.aggregation.AggregationFromAnnotation
 import static com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -120,7 +120,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getSignature(), expectedSignature);
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
-        AggregationImplementation implementation = getOnlyElement(implementations.getExactImplementations().values());
+        AggregationImplementation implementation = implementations.getExactImplementations().values().stream().collect(onlyElement());
         assertFalse(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), ExactAggregationFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
@@ -169,7 +169,7 @@ public class TestAnnotationEngineForAggregates
         ParametricAggregation aggregation = parseFunctionDefinition(StateOnDifferentThanFirstPositionAggregationFunction.class);
         assertEquals(aggregation.getSignature(), expectedSignature);
 
-        AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
+        AggregationImplementation implementation = aggregation.getImplementations().getExactImplementations().values().stream().collect(onlyElement());
         assertEquals(implementation.getDefinitionClass(), StateOnDifferentThanFirstPositionAggregationFunction.class);
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.STATE);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
@@ -203,7 +203,7 @@ public class TestAnnotationEngineForAggregates
     {
         ParametricAggregation aggregation = parseFunctionDefinition(NotAnnotatedAggregateStateAggregationFunction.class);
 
-        AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
+        AggregationImplementation implementation = aggregation.getImplementations().getExactImplementations().values().stream().collect(onlyElement());
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
@@ -255,12 +255,12 @@ public class TestAnnotationEngineForAggregates
     public void testCustomStateSerializerAggregationParse()
     {
         ParametricAggregation aggregation = parseFunctionDefinition(CustomStateSerializerAggregationFunction.class);
-        AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
+        AggregationImplementation implementation = aggregation.getImplementations().getExactImplementations().values().stream().collect(onlyElement());
         assertTrue(implementation.getStateSerializerFactory().isPresent());
 
         BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
-        AccumulatorStateSerializer<?> createdSerializer = getOnlyElement(specialized.getAggregationMetadata().getAccumulatorStateDescriptors()).getSerializer();
-        Class<?> serializerFactory = implementation.getStateSerializerFactory().get().type().returnType();
+        AccumulatorStateSerializer<?> createdSerializer = specialized.getAggregationMetadata().getAccumulatorStateDescriptors().stream().collect(onlyElement()).getSerializer();
+        Class<?> serializerFactory = implementation.getStateSerializerFactory().orElseThrow().type().returnType();
         assertTrue(serializerFactory.isInstance(createdSerializer));
     }
 
@@ -464,7 +464,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getSignature(), expectedSignature);
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
-        AggregationImplementation implementation = getOnlyElement(implementations.getExactImplementations().values());
+        AggregationImplementation implementation = implementations.getExactImplementations().values().stream().collect(onlyElement());
         assertFalse(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), BlockInputAggregationFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
@@ -734,7 +734,7 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<AggregationImplementation> implementations2 = aggregation2.getImplementations();
         assertImplementationCount(implementations2, 1, 0, 0);
 
-        AggregationImplementation implementation = getOnlyElement(implementations1.getExactImplementations().values());
+        AggregationImplementation implementation = implementations1.getExactImplementations().values().stream().collect(onlyElement());
         assertFalse(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), MultiOutputAggregationFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
@@ -801,7 +801,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getSignature(), expectedSignature);
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
 
-        AggregationImplementation implementation = getOnlyElement(implementations.getExactImplementations().values());
+        AggregationImplementation implementation = implementations.getExactImplementations().values().stream().collect(onlyElement());
 
         assertTrue(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), InjectOperatorAggregateFunction.class);

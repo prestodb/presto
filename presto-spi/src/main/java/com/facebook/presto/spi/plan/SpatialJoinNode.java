@@ -129,8 +129,8 @@ public class SpatialJoinNode
         if (kdbTree.isPresent()) {
             checkArgument(leftPartitionVariable.isPresent(), "Left partition variable is missing");
             checkArgument(rightPartitionVariable.isPresent(), "Right partition variable is missing");
-            checkArgument(left.getOutputVariables().contains(leftPartitionVariable.get()), "Left join input does not contain left partition variable");
-            checkArgument(right.getOutputVariables().contains(rightPartitionVariable.get()), "Right join input does not contain right partition variable");
+            checkArgument(left.getOutputVariables().contains(leftPartitionVariable.orElseThrow()), "Left join input does not contain left partition variable");
+            checkArgument(right.getOutputVariables().contains(rightPartitionVariable.orElseThrow()), "Right join input does not contain right partition variable");
             this.distributionType = DistributionType.PARTITIONED;
         }
         else {

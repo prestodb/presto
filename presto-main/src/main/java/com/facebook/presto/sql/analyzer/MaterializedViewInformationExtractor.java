@@ -56,7 +56,7 @@ public class MaterializedViewInformationExtractor
         if (!node.getFrom().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, node, "Materialized view with no From clause is not supported in query optimizer");
         }
-        materializedViewInfo.setBaseTable(node.getFrom().get());
+        materializedViewInfo.setBaseTable(node.getFrom().orElseThrow());
         materializedViewInfo.setWhereClause(node.getWhere());
         return super.visitQuerySpecification(node, context);
     }
@@ -119,7 +119,7 @@ public class MaterializedViewInformationExtractor
             if (!groupBy.isPresent()) {
                 groupBy = Optional.of(new HashSet<>());
             }
-            groupBy.get().addAll(removeGroupingElementPrefix(groupingElement, removablePrefix).getExpressions());
+            groupBy.orElseThrow().addAll(removeGroupingElementPrefix(groupingElement, removablePrefix).getExpressions());
         }
 
         private void setBaseTable(Relation baseTable)

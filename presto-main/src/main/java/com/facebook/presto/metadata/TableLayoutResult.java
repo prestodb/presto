@@ -73,8 +73,8 @@ public class TableLayoutResult
         // In all 3 cases shown above, the unenforced is not TupleDomain.none().
         checkArgument(!unenforced.isNone());
 
-        Map<ColumnHandle, Domain> predicateDomains = predicate.getDomains().get();
-        Map<ColumnHandle, Domain> unenforcedDomains = unenforced.getDomains().get();
+        Map<ColumnHandle, Domain> predicateDomains = predicate.getDomains().orElseThrow();
+        Map<ColumnHandle, Domain> unenforcedDomains = unenforced.getDomains().orElseThrow();
         ImmutableMap.Builder<ColumnHandle, Domain> enforcedDomainsBuilder = ImmutableMap.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : predicateDomains.entrySet()) {
             ColumnHandle predicateColumnHandle = entry.getKey();

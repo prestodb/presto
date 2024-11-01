@@ -161,6 +161,6 @@ public final class LongEnumOperators
         if (!key.isPresent()) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("No value '%d' in enum type %s", value, enumType.getTypeSignature().getBase()));
         }
-        return utf8Slice(key.get());
+        return utf8Slice(key.orElseThrow());
     }
 }

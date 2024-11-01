@@ -56,7 +56,7 @@ import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.REPLICA
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
 import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -128,8 +128,8 @@ public class DetermineSemiJoinDistributionType
         possibleJoinNodes.add(getSemiJoinNodeWithCost(node.withDistributionType(PARTITIONED), context));
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents())) {
-            if (isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled(context.getSession()) && possibleJoinNodes.stream().anyMatch(result -> ((SemiJoinNode) result.getPlanNode()).getDistributionType().get().equals(REPLICATED))) {
-                SemiJoinNode broadcastJoin = (SemiJoinNode) getOnlyElement(possibleJoinNodes.stream().filter(result -> ((SemiJoinNode) result.getPlanNode()).getDistributionType().get().equals(REPLICATED)).map(x -> x.getPlanNode()).collect(toImmutableList()));
+            if (isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled(context.getSession()) && possibleJoinNodes.stream().anyMatch(result -> ((SemiJoinNode) result.getPlanNode()).getDistributionType().orElseThrow().equals(REPLICATED))) {
+                SemiJoinNode broadcastJoin = (SemiJoinNode) possibleJoinNodes.stream().filter(result -> ((SemiJoinNode) result.getPlanNode()).getDistributionType().orElseThrow().equals(REPLICATED)).map(x -> x.getPlanNode()).collect(toImmutableList()).stream().collect(onlyElement());
                 if (context.getStatsProvider().getStats(broadcastJoin.getBuild()).getSourceInfo() instanceof HistoryBasedSourceInfo) {
                     return broadcastJoin;
                 }
@@ -172,7 +172,7 @@ public class DetermineSemiJoinDistributionType
     private PlanNodeWithCost getSemiJoinNodeWithCost(SemiJoinNode possibleJoinNode, Context context)
     {
         StatsProvider stats = context.getStatsProvider();
-        boolean replicated = possibleJoinNode.getDistributionType().get().equals(REPLICATED);
+        boolean replicated = possibleJoinNode.getDistributionType().orElseThrow().equals(REPLICATED);
         /*
          *   HACK!
          *

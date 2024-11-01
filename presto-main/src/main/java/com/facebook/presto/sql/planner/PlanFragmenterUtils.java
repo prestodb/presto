@@ -54,7 +54,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DI
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
@@ -194,7 +194,7 @@ public class PlanFragmenterUtils
     private static boolean containsTableFinishNode(PlanFragment planFragment)
     {
         PlanNode root = planFragment.getRoot();
-        return root instanceof OutputNode && getOnlyElement(root.getSources()) instanceof TableFinishNode;
+        return root instanceof OutputNode && root.getSources().stream().collect(onlyElement()) instanceof TableFinishNode;
     }
 
     private static SubPlan reassignPartitioningHandleIfNecessary(Metadata metadata, Session session, SubPlan subPlan, PartitioningHandle partitioningHandle)
@@ -267,7 +267,7 @@ public class PlanFragmenterUtils
                 .filter(node -> node instanceof TableWriterNode)
                 .map(x -> ((TableWriterNode) x).getTaskCountIfScaledWriter())
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .max(Integer::compareTo);
     }
 

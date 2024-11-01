@@ -20,7 +20,6 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
@@ -167,7 +166,7 @@ public class ResourceManagerProxy
         {
             verify(called.compareAndSet(false, true), "Already read servlet request body");
             try {
-                ByteStreams.copy(inputStream, outputStream);
+                inputStream.transferTo(outputStream);
             }
             finally {
                 inputStream.close();

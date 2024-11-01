@@ -292,7 +292,7 @@ public class AggregationImplementation
 
             // unreflect methods for further use
             if (stateSerializerFactoryFunction.isPresent()) {
-                stateSerializerFactoryHandle = Optional.of(methodHandle(stateSerializerFactoryFunction.get()));
+                stateSerializerFactoryHandle = Optional.of(methodHandle(stateSerializerFactoryFunction.orElseThrow()));
             }
             else {
                 stateSerializerFactoryHandle = Optional.empty();

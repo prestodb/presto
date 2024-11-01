@@ -528,10 +528,10 @@ public class HashAggregationOperator
 
         Page pageOnPreGroupedChannels = page.extractChannels(preGroupedChannels);
         int lastRowInPage = page.getPositionCount() - 1;
-        int lastSegmentStart = findLastSegmentStart(preGroupedHashStrategy.get(), pageOnPreGroupedChannels);
+        int lastSegmentStart = findLastSegmentStart(preGroupedHashStrategy.orElseThrow(), pageOnPreGroupedChannels);
         if (lastSegmentStart == 0) {
             // The whole page is in one segment.
-            if (preGroupedHashStrategy.get().rowEqualsRow(0, firstUnfinishedSegment.extractChannels(preGroupedChannels), 0, pageOnPreGroupedChannels)) {
+            if (preGroupedHashStrategy.orElseThrow().rowEqualsRow(0, firstUnfinishedSegment.extractChannels(preGroupedChannels), 0, pageOnPreGroupedChannels)) {
                 // All rows in this page belong to the previous unfinished segment, process the whole page.
                 unfinishedWork = aggregationBuilder.processPage(page);
             }
@@ -672,7 +672,7 @@ public class HashAggregationOperator
             int channel = 0;
 
             for (; channel < groupByTypes.size(); channel++) {
-                if (channel == groupIdChannel.get()) {
+                if (channel == groupIdChannel.orElseThrow()) {
                     output.getBlockBuilder(channel).writeLong(groupId);
                 }
                 else {
@@ -681,7 +681,7 @@ public class HashAggregationOperator
             }
 
             if (hashChannel.isPresent()) {
-                long hashValue = calculateDefaultOutputHash(groupByTypes, groupIdChannel.get(), groupId);
+                long hashValue = calculateDefaultOutputHash(groupByTypes, groupIdChannel.orElseThrow(), groupId);
                 output.getBlockBuilder(channel++).writeLong(hashValue);
             }
 

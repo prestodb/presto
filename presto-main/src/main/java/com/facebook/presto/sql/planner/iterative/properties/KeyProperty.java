@@ -153,7 +153,7 @@ public final class KeyProperty
                 return Optional.empty();
             }
             else {
-                newKeys = combineKey(newKeys, normalizedKey.get());
+                newKeys = combineKey(newKeys, normalizedKey.orElseThrow());
             }
         }
         return Optional.of(new KeyProperty(newKeys));
@@ -174,7 +174,7 @@ public final class KeyProperty
         for (Key key : keys) {
             Optional<Key> projectedKey = key.project(inverseVariableMappings);
             if (projectedKey.isPresent()) {
-                newKeys = combineKey(newKeys, projectedKey.get());
+                newKeys = combineKey(newKeys, projectedKey.orElseThrow());
             }
         }
         return new KeyProperty(newKeys);

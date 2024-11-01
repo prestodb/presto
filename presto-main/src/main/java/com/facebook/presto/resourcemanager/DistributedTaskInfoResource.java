@@ -80,7 +80,7 @@ public class DistributedTaskInfoResource
                 .findFirst();
 
         if (queryInfo.isPresent()) {
-            proxyHelper.performRequest(servletRequest, asyncResponse, createTaskInfoUri(queryInfo.get(), uriInfo));
+            proxyHelper.performRequest(servletRequest, asyncResponse, createTaskInfoUri(queryInfo.orElseThrow(), uriInfo));
         }
         else {
             asyncResponse.resume(Response.status(NOT_FOUND).type(MediaType.APPLICATION_JSON).build());

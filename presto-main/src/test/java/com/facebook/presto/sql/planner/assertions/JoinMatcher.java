@@ -84,8 +84,8 @@ final class JoinMatcher
             if (!joinNode.getFilter().isPresent()) {
                 return NO_MATCH;
             }
-            RowExpression expression = joinNode.getFilter().get();
-            if (!new RowExpressionVerifier(symbolAliases, metadata, session).process(filter.get(), expression)) {
+            RowExpression expression = joinNode.getFilter().orElseThrow();
+            if (!new RowExpressionVerifier(symbolAliases, metadata, session).process(filter.orElseThrow(), expression)) {
                 return NO_MATCH;
             }
         }
@@ -114,7 +114,7 @@ final class JoinMatcher
             return NO_MATCH;
         }
 
-        if (dynamicFilter.isPresent() && !dynamicFilter.get().match(joinNode, symbolAliases).isMatch()) {
+        if (dynamicFilter.isPresent() && !dynamicFilter.orElseThrow().match(joinNode, symbolAliases).isMatch()) {
             return NO_MATCH;
         }
 

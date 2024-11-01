@@ -190,8 +190,8 @@ public class IterativeOptimizer
 
                 if (result.getTransformedPlan().isPresent()) {
                     // If we rewrite a plan node, topmost node should remain statistically equivalent.
-                    PlanNode transformedNode = result.getTransformedPlan().get();
-                    PlanNode resolvedtransformedNode = context.lookup.resolve(result.getTransformedPlan().get());
+                    PlanNode transformedNode = result.getTransformedPlan().orElseThrow();
+                    PlanNode resolvedtransformedNode = context.lookup.resolve(result.getTransformedPlan().orElseThrow());
                     if (node.getStatsEquivalentPlanNode().isPresent() && !resolvedtransformedNode.getStatsEquivalentPlanNode().isPresent()) {
                         if (transformedNode instanceof GroupReference) {
                             context.memo.assignStatsEquivalentPlanNode((GroupReference) transformedNode, node.getStatsEquivalentPlanNode());
@@ -470,7 +470,7 @@ public class IterativeOptimizer
                     .distinct().forEach(rule -> session.getOptimizerInformationCollector().addInformation(rule));
 
             if (SystemSessionProperties.isVerboseOptimizerResults(session)) {
-                rulesTriggered.stream().filter(x -> x.getNewNode().isPresent()).forEach(x -> session.getOptimizerResultCollector().addOptimizerResult(x.getRule(), x.getOldNode().get(), x.getNewNode().get()));
+                rulesTriggered.stream().filter(x -> x.getNewNode().isPresent()).forEach(x -> session.getOptimizerResultCollector().addOptimizerResult(x.getRule(), x.getOldNode().orElseThrow(), x.getNewNode().orElseThrow()));
             }
             rulesApplicable.forEach(x -> session.getOptimizerInformationCollector().addInformation(
                     new PlanOptimizerInformation(x, false, Optional.of(true), Optional.empty(), Optional.empty(), Optional.empty())));

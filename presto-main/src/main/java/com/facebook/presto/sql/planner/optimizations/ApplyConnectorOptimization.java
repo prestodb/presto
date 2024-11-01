@@ -136,7 +136,7 @@ public class ApplyConnectorOptimization
                 ConnectorPlanNodeContext context = contextMap.get(node);
                 if (!context.isClosure(connectorId) ||
                         !context.getParent().isPresent() ||
-                        contextMap.get(context.getParent().get()).isClosure(connectorId)) {
+                        contextMap.get(context.getParent().orElseThrow()).isClosure(connectorId)) {
                     continue;
                 }
 
@@ -175,7 +175,7 @@ public class ApplyConnectorOptimization
                     continue;
                 }
 
-                PlanNode originalParent = contextMap.get(originalNode).getParent().get();
+                PlanNode originalParent = contextMap.get(originalNode).getParent().orElseThrow();
 
                 // need to create a new parent given the child has changed; the new parent needs to point to the new child.
                 // if a node has been updated, it will occur in `updates`; otherwise, just use the original node

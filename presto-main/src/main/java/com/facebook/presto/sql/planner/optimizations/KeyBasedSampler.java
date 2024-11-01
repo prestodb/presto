@@ -130,7 +130,7 @@ public class KeyBasedSampler
             if (!rowExpressionOptional.isPresent()) {
                 return tableScanNode;
             }
-            RowExpression rowExpression = rowExpressionOptional.get();
+            RowExpression rowExpression = rowExpressionOptional.orElseThrow();
             RowExpression arg;
             Type type = rowExpression.getType();
             if (!Varchars.isVarcharType(type)) {
@@ -238,8 +238,8 @@ public class KeyBasedSampler
                 }
 
                 if (equiJoinClause.isPresent()) {
-                    rewrittenLeft = addSamplingFilter(rewrittenLeft, Optional.of(equiJoinClause.get().getLeft()), functionAndTypeManager);
-                    rewrittenRight = addSamplingFilter(rewrittenRight, Optional.of(equiJoinClause.get().getRight()), functionAndTypeManager);
+                    rewrittenLeft = addSamplingFilter(rewrittenLeft, Optional.of(equiJoinClause.orElseThrow().getLeft()), functionAndTypeManager);
+                    rewrittenRight = addSamplingFilter(rewrittenRight, Optional.of(equiJoinClause.orElseThrow().getRight()), functionAndTypeManager);
                 }
             }
 

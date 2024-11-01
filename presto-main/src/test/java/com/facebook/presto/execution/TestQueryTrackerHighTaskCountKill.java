@@ -58,11 +58,11 @@ public class TestQueryTrackerHighTaskCountKill
                     largeQueryButNotKilled.getFailureReason().isPresent(),
                     "query exceeds per query limit, but not killed since not heaviest and cluster can get into better state");
             assertTrue(largeQueryToBeKilled1.getFailureReason().isPresent(), "Query should be killed");
-            Throwable failureReason1 = largeQueryToBeKilled1.getFailureReason().get();
+            Throwable failureReason1 = largeQueryToBeKilled1.getFailureReason().orElseThrow();
             assertTrue(failureReason1 instanceof PrestoException);
             assertEquals(((PrestoException) failureReason1).getErrorCode(), QUERY_HAS_TOO_MANY_STAGES.toErrorCode());
             assertTrue(largeQueryToBeKilled2.getFailureReason().isPresent(), "Query should be killed");
-            Throwable failureReason2 = largeQueryToBeKilled2.getFailureReason().get();
+            Throwable failureReason2 = largeQueryToBeKilled2.getFailureReason().orElseThrow();
             assertTrue(failureReason2 instanceof PrestoException);
             assertEquals(((PrestoException) failureReason2).getErrorCode(), QUERY_HAS_TOO_MANY_STAGES.toErrorCode());
         }
@@ -91,7 +91,7 @@ public class TestQueryTrackerHighTaskCountKill
             queryTracker.enforceTaskLimits();
 
             assertFalse(smallQuery.getFailureReason().isPresent(), "small query should not be killed");
-            Throwable failureReason = largeQueryToBeKilled.getFailureReason().get();
+            Throwable failureReason = largeQueryToBeKilled.getFailureReason().orElseThrow();
             assertTrue(failureReason instanceof PrestoException);
             assertEquals(((PrestoException) failureReason).getErrorCode(), QUERY_HAS_TOO_MANY_STAGES.toErrorCode());
         }

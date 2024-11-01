@@ -401,12 +401,12 @@ public class TypeCoercer
 
         Optional<Type> coercedType = coerceTypeBase(standardFromType, standardToType.getTypeSignature().getBase());
         if (coercedType.isPresent()) {
-            return compatibility(toSemanticType(toType, coercedType.get()), standardToType);
+            return compatibility(toSemanticType(toType, coercedType.orElseThrow()), standardToType);
         }
 
         coercedType = coerceTypeBase(standardToType, standardFromType.getTypeSignature().getBase());
         if (coercedType.isPresent()) {
-            TypeCompatibility typeCompatibility = compatibility(standardFromType, coercedType.get());
+            TypeCompatibility typeCompatibility = compatibility(standardFromType, coercedType.orElseThrow());
             if (!typeCompatibility.isCompatible()) {
                 return TypeCompatibility.incompatible();
             }
@@ -544,7 +544,7 @@ public class TypeCoercer
         private Type getCommonSuperType()
         {
             checkState(commonSuperType.isPresent(), "Types are not compatible");
-            return commonSuperType.get();
+            return commonSuperType.orElseThrow();
         }
 
         private boolean isCoercible()
@@ -555,7 +555,7 @@ public class TypeCoercer
         private TypeCompatibility toSemanticTypeCompatibility(Type type)
         {
             if (commonSuperType.isPresent() && type instanceof TypeWithName) {
-                return new TypeCompatibility(Optional.of(new TypeWithName(((TypeWithName) type).getName(), commonSuperType.get())), coercible);
+                return new TypeCompatibility(Optional.of(new TypeWithName(((TypeWithName) type).getName(), commonSuperType.orElseThrow())), coercible);
             }
             return this;
         }

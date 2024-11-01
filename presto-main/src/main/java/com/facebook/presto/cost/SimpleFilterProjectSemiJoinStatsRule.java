@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
-import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +38,7 @@ import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -110,7 +110,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         }
 
         PlanNodeStatsEstimate semiJoinStats;
-        if (semiJoinOutputFilter.get().isNegated()) {
+        if (semiJoinOutputFilter.orElseThrow().isNegated()) {
             semiJoinStats = computeAntiJoin(sourceStats, filteringSourceStats, sourceJoinVariable, filteringSourceJoinVariable);
         }
         else {
@@ -122,7 +122,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         }
 
         // apply remaining predicate
-        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(semiJoinStats, semiJoinOutputFilter.get().getRemainingPredicate(), session);
+        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(semiJoinStats, semiJoinOutputFilter.orElseThrow().getRemainingPredicate(), session);
 
         if (filteredStats.isOutputRowCountUnknown()) {
             return Optional.of(semiJoinStats.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
@@ -141,7 +141,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
             return Optional.empty();
         }
 
-        RowExpression semiJoinOutputReference = Iterables.getOnlyElement(semiJoinOutputReferences);
+        RowExpression semiJoinOutputReference = semiJoinOutputReferences.stream().collect(onlyElement());
         RowExpression remainingPredicate = logicalRowExpressions.combineConjuncts(conjuncts.stream()
                 .filter(conjunct -> conjunct != semiJoinOutputReference)
                 .collect(toImmutableList()));

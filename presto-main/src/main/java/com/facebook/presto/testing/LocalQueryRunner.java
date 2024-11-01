@@ -1015,7 +1015,7 @@ public class LocalQueryRunner
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             for (int i = 0; i < driverFactory.getDriverInstances().orElse(1); i++) {
                 if (driverFactory.getSourceId().isPresent()) {
-                    checkState(driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory) == null);
+                    checkState(driverFactoriesBySource.put(driverFactory.getSourceId().orElseThrow(), driverFactory) == null);
                 }
                 else {
                     DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), false).addDriverContext();
@@ -1030,7 +1030,7 @@ public class LocalQueryRunner
         for (TaskSource source : sources) {
             DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
             checkState(driverFactory != null);
-            boolean partitioned = tableScanPlanNodeIds.contains(driverFactory.getSourceId().get());
+            boolean partitioned = tableScanPlanNodeIds.contains(driverFactory.getSourceId().orElseThrow());
             for (ScheduledSplit split : source.getSplits()) {
                 DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned).addDriverContext();
                 Driver driver = driverFactory.createDriver(driverContext);

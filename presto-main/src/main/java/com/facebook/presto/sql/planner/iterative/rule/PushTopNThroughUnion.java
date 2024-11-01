@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 
 import java.util.Set;
 
@@ -33,7 +34,6 @@ import static com.facebook.presto.sql.planner.plan.Patterns.TopN.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.topN;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Sets.intersection;
 
 public class PushTopNThroughUnion
@@ -65,7 +65,7 @@ public class PushTopNThroughUnion
 
             for (VariableReferenceExpression unionOutput : unionNode.getOutputVariables()) {
                 Set<VariableReferenceExpression> inputVariables = ImmutableSet.copyOf(unionNode.getVariableMapping().get(unionOutput));
-                VariableReferenceExpression unionInput = getLast(intersection(inputVariables, sourceOutputVariables));
+                VariableReferenceExpression unionInput = Streams.findLast(intersection(inputVariables, sourceOutputVariables).stream()).orElseThrow();
                 symbolMapper.put(unionOutput, unionInput);
             }
             sources.add(symbolMapper.build().map(topNNode, source, context.getIdAllocator().getNextId()));
