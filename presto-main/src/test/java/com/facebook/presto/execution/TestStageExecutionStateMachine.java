@@ -278,7 +278,7 @@ public class TestStageExecutionStateMachine
         assertEquals(stageExecutionInfo.getState(), expectedState);
 
         if (expectedState == StageExecutionState.FAILED) {
-            ExecutionFailureInfo failure = stageExecutionInfo.getFailureCause().get();
+            ExecutionFailureInfo failure = stageExecutionInfo.getFailureCause().orElseThrow();
             assertEquals(failure.getMessage(), FAILED_CAUSE.getMessage());
             assertEquals(failure.getType(), FAILED_CAUSE.getClass().getName());
         }

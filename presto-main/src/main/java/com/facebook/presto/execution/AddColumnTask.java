@@ -83,7 +83,7 @@ public class AddColumnTask
 
         accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.orElseThrow());
 
         ColumnDefinition element = statement.getColumn();
         Type type;
@@ -123,7 +123,7 @@ public class AddColumnTask
                 false,
                 columnProperties);
 
-        metadata.addColumn(session, tableHandle.get(), column);
+        metadata.addColumn(session, tableHandle.orElseThrow(), column);
 
         return immediateFuture(null);
     }

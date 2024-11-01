@@ -441,7 +441,7 @@ public final class DiscoveryNodeManager
         Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
                 ? nodeStates.get(nodeId).getNodeState()
                 : Optional.empty();
-        return remoteNodeState.isPresent() && remoteNodeState.get() == SHUTTING_DOWN;
+        return remoteNodeState.isPresent() && remoteNodeState.orElseThrow() == SHUTTING_DOWN;
     }
 
     @Override
@@ -638,7 +638,7 @@ public final class DiscoveryNodeManager
             // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check
             return service ->
                     !nodeStatusService.isPresent()
-                            || nodeStatusService.get().isAllowed(service.getLocation())
+                            || nodeStatusService.orElseThrow().isAllowed(service.getLocation())
                             || isCatalogServer(service)
                             || isCoordinatorSidecar(service);
         }

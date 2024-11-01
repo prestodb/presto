@@ -291,8 +291,8 @@ public class TestNoisySumGaussianLongAggregation
         JavaAggregationFunctionImplementation noisySumGaussian = getFunction(BIGINT, DOUBLE);
 
         BiFunction<Object, Object, Boolean> withinSomeStdAssertion = (actual, expected) -> {
-            double actualValue = new Double(actual.toString());
-            double expectedValue = new Double(expected.toString());
+            double actualValue = Double.parseDouble(actual.toString());
+            double expectedValue = Double.parseDouble(expected.toString());
             return expectedValue - 50 * DEFAULT_TEST_STANDARD_DEVIATION <= actualValue && actualValue <= expectedValue + 50 * DEFAULT_TEST_STANDARD_DEVIATION;
         };
 
@@ -428,8 +428,8 @@ public class TestNoisySumGaussianLongAggregation
         JavaAggregationFunctionImplementation noisySumGaussian = getFunction(BIGINT, DOUBLE, DOUBLE, DOUBLE);
 
         BiFunction<Object, Object, Boolean> withinSomeStdDoubleAssertion = (actual, expected) -> {
-            double actualValue = new Double(actual.toString());
-            double expectedValue = new Double(expected.toString());
+            double actualValue = Double.parseDouble(actual.toString());
+            double expectedValue = Double.parseDouble(expected.toString());
             return expectedValue - 5 * DEFAULT_TEST_STANDARD_DEVIATION <= actualValue && actualValue <= expectedValue + 5 * DEFAULT_TEST_STANDARD_DEVIATION;
         };
 

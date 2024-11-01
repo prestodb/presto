@@ -73,7 +73,7 @@ public class TestCachingPlanCanonicalInfoProvider
                 return;
             }
             for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
-                planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy, false).get();
+                planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().orElseThrow(), strategy, false).orElseThrow();
             }
         });
         // Assert that size of cache remains same, meaning all needed hashes were already cached.
@@ -87,7 +87,7 @@ public class TestCachingPlanCanonicalInfoProvider
             }
             for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
                 // Only read from cache, hence will return Optional.empty() as the cache is already invalidated
-                assertFalse(planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy, true).isPresent());
+                assertFalse(planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().orElseThrow(), strategy, true).isPresent());
             }
         });
         // Assert that cache is not populated as we only read from cache without populating with cache miss

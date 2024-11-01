@@ -63,7 +63,7 @@ public final class MaxCardProperty
     public boolean moreGeneral(MaxCardProperty otherMaxCardProperty)
     {
         return (!value.isPresent() && !otherMaxCardProperty.value.isPresent()) ||
-                (value.isPresent() && (!otherMaxCardProperty.value.isPresent() || (otherMaxCardProperty.value.get() >= value.get())));
+                (value.isPresent() && (!otherMaxCardProperty.value.isPresent() || (otherMaxCardProperty.value.orElseThrow() >= value.orElseThrow())));
     }
 
     /**
@@ -73,7 +73,7 @@ public final class MaxCardProperty
      */
     public MaxCardProperty getMinMaxCardProperty(long value)
     {
-        if (!this.value.isPresent() || this.value.get().compareTo(value) > 0) {
+        if (!this.value.isPresent() || this.value.orElseThrow().compareTo(value) > 0) {
             return new MaxCardProperty(Optional.of(value));
         }
 
@@ -91,7 +91,7 @@ public final class MaxCardProperty
             return this;
         }
 
-        return getMinMaxCardProperty(maxCardProperty.value.get());
+        return getMinMaxCardProperty(maxCardProperty.value.orElseThrow());
     }
 
     /**
@@ -113,7 +113,7 @@ public final class MaxCardProperty
     public boolean isAtMost(long n)
     {
         if (value.isPresent()) {
-            return (value.get().longValue() <= n);
+            return (value.orElseThrow().longValue() <= n);
         }
         else {
             return false;
@@ -135,14 +135,14 @@ public final class MaxCardProperty
         }
 
         //new value is present and so multiply the current value if it is present
-        return new MaxCardProperty(Optional.of(Long.valueOf(thisMaxCardProperty.value.get() * otherMaxCardProperty.value.get())));
+        return new MaxCardProperty(Optional.of(Long.valueOf(thisMaxCardProperty.value.orElseThrow() * otherMaxCardProperty.value.orElseThrow())));
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("value", (this.value.isPresent() ? value.get() : "null"))
+                .add("value", (this.value.isPresent() ? value.orElseThrow() : "null"))
                 .toString();
     }
 }

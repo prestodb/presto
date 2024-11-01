@@ -175,7 +175,7 @@ public interface WorkProcessor<T>
          *
          * @return the current state, optionally bearing a result
          * @see ProcessState#blocked(ListenableFuture)
-         * @see ProcessState#yield()
+         * @see ProcessState#yieldProcessor()
          * @see ProcessState#ofResult(Object)
          * @see ProcessState#finished()
          */
@@ -326,7 +326,7 @@ public interface WorkProcessor<T>
          * Signals that process has yielded. {@link #process()} will be called again later.
          */
         @SuppressWarnings("unchecked")
-        public static <T> ProcessState<T> yield()
+        public static <T> ProcessState<T> yieldProcessor()
         {
             return (ProcessState<T>) YIELD_STATE;
         }

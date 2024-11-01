@@ -157,8 +157,8 @@ public class TransformDistinctInnerJoinToRightEarlyOutJoin
         Set<VariableReferenceExpression> groupingVariables = ImmutableSet.copyOf(aggregationNode.getGroupingKeys());
         Set<VariableReferenceExpression> joinLeftInputVariables = ImmutableSet.copyOf(joinNode.getLeft().getOutputVariables());
 
-        LogicalProperties joinLeftInputLogicalProperties = ((GroupReference) joinNode.getLeft()).getLogicalProperties().get();
-        LogicalProperties aggregationNodelogicalProperties = context.getLogicalPropertiesProvider().get().getAggregationProperties(aggregationNode);
+        LogicalProperties joinLeftInputLogicalProperties = ((GroupReference) joinNode.getLeft()).getLogicalProperties().orElseThrow();
+        LogicalProperties aggregationNodelogicalProperties = context.getLogicalPropertiesProvider().orElseThrow().getAggregationProperties(aggregationNode);
 
         if (!aggregationNodelogicalProperties.canBeHomogenized(joinLeftInputVariables, groupingVariables)) {
             return false;

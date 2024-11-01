@@ -387,7 +387,7 @@ public class TestingAccessControlManager
 
         public boolean matches(TestingPrivilege testPrivilege)
         {
-            return userName.map(name -> testPrivilege.userName.get().equals(name)).orElse(true) &&
+            return userName.map(name -> testPrivilege.userName.orElseThrow().equals(name)).orElse(true) &&
                     entityName.equals(testPrivilege.entityName) &&
                     type == testPrivilege.type;
         }

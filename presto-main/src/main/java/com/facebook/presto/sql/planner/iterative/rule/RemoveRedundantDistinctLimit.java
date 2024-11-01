@@ -30,7 +30,7 @@ public class RemoveRedundantDistinctLimit
     private static boolean singleRowInput(DistinctLimitNode node)
     {
         return (((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
-                ((GroupReference) node.getSource()).getLogicalProperties().get().isAtMostSingleRow());
+                ((GroupReference) node.getSource()).getLogicalProperties().orElseThrow().isAtMostSingleRow());
     }
 
     @Override

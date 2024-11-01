@@ -600,7 +600,7 @@ public class QueryStateMachine
         if (!output.get().isPresent()) {
             return;
         }
-        Output outputInfo = output.get().get();
+        Output outputInfo = output.get().orElseThrow();
         SchemaTableName table = new SchemaTableName(outputInfo.getSchema(), outputInfo.getTable());
         output.set(Optional.of(new Output(
                 outputInfo.getConnectorId(),
@@ -834,8 +834,8 @@ public class QueryStateMachine
         Optional<TransactionInfo> transaction = session.getTransactionId()
                 .flatMap(transactionManager::getOptionalTransactionInfo);
 
-        if (transaction.isPresent() && transaction.get().isAutoCommitContext()) {
-            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transaction.get().getTransactionId());
+        if (transaction.isPresent() && transaction.orElseThrow().isAutoCommitContext()) {
+            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transaction.orElseThrow().getTransactionId());
             Futures.addCallback(commitFuture, new FutureCallback<Object>()
             {
                 @Override
@@ -982,7 +982,7 @@ public class QueryStateMachine
         AtomicBoolean done = new AtomicBoolean();
         StateChangeListener<Optional<QueryInfo>> fireOnceStateChangeListener = finalQueryInfo -> {
             if (finalQueryInfo.isPresent() && done.compareAndSet(false, true)) {
-                stateChangeListener.stateChanged(finalQueryInfo.get());
+                stateChangeListener.stateChanged(finalQueryInfo.orElseThrow());
             }
         };
         finalQueryInfo.addStateChangeListener(fireOnceStateChangeListener);
@@ -1057,10 +1057,10 @@ public class QueryStateMachine
     public void pruneQueryInfoExpired()
     {
         Optional<QueryInfo> finalInfo = finalQueryInfo.get();
-        if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
+        if (!finalInfo.isPresent() || !finalInfo.orElseThrow().getOutputStage().isPresent()) {
             return;
         }
-        QueryInfo queryInfo = finalInfo.get();
+        QueryInfo queryInfo = finalInfo.orElseThrow();
         QueryInfo prunedQueryInfo;
 
         prunedQueryInfo = pruneExpiredQueryInfo(queryInfo, getMemoryPool());
@@ -1074,11 +1074,11 @@ public class QueryStateMachine
     public void pruneQueryInfoFinished()
     {
         Optional<QueryInfo> finalInfo = finalQueryInfo.get();
-        if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
+        if (!finalInfo.isPresent() || !finalInfo.orElseThrow().getOutputStage().isPresent()) {
             return;
         }
 
-        QueryInfo queryInfo = finalInfo.get();
+        QueryInfo queryInfo = finalInfo.orElseThrow();
         QueryInfo prunedQueryInfo;
 
         // no longer needed in the session after query finishes

@@ -48,7 +48,7 @@ public class InvokeFunctionBytecodeExpression
 
         Optional<BytecodeNode> instance = Optional.empty();
         if (function instanceof BuiltInScalarFunctionImplementation && ((BuiltInScalarFunctionImplementation) function).getInstanceFactory().isPresent()) {
-            FieldDefinition field = cachedInstanceBinder.getCachedInstance(((BuiltInScalarFunctionImplementation) function).getInstanceFactory().get());
+            FieldDefinition field = cachedInstanceBinder.getCachedInstance(((BuiltInScalarFunctionImplementation) function).getInstanceFactory().orElseThrow());
             instance = Optional.of(scope.getThis().getField(field));
         }
         return new InvokeFunctionBytecodeExpression(scope, cachedInstanceBinder.getCallSiteBinder(), name, function, instance, parameters);

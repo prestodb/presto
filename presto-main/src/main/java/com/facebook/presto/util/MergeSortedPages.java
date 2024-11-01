@@ -112,7 +112,7 @@ public final class MergeSortedPages
                         return TransformationState.finished();
                     }
 
-                    if (finished || pageBreakPredicate.test(pageBuilder, pageWithPositionOptional.get())) {
+                    if (finished || pageBreakPredicate.test(pageBuilder, pageWithPositionOptional.orElseThrow())) {
                         if (!updateMemoryAfterEveryPosition) {
                             // update memory usage just before producing page to cap from top
                             memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
@@ -121,7 +121,7 @@ public final class MergeSortedPages
                         Page page = pageBuilder.build();
                         pageBuilder.reset();
                         if (!finished) {
-                            pageWithPositionOptional.get().appendTo(pageBuilder, outputChannels, outputTypes);
+                            pageWithPositionOptional.orElseThrow().appendTo(pageBuilder, outputChannels, outputTypes);
                         }
 
                         if (updateMemoryAfterEveryPosition) {
@@ -131,7 +131,7 @@ public final class MergeSortedPages
                         return TransformationState.ofResult(page, !finished);
                     }
 
-                    pageWithPositionOptional.get().appendTo(pageBuilder, outputChannels, outputTypes);
+                    pageWithPositionOptional.orElseThrow().appendTo(pageBuilder, outputChannels, outputTypes);
 
                     if (updateMemoryAfterEveryPosition) {
                         memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());

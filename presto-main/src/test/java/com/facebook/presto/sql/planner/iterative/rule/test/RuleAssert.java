@@ -198,7 +198,7 @@ public class RuleAssert
         }
 
         // ensure that the logical properties of the root group are equivalent to the expected logical properties
-        LogicalProperties rootNodeLogicalProperties = ruleApplication.getMemo().getLogicalProperties(ruleApplication.getMemo().getRootGroup()).get();
+        LogicalProperties rootNodeLogicalProperties = ruleApplication.getMemo().getLogicalProperties(ruleApplication.getMemo().getRootGroup()).orElseThrow();
         if (!((LogicalPropertiesImpl) rootNodeLogicalProperties).equals((LogicalPropertiesImpl) expectedLogicalProperties)) {
             fail(String.format(
                     "Logical properties of root node doesn't match expected logical properties\n" +

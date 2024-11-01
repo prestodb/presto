@@ -72,7 +72,7 @@ public class UnnestStatsRule
         }
         if (node.getOrdinalityVariable().isPresent()) {
             calculatedStats.addVariableStatistics(
-                    node.getOrdinalityVariable().get(),
+                    node.getOrdinalityVariable().orElseThrow(),
                     VariableStatsEstimate.builder()
                         .setLowValue(0)
                         .setNullsFraction(0)

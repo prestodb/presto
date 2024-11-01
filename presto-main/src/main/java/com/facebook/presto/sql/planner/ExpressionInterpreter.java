@@ -151,7 +151,7 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
@@ -331,7 +331,7 @@ public class ExpressionInterpreter
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
+                if (field.getName().isPresent() && field.getName().orElseThrow().equalsIgnoreCase(fieldName)) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
                 }
@@ -438,7 +438,7 @@ public class ExpressionInterpreter
             Object condition = processWithExceptionHandling(node.getCondition(), context);
 
             if (condition instanceof Expression) {
-                Expression falseValueExpression = (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get()));
+                Expression falseValueExpression = (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().orElseThrow()));
                 return new IfExpression(
                         toExpression(condition, type(node.getCondition())),
                         toExpression(trueValue, type(node.getTrueValue())),
@@ -566,7 +566,7 @@ public class ExpressionInterpreter
             }
 
             if (expressions.size() == 1) {
-                return getOnlyElement(expressions);
+                return expressions.stream().collect(onlyElement());
             }
             return new CoalesceExpression(expressions);
         }
@@ -811,7 +811,7 @@ public class ExpressionInterpreter
             }
 
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            Type commonType = functionAndTypeManager.getCommonSuperType(firstType, secondType).get();
+            Type commonType = functionAndTypeManager.getCommonSuperType(firstType, secondType).orElseThrow();
 
             FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType, commonType);
             FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType, commonType);
@@ -1038,7 +1038,7 @@ public class ExpressionInterpreter
 
             if (value instanceof Slice &&
                     node.getPattern() instanceof StringLiteral &&
-                    (!node.getEscape().isPresent() || node.getEscape().get() instanceof StringLiteral)) {
+                    (!node.getEscape().isPresent() || node.getEscape().orElseThrow() instanceof StringLiteral)) {
                 // fast path when we know the pattern and escape are constant
                 return interpretLikePredicate(type(node.getValue()), (Slice) value, getConstantPattern(node));
             }
@@ -1051,7 +1051,7 @@ public class ExpressionInterpreter
 
             Object escape = null;
             if (node.getEscape().isPresent()) {
-                escape = process(node.getEscape().get(), context);
+                escape = process(node.getEscape().orElseThrow(), context);
 
                 if (escape == null) {
                     return null;
@@ -1082,7 +1082,7 @@ public class ExpressionInterpreter
                 checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", node);
                 Expression valueExpression = toExpression(value, valueType);
                 Expression patternExpression = toExpression(unescapedPattern, patternType);
-                Type superType = commonSuperType.get();
+                Type superType = commonSuperType.orElseThrow();
                 if (!valueType.equals(superType)) {
                     valueExpression = new Cast(valueExpression, superType.getTypeSignature().toString(), false, functionAndTypeManager.isTypeOnlyCoercion(valueType, superType));
                 }
@@ -1094,7 +1094,7 @@ public class ExpressionInterpreter
 
             Optional<Expression> optimizedEscape = Optional.empty();
             if (node.getEscape().isPresent()) {
-                optimizedEscape = Optional.of(toExpression(escape, type(node.getEscape().get())));
+                optimizedEscape = Optional.of(toExpression(escape, type(node.getEscape().orElseThrow())));
             }
 
             return new LikePredicate(
@@ -1111,7 +1111,7 @@ public class ExpressionInterpreter
                 StringLiteral pattern = (StringLiteral) node.getPattern();
 
                 if (node.getEscape().isPresent()) {
-                    Slice escape = ((StringLiteral) node.getEscape().get()).getSlice();
+                    Slice escape = ((StringLiteral) node.getEscape().orElseThrow()).getSlice();
                     result = LikeFunctions.likePattern(pattern.getSlice(), escape);
                 }
                 else {

@@ -227,9 +227,9 @@ public class SimpleTtlNodeSelector
                         split.getTransactionHandle(),
                         split.getConnectorSplit(),
                         split.getLifespan(),
-                        new SplitContext(chosenNodeInfo.get().isCacheable()));
+                        new SplitContext(chosenNodeInfo.orElseThrow().isCacheable()));
 
-                InternalNode chosenNode = chosenNodeInfo.get().getInternalNode();
+                InternalNode chosenNode = chosenNodeInfo.orElseThrow().getInternalNode();
                 assignment.put(chosenNode, split);
                 assignmentStats.addAssignedSplit(chosenNode, splitWeight);
             }
@@ -286,7 +286,7 @@ public class SimpleTtlNodeSelector
                 .filter(Objects::nonNull)
                 .filter(ttlInfo::containsKey)
                 .filter(node -> ttlInfo.get(node).isPresent())
-                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), estimatedExecutionTimeRemaining))
+                .filter(node -> isTtlEnough(ttlInfo.get(node).orElseThrow(), estimatedExecutionTimeRemaining))
                 .collect(toList());
 
         int alreadySelectedNodeCount = existingEligibleNodes.size();
@@ -312,7 +312,7 @@ public class SimpleTtlNodeSelector
                 .filter(node -> includeCoordinator || !node.isCoordinator())
                 .filter(node -> !excludedNodes.contains(node))
                 .filter(node -> ttlInfo.get(node).isPresent())
-                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), estimatedExecutionTimeRemaining))
+                .filter(node -> isTtlEnough(ttlInfo.get(node).orElseThrow(), estimatedExecutionTimeRemaining))
                 .collect(toImmutableList());
     }
 }

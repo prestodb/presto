@@ -33,7 +33,7 @@ public class TestHiddenColumns
     public void setUp()
     {
         runner = new LocalQueryRunner(TEST_SESSION);
-        runner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
+        runner.createCatalog(TEST_SESSION.getCatalog().orElseThrow(), new TpchConnectorFactory(1), ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)

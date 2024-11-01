@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.Iterators.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 final class Util
 {
@@ -56,15 +56,15 @@ final class Util
         }
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        for (Map.Entry<String, Domain> expectedColumnConstraint : expectedDomains.get().entrySet()) {
+        for (Map.Entry<String, Domain> expectedColumnConstraint : expectedDomains.orElseThrow().entrySet()) {
             if (!columnHandles.containsKey(expectedColumnConstraint.getKey())) {
                 return false;
             }
             ColumnHandle columnHandle = columnHandles.get(expectedColumnConstraint.getKey());
-            if (!actualDomains.get().containsKey(columnHandle)) {
+            if (!actualDomains.orElseThrow().containsKey(columnHandle)) {
                 return false;
             }
-            if (!expectedColumnConstraint.getValue().contains(actualDomains.get().get(columnHandle))) {
+            if (!expectedColumnConstraint.getValue().contains(actualDomains.orElseThrow().get(columnHandle))) {
                 return false;
             }
         }
@@ -84,7 +84,9 @@ final class Util
             if (!symbol.equals(new Symbol(orderingScheme.getOrderByVariables().get(i).getName()))) {
                 return false;
             }
-            SortOrder sortOrder = getOnlyElement(Maps.filterKeys(orderingScheme.getOrderingsMap(), variable -> variable.getName().equals(symbol.getName())).values().iterator());
+            SortOrder sortOrder = Maps.filterKeys(orderingScheme.getOrderingsMap(), variable -> variable.getName().equals(symbol.getName())).values()
+                    .stream()
+                    .collect(onlyElement());
             if (!ordering.getSortOrder().equals(sortOrder)) {
                 return false;
             }

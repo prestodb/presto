@@ -459,9 +459,9 @@ public class SqlTask
                             taskStateMachine,
                             outputBuffer,
                             taskExchangeClientManager,
-                            fragment.get(),
+                            fragment.orElseThrow(),
                             sources,
-                            tableWriteInfo.get());
+                            tableWriteInfo.orElseThrow());
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }

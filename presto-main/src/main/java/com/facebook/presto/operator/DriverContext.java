@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -40,9 +41,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getFirst;
-import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
@@ -263,7 +262,7 @@ public class DriverContext
 
     public CounterStat getInputDataSize()
     {
-        OperatorContext inputOperator = getFirst(operatorContexts, null);
+        OperatorContext inputOperator = operatorContexts.stream().findFirst().orElse(null);
         if (inputOperator != null) {
             return inputOperator.getInputDataSize();
         }
@@ -274,7 +273,7 @@ public class DriverContext
 
     public CounterStat getInputPositions()
     {
-        OperatorContext inputOperator = getFirst(operatorContexts, null);
+        OperatorContext inputOperator = operatorContexts.stream().findFirst().orElse(null);
         if (inputOperator != null) {
             return inputOperator.getInputPositions();
         }
@@ -285,7 +284,7 @@ public class DriverContext
 
     public CounterStat getOutputDataSize()
     {
-        OperatorContext inputOperator = getLast(operatorContexts, null);
+        OperatorContext inputOperator = Streams.findLast(operatorContexts.stream()).orElse(null);
         if (inputOperator != null) {
             return inputOperator.getOutputDataSize();
         }
@@ -296,7 +295,7 @@ public class DriverContext
 
     public CounterStat getOutputPositions()
     {
-        OperatorContext inputOperator = getLast(operatorContexts, null);
+        OperatorContext inputOperator = Streams.findLast(operatorContexts.stream()).orElse(null);
         if (inputOperator != null) {
             return inputOperator.getOutputPositions();
         }
@@ -342,8 +341,8 @@ public class DriverContext
         DateTime executionEndTime = this.executionEndTime.get();
         Duration elapsedTime = new Duration(nanosBetween(createNanos, executionEndTime == null ? System.nanoTime() : endNanos.get()), NANOSECONDS);
 
-        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
-        OperatorStats inputOperator = getFirst(operators, null);
+        List<OperatorStats> operators = operatorContexts.stream().map(OperatorContext::getOperatorStats).collect(toImmutableList());
+        OperatorStats inputOperator = operators.stream().findFirst().orElse(null);
         DataSize rawInputDataSize;
         long rawInputPositions;
         Duration rawInputReadTime;
@@ -359,7 +358,7 @@ public class DriverContext
             processedInputDataSize = inputOperator.getInputDataSize();
             processedInputPositions = inputOperator.getInputPositions();
 
-            OperatorStats outputOperator = requireNonNull(getLast(operators, null));
+            OperatorStats outputOperator = requireNonNull(Streams.findLast(operators.stream()).orElse(null));
             outputDataSize = outputOperator.getOutputDataSize();
             outputPositions = outputOperator.getOutputPositions();
         }
@@ -380,7 +379,7 @@ public class DriverContext
         for (OperatorStats operator : operators) {
             physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
             if (operator.getBlockedReason().isPresent()) {
-                builder.add(operator.getBlockedReason().get());
+                builder.add(operator.getBlockedReason().orElseThrow());
             }
             totalCpuTime += operator.getAdditionalCpu().roundTo(NANOSECONDS);
         }

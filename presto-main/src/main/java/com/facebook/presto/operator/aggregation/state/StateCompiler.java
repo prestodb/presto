@@ -92,7 +92,7 @@ import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class StateCompiler
@@ -198,7 +198,7 @@ public class StateCompiler
         if (!constructor.isPresent()) {
             throw new IllegalArgumentException("Unable to find a suitable constructor for accumulator metadata class " + clazz);
         }
-        Constructor<?> cons = constructor.get();
+        Constructor<?> cons = constructor.orElseThrow();
         Object[] params = Arrays.stream(cons.getParameters())
                 .map(param -> fieldTypes.get(param.getAnnotation(TypeParameter.class).value()))
                 .toArray();
@@ -215,7 +215,7 @@ public class StateCompiler
             type = RowType.withDefaultFieldNames(types);
         }
         else if (fields.size() == 1) {
-            type = getOnlyElement(fields).getSqlType();
+            type = fields.stream().collect(onlyElement()).getSqlType();
         }
         else {
             type = UNKNOWN;
@@ -252,7 +252,7 @@ public class StateCompiler
         BytecodeBlock deserializerBody = method.getBody();
         Scope scope = method.getScope();
         if (fields.size() == 1) {
-            StateField field = getOnlyElement(fields);
+            StateField field = fields.stream().collect(onlyElement());
             Method setter = getSetter(clazz, field);
             if (!field.isPrimitiveType()) {
                 deserializerBody.append(new IfStatement()
@@ -305,11 +305,11 @@ public class StateCompiler
             serializerBody.append(out.invoke("appendNull", BlockBuilder.class).pop());
         }
         else if (fields.size() == 1) {
-            Method getter = getGetter(clazz, getOnlyElement(fields));
-            SqlTypeBytecodeExpression sqlType = constantType(binder, getOnlyElement(fields).getSqlType());
+            Method getter = getGetter(clazz, fields.stream().collect(onlyElement()));
+            SqlTypeBytecodeExpression sqlType = constantType(binder, fields.stream().collect(onlyElement()).getSqlType());
             Variable fieldValue = scope.declareVariable(getter.getReturnType(), "value");
             serializerBody.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
-            if (!getOnlyElement(fields).isPrimitiveType()) {
+            if (!fields.stream().collect(onlyElement()).isPrimitiveType()) {
                 serializerBody.append(new IfStatement()
                         .condition(equal(fieldValue, constantNull(getter.getReturnType())))
                         .ifTrue(out.invoke("appendNull", BlockBuilder.class).pop())
@@ -317,7 +317,7 @@ public class StateCompiler
             }
             else {
                 // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
-                serializerBody.append(sqlType.writeValue(out, fieldValue.cast(getOnlyElement(fields).getSqlType().getJavaType())));
+                serializerBody.append(sqlType.writeValue(out, fieldValue.cast(fields.stream().collect(onlyElement()).getSqlType().getJavaType())));
             }
         }
         else if (fields.size() > 1) {
@@ -739,10 +739,10 @@ public class StateCompiler
             checkArgument(sqlType != null, "sqlType is null");
             if (sqlType.isPresent()) {
                 checkArgument(
-                        (sqlType.get().getJavaType() == type) ||
-                                ((type == byte.class) && TINYINT.equals(sqlType.get())) ||
-                                ((type == int.class) && INTEGER.equals(sqlType.get())),
-                        "Stack type (%s) and provided sql type (%s) are incompatible", type.getName(), sqlType.get().getDisplayName());
+                        (sqlType.orElseThrow().getJavaType() == type) ||
+                                ((type == byte.class) && TINYINT.equals(sqlType.orElseThrow())) ||
+                                ((type == int.class) && INTEGER.equals(sqlType.orElseThrow())),
+                        "Stack type (%s) and provided sql type (%s) are incompatible", type.getName(), sqlType.orElseThrow().getDisplayName());
             }
             else {
                 sqlType = sqlTypeFromStackType(type);
@@ -800,7 +800,7 @@ public class StateCompiler
             if (!sqlType.isPresent()) {
                 throw new IllegalArgumentException("Unsupported type: " + type);
             }
-            return sqlType.get();
+            return sqlType.orElseThrow();
         }
 
         boolean isPrimitiveType()

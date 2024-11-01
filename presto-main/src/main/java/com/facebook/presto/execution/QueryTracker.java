@@ -230,7 +230,7 @@ public class QueryTracker<T extends TrackedQuery>
                             .map(rgLimit -> createDurationLimit(rgLimit, RESOURCE_GROUP)).orElse(null));
             Optional<DateTime> executionStartTime = query.getExecutionStartTime();
             DateTime createTime = query.getCreateTime();
-            if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.getLimit().toMillis()).isBeforeNow()) {
+            if (executionStartTime.isPresent() && executionStartTime.orElseThrow().plus(queryMaxExecutionTime.getLimit().toMillis()).isBeforeNow()) {
                 query.fail(
                         new PrestoException(EXCEEDED_TIME_LIMIT,
                                 format(
@@ -288,7 +288,7 @@ public class QueryTracker<T extends TrackedQuery>
         }
 
         if (clusterQueryTrackerService.isPresent()) {
-            totalRunningTaskCount = clusterQueryTrackerService.get().getRunningTaskCount();
+            totalRunningTaskCount = clusterQueryTrackerService.orElseThrow().getRunningTaskCount();
         }
 
         runningTaskCount.set(totalRunningTaskCount);
@@ -345,7 +345,7 @@ public class QueryTracker<T extends TrackedQuery>
                 // this shouldn't happen but it is better to be safe here
                 continue;
             }
-            if (endTime.get().isAfter(timeHorizon)) {
+            if (endTime.orElseThrow().isAfter(timeHorizon)) {
                 return;
             }
 
