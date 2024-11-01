@@ -85,8 +85,8 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
@@ -115,7 +115,7 @@ public final class RowExpressionDomainTranslator
             return FALSE_CONSTANT;
         }
 
-        Map<T, Domain> domains = tupleDomain.getDomains().get();
+        Map<T, Domain> domains = tupleDomain.getDomains().orElseThrow();
         return domains.entrySet().stream()
                 .map(entry -> toPredicate(entry.getValue(), entry.getKey()))
                 .collect(collectingAndThen(toImmutableList(), logicalRowExpressions::combineConjuncts));
@@ -206,7 +206,7 @@ public final class RowExpressionDomainTranslator
 
         RowExpression excludedPointsExpression = not(functionResolution, in(reference, excludedPoints));
         if (excludedPoints.size() == 1) {
-            excludedPointsExpression = notEqual(reference, getOnlyElement(excludedPoints));
+            excludedPointsExpression = notEqual(reference, excludedPoints.stream().collect(onlyElement()));
         }
 
         return logicalRowExpressions.combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
@@ -247,7 +247,7 @@ public final class RowExpressionDomainTranslator
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(equal(reference, getOnlyElement(singleValues)));
+            disjuncts.add(equal(reference, singleValues.stream().collect(onlyElement())));
         }
         else if (singleValues.size() > 1) {
             disjuncts.add(in(reference, singleValues));
@@ -266,7 +266,7 @@ public final class RowExpressionDomainTranslator
 
         RowExpression predicate;
         if (values.size() == 1) {
-            predicate = equal(reference, getOnlyElement(values));
+            predicate = equal(reference, values.stream().collect(onlyElement()));
         }
         else {
             predicate = in(reference, values);
@@ -345,7 +345,7 @@ public final class RowExpressionDomainTranslator
                         return visitRowExpression(node, complement);
                     }
 
-                    return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column.get(), domain)), TRUE_CONSTANT);
+                    return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column.orElseThrow(), domain)), TRUE_CONSTANT);
                 }
                 default:
                     return visitRowExpression(node, complement);
@@ -377,7 +377,7 @@ public final class RowExpressionDomainTranslator
             if (node.getType() == BOOLEAN) {
                 Domain domain = createComparisonDomain(EQUAL, BOOLEAN, !complement, Boolean.FALSE);
                 Optional<T> column = columnExtractor.extract(node, domain);
-                return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column.get(), domain)), TRUE_CONSTANT);
+                return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column.orElseThrow(), domain)), TRUE_CONSTANT);
             }
             return visitRowExpression(node, complement);
         }
@@ -398,11 +398,11 @@ public final class RowExpressionDomainTranslator
 
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(node.getFunctionHandle());
             if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
-                Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(functionMetadata.getOperatorType().get(), node.getArguments().get(0), node.getArguments().get(1));
+                Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(functionMetadata.getOperatorType().orElseThrow(), node.getArguments().get(0), node.getArguments().get(1));
                 if (!optionalNormalized.isPresent()) {
                     return visitRowExpression(node, complement);
                 }
-                NormalizedSimpleComparison normalized = optionalNormalized.get();
+                NormalizedSimpleComparison normalized = optionalNormalized.orElseThrow();
 
                 RowExpression expression = normalized.getExpression();
                 NullableValue value = normalized.getValue();
@@ -412,7 +412,7 @@ public final class RowExpressionDomainTranslator
                     if (domain.isNone()) {
                         return new ExtractionResult<>(TupleDomain.none(), TRUE_CONSTANT);
                     }
-                    return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column.get(), domain)), TRUE_CONSTANT);
+                    return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column.orElseThrow(), domain)), TRUE_CONSTANT);
                 }
 
                 if (expression instanceof CallExpression && resolution.isCastFunction(((CallExpression) expression).getFunctionHandle())) {
@@ -447,7 +447,7 @@ public final class RowExpressionDomainTranslator
                             sourceType, cast.getArguments().get(0), normalized.getValue(), normalized.getComparisonOperator());
 
                     if (coercedExpression.isPresent()) {
-                        return coercedExpression.get().accept(this, complement);
+                        return coercedExpression.orElseThrow().accept(this, complement);
                     }
 
                     return visitRowExpression(node, complement);
@@ -791,9 +791,9 @@ public final class RowExpressionDomainTranslator
                         // 2) If one TupleDomain is a superset of the other (e.g. left TupleDomain => (a > 0, b > 0 && b < 10), right TupleDomain => (a > 5, b = 5))
                         boolean matchingSingleSymbolDomains = !leftTupleDomain.isNone()
                                 && !rightTupleDomain.isNone()
-                                && leftTupleDomain.getDomains().get().size() == 1
-                                && rightTupleDomain.getDomains().get().size() == 1
-                                && leftTupleDomain.getDomains().get().keySet().equals(rightTupleDomain.getDomains().get().keySet());
+                                && leftTupleDomain.getDomains().orElseThrow().size() == 1
+                                && rightTupleDomain.getDomains().orElseThrow().size() == 1
+                                && leftTupleDomain.getDomains().orElseThrow().keySet().equals(rightTupleDomain.getDomains().orElseThrow().keySet());
                         boolean oneSideIsSuperSet = leftTupleDomain.contains(rightTupleDomain) || rightTupleDomain.contains(leftTupleDomain);
 
                         if (matchingSingleSymbolDomains || oneSideIsSuperSet) {

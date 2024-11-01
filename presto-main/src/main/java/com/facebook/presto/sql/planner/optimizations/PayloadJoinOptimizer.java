@@ -500,7 +500,7 @@ public class PayloadJoinOptimizer
             });
 
             if (filter.isPresent()) {
-                builder.addAll(VariablesExtractor.extractAll(filter.get()));
+                builder.addAll(VariablesExtractor.extractAll(filter.orElseThrow()));
             }
 
             return builder.build();

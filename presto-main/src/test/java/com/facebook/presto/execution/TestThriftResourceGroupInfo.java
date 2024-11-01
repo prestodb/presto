@@ -227,23 +227,23 @@ public class TestThriftResourceGroupInfo
     {
         assertEquals(actualInfo.getQueryState(), FAKE_QUERY_STATE);
         assertTrue(actualInfo.getResourceGroupId().isPresent());
-        assertEquals(actualInfo.getResourceGroupId().get(), FAKE_QUERY_RESOURCE_GROUP_ID);
+        assertEquals(actualInfo.getResourceGroupId().orElseThrow(), FAKE_QUERY_RESOURCE_GROUP_ID);
         assertEquals(actualInfo.getQuery(), FAKE_QUERY);
         assertEquals(actualInfo.getCreateTime(), FAKE_CREATE_TIME);
         assertEquals(actualInfo.getUser(), FAKE_QUERY_REQUESTER);
         assertTrue(actualInfo.getSource().isPresent());
-        assertEquals(actualInfo.getSource().get(), FAKE_QUERY_SOURCE);
+        assertEquals(actualInfo.getSource().orElseThrow(), FAKE_QUERY_SOURCE);
         assertTrue(actualInfo.getClientInfo().isPresent());
-        assertEquals(actualInfo.getClientInfo().get(), FAKE_QUERY_CLIENT_INFO);
+        assertEquals(actualInfo.getClientInfo().orElseThrow(), FAKE_QUERY_CLIENT_INFO);
         assertTrue(actualInfo.getCatalog().isPresent());
-        assertEquals(actualInfo.getCatalog().get(), FAKE_QUERY_CATALOG);
+        assertEquals(actualInfo.getCatalog().orElseThrow(), FAKE_QUERY_CATALOG);
         assertTrue(actualInfo.getSchema().isPresent());
-        assertEquals(actualInfo.getSchema().get(), FAKE_QUERY_SCHEMA);
+        assertEquals(actualInfo.getSchema().orElseThrow(), FAKE_QUERY_SCHEMA);
         assertTrue(actualInfo.getPathToRoot().isPresent());
-        assertEquals(actualInfo.getPathToRoot().get().size(), 0);
+        assertEquals(actualInfo.getPathToRoot().orElseThrow().size(), 0);
 
         assertTrue(actualInfo.getProgress().isPresent());
-        QueryProgressStats queryProgressStats = actualInfo.getProgress().get();
+        QueryProgressStats queryProgressStats = actualInfo.getProgress().orElseThrow();
         assertEquals(queryProgressStats.getElapsedTimeMillis(), FAKE_ELAPSED_TIME_MILLIS);
         assertEquals(queryProgressStats.getQueuedTimeMillis(), FAKE_QUEUED_TIME_MILLIS);
         assertEquals(queryProgressStats.getCpuTimeMillis(), FAKE_CPU_TIME_MILLS);

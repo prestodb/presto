@@ -569,7 +569,7 @@ public class FilterStatsCalculator
             // comparison case
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(node.getFunctionHandle());
             if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
-                OperatorType operatorType = functionMetadata.getOperatorType().get();
+                OperatorType operatorType = functionMetadata.getOperatorType().orElseThrow();
                 RowExpression left = node.getArguments().get(0);
                 RowExpression right = node.getArguments().get(1);
 

@@ -57,7 +57,7 @@ public class AliasMatcher
     {
         Optional<VariableReferenceExpression> variable = matcher.getAssignedVariable(node, session, metadata, symbolAliases);
         if (variable.isPresent() && alias.isPresent()) {
-            return match(alias.get(), createSymbolReference(variable.get()));
+            return match(alias.orElseThrow(), createSymbolReference(variable.orElseThrow()));
         }
         return new MatchResult(variable.isPresent());
     }
@@ -66,7 +66,7 @@ public class AliasMatcher
     public String toString()
     {
         if (alias.isPresent()) {
-            return format("bind %s -> %s", alias.get(), matcher);
+            return format("bind %s -> %s", alias.orElseThrow(), matcher);
         }
         return format("bind %s", matcher);
     }

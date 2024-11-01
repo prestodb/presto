@@ -93,7 +93,7 @@ public class AggregationFunctionMatcher
     private static boolean verifyAggregationOrderBy(Optional<OrderingScheme> orderingScheme, Optional<OrderBy> expectedSortOrder)
     {
         if (orderingScheme.isPresent() && expectedSortOrder.isPresent()) {
-            return verifyAggregationOrderBy(orderingScheme.get(), expectedSortOrder.get());
+            return verifyAggregationOrderBy(orderingScheme.orElseThrow(), expectedSortOrder.orElseThrow());
         }
         return orderingScheme.isPresent() == expectedSortOrder.isPresent();
     }
@@ -118,8 +118,8 @@ public class AggregationFunctionMatcher
     {
         // Function's argument provided by FunctionCallProvider is SymbolReference that already resolved from symbolAliases.
         if (rowExpression.isPresent() && expression.isPresent()) {
-            checkArgument(rowExpression.get() instanceof VariableReferenceExpression, "can only process variableReference");
-            return expression.get().equals(createSymbolReference(((VariableReferenceExpression) rowExpression.get())));
+            checkArgument(rowExpression.orElseThrow() instanceof VariableReferenceExpression, "can only process variableReference");
+            return expression.orElseThrow().equals(createSymbolReference(((VariableReferenceExpression) rowExpression.orElseThrow())));
         }
         return rowExpression.isPresent() == expression.isPresent();
     }
@@ -127,7 +127,7 @@ public class AggregationFunctionMatcher
     private static boolean maskMatch(Optional<Symbol> symbol, Optional<VariableReferenceExpression> mask)
     {
         if (symbol.isPresent() && mask.isPresent()) {
-            return symbol.get().getName().equals(mask.get().getName());
+            return symbol.orElseThrow().getName().equals(mask.orElseThrow().getName());
         }
         return symbol.isPresent() == mask.isPresent();
     }

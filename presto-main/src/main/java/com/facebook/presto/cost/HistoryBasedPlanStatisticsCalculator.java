@@ -89,7 +89,7 @@ public class HistoryBasedPlanStatisticsCalculator
         }
         // record the statsEquivalentPlanNode of root node, and do serialization if enabled when query completes to avoid introduce additional latency for HBO optimizer
         if (root.getStatsEquivalentPlanNode().isPresent()) {
-            historyBasedStatisticsCacheManager.setStatsEquivalentPlanRootNode(session.getQueryId(), root.getStatsEquivalentPlanNode().get());
+            historyBasedStatisticsCacheManager.setStatsEquivalentPlanRootNode(session.getQueryId(), root.getStatsEquivalentPlanNode().orElseThrow());
         }
         ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
         Iterable<PlanNode> planNodeIterable = forTree(PlanNode::getSources).depthFirstPreOrder(root);
@@ -160,7 +160,7 @@ public class HistoryBasedPlanStatisticsCalculator
             return ImmutableMap.of();
         }
 
-        PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
+        PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().orElseThrow();
         ImmutableMap.Builder<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashesBuilder = ImmutableMap.builder();
         for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
             Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, strategy, cacheOnly);
@@ -197,13 +197,13 @@ public class HistoryBasedPlanStatisticsCalculator
                 if (allHashes.containsKey(strategy) && entry.getKey().getHash().isPresent() && allHashes.get(strategy).equals(entry.getKey())) {
                     Optional<List<PlanStatistics>> inputTableStatistics = getPlanNodeInputTableStatistics(plan, session, strategy, true);
                     if (inputTableStatistics.isPresent()) {
-                        Optional<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntry = getSelectedHistoricalPlanStatisticsEntry(entry.getValue(), inputTableStatistics.get(), historyMatchingThreshold);
+                        Optional<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntry = getSelectedHistoricalPlanStatisticsEntry(entry.getValue(), inputTableStatistics.orElseThrow(), historyMatchingThreshold);
                         if (historicalPlanStatisticsEntry.isPresent()) {
-                            PlanStatistics predictedPlanStatistics = historicalPlanStatisticsEntry.get().getPlanStatistics();
+                            PlanStatistics predictedPlanStatistics = historicalPlanStatisticsEntry.orElseThrow().getPlanStatistics();
                             if ((toConfidenceLevel(predictedPlanStatistics.getConfidence()).getConfidenceOrdinal() >= delegateStats.confidenceLevel().getConfidenceOrdinal())) {
                                 return delegateStats.combineStats(
                                         predictedPlanStatistics,
-                                        new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.ofNullable(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo())));
+                                        new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.ofNullable(historicalPlanStatisticsEntry.orElseThrow().getHistoricalPlanStatisticsEntryInfo())));
                             }
                         }
                     }
@@ -220,7 +220,7 @@ public class HistoryBasedPlanStatisticsCalculator
             return Optional.empty();
         }
 
-        PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
+        PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().orElseThrow();
         return planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode, strategy, cacheOnly);
     }
 }

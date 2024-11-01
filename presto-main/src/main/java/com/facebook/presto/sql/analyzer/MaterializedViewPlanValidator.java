@@ -92,7 +92,7 @@ public class MaterializedViewPlanValidator
                     throw new SemanticException(NOT_SUPPORTED, node, "Inner join with no criteria is not supported for materialized view.");
                 }
 
-                joinCriteria = node.getCriteria().get();
+                joinCriteria = node.getCriteria().orElseThrow();
                 if (!(joinCriteria instanceof JoinOn)) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Only join-on is supported for materialized view.");
                 }
@@ -123,7 +123,7 @@ public class MaterializedViewPlanValidator
                     throw new SemanticException(NOT_SUPPORTED, node, "Outer join with no criteria is not supported for materialized view.");
                 }
 
-                joinCriteria = node.getCriteria().get();
+                joinCriteria = node.getCriteria().orElseThrow();
                 if (!(joinCriteria instanceof JoinOn)) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Only join-on is supported for materialized view.");
                 }

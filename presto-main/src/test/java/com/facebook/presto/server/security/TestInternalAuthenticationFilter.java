@@ -95,7 +95,7 @@ public class TestInternalAuthenticationFilter
         internalAuthenticationFilter.filter(containerRequestContext);
 
         assertTrue(internalAuthenticationFilter.getPrincipal().isPresent());
-        assertEquals(internalAuthenticationFilter.getPrincipal().get().toString(), principalString);
+        assertEquals(internalAuthenticationFilter.getPrincipal().orElseThrow().toString(), principalString);
         assertEquals(containerRequestContext.getResponse().getStatus(), SC_OK);
     }
 

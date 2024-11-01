@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -60,8 +61,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 @State(Scope.Thread)
 @Fork(3)
@@ -144,7 +144,7 @@ public class BenchmarkEqualsOperator
         @Setup
         public void setup()
         {
-            List<Type> types = ImmutableList.copyOf(limit(cycle(BIGINT), FIELDS_COUNT));
+            List<Type> types = Stream.generate(() -> BIGINT).limit(FIELDS_COUNT).collect(toImmutableList());
             ThreadLocalRandom random = ThreadLocalRandom.current();
             PageBuilder pageBuilder = new PageBuilder(types);
             while (!pageBuilder.isFull()) {

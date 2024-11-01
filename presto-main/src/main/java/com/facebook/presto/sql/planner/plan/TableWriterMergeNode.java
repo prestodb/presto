@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class TableWriterMergeNode
@@ -123,7 +123,7 @@ public class TableWriterMergeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterMergeNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), getOnlyElement(newChildren), rowCountVariable, fragmentVariable, tableCommitContextVariable, statisticsAggregation);
+        return new TableWriterMergeNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.stream().collect(onlyElement()), rowCountVariable, fragmentVariable, tableCommitContextVariable, statisticsAggregation);
     }
 
     @Override

@@ -56,7 +56,7 @@ public class FixedCountScheduler
         List<RemoteTask> newTasks = IntStream.range(0, partitionToNode.size())
                 .mapToObj(partition -> taskScheduler.scheduleTask(partitionToNode.get(partition), partition))
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toImmutableList());
 
         // no need to call stage.transitionToSchedulingSplits() since there is no table splits

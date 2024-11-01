@@ -276,7 +276,7 @@ public class OrderByOperator
         if (!next.isPresent()) {
             return null;
         }
-        Page nextPage = next.get();
+        Page nextPage = next.orElseThrow();
         Block[] blocks = new Block[outputChannels.length];
         for (int i = 0; i < outputChannels.length; i++) {
             blocks[i] = nextPage.getBlock(outputChannels[i]);
@@ -304,14 +304,14 @@ public class OrderByOperator
         // TODO try pageIndex.compact(); before spilling, as in com.facebook.presto.operator.HashBuilderOperator.startMemoryRevoke
 
         if (!spiller.isPresent()) {
-            spiller = Optional.of(spillerFactory.get().create(
+            spiller = Optional.of(spillerFactory.orElseThrow().create(
                     sourceTypes,
                     operatorContext.getSpillContext(),
                     operatorContext.aggregateSystemMemoryContext()));
         }
 
         pageIndex.sort(sortChannels, sortOrder);
-        spillInProgress = spiller.get().spill(pageIndex.getSortedPages());
+        spillInProgress = spiller.orElseThrow().spill(pageIndex.getSortedPages());
         finishMemoryRevoke = () -> {
             pageIndex.clear();
             updateMemoryUsage();
@@ -333,7 +333,7 @@ public class OrderByOperator
             return ImmutableList.of();
         }
 
-        return spiller.get().getSpills().stream()
+        return spiller.orElseThrow().getSpills().stream()
                 .map(WorkProcessor::fromIterator)
                 .collect(toImmutableList());
     }

@@ -215,14 +215,14 @@ public class ResourceManagerClusterStateProvider
                     runtimeInfoBuilder.addDescendantQueuedQueries(resourceGroupRuntimeInfo.getDescendantQueuedQueries());
                     runtimeInfoBuilder.addDescendantRunningQueries(resourceGroupRuntimeInfo.getDescendantRunningQueries());
                     if (resourceGroupRuntimeInfo.getResourceGroupConfigSpec().isPresent()) {
-                        runtimeInfoBuilder.setResourceGroupSpecInfo(resourceGroupRuntimeInfo.getResourceGroupConfigSpec().get());
+                        runtimeInfoBuilder.setResourceGroupSpecInfo(resourceGroupRuntimeInfo.getResourceGroupConfigSpec().orElseThrow());
                     }
                 });
         List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = resourceGroupBuilders.values().stream().map(ResourceGroupRuntimeInfo.Builder::build).collect(toImmutableList());
         int adjustedQueueSize = 0;
         for (ResourceGroupRuntimeInfo runtimeInfo : resourceGroupRuntimeInfos) {
             checkState(runtimeInfo.getResourceGroupConfigSpec().isPresent());
-            adjustedQueueSize += Math.max(Math.min(runtimeInfo.getQueuedQueries(), runtimeInfo.getResourceGroupConfigSpec().get().getSoftConcurrencyLimit() - runtimeInfo.getRunningQueries()), 0);
+            adjustedQueueSize += Math.max(Math.min(runtimeInfo.getQueuedQueries(), runtimeInfo.getResourceGroupConfigSpec().orElseThrow().getSoftConcurrencyLimit() - runtimeInfo.getRunningQueries()), 0);
         }
         return adjustedQueueSize;
     }
@@ -241,7 +241,7 @@ public class ResourceManagerClusterStateProvider
                 .map(Query::getBasicQueryInfo)
                 .filter(info -> info.getResourceGroupId().isPresent())
                 .forEach(info -> {
-                    ResourceGroupId resourceGroupId = info.getResourceGroupId().get();
+                    ResourceGroupId resourceGroupId = info.getResourceGroupId().orElseThrow();
                     ResourceGroupRuntimeInfo.Builder builder = resourceGroupBuilders.computeIfAbsent(resourceGroupId, ResourceGroupRuntimeInfo::builder);
                     if (info.getState() == QUEUED) {
                         builder.addQueuedQueries(1);
@@ -251,7 +251,7 @@ public class ResourceManagerClusterStateProvider
                     }
                     builder.addUserMemoryReservationBytes(info.getQueryStats().getUserMemoryReservation().toBytes());
                     while (resourceGroupId.getParent().isPresent()) {
-                        resourceGroupId = resourceGroupId.getParent().get();
+                        resourceGroupId = resourceGroupId.getParent().orElseThrow();
                         ResourceGroupRuntimeInfo.Builder parentBuilder = resourceGroupBuilders.computeIfAbsent(resourceGroupId, ResourceGroupRuntimeInfo::builder);
                         if (info.getState() == QUEUED) {
                             parentBuilder.addDescendantQueuedQueries(1);

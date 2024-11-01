@@ -39,7 +39,7 @@ public class RemoveRedundantDistinct
                 node.getGroupingSetCount() == 1 &&
                 node.getAggregations().isEmpty() &&
                 ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
-                ((GroupReference) node.getSource()).getLogicalProperties().get().isDistinct(node.getGroupingKeys().stream().collect(Collectors.toSet()));
+                ((GroupReference) node.getSource()).getLogicalProperties().orElseThrow().isDistinct(node.getGroupingKeys().stream().collect(Collectors.toSet()));
     }
 
     @Override

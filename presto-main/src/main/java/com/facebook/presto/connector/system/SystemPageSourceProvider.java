@@ -96,7 +96,7 @@ public class SystemPageSourceProvider
 
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
         ImmutableMap.Builder<Integer, Domain> newConstraints = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
+        for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().orElseThrow().entrySet()) {
             String columnName = ((SystemColumnHandle) entry.getKey()).getColumnName();
             newConstraints.put(columnsByName.get(columnName), entry.getValue());
         }

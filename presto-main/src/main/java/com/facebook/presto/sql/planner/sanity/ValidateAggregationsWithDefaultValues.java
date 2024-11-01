@@ -104,7 +104,7 @@ public class ValidateAggregationsWithDefaultValues
                 return Optional.empty();
             }
             checkState(seenExchangesOptional.isPresent(), "No partial aggregation below final aggregation");
-            SeenExchanges seenExchanges = seenExchangesOptional.get();
+            SeenExchanges seenExchanges = seenExchangesOptional.orElseThrow();
 
             if (seenExchanges.remoteRepartitionExchange) {
                 // Final aggregation separated from partial by remote repartition exchange.
@@ -154,7 +154,7 @@ public class ValidateAggregationsWithDefaultValues
                 return seenExchangesOptional;
             }
 
-            SeenExchanges seenExchanges = seenExchangesOptional.get();
+            SeenExchanges seenExchanges = seenExchangesOptional.orElseThrow();
             if (node.getScope().isRemote()) {
                 return Optional.of(new SeenExchanges(false, true));
             }

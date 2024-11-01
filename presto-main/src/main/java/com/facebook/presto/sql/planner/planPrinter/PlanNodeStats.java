@@ -264,12 +264,12 @@ public class PlanNodeStats
     {
         Optional<DynamicFilterStats> optionalDynamicFilterStats = Optional.empty();
         if (stats1.isPresent()) {
-            DynamicFilterStats dynamicFilterStats = stats1.get();
+            DynamicFilterStats dynamicFilterStats = stats1.orElseThrow();
             stats2.ifPresent(dynamicFilterStats::mergeWith);
             optionalDynamicFilterStats = Optional.of(dynamicFilterStats);
         }
         else if (stats2.isPresent()) {
-            optionalDynamicFilterStats = Optional.of(stats2.get());
+            optionalDynamicFilterStats = Optional.of(stats2.orElseThrow());
         }
         return optionalDynamicFilterStats;
     }

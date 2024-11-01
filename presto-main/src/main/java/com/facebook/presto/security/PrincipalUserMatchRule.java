@@ -55,13 +55,13 @@ public class PrincipalUserMatchRule
         }
 
         if (userRegex.isPresent()) {
-            if (userRegex.get().matcher(user).matches()) {
+            if (userRegex.orElseThrow().matcher(user).matches()) {
                 return Optional.of(allow);
             }
         }
 
         if (principalToUserSubstitution.isPresent()) {
-            String userExtraction = matcher.replaceAll(principalToUserSubstitution.get());
+            String userExtraction = matcher.replaceAll(principalToUserSubstitution.orElseThrow());
             if (user.equals(userExtraction)) {
                 return Optional.of(allow);
             }

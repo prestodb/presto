@@ -25,7 +25,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -38,6 +37,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -84,7 +84,7 @@ public class WindowNode
         requireNonNull(hashVariable, "hashVariable is null");
         checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         Optional<OrderingScheme> orderingScheme = specification.getOrderingScheme();
-        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderByVariables().size()), "Cannot have sorted more symbols than those requested");
+        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.orElseThrow().getOrderByVariables().size()), "Cannot have sorted more symbols than those requested");
         checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
 
         this.source = source;
@@ -177,7 +177,7 @@ public class WindowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new WindowNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
+        return new WindowNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.stream().collect(onlyElement()), specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
     }
 
     @Override

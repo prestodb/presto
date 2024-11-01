@@ -171,12 +171,12 @@ public class FileBasedSystemAccessControl
             denySetUser(principal, userName);
         }
 
-        String principalName = principal.get().getName();
+        String principalName = principal.orElseThrow().getName();
 
-        for (PrincipalUserMatchRule rule : principalUserMatchRules.get()) {
+        for (PrincipalUserMatchRule rule : principalUserMatchRules.orElseThrow()) {
             Optional<Boolean> allowed = rule.match(principalName, userName);
             if (allowed.isPresent()) {
-                if (allowed.get()) {
+                if (allowed.orElseThrow()) {
                     return;
                 }
                 denySetUser(principal, userName);
@@ -227,7 +227,7 @@ public class FileBasedSystemAccessControl
         for (CatalogAccessControlRule rule : catalogRules) {
             Optional<AccessMode> accessMode = rule.match(identity.getUser(), catalogName);
             if (accessMode.isPresent()) {
-                return accessMode.get().implies(requiredAccess);
+                return accessMode.orElseThrow().implies(requiredAccess);
             }
         }
         return false;
@@ -443,10 +443,10 @@ public class FileBasedSystemAccessControl
             return true;
         }
 
-        for (SchemaAccessControlRule rule : schemaRules.get()) {
+        for (SchemaAccessControlRule rule : schemaRules.orElseThrow()) {
             Optional<Boolean> owner = rule.match(identity.getUser(), schema.getSchemaName());
             if (owner.isPresent()) {
-                return owner.get();
+                return owner.orElseThrow();
             }
         }
         return false;

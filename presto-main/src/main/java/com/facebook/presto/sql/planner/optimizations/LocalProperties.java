@@ -85,7 +85,7 @@ public final class LocalProperties
         for (LocalProperty<X> property : properties) {
             Optional<LocalProperty<Y>> translated = property.translate(translator);
             if (translated.isPresent()) {
-                builder.add(translated.get());
+                builder.add(translated.orElseThrow());
             }
             else if (!(property instanceof ConstantProperty)) {
                 break; // Only break if we fail to translate non-constants
@@ -129,7 +129,7 @@ public final class LocalProperties
     {
         return normalize(localProperties).stream()
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(Collectors.toList());
     }
 

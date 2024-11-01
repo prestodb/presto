@@ -77,7 +77,7 @@ public class JsonRenderer
         List<JsonRenderedNode> children = node.getChildren().stream()
                 .map(plan::getNode)
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .map(n -> renderJson(plan, n))
                 .collect(toImmutableList());
 

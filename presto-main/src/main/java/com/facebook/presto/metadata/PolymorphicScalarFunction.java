@@ -118,7 +118,7 @@ class PolymorphicScalarFunction
             for (MethodAndNativeContainerTypes candidateMethod : candidateMethodsGroup.getMethods()) {
                 if (matchesParameterAndReturnTypes(candidateMethod, resolvedParameterTypes, resolvedReturnType, choice.getArgumentProperties(), choice.isNullableResult())) {
                     if (matchingMethod.isPresent()) {
-                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + resolvedParameterTypes);
+                        throw new IllegalStateException("two matching methods (" + matchingMethod.orElseThrow().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + resolvedParameterTypes);
                     }
 
                     matchingMethod = Optional.of(candidateMethod);
@@ -128,8 +128,8 @@ class PolymorphicScalarFunction
         }
         checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", resolvedParameterTypes);
 
-        List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
-        MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().getMethod(), extraParameters, choice.getArgumentProperties());
+        List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.orElseThrow(), context);
+        MethodHandle methodHandle = applyExtraParameters(matchingMethod.orElseThrow().getMethod(), extraParameters, choice.getArgumentProperties());
         return new ScalarFunctionImplementationChoice(choice.isNullableResult(), choice.getArgumentProperties(), choice.getReturnPlaceConvention(), methodHandle, Optional.empty());
     }
 
@@ -162,7 +162,7 @@ class PolymorphicScalarFunction
                 case BLOCK_AND_POSITION:
                     Optional<Class<?>> explicitNativeContainerTypes = methodAndNativeContainerTypes.getExplicitNativeContainerTypes().get(i);
                     if (explicitNativeContainerTypes.isPresent()) {
-                        expectedType = explicitNativeContainerTypes.get();
+                        expectedType = explicitNativeContainerTypes.orElseThrow();
                     }
                     actualType = getNullAwareContainerType(resolvedTypes.get(i).getJavaType(), false);
                     break;

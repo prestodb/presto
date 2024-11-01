@@ -447,6 +447,6 @@ public class TestCanonicalPlanHashes
         Session session = createSession();
         PlanNode plan = plan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
-        return getObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy, getObjectMapper(), session).get());
+        return getObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().orElseThrow(), strategy, getObjectMapper(), session).orElseThrow());
     }
 }

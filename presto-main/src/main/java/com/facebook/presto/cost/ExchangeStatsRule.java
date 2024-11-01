@@ -66,7 +66,7 @@ public class ExchangeStatsRule
 
             if (estimate.isPresent()) {
                 PlanNodeStatsEstimateMath calculator = new PlanNodeStatsEstimateMath(shouldOptimizerUseHistograms(session));
-                estimate = Optional.of(calculator.addStatsAndMaxDistinctValues(estimate.get(), sourceStatsWithMappedSymbols));
+                estimate = Optional.of(calculator.addStatsAndMaxDistinctValues(estimate.orElseThrow(), sourceStatsWithMappedSymbols));
             }
             else {
                 estimate = Optional.of(sourceStatsWithMappedSymbols);
@@ -74,7 +74,7 @@ public class ExchangeStatsRule
         }
 
         verify(estimate.isPresent());
-        return Optional.of(buildFrom(estimate.get())
+        return Optional.of(buildFrom(estimate.orElseThrow())
                 .setTotalSize(totalSize)
                 .setConfidence(confidenceLevel)
                 .build());

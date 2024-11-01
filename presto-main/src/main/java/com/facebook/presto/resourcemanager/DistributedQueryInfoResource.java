@@ -154,6 +154,6 @@ public class DistributedQueryInfoResource
             return;
         }
 
-        proxyHelper.performRequest(servletRequest, asyncResponse, uriBuilderFrom(queryInfo.get().getSelf()).replacePath(uriInfo.getPath()).build());
+        proxyHelper.performRequest(servletRequest, asyncResponse, uriBuilderFrom(queryInfo.orElseThrow().getSelf()).replacePath(uriInfo.getPath()).build());
     }
 }

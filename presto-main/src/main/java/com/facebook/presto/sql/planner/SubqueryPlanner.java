@@ -81,7 +81,7 @@ import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -511,7 +511,7 @@ class SubqueryPlanner
         translations.setFieldMappings(relationPlan.getFieldMappings());
 
         if (node instanceof Expression && relationPlan.getFieldMappings().size() == 1) {
-            translations.put((Expression) node, getOnlyElement(relationPlan.getFieldMappings()));
+            translations.put((Expression) node, relationPlan.getFieldMappings().stream().collect(onlyElement()));
         }
 
         return new PlanBuilder(translations, relationPlan.getRoot());

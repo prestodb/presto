@@ -141,16 +141,16 @@ public class JoinNode
         if (distributionType.isPresent()) {
             // The implementation of full outer join only works if the data is hash partitioned.
             checkArgument(
-                    !(distributionType.get() == REPLICATED && type.mustPartition()),
+                    !(distributionType.orElseThrow() == REPLICATED && type.mustPartition()),
                     "%s join do not work with %s distribution type",
                     type,
-                    distributionType.get());
+                    distributionType.orElseThrow());
             // It does not make sense to PARTITION when there is nothing to partition on
             checkArgument(
-                    !(distributionType.get() == PARTITIONED && type.mustReplicate(criteria)),
+                    !(distributionType.orElseThrow() == PARTITIONED && type.mustReplicate(criteria)),
                     "Equi criteria are empty, so %s join should not have %s distribution type",
                     type,
-                    distributionType.get());
+                    distributionType.orElseThrow());
         }
 
         for (VariableReferenceExpression variableReferenceExpression : dynamicFilters.values()) {

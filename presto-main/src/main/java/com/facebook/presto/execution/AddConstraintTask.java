@@ -111,7 +111,7 @@ public class AddConstraintTask
 
         accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        metadata.addConstraint(session, tableHandle.get(), convertToTableConstraint(metadata, session, connectorId, statement.getConstraintSpecification(), warningCollector));
+        metadata.addConstraint(session, tableHandle.orElseThrow(), convertToTableConstraint(metadata, session, connectorId, statement.getConstraintSpecification(), warningCollector));
         return immediateFuture(null);
     }
 }
