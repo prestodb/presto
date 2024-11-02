@@ -169,11 +169,15 @@ SsdFile::SsdFile(const Config& config)
   writeFile_ = fs_->openFileForWrite(fileName_, fileOptions);
   readFile_ = fs_->openFileForRead(fileName_);
 
-  const uint64_t size = writeFile_->size();
-  numRegions_ = std::min<int32_t>(size / kRegionSize, maxRegions_);
-  fileSize_ = numRegions_ * kRegionSize;
-  if ((size % kRegionSize > 0) || (size > numRegions_ * kRegionSize)) {
-    writeFile_->truncate(fileSize_);
+  // NOTE: checkpoint recovery will set 'numRegions_' and 'dataSize_'
+  // accordingly.
+  numRegions_ = 0;
+  dataSize_ = 0;
+
+  const auto maxFileSize = kRegionSize * maxRegions_;
+  if (writeFile_->size() != maxFileSize) {
+    // Initialize and pre-allocate (if possible) the data file with fixed space.
+    writeFile_->truncate(static_cast<int64_t>(maxFileSize));
   }
   // The existing regions in the file are writable.
   writableRegions_.resize(numRegions_);
@@ -334,10 +338,8 @@ std::optional<std::pair<uint64_t, int32_t>> SsdFile::getSpace(
 bool SsdFile::growOrEvictLocked() {
   process::TraceContext trace("SsdFile::growOrEvictLocked");
   if (numRegions_ < maxRegions_) {
-    const auto newSize = (numRegions_ + 1) * kRegionSize;
     try {
-      writeFile_->truncate(newSize);
-      fileSize_ = newSize;
+      dataSize_ = (numRegions_ + 1) * kRegionSize;
       writableRegions_.push_back(numRegions_);
       regionSizes_[numRegions_] = 0;
       erasedRegionSizes_[numRegions_] = 0;
@@ -448,7 +450,7 @@ void SsdFile::write(std::vector<CachePin>& pins) {
       writeOffset += writeLength;
       writeLength = 0;
     }
-    VELOX_CHECK_GE(fileSize_, writeOffset);
+    VELOX_CHECK_GE(dataSize_, writeOffset);
 
     {
       std::lock_guard<std::shared_mutex> l(mutex_);
@@ -1007,6 +1009,7 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
       maxRegions_,
       "Trying to start from checkpoint with a different capacity");
   numRegions_ = readNumber<int32_t>(state);
+  dataSize_ = numRegions_ * kRegionSize;
   std::vector<double> scores(maxRegions);
   state.read(asChar(scores.data()), maxRegions_ * sizeof(double));
   std::unordered_map<uint64_t, StringIdLease> idMap;
