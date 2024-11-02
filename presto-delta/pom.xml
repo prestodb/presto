@@ -85,22 +85,22 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
@@ -142,19 +142,19 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook</groupId>
+            <groupId>com.github.zacblanco</groupId>
             <artifactId>slice</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -217,11 +217,11 @@
             <scope>compile</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.zacblanco.airlift</groupId>
                     <artifactId>discovery</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.zacblanco.airlift</groupId>
                     <artifactId>event</artifactId>
                 </exclusion>
                 <exclusion>
@@ -238,7 +238,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>concurrent</artifactId>
             <scope>compile</scope>
         </dependency>
@@ -250,11 +250,11 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.zacblanco.airlift</groupId>
                     <artifactId>discovery</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.zacblanco.airlift</groupId>
                     <artifactId>event</artifactId>
                 </exclusion>
             </exclusions>
@@ -292,28 +292,28 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>http-server</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>node</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.zacblanco.airlift</groupId>
                     <artifactId>discovery</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.zacblanco.airlift</groupId>
                     <artifactId>event</artifactId>
                 </exclusion>
             </exclusions>

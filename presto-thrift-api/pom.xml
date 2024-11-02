@@ -29,7 +29,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
@@ -44,7 +44,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook</groupId>
+            <groupId>com.github.zacblanco</groupId>
             <artifactId>slice</artifactId>
         </dependency>
 
@@ -67,7 +67,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>stats</artifactId>
             <scope>test</scope>
         </dependency>
@@ -82,7 +82,7 @@
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
-                            <groupId>com.facebook.drift</groupId>
+                            <groupId>com.github.zacblanco.airlift</groupId>
                             <artifactId>drift-javadoc</artifactId>
                             <version>${dep.drift.version}</version>
                         </path>

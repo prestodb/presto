@@ -18,7 +18,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
@@ -151,45 +151,45 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>event</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>json</artifactId>
             <scope>compile</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log</artifactId>
             <scope>compile</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>stats</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -432,7 +432,7 @@
 
         <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -451,7 +451,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook</groupId>
+            <groupId>com.github.zacblanco</groupId>
             <artifactId>slice</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -649,8 +649,8 @@
                             <dependency>org.glassfish.jersey.core:jersey-common:jar</dependency>
                             <dependency>org.eclipse.jetty:jetty-server:jar</dependency>
                             <!-- Ignore these because they are picked up as false-positives when configuring REST catalog testing http server -->
-                            <dependency>com.facebook.airlift:http-server:jar</dependency>
-                            <dependency>com.facebook.airlift:node:jar</dependency>
+                            <dependency>com.github.zacblanco.airlift:http-server:jar</dependency>
+                            <dependency>com.github.zacblanco.airlift:node:jar</dependency>
                             <dependency>javax.servlet:javax.servlet-api:jar</dependency>
                             <dependency>org.apache.httpcomponents.core5:httpcore5:jar</dependency>
                         </ignoredUsedUndeclaredDependencies>

@@ -27,6 +27,12 @@
         <skipTakariLifecyclePlugin>false</skipTakariLifecyclePlugin>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+
+        </dependencies>
+    </dependencyManagement>
+
     <build>
         <plugins>
             <plugin>
