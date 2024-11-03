@@ -1,0 +1,172 @@
+name: Prestissimo
+
+on:
+  push:
+    branches:
+      - 'master'
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: prestissimo-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  start-runner:
+    name: Start EC2 runner
+    runs-on: ubuntu-latest
+    # do not run on draft PRs
+    if: ${{ github.repository == 'prestodb/presto' }}
+    outputs:
+      label: ${{ steps.start-ec2-runner.outputs.label }}
+      ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.ACTION_RUNNER_AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ACTION_RUNNER_AWS_SECRET }}
+          aws-region: us-east-1
+
+      - name: Start EC2 runner
+        id: start-ec2-runner
+        uses: machulav/ec2-github-runner@v2
+        with:
+          mode: start
+          github-token: ${{ secrets.ACTION_RUNNER_GITHUB_TOKEN }}
+          ec2-image-id: ami-060ec33dba2e570f9
+          ec2-instance-type: c5.4xlarge
+          subnet-id: subnet-0c2653c918291180b
+          security-group-id: sg-07ec7cddcb0e1276f
+          aws-resource-tags: > # optional, requires additional permissions
+            [
+              {"Key": "Name", "Value": "ec2-github-runner"},
+              {"Key": "GitHubRepository", "Value": "${{ github.repository }}"}
+            ]
+
+  detect-file-changes:
+    name: Detect file changes
+    runs-on: ubuntu-latest
+    # do not run on draft PRs
+    if: ${{ github.repository == 'prestodb/presto' }}
+    outputs:
+      run_linux_tests: ${{ steps.filter.outputs.run_linux_tests }}
+      check_and_build: ${{ steps.filter.outputs.check_and_build }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            run_linux_tests:
+              - '!presto-docs/**'
+              - '!**/*.md'
+            check_and_build:
+              - '.github/workflows/prestissimo.yml'
+              - 'presto-native-execution/**'
+
+  check:
+    name: Format and header check
+    needs: [start-runner, detect-file-changes]
+    if: ${{ needs.detect-file-changes.outputs.check_and_build == 'true' }}
+    runs-on: ${{ needs.start-runner.outputs.label }}
+    container: public.ecr.aws/oss-presto/velox-dev:check
+    outputs:
+      check_and_build: ${{ needs.detect-file-changes.outputs.check_and_build }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fix git permissions and fetch master branch
+        run: |
+          git config --global --add safe.directory ${GITHUB_WORKSPACE}
+          git fetch origin master
+
+      - name: Check formatting
+        run: cd presto-native-execution && make format-check
+
+      - name: Check license headers
+        run: cd presto-native-execution && make header-check
+
+  build-all:
+    name: Build all
+    needs: [start-runner, check]
+    if: ${{ needs.check.outputs.check_and_build == 'true' }}
+    runs-on: ${{ needs.start-runner.outputs.label }}
+    # TODO: Need to ask Linsong to re-tag latest
+    container: prestodb/presto-native-dependency:0.291-20241102215554-0d9797d
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install all adapter dependencies
+        run: |
+          git config --global --add safe.directory ${GITHUB_WORKSPACE}
+          cd presto-native-execution
+          make velox-submodule
+          mkdir -p ${HOME}/adapter-deps/install
+          source /opt/rh/gcc-toolset-12/enable
+          set -xu
+          DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
+
+      - name: Get ccache stash
+        uses: assignUser/stash/restore@v1
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-centos-release
+
+      - name: Build all
+        run: |
+          mkdir -p '${{ env.CCACHE_DIR }}'
+          ccache -sz -M 8Gi
+          source /opt/rh/gcc-toolset-12/enable
+          cd presto-native-execution
+          cmake \
+            -B _build/release \
+            -GNinja \
+            -DAWSSDK_ROOT_DIR=${HOME}/adapter-deps/install \
+            -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_S3=ON \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DCMAKE_PREFIX_PATH=/usr/local \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMAX_LINK_JOBS=2
+          ninja -C _build/release -j 12
+          ccache -vs
+
+      - name: Save ccache stash
+        uses: assignUser/stash/save@v1
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-centos-release
+
+  stop-runner:
+    name: Stop self-hosted EC2 runner
+    needs: [start-runner, check, build-all]
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.ACTION_RUNNER_AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ACTION_RUNNER_AWS_SECRET }}
+          aws-region: us-east-1
+      - name: Stop EC2 runner
+        uses: machulav/ec2-github-runner@v2
+        with:
+          mode: stop
+          github-token: ${{ secrets.ACTION_RUNNER_GITHUB_TOKEN }}
+          label: ${{ needs.start-runner.outputs.label }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
