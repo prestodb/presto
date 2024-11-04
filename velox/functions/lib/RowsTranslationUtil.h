@@ -41,9 +41,9 @@ SelectivityVector toElementRows(
   auto rawNulls = arrayBaseVector->rawNulls();
   auto rawSizes = arrayBaseVector->rawSizes();
   auto rawOffsets = arrayBaseVector->rawOffsets();
-  const auto sizeRange =
+  VELOX_DEBUG_ONLY const auto sizeRange =
       arrayBaseVector->sizes()->template asRange<vector_size_t>().end();
-  const auto offsetRange =
+  VELOX_DEBUG_ONLY const auto offsetRange =
       arrayBaseVector->offsets()->template asRange<vector_size_t>().end();
 
   SelectivityVector elementRows(size, false);
