@@ -14,7 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -68,9 +67,7 @@ import static java.util.stream.Collectors.toMap;
 public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
 {
-    private static final Logger LOG = Logger.get(IcebergNativeMetadata.class);
     private static final String INFORMATION_SCHEMA = "information_schema";
-    private static final String TABLE_COMMENT = "comment";
 
     private final IcebergNativeCatalogFactory catalogFactory;
     private final CatalogType catalogType;
