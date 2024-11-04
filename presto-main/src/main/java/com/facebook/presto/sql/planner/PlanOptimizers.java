@@ -145,6 +145,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPre
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
+import com.facebook.presto.sql.planner.optimizations.AddSingleExchange;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.CteProjectionAndPredicatePushDown;
@@ -222,7 +223,7 @@ public class PlanOptimizers
     {
         this(metadata,
                 sqlParser,
-                false,
+                featuresConfig.isSingleNodeMode(),
                 exporter,
                 splitManager,
                 planOptimizerManager,
@@ -847,6 +848,8 @@ public class PlanOptimizers
             builder.add(new CteProjectionAndPredicatePushDown(metadata)); // must run before PhysicalCteOptimizer
             builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
+        } else if (featuresConfig.isNativeExecutionEnabled()){
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddSingleExchange(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
         }
 
         //noinspection UnusedAssignment
