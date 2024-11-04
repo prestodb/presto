@@ -15,10 +15,10 @@
 velox_add_library(
   velox_query_trace_replayer_base
   AggregationReplayer.cpp
+  FilterProjectReplayer.cpp
   OperatorReplayerBase.cpp
   PartitionedOutputReplayer.cpp
   TableWriterReplayer.cpp
-  FilterProjectReplayer.cpp
   TraceReplayRunner.cpp)
 
 velox_link_libraries(
@@ -35,7 +35,7 @@ velox_link_libraries(
   glog::glog
   gflags::gflags)
 
-add_executable(velox_query_replayer TraceReplayerMain.cpp TraceReplayRunner.cpp)
+add_executable(velox_query_replayer TraceReplayerMain.cpp)
 
 target_link_libraries(
   velox_query_replayer
