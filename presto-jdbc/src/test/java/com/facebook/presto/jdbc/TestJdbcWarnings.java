@@ -128,36 +128,33 @@ public class TestJdbcWarnings
 
     @Test
     public void testLongRunningStatement()
-            throws SQLException, InterruptedException
+            throws SQLException
     {
-        ExecutorService queryExecutor = newSingleThreadExecutor(daemonThreadsNamed("test-%s"));
-        QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        queryExecutor.submit(() -> {
-            try {
-                statement.execute("CREATE SCHEMA blackhole.blackhole");
-                statement.execute("CREATE TABLE blackhole.blackhole.test_table AS SELECT 1 AS col1 FROM tpch.sf1.lineitem CROSS JOIN tpch.sf1.lineitem");
-                queryCreationFuture.set(null);
-            }
-            catch (Throwable e) {
-                queryCreationFuture.setException(e);
-            }
-        });
-        while (statement.getWarnings() == null) {
-            Thread.sleep(100);
+        assertFalse(statement.execute("CREATE SCHEMA blackhole.test_schema"));
+        assertFalse(statement.execute("CREATE TABLE blackhole.test_schema.delay (\n" +
+                "  dummy bigint\n" +
+                ")\n" +
+                "WITH (\n" +
+                "  split_count = 256,\n" +
+                "  pages_per_split = 16,\n" +
+                "  rows_per_page = 1,\n" +
+                "  page_processing_delay = '5s'\n" +
+                ")"));
+        assertTrue(statement.execute("SELECT * FROM blackhole.test_schema.delay"));
+        ResultSet rs = statement.getResultSet();
+        assertTrue(rs.next());
+        while (rs.getWarnings() == null) {
+            assertTrue(rs.next());
         }
         SQLWarning warning = statement.getWarnings();
         Set<WarningEntry> currentWarnings = new HashSet<>();
         assertTrue(currentWarnings.add(new WarningEntry(warning)));
-        for (int warnings = 1; !queryCreationFuture.isDone() && warnings < 100; warnings++) {
-            for (SQLWarning nextWarning = warning.getNextWarning(); nextWarning == null; nextWarning = warning.getNextWarning()) {
-                // Wait for new warnings
-            }
+        for (int warnings = 1; warnings < 16; warnings++) {
+            assertTrue(rs.next());
             warning = warning.getNextWarning();
             assertTrue(currentWarnings.add(new WarningEntry(warning)));
-            Thread.sleep(100);
         }
-        assertEquals(currentWarnings.size(), 100);
-        queryExecutor.shutdownNow();
+        assertEquals(currentWarnings.size(), 16);
     }
 
     @Test
