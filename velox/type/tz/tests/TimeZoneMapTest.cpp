@@ -178,6 +178,21 @@ TEST(TimeZoneMapTest, getTimeZoneID) {
   EXPECT_EQ(0, getTimeZoneID("ETC/UCT"));
   EXPECT_EQ(0, getTimeZoneID("ETC/universal"));
   EXPECT_EQ(0, getTimeZoneID("etc/zulu"));
+  EXPECT_EQ(0, getTimeZoneID("UTC+0"));
+  EXPECT_EQ(0, getTimeZoneID("UTC-0"));
+  EXPECT_EQ(0, getTimeZoneID("GMT+0"));
+  EXPECT_EQ(0, getTimeZoneID("GMT-0"));
+  EXPECT_EQ(0, getTimeZoneID("UT+0"));
+  EXPECT_EQ(0, getTimeZoneID("UT-0"));
+  EXPECT_EQ(900, getTimeZoneID("UTC+1"));
+  EXPECT_EQ(721, getTimeZoneID("UTC-2"));
+  EXPECT_EQ(1440, getTimeZoneID("UTC+10"));
+  EXPECT_EQ(1020, getTimeZoneID("GMT+3"));
+  EXPECT_EQ(601, getTimeZoneID("GMT-4"));
+  EXPECT_EQ(241, getTimeZoneID("GMT-10"));
+  EXPECT_EQ(1140, getTimeZoneID("UT+5"));
+  EXPECT_EQ(481, getTimeZoneID("UT-6"));
+  EXPECT_EQ(1500, getTimeZoneID("UT+11"));
 
   // (+/-)XX:MM format.
   EXPECT_EQ(840, getTimeZoneID("-00:01"));
@@ -200,6 +215,16 @@ TEST(TimeZoneMapTest, getTimeZoneID) {
   EXPECT_EQ(1020, getTimeZoneID("etc/GMT-3"));
   EXPECT_EQ(301, getTimeZoneID("etc/GMT+9"));
   EXPECT_EQ(1680, getTimeZoneID("etc/GMT-14"));
+  EXPECT_EQ(0, getTimeZoneID("etc/UTC+0"));
+  EXPECT_EQ(0, getTimeZoneID("etc/UTC-0"));
+  EXPECT_EQ(661, getTimeZoneID("etc/UTC-3"));
+  EXPECT_EQ(1380, getTimeZoneID("etc/UTC+9"));
+  EXPECT_EQ(1, getTimeZoneID("etc/UTC-14"));
+  EXPECT_EQ(0, getTimeZoneID("etc/UT+0"));
+  EXPECT_EQ(0, getTimeZoneID("etc/UT-0"));
+  EXPECT_EQ(301, getTimeZoneID("etc/UT-9"));
+  EXPECT_EQ(1020, getTimeZoneID("etc/UT+3"));
+  EXPECT_EQ(1680, getTimeZoneID("etc/UT+14"));
 
   // Case insensitive.
   EXPECT_EQ(0, getTimeZoneID("utc"));

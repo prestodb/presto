@@ -197,39 +197,51 @@ std::string normalizeTimeZone(const std::string& originalZoneId) {
     return "utc";
   }
 
-  // Check for Etc/GMT(+/-)H[H] pattern.
-  if (startsWithEtc) {
-    if (zoneId.size() > 4 && startsWith(zoneId, "gmt")) {
+  bool startsWithUtc = startsWith(zoneId, "utc");
+  bool startsWithGmt = startsWith(zoneId, "gmt");
+  bool startsWithUt = !startsWithUtc && startsWith(zoneId, "ut");
+
+  // Check for Etc/GMT(+/-)H[H] UTC(+/-)H[H] GMT(+/-)H[H] UT(+/-)H[H] patterns.
+  if ((zoneId.size() > 4 && (startsWithUtc || startsWithGmt)) ||
+      (zoneId.size() > 3 && startsWithUt)) {
+    if (startsWithUtc || startsWithGmt) {
       zoneId = zoneId.substr(3);
-      char signChar = zoneId[0];
+    } else {
+      VELOX_DCHECK(startsWithUt);
+      zoneId = zoneId.substr(2);
+    }
 
-      if (signChar == '+' || signChar == '-') {
-        // ETC flips the sign.
+    char signChar = zoneId[0];
+
+    if (signChar == '+' || signChar == '-') {
+      // ETC flips the sign for GMT.
+      if (startsWithEtc && startsWithGmt) {
         signChar = (signChar == '-') ? '+' : '-';
+      }
 
-        // Extract the tens and ones characters for the hour.
-        char hourTens;
-        char hourOnes;
+      // Extract the tens and ones characters for the hour.
+      char hourTens;
+      char hourOnes;
 
-        if (zoneId.size() == 2) {
-          hourTens = '0';
-          hourOnes = zoneId[1];
-        } else {
-          hourTens = zoneId[1];
-          hourOnes = zoneId[2];
-        }
+      if (zoneId.size() == 2) {
+        hourTens = '0';
+        hourOnes = zoneId[1];
+      } else {
+        hourTens = zoneId[1];
+        hourOnes = zoneId[2];
+      }
 
-        // Prevent it from returning -00:00, which is just utc.
-        if (hourTens == '0' && hourOnes == '0') {
-          return "utc";
-        }
+      // Prevent it from returning -00:00, which is just utc.
+      if (hourTens == '0' && hourOnes == '0') {
+        return "utc";
+      }
 
-        if (isDigit(hourTens) && isDigit(hourOnes)) {
-          return std::string() + signChar + hourTens + hourOnes + ":00";
-        }
+      if (isDigit(hourTens) && isDigit(hourOnes)) {
+        return std::string() + signChar + hourTens + hourOnes + ":00";
       }
     }
   }
+
   return originalZoneId;
 }
 

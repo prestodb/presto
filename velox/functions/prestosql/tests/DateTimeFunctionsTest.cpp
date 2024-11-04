@@ -284,6 +284,18 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
   EXPECT_EQ(
       fromUnixtime(1667721600.1, "UTC"),
       TimestampWithTimezone(1667721600100, "UTC"));
+  EXPECT_EQ(
+      fromUnixtime(123, "UTC+1"), TimestampWithTimezone(123000, "+01:00"));
+  EXPECT_EQ(
+      fromUnixtime(123, "GMT-2"), TimestampWithTimezone(123000, "-02:00"));
+  EXPECT_EQ(
+      fromUnixtime(123, "UT+14"), TimestampWithTimezone(123000, "+14:00"));
+  EXPECT_EQ(
+      fromUnixtime(123, "Etc/UTC-8"), TimestampWithTimezone(123000, "-08:00"));
+  EXPECT_EQ(
+      fromUnixtime(123, "Etc/GMT+5"), TimestampWithTimezone(123000, "-05:00"));
+  EXPECT_EQ(
+      fromUnixtime(123, "Etc/UT-14"), TimestampWithTimezone(123000, "-14:00"));
 
   // Nan.
   static const double kNan = std::numeric_limits<double>::quiet_NaN();
@@ -4989,6 +5001,39 @@ TEST_F(DateTimeFunctionsTest, atTimezoneTest) {
           pack(1500321297, tz::getTimeZoneID("Atlantic/Bermuda")),
           "Pacific/Fiji"),
       pack(1500321297, tz::getTimeZoneID("Pacific/Fiji")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500321297, tz::getTimeZoneID("America/Los_Angeles")), "UTC+8"),
+      pack(1500321297, tz::getTimeZoneID("+08:00")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500321297, tz::getTimeZoneID("America/Los_Angeles")), "GMT-7"),
+      pack(1500321297, tz::getTimeZoneID("-07:00")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500321297, tz::getTimeZoneID("America/Los_Angeles")), "UT+6"),
+      pack(1500321297, tz::getTimeZoneID("+06:00")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500321297, tz::getTimeZoneID("America/Los_Angeles")),
+          "Etc/UTC-13"),
+      pack(1500321297, tz::getTimeZoneID("-13:00")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500321297, tz::getTimeZoneID("America/Los_Angeles")),
+          "Etc/GMT+12"),
+      pack(1500321297, tz::getTimeZoneID("-12:00")));
+
+  EXPECT_EQ(
+      at_timezone(
+          pack(1500321297, tz::getTimeZoneID("America/Los_Angeles")),
+          "Etc/UT-11"),
+      pack(1500321297, tz::getTimeZoneID("-11:00")));
 
   EXPECT_EQ(
       at_timezone(
