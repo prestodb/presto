@@ -19,11 +19,12 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/Type.h"
 
-namespace facebook {
-namespace velox {
-namespace core {
+namespace facebook::velox::core {
 
-/* an implicitly-typed expression, such as function call, literal, etc... */
+class IExpr;
+using ExprPtr = std::shared_ptr<const IExpr>;
+
+/// An implicitly-typed expression, such as function call, literal, etc.
 class IExpr {
  public:
   explicit IExpr(std::optional<std::string> alias = std::nullopt)
@@ -61,6 +62,4 @@ class IExpr {
   std::optional<std::string> alias_;
 };
 
-} // namespace core
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::core

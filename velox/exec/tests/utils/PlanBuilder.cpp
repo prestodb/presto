@@ -37,7 +37,6 @@ using namespace facebook::velox::connector;
 using namespace facebook::velox::connector::hive;
 
 namespace facebook::velox::exec::test {
-
 namespace {
 
 core::TypedExprPtr parseExpr(
@@ -133,6 +132,26 @@ PlanBuilder& PlanBuilder::tpchTableScan(
       .endTableScan();
 }
 
+PlanBuilder::TableScanBuilder& PlanBuilder::TableScanBuilder::subfieldFilters(
+    std::vector<std::string> subfieldFilters) {
+  subfieldFilters_.clear();
+  subfieldFilters_.reserve(subfieldFilters.size());
+
+  for (const auto& filter : subfieldFilters) {
+    subfieldFilters_.emplace_back(
+        parse::parseExpr(filter, planBuilder_.options_));
+  }
+  return *this;
+}
+
+PlanBuilder::TableScanBuilder& PlanBuilder::TableScanBuilder::remainingFilter(
+    std::string remainingFilter) {
+  if (!remainingFilter.empty()) {
+    remainingFilter_ = parse::parseExpr(remainingFilter, planBuilder_.options_);
+  }
+  return *this;
+}
+
 core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
   VELOX_CHECK_NOT_NULL(outputType_, "outputType must be specified");
   std::unordered_map<std::string, core::TypedExprPtr> typedMapping;
@@ -167,9 +186,10 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
   filters.reserve(subfieldFilters_.size());
   auto queryCtx = core::QueryCtx::create();
   exec::SimpleExpressionEvaluator evaluator(queryCtx.get(), planBuilder_.pool_);
+
   for (const auto& filter : subfieldFilters_) {
     auto filterExpr =
-        parseExpr(filter, parseType, planBuilder_.options_, planBuilder_.pool_);
+        core::Expressions::inferTypes(filter, parseType, planBuilder_.pool_);
     auto [subfield, subfieldFilter] =
         exec::toSubfieldFilter(filterExpr, &evaluator);
 
@@ -187,12 +207,9 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
   }
 
   core::TypedExprPtr remainingFilterExpr;
-  if (!remainingFilter_.empty()) {
-    remainingFilterExpr = parseExpr(
-                              remainingFilter_,
-                              parseType,
-                              planBuilder_.options_,
-                              planBuilder_.pool_)
+  if (remainingFilter_) {
+    remainingFilterExpr = core::Expressions::inferTypes(
+                              remainingFilter_, parseType, planBuilder_.pool_)
                               ->rewriteInputNames(typedMapping);
   }
 

@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
+
 #include <velox/core/Expressions.h>
 #include <velox/core/ITypedExpr.h>
 #include <velox/core/PlanFragment.h>
@@ -21,11 +23,8 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/IExpr.h"
 #include "velox/parse/PlanNodeIdGenerator.h"
-
-namespace facebook::velox::core {
-class IExpr;
-}
 
 namespace facebook::velox::tpch {
 enum class Table : uint8_t;
@@ -208,32 +207,30 @@ class PlanBuilder {
       return *this;
     }
 
-    /// @param subfieldFilters A list of SQL expressions for the range filters
-    /// to apply to individual columns. Supported filters are: column <= value,
-    /// column < value, column >= value, column > value, column = value, column
-    /// IN (v1, v2,.. vN), column < v1 OR column >= v2.
-    TableScanBuilder& subfieldFilters(
-        std::vector<std::string> subfieldFilters) {
-      subfieldFilters_ = std::move(subfieldFilters);
-      return *this;
-    }
+    /// @param subfieldFilters A list of SQL expressions to apply to individual
+    /// columns. These are range filters that can be efficiently applied as data
+    /// is read/decoded. Supported filters are:
+    ///
+    /// >  column <= value
+    /// >  column < value
+    /// >  column >= value
+    /// >  column > value
+    /// >  column = value
+    /// >  column IN (v1, v2,.. vN)
+    /// >  column < v1
+    /// >  column >= v2
+    TableScanBuilder& subfieldFilters(std::vector<std::string> subfieldFilters);
 
-    /// @param subfieldFilter A SQL expression for the range filter
-    /// to apply to an individual column. Supported filters are: column <=
-    /// value, column < value, column >= value, column > value, column = value,
-    /// column IN (v1, v2,.. vN), column < v1 OR column >= v2.
+    /// @param subfieldFilter A single SQL expression to be applied to an
+    /// individual column.
     TableScanBuilder& subfieldFilter(std::string subfieldFilter) {
-      subfieldFilters_.emplace_back(std::move(subfieldFilter));
-      return *this;
+      return subfieldFilters({std::move(subfieldFilter)});
     }
 
     /// @param remainingFilter SQL expression for the additional conjunct. May
     /// include multiple columns and SQL functions. The remainingFilter is
     /// AND'ed with all the subfieldFilters.
-    TableScanBuilder& remainingFilter(std::string remainingFilter) {
-      remainingFilter_ = std::move(remainingFilter);
-      return *this;
-    }
+    TableScanBuilder& remainingFilter(std::string remainingFilter);
 
     /// @param dataColumns can be different from 'outputType' for the purposes
     /// of testing queries using missing columns. It is used, if specified, for
@@ -255,7 +252,7 @@ class PlanBuilder {
     }
 
     /// @param tableHandle Optional tableHandle. Other builder arguments such as
-    /// the subfieldFilters and remainingFilter will be ignored.
+    /// the `subfieldFilters` and `remainingFilter` will be ignored.
     TableScanBuilder& tableHandle(
         std::shared_ptr<connector::ConnectorTableHandle> tableHandle) {
       tableHandle_ = std::move(tableHandle);
@@ -288,8 +285,8 @@ class PlanBuilder {
     std::string tableName_{"hive_table"};
     std::string connectorId_{kHiveDefaultConnectorId};
     RowTypePtr outputType_;
-    std::vector<std::string> subfieldFilters_;
-    std::string remainingFilter_;
+    std::vector<core::ExprPtr> subfieldFilters_;
+    core::ExprPtr remainingFilter_;
     RowTypePtr dataColumns_;
     std::unordered_map<std::string, std::string> columnAliases_;
     std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
@@ -381,7 +378,7 @@ class PlanBuilder {
   /// deeply nested types, in which case Duck DB often fails to parse or infer
   /// the type.
   PlanBuilder& projectExpressions(
-      const std::vector<std::shared_ptr<const core::IExpr>>& projections);
+      const std::vector<core::ExprPtr>& projections);
 
   /// Similar to project() except 'optionalProjections' could be empty and the
   /// function will skip creating a ProjectNode in that case.
@@ -1055,7 +1052,7 @@ class PlanBuilder {
   core::PlanNodeId nextPlanNodeId();
 
   std::shared_ptr<const core::ITypedExpr> inferTypes(
-      const std::shared_ptr<const core::IExpr>& untypedExpr);
+      const core::ExprPtr& untypedExpr);
 
  private:
   std::shared_ptr<const core::FieldAccessTypedExpr> field(column_index_t index);
