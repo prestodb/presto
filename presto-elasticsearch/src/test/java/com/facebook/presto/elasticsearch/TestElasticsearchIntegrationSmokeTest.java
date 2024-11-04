@@ -52,7 +52,7 @@ import static org.elasticsearch.client.RequestOptions.DEFAULT;
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.8.23";
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
 
