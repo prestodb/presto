@@ -25,7 +25,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.getTempStorageSpillerBufferSize;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.getTempStorageSpillerBufferSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

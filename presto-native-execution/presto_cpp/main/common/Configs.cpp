@@ -139,6 +139,8 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, 16),
+          NONE_PROP(kTaskWriterCount),
+          NONE_PROP(kTaskPartitionedWriterCount),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
           STR_PROP(kTaskMaxPartialAggregationMemory, "16MB"),
           NUM_PROP(kHttpServerNumIoThreadsHwMultiplier, 1.0),
@@ -339,6 +341,14 @@ std::string SystemConfig::remoteFunctionServerSerde() const {
 
 int32_t SystemConfig::maxDriversPerTask() const {
   return optionalProperty<int32_t>(kMaxDriversPerTask).value();
+}
+
+folly::Optional<int32_t> SystemConfig::taskWriterCount() const {
+  return optionalProperty<int32_t>(kTaskWriterCount);
+}
+
+folly::Optional<int32_t> SystemConfig::taskPartitionedWriterCount() const {
+  return optionalProperty<int32_t>(kTaskPartitionedWriterCount);
 }
 
 int32_t SystemConfig::concurrentLifespansPerTask() const {
@@ -876,7 +886,7 @@ void BaseVeloxQueryConfig::updateLoadedValues(
   auto systemConfig = SystemConfig::instance();
 
   using namespace velox::core;
-  const std::unordered_map<std::string, std::string> updatedValues{
+  std::unordered_map<std::string, std::string> updatedValues{
       {QueryConfig::kPrestoArrayAggIgnoreNulls,
        bool2String(systemConfig->useLegacyArrayAgg())},
       {QueryConfig::kMaxOutputBufferSize,
@@ -889,6 +899,17 @@ void BaseVeloxQueryConfig::updateLoadedValues(
        systemConfig->capacityPropertyAsBytesString(
            SystemConfig::kTaskMaxPartialAggregationMemory)},
   };
+
+  auto taskWriterCount = systemConfig->taskWriterCount();
+  if (taskWriterCount.has_value()) {
+    updatedValues[QueryConfig::kTaskWriterCount] =
+        std::to_string(taskWriterCount.value());
+  }
+  auto taskPartitionedWriterCount = systemConfig->taskPartitionedWriterCount();
+  if (taskPartitionedWriterCount.has_value()) {
+    updatedValues[QueryConfig::kTaskPartitionedWriterCount] =
+        std::to_string(taskPartitionedWriterCount.value());
+  }
 
   std::stringstream updated;
   for (const auto& pair : updatedValues) {

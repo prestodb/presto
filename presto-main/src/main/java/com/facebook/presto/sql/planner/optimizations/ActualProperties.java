@@ -47,7 +47,6 @@ import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.is
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.isRepartitionEffective;
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translatePartitioningRowExpression;
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateToCoalesce;
-import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
@@ -323,7 +322,16 @@ public class ActualProperties
         {
             List<LocalProperty<VariableReferenceExpression>> localProperties = this.localProperties;
             if (unordered) {
-                localProperties = filteredCopy(this.localProperties, property -> !property.isOrderSensitive());
+                ImmutableList.Builder<LocalProperty<VariableReferenceExpression>> newLocalProperties = ImmutableList.builder();
+                for (LocalProperty<VariableReferenceExpression> property : this.localProperties) {
+                    if (!property.isOrderSensitive()) {
+                        newLocalProperties.add(property);
+                    }
+                    else {
+                        break;
+                    }
+                }
+                localProperties = newLocalProperties.build();
             }
             return new ActualProperties(global, localProperties, constants);
         }

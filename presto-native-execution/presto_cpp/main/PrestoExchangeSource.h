@@ -123,10 +123,17 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   /// already.
   void close() override;
 
-  folly::F14FastMap<std::string, int64_t> stats() const override {
+  bool supportsMetrics() const override {
+    return true;
+  }
+
+  folly::F14FastMap<std::string, velox::RuntimeMetric> metrics()
+      const override {
     return {
-        {"prestoExchangeSource.numPages", numPages_},
-        {"prestoExchangeSource.totalBytes", totalBytes_},
+        {"prestoExchangeSource.numPages", velox::RuntimeMetric(numPages_)},
+        {"prestoExchangeSource.totalBytes",
+         velox::RuntimeMetric(
+             totalBytes_, velox::RuntimeCounter::Unit::kBytes)},
     };
   }
 

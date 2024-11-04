@@ -999,7 +999,25 @@ components:
     QueryInfo:
       type: object
       # TODO generate all the classes for this object
-
+    SessionPropertyMetadata:
+      type: object
+      required:
+        - name
+        - description
+        - typeSignature
+        - defaultValue
+        - hidden
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        typeSignature:
+          $ref: '#/components/schemas/TypeSignature'
+        defaultValue:
+          type: string
+        hidden:
+          type: boolean
 
 
 

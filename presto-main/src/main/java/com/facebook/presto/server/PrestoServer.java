@@ -39,6 +39,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.security.AccessControlManager;
@@ -179,6 +180,7 @@ public class PrestoServer
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
             injector.getInstance(PlanCheckerProviderManager.class).loadPlanCheckerProviders();
+            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

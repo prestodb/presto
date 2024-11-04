@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
@@ -52,6 +51,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.createFunctionAdd;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.createSqlFunctionIdAdd;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.urlEncode;
@@ -93,7 +93,7 @@ public class TestQuerySessionSupplier
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
-                new SessionPropertyManager(),
+                createTestingSessionPropertyManager(),
                 new SqlEnvironmentConfig(),
                 new SecurityConfig());
         WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()
@@ -167,7 +167,7 @@ public class TestQuerySessionSupplier
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
-                new SessionPropertyManager(),
+                createTestingSessionPropertyManager(),
                 new SqlEnvironmentConfig(),
                 new SecurityConfig());
         WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()

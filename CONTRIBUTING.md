@@ -81,7 +81,7 @@ To commit code, you should:
         1. Not introducing expensive calls in a performance sensitive area
     1. User friendliness
         1. Config options have names and descriptions that can be understood by someone configuring Presto
-        1. All new language features, new functions, and major features have documentation added
+        1. All new language features, new functions, session and config properties, and major features have documentation added
         1. When adding a new method to [Plugin.java](https://github.com/prestodb/presto/blob/master/presto-spi/src/main/java/com/facebook/presto/spi/Plugin.java), include documentation for the new method in the [Presto Developer Guide](https://prestodb.io/docs/current/develop.html). 
         1. Release notes following the [Release Note Guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines) are added for user visible changes
 * For large features, discuss your design with relevant code owners before you start implementing it.
@@ -478,6 +478,13 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
 * Protest lack of documentation for a code section
     * Instead, review the related code, then draft initial documentation as a separate commit
 * Submit without test cases or clear justification for lack thereof
+
+### Comments in Pull Requests
+Comments should help move the PR toward completion. 
+
+Presto PRs - especially those written by people new to open source or new to Presto - can have a surprisingly high number of comments. This is a general tendency of open source projects and is because members of the Presto community want to help you succeed with your PR and also maintain the quality, and follow the existing standards of, the Presto project.
+
+Do not take the presence of many comments as a sign that the PR, or the work in it, is bad. 
 
 ## <a id="codereviews">Code Reviews</a>
 #### What to do

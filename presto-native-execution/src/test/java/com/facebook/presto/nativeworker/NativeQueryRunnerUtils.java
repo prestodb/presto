@@ -56,6 +56,13 @@ public class NativeQueryRunnerUtils
                 .build();
     }
 
+    public static Map<String, String> getNativeSidecarProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("coordinator-sidecar-enabled", "true")
+                .build();
+    }
+
     /**
      * Creates all tables for local testing, except for bench tables.
      *

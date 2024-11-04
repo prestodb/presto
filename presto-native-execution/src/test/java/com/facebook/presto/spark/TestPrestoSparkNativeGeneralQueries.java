@@ -59,4 +59,12 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testUnionAllInsert() {}
+
+    @Override
+    @Ignore
+    public void testShowSessionWithoutJavaSessionProperties() {}
+
+    @Override
+    @Ignore
+    public void testSetSessionJavaWorkerSessionProperty() {}
 }

@@ -121,6 +121,10 @@ class PrestoServer {
 
   virtual void stopAdditionalPeriodicTasks(){};
 
+  virtual void addMemoryCheckerPeriodicTask();
+
+  virtual void stopMemoryCheckerPeriodicTask();
+
   virtual void initializeCoordinatorDiscoverer();
 
   virtual std::shared_ptr<velox::exec::TaskListener> getTaskListener();

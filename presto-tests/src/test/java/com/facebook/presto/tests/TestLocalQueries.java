@@ -144,4 +144,9 @@ public class TestLocalQueries
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(ImmutableSet.of(input), Optional.empty()));
     }
+
+    @Override
+    public void testSetSessionNativeWorkerSessionProperty()
+    {
+    }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
 
 import static java.util.Collections.emptyList;
 
@@ -27,6 +28,11 @@ import static java.util.Collections.emptyList;
 public interface CoordinatorPlugin
 {
     default Iterable<FunctionNamespaceManagerFactory> getFunctionNamespaceManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<WorkerSessionPropertyProviderFactory> getWorkerSessionPropertyProviderFactories()
     {
         return emptyList();
     }
