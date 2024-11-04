@@ -449,7 +449,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishWrite(session, (IcebergOutputTableHandle) tableHandle, fragments, computedStatistics);
+        return finishWrite((IcebergOutputTableHandle) tableHandle, fragments);
     }
 
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable)
@@ -471,10 +471,10 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishWrite(session, (IcebergInsertTableHandle) insertHandle, fragments, computedStatistics);
+        return finishWrite((IcebergInsertTableHandle) insertHandle, fragments);
     }
 
-    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    private Optional<ConnectorOutputMetadata> finishWrite(IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments)
     {
         if (fragments.isEmpty()) {
             transaction.commitTransaction();
@@ -629,7 +629,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
-        TableStatisticsMaker.writeTableStatistics(nodeVersion, typeManager, icebergTableHandle, icebergTable, session, computedStatistics);
+        TableStatisticsMaker.writeTableStatistics(nodeVersion, icebergTableHandle, icebergTable, session, computedStatistics);
     }
 
     public void rollback()

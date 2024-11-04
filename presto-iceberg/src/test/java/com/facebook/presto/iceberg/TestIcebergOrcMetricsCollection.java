@@ -296,11 +296,6 @@ public class TestIcebergOrcMetricsCollection
             return content;
         }
 
-        public String getFilePath()
-        {
-            return filePath;
-        }
-
         public String getFileFormat()
         {
             return fileFormat;
@@ -309,16 +304,6 @@ public class TestIcebergOrcMetricsCollection
         public long getRecordCount()
         {
             return recordCount;
-        }
-
-        public long getFileSizeInBytes()
-        {
-            return fileSizeInBytes;
-        }
-
-        public Map<Integer, Long> getColumnSizes()
-        {
-            return columnSizes;
         }
 
         public Map<Integer, Long> getValueCounts()
