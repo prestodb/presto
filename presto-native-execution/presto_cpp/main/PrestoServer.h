@@ -241,7 +241,7 @@ class PrestoServer {
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeHttpCpuExecutor_;
 
   // Executor for HTTP request dispatching
-  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIOExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIoExecutor_;
 
   // Executor for HTTP request processing after dispatching
   std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
