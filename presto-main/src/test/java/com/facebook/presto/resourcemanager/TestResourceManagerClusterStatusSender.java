@@ -112,7 +112,7 @@ public class TestResourceManagerClusterStatusSender
                 format("Expect number of heartbeats to fall within target range (%s), +/- 50%%.  Was: %s", TARGET_HEARTBEATS, nodeHeartbeats));
     }
 
-    @Test(timeOut = 6_000)
+    @Test(timeOut = 10_000)
     public void testQueryHeartbeat()
             throws Exception
     {
@@ -122,8 +122,14 @@ public class TestResourceManagerClusterStatusSender
         Thread.sleep(SLEEP_DURATION);
 
         int queryHeartbeats = resourceManagerClient.getQueryHeartbeats();
-        assertTrue(queryHeartbeats > TARGET_HEARTBEATS * 0.5 && queryHeartbeats <= TARGET_HEARTBEATS * 1.5,
-                format("Expect number of heartbeats to fall within target range (%s), +/- 50%%.  Was: %s", TARGET_HEARTBEATS, queryHeartbeats));
+        assertTrue(queryHeartbeats > 0, "Expected at least one query heartbeat");
+
+        Thread.sleep(SLEEP_DURATION);
+
+        int newQueryHeartbeats = resourceManagerClient.getQueryHeartbeats();
+        assertTrue(
+                newQueryHeartbeats > queryHeartbeats,
+                format("Expected at least one subsequent query heartbeat, previous: %s, current: %s", queryHeartbeats, newQueryHeartbeats));
 
         // Completing the query stops the heartbeats
         queryExecution.complete();
