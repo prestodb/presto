@@ -156,12 +156,12 @@ class Cursor {
           const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
     }
 
-    auto input = std::make_unique<BufferInputStream>(std::move(byteRanges));
+    ByteInputStream input(std::move(byteRanges));
 
     std::vector<RowVectorPtr> vectors;
-    while (!input->atEnd()) {
+    while (!input.atEnd()) {
       RowVectorPtr vector;
-      VectorStreamGroup::read(input.get(), pool_, rowType_, &vector);
+      VectorStreamGroup::read(&input, pool_, rowType_, &vector);
       vectors.emplace_back(vector);
     }
     return vectors;
