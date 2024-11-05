@@ -137,7 +137,7 @@ public class QueryStateInfoResource
             return result.get(timeoutMillis, TimeUnit.MILLISECONDS);
         }
         catch (Exception e) {
-            return true;
+            return false;
         }
     }
 

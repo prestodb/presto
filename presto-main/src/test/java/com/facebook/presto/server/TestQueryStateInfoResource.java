@@ -83,7 +83,7 @@ public class TestQueryStateInfoResource
         Request request3 = preparePost()
                 .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
-                .setHeader(PRESTO_USER, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .setHeader(PRESTO_USER, " aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!")
                 .build();
         QueryResults queryResults3 = client.execute(request3, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         client.execute(prepareGet().setUri(queryResults3.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
@@ -126,11 +126,12 @@ public class TestQueryStateInfoResource
         assertEquals(infos.size(), 1);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTimeoutOnEvilRegex()
     {
+        //(a%2B)%2B translates to the evil regex pattern (a+)+
         List<QueryStateInfo> infos = client.execute(
-                prepareGet().setUri(server.resolve("/v1/queryState?user=(aa%7Caab%3F)%2B")).build(),
+                prepareGet().setUri(server.resolve("/v1/queryState?user=(a%2B)%2B")).build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
         assertEquals(infos.size(), 0);
