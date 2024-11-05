@@ -4094,6 +4094,13 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
     EXPECT_EQ(
         TimestampWithTimezone(
             kMillisInDay + 11 * kMillisInHour + 38 * kMillisInMinute +
+                56 * kMillisInSecond + 123 - 3 * kMillisInHour,
+            tz::locateZone("+03:00")),
+        fromIso("1970-01-02T11:38:56.123+03:00"));
+
+    EXPECT_EQ(
+        TimestampWithTimezone(
+            kMillisInDay + 11 * kMillisInHour + 38 * kMillisInMinute +
                 56 * kMillisInSecond + 123 - timezone.offset,
             timezone.timezone),
         fromIso("1970-01-02T11:38:56.123"));
@@ -4142,6 +4149,28 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
         TimestampWithTimezone(-timezone.offset, timezone.timezone),
         fromIso("1970"));
 
+    // Trailing time separator.
+    EXPECT_EQ(
+        TimestampWithTimezone(-timezone.offset, timezone.timezone),
+        fromIso("1970-01-01T"));
+    EXPECT_EQ(
+        TimestampWithTimezone(-timezone.offset, timezone.timezone),
+        fromIso("1970-01T"));
+    EXPECT_EQ(
+        TimestampWithTimezone(-timezone.offset, timezone.timezone),
+        fromIso("1970T"));
+
+    // No time but with a time zone.
+    EXPECT_EQ(
+        TimestampWithTimezone(-1 * kMillisInHour, tz::locateZone("+01:00")),
+        fromIso("1970-01-01T+01:00"));
+    EXPECT_EQ(
+        TimestampWithTimezone(2 * kMillisInHour, tz::locateZone("-02:00")),
+        fromIso("1970-01T-02:00"));
+    EXPECT_EQ(
+        TimestampWithTimezone(-14 * kMillisInHour, tz::locateZone("+14:00")),
+        fromIso("1970T+14:00"));
+
     // No date.
     EXPECT_EQ(
         TimestampWithTimezone(
@@ -4174,6 +4203,39 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
         TimestampWithTimezone(
             11 * kMillisInHour - timezone.offset, timezone.timezone),
         fromIso("T11"));
+
+    // No date but with a time zone.
+    EXPECT_EQ(
+        TimestampWithTimezone(
+            11 * kMillisInHour + 38 * kMillisInMinute + 56 * kMillisInSecond +
+                123 + 14 * kMillisInHour,
+            tz::locateZone("-14:00")),
+        fromIso("T11:38:56.123-14:00"));
+
+    EXPECT_EQ(
+        TimestampWithTimezone(
+            11 * kMillisInHour + 38 * kMillisInMinute + 56 * kMillisInSecond +
+                123 - 11 * kMillisInHour,
+            tz::locateZone("+11:00")),
+        fromIso("T11:38:56,123+11:00"));
+
+    EXPECT_EQ(
+        TimestampWithTimezone(
+            11 * kMillisInHour + 38 * kMillisInMinute + 56 * kMillisInSecond +
+                12 * kMillisInHour,
+            tz::locateZone("-12:00")),
+        fromIso("T11:38:56-12:00"));
+
+    EXPECT_EQ(
+        TimestampWithTimezone(
+            11 * kMillisInHour + 38 * kMillisInMinute - 7 * kMillisInHour,
+            tz::locateZone("+07:00")),
+        fromIso("T11:38+07:00"));
+
+    EXPECT_EQ(
+        TimestampWithTimezone(
+            11 * kMillisInHour + 8 * kMillisInHour, tz::locateZone("-08:00")),
+        fromIso("T11-08:00"));
   }
 
   VELOX_ASSERT_THROW(

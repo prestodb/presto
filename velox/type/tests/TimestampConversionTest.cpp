@@ -385,6 +385,24 @@ TEST(DateTimeUtilTest, fromTimestampWithTimezoneString) {
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:00:01 America/Los_Angeles"),
       std::make_pair(Timestamp(1, 0), tz::locateZone("America/Los_Angeles")));
+
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 Pacific/Fiji"),
+      std::make_pair(Timestamp(0, 0), tz::locateZone("Pacific/Fiji")));
+
+  EXPECT_EQ(
+      parseTimestampWithTimezone(
+          "1970-01-01T+01:00", TimestampParseMode::kIso8601),
+      std::make_pair(Timestamp(0, 0), tz::locateZone("+01:00")));
+
+  EXPECT_EQ(
+      parseTimestampWithTimezone(
+          "1970-01T+14:00", TimestampParseMode::kIso8601),
+      std::make_pair(Timestamp(0, 0), tz::locateZone("+14:00")));
+
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970T-06:00", TimestampParseMode::kIso8601),
+      std::make_pair(Timestamp(0, 0), tz::locateZone("-06:00")));
 }
 
 TEST(DateTimeUtilTest, toGMT) {

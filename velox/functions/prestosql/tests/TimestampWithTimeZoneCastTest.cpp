@@ -73,7 +73,8 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarchar) {
        "2012-10-31 01:00:47 -06:00",
        "1994-05-06 15:49 Europe/Vienna",
        "1979-02-24 08:33:31 Pacific/Chatham",
-       "1979-02-24 08:33:31 +13:45"});
+       "1979-02-24 08:33:31 +13:45",
+       "1979-02-24 Atlantic/Bermuda"});
 
   // Varchar representations above hold local time (relative to specified time
   // zone). For instance, the first string represents a wall-clock displaying
@@ -83,9 +84,10 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarchar) {
   auto denverUTC = parseTimestamp("2012-10-31 07:00:47").toMillis();
   auto viennaUTC = parseTimestamp("1994-05-06 13:49:00").toMillis();
   auto chathamUTC = parseTimestamp("1979-02-23 18:48:31").toMillis();
+  auto bermudaUTC = parseTimestamp("1979-02-24 04:00:00").toMillis();
 
   auto timestamps = std::vector<int64_t>{
-      0, denverUTC, denverUTC, viennaUTC, chathamUTC, chathamUTC};
+      0, denverUTC, denverUTC, viennaUTC, chathamUTC, chathamUTC, bermudaUTC};
 
   auto timezones = std::vector<TimeZoneKey>{
       {0,
@@ -93,7 +95,8 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarchar) {
        (int16_t)tz::getTimeZoneID("-06:00"),
        (int16_t)tz::getTimeZoneID("Europe/Vienna"),
        (int16_t)tz::getTimeZoneID("Pacific/Chatham"),
-       (int16_t)tz::getTimeZoneID("+13:45")}};
+       (int16_t)tz::getTimeZoneID("+13:45"),
+       (int16_t)tz::getTimeZoneID("Atlantic/Bermuda")}};
 
   const auto expected = makeTimestampWithTimeZoneVector(
       timestamps.size(),
@@ -166,6 +169,12 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarcharInvalidInput) {
   const auto invalidStringVector4 = makeNullableFlatVector<StringView>(
       {"2012-10-31 35:00:47 America/Los_Angeles"});
 
+  const auto invalidStringVector5 =
+      makeNullableFlatVector<StringView>({"2012 America/Los_Angeles"});
+
+  const auto invalidStringVector6 =
+      makeNullableFlatVector<StringView>({"2012-10 America/Los_Angeles"});
+
   auto millis = parseTimestamp("2012-10-31 07:00:47").toMillis();
   auto timestamps = std::vector<int64_t>{millis};
 
@@ -185,10 +194,16 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarcharInvalidInput) {
       "Unknown timezone value: \"America/California\"");
   VELOX_ASSERT_THROW(
       testCast(invalidStringVector3, expected),
-      "Unable to parse timestamp value: \"2012-10-31foo01:00:47 America/Los_Angeles\"");
+      "Unknown timezone value: \"foo01:00:47\"");
   VELOX_ASSERT_THROW(
       testCast(invalidStringVector4, expected),
-      "Unable to parse timestamp value: \"2012-10-31 35:00:47 America/Los_Angeles\"");
+      "Unknown timezone value: \"35:00:47\"");
+  VELOX_ASSERT_THROW(
+      testCast(invalidStringVector5, expected),
+      "Unable to parse timestamp value: \"2012 America/Los_Angeles\"");
+  VELOX_ASSERT_THROW(
+      testCast(invalidStringVector6, expected),
+      "Unable to parse timestamp value: \"2012-10 America/Los_Angeles\"");
 }
 
 TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {

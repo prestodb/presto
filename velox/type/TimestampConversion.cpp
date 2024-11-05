@@ -273,7 +273,7 @@ bool tryParseDateString(
 
   // No month or day.
   if ((mode == ParseMode::kSparkCast || mode == ParseMode::kIso8601) &&
-      pos == len) {
+      (pos == len || buf[pos] == 'T')) {
     Expected<int64_t> expected = daysSinceEpochFromDate(year, 1, 1);
     if (expected.hasError()) {
       return false;
@@ -308,7 +308,7 @@ bool tryParseDateString(
 
   // No day.
   if ((mode == ParseMode::kSparkCast || mode == ParseMode::kIso8601) &&
-      pos == len) {
+      (pos == len || buf[pos] == 'T')) {
     Expected<int64_t> expected = daysSinceEpochFromDate(year, month, 1);
     if (expected.hasError()) {
       return false;
@@ -443,6 +443,7 @@ bool tryParseTimeString(
     size_t& pos,
     int64_t& result,
     TimestampParseMode parseMode) {
+  static constexpr int sep = ':';
   int32_t hour = 0, min = 0, sec = 0, micros = 0;
   pos = 0;
 
@@ -470,7 +471,7 @@ bool tryParseTimeString(
     return false;
   }
 
-  if (pos >= len) {
+  if (pos >= len || buf[pos] != sep) {
     if (parseMode == TimestampParseMode::kIso8601) {
       result = fromTime(hour, 0, 0, 0);
       return true;
@@ -479,8 +480,7 @@ bool tryParseTimeString(
   }
 
   // Fetch the separator.
-  int sep = buf[pos++];
-  if (sep != ':') {
+  if (buf[pos++] != sep) {
     // Invalid separator.
     return false;
   }
@@ -529,8 +529,11 @@ bool tryParseTimeString(
   return true;
 }
 
-// String format is "YYYY-MM-DD hh:mm:ss.microseconds" (seconds and microseconds
-// are optional). ISO 8601
+// Parses a variety of timestamp strings, depending on the value of `parseMode`.
+// Consumes as much of the string as it can and sets `result` to the
+// timestamp from whatever it successfully parses. `pos` is set to the position
+// of first character that was not consumed. Returns true if it successfully
+// parsed at least a date, `result` is only set if true is returned.
 bool tryParseTimestampString(
     const char* buf,
     size_t len,
@@ -551,6 +554,10 @@ bool tryParseTimestampString(
 
   if (parseMode == TimestampParseMode::kIso8601 && pos < len &&
       buf[pos] == 'T') {
+    if (pos == len - 1) {
+      // If the string is just 'T'.
+      return false;
+    }
     // No date. Assume 1970-01-01.
   } else if (!tryParseDateString(
                  buf,
@@ -575,7 +582,11 @@ bool tryParseTimestampString(
   size_t timePos = 0;
   if (!tryParseTimeString(
           buf + pos, len - pos, timePos, microsSinceMidnight, parseMode)) {
-    return false;
+    // The rest of the string is not a valid time, but it could be relevant to
+    // the caller (e.g. it could be a time zone), return the date we parsed and
+    // let them decide what to do with the rest.
+    result = fromDatetime(daysSinceEpoch, 0);
+    return true;
   }
 
   pos += timePos;
@@ -860,7 +871,8 @@ fromTimestampWithTimezoneString(
 
   const tz::TimeZone* timeZone = nullptr;
 
-  if (pos < len && characterIsSpace(str[pos])) {
+  if (pos < len && parseMode != TimestampParseMode::kIso8601 &&
+      characterIsSpace(str[pos])) {
     pos++;
   }
 
