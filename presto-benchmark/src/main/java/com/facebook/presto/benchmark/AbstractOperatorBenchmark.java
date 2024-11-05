@@ -77,6 +77,7 @@ import static com.facebook.presto.sql.planner.PlannerUtils.getHashExpression;
 import static com.facebook.presto.sql.relational.VariableToChannelTranslator.translate;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -157,14 +158,14 @@ public abstract class AbstractOperatorBenchmark
         Metadata metadata = localQueryRunner.getMetadata();
         QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
         TableHandle tableHandle = metadata.getMetadataResolver(session).getTableHandle(qualifiedTableName).orElse(null);
-        checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
+        checkNotNull(tableHandle, "Table %s does not exist", qualifiedTableName);
 
         // lookup the columns
         Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
         ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
         for (String columnName : columnNames) {
             ColumnHandle columnHandle = allColumnHandles.get(columnName);
-            checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
+            checkNotNull(columnHandle, "Table %s does not have a column %s", tableName, columnName);
             columnHandlesBuilder.add(columnHandle);
         }
         List<ColumnHandle> columnHandles = columnHandlesBuilder.build();

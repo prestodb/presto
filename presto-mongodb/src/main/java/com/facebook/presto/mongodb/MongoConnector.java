@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTA
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class MongoConnector
@@ -75,7 +76,7 @@ public class MongoConnector
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
         MongoMetadata metadata = transactions.get(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         return metadata;
     }
 
@@ -90,7 +91,7 @@ public class MongoConnector
     public void rollback(ConnectorTransactionHandle transaction)
     {
         MongoMetadata metadata = transactions.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         metadata.rollback();
     }
 

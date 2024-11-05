@@ -170,8 +170,8 @@ public class InMemoryGroupedTopNBuilder
 
     private void processPage(Page newPage, GroupByIdBlock groupIds)
     {
-        checkArgument(newPage != null);
-        checkArgument(groupIds != null);
+        requireNonNull(newPage);
+        requireNonNull(groupIds);
 
         int firstPositionToInsert = findFirstPositionToInsert(newPage, groupIds);
         if (firstPositionToInsert < 0) {

@@ -25,6 +25,7 @@ import java.util.TreeMap;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +81,7 @@ public class Scope
     public Variable getVariable(String name)
     {
         Variable variable = variables.get(name);
-        checkArgument(variable != null, "Variable %s not defined", name);
+        checkNotNull(variable, "Variable %s not defined", name);
         return variable;
     }
 

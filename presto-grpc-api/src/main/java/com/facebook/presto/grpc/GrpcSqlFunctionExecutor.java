@@ -48,7 +48,6 @@ import static com.facebook.presto.grpc.api.udf.GrpcUtils.toGrpcSerializedPage;
 import static com.facebook.presto.grpc.api.udf.GrpcUtils.toGrpcUdfPage;
 import static com.facebook.presto.grpc.api.udf.GrpcUtils.toPrestoPage;
 import static com.facebook.presto.spi.function.FunctionImplementationType.GRPC;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -84,7 +83,7 @@ public class GrpcSqlFunctionExecutor
     public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
     {
         checkState(this.blockEncodingSerde == null, "blockEncodingSerde already set");
-        checkArgument(blockEncodingSerde != null, "blockEncodingSerde is null");
+        requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.blockEncodingSerde = blockEncodingSerde;
     }
 

@@ -112,7 +112,7 @@ public class TestHiveAggregationFunctions
     @SuppressWarnings("UnknownLanguage")
     public void check(@Language("SQL") String query, Column... expectedColumns)
     {
-        checkArgument(expectedColumns != null && expectedColumns.length > 0);
+        checkArgument(expectedColumns.length > 0);
         int numColumns = expectedColumns.length;
         int numRows = expectedColumns[0].values.length;
         checkArgument(Stream.of(expectedColumns).allMatch(c -> c != null && c.values.length == numRows));
