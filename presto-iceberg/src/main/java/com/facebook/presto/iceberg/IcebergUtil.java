@@ -69,6 +69,8 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.CloseableIterable;
@@ -78,6 +80,7 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.LocationUtil;
 import org.apache.iceberg.util.SnapshotUtil;
+import org.apache.iceberg.view.View;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -214,6 +217,8 @@ public final class IcebergUtil
     public static final int REAL_NEGATIVE_ZERO = 0x80000000;
     public static final int REAL_NEGATIVE_INFINITE = 0xff800000;
 
+    protected static final String VIEW_OWNER = "view_owner";
+
     private IcebergUtil() {}
 
     public static boolean isIcebergTable(com.facebook.presto.hive.metastore.Table table)
@@ -250,6 +255,15 @@ public final class IcebergUtil
     public static Table getNativeIcebergTable(IcebergNativeCatalogFactory catalogFactory, ConnectorSession session, SchemaTableName table)
     {
         return catalogFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
+    }
+
+    public static View getNativeIcebergView(IcebergNativeCatalogFactory catalogFactory, ConnectorSession session, SchemaTableName table)
+    {
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (!(catalog instanceof ViewCatalog)) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support get views");
+        }
+        return ((ViewCatalog) catalog).loadView(toIcebergTableIdentifier(table));
     }
 
     public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)
@@ -375,6 +389,11 @@ public final class IcebergUtil
         return Optional.ofNullable(table.properties().get(TABLE_COMMENT));
     }
 
+    public static Optional<String> getViewComment(View view)
+    {
+        return Optional.ofNullable(view.properties().get(TABLE_COMMENT));
+    }
+
     private static String quotedTableName(SchemaTableName name)
     {
         return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
@@ -453,6 +472,7 @@ public final class IcebergUtil
                 .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
+                .put(VIEW_OWNER, session.getUser())
                 .build();
     }
 
