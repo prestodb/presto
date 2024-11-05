@@ -18,7 +18,7 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/PlanNode.h"
-#include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/parse/PlanNodeIdGenerator.h"
 
 namespace facebook::velox::exec {
 class Task;

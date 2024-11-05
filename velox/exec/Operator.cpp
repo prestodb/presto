@@ -126,6 +126,10 @@ void Operator::maybeSetTracer() {
   }
   tracedOpMap.emplace(operatorId(), operatorType());
 
+  if (!trace::canTrace(operatorType())) {
+    VELOX_UNSUPPORTED("{} does not support tracing", operatorType());
+  }
+
   const auto pipelineId = operatorCtx_->driverCtx()->pipelineId;
   const auto driverId = operatorCtx_->driverCtx()->driverId;
   LOG(INFO) << "Trace input for operator type: " << operatorType()

@@ -100,7 +100,7 @@ class FilterProjectReplayerTest : public HiveConnectorTestBase {
       const std::string& path,
       memory::MemoryPool* writerPool) {
     std::vector<Split> splits;
-    for (auto i = 0; i < 4; ++i) {
+    for (auto i = 0; i < 8; ++i) {
       const std::string filePath = fmt::format("{}/{}", path, i);
       writeToFile(filePath, inputs);
       splits.emplace_back(makeHiveConnectorSplit(filePath));
@@ -183,7 +183,7 @@ TEST_F(FilterProjectReplayerTest, filterProject) {
                              task->taskId(),
                              projectNodeId_,
                              0,
-                             "HashJoin")
+                             "FilterProject")
                              .run();
   assertEqualResults({result}, {replayingResult});
 }
@@ -217,7 +217,7 @@ TEST_F(FilterProjectReplayerTest, filterOnly) {
                              task->taskId(),
                              filterNodeId_,
                              0,
-                             "HashJoin")
+                             "FilterProject")
                              .run();
   assertEqualResults({result}, {replayingResult});
 }
@@ -251,7 +251,7 @@ TEST_F(FilterProjectReplayerTest, projectOnly) {
                              task->taskId(),
                              projectNodeId_,
                              0,
-                             "HashJoin")
+                             "FilterProject")
                              .run();
   assertEqualResults({result}, {replayingResult});
 }

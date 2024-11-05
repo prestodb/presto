@@ -334,6 +334,7 @@ TEST_F(OperatorTraceTest, task) {
   }
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId hashJoinNodeId;
   const auto planNode =
       PlanBuilder(planNodeIdGenerator)
           .values(rows, false)
@@ -349,6 +350,7 @@ TEST_F(OperatorTraceTest, task) {
               "c0 < 135",
               {"c0", "c1", "c2"},
               core::JoinType::kInner)
+          .capturePlanNodeId(hashJoinNodeId)
           .planNode();
   const auto expectedResult =
       AssertQueryBuilder(planNode).maxDrivers(1).copyResults(pool());
@@ -374,7 +376,7 @@ TEST_F(OperatorTraceTest, task) {
              std::to_string(100UL << 30)},
             {core::QueryConfig::kQueryTraceDir, outputDir->getPath()},
             {core::QueryConfig::kQueryTraceTaskRegExp, testData.taskRegExpr},
-            {core::QueryConfig::kQueryTraceNodeIds, "1,2"},
+            {core::QueryConfig::kQueryTraceNodeIds, hashJoinNodeId},
             {"key1", "value1"},
         };
 
@@ -595,7 +597,7 @@ TEST_F(OperatorTraceTest, traceTableWriter) {
       continue;
     }
 
-    // Query metadta file should exist.
+    // Query metadata file should exist.
     const auto traceMetaFilePath = getTaskTraceMetaFilePath(taskTraceDir);
     ASSERT_TRUE(fs->exists(traceMetaFilePath));
 
@@ -722,6 +724,168 @@ TEST_F(OperatorTraceTest, filterProject) {
       ++numOutputVectors;
     }
     ASSERT_EQ(numOutputVectors, testData.numTracedBatches);
+  }
+}
+
+TEST_F(OperatorTraceTest, hashJoin) {
+  std::vector<RowVectorPtr> probeInput;
+  RowTypePtr probeType =
+      ROW({"c0", "c1", "c2"}, {BIGINT(), TINYINT(), VARCHAR()});
+  constexpr auto numBatch = 5;
+  probeInput.reserve(numBatch);
+  for (auto i = 0; i < numBatch; ++i) {
+    probeInput.push_back(vectorFuzzer_.fuzzInputFlatRow(probeType));
+  }
+
+  std::vector<RowVectorPtr> buildInput;
+  RowTypePtr buildType =
+      ROW({"u0", "u1", "u2"}, {BIGINT(), SMALLINT(), BIGINT()});
+  buildInput.reserve(numBatch);
+  for (auto i = 0; i < numBatch; ++i) {
+    buildInput.push_back(vectorFuzzer_.fuzzInputFlatRow(buildType));
+  }
+
+  struct {
+    std::string taskRegExpr;
+    uint64_t maxTracedBytes;
+    uint8_t numTracedBatches;
+    bool limitExceeded;
+
+    std::string debugString() const {
+      return fmt::format(
+          "taskRegExpr: {}, maxTracedBytes: {}, numTracedBatches: {}, limitExceeded {}",
+          taskRegExpr,
+          maxTracedBytes,
+          numTracedBatches,
+          limitExceeded);
+    }
+  } testSettings[]{
+      {".*", 10UL << 30, numBatch, false},
+      {".*", 0, numBatch, true},
+      {"wrong id", 10UL << 30, 0, false},
+      {"test_cursor \\d+", 10UL << 30, numBatch, false},
+      {"test_cursor \\d+", 800, 2, true}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const auto outputDir = TempDirectoryPath::create();
+    const auto planNodeIdGenerator{
+        std::make_shared<core::PlanNodeIdGenerator>()};
+    core::PlanNodeId hashJoinNodeId;
+    const auto planNode = PlanBuilder(planNodeIdGenerator)
+                              .values(probeInput, false)
+                              .hashJoin(
+                                  {"c0"},
+                                  {"u0"},
+                                  PlanBuilder(planNodeIdGenerator)
+                                      .values(buildInput, true)
+                                      .planNode(),
+                                  "c0 < 135",
+                                  {"c0", "c1", "c2"},
+                                  core::JoinType::kInner)
+                              .capturePlanNodeId(hashJoinNodeId)
+                              .planNode();
+    const auto testDir = TempDirectoryPath::create();
+    const auto traceRoot =
+        fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+    std::shared_ptr<Task> task;
+    if (testData.limitExceeded) {
+      VELOX_ASSERT_THROW(
+          AssertQueryBuilder(planNode)
+              .maxDrivers(1)
+              .config(core::QueryConfig::kQueryTraceEnabled, true)
+              .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+              .config(
+                  core::QueryConfig::kQueryTraceMaxBytes,
+                  testData.maxTracedBytes)
+              .config(
+                  core::QueryConfig::kQueryTraceTaskRegExp,
+                  testData.taskRegExpr)
+              .config(core::QueryConfig::kQueryTraceNodeIds, hashJoinNodeId)
+              .copyResults(pool(), task),
+          "Query exceeded per-query local trace limit of");
+      continue;
+    }
+    AssertQueryBuilder(planNode)
+        .maxDrivers(1)
+        .config(core::QueryConfig::kQueryTraceEnabled, true)
+        .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+        .config(core::QueryConfig::kQueryTraceMaxBytes, testData.maxTracedBytes)
+        .config(core::QueryConfig::kQueryTraceTaskRegExp, testData.taskRegExpr)
+        .config(core::QueryConfig::kQueryTraceNodeIds, hashJoinNodeId)
+        .copyResults(pool(), task);
+
+    const auto taskTraceDir = getTaskTraceDirectory(traceRoot, *task);
+    const auto fs = filesystems::getFileSystem(taskTraceDir, nullptr);
+
+    if (testData.taskRegExpr == "wrong id") {
+      ASSERT_FALSE(fs->exists(traceRoot));
+      continue;
+    }
+
+    // Query metadata file should exist.
+    const auto traceMetaFilePath = getTaskTraceMetaFilePath(taskTraceDir);
+    ASSERT_TRUE(fs->exists(traceMetaFilePath));
+
+    for (uint32_t pipelineId = 0; pipelineId < 2; ++pipelineId) {
+      const auto opTraceProbeDir =
+          getOpTraceDirectory(taskTraceDir, hashJoinNodeId, pipelineId, 0);
+
+      ASSERT_EQ(fs->list(opTraceProbeDir).size(), 2);
+
+      const auto summary =
+          OperatorTraceSummaryReader(opTraceProbeDir, pool()).read();
+      RowTypePtr dataType;
+      if (pipelineId == 0) {
+        dataType = probeType;
+      } else {
+        dataType = buildType;
+      }
+      const auto reader =
+          trace::OperatorTraceInputReader(opTraceProbeDir, dataType, pool());
+      RowVectorPtr actual;
+      size_t numOutputVectors{0};
+      RowVectorPtr expected;
+      if (pipelineId == 0) {
+        expected = probeInput[numOutputVectors];
+      } else {
+        expected = buildInput[numOutputVectors];
+      }
+      while (reader.read(actual)) {
+        const auto size = actual->size();
+        ASSERT_EQ(size, expected->size());
+        for (auto i = 0; i < size; ++i) {
+          actual->compare(expected.get(), i, i, {.nullsFirst = true});
+        }
+        ++numOutputVectors;
+      }
+      ASSERT_EQ(numOutputVectors, testData.numTracedBatches);
+    }
+  }
+}
+
+TEST_F(OperatorTraceTest, canTrace) {
+  struct {
+    const std::string operatorType;
+    const bool canTrace;
+
+    std::string debugString() const {
+      return fmt::format(
+          "operatorType: {}, canTrace: {}", operatorType, canTrace);
+    }
+  } testSettings[] = {
+      {"PartitionedOutput", true},
+      {"HashBuild", true},
+      {"HashProbe", true},
+      {"RowNumber", false},
+      {"OrderBy", false},
+      {"PartialAggregation", true},
+      {"Aggregation", true},
+      {"TableWrite", true},
+      {"FilterProject", true}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    ASSERT_EQ(testData.canTrace, trace::canTrace(testData.operatorType));
   }
 }
 } // namespace facebook::velox::exec::trace::test

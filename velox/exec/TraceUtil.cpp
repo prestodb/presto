@@ -179,4 +179,16 @@ size_t getNumDrivers(
     const std::shared_ptr<filesystems::FileSystem>& fs) {
   return listDriverIds(nodeTraceDir, pipelineId, fs).size();
 }
+
+bool canTrace(const std::string& operatorType) {
+  static const std::unordered_set<std::string> kSupportedOperatorTypes{
+      "FilterProject",
+      "TableWrite",
+      "Aggregation",
+      "PartialAggregation",
+      "PartitionedOutput",
+      "HashBuild",
+      "HashProbe"};
+  return kSupportedOperatorTypes.count(operatorType) > 0;
+}
 } // namespace facebook::velox::exec::trace

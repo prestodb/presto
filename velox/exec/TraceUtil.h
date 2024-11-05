@@ -123,4 +123,7 @@ std::vector<std::string> getTaskIds(
 folly::dynamic getTaskMetadata(
     const std::string& taskMetaFilePath,
     const std::shared_ptr<filesystems::FileSystem>& fs);
+
+/// Checks whether the operator can be traced.
+bool canTrace(const std::string& operatorType);
 } // namespace facebook::velox::exec::trace
