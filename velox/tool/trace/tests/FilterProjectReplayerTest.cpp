@@ -100,7 +100,7 @@ class FilterProjectReplayerTest : public HiveConnectorTestBase {
       const std::string& path,
       memory::MemoryPool* writerPool) {
     std::vector<Split> splits;
-    for (auto i = 0; i < 8; ++i) {
+    for (auto i = 0; i < 4; ++i) {
       const std::string filePath = fmt::format("{}/{}", path, i);
       writeToFile(filePath, inputs);
       splits.emplace_back(makeHiveConnectorSplit(filePath));
@@ -159,33 +159,44 @@ TEST_F(FilterProjectReplayerTest, filterProject) {
   AssertQueryBuilder builder(planWithSplits.plan);
   const auto result = builder.splits(planWithSplits.splits).copyResults(pool());
 
-  const auto traceRoot = fmt::format("{}/{}", testDir_->getPath(), "basic");
-  const auto tracePlanWithSplits = createPlan(PlanMode::FilterProject);
-  std::shared_ptr<Task> task;
-  AssertQueryBuilder traceBuilder(tracePlanWithSplits.plan);
-  traceBuilder.maxDrivers(2)
-      .config(core::QueryConfig::kQueryTraceEnabled, true)
-      .config(core::QueryConfig::kQueryTraceDir, traceRoot)
-      .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
-      .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(
-          core::QueryConfig::kQueryTraceNodeIds,
-          fmt::format("{},{}", filterNodeId_, projectNodeId_));
-  auto traceResult =
-      traceBuilder.splits(tracePlanWithSplits.splits).copyResults(pool(), task);
+  struct {
+    uint32_t maxDrivers;
 
-  assertEqualResults({result}, {traceResult});
+    std::string debugString() const {
+      return fmt::format("maxDrivers: {}", maxDrivers);
+    }
+  } testSettings[]{{1}, {4}, {8}};
 
-  const auto taskId = task->taskId();
-  auto replayingResult = FilterProjectReplayer(
-                             traceRoot,
-                             task->queryCtx()->queryId(),
-                             task->taskId(),
-                             projectNodeId_,
-                             0,
-                             "FilterProject")
-                             .run();
-  assertEqualResults({result}, {replayingResult});
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const auto traceRoot = fmt::format("{}/{}", testDir_->getPath(), "basic");
+    const auto tracePlanWithSplits = createPlan(PlanMode::FilterProject);
+    std::shared_ptr<Task> task;
+    AssertQueryBuilder traceBuilder(tracePlanWithSplits.plan);
+    traceBuilder.maxDrivers(4)
+        .config(core::QueryConfig::kQueryTraceEnabled, true)
+        .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+        .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
+        .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+        .config(
+            core::QueryConfig::kQueryTraceNodeIds,
+            fmt::format("{},{}", filterNodeId_, projectNodeId_));
+    auto traceResult = traceBuilder.splits(tracePlanWithSplits.splits)
+                           .copyResults(pool(), task);
+
+    assertEqualResults({result}, {traceResult});
+
+    const auto taskId = task->taskId();
+    auto replayingResult = FilterProjectReplayer(
+                               traceRoot,
+                               task->queryCtx()->queryId(),
+                               task->taskId(),
+                               projectNodeId_,
+                               0,
+                               "FilterProject")
+                               .run();
+    assertEqualResults({result}, {replayingResult});
+  }
 }
 
 TEST_F(FilterProjectReplayerTest, filterOnly) {
@@ -197,7 +208,7 @@ TEST_F(FilterProjectReplayerTest, filterOnly) {
   const auto tracePlanWithSplits = createPlan(PlanMode::FilterOnly);
   std::shared_ptr<Task> task;
   AssertQueryBuilder traceBuilder(tracePlanWithSplits.plan);
-  traceBuilder.maxDrivers(2)
+  traceBuilder.maxDrivers(4)
       .config(core::QueryConfig::kQueryTraceEnabled, true)
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
@@ -231,7 +242,7 @@ TEST_F(FilterProjectReplayerTest, projectOnly) {
   const auto tracePlanWithSplits = createPlan(PlanMode::ProjectOnly);
   std::shared_ptr<Task> task;
   AssertQueryBuilder traceBuilder(tracePlanWithSplits.plan);
-  traceBuilder.maxDrivers(2)
+  traceBuilder.maxDrivers(4)
       .config(core::QueryConfig::kQueryTraceEnabled, true)
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)

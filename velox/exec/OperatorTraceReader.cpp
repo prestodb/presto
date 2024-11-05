@@ -32,10 +32,13 @@ OperatorTraceInputReader::OperatorTraceInputReader(
       pool_(pool),
       inputStream_(getInputStream()) {
   VELOX_CHECK_NOT_NULL(dataType_);
-  VELOX_CHECK_NOT_NULL(inputStream_);
 }
 
 bool OperatorTraceInputReader::read(RowVectorPtr& batch) const {
+  if (inputStream_ == nullptr) {
+    return false;
+  }
+
   if (inputStream_->atEnd()) {
     batch = nullptr;
     return false;
@@ -49,6 +52,11 @@ bool OperatorTraceInputReader::read(RowVectorPtr& batch) const {
 std::unique_ptr<common::FileInputStream>
 OperatorTraceInputReader::getInputStream() const {
   auto traceFile = fs_->openFileForRead(getOpTraceInputFilePath(traceDir_));
+  if (traceFile->size() == 0) {
+    LOG(WARNING) << "Operator trace input file is empty: "
+                 << getOpTraceInputFilePath(traceDir_);
+    return nullptr;
+  }
   // TODO: Make the buffer size configurable.
   return std::make_unique<common::FileInputStream>(
       std::move(traceFile), 1 << 20, pool_);
