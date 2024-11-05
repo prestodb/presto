@@ -15,14 +15,14 @@
  */
 
 #include "velox/dwio/common/BitPackDecoder.h"
+#include "velox/dwio/parquet/writer/arrow/util/RleEncodingInternal.h"
 
-#include <arrow/util/rle_encoding.h> // @manual
 #include <gtest/gtest.h>
-
-#include <random>
 
 using namespace facebook::velox;
 using namespace facebook::velox::dwio::common;
+
+using facebook::velox::parquet::arrow::util::RleEncoder;
 
 template <typename T>
 class RleBpDecoderTest {
@@ -83,7 +83,7 @@ class RleBpDecoderTest {
   }
 
   void encodeInputValues() {
-    arrow::util::RleEncoder arrowEncoder(
+    RleEncoder arrowEncoder(
         reinterpret_cast<uint8_t*>(inputValues_.data()),
         bytes(bitWidth_),
         bitWidth_);

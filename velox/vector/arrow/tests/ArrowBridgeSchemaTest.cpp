@@ -17,6 +17,7 @@
 #include <arrow/c/abi.h>
 #include <arrow/c/bridge.h>
 #include <arrow/testing/gtest_util.h>
+#include <arrow/util/config.h>
 #include <gtest/gtest.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
@@ -542,8 +543,13 @@ TEST_F(ArrowBridgeSchemaTest, validateInArrow) {
       {BOOLEAN(), arrow::boolean()},
       {VARCHAR(), arrow::utf8()},
       {VARCHAR(), arrow::utf8_view()},
+#if ARROW_VERSION_MAJOR >= 18
+      {DECIMAL(10, 4), arrow::decimal128(10, 4)},
+      {DECIMAL(20, 15), arrow::decimal128(20, 15)},
+#else
       {DECIMAL(10, 4), arrow::decimal(10, 4)},
       {DECIMAL(20, 15), arrow::decimal(20, 15)},
+#endif
       {ARRAY(DOUBLE()), arrow::list(arrow::float64())},
       {ARRAY(ARRAY(DOUBLE())), arrow::list(arrow::list(arrow::float64()))},
       {MAP(VARCHAR(), REAL()), arrow::map(arrow::utf8(), arrow::float32())},

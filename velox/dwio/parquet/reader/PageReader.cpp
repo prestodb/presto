@@ -223,7 +223,7 @@ void PageReader::prepareDataPageV1(const PageHeader& pageHeader, int64_t row) {
   auto pageEnd = pageData_ + pageHeader.uncompressed_page_size;
   if (maxRepeat_ > 0) {
     uint32_t repeatLength = readField<int32_t>(pageData_);
-    repeatDecoder_ = std::make_unique<::arrow::util::RleDecoder>(
+    repeatDecoder_ = std::make_unique<arrow::util::RleDecoder>(
         reinterpret_cast<const uint8_t*>(pageData_),
         repeatLength,
         ::arrow::bit_util::NumRequiredBits(maxRepeat_));
@@ -239,7 +239,7 @@ void PageReader::prepareDataPageV1(const PageHeader& pageHeader, int64_t row) {
           pageData_ + defineLength,
           ::arrow::bit_util::NumRequiredBits(maxDefine_));
     }
-    wideDefineDecoder_ = std::make_unique<::arrow::util::RleDecoder>(
+    wideDefineDecoder_ = std::make_unique<arrow::util::RleDecoder>(
         reinterpret_cast<const uint8_t*>(pageData_),
         defineLength,
         ::arrow::bit_util::NumRequiredBits(maxDefine_));
@@ -280,7 +280,7 @@ void PageReader::prepareDataPageV2(const PageHeader& pageHeader, int64_t row) {
   pageData_ = readBytes(bytes, pageBuffer_);
 
   if (repeatLength) {
-    repeatDecoder_ = std::make_unique<::arrow::util::RleDecoder>(
+    repeatDecoder_ = std::make_unique<arrow::util::RleDecoder>(
         reinterpret_cast<const uint8_t*>(pageData_),
         repeatLength,
         ::arrow::bit_util::NumRequiredBits(maxRepeat_));

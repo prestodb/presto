@@ -307,7 +307,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       int compression_level,
       bool enable_checksum) {
     std::vector<uint8_t> valid_bits(
-        bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1,
+        ::arrow::bit_util::BytesForBits(
+            static_cast<uint32_t>(this->values_.size())) +
+            1,
         255);
     ColumnProperties column_properties(
         encoding, compression, enable_dictionary, enable_statistics);

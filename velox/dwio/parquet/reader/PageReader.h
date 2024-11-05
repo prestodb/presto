@@ -27,8 +27,7 @@
 #include "velox/dwio/parquet/reader/ParquetTypeWithId.h"
 #include "velox/dwio/parquet/reader/RleBpDataDecoder.h"
 #include "velox/dwio/parquet/reader/StringDecoder.h"
-
-#include <arrow/util/rle_encoding.h>
+#include "velox/dwio/parquet/writer/arrow/util/RleEncodingInternal.h"
 
 namespace facebook::velox::parquet {
 
@@ -376,8 +375,10 @@ class PageReader {
   // Decoder for single bit definition levels. the arrow decoders are used for
   // multibit levels pending fixing RleBpDecoder for the case.
   std::unique_ptr<RleBpDecoder> defineDecoder_;
-  std::unique_ptr<::arrow::util::RleDecoder> repeatDecoder_;
-  std::unique_ptr<::arrow::util::RleDecoder> wideDefineDecoder_;
+  std::unique_ptr<::facebook::velox::parquet::arrow::util::RleDecoder>
+      repeatDecoder_;
+  std::unique_ptr<::facebook::velox::parquet::arrow::util::RleDecoder>
+      wideDefineDecoder_;
 
   // True for a leaf column for which repdefs are loaded for the whole column
   // chunk. This is typically the leaftmost leaf of a list. Other leaves under

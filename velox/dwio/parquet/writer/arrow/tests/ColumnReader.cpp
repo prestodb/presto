@@ -36,14 +36,12 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/type.h"
-#include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle_encoding.h"
 #include "velox/dwio/parquet/writer/arrow/ColumnPage.h"
 #include "velox/dwio/parquet/writer/arrow/Encoding.h"
 #include "velox/dwio/parquet/writer/arrow/EncryptionInternal.h"
@@ -53,6 +51,8 @@
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
 #include "velox/dwio/parquet/writer/arrow/Statistics.h"
 #include "velox/dwio/parquet/writer/arrow/ThriftInternal.h"
+#include "velox/dwio/parquet/writer/arrow/util/BitStreamUtilsInternal.h"
+#include "velox/dwio/parquet/writer/arrow/util/RleEncodingInternal.h"
 
 using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
@@ -114,7 +114,7 @@ int LevelDecoder::SetData(
   int32_t num_bytes = 0;
   encoding_ = encoding;
   num_values_remaining_ = num_buffered_values;
-  bit_width_ = bit_util::Log2(max_level + 1);
+  bit_width_ = ::arrow::bit_util::Log2(max_level + 1);
   switch (encoding) {
     case Encoding::RLE: {
       if (data_size < 4) {
@@ -127,7 +127,7 @@ int LevelDecoder::SetData(
       }
       const uint8_t* decoder_data = data + 4;
       if (!rle_decoder_) {
-        rle_decoder_ = std::make_unique<::arrow::util::RleDecoder>(
+        rle_decoder_ = std::make_unique<arrow::util::RleDecoder>(
             decoder_data, num_bytes, bit_width_);
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
@@ -140,14 +140,15 @@ int LevelDecoder::SetData(
         throw ParquetException(
             "Number of buffered values too large (corrupt data page?)");
       }
-      num_bytes = static_cast<int32_t>(bit_util::BytesForBits(num_bits));
+      num_bytes =
+          static_cast<int32_t>(::arrow::bit_util::BytesForBits(num_bits));
       if (num_bytes < 0 || num_bytes > data_size - 4) {
         throw ParquetException(
             "Received invalid number of bytes (corrupt data page?)");
       }
       if (!bit_packed_decoder_) {
         bit_packed_decoder_ =
-            std::make_unique<::arrow::bit_util::BitReader>(data, num_bytes);
+            std::make_unique<arrow::bit_util::BitReader>(data, num_bytes);
       } else {
         bit_packed_decoder_->Reset(data, num_bytes);
       }
@@ -172,11 +173,11 @@ void LevelDecoder::SetDataV2(
   }
   encoding_ = Encoding::RLE;
   num_values_remaining_ = num_buffered_values;
-  bit_width_ = bit_util::Log2(max_level + 1);
+  bit_width_ = ::arrow::bit_util::Log2(max_level + 1);
 
   if (!rle_decoder_) {
-    rle_decoder_ = std::make_unique<::arrow::util::RleDecoder>(
-        data, num_bytes, bit_width_);
+    rle_decoder_ =
+        std::make_unique<arrow::util::RleDecoder>(data, num_bytes, bit_width_);
   } else {
     rle_decoder_->Reset(data, num_bytes, bit_width_);
   }
@@ -1670,7 +1671,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     std::shared_ptr<::arrow::ResizableBuffer> valid_bits;
     valid_bits = AllocateBuffer(this->pool_);
     PARQUET_THROW_NOT_OK(valid_bits->Resize(
-        bit_util::BytesForBits(skipped_records),
+        ::arrow::bit_util::BytesForBits(skipped_records),
         /*shrink_to_fit=*/true));
     ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = skipped_records;
@@ -1867,7 +1868,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     if (nullable_values()) {
       auto result = valid_bits_;
       PARQUET_THROW_NOT_OK(result->Resize(
-          bit_util::BytesForBits(values_written_),
+          ::arrow::bit_util::BytesForBits(values_written_),
           /*shrink_to_fit=*/true));
       valid_bits_ = AllocateBuffer(this->pool_);
       return result;
@@ -1943,7 +1944,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     if (capacity >= target_size) {
       return capacity;
     }
-    return bit_util::NextPower2(target_size);
+    return ::arrow::bit_util::NextPower2(target_size);
   }
 
   void ReserveLevels(int64_t extra_levels) {
@@ -1982,9 +1983,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       values_capacity_ = new_values_capacity;
     }
     if (nullable_values() && !read_dense_for_nullable_) {
-      int64_t valid_bytes_new = bit_util::BytesForBits(values_capacity_);
+      int64_t valid_bytes_new =
+          ::arrow::bit_util::BytesForBits(values_capacity_);
       if (valid_bits_->size() < valid_bytes_new) {
-        int64_t valid_bytes_old = bit_util::BytesForBits(values_written_);
+        int64_t valid_bytes_old =
+            ::arrow::bit_util::BytesForBits(values_written_);
         PARQUET_THROW_NOT_OK(
             valid_bits_->Resize(valid_bytes_new, /*shrink_to_fit=*/false));
 

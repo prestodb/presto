@@ -361,7 +361,9 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
-        bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1,
+        ::arrow::bit_util::BytesForBits(
+            static_cast<uint32_t>(this->values_.size())) +
+            1,
         255);
     statistics3->UpdateSpaced(
         this->values_ptr_,

@@ -29,6 +29,8 @@
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
 #include "velox/dwio/parquet/writer/arrow/Schema.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
+#include "velox/dwio/parquet/writer/arrow/util/BitStreamUtilsInternal.h"
+#include "velox/dwio/parquet/writer/arrow/util/RleEncodingInternal.h"
 
 namespace arrow {
 
@@ -106,8 +108,8 @@ class PARQUET_EXPORT LevelDecoder {
   int bit_width_;
   int num_values_remaining_;
   Encoding::type encoding_;
-  std::unique_ptr<::arrow::util::RleDecoder> rle_decoder_;
-  std::unique_ptr<::arrow::bit_util::BitReader> bit_packed_decoder_;
+  std::unique_ptr<arrow::util::RleDecoder> rle_decoder_;
+  std::unique_ptr<arrow::bit_util::BitReader> bit_packed_decoder_;
   int16_t max_level_;
 };
 

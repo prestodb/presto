@@ -31,20 +31,17 @@ namespace arrow {
 
 class Array;
 
+} // namespace arrow
+
+namespace facebook::velox::parquet::arrow {
+
 namespace bit_util {
 class BitWriter;
 } // namespace bit_util
 
 namespace util {
-class RleEncoder;
-} // namespace util
-
-} // namespace arrow
-
-namespace facebook::velox::parquet::arrow {
-
-namespace util {
 class CodecOptions;
+class RleEncoder;
 } // namespace util
 
 struct ArrowWriteContext;
@@ -92,8 +89,8 @@ class PARQUET_EXPORT LevelEncoder {
   int bit_width_;
   int rle_length_;
   Encoding::type encoding_;
-  std::unique_ptr<::arrow::util::RleEncoder> rle_encoder_;
-  std::unique_ptr<::arrow::bit_util::BitWriter> bit_packed_encoder_;
+  std::unique_ptr<util::RleEncoder> rle_encoder_;
+  std::unique_ptr<bit_util::BitWriter> bit_packed_encoder_;
 };
 
 class PARQUET_EXPORT PageWriter {
