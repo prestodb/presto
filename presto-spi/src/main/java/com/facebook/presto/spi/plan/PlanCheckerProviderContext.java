@@ -11,13 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.spi.plan;
 
-import java.util.Map;
+import static java.util.Objects.requireNonNull;
 
-public interface PlanCheckerProviderFactory
+public class PlanCheckerProviderContext
 {
-    String getName();
+    private final SimplePlanFragmentSerde simplePlanFragmentSerde;
 
-    PlanCheckerProvider create(Map<String, String> properties, PlanCheckerProviderContext planCheckerProviderContext);
+    public PlanCheckerProviderContext(SimplePlanFragmentSerde simplePlanFragmentSerde)
+    {
+        this.simplePlanFragmentSerde = requireNonNull(simplePlanFragmentSerde, "simplePlanFragmentSerde is null");
+    }
+
+    public SimplePlanFragmentSerde getSimplePlanFragmentSerde()
+    {
+        return simplePlanFragmentSerde;
+    }
 }
