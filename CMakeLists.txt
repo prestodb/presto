@@ -386,19 +386,14 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-  if(ON_APPLE_M1)
-    execute_process(
-      COMMAND brew --prefix icu4c
-      RESULT_VARIABLE BREW_ICU4C
-      OUTPUT_VARIABLE BREW_ICU4C_PREFIX
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(BREW_ICU4C EQUAL 0 AND EXISTS "${BREW_ICU4C_PREFIX}")
-      message(
-        STATUS "Found icu4c installed by Homebrew at ${BREW_ICU4C_PREFIX}")
-      list(APPEND CMAKE_PREFIX_PATH "${BREW_ICU4C_PREFIX}")
-    else()
-      list(APPEND CMAKE_PREFIX_PATH "/usr/local/opt/icu4c")
-    endif()
+  execute_process(
+    COMMAND brew --prefix icu4c
+    RESULT_VARIABLE BREW_ICU4C
+    OUTPUT_VARIABLE BREW_ICU4C_PREFIX
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(BREW_ICU4C EQUAL 0 AND EXISTS "${BREW_ICU4C_PREFIX}")
+    message(STATUS "Found icu4c installed by Homebrew at ${BREW_ICU4C_PREFIX}")
+    list(APPEND CMAKE_PREFIX_PATH "${BREW_ICU4C_PREFIX}")
   else()
     list(APPEND CMAKE_PREFIX_PATH "/usr/local/opt/icu4c")
   endif()
