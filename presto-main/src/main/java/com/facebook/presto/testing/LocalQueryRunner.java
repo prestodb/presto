@@ -190,6 +190,7 @@ import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManagerConfig;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -439,7 +440,7 @@ public class LocalQueryRunner
                 new AnalyzePropertyManager(),
                 transactionManager);
         this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSchedulerConfig);
-        this.planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(jsonCodec(SimplePlanFragment.class)));
+        this.planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(jsonCodec(SimplePlanFragment.class)), new PlanCheckerProviderManagerConfig());
         this.distributedPlanChecker = new PlanChecker(featuresConfig, false, planCheckerProviderManager);
         this.singleNodePlanChecker = new PlanChecker(featuresConfig, true, planCheckerProviderManager);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), featuresConfig, planCheckerProviderManager);

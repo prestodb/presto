@@ -42,6 +42,7 @@ import org.testng.annotations.Test;
 import javax.ws.rs.core.Response.Status;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -59,7 +60,9 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDao;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
@@ -88,7 +91,9 @@ public class TestQueues
     public void setup()
             throws Exception
     {
-        queryRunner = getSimpleQueryRunner();
+        Map<String, String> coordinatorProperties = ImmutableMap.of("plan-checker.config-dir", "src/test/resources/plan-checker-providers");
+        String dbConfigUrl = getDbConfigUrl();
+        queryRunner = createQueryRunner(dbConfigUrl, getDao(dbConfigUrl), coordinatorProperties, 1);
         queryRunner.installPlugin(new BlackHolePlugin());
         queryRunner.createCatalog("blackhole", "blackhole");
         queryRunner.execute(

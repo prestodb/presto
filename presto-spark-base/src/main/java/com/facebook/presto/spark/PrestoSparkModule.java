@@ -192,6 +192,7 @@ import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManagerConfig;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.tracing.TracerProviderManager;
@@ -276,6 +277,7 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(NativeExecutionSystemConfig.class);
         configBinder(binder).bindConfig(NativeExecutionNodeConfig.class);
         configBinder(binder).bindConfig(NativeExecutionConnectorConfig.class);
+        configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
 
         // json codecs
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
