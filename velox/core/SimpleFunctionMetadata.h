@@ -394,6 +394,49 @@ class ISimpleFunctionMetadata {
   virtual bool physicalSignatureEquals(
       const ISimpleFunctionMetadata& other) const = 0;
   virtual std::string helpMessage(const std::string& name) const = 0;
+
+  /// Returns string of all the fields such as logical signature,
+  /// physical signature and priority.
+  std::string toDebugString() const {
+    auto logicalArguments = argumentToString<exec::TypeSignature>(
+        signature()->argumentTypes(), signature()->variableArity());
+    auto physicalArguments = argumentToString<TypePtr>(
+        argPhysicalTypes(), signature()->variableArity());
+
+    return fmt::format(
+        "Logical signature: ({}) -> {}\nPhysical signature: ({}) -> {}\n"
+        "Priority: {}\nDefaultNullBehavior: {}",
+        logicalArguments,
+        signature()->returnType().toString(),
+        physicalArguments,
+        resultPhysicalType()->toString(),
+        priority(),
+        defaultNullBehavior());
+  }
+
+ protected:
+  template <typename T>
+  static std::string argumentToString(
+      const std::vector<T>& arguments,
+      bool isVariadic) {
+    std::stringstream ss;
+    bool first = true;
+    for (const auto& arg : arguments) {
+      if (!first) {
+        ss << ", ";
+      }
+      first = false;
+      if constexpr (std::is_same_v<T, exec::TypeSignature>) {
+        ss << arg.toString();
+      } else {
+        ss << arg->toString();
+      }
+    }
+    if (isVariadic) {
+      ss << "...";
+    }
+    return ss.str();
+  }
 };
 
 template <typename T, typename = int32_t>
@@ -516,24 +559,11 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
   }
 
   std::string helpMessage(const std::string& name) const final {
-    // return fmt::format("{}({})", name, signature_->toString());
-    std::string s{name};
-    s.append("(");
-    bool first = true;
-    for (auto& arg : signature_->argumentTypes()) {
-      if (!first) {
-        s.append(", ");
-      }
-      first = false;
-      s.append(boost::algorithm::to_upper_copy(arg.toString()));
-    }
-
-    if (isVariadic()) {
-      s.append("...");
-    }
-
-    s.append(")");
-    return s;
+    return fmt::format(
+        "{} ({})",
+        name,
+        argumentToString<exec::TypeSignature>(
+            signature_->argumentTypes(), isVariadic()));
   }
 
  private:
@@ -839,9 +869,9 @@ class UDFHolder {
   // null, without calling the function implementation.
   static constexpr bool is_default_null_behavior = !udf_has_callNullable;
 
-  // If any of the the provided "call" flavors can produce null (in case any of
-  // them return bool). This is only false if all the call methods provided for
-  // a function return void.
+  // If any of the the provided "call" flavors can produce null (in case any
+  // of them return bool). This is only false if all the call methods provided
+  // for a function return void.
   static constexpr bool can_produce_null_output = udf_has_call_return_bool |
       udf_has_callNullable_return_bool | udf_has_callNullFree_return_bool |
       udf_has_callAscii_return_bool;
