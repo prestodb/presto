@@ -16,7 +16,7 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.QueryRunner;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitemForIceberg;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitemStandard;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNationWithFormat;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart;
@@ -32,7 +32,7 @@ public abstract class AbstractTestNativeIcebergTpchQueries
     protected void createTables()
     {
         QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
-        createLineitemForIceberg(queryRunner);
+        createLineitemStandard(queryRunner);
         createOrders(queryRunner);
         createNationWithFormat(queryRunner, storageFormat);
         createCustomer(queryRunner);
