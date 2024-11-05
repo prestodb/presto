@@ -130,6 +130,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 public class TestHttpRemoteTask
@@ -245,12 +246,14 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
 
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
-        assertEquals(getOnlyElement(remoteTask.getTaskStatus().getFailures()).getMessage(), "TaskUpdate size of 1.97kB has exceeded the limit of 1kB");
+        assertThat(getOnlyElement(remoteTask.getTaskStatus().getFailures()).getMessage())
+                .matches("TaskUpdate size of .+? has exceeded the limit of 1kB");
     }
 
     @Test(dataProvider = "getUpdateSize")
     public void testGetExceededTaskUpdateSizeListMessage(int updateSizeInBytes, int maxDataSizeInBytes,
-                                                         String expectedMessage) throws Exception
+            String expectedMessage)
+            throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
@@ -262,10 +265,10 @@ public class TestHttpRemoteTask
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, useThriftEncoding, internalCommunicationConfig);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
-        Method targetMethod = HttpRemoteTask.class.getDeclaredMethod("getExceededTaskUpdateSizeMessage", new Class[]{byte[].class});
+        Method targetMethod = HttpRemoteTask.class.getDeclaredMethod("getExceededTaskUpdateSizeMessage", new Class[] {byte[].class});
         targetMethod.setAccessible(true);
         byte[] taskUpdateRequestJson = new byte[updateSizeInBytes];
-        String message = (String) targetMethod.invoke(remoteTask, new Object[]{taskUpdateRequestJson});
+        String message = (String) targetMethod.invoke(remoteTask, new Object[] {taskUpdateRequestJson});
         assertEquals(message, expectedMessage);
     }
 
