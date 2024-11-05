@@ -25,35 +25,46 @@ using common::testutil::ScopedTestTime;
 
 #ifndef NDEBUG
 
-size_t getCurrentTimeSec() {
+uint64_t getCurrentTimeSec() {
   return ScopedTestTime::getCurrentTestTimeSec().value_or(
       duration_cast<seconds>(system_clock::now().time_since_epoch()).count());
 }
 
-size_t getCurrentTimeMs() {
+uint64_t getCurrentTimeMs() {
   return ScopedTestTime::getCurrentTestTimeMs().value_or(
       duration_cast<milliseconds>(system_clock::now().time_since_epoch())
           .count());
 }
 
-size_t getCurrentTimeMicro() {
+uint64_t getCurrentTimeMicro() {
   return ScopedTestTime::getCurrentTestTimeMicro().value_or(
       duration_cast<microseconds>(system_clock::now().time_since_epoch())
           .count());
 }
+
+uint64_t getCurrentTimeNano() {
+  return ScopedTestTime::getCurrentTestTimeNano().value_or(
+      duration_cast<nanoseconds>(system_clock::now().time_since_epoch())
+          .count());
+}
 #else
 
-size_t getCurrentTimeSec() {
+uint64_t getCurrentTimeSec() {
   return duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
 }
 
-size_t getCurrentTimeMs() {
+uint64_t getCurrentTimeMs() {
   return duration_cast<milliseconds>(system_clock::now().time_since_epoch())
       .count();
 }
 
-size_t getCurrentTimeMicro() {
+uint64_t getCurrentTimeMicro() {
   return duration_cast<microseconds>(system_clock::now().time_since_epoch())
+      .count();
+}
+
+uint64_t getCurrentTimeNano() {
+  return duration_cast<nanoseconds>(system_clock::now().time_since_epoch())
       .count();
 }
 #endif

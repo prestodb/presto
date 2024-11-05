@@ -53,8 +53,8 @@ class SharedArbitratorTestHelper {
     }
   }
 
-  uint64_t maxArbitrationTimeMs() const {
-    return arbitrator_->maxArbitrationTimeMs_;
+  uint64_t maxArbitrationTimeNs() const {
+    return arbitrator_->maxArbitrationTimeNs_;
   }
 
   folly::CPUThreadPoolExecutor* memoryReclaimExecutor() const {

@@ -31,10 +31,10 @@ using namespace facebook::velox::memory;
 ArbitrationOperation::ArbitrationOperation(
     ScopedArbitrationParticipant&& participant,
     uint64_t requestBytes,
-    uint64_t timeoutMs)
+    uint64_t timeoutNs)
     : requestBytes_(requestBytes),
-      timeoutMs_(timeoutMs),
-      createTimeMs_(getCurrentTimeMs()),
+      timeoutNs_(timeoutNs),
+      createTimeNs_(getCurrentTimeNano()),
       participant_(std::move(participant)) {
   VELOX_CHECK_GT(requestBytes_, 0);
 }
@@ -84,14 +84,14 @@ void ArbitrationOperation::start() {
   VELOX_CHECK_EQ(state_, State::kInit);
   participant_->startArbitration(this);
   setState(ArbitrationOperation::State::kRunning);
-  VELOX_CHECK_EQ(startTimeMs_, 0);
-  startTimeMs_ = getCurrentTimeMs();
+  VELOX_CHECK_EQ(startTimeNs_, 0);
+  startTimeNs_ = getCurrentTimeNano();
 }
 
 void ArbitrationOperation::finish() {
   setState(State::kFinished);
-  VELOX_CHECK_EQ(finishTimeMs_, 0);
-  finishTimeMs_ = getCurrentTimeMs();
+  VELOX_CHECK_EQ(finishTimeNs_, 0);
+  finishTimeNs_ = getCurrentTimeNano();
   participant_->finishArbitration(this);
 }
 
@@ -99,30 +99,30 @@ bool ArbitrationOperation::aborted() const {
   return participant_->aborted();
 }
 
-size_t ArbitrationOperation::executionTimeMs() const {
+uint64_t ArbitrationOperation::executionTimeNs() const {
   if (state_ == State::kFinished) {
-    VELOX_CHECK_GE(finishTimeMs_, createTimeMs_);
-    return finishTimeMs_ - createTimeMs_;
+    VELOX_CHECK_GE(finishTimeNs_, createTimeNs_);
+    return finishTimeNs_ - createTimeNs_;
   } else {
-    const auto currentTimeMs = getCurrentTimeMs();
-    VELOX_CHECK_GE(currentTimeMs, createTimeMs_);
-    return currentTimeMs - createTimeMs_;
+    const auto currentTimeNs = getCurrentTimeNano();
+    VELOX_CHECK_GE(currentTimeNs, createTimeNs_);
+    return currentTimeNs - createTimeNs_;
   }
 }
 
 bool ArbitrationOperation::hasTimeout() const {
-  return state_ != State::kFinished && timeoutMs() <= 0;
+  return state_ != State::kFinished && timeoutNs() <= 0;
 }
 
-size_t ArbitrationOperation::timeoutMs() const {
+uint64_t ArbitrationOperation::timeoutNs() const {
   if (state_ == State::kFinished) {
     return 0;
   }
-  const auto execTimeMs = executionTimeMs();
-  if (execTimeMs >= timeoutMs_) {
+  const auto execTimeNs = executionTimeNs();
+  if (execTimeNs >= timeoutNs_) {
     return 0;
   }
-  return timeoutMs_ - execTimeMs;
+  return timeoutNs_ - execTimeNs;
 }
 
 void ArbitrationOperation::setGrowTargets() {
@@ -139,28 +139,28 @@ void ArbitrationOperation::setGrowTargets() {
 
 ArbitrationOperation::Stats ArbitrationOperation::stats() const {
   VELOX_CHECK_EQ(state_, State::kFinished);
-  VELOX_CHECK_NE(startTimeMs_, 0);
+  VELOX_CHECK_NE(startTimeNs_, 0);
 
-  const uint64_t executionTimeMs = this->executionTimeMs();
+  const uint64_t executionTimeNs = this->executionTimeNs();
 
-  VELOX_CHECK_GE(startTimeMs_, createTimeMs_);
-  const uint64_t localArbitrationWaitTimeMs = startTimeMs_ - createTimeMs_;
-  if (globalArbitrationStartTimeMs_ == 0) {
+  VELOX_CHECK_GE(startTimeNs_, createTimeNs_);
+  const uint64_t localArbitrationWaitTimeNs = startTimeNs_ - createTimeNs_;
+  if (globalArbitrationStartTimeNs_ == 0) {
     return {
-        localArbitrationWaitTimeMs,
-        finishTimeMs_ - startTimeMs_,
+        localArbitrationWaitTimeNs,
+        finishTimeNs_ - startTimeNs_,
         0,
-        executionTimeMs};
+        executionTimeNs};
   }
 
-  VELOX_CHECK_GE(globalArbitrationStartTimeMs_, startTimeMs_);
-  const uint64_t localArbitrationExecTimeMs =
-      globalArbitrationStartTimeMs_ - startTimeMs_;
+  VELOX_CHECK_GE(globalArbitrationStartTimeNs_, startTimeNs_);
+  const uint64_t localArbitrationExecTimeNs =
+      globalArbitrationStartTimeNs_ - startTimeNs_;
   return {
-      localArbitrationWaitTimeMs,
-      localArbitrationExecTimeMs,
-      finishTimeMs_ - globalArbitrationStartTimeMs_,
-      executionTimeMs};
+      localArbitrationWaitTimeNs,
+      localArbitrationExecTimeNs,
+      finishTimeNs_ - globalArbitrationStartTimeNs_,
+      executionTimeNs};
 }
 
 std::ostream& operator<<(std::ostream& out, ArbitrationOperation::State state) {

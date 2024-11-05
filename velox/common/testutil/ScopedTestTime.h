@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cstdint>
 #include <optional>
 
 namespace facebook::velox::common::testutil {
@@ -24,18 +25,20 @@ class ScopedTestTime {
   ScopedTestTime();
   ~ScopedTestTime();
 
-  void setCurrentTestTimeSec(size_t currentTimeSec);
-  void setCurrentTestTimeMs(size_t currentTimeMs);
-  void setCurrentTestTimeMicro(size_t currentTimeUs);
+  void setCurrentTestTimeSec(uint64_t currentTimeSec);
+  void setCurrentTestTimeMs(uint64_t currentTimeMs);
+  void setCurrentTestTimeMicro(uint64_t currentTimeUs);
+  void setCurrentTestTimeNano(uint64_t currentTimeNs);
 
-  static std::optional<size_t> getCurrentTestTimeSec();
-  static std::optional<size_t> getCurrentTestTimeMs();
-  static std::optional<size_t> getCurrentTestTimeMicro();
+  static std::optional<uint64_t> getCurrentTestTimeSec();
+  static std::optional<uint64_t> getCurrentTestTimeMs();
+  static std::optional<uint64_t> getCurrentTestTimeMicro();
+  static std::optional<uint64_t> getCurrentTestTimeNano();
 
  private:
   // Used to verify only one instance of ScopedTestTime exists at a time.
   static bool enabled_;
   // The overridden value of current time only.
-  static std::optional<size_t> testTimeUs_;
+  static std::optional<uint64_t> testTimeNs_;
 };
 } // namespace facebook::velox::common::testutil

@@ -20,7 +20,7 @@
 
 namespace facebook::velox::common::testutil {
 bool ScopedTestTime::enabled_ = false;
-std::optional<size_t> ScopedTestTime::testTimeUs_ = {};
+std::optional<uint64_t> ScopedTestTime::testTimeNs_ = {};
 
 ScopedTestTime::ScopedTestTime() {
 #ifndef NDEBUG
@@ -32,32 +32,42 @@ ScopedTestTime::ScopedTestTime() {
 }
 
 ScopedTestTime::~ScopedTestTime() {
-  testTimeUs_.reset();
+  testTimeNs_.reset();
   enabled_ = false;
 }
 
-void ScopedTestTime::setCurrentTestTimeSec(size_t currentTimeSec) {
-  setCurrentTestTimeMicro(currentTimeSec * 1000000);
+void ScopedTestTime::setCurrentTestTimeSec(uint64_t currentTimeSec) {
+  setCurrentTestTimeNano(currentTimeSec * 1'000'000'000UL);
 }
 
-void ScopedTestTime::setCurrentTestTimeMs(size_t currentTimeMs) {
-  setCurrentTestTimeMicro(currentTimeMs * 1000);
+void ScopedTestTime::setCurrentTestTimeMs(uint64_t currentTimeMs) {
+  setCurrentTestTimeNano(currentTimeMs * 1'000'000UL);
 }
 
-void ScopedTestTime::setCurrentTestTimeMicro(size_t currentTimeUs) {
-  testTimeUs_ = currentTimeUs;
+void ScopedTestTime::setCurrentTestTimeMicro(uint64_t currentTimeUs) {
+  setCurrentTestTimeNano(currentTimeUs * 1'000UL);
 }
 
-std::optional<size_t> ScopedTestTime::getCurrentTestTimeSec() {
-  return testTimeUs_.has_value() ? std::make_optional(*testTimeUs_ / 1000000L)
-                                 : testTimeUs_;
-}
-std::optional<size_t> ScopedTestTime::getCurrentTestTimeMs() {
-  return testTimeUs_.has_value() ? std::make_optional(*testTimeUs_ / 1000L)
-                                 : testTimeUs_;
+void ScopedTestTime::setCurrentTestTimeNano(uint64_t currentTimeNs) {
+  testTimeNs_ = currentTimeNs;
 }
 
-std::optional<size_t> ScopedTestTime::getCurrentTestTimeMicro() {
-  return testTimeUs_;
+std::optional<uint64_t> ScopedTestTime::getCurrentTestTimeSec() {
+  return testTimeNs_.has_value()
+      ? std::make_optional(*testTimeNs_ / 1'000'000'000L)
+      : testTimeNs_;
+}
+std::optional<uint64_t> ScopedTestTime::getCurrentTestTimeMs() {
+  return testTimeNs_.has_value() ? std::make_optional(*testTimeNs_ / 1000'000L)
+                                 : testTimeNs_;
+}
+
+std::optional<uint64_t> ScopedTestTime::getCurrentTestTimeMicro() {
+  return testTimeNs_.has_value() ? std::make_optional(*testTimeNs_ / 1000L)
+                                 : testTimeNs_;
+}
+
+std::optional<uint64_t> ScopedTestTime::getCurrentTestTimeNano() {
+  return testTimeNs_;
 }
 } // namespace facebook::velox::common::testutil

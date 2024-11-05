@@ -144,10 +144,10 @@ class ArbitrationParticipant
   }
 
   /// Returns the duration of this arbitration participant since its creation.
-  uint64_t durationUs() const {
-    const auto now = getCurrentTimeMicro();
-    VELOX_CHECK_GE(now, createTimeUs_);
-    return now - createTimeUs_;
+  uint64_t durationNs() const {
+    const auto now = getCurrentTimeNano();
+    VELOX_CHECK_GE(now, createTimeNs_);
+    return now - createTimeNs_;
   }
 
   /// Invoked to acquire a shared reference to this arbitration participant
@@ -206,11 +206,11 @@ class ArbitrationParticipant
   /// restriction.
   uint64_t shrink(bool reclaimAll = false);
 
-  // Invoked to reclaim used memory from this memory pool with specified
-  // 'targetBytes'. The function returns the actually freed capacity.
+  /// Invoked to reclaim used memory from this memory pool with specified
+  /// 'targetBytes'. The function returns the actually freed capacity.
   uint64_t reclaim(
       uint64_t targetBytes,
-      uint64_t maxWaitTimeMs,
+      uint64_t maxWaitTimeNs,
       MemoryReclaimer::Stats& stats) noexcept;
 
   /// Invoked to abort the query memory pool and returns the reclaimed bytes
@@ -226,7 +226,7 @@ class ArbitrationParticipant
   /// Invoked to wait for the pending memory reclaim or abort operation to
   /// complete within a 'maxWaitTimeMs' time window. The function returns false
   /// if the wait has timed out.
-  bool waitForReclaimOrAbort(uint64_t maxWaitTimeMs) const;
+  bool waitForReclaimOrAbort(uint64_t maxWaitTimeNs) const;
 
   /// Invoked to start arbitration operation 'op'. The operation needs to wait
   /// for the prior arbitration operations to finish first before executing to
@@ -246,7 +246,7 @@ class ArbitrationParticipant
   size_t numWaitingOps() const;
 
   struct Stats {
-    uint64_t durationUs{0};
+    uint64_t durationNs{0};
     uint32_t numRequests{0};
     uint32_t numReclaims{0};
     uint32_t numShrinks{0};
@@ -260,7 +260,7 @@ class ArbitrationParticipant
 
   Stats stats() const {
     Stats stats;
-    stats.durationUs = durationUs();
+    stats.durationNs = durationNs();
     stats.aborted = aborted_;
     stats.numRequests = numRequests_;
     stats.numGrows = numGrows_;
@@ -310,7 +310,7 @@ class ArbitrationParticipant
   MemoryPool* const pool_;
   const Config* const config_;
   const uint64_t maxCapacity_;
-  const size_t createTimeUs_;
+  const uint64_t createTimeNs_;
 
   mutable std::mutex stateLock_;
   bool aborted_{false};

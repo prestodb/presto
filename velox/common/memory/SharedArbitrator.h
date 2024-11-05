@@ -84,7 +84,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     static constexpr std::string_view kMemoryReclaimMaxWaitTime{
         "memory-reclaim-max-wait-time"};
     static constexpr std::string_view kDefaultMemoryReclaimMaxWaitTime{"5m"};
-    static uint64_t memoryReclaimMaxWaitTimeMs(
+    static uint64_t memoryReclaimMaxWaitTimeNs(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// When shrinking capacity, the shrink bytes will be adjusted in a way such
@@ -400,7 +400,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // iteration of global run should directly reclaim capacity by aborting
   // queries.
   bool globalArbitrationShouldReclaimByAbort(
-      uint64_t globalRunElapsedTimeMs,
+      uint64_t globalRunElapsedTimeNs,
       bool hasReclaimedByAbort,
       bool allParticipantsReclaimed,
       uint64_t lastReclaimedBytes) const;
@@ -503,7 +503,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   uint64_t reclaim(
       const ScopedArbitrationParticipant& participant,
       uint64_t targetBytes,
-      uint64_t timeoutMs,
+      uint64_t timeoutNs,
       bool localArbitration) noexcept;
 
   uint64_t shrink(
@@ -574,7 +574,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   void updateMemoryReclaimStats(
       uint64_t reclaimedBytes,
-      uint64_t reclaimTimeMs,
+      uint64_t reclaimTimeNs,
       bool localArbitration,
       const MemoryReclaimer::Stats& stats);
 
@@ -583,12 +583,12 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   void updateArbitrationFailureStats();
 
   void updateGlobalArbitrationStats(
-      uint64_t arbitrationTimeMs,
+      uint64_t arbitrationTimeNs,
       uint64_t arbitrationBytes);
 
   const uint64_t reservedCapacity_;
   const bool checkUsageLeak_;
-  const uint64_t maxArbitrationTimeMs_;
+  const uint64_t maxArbitrationTimeNs_;
   const ArbitrationParticipant::Config participantConfig_;
   const double memoryReclaimThreadsHwMultiplier_;
   const bool globalArbitrationEnabled_;
@@ -646,7 +646,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   std::map<uint64_t, ArbitrationWait*> globalArbitrationWaiters_;
 
   tsan_atomic<uint64_t> globalArbitrationRuns_{0};
-  tsan_atomic<uint64_t> globalArbitrationTimeMs_{0};
+  tsan_atomic<uint64_t> globalArbitrationTimeNs_{0};
   tsan_atomic<uint64_t> globalArbitrationBytes_{0};
 
   std::atomic_uint64_t numRequests_{0};

@@ -61,6 +61,23 @@ DEBUG_ONLY_TEST(TestScopedTestTime, testSetCurrentTimeMicro) {
   ASSERT_NE(getCurrentTimeMicro(), 2000);
 }
 
+DEBUG_ONLY_TEST(TestScopedTestTime, testSetCurrentTimeNano) {
+  {
+    ScopedTestTime scopedTestTime;
+    scopedTestTime.setCurrentTestTimeNano(1000);
+    ASSERT_EQ(getCurrentTimeMicro(), 1);
+    ASSERT_EQ(getCurrentTimeNano(), 1000);
+    scopedTestTime.setCurrentTestTimeNano(2000);
+    ASSERT_EQ(getCurrentTimeMicro(), 2);
+    ASSERT_EQ(getCurrentTimeNano(), 2000);
+  }
+
+  // This should be the actual time, so we don't know what it is, but it
+  // shouldn't be equal to the overridden value.
+  ASSERT_NE(getCurrentTimeMicro(), 2);
+  ASSERT_NE(getCurrentTimeNano(), 2000);
+}
+
 DEBUG_ONLY_TEST(TestScopedTestTime, multipleScopedTestTimes) {
   {
     ScopedTestTime scopedTestTime;

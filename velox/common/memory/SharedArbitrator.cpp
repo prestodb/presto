@@ -103,9 +103,9 @@ uint64_t SharedArbitrator::ExtraConfig::memoryPoolReservedCapacity(
       config::CapacityUnit::BYTE);
 }
 
-uint64_t SharedArbitrator::ExtraConfig::memoryReclaimMaxWaitTimeMs(
+uint64_t SharedArbitrator::ExtraConfig::memoryReclaimMaxWaitTimeNs(
     const std::unordered_map<std::string, std::string>& configs) {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
              config::toDuration(getConfig<std::string>(
                  configs,
                  kMemoryReclaimMaxWaitTime,
@@ -214,8 +214,8 @@ SharedArbitrator::SharedArbitrator(const Config& config)
     : MemoryArbitrator(config),
       reservedCapacity_(ExtraConfig::reservedCapacity(config.extraConfigs)),
       checkUsageLeak_(ExtraConfig::checkUsageLeak(config.extraConfigs)),
-      maxArbitrationTimeMs_(
-          ExtraConfig::memoryReclaimMaxWaitTimeMs(config.extraConfigs)),
+      maxArbitrationTimeNs_(
+          ExtraConfig::memoryReclaimMaxWaitTimeNs(config.extraConfigs)),
       participantConfig_(
           ExtraConfig::memoryPoolInitialCapacity(config.extraConfigs),
           ExtraConfig::memoryPoolReservedCapacity(config.extraConfigs),
@@ -241,7 +241,7 @@ SharedArbitrator::SharedArbitrator(const Config& config)
   VELOX_CHECK_EQ(kind_, config.kind);
   VELOX_CHECK_LE(reservedCapacity_, capacity_);
   VELOX_CHECK_GT(
-      maxArbitrationTimeMs_, 0, "maxArbitrationTimeMs can't be zero");
+      maxArbitrationTimeNs_, 0, "maxArbitrationTimeNs can't be zero");
 
   VELOX_CHECK_LE(
       globalArbitrationMemoryReclaimPct_,
@@ -270,7 +270,7 @@ SharedArbitrator::SharedArbitrator(const Config& config)
                       << " reserved capacity";
   if (globalArbitrationEnabled_) {
     VELOX_MEM_LOG(INFO) << "Arbitration config: max arbitration time "
-                        << succinctMillis(maxArbitrationTimeMs_)
+                        << succinctNanos(maxArbitrationTimeNs_)
                         << ", global memory reclaim percentage "
                         << globalArbitrationMemoryReclaimPct_
                         << ", global arbitration abort time ratio "
@@ -385,39 +385,34 @@ void SharedArbitrator::finishArbitration(ArbitrationOperation* op) {
   op->finish();
 
   const auto stats = op->stats();
-  if (stats.executionTimeMs != 0) {
+  if (stats.executionTimeNs != 0) {
     RECORD_HISTOGRAM_METRIC_VALUE(
-        kMetricArbitratorOpExecTimeMs, stats.executionTimeMs);
+        kMetricArbitratorOpExecTimeMs, stats.executionTimeNs / 1'000'000);
     addThreadLocalRuntimeStat(
         kMemoryArbitrationWallNanos,
-        RuntimeCounter(
-            stats.executionTimeMs * 1'000 * 1'000,
-            RuntimeCounter::Unit::kNanos));
+        RuntimeCounter(stats.executionTimeNs, RuntimeCounter::Unit::kNanos));
   }
 
-  if (stats.localArbitrationWaitTimeMs != 0) {
+  if (stats.localArbitrationWaitTimeNs != 0) {
     addThreadLocalRuntimeStat(
         kLocalArbitrationWaitWallNanos,
         RuntimeCounter(
-            stats.localArbitrationWaitTimeMs * 1'000 * 1'000,
-            RuntimeCounter::Unit::kNanos));
+            stats.localArbitrationWaitTimeNs, RuntimeCounter::Unit::kNanos));
   }
-  if (stats.localArbitrationExecTimeMs != 0) {
+  if (stats.localArbitrationExecTimeNs != 0) {
     addThreadLocalRuntimeStat(
         kLocalArbitrationExecutionWallNanos,
         RuntimeCounter(
-            stats.localArbitrationExecTimeMs * 1'000 * 1'000,
-            RuntimeCounter::Unit::kNanos));
+            stats.localArbitrationExecTimeNs, RuntimeCounter::Unit::kNanos));
   }
-  if (stats.globalArbitrationWaitTimeMs != 0) {
+  if (stats.globalArbitrationWaitTimeNs != 0) {
     addThreadLocalRuntimeStat(
         kGlobalArbitrationWaitWallNanos,
         RuntimeCounter(
-            stats.globalArbitrationWaitTimeMs * 1'000 * 1'000,
-            RuntimeCounter::Unit::kNanos));
+            stats.globalArbitrationWaitTimeNs, RuntimeCounter::Unit::kNanos));
     RECORD_HISTOGRAM_METRIC_VALUE(
         kMetricArbitratorGlobalArbitrationWaitTimeMs,
-        stats.globalArbitrationWaitTimeMs);
+        stats.globalArbitrationWaitTimeNs / 1'000'000);
   }
 }
 
@@ -655,7 +650,7 @@ uint64_t SharedArbitrator::shrinkCapacity(
 
   const uint64_t targetBytes = requestBytes == 0 ? capacity_ : requestBytes;
   ScopedMemoryArbitrationContext abitrationCtx{};
-  const uint64_t startTimeMs = getCurrentTimeMs();
+  const uint64_t startTimeNs = getCurrentTimeNano();
 
   uint64_t totalReclaimedBytes{0};
   if (allowSpill) {
@@ -675,13 +670,13 @@ uint64_t SharedArbitrator::shrinkCapacity(
     }
   }
 
-  const uint64_t reclaimTimeMs = getCurrentTimeMs() - startTimeMs;
+  const uint64_t reclaimTimeNs = getCurrentTimeNano() - startTimeNs;
   VELOX_MEM_LOG(INFO) << "External shrink reclaimed "
                       << succinctBytes(totalReclaimedBytes) << ", spent "
-                      << succinctMillis(reclaimTimeMs) << ", spill "
+                      << succinctNanos(reclaimTimeNs) << ", spill "
                       << (allowSpill ? "allowed" : "not allowed") << ", abort "
                       << (allowSpill ? "allowed" : "not allowed");
-  updateGlobalArbitrationStats(reclaimTimeMs, totalReclaimedBytes);
+  updateGlobalArbitrationStats(reclaimTimeNs, totalReclaimedBytes);
   return totalReclaimedBytes;
 }
 
@@ -694,7 +689,7 @@ ArbitrationOperation SharedArbitrator::createArbitrationOperation(
   auto participant = getParticipant(pool->name());
   VELOX_CHECK(participant.has_value());
   return ArbitrationOperation(
-      std::move(participant.value()), requestBytes, maxArbitrationTimeMs_);
+      std::move(participant.value()), requestBytes, maxArbitrationTimeNs_);
 }
 
 bool SharedArbitrator::growCapacity(MemoryPool* pool, uint64_t requestBytes) {
@@ -756,7 +751,7 @@ bool SharedArbitrator::growCapacity(ArbitrationOperation& op) {
     reclaim(
         op.participant(),
         op.requestBytes(),
-        op.timeoutMs(),
+        op.timeoutNs(),
         /*localArbitration=*/true);
     checkIfAborted(op);
     RETURN_IF_TRUE(maybeGrowFromSelf(op));
@@ -803,13 +798,14 @@ bool SharedArbitrator::startAndWaitGlobalArbitration(ArbitrationOperation& op) {
     op.recordGlobalArbitrationStartTime();
     wakeupGlobalArbitrationThread();
 
-    const bool timeout = !std::move(arbitrationWaitFuture)
-                              .wait(std::chrono::milliseconds(op.timeoutMs()));
+    const bool timeout =
+        !std::move(arbitrationWaitFuture)
+             .wait(std::chrono::microseconds(op.timeoutNs() / 1'000));
     if (timeout) {
       VELOX_MEM_LOG(ERROR)
           << op.participant()->name()
           << " wait for memory arbitration timed out after running "
-          << succinctMillis(op.executionTimeMs());
+          << succinctNanos(op.executionTimeNs());
       removeGlobalArbitrationWaiter(op.participant()->id());
     }
 
@@ -826,16 +822,16 @@ bool SharedArbitrator::startAndWaitGlobalArbitration(ArbitrationOperation& op) {
 }
 
 void SharedArbitrator::updateGlobalArbitrationStats(
-    uint64_t arbitrationTimeMs,
+    uint64_t arbitrationTimeNs,
     uint64_t arbitrationBytes) {
-  globalArbitrationTimeMs_ += arbitrationTimeMs;
+  globalArbitrationTimeNs_ += arbitrationTimeNs;
   ++globalArbitrationRuns_;
   globalArbitrationBytes_ += arbitrationBytes;
   RECORD_METRIC_VALUE(kMetricArbitratorGlobalArbitrationCount);
   RECORD_HISTOGRAM_METRIC_VALUE(
       kMetricArbitratorGlobalArbitrationBytes, arbitrationBytes);
   RECORD_HISTOGRAM_METRIC_VALUE(
-      kMetricArbitratorGlobalArbitrationTimeMs, arbitrationTimeMs);
+      kMetricArbitratorGlobalArbitrationTimeMs, arbitrationTimeNs / 1'000'000);
 }
 
 void SharedArbitrator::globalArbitrationMain() {
@@ -858,19 +854,19 @@ void SharedArbitrator::globalArbitrationMain() {
 }
 
 bool SharedArbitrator::globalArbitrationShouldReclaimByAbort(
-    uint64_t globalRunElapsedTimeMs,
+    uint64_t globalRunElapsedTimeNs,
     bool hasReclaimedByAbort,
     bool allParticipantsReclaimed,
     uint64_t lastReclaimedBytes) const {
   return globalArbitrationWithoutSpill_ ||
-      (globalRunElapsedTimeMs >
-           maxArbitrationTimeMs_ * globalArbitrationAbortTimeRatio_ &&
+      (globalRunElapsedTimeNs >
+           maxArbitrationTimeNs_ * globalArbitrationAbortTimeRatio_ &&
        (hasReclaimedByAbort ||
         (allParticipantsReclaimed && lastReclaimedBytes == 0)));
 }
 
 void SharedArbitrator::runGlobalArbitration() {
-  const uint64_t startTimeMs = getCurrentTimeMs();
+  const uint64_t startTimeNs = getCurrentTimeNano();
   uint64_t totalReclaimedBytes{0};
   bool shouldReclaimByAbort{false};
   uint64_t reclaimedBytes{0};
@@ -883,9 +879,9 @@ void SharedArbitrator::runGlobalArbitration() {
 
   size_t round{0};
   for (;; ++round) {
-    uint64_t arbitrationTimeUs{0};
+    uint64_t arbitrationTimeNs{0};
     {
-      MicrosecondTimer timer(&arbitrationTimeUs);
+      NanosecondTimer timer(&arbitrationTimeNs);
       const uint64_t targetBytes = getGlobalArbitrationTarget();
       if (targetBytes == 0) {
         break;
@@ -894,7 +890,7 @@ void SharedArbitrator::runGlobalArbitration() {
       // Check if we need to abort participant to reclaim used memory to
       // accelerate global arbitration.
       shouldReclaimByAbort = globalArbitrationShouldReclaimByAbort(
-          getCurrentTimeMs() - startTimeMs,
+          getCurrentTimeNano() - startTimeNs,
           shouldReclaimByAbort,
           allParticipantsReclaimed,
           reclaimedBytes);
@@ -911,12 +907,12 @@ void SharedArbitrator::runGlobalArbitration() {
       reclaimUnusedCapacity();
     }
 
-    updateGlobalArbitrationStats(arbitrationTimeUs / 1'000, reclaimedBytes);
+    updateGlobalArbitrationStats(arbitrationTimeNs, reclaimedBytes);
   }
   VELOX_MEM_LOG(INFO) << "Global arbitration reclaimed "
                       << succinctBytes(totalReclaimedBytes) << " "
                       << reclaimedParticipants.size() << " victims, spent "
-                      << succinctMillis(getCurrentTimeMs() - startTimeMs)
+                      << succinctNanos(getCurrentTimeNano() - startTimeNs)
                       << " with " << round << " rounds";
 }
 
@@ -953,7 +949,7 @@ void SharedArbitrator::checkIfTimeout(ArbitrationOperation& op) {
     VELOX_MEM_ARBITRATION_TIMEOUT(fmt::format(
         "Memory arbitration timed out on memory pool: {} after running {}",
         op.participant()->name(),
-        succinctMillis(op.executionTimeMs())));
+        succinctNanos(op.executionTimeNs())));
   }
 }
 
@@ -1005,7 +1001,7 @@ bool SharedArbitrator::ensureCapacity(ArbitrationOperation& op) {
   reclaim(
       op.participant(),
       op.requestBytes(),
-      op.timeoutMs(),
+      op.timeoutNs(),
       /*localArbitration=*/true);
   // Checks if the requestor has been aborted in reclaim above.
   checkIfAborted(op);
@@ -1122,7 +1118,7 @@ uint64_t SharedArbitrator::reclaimUsedMemoryBySpill(
           const uint64_t reclaimedBytes = reclaim(
               participant,
               victim.reclaimableUsedCapacity,
-              maxArbitrationTimeMs_,
+              maxArbitrationTimeNs_,
               /*localArbitration=*/false);
           return std::make_unique<ReclaimResult>(
               participant->id(), reclaimedBytes);
@@ -1183,14 +1179,14 @@ uint64_t SharedArbitrator::shrink(
 uint64_t SharedArbitrator::reclaim(
     const ScopedArbitrationParticipant& participant,
     uint64_t targetBytes,
-    uint64_t timeoutMs,
+    uint64_t timeoutNs,
     bool localArbitration) noexcept {
-  uint64_t reclaimTimeUs{0};
+  uint64_t reclaimTimeNs{0};
   uint64_t reclaimedBytes{0};
   MemoryReclaimer::Stats stats;
   {
-    MicrosecondTimer reclaimTimer(&reclaimTimeUs);
-    reclaimedBytes = participant->reclaim(targetBytes, timeoutMs, stats);
+    NanosecondTimer reclaimTimer(&reclaimTimeNs);
+    reclaimedBytes = participant->reclaim(targetBytes, timeoutNs, stats);
   }
   // NOTE: if memory reclaim fails, then the participant is also aborted. If
   // it happens, we shall first fail the arbitration operation from the
@@ -1201,11 +1197,11 @@ uint64_t SharedArbitrator::reclaim(
   freeCapacity(reclaimedBytes);
 
   updateMemoryReclaimStats(
-      reclaimedBytes, reclaimTimeUs / 1'000, localArbitration, stats);
+      reclaimedBytes, reclaimTimeNs, localArbitration, stats);
   VELOX_MEM_LOG(INFO) << "Reclaimed from memory pool " << participant->name()
                       << " with target of " << succinctBytes(targetBytes)
                       << ", reclaimed " << succinctBytes(reclaimedBytes)
-                      << ", spent " << succinctMicros(reclaimTimeUs)
+                      << ", spent " << succinctNanos(reclaimTimeNs)
                       << ", local arbitration: " << localArbitration
                       << " stats " << succinctBytes(stats.reclaimedBytes)
                       << " numNonReclaimableAttempts "
@@ -1223,7 +1219,7 @@ uint64_t SharedArbitrator::reclaim(
 
 void SharedArbitrator::updateMemoryReclaimStats(
     uint64_t reclaimedBytes,
-    uint64_t reclaimTimeMs,
+    uint64_t reclaimTimeNs,
     bool localArbitration,
     const MemoryReclaimer::Stats& stats) {
   if (localArbitration) {
@@ -1232,7 +1228,8 @@ void SharedArbitrator::updateMemoryReclaimStats(
   reclaimedUsedBytes_ += reclaimedBytes;
   numNonReclaimableAttempts_ += stats.numNonReclaimableAttempts;
   RECORD_METRIC_VALUE(kMetricQueryMemoryReclaimCount);
-  RECORD_HISTOGRAM_METRIC_VALUE(kMetricQueryMemoryReclaimTimeMs, reclaimTimeMs);
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kMetricQueryMemoryReclaimTimeMs, reclaimTimeNs / 1'000'000);
   RECORD_HISTOGRAM_METRIC_VALUE(
       kMetricQueryMemoryReclaimedBytes, reclaimedBytes);
 }

@@ -31,7 +31,7 @@ class ArbitrationOperation {
   ArbitrationOperation(
       ScopedArbitrationParticipant&& pool,
       uint64_t requestBytes,
-      uint64_t timeoutMs);
+      uint64_t timeoutNs);
 
   ~ArbitrationOperation();
 
@@ -95,28 +95,28 @@ class ArbitrationOperation {
 
   /// Returns the remaining execution time for this operation before time out.
   /// If the operation has already finished, this returns zero.
-  size_t timeoutMs() const;
+  uint64_t timeoutNs() const;
 
   /// Returns true if this operation has timed out.
   bool hasTimeout() const;
 
   /// Returns the execution time of this arbitration operation since creation.
-  size_t executionTimeMs() const;
+  uint64_t executionTimeNs() const;
 
   /// Invoked to mark the start of global arbitration. This is used to measure
   /// how much time spent in waiting for global arbitration.
   void recordGlobalArbitrationStartTime() {
-    VELOX_CHECK_EQ(globalArbitrationStartTimeMs_, 0);
+    VELOX_CHECK_EQ(globalArbitrationStartTimeNs_, 0);
     VELOX_CHECK_EQ(state_, State::kRunning);
-    globalArbitrationStartTimeMs_ = getCurrentTimeMs();
+    globalArbitrationStartTimeNs_ = getCurrentTimeNano();
   }
 
   /// The execution stats of this arbitration operation after completion.
   struct Stats {
-    uint64_t localArbitrationWaitTimeMs{0};
-    uint64_t localArbitrationExecTimeMs{0};
-    uint64_t globalArbitrationWaitTimeMs{0};
-    uint64_t executionTimeMs{0};
+    uint64_t localArbitrationWaitTimeNs{0};
+    uint64_t localArbitrationExecTimeNs{0};
+    uint64_t globalArbitrationWaitTimeNs{0};
+    uint64_t executionTimeNs{0};
   };
 
   /// NOTE: should only called after this arbitration operation finishes.
@@ -126,22 +126,22 @@ class ArbitrationOperation {
   void setState(State state);
 
   const uint64_t requestBytes_;
-  const uint64_t timeoutMs_;
+  const uint64_t timeoutNs_;
 
   // The start time of this arbitration operation.
-  const uint64_t createTimeMs_;
+  const uint64_t createTimeNs_;
   const ScopedArbitrationParticipant participant_;
 
   State state_{State::kInit};
 
-  uint64_t startTimeMs_{0};
-  uint64_t finishTimeMs_{0};
+  uint64_t startTimeNs_{0};
+  uint64_t finishTimeNs_{0};
 
   uint64_t maxGrowBytes_{0};
   uint64_t minGrowBytes_{0};
 
   // The time that starts global arbitration wait
-  uint64_t globalArbitrationStartTimeMs_{};
+  uint64_t globalArbitrationStartTimeNs_{};
 
   friend class ArbitrationParticipant;
 };

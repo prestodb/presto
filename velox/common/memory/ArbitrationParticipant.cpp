@@ -102,7 +102,7 @@ ArbitrationParticipant::ArbitrationParticipant(
       pool_(pool.get()),
       config_(config),
       maxCapacity_(pool_->maxCapacity()),
-      createTimeUs_(getCurrentTimeMicro()) {
+      createTimeNs_(getCurrentTimeNano()) {
   VELOX_CHECK_LE(
       config_->minCapacity,
       maxCapacity_,
@@ -261,7 +261,7 @@ void ArbitrationParticipant::finishArbitration(ArbitrationOperation* op) {
 
 uint64_t ArbitrationParticipant::reclaim(
     uint64_t targetBytes,
-    uint64_t maxWaitTimeMs,
+    uint64_t maxWaitTimeNs,
     MemoryReclaimer::Stats& stats) noexcept {
   targetBytes = std::max(targetBytes, config_->minReclaimBytes);
   if (targetBytes == 0) {
@@ -275,7 +275,7 @@ uint64_t ArbitrationParticipant::reclaim(
     ++numReclaims_;
     VELOX_MEM_LOG(INFO) << "Reclaiming from memory pool " << pool_->name()
                         << " with target " << succinctBytes(targetBytes);
-    pool_->reclaim(targetBytes, maxWaitTimeMs, stats);
+    pool_->reclaim(targetBytes, maxWaitTimeNs / 1'000'000, stats);
     reclaimedBytes = shrink(/*reclaimAll=*/false);
   } catch (const std::exception& e) {
     VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "
@@ -354,9 +354,9 @@ uint64_t ArbitrationParticipant::abortLocked(
 }
 
 bool ArbitrationParticipant::waitForReclaimOrAbort(
-    uint64_t maxWaitTimeMs) const {
+    uint64_t maxWaitTimeNs) const {
   std::unique_lock<std::timed_mutex> l(
-      reclaimLock_, std::chrono::milliseconds(maxWaitTimeMs));
+      reclaimLock_, std::chrono::nanoseconds(maxWaitTimeNs));
   return l.owns_lock();
 }
 
@@ -380,7 +380,7 @@ std::string ArbitrationParticipant::Stats::toString() const {
       succinctBytes(reclaimedBytes),
       succinctBytes(growBytes),
       aborted,
-      succinctMicros(durationUs));
+      succinctNanos(durationNs));
 }
 
 ScopedArbitrationParticipant::ScopedArbitrationParticipant(

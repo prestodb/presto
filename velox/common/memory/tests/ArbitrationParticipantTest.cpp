@@ -895,7 +895,7 @@ TEST_F(ArbitrationParticipantTest, reclaimableFreeCapacityAndShrink) {
       ASSERT_EQ(scopedParticipant->stats().numShrinks, 2);
       ASSERT_EQ(scopedParticipant->stats().numReclaims, 0);
       ASSERT_EQ(scopedParticipant->stats().numGrows, 1);
-      ASSERT_GE(scopedParticipant->stats().durationUs, 0);
+      ASSERT_GE(scopedParticipant->stats().durationNs, 0);
       ASSERT_FALSE(scopedParticipant->stats().aborted);
 
       if (buffer != nullptr) {
@@ -1486,7 +1486,7 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, reclaimLock) {
 
 DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, waitForReclaimOrAbort) {
   struct {
-    uint64_t waitTimeUs;
+    uint64_t waitTimeNs;
     bool pendingReclaim;
     uint64_t reclaimWaitMs{0};
     bool expectedTimeout;
@@ -1494,7 +1494,7 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, waitForReclaimOrAbort) {
     std::string debugString() const {
       return fmt::format(
           "waitTime {}, pendingReclaim {}, reclaimWait {}, expectedTimeout {}",
-          succinctMicros(waitTimeUs),
+          succinctNanos(waitTimeNs),
           pendingReclaim,
           succinctMillis(reclaimWaitMs),
           expectedTimeout);
@@ -1502,8 +1502,8 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, waitForReclaimOrAbort) {
   } testSettings[] = {
       {0, true, 1'000, true},
       {0, false, 1'000, true},
-      {1'000'000, true, 1'000, false},
-      {1'000'000, true, 1'000, false}};
+      {1'000'000'000'000UL, true, 1'000, false},
+      {1'000'000'000'000UL, true, 1'000, false}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -1540,7 +1540,8 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, waitForReclaimOrAbort) {
     std::thread reclaimThread([&]() {
       if (testData.pendingReclaim) {
         memory::MemoryReclaimer::Stats stats;
-        ASSERT_EQ(scopedParticipant->reclaim(MB, 1'000'000, stats), MB);
+        ASSERT_EQ(
+            scopedParticipant->reclaim(MB, 1'000'000'000'000UL, stats), MB);
       } else {
         const std::string abortReason = "test abort";
         try {
@@ -1552,7 +1553,7 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, waitForReclaimOrAbort) {
     });
     reclaimWait.await([&]() { return reclaimWaitFlag.load(); });
     ASSERT_EQ(
-        scopedParticipant->waitForReclaimOrAbort(testData.waitTimeUs),
+        scopedParticipant->waitForReclaimOrAbort(testData.waitTimeNs),
         !testData.expectedTimeout);
     reclaimThread.join();
   }
@@ -1657,20 +1658,20 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperation) {
       ArbitrationParticipant::create(participantId, task->pool(), &config);
   auto scopedParticipant = participant->lock().value();
   const int requestBytes = 1 << 20;
-  const int opTimeoutMs = 1'000'000;
+  const uint64_t opTimeoutNs = 1'000'000'000'000UL;
   ArbitrationOperation op(
-      participant->lock().value(), requestBytes, opTimeoutMs);
+      participant->lock().value(), requestBytes, opTimeoutNs);
   VELOX_ASSERT_THROW(
-      ArbitrationOperation(participant->lock().value(), 0, opTimeoutMs), "");
+      ArbitrationOperation(participant->lock().value(), 0, opTimeoutNs), "");
   VELOX_ASSERT_THROW(op.stats(), "(init vs. finished)");
   ASSERT_EQ(op.requestBytes(), requestBytes);
   ASSERT_FALSE(op.aborted());
   ASSERT_FALSE(op.hasTimeout());
-  ASSERT_LE(op.timeoutMs(), opTimeoutMs);
+  ASSERT_LE(op.timeoutNs(), opTimeoutNs);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
-  ASSERT_GE(op.executionTimeMs(), 200);
-  ASSERT_LE(op.timeoutMs(), opTimeoutMs - 200);
+  ASSERT_GE(op.executionTimeNs(), 200'000'000UL);
+  ASSERT_LE(op.timeoutNs(), opTimeoutNs - 200'000'000UL);
   ASSERT_EQ(op.maxGrowBytes(), 0);
   ASSERT_EQ(op.minGrowBytes(), 0);
   ASSERT_FALSE(op.hasTimeout());
@@ -1711,14 +1712,14 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperation) {
   ASSERT_EQ(scopedParticipant->numWaitingOps(), 0);
   VELOX_ASSERT_THROW(op.recordGlobalArbitrationStartTime(), "");
   ASSERT_FALSE(op.hasTimeout());
-  const auto execTimeMs = op.executionTimeMs();
+  const auto execTimeNs = op.executionTimeNs();
   std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
-  ASSERT_EQ(op.executionTimeMs(), execTimeMs);
+  ASSERT_EQ(op.executionTimeNs(), execTimeNs);
   ASSERT_FALSE(op.hasTimeout());
-  ASSERT_GE(op.stats().localArbitrationWaitTimeMs, 200);
-  ASSERT_GE(op.stats().localArbitrationExecTimeMs, 200);
-  ASSERT_GE(op.stats().globalArbitrationWaitTimeMs, 200);
-  ASSERT_GE(op.stats().executionTimeMs, 600);
+  ASSERT_GE(op.stats().localArbitrationWaitTimeNs, 200'000'000UL);
+  ASSERT_GE(op.stats().localArbitrationExecTimeNs, 200'000'000UL);
+  ASSERT_GE(op.stats().globalArbitrationWaitTimeNs, 200'000'000UL);
+  ASSERT_GE(op.stats().executionTimeNs, 600'000'000UL);
 
   // Operation timeout.
   {
@@ -1759,25 +1760,25 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperationStats) {
       ArbitrationParticipant::create(participantId, task->pool(), &config);
   auto scopedParticipant = participant->lock().value();
   const int requestBytes = 1 << 20;
-  const int opTimeoutMs = 1'000'000;
+  const uint64_t opTimeoutNs = 1'000'000'000'000UL;
   // Operation stats without global arbitration.
   {
     ArbitrationOperation op(
-        participant->lock().value(), requestBytes, opTimeoutMs);
+        participant->lock().value(), requestBytes, opTimeoutNs);
     std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
     op.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
     op.finish();
     const auto stats = op.stats();
-    ASSERT_GE(stats.localArbitrationWaitTimeMs, 200);
-    ASSERT_GE(stats.localArbitrationExecTimeMs, 200);
-    ASSERT_GE(stats.globalArbitrationWaitTimeMs, 0);
-    ASSERT_GE(stats.executionTimeMs, 400);
+    ASSERT_GE(stats.localArbitrationWaitTimeNs, 200'000'000UL);
+    ASSERT_GE(stats.localArbitrationExecTimeNs, 200'000'000UL);
+    ASSERT_GE(stats.globalArbitrationWaitTimeNs, 0UL);
+    ASSERT_GE(stats.executionTimeNs, 400'000'000UL);
   }
   // Operation stats with global arbitration.
   {
     ArbitrationOperation op(
-        participant->lock().value(), requestBytes, opTimeoutMs);
+        participant->lock().value(), requestBytes, opTimeoutNs);
     std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
     op.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
@@ -1785,16 +1786,16 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperationStats) {
     std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
     op.finish();
     const auto stats = op.stats();
-    ASSERT_GE(stats.localArbitrationWaitTimeMs, 200);
-    ASSERT_GE(stats.localArbitrationExecTimeMs, 200);
-    ASSERT_GE(stats.globalArbitrationWaitTimeMs, 200);
-    ASSERT_GE(stats.executionTimeMs, 600);
+    ASSERT_GE(stats.localArbitrationWaitTimeNs, 200'000'000UL);
+    ASSERT_GE(stats.localArbitrationExecTimeNs, 200'000'000UL);
+    ASSERT_GE(stats.globalArbitrationWaitTimeNs, 200'000'000UL);
+    ASSERT_GE(stats.executionTimeNs, 600'000'000UL);
   }
 
   // Operation stats not started.
   {
     ArbitrationOperation op(
-        participant->lock().value(), requestBytes, opTimeoutMs);
+        participant->lock().value(), requestBytes, opTimeoutNs);
     std::this_thread::sleep_for(std::chrono::milliseconds(200)); // NOLINT
     VELOX_ASSERT_THROW(op.finish(), "");
     VELOX_ASSERT_THROW(op.stats(), "");
@@ -1807,14 +1808,15 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperationWait) {
   auto participant = ArbitrationParticipant::create(10, task->pool(), &config);
   auto scopedParticipant = participant->lock().value();
   const int requestBytes = 1 << 20;
-  const int opTimeoutMs = 1'000'000;
+  const uint64_t opTimeoutNs = 1'000'000'000'000UL;
   ArbitrationOperation op1(
-      participant->lock().value(), requestBytes, opTimeoutMs);
+      participant->lock().value(), requestBytes, opTimeoutNs);
   ArbitrationOperation op2(
-      participant->lock().value(), requestBytes, opTimeoutMs);
+      participant->lock().value(), requestBytes, opTimeoutNs);
   ArbitrationOperation op3(
-      participant->lock().value(), requestBytes, opTimeoutMs);
-  ArbitrationOperation op4(participant->lock().value(), requestBytes, 1'000);
+      participant->lock().value(), requestBytes, opTimeoutNs);
+  ArbitrationOperation op4(
+      participant->lock().value(), requestBytes, 1'000'000'000UL);
   ASSERT_FALSE(scopedParticipant->hasRunningOp());
   ASSERT_EQ(scopedParticipant->numWaitingOps(), 0);
 
@@ -1879,19 +1881,21 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperationWait) {
   op1.finish();
   ASSERT_EQ(op1.state(), ArbitrationOperation::State::kFinished);
   ASSERT_FALSE(op1.hasTimeout());
-  ASSERT_GE(op1.executionTimeMs(), 1'000);
+  ASSERT_GE(op1.executionTimeNs(), 1'000'000'000UL);
 
   op2Thread.join();
   ASSERT_EQ(op2.state(), ArbitrationOperation::State::kFinished);
-  ASSERT_GE(op2.executionTimeMs(), 1'000 + 500);
+  ASSERT_GE(op2.executionTimeNs(), 1'000'000'000UL + 500'000'000UL);
 
   op3Thread.join();
   ASSERT_EQ(op3.state(), ArbitrationOperation::State::kFinished);
-  ASSERT_GE(op3.executionTimeMs(), 1'000 + 500 + 500);
+  ASSERT_GE(
+      op3.executionTimeNs(), 1'000'000'000UL + 500'000'000UL + 500'000'000UL);
 
   op4Thread.join();
   ASSERT_EQ(op4.state(), ArbitrationOperation::State::kFinished);
-  ASSERT_GE(op4.executionTimeMs(), 1'000 + 500 + 500);
+  ASSERT_GE(
+      op4.executionTimeNs(), 1'000'000'000UL + 500'000'000UL + 500'000'000UL);
 
   ASSERT_FALSE(scopedParticipant->hasRunningOp());
   ASSERT_EQ(scopedParticipant->numWaitingOps(), 0);
