@@ -41,9 +41,16 @@ SUDO="${SUDO:-"sudo --preserve-env"}"
 USE_CLANG="${USE_CLANG:-false}"
 export INSTALL_PREFIX=${INSTALL_PREFIX:-"/usr/local"}
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)/deps-download}
+VERSION=$(cat /etc/os-release | grep VERSION_ID)
+
+# On Ubuntu 20.04 dependencies need to be built using gcc11.
+# On Ubuntu 22.04 gcc11 is already the system gcc installed.
+if [[ ${VERSION} =~ "20.04" ]]; then
+  export CC=/usr/bin/gcc-11
+  export CXX=/usr/bin/g++-11
+fi
 
 function install_clang15 {
-  VERSION=`cat /etc/os-release | grep VERSION_ID`
   if [[ ! ${VERSION} =~ "22.04" && ! ${VERSION} =~ "24.04" ]]; then
     echo "Warning: using the Clang configuration is for Ubuntu 22.04 and 24.04. Errors might occur."
   fi
@@ -52,6 +59,15 @@ function install_clang15 {
     CLANG_PACKAGE_LIST=${CLANG_PACKAGE_LIST} gcc-12 g++-12 libc++-12-dev
   fi
   ${SUDO} apt install ${CLANG_PACKAGE_LIST} -y
+}
+
+# For Ubuntu 20.04 we need add the toolchain PPA to get access to gcc11.
+function install_gcc11_if_needed {
+  if [[ ${VERSION} =~ "20.04" ]]; then
+    ${SUDO} add-apt-repository ppa:ubuntu-toolchain-r/test -y
+    ${SUDO} apt update
+    ${SUDO} apt install gcc-11 g++-11 -y
+  fi
 }
 
 FB_OS_VERSION="v2024.07.01.00"
@@ -75,14 +91,18 @@ function install_build_prerequisites {
     ninja-build \
     checkinstall \
     git \
+    pkg-config \
     wget
 
   # Install to /usr/local to make it available to all users.
   ${SUDO} pip3 install cmake==3.28.3
 
+  install_gcc11_if_needed
+
   if [[ ${USE_CLANG} != "false" ]]; then
     install_clang15
   fi
+
 }
 
 # Install packages required for build.
@@ -294,6 +314,11 @@ function install_apt_deps {
       echo "To use clang for the Velox build set the CC and CXX environment variables in your session."
       echo "  export CC=/usr/bin/clang-15"
       echo "  export CXX=/usr/bin/clang++-15"
+    fi
+    if [[ ${VERSION} =~ "20.04" && ${USE_CLANG} == "false" ]]; then
+      echo "To build Velox gcc-11/g++11 is required. Set the CC and CXX environment variables in your session."
+      echo "  export CC=/usr/bin/gcc-11"
+      echo "  export CXX=/usr/bin/g++-11"
     fi
   fi
 )
