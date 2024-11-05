@@ -66,6 +66,31 @@ FOLLY_ALWAYS_INLINE Timestamp fromUnixtime(double unixtime) {
   return Timestamp(seconds, milliseconds * kNanosecondsInMillisecond);
 }
 
+FOLLY_ALWAYS_INLINE boost::int64_t fromUnixtime(
+    double unixtime,
+    int16_t timeZoneId) {
+  if (FOLLY_UNLIKELY(std::isnan(unixtime))) {
+    return pack(0, timeZoneId);
+  }
+
+  static const int64_t kMin = std::numeric_limits<int64_t>::min();
+
+  if (FOLLY_UNLIKELY(unixtime >= kMinDoubleAboveInt64Max)) {
+    return pack(std::numeric_limits<int64_t>::max(), timeZoneId);
+  }
+
+  if (FOLLY_UNLIKELY(unixtime <= kMin)) {
+    return pack(std::numeric_limits<int64_t>::min(), timeZoneId);
+  }
+
+  if (FOLLY_UNLIKELY(std::isinf(unixtime))) {
+    return unixtime < 0 ? pack(std::numeric_limits<int64_t>::min(), timeZoneId)
+                        : pack(std::numeric_limits<int64_t>::max(), timeZoneId);
+  }
+
+  return pack(std::llround(unixtime * kMillisecondsInSecond), timeZoneId);
+}
+
 namespace {
 enum class DateTimeUnit {
   kMillisecond,

@@ -300,6 +300,11 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
   // Nan.
   static const double kNan = std::numeric_limits<double>::quiet_NaN();
   EXPECT_EQ(fromUnixtime(kNan, "-04:36"), TimestampWithTimezone(0, "-04:36"));
+
+  // Check rounding behavior.
+  EXPECT_EQ(
+      fromUnixtime(1.7300479933495E9, "America/Costa_Rica"),
+      TimestampWithTimezone(1730047993350, "America/Costa_Rica"));
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtimeTzOffset) {

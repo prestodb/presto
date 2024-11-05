@@ -70,10 +70,10 @@ struct FromUnixtimeFunction {
   FOLLY_ALWAYS_INLINE void call(
       out_type<TimestampWithTimezone>& result,
       const arg_type<double>& unixtime,
-      const arg_type<Varchar>& timezone) {
-    int16_t timezoneId =
-        tzID_.value_or(tz::getTimeZoneID((std::string_view)timezone));
-    result = pack(fromUnixtime(unixtime).toMillis(), timezoneId);
+      const arg_type<Varchar>& timeZone) {
+    int16_t timeZoneId =
+        tzID_.value_or(tz::getTimeZoneID((std::string_view)timeZone));
+    result = fromUnixtime(unixtime, timeZoneId);
   }
 
   // (double, bigint, bigint) -> timestamp with time zone
