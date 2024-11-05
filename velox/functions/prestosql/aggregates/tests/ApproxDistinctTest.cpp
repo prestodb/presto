@@ -432,5 +432,44 @@ TEST_F(ApproxDistinctTest, toIntermediate) {
       digests, {"c0"}, {"merge(a0)"}, {"c0", "cardinality(a0)"}, {input});
 }
 
+TEST_F(ApproxDistinctTest, unknownType) {
+  constexpr int kSize = 10;
+  auto input = makeRowVector({
+      makeFlatVector<int32_t>(kSize, [](auto i) { return i % 2; }),
+      makeAllNullFlatVector<UnknownValue>(kSize),
+  });
+  testAggregations(
+      {input},
+      {},
+      {"approx_distinct(c1)", "approx_distinct(c1, 0.023)"},
+      {makeRowVector(std::vector<VectorPtr>(2, makeConstant<int64_t>(0, 1)))});
+  testAggregations(
+      {input},
+      {},
+      {"approx_set(c1)", "approx_set(c1, 0.01625)"},
+      {"cardinality(a0)", "cardinality(a1)"},
+      {makeRowVector(
+          std::vector<VectorPtr>(2, makeNullConstant(TypeKind::BIGINT, 1)))});
+  testAggregations(
+      {input},
+      {"c0"},
+      {"approx_distinct(c1)", "approx_distinct(c1, 0.023)"},
+      {makeRowVector({
+          makeFlatVector<int32_t>({0, 1}),
+          makeFlatVector<int64_t>({0, 0}),
+          makeFlatVector<int64_t>({0, 0}),
+      })});
+  testAggregations(
+      {input},
+      {"c0"},
+      {"approx_set(c1)", "approx_set(c1, 0.01625)"},
+      {"c0", "cardinality(a0)", "cardinality(a1)"},
+      {makeRowVector({
+          makeFlatVector<int32_t>({0, 1}),
+          makeNullConstant(TypeKind::BIGINT, 2),
+          makeNullConstant(TypeKind::BIGINT, 2),
+      })});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

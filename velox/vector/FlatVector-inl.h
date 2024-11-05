@@ -417,13 +417,23 @@ void FlatVector<T>::copyRanges(
 template <typename T>
 VectorPtr FlatVector<T>::slice(vector_size_t offset, vector_size_t length)
     const {
+  BufferPtr values;
+  if (values_) {
+    // Values can be shorter than vector due to trailing nulls.
+    auto numValues = std::is_same_v<T, bool> ? 8 * values_->size()
+                                             : values_->size() / sizeof(T);
+    auto newNumValues = std::min<vector_size_t>(numValues, offset + length);
+    if (newNumValues >= offset) {
+      values =
+          Buffer::slice<T>(values_, offset, newNumValues - offset, this->pool_);
+    }
+  }
   return std::make_shared<FlatVector<T>>(
       this->pool_,
       this->type_,
       this->sliceNulls(offset, length),
       length,
-      values_ ? Buffer::slice<T>(values_, offset, length, this->pool_)
-              : values_,
+      std::move(values),
       std::vector<BufferPtr>(stringBuffers_));
 }
 

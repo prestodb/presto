@@ -339,6 +339,62 @@ struct ComplexTypeSetAccumulator {
   }
 };
 
+class UnknownTypeSetAccumulator {
+ public:
+  UnknownTypeSetAccumulator(
+      const TypePtr& /*type*/,
+      HashStringAllocator* /*allocator*/) {}
+
+  void addValue(
+      const DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* /*allocator*/) {
+    VELOX_DCHECK(decoded.isNullAt(index));
+    hasNull_ = true;
+  }
+
+  void addValues(
+      const ArrayVector& arrayVector,
+      vector_size_t index,
+      const DecodedVector& values,
+      HashStringAllocator* allocator) {
+    VELOX_DCHECK(!arrayVector.isNullAt(index));
+    const auto size = arrayVector.sizeAt(index);
+    const auto offset = arrayVector.offsetAt(index);
+    for (auto i = 0; i < size; ++i) {
+      addValue(values, offset + i, allocator);
+    }
+  }
+
+  void addNonNullValue(
+      const DecodedVector& /*decoded*/,
+      vector_size_t /*index*/,
+      HashStringAllocator* /*allocator*/) {}
+
+  void addNonNullValues(
+      const ArrayVector& /*arrayVector*/,
+      vector_size_t /*index*/,
+      const DecodedVector& /*values*/,
+      HashStringAllocator* /*/allocator*/) {}
+
+  size_t size() const {
+    return hasNull_ ? 1 : 0;
+  }
+
+  vector_size_t extractValues(BaseVector& values, vector_size_t offset) {
+    if (!hasNull_) {
+      return 0;
+    }
+    values.setNull(offset, true);
+    return 1;
+  }
+
+  void free(HashStringAllocator& /*allocator*/) {}
+
+ private:
+  bool hasNull_ = false;
+};
+
 template <typename T>
 struct SetAccumulatorTypeTraits {
   using AccumulatorType = SetAccumulator<T>;
@@ -369,6 +425,12 @@ template <>
 struct SetAccumulatorTypeTraits<ComplexType> {
   using AccumulatorType = ComplexTypeSetAccumulator;
 };
+
+template <>
+struct SetAccumulatorTypeTraits<UnknownValue> {
+  using AccumulatorType = UnknownTypeSetAccumulator;
+};
+
 } // namespace detail
 
 // A wrapper around SetAccumulator that overrides hash and equal_to functions to

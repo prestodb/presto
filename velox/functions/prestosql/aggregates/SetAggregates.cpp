@@ -419,6 +419,9 @@ void registerCountDistinctAggregate(
           case TypeKind::ROW:
             return std::make_unique<CountDistinctAggregate<ComplexType>>(
                 resultType, argTypes[0]);
+          case TypeKind::UNKNOWN:
+            return std::make_unique<CountDistinctAggregate<UnknownValue>>(
+                resultType, argTypes[0]);
           default:
             VELOX_UNREACHABLE(
                 "Unexpected type {}", mapTypeKindToName(typeKind));

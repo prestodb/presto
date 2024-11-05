@@ -373,5 +373,23 @@ TEST_F(CountAggregationTest, timestampWithTimeZone) {
   testSingleAggregation({"c0"}, "c2", data, expected);
 }
 
+TEST_F(CountAggregationTest, unknownType) {
+  constexpr int kSize = 10;
+  auto input = makeRowVector({
+      makeFlatVector<int32_t>(kSize, [](auto i) { return i % 2; }),
+      makeAllNullFlatVector<UnknownValue>(kSize),
+  });
+  testGlobalAggregation(
+      "c1", input, makeRowVector({makeConstant<int64_t>(0, 1)}));
+  testSingleAggregation(
+      {"c0"},
+      "c1",
+      input,
+      makeRowVector({
+          makeFlatVector<int32_t>({0, 1}),
+          makeFlatVector<int64_t>({0, 0}),
+      }));
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

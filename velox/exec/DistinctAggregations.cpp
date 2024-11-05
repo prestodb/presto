@@ -281,6 +281,9 @@ std::unique_ptr<DistinctAggregations> DistinctAggregations::create(
     case TypeKind::ROW:
       return std::make_unique<TypedDistinctAggregations<ComplexType>>(
           aggregates, inputType, pool);
+    case TypeKind::UNKNOWN:
+      return std::make_unique<TypedDistinctAggregations<UnknownValue>>(
+          aggregates, inputType, pool);
     default:
       VELOX_UNREACHABLE("Unexpected type {}", type->toString());
   }

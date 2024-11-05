@@ -453,19 +453,21 @@ exec::AggregateRegistrationResult registerApproxDistinct(
                              .argumentType("hyperloglog")
                              .build());
   } else {
-    for (const auto& inputType :
-         {"boolean",
-          "tinyint",
-          "smallint",
-          "integer",
-          "bigint",
-          "hugeint",
-          "real",
-          "double",
-          "varchar",
-          "varbinary",
-          "timestamp",
-          "date"}) {
+    for (const auto& inputType : {
+             "boolean",
+             "tinyint",
+             "smallint",
+             "integer",
+             "bigint",
+             "hugeint",
+             "real",
+             "double",
+             "varchar",
+             "varbinary",
+             "timestamp",
+             "date",
+             "unknown",
+         }) {
       signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                                .returnType(returnType)
                                .intermediateType("varbinary")
@@ -505,6 +507,10 @@ exec::AggregateRegistrationResult registerApproxDistinct(
           const TypePtr& resultType,
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
+        if (argTypes[0]->isUnKnown()) {
+          return std::make_unique<ApproxDistinctAggregate<UnknownValue>>(
+              resultType, hllAsFinalResult, hllAsRawInput, defaultError);
+        }
         return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
             createApproxDistinct,
             argTypes[0]->kind(),
