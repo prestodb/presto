@@ -1532,10 +1532,10 @@ int32_t DateTimeFormatter::format(
         }
         case DateTimeFormatSpecifier::WEEK_OF_MONTH: {
           result += padContent(
-              ceil(
+              unsigned(ceil(
                   (7 + static_cast<unsigned>(calDate.day()) -
                    weekday.c_encoding() - 1) /
-                  7.0),
+                  7.0)),
               '0',
               token.pattern.minRepresentDigits,
               maxResultEnd,
