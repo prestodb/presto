@@ -999,6 +999,14 @@ std::shared_ptr<Task> assertQueryReturnsEmptyResult(
   return cursor->task();
 }
 
+std::shared_ptr<Task> assertQueryReturnsEmptyResult(
+    const CursorParameters& params) {
+  VELOX_DCHECK_NOT_NULL(params.planNode);
+  auto [cursor, results] = readCursor(params, [](Task*) {});
+  assertEmptyResults(results);
+  return cursor->task();
+}
+
 void assertEmptyResults(const std::vector<RowVectorPtr>& results) {
   size_t totalCount = 0;
   for (const auto& vector : results) {

@@ -118,6 +118,12 @@ class OperatorTestBase : public testing::Test,
     return test::assertQuery(plan, {expectedResults});
   }
 
+  std::shared_ptr<Task> assertQuery(
+      const CursorParameters& params,
+      const RowVectorPtr& expectedResults) {
+    return test::assertQuery(params, {expectedResults});
+  }
+
   /// Assumes plan has a single leaf node. All splits are added to that node.
   std::shared_ptr<Task> assertQuery(
       const core::PlanNodePtr& plan,

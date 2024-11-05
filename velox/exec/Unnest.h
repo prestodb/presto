@@ -39,22 +39,71 @@ class Unnest : public Operator {
   bool isFinished() override;
 
  private:
-  // Generate output for 'size' input rows starting from 'start' input row.
+  // Represents the range of rows to process and indicates that the first and
+  // last
+  // rows may need to be processed partially to match the configured output
+  // batch size. When processing a single row, the range is from
+  // 'firstRowStart_' to 'lastRowEnd'. For multiple rows, the range for the
+  // first row is from 'firstRowStart_' to 'rawMaxSizes_[firstRow]', and for the
+  // last row, it is from 0 to 'lastRowEnd', unless the last row is processed
+  // fully, in which case' rawMaxSizes_[lastRow]' is used as the end of the last
+  // row.
   //
-  // @param start First input row to include in the output.
-  // @param size Number of input rows to include in the output.
-  // @param outputSize Pre-computed number of output rows.
-  RowVectorPtr generateOutput(
-      vector_size_t start,
-      vector_size_t size,
-      vector_size_t outputSize);
+  // Single row:
+  //    firstRowStart_  firstRowEnd = lastRowEnd
+  //---|----------------|--- start, size = 1
+  //
+  // Multiple rows:
+  //    firstRowStart_     firstRowEnd = rawMaxSizes_[start]
+  //---|-------------------| start
+  //-----------------------
+  //-----------------------
+  //-----------------|----- end - 1
+  //                 lastRowEnd
+  // The size is end - start, the range is [start, end).
+  struct RowRange {
+    // Invokes a function on each row represented by the RowRange.
+    // @param func The function to call for each row. 'row' is the current row
+    // number in the '[start, start + size)' range, 'start' is the row number to
+    // start processing, and 'size' is the number of rows to process..
+    // @param rawMaxSizes Used to compute the end of each row.
+    // @param firstRowStart The index to start processing the first row. Same
+    // with Unnest member firstRowStart_.
+    void forEachRow(
+        std::function<void(
+            vector_size_t /*row*/,
+            vector_size_t /*start*/,
+            vector_size_t /*size*/)> func,
+        const vector_size_t* const rawMaxSizes,
+        vector_size_t firstRowStart) const;
+
+    // First input row to be included in the output.
+    const vector_size_t start;
+
+    // Number of input rows to be included in the output.
+    const vector_size_t size;
+
+    // The processing of the last input row starts at index 'firstRowStart_' or
+    // 0, depending on whether it is the first row being processed, and ends at
+    // 'lastRowEnd'. It is nullopt when the last row is processed completely.
+    const std::optional<vector_size_t> lastRowEnd;
+
+    // Total number of inner rows in the range.
+    const vector_size_t numElements;
+  };
+
+  // Extract the range of rows to process.
+  // @param size The size of input RowVector.
+  RowRange extractRowRange(vector_size_t size) const;
+
+  // Generate output for 'rowRange' represented rows.
+  // @param rowRange Range of rows to process.
+  RowVectorPtr generateOutput(const RowRange& rowRange);
 
   // Invoked by generateOutput function above to generate the repeated output
   // columns.
   void generateRepeatedColumns(
-      vector_size_t start,
-      vector_size_t size,
-      vector_size_t numElements,
+      const RowRange& rowRange,
       std::vector<VectorPtr>& outputs);
 
   struct UnnestChannelEncoding {
@@ -69,23 +118,23 @@ class Unnest : public Operator {
   // Array or Map.
   const UnnestChannelEncoding generateEncodingForChannel(
       column_index_t channel,
-      vector_size_t start,
-      vector_size_t size,
-      vector_size_t numElements);
+      const RowRange& rowRange);
 
   // Invoked by generateOutput for the ordinality column.
-  VectorPtr generateOrdinalityVector(
-      vector_size_t start,
-      vector_size_t size,
-      vector_size_t numElements);
+  VectorPtr generateOrdinalityVector(const RowRange& rowRange);
 
   const bool withOrdinality_;
   std::vector<column_index_t> unnestChannels_;
 
   std::vector<DecodedVector> unnestDecoded_;
 
+  // The maximum number of output batch rows.
+  const uint32_t maxOutputSize_;
   BufferPtr maxSizes_;
   vector_size_t* rawMaxSizes_{nullptr};
+
+  // The index to start processing the first row.
+  vector_size_t firstRowStart_ = 0;
 
   std::vector<const vector_size_t*> rawSizes_;
   std::vector<const vector_size_t*> rawOffsets_;
