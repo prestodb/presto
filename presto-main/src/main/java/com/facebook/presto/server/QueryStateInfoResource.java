@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -47,13 +46,10 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -127,7 +123,6 @@ public class QueryStateInfoResource
             asyncResponse.resume(Response.ok(queryStateInfos).build());
         }
     }
-
 
     private static boolean matchesWithTimeout(Optional<Pattern> pattern, String input, long timeoutMillis)
     {

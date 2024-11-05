@@ -80,7 +80,6 @@ public class TestQueryStateInfoResource
         QueryResults queryResults2 = client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         client.execute(prepareGet().setUri(queryResults2.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
-
         Request request3 = preparePost()
                 .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
