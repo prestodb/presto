@@ -80,7 +80,7 @@ public final class TableScanNode
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
-        this (sourceLocation, id, table, outputVariables, assignments, emptyList(), currentConstraint, enforcedConstraint);
+        this(sourceLocation, id, table, outputVariables, assignments, emptyList(), currentConstraint, enforcedConstraint);
     }
 
     public TableScanNode(
@@ -93,7 +93,7 @@ public final class TableScanNode
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
-        this (sourceLocation, id, Optional.empty(), table, outputVariables, assignments, tableConstraints, currentConstraint, enforcedConstraint);
+        this(sourceLocation, id, Optional.empty(), table, outputVariables, assignments, tableConstraints, currentConstraint, enforcedConstraint);
     }
 
     public TableScanNode(
@@ -152,7 +152,7 @@ public final class TableScanNode
      * <p>
      * This guarantee can have different origins.
      * For example, it may be successful predicate push down, or inherent guarantee provided by the underlying data.
-     *
+     * <p>
      * currentConstraint will only be used in planner. It is not transported to worker thus will be null on worker.
      */
     @Nullable
