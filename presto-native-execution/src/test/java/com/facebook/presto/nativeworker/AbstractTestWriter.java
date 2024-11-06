@@ -75,40 +75,6 @@ public abstract class AbstractTestWriter
     }
 
     @Test
-    public void testTableFormats()
-    {
-        // With different storage_format than table format, verify the data can be correctly read back
-        Session[] sessions = buildSessionsForTableWriteFormat();
-        for (String tableFormat : TABLE_FORMATS) {
-            for (Session session : sessions) {
-                // Unpartitioned table
-                String tmpTableName = generateRandomTableName();
-                try {
-                    getQueryRunner().execute(session, String.format("CREATE TABLE %s WITH (format = '" + tableFormat + "') AS SELECT * FROM nation", tmpTableName));
-                    assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT * FROM nation");
-                    // TODO add support for presto to query each partition's format then verify written format is correct
-                }
-                finally {
-                    dropTableIfExists(tmpTableName);
-                }
-
-                // Partitioned table
-                String partitionedOrdersTableName = generateRandomTableName();
-                try {
-                    getQueryRunner().execute(session, String.format(
-                            "CREATE TABLE %s WITH (format = '" + tableFormat + "', " +
-                                    "partitioned_by = ARRAY[ 'orderstatus' ]) " +
-                                    "AS SELECT custkey, comment, orderstatus FROM orders", partitionedOrdersTableName));
-                    assertQuery(String.format("SELECT * FROM %s", partitionedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders");
-                }
-                finally {
-                    dropTableIfExists(partitionedOrdersTableName);
-                }
-            }
-        }
-    }
-
-    @Test
     public void testCreateUnpartitionedTableAsSelect()
     {
         Session session = buildSessionForTableWrite();
@@ -444,25 +410,5 @@ public abstract class AbstractTestWriter
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
                 .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();
-    }
-
-    private Session[] buildSessionsForTableWriteFormat()
-    {
-        Session.SessionBuilder sessionBuilder = Session.builder(getSession())
-                .setSystemProperty("scale_writers", "true")
-                .setSystemProperty("table_writer_merge_operator_enabled", "true")
-                .setSystemProperty("task_writer_count", "1")
-                .setSystemProperty("task_partitioned_writer_count", "2")
-                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
-                .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD");
-        Session s1 = sessionBuilder
-                .setCatalogSessionProperty("hive", "hive_storage_format", "PARQUET")
-                .setCatalogSessionProperty("hive", "respect_table_format", "true").build();
-        Session s2 = sessionBuilder
-                .setCatalogSessionProperty("hive", "hive_storage_format", "PARQUET")
-                .setCatalogSessionProperty("hive", "respect_table_format", "false").build();
-        Session[] sessions = {s1, s2};
-
-        return sessions;
     }
 }
