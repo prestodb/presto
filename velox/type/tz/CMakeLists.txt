@@ -19,7 +19,9 @@ velox_add_library(
   TimeZoneMap.h
   TimeZoneDatabase.cpp
   TimeZoneLinks.cpp
-  TimeZoneMap.cpp)
+  TimeZoneMap.cpp
+  TimeZoneNames.h
+  TimeZoneNames.cpp)
 
 velox_link_libraries(
   velox_type_tz
@@ -27,6 +29,4 @@ velox_link_libraries(
   velox_external_date
   Boost::regex
   fmt::fmt
-  Folly::folly
-  ICU::i18n
-  ICU::uc)
+  Folly::folly)

@@ -21,18 +21,10 @@
 #include <folly/container/F14Map.h>
 #include <folly/container/F14Set.h>
 
-#include <unicode/locid.h>
-#include <unicode/timezone.h>
-#include <unicode/unistr.h>
-
-// The ICU libraries define TRUE/FALSE macros which frequently conflict with
-// other libraries that use these as enum/variable names.
-#undef TRUE
-#undef FALSE
-
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/external/date/tz.h"
+#include "velox/type/tz/TimeZoneNames.h"
 
 using facebook::velox::common::testutil::TestValue;
 
@@ -311,6 +303,43 @@ TDuration toLocalImpl(
   }
   return date::zoned_time{tz, timePoint}.get_local_time().time_since_epoch();
 }
+
+template <bool isLongName>
+std::string getName(
+    TimeZone::milliseconds timestamp,
+    TimeZone::TChoose choose,
+    const date::time_zone* tz,
+    const std::string& timeZoneName) {
+  validateRange(date::sys_time<TimeZone::milliseconds>(timestamp));
+
+  // Time zone offsets only have one name.
+  if (tz == nullptr) {
+    return timeZoneName;
+  }
+
+  static const auto& timeZoneNames = getTimeZoneNames();
+  auto it = timeZoneNames.find(timeZoneName);
+
+  VELOX_CHECK(
+      it != timeZoneNames.end(),
+      "Unable to find short name for time zone: {}",
+      timeZoneName);
+
+  // According to the documentation this is how to determine if DST applies to
+  // a given timestamp in a given time zone.
+  // https://howardhinnant.github.io/date/tz.html#sys_info
+  date::local_time<TimeZone::milliseconds> timePoint{timestamp};
+  bool isDst = getZonedTime(tz, timePoint, choose).get_info().save !=
+      std::chrono::minutes(0);
+
+  if constexpr (isLongName) {
+    return isDst ? it->second.daylightTimeLongName
+                 : it->second.standardTimeLongName;
+  } else {
+    return isDst ? it->second.daylightTimeAbbreviation
+                 : it->second.standardTimeAbbreviation;
+  }
+}
 } // namespace
 
 void validateRange(time_point<std::chrono::seconds> timePoint) {
@@ -419,58 +448,12 @@ TimeZone::milliseconds TimeZone::to_local(
 std::string TimeZone::getShortName(
     TimeZone::milliseconds timestamp,
     TimeZone::TChoose choose) const {
-  date::local_time<milliseconds> timePoint{timestamp};
-  validateRange(date::sys_time<milliseconds>(timestamp));
-
-  // Time zone offsets only have one name (no abbreviations).
-  if (tz_ == nullptr) {
-    return timeZoneName_;
-  }
-
-  return getZonedTime(tz_, timePoint, choose).get_info().abbrev;
+  return getName<false>(timestamp, choose, tz_, timeZoneName_);
 }
 
 std::string TimeZone::getLongName(
     TimeZone::milliseconds timestamp,
     TimeZone::TChoose choose) const {
-  static const icu::Locale locale("en", "US");
-
-  validateRange(date::sys_time<milliseconds>(timestamp));
-
-  // Time zone offsets only have one name.
-  if (tz_ == nullptr) {
-    return timeZoneName_;
-  }
-
-  // Special case for UTC. ICU uses "GMT" for some reason which is an
-  // abbreviation.
-  if (timeZoneID_ == 0) {
-    return "Coordinated Universal Time";
-  }
-
-  // Get the ICU TimeZone by name
-  std::unique_ptr<icu::TimeZone> tz(icu::TimeZone::createTimeZone(
-      icu::UnicodeString(timeZoneName_.data(), timeZoneName_.length())));
-  VELOX_USER_CHECK_NOT_NULL(tz);
-
-  // According to the documentation this is how to determine if DST applies to
-  // a given timestamp in a given time zone.
-  // https://howardhinnant.github.io/date/tz.html#sys_info
-  date::local_time<milliseconds> timePoint{timestamp};
-  bool isDst = getZonedTime(tz_, timePoint, choose).get_info().save !=
-      std::chrono::minutes(0);
-
-  // Construct the long name for the time zone.
-  // Note that ICU does not have DST information for many time zones prior to
-  // 1970, so it's important to specify it explicitly.
-  icu::UnicodeString longName;
-  tz->getDisplayName(
-      isDst, icu::TimeZone::EDisplayType::LONG, locale, longName);
-
-  // Convert the UnicodeString back to a string and write it out
-  std::string longNameStr;
-  longName.toUTF8String(longNameStr);
-
-  return longNameStr;
+  return getName<true>(timestamp, choose, tz_, timeZoneName_);
 }
 } // namespace facebook::velox::tz

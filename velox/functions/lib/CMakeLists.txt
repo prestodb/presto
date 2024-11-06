@@ -24,8 +24,7 @@ velox_link_libraries(velox_functions_util velox_vector velox_common_base)
 velox_add_library(velox_functions_lib_date_time_formatter DateTimeFormatter.cpp
                   DateTimeFormatterBuilder.cpp)
 
-velox_link_libraries(velox_functions_lib_date_time_formatter velox_type_tz
-                     ICU::i18n ICU::uc)
+velox_link_libraries(velox_functions_lib_date_time_formatter velox_type_tz)
 
 velox_add_library(
   velox_functions_lib

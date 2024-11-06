@@ -3566,16 +3566,32 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
 
   // Test a long abbreviation.
   setQueryTimeZone("Asia/Colombo");
-  EXPECT_EQ("+0530", formatDatetime(parseTimestamp("1970-10-01"), "z"));
+  EXPECT_EQ("IST", formatDatetime(parseTimestamp("1970-10-01"), "z"));
   EXPECT_EQ(
       "India Standard Time",
       formatDatetime(parseTimestamp("1970-10-01"), "zzzz"));
 
   // Test a long long name.
   setQueryTimeZone("Australia/Eucla");
-  EXPECT_EQ("+0845", formatDatetime(parseTimestamp("1970-10-01"), "z"));
+  EXPECT_EQ("ACWST", formatDatetime(parseTimestamp("1970-10-01"), "z"));
   EXPECT_EQ(
       "Australian Central Western Standard Time",
+      formatDatetime(parseTimestamp("1970-10-01"), "zzzz"));
+
+  // Test a time zone that doesn't follow the standard abbrevation in the IANA
+  // Time Zone Database, i.e. it relies on our map in TimeZoneNames.cpp.
+  setQueryTimeZone("Asia/Dubai");
+  // According to the IANA time zone database the abbreviation should be +04.
+  EXPECT_EQ("GST", formatDatetime(parseTimestamp("1970-10-01"), "z"));
+  EXPECT_EQ(
+      "Gulf Standard Time",
+      formatDatetime(parseTimestamp("1970-10-01"), "zzzz"));
+
+  // Test UTC specifically (because it's so common).
+  setQueryTimeZone("UTC");
+  EXPECT_EQ("UTC", formatDatetime(parseTimestamp("1970-10-01"), "z"));
+  EXPECT_EQ(
+      "Coordinated Universal Time",
       formatDatetime(parseTimestamp("1970-10-01"), "zzzz"));
 
   // Test a time zone name that is linked to another (that gets replaced when
