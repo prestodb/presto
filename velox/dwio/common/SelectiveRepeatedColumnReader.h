@@ -52,7 +52,7 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   readLengths(int32_t* lengths, int32_t numLengths, const uint64_t* nulls) = 0;
 
   /// Create row set for child columns based on the row set of parent column.
-  void makeNestedRowSet(const RowSet& rows, int32_t maxRow);
+  virtual void makeNestedRowSet(const RowSet& rows, int32_t maxRow);
 
   /// Compute the offsets and lengths based on the current filtered rows passed
   /// in.
@@ -96,8 +96,10 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
 
   uint64_t skip(uint64_t numValues) override;
 
-  void read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls)
-      override;
+  virtual void read(
+      int64_t offset,
+      const RowSet& rows,
+      const uint64_t* incomingNulls) override;
 
   void getValues(const RowSet& rows, VectorPtr* result) override;
 

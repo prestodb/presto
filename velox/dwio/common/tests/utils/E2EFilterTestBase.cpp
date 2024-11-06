@@ -93,6 +93,7 @@ void E2EFilterTestBase::readWithoutFilter(
     std::shared_ptr<ScanSpec> spec,
     const std::vector<RowVectorPtr>& batches,
     uint64_t& time) {
+  SCOPED_TRACE("Read without filter");
   dwio::common::ReaderOptions readerOpts{leafPool_.get()};
   dwio::common::RowReaderOptions rowReaderOpts;
   auto input = std::make_unique<BufferedInput>(
@@ -146,6 +147,7 @@ void E2EFilterTestBase::readWithFilter(
     uint64_t& time,
     bool useValueHook,
     bool skipCheck) {
+  SCOPED_TRACE("Read with filter");
   dwio::common::ReaderOptions readerOpts{leafPool_.get()};
   dwio::common::RowReaderOptions rowReaderOpts;
   auto input = std::make_unique<BufferedInput>(
@@ -239,6 +241,7 @@ void E2EFilterTestBase::readWithFilter(
         auto column = spec->children()[childIndex]->channel();
         auto result = resultBatch->asUnchecked<RowVector>()->childAt(column);
         auto expectedColumn = expectedBatch->childAt(column).get();
+
         ASSERT_TRUE(result->equalValueAt(expectedColumn, i, expectedRow))
             << "Content mismatch at " << rowIndex - 1 << " column " << column
             << ": expected: " << expectedColumn->toString(expectedRow)
@@ -414,6 +417,69 @@ void E2EFilterTestBase::testScenario(
 
   if (testRowGroupSkip_) {
     batches = makeDataset(customize, true, withRecursiveNulls);
+    writeToMemory(rowType_, batches, true);
+    testRowGroupSkip(batches, filterable);
+  }
+}
+
+namespace {
+std::vector<RowVectorPtr> wrapWithRunLengthDictionary(
+    const std::vector<RowVectorPtr>& batches,
+    size_t maxRunLength,
+    int64_t seed) {
+  LOG(INFO) << "Generating random run length indices with seed: " << seed;
+  std::mt19937 gen(seed);
+  std::vector<RowVectorPtr> dictionaryWrappedVectors{};
+  for (auto& batch : batches) {
+    auto runIdx = 0;
+    auto runLength = 0;
+    auto indices = velox::allocateIndices(batch->size(), batch->pool());
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    for (vector_size_t i = 0; i < batch->size(); ++i) {
+      if (folly::Random::rand32(0, 5, gen) > 1 && runLength < maxRunLength) {
+        ++runLength;
+      } else {
+        ++runIdx;
+        runLength = 0;
+      }
+      rawIndices[i] = runIdx;
+    }
+
+    auto dictVector = BaseVector::wrapInDictionary(
+        nullptr, std::move(indices), batch->size(), batch);
+    // TODO: try using SimpleVector for downstream access and avoid explicit
+    // flattening of the encodings.
+    dictionaryWrappedVectors.push_back(
+        std::static_pointer_cast<velox::RowVector>(
+            BaseVector::copy(*dictVector)));
+  }
+  return dictionaryWrappedVectors;
+}
+} // namespace
+
+void E2EFilterTestBase::testRunLengthDictionaryScenario(
+    const std::string& columns,
+    std::function<void()> customize,
+    bool wrapInStruct,
+    const std::vector<std::string>& filterable,
+    int32_t numCombinations,
+    int32_t maxRunLength,
+    bool withRecursiveNulls,
+    int64_t seed) {
+  SCOPED_TRACE("Run length dictionary");
+  rowType_ = DataSetBuilder::makeRowType(columns, wrapInStruct);
+  filterGenerator_ = std::make_unique<FilterGenerator>(rowType_, seed_);
+
+  auto batches = wrapWithRunLengthDictionary(
+      makeDataset(customize, false, withRecursiveNulls), maxRunLength, seed);
+
+  writeToMemory(rowType_, batches, false);
+  testNoRowGroupSkip(batches, filterable, numCombinations);
+  testPruningWithFilter(batches, filterable);
+
+  if (testRowGroupSkip_) {
+    batches = wrapWithRunLengthDictionary(
+        makeDataset(customize, true, withRecursiveNulls), maxRunLength, seed);
     writeToMemory(rowType_, batches, true);
     testRowGroupSkip(batches, filterable);
   }

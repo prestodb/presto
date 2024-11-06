@@ -322,6 +322,16 @@ class E2EFilterTestBase : public testing::Test {
       int32_t numCombinations,
       bool withRecursiveNulls = true);
 
+  void testRunLengthDictionaryScenario(
+      const std::string& columns,
+      std::function<void()> customize,
+      bool wrapInStruct,
+      const std::vector<std::string>& filterable,
+      int32_t numCombinations,
+      int32_t maxRunLength,
+      bool withRecursiveNulls = true,
+      int64_t seed = time(nullptr));
+
  private:
   void testMetadataFilterImpl(
       const std::vector<RowVectorPtr>& batches,
