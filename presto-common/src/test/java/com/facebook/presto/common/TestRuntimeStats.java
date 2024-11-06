@@ -85,7 +85,7 @@ public class TestRuntimeStats
                 new RuntimeMetric(TEST_METRIC_NAME_NANO_2, NANO, 8, 2, 5, 3));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class})
+    @Test(expectedExceptions = IllegalStateException.class)
     public void testMergeMetricWithConflictUnits()
     {
         RuntimeStats stats1 = new RuntimeStats();
@@ -135,7 +135,7 @@ public class TestRuntimeStats
         assertEquals(mergedStats.getMetrics().size(), stats1.getMetrics().size());
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class})
+    @Test(expectedExceptions = IllegalStateException.class)
     public void testMergeWithConflictUnits()
     {
         RuntimeStats stats1 = new RuntimeStats();
@@ -191,7 +191,7 @@ public class TestRuntimeStats
                 stats1.getMetric(TEST_METRIC_NAME_NANO_1));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class})
+    @Test(expectedExceptions = IllegalStateException.class)
     public void testUpdateWithConflictUnits()
     {
         RuntimeStats stats1 = new RuntimeStats();
