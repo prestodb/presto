@@ -132,11 +132,13 @@ class VectorArithmetic : public VectorFunction {
     // (2) the input type must match the output vector type
     // (3) usually we try to reuse inputs with flat encoding
     if (!result) {
-      if (args[0].unique() && leftEncoding == VectorEncoding::Simple::FLAT) {
+      if (args[0].use_count() == 1 &&
+          leftEncoding == VectorEncoding::Simple::FLAT) {
         result = std::move(args[0]);
       } else if (
 
-          args[1].unique() && rightEncoding == VectorEncoding::Simple::FLAT) {
+          args[1].use_count() == 1 &&
+          rightEncoding == VectorEncoding::Simple::FLAT) {
         result = std::move(args[1]);
       } else {
         result = BaseVector::create(outputType, rows.end(), context.pool());

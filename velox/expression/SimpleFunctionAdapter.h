@@ -285,7 +285,7 @@ class SimpleFunctionAdapter : public VectorFunction {
         !providesCustomComparison<arg_at<POSITION>>::value) {
       using type =
           typename VectorExec::template resolver<arg_at<POSITION>>::in_type;
-      if (args[POSITION]->isFlatEncoding() && args[POSITION].unique() &&
+      if (args[POSITION]->isFlatEncoding() && args[POSITION].use_count() == 1 &&
           args[POSITION]->asUnchecked<FlatVector<type>>()->isWritable()) {
         // Re-use arg for result. We rely on the fact that for each row
         // we read arguments before computing and writing out the

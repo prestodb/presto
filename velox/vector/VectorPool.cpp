@@ -61,7 +61,7 @@ bool VectorPool::release(VectorPtr& vector) {
   if (FOLLY_UNLIKELY(vector == nullptr)) {
     return false;
   }
-  if (!vector.unique() || vector->size() > kMaxRecycleSize) {
+  if (vector.use_count() != 1 || vector->size() > kMaxRecycleSize) {
     return false;
   }
 

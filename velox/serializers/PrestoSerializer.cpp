@@ -4201,9 +4201,9 @@ void PrestoVectorSerde::deserialize(
 
   if (resultOffset > 0) {
     VELOX_CHECK_NOT_NULL(*result);
-    VELOX_CHECK(result->unique());
+    VELOX_CHECK_EQ(result->use_count(), 1);
     (*result)->resize(resultOffset + header.numRows);
-  } else if (*result && result->unique()) {
+  } else if (*result && result->use_count() == 1) {
     VELOX_CHECK(
         *(*result)->type() == *type,
         "Unexpected type: {} vs. {}",
@@ -4245,7 +4245,7 @@ void PrestoVectorSerde::deserializeSingleColumn(
   VELOX_CHECK_EQ(
       prestoOptions.compressionKind,
       common::CompressionKind::CompressionKind_NONE);
-  if (*result && result->unique()) {
+  if (*result && result->use_count() == 1) {
     VELOX_CHECK(
         *(*result)->type() == *type,
         "Unexpected type: {} vs. {}",

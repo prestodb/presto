@@ -63,7 +63,7 @@ void prepareResult(
           result->encoding() == VectorEncoding::Simple::ARRAY) ||
          (type->kind() == TypeKind::MAP &&
           result->encoding() == VectorEncoding::Simple::MAP)) &&
-        result.unique())) {
+        result.use_count() == 1)) {
     VLOG(1) << "Reallocating result " << type->kind() << " vector of size "
             << size;
     result = BaseVector::create(type, size, pool);

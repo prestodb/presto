@@ -673,7 +673,7 @@ void RowVector::resize(vector_size_t newSize, bool setNotNull) {
       // to skip uniqueness check since effectively we are just changing
       // the length.
       if (newSize > oldSize) {
-        VELOX_CHECK(child.unique(), "Resizing shared child vector");
+        VELOX_CHECK_EQ(child.use_count(), 1, "Resizing shared child vector");
         child->resize(newSize, setNotNull);
       }
     }
@@ -1328,7 +1328,7 @@ void MapVector::canonicalize(
   // threads. The keys and values do not have to be uniquely owned
   // since they are not mutated but rather transposed, which is
   // non-destructive.
-  VELOX_CHECK(map.unique());
+  VELOX_CHECK(map.use_count() == 1);
   BufferPtr indices;
   vector_size_t* indicesRange;
   for (auto i = 0; i < map->BaseVector::length_; ++i) {

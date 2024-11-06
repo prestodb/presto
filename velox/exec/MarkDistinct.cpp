@@ -66,7 +66,7 @@ RowVectorPtr MarkDistinct::getOutput() {
   auto outputSize = input_->size();
   // Re-use memory for the ID vector if possible.
   VectorPtr& result = results_[0];
-  if (result && result.unique()) {
+  if (result && result.use_count() == 1) {
     BaseVector::prepareForReuse(result, outputSize);
   } else {
     result = BaseVector::create(BOOLEAN(), outputSize, operatorCtx_->pool());

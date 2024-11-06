@@ -649,7 +649,7 @@ void OutputBuffer::updateAfterAcknowledgeLocked(
   uint64_t freedBytes{0};
   int freedPages{0};
   for (const auto& free : freed) {
-    if (free.unique()) {
+    if (free.use_count() == 1) {
       ++freedPages;
       freedBytes += free->size();
     }

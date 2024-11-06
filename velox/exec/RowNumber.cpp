@@ -244,7 +244,7 @@ void RowNumber::ensureInputFits(const RowVectorPtr& input) {
 
 FlatVector<int64_t>& RowNumber::getOrCreateRowNumberVector(vector_size_t size) {
   VectorPtr& result = results_[0];
-  if (result && result.unique()) {
+  if (result && result.use_count() == 1) {
     BaseVector::prepareForReuse(result, size);
   } else {
     result = BaseVector::create(BIGINT(), size, pool());

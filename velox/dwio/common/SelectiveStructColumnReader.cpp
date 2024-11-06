@@ -54,7 +54,7 @@ void fillRowVectorChildren(
 }
 
 VectorPtr tryReuseResult(const VectorPtr& result) {
-  if (!result.unique()) {
+  if (result.use_count() != 1) {
     return nullptr;
   }
   switch (result->encoding()) {
@@ -99,7 +99,7 @@ void setConstantField(
     const VectorPtr& constant,
     vector_size_t size,
     VectorPtr& field) {
-  if (field && field->isConstantEncoding() && field.unique() &&
+  if (field && field->isConstantEncoding() && field.use_count() == 1 &&
       field->size() > 0 && field->equalValueAt(constant.get(), 0, 0)) {
     field->resize(size);
   } else {
@@ -112,7 +112,7 @@ void setNullField(
     VectorPtr& field,
     const TypePtr& type,
     memory::MemoryPool* pool) {
-  if (field && field->isConstantEncoding() && field.unique() &&
+  if (field && field->isConstantEncoding() && field.use_count() == 1 &&
       field->size() > 0 && field->isNullAt(0)) {
     field->resize(size);
   } else {
@@ -512,7 +512,7 @@ void SelectiveStructColumnReaderBase::getValues(
     }
     auto lazyLoader =
         std::make_unique<ColumnLoader>(this, children_[index], numReads_);
-    if (childResult && childResult->isLazy() && childResult.unique()) {
+    if (childResult && childResult->isLazy() && childResult.use_count() == 1) {
       static_cast<LazyVector&>(*childResult)
           .reset(std::move(lazyLoader), rows.size());
     } else {

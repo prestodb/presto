@@ -615,7 +615,7 @@ class BaseVector {
   /// unique.
   template <typename T>
   static bool isVectorWritable(const std::shared_ptr<T>& vector) {
-    if (!vector.unique()) {
+    if (vector.use_count() != 1) {
       return false;
     }
 

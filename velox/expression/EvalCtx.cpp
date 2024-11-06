@@ -377,7 +377,7 @@ void EvalCtx::addNulls(
   // or do nothing otherwise.
   if (result->isConstantEncoding() && result->isNullAt(0)) {
     if (result->size() < rows.end()) {
-      if (result.unique()) {
+      if (result.use_count() == 1) {
         result->resize(rows.end());
       } else {
         result =
@@ -389,7 +389,7 @@ void EvalCtx::addNulls(
 
   auto currentSize = result->size();
   auto targetSize = rows.end();
-  if (!result.unique() || !result->isNullsWritable()) {
+  if (result.use_count() != 1 || !result->isNullsWritable()) {
     if (result->type()->isPrimitiveType()) {
       if (currentSize < targetSize) {
         resizePrimitiveTypeVectors(result, targetSize, context);

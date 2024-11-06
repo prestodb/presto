@@ -227,7 +227,7 @@ class SelectiveFlatMapColumnReaderHelper {
  private:
   MapVector& prepareResult(VectorPtr& result, vector_size_t size) {
     if (result && result->encoding() == VectorEncoding::Simple::MAP &&
-        result.unique()) {
+        result.use_count() == 1) {
       result->resetDataDependentFlags(nullptr);
       result->resize(size);
     } else {
