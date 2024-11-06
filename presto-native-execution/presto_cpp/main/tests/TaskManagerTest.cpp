@@ -34,6 +34,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/Values.h"
+#include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -181,9 +182,10 @@ void setAggregationSpillConfig(
   queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
 }
 
-class TaskManagerTest : public testing::Test {
+class TaskManagerTest : public exec::test::OperatorTestBase {
  public:
   static void SetUpTestCase() {
+    OperatorTestBase::SetUpTestCase();
     filesystems::registerLocalFileSystem();
     if (!connector::hasConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
@@ -194,32 +196,12 @@ class TaskManagerTest : public testing::Test {
     SystemConfig::instance()->setValue(
         std::string(SystemConfig::kMemoryArbitratorKind), "SHARED");
     ASSERT_EQ(SystemConfig::instance()->memoryArbitratorKind(), "SHARED");
-    FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
-    FLAGS_velox_memory_leak_check_enabled = true;
-    velox::memory::SharedArbitrator::registerFactory();
-    velox::memory::MemoryManagerOptions options;
-    options.allocatorCapacity = 8L << 30;
-    options.arbitratorCapacity = 6L << 30;
-    options.extraArbitratorConfigs = {
-        {std::string(velox::memory::SharedArbitrator::ExtraConfig::
-                         kMemoryPoolInitialCapacity),
-         "512MB"},
-        {std::string(velox::memory::SharedArbitrator::ExtraConfig::
-                         kMemoryPoolMinReclaimBytes),
-         "0B"}};
-    options.arbitratorKind = "SHARED";
-    options.checkUsageLeak = true;
-    options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
-    memory::MemoryManager::testingSetInstance(options);
     common::testutil::TestValue::enable();
   }
 
  protected:
   void SetUp() override {
-    FLAGS_velox_memory_leak_check_enabled = true;
-    functions::prestosql::registerAllScalarFunctions();
-    aggregate::prestosql::registerAllAggregateFunctions();
-    parse::registerTypeResolver();
+    OperatorTestBase::SetUp();
     dwrf::registerDwrfWriterFactory();
     dwrf::registerDwrfReaderFactory();
     exec::ExchangeSource::registerFactory(
@@ -240,9 +222,6 @@ class TaskManagerTest : public testing::Test {
               connPool.get(),
               nullptr);
         });
-    if (!isRegisteredVectorSerde()) {
-      serializer::presto::PrestoVectorSerde::registerVectorSerde();
-    };
 
     registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
         connector::hive::HiveConnectorFactory::kHiveConnectorName));
@@ -255,9 +234,6 @@ class TaskManagerTest : public testing::Test {
                     std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
 
-    rootPool_ = memory::memoryManager()->addRootPool("TaskManagerTest.root");
-    leafPool_ =
-        memory::deprecatedAddDefaultLeafMemoryPool("TaskManagerTest.leaf");
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
 
     taskManager_ = std::make_unique<TaskManager>(
@@ -265,7 +241,7 @@ class TaskManagerTest : public testing::Test {
 
     auto validator = std::make_shared<facebook::presto::VeloxPlanValidator>();
     taskResource_ = std::make_unique<TaskResource>(
-        leafPool_.get(),
+        pool_.get(),
         httpSrvCpuExecutor_.get(),
         validator.get(),
         *taskManager_.get());
@@ -298,6 +274,8 @@ class TaskManagerTest : public testing::Test {
         connector::hive::HiveConnectorFactory::kHiveConnectorName);
     dwrf::unregisterDwrfWriterFactory();
     dwrf::unregisterDwrfReaderFactory();
+    taskManager_.reset();
+    OperatorTestBase::TearDown();
   }
 
   std::vector<RowVectorPtr> makeVectors(int count, int rowsPerVector) {
@@ -305,7 +283,7 @@ class TaskManagerTest : public testing::Test {
     for (int i = 0; i < count; ++i) {
       auto vector = std::dynamic_pointer_cast<RowVector>(
           facebook::velox::test::BatchMaker::createBatch(
-              rowType_, rowsPerVector, *leafPool_));
+              rowType_, rowsPerVector, *pool_));
       vectors.emplace_back(vector);
     }
     return vectors;
@@ -398,7 +376,7 @@ class TaskManagerTest : public testing::Test {
       const protocol::TaskId& taskId,
       const RowTypePtr& resultType,
       const std::vector<std::string>& allTaskIds) {
-    Cursor cursor(taskManager_.get(), taskId, resultType, leafPool_.get());
+    Cursor cursor(taskManager_.get(), taskId, resultType, pool_.get());
     std::vector<RowVectorPtr> vectors;
     for (;;) {
       auto moreVectors = cursor.next();
@@ -678,8 +656,6 @@ class TaskManagerTest : public testing::Test {
         taskId, updateRequest, planFragment, std::move(queryCtx), 0);
   }
 
-  std::shared_ptr<memory::MemoryPool> rootPool_;
-  std::shared_ptr<memory::MemoryPool> leafPool_;
   RowTypePtr rowType_;
   exec::test::DuckDbQueryRunner duckDbQueryRunner_;
   std::unique_ptr<TaskManager> taskManager_;
