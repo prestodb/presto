@@ -848,15 +848,15 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
   }
   VELOX_MEM_POOL_CAP_EXCEEDED(fmt::format(
       "Exceeded memory pool capacity after attempt to grow capacity "
-      "through arbitration. Requestor pool name '{}', request size {}, memory "
-      "pool capacity {}, memory pool max capacity {}, memory manager capacity "
-      "{}, current usage {}\n{}",
+      "through arbitration. Requestor pool name '{}', request size {}, current "
+      "usage {}, memory pool capacity {}, memory pool max capacity {}, memory "
+      "manager capacity {}\n{}",
       requestor->name(),
       succinctBytes(size),
+      succinctBytes(requestor->usedBytes()),
       capacityToString(capacity()),
       capacityToString(maxCapacity_),
       capacityToString(manager_->capacity()),
-      succinctBytes(requestor->usedBytes()),
       treeMemoryUsage()));
 }
 
