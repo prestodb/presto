@@ -82,7 +82,7 @@ public class TestRuntimeMetric
         assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, NONE, 40, 4, 11, 9));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class})
+    @Test(expectedExceptions = IllegalStateException.class)
     public void testMergeWithWithConflictUnits()
     {
         RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, NANO, 5, 2, 4, 1);
@@ -101,7 +101,7 @@ public class TestRuntimeMetric
         assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, NONE, 20, 2, 11, 9));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class})
+    @Test(expectedExceptions = IllegalStateException.class)
     public void testMergeWithConflictUnits()
     {
         RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, NANO, 5, 2, 4, 1);
