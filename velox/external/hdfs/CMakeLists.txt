@@ -14,6 +14,6 @@ if(${VELOX_ENABLE_HDFS})
   velox_add_library(velox_external_hdfs ArrowHdfsInternal.cpp)
   velox_link_libraries(
         velox_external_hdfs
-        PRIVATE
+        PUBLIC
         arrow)
 endif()
