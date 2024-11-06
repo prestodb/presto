@@ -201,8 +201,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
   HiveInsertTableHandle(
       std::vector<std::shared_ptr<const HiveColumnHandle>> inputColumns,
       std::shared_ptr<const LocationHandle> locationHandle,
-      dwio::common::FileFormat tableStorageFormat =
-          dwio::common::FileFormat::DWRF,
+      dwio::common::FileFormat storageFormat = dwio::common::FileFormat::DWRF,
       std::shared_ptr<const HiveBucketProperty> bucketProperty = nullptr,
       std::optional<common::CompressionKind> compressionKind = {},
       const std::unordered_map<std::string, std::string>& serdeParameters = {},
@@ -210,7 +209,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
           nullptr)
       : inputColumns_(std::move(inputColumns)),
         locationHandle_(std::move(locationHandle)),
-        tableStorageFormat_(tableStorageFormat),
+        storageFormat_(storageFormat),
         bucketProperty_(std::move(bucketProperty)),
         compressionKind_(compressionKind),
         serdeParameters_(serdeParameters),
@@ -237,8 +236,8 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
     return compressionKind_;
   }
 
-  dwio::common::FileFormat tableStorageFormat() const {
-    return tableStorageFormat_;
+  dwio::common::FileFormat storageFormat() const {
+    return storageFormat_;
   }
 
   const std::unordered_map<std::string, std::string>& serdeParameters() const {
@@ -272,7 +271,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
  private:
   const std::vector<std::shared_ptr<const HiveColumnHandle>> inputColumns_;
   const std::shared_ptr<const LocationHandle> locationHandle_;
-  const dwio::common::FileFormat tableStorageFormat_;
+  const dwio::common::FileFormat storageFormat_;
   const std::shared_ptr<const HiveBucketProperty> bucketProperty_;
   const std::optional<common::CompressionKind> compressionKind_;
   const std::unordered_map<std::string, std::string> serdeParameters_;

@@ -38,7 +38,7 @@ makeHiveInsertTableHandle(
   const auto inputColumns = tracedHandle->inputColumns();
   const auto compressionKind =
       tracedHandle->compressionKind().value_or(common::CompressionKind_NONE);
-  const auto storageFormat = tracedHandle->tableStorageFormat();
+  const auto storageFormat = tracedHandle->storageFormat();
   const auto serdeParameters = tracedHandle->serdeParameters();
   const auto writerOptions = tracedHandle->writerOptions();
   return std::make_shared<connector::hive::HiveInsertTableHandle>(
