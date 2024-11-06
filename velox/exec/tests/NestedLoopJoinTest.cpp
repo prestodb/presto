@@ -569,5 +569,58 @@ TEST_F(NestedLoopJoinTest, outputOrder) {
   assertEqualVectors(expectedLeft, results);
 }
 
+TEST_F(NestedLoopJoinTest, mergeBuildVectors) {
+  const std::vector<RowVectorPtr> buildVectors = {
+      makeRowVector({makeFlatVector<int64_t>({1, 2})}),
+      makeRowVector({makeFlatVector<int64_t>({3, 4})}),
+      makeRowVector(
+          {makeFlatVector<int64_t>(20, [](auto i) { return 5 + i; })}),
+      makeRowVector(
+          {makeFlatVector<int64_t>(20, [](auto i) { return 25 + i; })}),
+      makeRowVector({makeFlatVector<int64_t>({45, 46})}),
+  };
+  const std::vector<RowVectorPtr> probeVectors = {
+      makeRowVector({makeFlatVector<int64_t>({1, 2})}),
+  };
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  CursorParameters params;
+  params.planNode = PlanBuilder(planNodeIdGenerator)
+                        .values(probeVectors)
+                        .nestedLoopJoin(
+                            PlanBuilder(planNodeIdGenerator)
+                                .values(buildVectors)
+                                .project({"c0 as r0"})
+                                .planNode(),
+                            {"c0", "r0"})
+                        .planNode();
+  params.queryConfigs[core::QueryConfig::kMaxOutputBatchRows] = "10";
+  auto cursor = TaskCursor::create(params);
+  // Expect the first 2 build side vectors are merged together since they are
+  // under the limit after merge.  Others are left along.
+  for (int i = 0; i < 2; ++i) {
+    auto makeExpected = [&](vector_size_t size, vector_size_t buildOffset) {
+      return makeRowVector({
+          makeConstant<int64_t>(1 + i, size),
+          makeFlatVector<int64_t>(
+              size, [&](auto i) { return buildOffset + i; }),
+      });
+    };
+    ASSERT_TRUE(cursor->moveNext());
+    ASSERT_EQ(cursor->current()->size(), 4);
+    assertEqualVectors(makeExpected(4, 1), cursor->current());
+    ASSERT_TRUE(cursor->moveNext());
+    ASSERT_EQ(cursor->current()->size(), 20);
+    assertEqualVectors(makeExpected(20, 5), cursor->current());
+    ASSERT_TRUE(cursor->moveNext());
+    ASSERT_EQ(cursor->current()->size(), 20);
+    assertEqualVectors(makeExpected(20, 25), cursor->current());
+    ASSERT_TRUE(cursor->moveNext());
+    ASSERT_EQ(cursor->current()->size(), 2);
+    assertEqualVectors(makeExpected(2, 45), cursor->current());
+  }
+  ASSERT_FALSE(cursor->moveNext());
+  ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
+}
+
 } // namespace
 } // namespace facebook::velox::exec::test

@@ -70,6 +70,38 @@ BlockingReason NestedLoopJoinBuild::isBlocked(ContinueFuture* future) {
   return BlockingReason::kWaitForJoinBuild;
 }
 
+// Merge adjacent vectors to larger vectors as long as the result do not exceed
+// the size limit.  This is important for performance because each small vector
+// here would be duplicated by the number of rows on probe side, result in huge
+// number of small vectors in the output.
+std::vector<RowVectorPtr> NestedLoopJoinBuild::mergeDataVectors() const {
+  const auto maxBatchRows =
+      operatorCtx_->task()->queryCtx()->queryConfig().maxOutputBatchRows();
+  std::vector<RowVectorPtr> merged;
+  for (int i = 0; i < dataVectors_.size();) {
+    auto batchSize = dataVectors_[i]->size();
+    auto j = i + 1;
+    while (j < dataVectors_.size() &&
+           batchSize + dataVectors_[j]->size() <= maxBatchRows) {
+      batchSize += dataVectors_[j++]->size();
+    }
+    if (j == i + 1) {
+      merged.push_back(dataVectors_[i++]);
+    } else {
+      auto batch = BaseVector::create<RowVector>(
+          dataVectors_[i]->type(), batchSize, pool());
+      batchSize = 0;
+      while (i < j) {
+        auto* source = dataVectors_[i++].get();
+        batch->copy(source, batchSize, 0, source->size());
+        batchSize += source->size();
+      }
+      merged.push_back(std::move(batch));
+    }
+  }
+  return merged;
+}
+
 void NestedLoopJoinBuild::noMoreInput() {
   Operator::noMoreInput();
   std::vector<ContinuePromise> promises;
@@ -105,6 +137,7 @@ void NestedLoopJoinBuild::noMoreInput() {
     }
   }
 
+  dataVectors_ = mergeDataVectors();
   operatorCtx_->task()
       ->getNestedLoopJoinBridge(
           operatorCtx_->driverCtx()->splitGroupId, planNodeId())

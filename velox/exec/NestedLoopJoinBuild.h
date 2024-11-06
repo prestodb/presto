@@ -59,6 +59,8 @@ class NestedLoopJoinBuild : public Operator {
   }
 
  private:
+  std::vector<RowVectorPtr> mergeDataVectors() const;
+
   std::vector<RowVectorPtr> dataVectors_;
 
   // Future for synchronizing with other Drivers of the same pipeline. All build
