@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders;
 
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTime;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
 import org.apache.parquet.bytes.BytesUtils;
@@ -31,7 +30,6 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -80,16 +78,16 @@ public class TestParquetUtils
         }
     }
 
-    public static Iterator<Integer> randomValues(Random random, int numValues, int maxValue)
+    public static Iterator<Integer> fillValues(TestMode testMode, int numValues, int maxValue)
     {
         List<Integer> values = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
-            values.add(random.nextInt(maxValue + 1));
+            values.add(testMode.getPositiveUpperBoundedInt(maxValue));
         }
         return values.iterator();
     }
 
-    public static byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, Random random, List<Object> addedValues)
+    public static byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, TestMode testMode, List<Object> addedValues)
     {
         ValuesWriter writer;
 
@@ -103,7 +101,7 @@ public class TestParquetUtils
         switch (valueSizeBits) {
             case 1: {
                 for (int i = 0; i < valueCount; i++) {
-                    int value = random.nextInt(2);
+                    int value = testMode.getPositiveUpperBoundedInt(1);
                     writer.writeInteger(value);
                     addedValues.add(value);
                 }
@@ -111,7 +109,7 @@ public class TestParquetUtils
             }
             case -1: {
                 for (int i = 0; i < valueCount; i++) {
-                    String valueStr = RandomStringUtils.random(random.nextInt(10), 0, 0, true, true, null, random);
+                    String valueStr = "4nY" + valueCount;
                     byte[] valueUtf8 = valueStr.getBytes(StandardCharsets.UTF_8);
                     writer.writeBytes(Binary.fromConstantByteArray(valueUtf8, 0, valueUtf8.length));
                     addedValues.add(valueStr);
@@ -120,7 +118,7 @@ public class TestParquetUtils
             }
             case 32: {
                 for (int i = 0; i < valueCount; i++) {
-                    int value = random.nextInt();
+                    int value = testMode.getInt();
                     writer.writeInteger(value);
                     addedValues.add(value);
                 }
@@ -128,7 +126,7 @@ public class TestParquetUtils
             }
             case 64: {
                 for (int i = 0; i < valueCount; i++) {
-                    long value = random.nextLong();
+                    long value = testMode.getLong();
                     writer.writeLong(value);
                     addedValues.add(value);
                 }
@@ -136,7 +134,7 @@ public class TestParquetUtils
             }
             case 96: {
                 for (int i = 0; i < valueCount; i++) {
-                    long millisValue = Long.valueOf(random.nextInt(1572281176) * 1000);
+                    long millisValue = testMode.getPositiveUpperBoundedInt(1572281175) * 1000L;
                     NanoTime nanoTime = NanoTimeUtils.getNanoTime(new Timestamp(millisValue), false);
                     writer.writeLong(nanoTime.getTimeOfDayNanos());
                     writer.writeInteger(nanoTime.getJulianDay());
@@ -146,10 +144,9 @@ public class TestParquetUtils
             }
             case 128:
                 for (int i = 0; i < valueCount; i++) {
-                    long value = random.nextLong();
+                    long value = testMode.getLong();
                     writer.writeLong(value);
                     addedValues.add(value);
-                    value = random.nextLong();
                     writer.writeLong(value);
                     addedValues.add(value);
                 }
@@ -166,19 +163,19 @@ public class TestParquetUtils
         }
     }
 
-    public static byte[] generateDictionaryIdPage2048(int maxValue, Random random, List<Integer> addedValues)
+    public static byte[] generateDictionaryIdPage2048(int maxValue, TestMode testMode, List<Integer> addedValues)
     {
         RunLengthBitPackingHybridEncoder encoder = getDictionaryDataPageEncoder(maxValue);
 
         addDLRLEBlock(maxValue / 2, 50, encoder, addedValues);
-        addDLValues(randomValues(random, 457, maxValue), encoder, addedValues);
+        addDLValues(fillValues(testMode, 457, maxValue), encoder, addedValues);
         addDLRLEBlock(0, 37, encoder, addedValues);
-        addDLValues(randomValues(random, 186, maxValue), encoder, addedValues);
-        addDLValues(randomValues(random, 289, maxValue), encoder, addedValues);
+        addDLValues(fillValues(testMode, 186, maxValue), encoder, addedValues);
+        addDLValues(fillValues(testMode, 289, maxValue), encoder, addedValues);
         addDLRLEBlock(maxValue - 1, 76, encoder, addedValues);
-        addDLValues(randomValues(random, 789, maxValue), encoder, addedValues);
+        addDLValues(fillValues(testMode, 789, maxValue), encoder, addedValues);
         addDLRLEBlock(maxValue - 1, 137, encoder, addedValues);
-        addDLValues(randomValues(random, 27, maxValue), encoder, addedValues);
+        addDLValues(fillValues(testMode, 27, maxValue), encoder, addedValues);
 
         checkState(addedValues.size() == 2048);
 
