@@ -68,8 +68,6 @@ jobs:
           - presto-pinot-toolkit
           - presto-cli
           - presto-benchmark-driver
-          - presto-server
-          - presto-docs
           - presto-verifier
           - presto-testing-server-launcher
           - presto-plugin-toolkit
@@ -151,10 +149,10 @@ jobs:
       - name: Build module dependencies
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all --no-transfer-progress -P ci -pl '!presto-test-coverage,!:presto-docs,${{ matrix.module }}' -am
+          ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all -DskipUI --no-transfer-progress -P ci -pl '${{ matrix.module }}' -am
       - name: Check module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true --no-transfer-progress -P ci -pl '!presto-test-coverage,!:presto-docs,${{ matrix.module }}'
+          ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true -DskipUI --no-transfer-progress -P ci -pl '${{ matrix.module }}'
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:presto-server,!:presto-cli,!presto-test-coverage'
