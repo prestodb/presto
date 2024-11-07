@@ -21,7 +21,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

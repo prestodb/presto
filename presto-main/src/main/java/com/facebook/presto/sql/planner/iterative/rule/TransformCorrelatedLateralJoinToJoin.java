@@ -21,7 +21,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;

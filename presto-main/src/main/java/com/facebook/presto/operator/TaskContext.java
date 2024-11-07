@@ -31,7 +31,7 @@ import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;

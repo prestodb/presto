@@ -20,7 +20,7 @@ import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 

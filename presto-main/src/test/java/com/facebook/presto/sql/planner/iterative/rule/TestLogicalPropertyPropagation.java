@@ -43,7 +43,7 @@ import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesPro
 import com.facebook.presto.sql.planner.iterative.properties.MaxCardProperty;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;

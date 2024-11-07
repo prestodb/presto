@@ -27,7 +27,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;

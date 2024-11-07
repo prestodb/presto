@@ -25,7 +25,7 @@ import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.testing.QueryRunner;

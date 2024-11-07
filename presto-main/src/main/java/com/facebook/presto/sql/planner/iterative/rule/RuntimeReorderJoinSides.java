@@ -22,7 +22,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 
 import java.util.Optional;
 

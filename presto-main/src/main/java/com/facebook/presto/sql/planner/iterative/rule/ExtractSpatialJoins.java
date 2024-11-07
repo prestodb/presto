@@ -54,7 +54,7 @@ import com.facebook.presto.split.SplitSource.SplitBatch;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.iterative.Rule.Result;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.relational.Expressions;

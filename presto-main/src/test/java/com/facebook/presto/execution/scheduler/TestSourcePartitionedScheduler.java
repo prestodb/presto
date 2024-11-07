@@ -51,7 +51,7 @@ import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;

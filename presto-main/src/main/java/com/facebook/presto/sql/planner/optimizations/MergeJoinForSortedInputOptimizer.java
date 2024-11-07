@@ -22,7 +22,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 

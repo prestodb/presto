@@ -70,7 +70,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.remoteSource;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
-import static com.facebook.presto.sql.planner.plan.JoinNode.flipType;
+import static com.facebook.presto.spi.plan.JoinNode.flipType;
 import static com.facebook.presto.testing.TestngUtils.toDataProvider;
 
 @Test(singleThreaded = true)

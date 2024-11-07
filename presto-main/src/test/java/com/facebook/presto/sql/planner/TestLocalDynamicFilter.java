@@ -22,7 +22,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;

@@ -54,8 +54,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
-import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.REPLICATED;
 
 @Test(singleThreaded = true)
 public class TestDetermineSemiJoinDistributionType

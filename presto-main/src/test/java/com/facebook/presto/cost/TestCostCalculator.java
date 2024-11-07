@@ -57,7 +57,7 @@ import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;

@@ -20,7 +20,7 @@ import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 

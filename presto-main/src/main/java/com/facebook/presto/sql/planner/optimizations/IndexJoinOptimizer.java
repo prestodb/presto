@@ -36,7 +36,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;

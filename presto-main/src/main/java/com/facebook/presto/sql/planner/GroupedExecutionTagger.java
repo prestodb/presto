@@ -25,7 +25,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;

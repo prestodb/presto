@@ -21,7 +21,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
-import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
+import com.facebook.presto.spi.plan.AbstractJoinNode;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;

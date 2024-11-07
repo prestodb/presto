@@ -40,7 +40,7 @@ import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;

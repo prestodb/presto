@@ -26,7 +26,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 
 import java.util.List;

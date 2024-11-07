@@ -65,11 +65,12 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.SortExpressionExtractor;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
-import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
+import com.facebook.presto.spi.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -80,14 +81,14 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
@@ -528,7 +529,8 @@ public class PlanPrinter
                 nodeOutput.appendDetails(getDynamicFilterAssignments(node));
             }
 
-            node.getSortExpressionContext(functionAndTypeManager)
+            node.getFilter()
+                    .flatMap(filter -> SortExpressionExtractor.extractSortExpression(ImmutableSet.copyOf(node.getRight().getOutputVariables()), filter, functionAndTypeManager))
                     .ifPresent(sortContext -> nodeOutput.appendDetails("SortExpression[%s]", formatter.apply(sortContext.getSortExpression())));
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);

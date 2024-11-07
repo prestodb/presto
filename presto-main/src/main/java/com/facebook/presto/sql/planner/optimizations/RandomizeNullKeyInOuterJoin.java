@@ -31,7 +31,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
