@@ -73,6 +73,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.view.View;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -179,6 +180,12 @@ public class IcebergHiveMetadata
     protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, session, schemaTableName);
+    }
+
+    @Override
+    protected View getIcebergView(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "Iceberg Hive catalog does not support native Iceberg views.");
     }
 
     @Override

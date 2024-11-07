@@ -344,7 +344,7 @@ void PrestoServer::run() {
   }
 
   httpServer_ = std::make_unique<http::HttpServer>(
-      httpSrvIOExecutor_, std::move(httpConfig), std::move(httpsConfig));
+      httpSrvIoExecutor_, std::move(httpConfig), std::move(httpsConfig));
 
   httpServer_->registerPost(
       "/v1/memory",
@@ -560,7 +560,10 @@ void PrestoServer::run() {
   periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverExecutor_.get(),
       spillerExecutor_.get(),
-      httpServer_->getExecutor(),
+      httpSrvIoExecutor_.get(),
+      httpSrvCpuExecutor_.get(),
+      exchangeHttpIoExecutor_.get(),
+      exchangeHttpCpuExecutor_.get(),
       taskManager_.get(),
       memoryAllocator,
       asyncDataCache,
@@ -632,12 +635,12 @@ void PrestoServer::run() {
         << ", task queue: " << httpSrvCpuExecutor_->getTaskQueueSize();
     httpSrvCpuExecutor_->join();
   }
-  if (httpSrvIOExecutor_ != nullptr) {
+  if (httpSrvIoExecutor_ != nullptr) {
     PRESTO_SHUTDOWN_LOG(INFO)
-        << "Joining HTTP Server IO Executor '" << httpSrvIOExecutor_->getName()
-        << "': threads: " << httpSrvIOExecutor_->numActiveThreads() << "/"
-        << httpSrvIOExecutor_->numThreads();
-    httpSrvIOExecutor_->join();
+        << "Joining HTTP Server IO Executor '" << httpSrvIoExecutor_->getName()
+        << "': threads: " << httpSrvIoExecutor_->numActiveThreads() << "/"
+        << httpSrvIoExecutor_->numThreads();
+    httpSrvIoExecutor_->join();
   }
 
   PRESTO_SHUTDOWN_LOG(INFO)
@@ -751,7 +754,7 @@ void PrestoServer::initializeThreadPools() {
 
   const auto numIoThreads = std::max<size_t>(
       systemConfig->httpServerNumIoThreadsHwMultiplier() * hwConcurrency, 1);
-  httpSrvIOExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+  httpSrvIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
       numIoThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
 
   const auto numCpuThreads = std::max<size_t>(

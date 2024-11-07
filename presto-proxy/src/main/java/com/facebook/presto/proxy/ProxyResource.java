@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
+import javax.annotation.security.PermitAll;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
@@ -87,6 +88,7 @@ import static javax.ws.rs.core.Response.Status.FORBIDDEN;
 import static javax.ws.rs.core.Response.noContent;
 
 @Path("/")
+@PermitAll
 public class ProxyResource
 {
     private static final Logger log = Logger.get(ProxyResource.class);

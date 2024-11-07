@@ -66,8 +66,6 @@ public class TestIcebergRegisterAndUnregisterProcedure
     private Session session;
 
     public static final String ICEBERG_CATALOG = "iceberg";
-    public static final String TEST_DATA_DIRECTORY = "iceberg_data";
-    public static final String TEST_CATALOG_DIRECTORY = "catalog";
     public static final String TEST_SCHEMA = "register";
     public static final String TEST_TABLE_NAME = "iceberg_test";
 

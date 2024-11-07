@@ -14,7 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -25,31 +24,46 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
+import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
+import org.apache.iceberg.view.View;
+import org.apache.iceberg.view.ViewBuilder;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
+import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
+import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergView;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.verifyTypeSupported;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
@@ -68,12 +82,12 @@ import static java.util.stream.Collectors.toMap;
 public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
 {
-    private static final Logger LOG = Logger.get(IcebergNativeMetadata.class);
     private static final String INFORMATION_SCHEMA = "information_schema";
-    private static final String TABLE_COMMENT = "comment";
+    private static final String VIEW_DIALECT = "presto";
 
     private final IcebergNativeCatalogFactory catalogFactory;
     private final CatalogType catalogType;
+    private final ConcurrentMap<SchemaTableName, View> icebergViews = new ConcurrentHashMap<>();
 
     public IcebergNativeMetadata(
             IcebergNativeCatalogFactory catalogFactory,
@@ -95,6 +109,14 @@ public class IcebergNativeMetadata
     protected Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return getNativeIcebergTable(catalogFactory, session, schemaTableName);
+    }
+
+    @Override
+    protected View getIcebergView(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return icebergViews.computeIfAbsent(
+                schemaTableName,
+                ignored -> getNativeIcebergView(catalogFactory, session, schemaTableName));
     }
 
     @Override
@@ -159,6 +181,102 @@ public class IcebergNativeMetadata
     public void renameSchema(ConnectorSession session, String source, String target)
     {
         throw new PrestoException(NOT_SUPPORTED, format("Iceberg %s catalog does not support rename namespace", catalogType.name()));
+    }
+
+    @Override
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (!(catalog instanceof ViewCatalog)) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
+        }
+        Schema schema = toIcebergSchema(viewMetadata.getColumns());
+        ViewBuilder viewBuilder = ((ViewCatalog) catalog).buildView(TableIdentifier.of(viewMetadata.getTable().getSchemaName(), viewMetadata.getTable().getTableName()))
+                .withSchema(schema)
+                .withDefaultNamespace(Namespace.of(viewMetadata.getTable().getSchemaName()))
+                .withQuery(VIEW_DIALECT, viewData)
+                .withProperties(createIcebergViewProperties(session, nodeVersion.toString()));
+        if (replace) {
+            viewBuilder.createOrReplace();
+        }
+        else {
+            viewBuilder.create();
+        }
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (catalog instanceof ViewCatalog) {
+            for (String schema : listSchemas(session, schemaName.orElse(null))) {
+                try {
+                    for (TableIdentifier tableIdentifier : ((ViewCatalog) catalog).listViews(Namespace.of(schema))) {
+                        tableNames.add(new SchemaTableName(schema, tableIdentifier.name()));
+                    }
+                }
+                catch (NoSuchNamespaceException e) {
+                    // ignore
+                }
+            }
+        }
+        return tableNames.build();
+    }
+
+    private List<String> listSchemas(ConnectorSession session, String schemaNameOrNull)
+    {
+        if (schemaNameOrNull == null) {
+            return listSchemaNames(session);
+        }
+        return ImmutableList.of(schemaNameOrNull);
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (catalog instanceof ViewCatalog) {
+            List<SchemaTableName> tableNames;
+            if (prefix.getTableName() != null) {
+                tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+            }
+            else {
+                tableNames = listViews(session, Optional.of(prefix.getSchemaName()));
+            }
+
+            for (SchemaTableName schemaTableName : tableNames) {
+                try {
+                    if (((ViewCatalog) catalog).viewExists(TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName()))) {
+                        View view = ((ViewCatalog) catalog).loadView(TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
+                        verifyAndPopulateViews(view, schemaTableName, view.sqlFor(VIEW_DIALECT).sql(), views);
+                    }
+                }
+                catch (IllegalArgumentException e) {
+                    // Ignore illegal view names
+                }
+            }
+        }
+        return views.build();
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (!(catalog instanceof ViewCatalog)) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
+        }
+        ((ViewCatalog) catalog).dropView(TableIdentifier.of(viewName.getSchemaName(), viewName.getTableName()));
+    }
+
+    private void verifyAndPopulateViews(View view, SchemaTableName schemaTableName, String viewData, ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views)
+    {
+        views.put(schemaTableName, new ConnectorViewDefinition(
+                schemaTableName,
+                Optional.ofNullable(view.properties().get(VIEW_OWNER)),
+                viewData));
     }
 
     @Override
