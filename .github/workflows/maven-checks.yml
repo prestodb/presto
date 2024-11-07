@@ -15,11 +15,112 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 8, 17 ]
+        java: [ 21 ]
+        module:
+          - presto-atop
+          - presto-spi
+          - presto-analyzer
+          - presto-cache
+          - presto-jmx
+          - presto-record-decoder
+          - presto-kafka
+          - presto-redis
+          - presto-accumulo
+          - presto-cassandra
+          - presto-bigquery
+          - presto-blackhole
+          - presto-memory
+          - presto-orc
+          - presto-parquet
+          - presto-rcfile
+          - presto-hive
+          - presto-hdfs-core
+          - presto-hive-common
+          - presto-hive-hadoop2
+          - presto-hive-metastore
+          - presto-iceberg
+          - presto-i18n-functions
+          - presto-teradata-functions
+          - presto-example-http
+          - presto-local-file
+          - presto-tpch
+          - presto-tpcds
+          - presto-base-jdbc
+          - presto-testing-docker
+          - presto-mysql
+          - presto-oracle
+          - presto-postgresql
+          - presto-prometheus
+          - presto-redshift
+          - presto-sqlserver
+          - presto-mongodb
+          - presto-bytecode
+          - presto-client
+          - presto-parser
+          - presto-main
+          - presto-ml
+          - presto-geospatial-toolkit
+          - presto-benchmark
+          - presto-tests
+          - presto-product-tests
+          - presto-jdbc
+          - presto-pinot
+          - presto-pinot-toolkit
+          - presto-cli
+          - presto-benchmark-driver
+          - presto-verifier
+          - presto-testing-server-launcher
+          - presto-plugin-toolkit
+          - presto-resource-group-managers
+          - presto-password-authenticators
+          - presto-session-property-managers
+          - presto-benchto-benchmarks
+          - presto-thrift-api
+          - presto-thrift-testing-server
+          - presto-thrift-connector
+          - presto-matching
+          - presto-memory-context
+          - presto-proxy
+          - presto-kudu
+          - presto-elasticsearch
+          - presto-function-namespace-managers
+          - presto-expressions
+          - presto-benchmark-runner
+          - presto-spark-classloader-interface
+          - presto-spark-base
+          - presto-spark-common
+          - presto-spark
+          - presto-spark-package
+          - presto-spark-launcher
+          - presto-spark-testing
+          - presto-druid
+          - presto-common
+          - presto-thrift-testing-udf-server
+          - presto-thrift-spec
+          - presto-testng-services
+          - presto-node-ttl-fetchers
+          - presto-cluster-ttl-providers
+          - presto-google-sheets
+          - presto-clickhouse
+          - presto-hive-function-namespace
+          - presto-delta
+          - presto-grpc-api
+          - presto-grpc-testing-udf-server
+          - presto-lark-sheets
+          - presto-test-coverage
+          - presto-hudi
+          - presto-native-execution
+          - presto-router
+          - presto-open-telemetry
+          - redis-hbo-provider
+          - presto-singlestore
+          - presto-hana
+          - presto-openapi
+          - presto-native-sidecar-plugin
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
-      group: ${{ github.workflow }}-maven-checks-${{ github.event.pull_request.number }}-${{ matrix.java }}
+      group: ${{ github.workflow }}-maven-checks-${{ github.event.pull_request.number }}-${{ matrix.java }}-${{ matrix.module }}
       cancel-in-progress: true
     steps:
       - name: Free Disk Space
@@ -45,9 +146,13 @@ jobs:
       - name: Populate maven cache
         if: steps.cache-maven.outputs.cache-hit != 'true'
         run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies  --no-transfer-progress -P ci && .github/bin/download_nodejs
-      - name: Maven Checks
+      - name: Build module dependencies
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true --no-transfer-progress -P ci -pl '!presto-test-coverage,!:presto-docs'
+          ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all -DskipUI --no-transfer-progress -P ci -pl '${{ matrix.module }}' -am
+      - name: Check module
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true -DskipUI --no-transfer-progress -P ci -pl '${{ matrix.module }}'
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:presto-server,!:presto-cli,!presto-test-coverage'
