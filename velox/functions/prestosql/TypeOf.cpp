@@ -79,8 +79,6 @@ std::string typeName(const TypePtr& type) {
     case TypeKind::VARBINARY:
       if (isHyperLogLogType(type)) {
         return "HyperLogLog";
-      } else if (isIPPrefixType(type)) {
-        return "ipprefix";
       }
       return "varbinary";
     case TypeKind::TIMESTAMP:
@@ -93,6 +91,9 @@ std::string typeName(const TypePtr& type) {
           typeName(type->childAt(0)),
           typeName(type->childAt(1)));
     case TypeKind::ROW: {
+      if (isIPPrefixType(type)) {
+        return "ipprefix";
+      }
       const auto& rowType = type->asRow();
       std::ostringstream out;
       out << "row(";
