@@ -215,6 +215,7 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
+      const std::optional<common::PrefixSortConfig>& prefixSortConfig,
       folly::Executor* executor,
       uint64_t maxSpillRunRows,
       const std::string& fileCreateConfig,

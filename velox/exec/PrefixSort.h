@@ -23,25 +23,6 @@
 
 namespace facebook::velox::exec {
 
-namespace detail {
-
-FOLLY_ALWAYS_INLINE void stdSort(
-    std::vector<char*, memory::StlAllocator<char*>>& rows,
-    RowContainer* rowContainer,
-    const std::vector<CompareFlags>& compareFlags) {
-  std::sort(
-      rows.begin(), rows.end(), [&](const char* leftRow, const char* rightRow) {
-        for (auto i = 0; i < compareFlags.size(); ++i) {
-          if (auto result = rowContainer->compare(
-                  leftRow, rightRow, i, compareFlags[i])) {
-            return result < 0;
-          }
-        }
-        return false;
-      });
-}
-}; // namespace detail
-
 /// The layout of prefix-sort buffer, a prefix entry includes:
 /// 1. normalized keys
 /// 2. non-normalized data ptr for semi-normalized types such as
@@ -126,16 +107,16 @@ class PrefixSort {
       const std::vector<CompareFlags>& compareFlags,
       const velox::common::PrefixSortConfig& config) {
     if (rowContainer->numRows() < config.threshold) {
-      detail::stdSort(rows, rowContainer, compareFlags);
+      stdSort(rows, rowContainer, compareFlags);
       return;
     }
     VELOX_DCHECK_EQ(rowContainer->keyTypes().size(), compareFlags.size());
     const auto sortLayout = PrefixSortLayout::makeSortLayout(
         rowContainer->keyTypes(), compareFlags, config.maxNormalizedKeySize);
     // All keys can not normalize, skip the binary string compare opt.
-    // Putting this outside sort-internal helps with inline std-sort.
+    // Putting this outside sort-internal helps with stdSort.
     if (sortLayout.noNormalizedKeys) {
-      detail::stdSort(rows, rowContainer, compareFlags);
+      stdSort(rows, rowContainer, compareFlags);
       return;
     }
 
@@ -143,16 +124,24 @@ class PrefixSort {
     prefixSort.sortInternal(rows);
   }
 
-  /// The stdsort won't require bytes while prefixsort may require buffers
+  /// The std::sort won't require bytes while prefix sort may require buffers
   /// such as prefix data. The logic is similar to the above function
-  /// PrefixSort::sort but returns the maxmium buffer the sort may need.
+  /// PrefixSort::sort but returns the maximum buffer the sort may need.
   static uint32_t maxRequiredBytes(
-      memory::MemoryPool* pool,
       RowContainer* rowContainer,
       const std::vector<CompareFlags>& compareFlags,
-      const velox::common::PrefixSortConfig& config);
+      const velox::common::PrefixSortConfig& config,
+      memory::MemoryPool* pool);
 
  private:
+  /// Fallback to stdSort when prefix sort conditions such as config and memory
+  /// are not satisfied. stdSort provides >2X performance win than std::sort for
+  /// user experienced data.
+  static void stdSort(
+      std::vector<char*, memory::StlAllocator<char*>>& rows,
+      RowContainer* rowContainer,
+      const std::vector<CompareFlags>& compareFlags);
+
   // Estimates the memory required for prefix sort such as prefix buffer and
   // swap buffer.
   uint32_t maxRequiredBytes();

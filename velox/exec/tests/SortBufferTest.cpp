@@ -32,7 +32,8 @@ using namespace facebook::velox::memory;
 
 namespace facebook::velox::functions::test {
 
-class SortBufferTest : public OperatorTestBase {
+class SortBufferTest : public OperatorTestBase,
+                       public testing::WithParamInterface<bool> {
  protected:
   void SetUp() override {
     OperatorTestBase::SetUp();
@@ -62,11 +63,17 @@ class SortBufferTest : public OperatorTestBase {
         0,
         0,
         0,
-        "none");
+        "none",
+        spillPrefixSortConfig_);
   }
 
+  const bool enableSpillPrefixSort_{GetParam()};
   const velox::common::PrefixSortConfig prefixSortConfig_ =
       velox::common::PrefixSortConfig{std::numeric_limits<int32_t>::max(), 130};
+  const std::optional<common::PrefixSortConfig> spillPrefixSortConfig_ =
+      enableSpillPrefixSort_
+      ? std::optional<common::PrefixSortConfig>(prefixSortConfig_)
+      : std::nullopt;
 
   const RowTypePtr inputType_ = ROW(
       {{"c0", BIGINT()},
@@ -96,7 +103,7 @@ class SortBufferTest : public OperatorTestBase {
   folly::Random::DefaultGenerator rng_;
 };
 
-TEST_F(SortBufferTest, singleKey) {
+TEST_P(SortBufferTest, singleKey) {
   struct {
     std::vector<CompareFlags> sortCompareFlags;
     std::vector<int32_t> expectedResult;
@@ -158,7 +165,7 @@ TEST_F(SortBufferTest, singleKey) {
   }
 }
 
-TEST_F(SortBufferTest, multipleKeys) {
+TEST_P(SortBufferTest, multipleKeys) {
   auto sortBuffer = std::make_unique<SortBuffer>(
       inputType_,
       sortColumnIndices_,
@@ -188,7 +195,7 @@ TEST_F(SortBufferTest, multipleKeys) {
 }
 
 // TODO: enable it later with test utility to compare the sorted result.
-TEST_F(SortBufferTest, DISABLED_randomData) {
+TEST_P(SortBufferTest, DISABLED_randomData) {
   struct {
     RowTypePtr inputType;
     std::vector<column_index_t> sortColumnIndices;
@@ -265,7 +272,7 @@ TEST_F(SortBufferTest, DISABLED_randomData) {
   }
 }
 
-TEST_F(SortBufferTest, batchOutput) {
+TEST_P(SortBufferTest, batchOutput) {
   struct {
     bool triggerSpill;
     std::vector<size_t> numInputRows;
@@ -312,7 +319,8 @@ TEST_F(SortBufferTest, batchOutput) {
         0,
         0,
         0,
-        "none");
+        "none",
+        prefixSortConfig_);
     folly::Synchronized<common::SpillStats> spillStats;
     auto sortBuffer = std::make_unique<SortBuffer>(
         inputType_,
@@ -361,7 +369,7 @@ TEST_F(SortBufferTest, batchOutput) {
   }
 }
 
-TEST_F(SortBufferTest, spill) {
+TEST_P(SortBufferTest, spill) {
   struct {
     bool spillEnabled;
     bool memoryReservationFailure;
@@ -408,7 +416,8 @@ TEST_F(SortBufferTest, spill) {
         0,
         0,
         0,
-        "none");
+        "none",
+        prefixSortConfig_);
     folly::Synchronized<common::SpillStats> spillStats;
     auto sortBuffer = std::make_unique<SortBuffer>(
         inputType_,
@@ -463,7 +472,7 @@ TEST_F(SortBufferTest, spill) {
   }
 }
 
-DEBUG_ONLY_TEST_F(SortBufferTest, spillDuringInput) {
+DEBUG_ONLY_TEST_P(SortBufferTest, spillDuringInput) {
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   const auto spillConfig = getSpillConfig(spillDirectory->getPath());
   folly::Synchronized<common::SpillStats> spillStats;
@@ -520,7 +529,7 @@ DEBUG_ONLY_TEST_F(SortBufferTest, spillDuringInput) {
   }
 }
 
-DEBUG_ONLY_TEST_F(SortBufferTest, spillDuringOutput) {
+DEBUG_ONLY_TEST_P(SortBufferTest, spillDuringOutput) {
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   const auto spillConfig = getSpillConfig(spillDirectory->getPath());
   folly::Synchronized<common::SpillStats> spillStats;
@@ -572,7 +581,7 @@ DEBUG_ONLY_TEST_F(SortBufferTest, spillDuringOutput) {
   }
 }
 
-DEBUG_ONLY_TEST_F(SortBufferTest, reserveMemorySortGetOutput) {
+DEBUG_ONLY_TEST_P(SortBufferTest, reserveMemorySortGetOutput) {
   for (bool spillEnabled : {false, true}) {
     SCOPED_TRACE(fmt::format("spillEnabled {}", spillEnabled));
 
@@ -626,7 +635,7 @@ DEBUG_ONLY_TEST_F(SortBufferTest, reserveMemorySortGetOutput) {
   }
 }
 
-DEBUG_ONLY_TEST_F(SortBufferTest, reserveMemorySort) {
+DEBUG_ONLY_TEST_P(SortBufferTest, reserveMemorySort) {
   struct {
     bool usePrefixSort;
     bool spillEnabled;
@@ -676,7 +685,7 @@ DEBUG_ONLY_TEST_F(SortBufferTest, reserveMemorySort) {
   }
 }
 
-TEST_F(SortBufferTest, emptySpill) {
+TEST_P(SortBufferTest, emptySpill) {
   const std::shared_ptr<memory::MemoryPool> fuzzerPool =
       memory::memoryManager()->addLeafPool("emptySpillSource");
 
@@ -704,4 +713,9 @@ TEST_F(SortBufferTest, emptySpill) {
     ASSERT_TRUE(spillStats.rlock()->empty());
   }
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    SortBufferTest,
+    SortBufferTest,
+    testing::ValuesIn({false, true}));
 } // namespace facebook::velox::functions::test

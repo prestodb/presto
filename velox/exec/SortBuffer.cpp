@@ -298,7 +298,7 @@ void SortBuffer::ensureSortFits() {
   uint64_t sortBufferToReserve =
       numInputRows_ * sizeof(char*) +
       PrefixSort::maxRequiredBytes(
-          pool_, data_.get(), sortCompareFlags_, prefixSortConfig_);
+          data_.get(), sortCompareFlags_, prefixSortConfig_, pool_);
   {
     memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
     if (pool_->maybeReserve(sortBufferToReserve)) {

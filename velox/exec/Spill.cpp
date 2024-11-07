@@ -23,6 +23,20 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
+namespace {
+// Returns the CompareFlags vector whose size is equal to numSortKeys. Fill in
+// with default CompareFlags() if 'compareFlags' is empty.
+const std::vector<CompareFlags> getCompareFlagsOrDefault(
+    const std::vector<CompareFlags>& compareFlags,
+    int32_t numSortKeys) {
+  VELOX_DCHECK(compareFlags.empty() || compareFlags.size() == numSortKeys);
+  if (compareFlags.size() == numSortKeys) {
+    return compareFlags;
+  }
+  return std::vector<CompareFlags>(numSortKeys);
+}
+} // namespace
+
 void SpillMergeStream::pop() {
   if (++index_ >= size_) {
     setNextBatch();
@@ -74,6 +88,7 @@ SpillState::SpillState(
     uint64_t targetFileSize,
     uint64_t writeBufferSize,
     common::CompressionKind compressionKind,
+    const std::optional<common::PrefixSortConfig>& prefixSortConfig,
     memory::MemoryPool* pool,
     folly::Synchronized<common::SpillStats>* stats,
     const std::string& fileCreateConfig)
@@ -82,10 +97,12 @@ SpillState::SpillState(
       fileNamePrefix_(fileNamePrefix),
       maxPartitions_(maxPartitions),
       numSortKeys_(numSortKeys),
-      sortCompareFlags_(sortCompareFlags),
+      sortCompareFlags_(
+          getCompareFlagsOrDefault(sortCompareFlags, numSortKeys)),
       targetFileSize_(targetFileSize),
       writeBufferSize_(writeBufferSize),
       compressionKind_(compressionKind),
+      prefixSortConfig_(prefixSortConfig),
       fileCreateConfig_(fileCreateConfig),
       pool_(pool),
       stats_(stats),

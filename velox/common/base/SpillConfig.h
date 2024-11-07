@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include <folly/executors/CPUThreadPoolExecutor.h>
+#include "velox/common/base/PrefixSortConfig.h"
 #include "velox/common/compression/Compression.h"
 
 namespace facebook::velox::common {
@@ -61,6 +62,7 @@ struct SpillConfig {
       uint64_t _maxSpillRunRows,
       uint64_t _writerFlushThresholdSize,
       const std::string& _compressionKind,
+      std::optional<PrefixSortConfig> _prefixSortConfig = std::nullopt,
       const std::string& _fileCreateConfig = {});
 
   /// Returns the spilling level with given 'startBitOffset' and
@@ -134,6 +136,10 @@ struct SpillConfig {
 
   /// CompressionKind when spilling, CompressionKind_NONE means no compression.
   common::CompressionKind compressionKind;
+
+  /// Prefix sort config when spilling, enable prefix sort when this config is
+  /// set, otherwise, fallback to timsort.
+  std::optional<PrefixSortConfig> prefixSortConfig;
 
   /// Custom options passed to velox::FileSystem to create spill WriteFile.
   std::string fileCreateConfig;

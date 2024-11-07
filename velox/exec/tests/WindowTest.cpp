@@ -39,7 +39,12 @@ class WindowTest : public OperatorTestBase {
     filesystems::registerLocalFileSystem();
   }
 
-  common::SpillConfig getSpillConfig(const std::string& spillDir) const {
+  common::SpillConfig getSpillConfig(
+      const std::string& spillDir,
+      bool enablePrefixSort) const {
+    const auto prefixSortConfig = enablePrefixSort
+        ? std::optional<common::PrefixSortConfig>(common::PrefixSortConfig())
+        : std::nullopt;
     return common::SpillConfig(
         [spillDir]() -> const std::string& { return spillDir; },
         [&](uint64_t) {},
@@ -55,7 +60,8 @@ class WindowTest : public OperatorTestBase {
         0,
         0,
         0,
-        "none");
+        "none",
+        prefixSortConfig);
   }
 
   const std::shared_ptr<folly::Executor> executor_{
@@ -597,7 +603,9 @@ DEBUG_ONLY_TEST_F(WindowTest, reserveMemorySort) {
   struct {
     bool usePrefixSort;
     bool spillEnabled;
-  } testSettings[] = {{false, true}, {true, false}, {true, true}};
+    bool enableSpillPrefixSort;
+  } testSettings[] = {
+      {false, true, false}, {true, false, true}, {true, true, false}};
 
   const vector_size_t size = 1'000;
   auto prefixSortData = makeRowVector(
@@ -638,11 +646,16 @@ DEBUG_ONLY_TEST_F(WindowTest, reserveMemorySort) {
           .window({"row_number() over (partition by p order by s)"})
           .planNode());
 
-  for (const auto [usePrefixSort, spillEnabled] : testSettings) {
+  for (const auto [usePrefixSort, spillEnabled, enableSpillPrefixSort] :
+       testSettings) {
     SCOPED_TRACE(fmt::format(
-        "usePrefixSort: {}, spillEnabled: {}, ", usePrefixSort, spillEnabled));
+        "usePrefixSort: {}, spillEnabled: {}, enableSpillPrefixSort: {}",
+        usePrefixSort,
+        spillEnabled,
+        enableSpillPrefixSort));
     auto spillDirectory = exec::test::TempDirectoryPath::create();
-    auto spillConfig = getSpillConfig(spillDirectory->getPath());
+    auto spillConfig =
+        getSpillConfig(spillDirectory->getPath(), enableSpillPrefixSort);
     folly::Synchronized<common::SpillStats> spillStats;
     const auto plan = usePrefixSort ? prefixSortPlan : nonPrefixSortPlan;
     velox::common::PrefixSortConfig prefixSortConfig =

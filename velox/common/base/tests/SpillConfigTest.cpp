@@ -22,7 +22,14 @@
 using namespace facebook::velox::common;
 using namespace facebook::velox::exec;
 
-TEST(SpillConfig, spillLevel) {
+class SpillConfigTest : public testing::TestWithParam<bool> {
+ protected:
+  const bool enablePrefixSort_{GetParam()};
+  const std::optional<PrefixSortConfig> prefixSortConfig_ =
+      enablePrefixSort_ ? std::optional<PrefixSortConfig>({}) : std::nullopt;
+};
+
+TEST_P(SpillConfigTest, spillLevel) {
   const uint8_t kInitialBitOffset = 16;
   const uint8_t kNumPartitionsBits = 3;
   const SpillConfig config(
@@ -40,7 +47,8 @@ TEST(SpillConfig, spillLevel) {
       0,
       0,
       0,
-      "none");
+      "none",
+      prefixSortConfig_);
   struct {
     uint8_t bitOffset;
     // Indicates an invalid if 'expectedLevel' is negative.
@@ -70,7 +78,7 @@ TEST(SpillConfig, spillLevel) {
   }
 }
 
-TEST(SpillConfig, spillLevelLimit) {
+TEST_P(SpillConfigTest, spillLevelLimit) {
   struct {
     uint8_t startBitOffset;
     int32_t numBits;
@@ -125,7 +133,8 @@ TEST(SpillConfig, spillLevelLimit) {
         testData.maxSpillLevel,
         0,
         0,
-        "none");
+        "none",
+        prefixSortConfig_);
 
     ASSERT_EQ(
         testData.expectedExceeds,
@@ -133,7 +142,7 @@ TEST(SpillConfig, spillLevelLimit) {
   }
 }
 
-TEST(SpillConfig, spillableReservationPercentages) {
+TEST_P(SpillConfigTest, spillableReservationPercentages) {
   struct {
     uint32_t growthPct;
     int32_t minPct;
@@ -171,7 +180,8 @@ TEST(SpillConfig, spillableReservationPercentages) {
           0,
           1'000'000,
           0,
-          "none");
+          "none",
+          prefixSortConfig_);
     };
 
     if (testData.expectedError) {
@@ -183,3 +193,8 @@ TEST(SpillConfig, spillableReservationPercentages) {
     }
   }
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    SpillConfigTest,
+    SpillConfigTest,
+    testing::ValuesIn({false, true}));

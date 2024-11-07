@@ -217,10 +217,10 @@ void PrefixSort::extractRowToPrefix(char* row, char* prefix) {
 
 // static.
 uint32_t PrefixSort::maxRequiredBytes(
-    memory::MemoryPool* pool,
     RowContainer* rowContainer,
     const std::vector<CompareFlags>& compareFlags,
-    const velox::common::PrefixSortConfig& config) {
+    const velox::common::PrefixSortConfig& config,
+    memory::MemoryPool* pool) {
   if (rowContainer->numRows() < config.threshold) {
     return 0;
   }
@@ -233,6 +233,23 @@ uint32_t PrefixSort::maxRequiredBytes(
 
   PrefixSort prefixSort(pool, rowContainer, sortLayout);
   return prefixSort.maxRequiredBytes();
+}
+
+// static
+void PrefixSort::stdSort(
+    std::vector<char*, memory::StlAllocator<char*>>& rows,
+    RowContainer* rowContainer,
+    const std::vector<CompareFlags>& compareFlags) {
+  std::sort(
+      rows.begin(), rows.end(), [&](const char* leftRow, const char* rightRow) {
+        for (auto i = 0; i < compareFlags.size(); ++i) {
+          if (auto result = rowContainer->compare(
+                  leftRow, rightRow, i, compareFlags[i])) {
+            return result < 0;
+          }
+        }
+        return false;
+      });
 }
 
 uint32_t PrefixSort::maxRequiredBytes() {

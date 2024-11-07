@@ -57,16 +57,19 @@ struct TestParam {
   // write path is executed inline with spiller control code path.
   int poolSize;
   common::CompressionKind compressionKind;
+  bool enablePrefixSort;
   core::JoinType joinType;
 
   TestParam(
       Spiller::Type _type,
       int _poolSize,
       common::CompressionKind _compressionKind,
+      bool _enablePrefixSort,
       core::JoinType _joinType)
       : type(_type),
         poolSize(_poolSize),
         compressionKind(_compressionKind),
+        enablePrefixSort(_enablePrefixSort),
         joinType(_joinType) {}
 
   std::string toString() const {
@@ -75,6 +78,7 @@ struct TestParam {
         Spiller::typeName(type),
         poolSize,
         compressionKindToString(compressionKind),
+        std::to_string(enablePrefixSort),
         joinTypeName(joinType));
   }
 };
@@ -90,10 +94,18 @@ struct TestParamsBuilder {
             static_cast<common::CompressionKind>(numSpillerTypes % 6);
         for (int poolSize : {0, 8}) {
           params.emplace_back(
-              type, poolSize, compressionKind, core::JoinType::kRight);
+              type,
+              poolSize,
+              compressionKind,
+              poolSize % 2,
+              core::JoinType::kRight);
           if (type == Spiller::Type::kHashJoinBuild) {
             params.emplace_back(
-                type, poolSize, compressionKind, core::JoinType::kLeft);
+                type,
+                poolSize,
+                compressionKind,
+                poolSize % 2,
+                core::JoinType::kLeft);
           }
         }
       }
@@ -137,6 +149,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         type_(param.type),
         executorPoolSize_(param.poolSize),
         compressionKind_(param.compressionKind),
+        enablePrefixSort_(param.enablePrefixSort),
         joinType_(param.joinType),
         spillProbedFlag_(
             type_ == Spiller::Type::kHashJoinBuild &&
@@ -557,6 +570,10 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     spillConfig_.readBufferSize = readBufferSize;
     spillConfig_.executor = executor();
     spillConfig_.compressionKind = compressionKind_;
+    enablePrefixSort_ ? spillConfig_.prefixSortConfig =
+                            std::optional<common::PrefixSortConfig>(
+                                common::PrefixSortConfig())
+                      : spillConfig_.prefixSortConfig = std::nullopt;
     spillConfig_.maxSpillRunRows = maxSpillRunRows;
     spillConfig_.maxFileSize = targetFileSize;
     spillConfig_.fileCreateConfig = {};
@@ -1101,6 +1118,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   const Spiller::Type type_;
   const int32_t executorPoolSize_;
   const common::CompressionKind compressionKind_;
+  const bool enablePrefixSort_;
   const core::JoinType joinType_;
   const bool spillProbedFlag_;
   const HashBitRange hashBits_;

@@ -34,6 +34,7 @@ SpillConfig::SpillConfig(
     uint64_t _maxSpillRunRows,
     uint64_t _writerFlushThresholdSize,
     const std::string& _compressionKind,
+    std::optional<PrefixSortConfig> _prefixSortConfig,
     const std::string& _fileCreateConfig)
     : getSpillDirPathCb(std::move(_getSpillDirPathCb)),
       updateAndCheckSpillLimitCb(std::move(_updateAndCheckSpillLimitCb)),
@@ -52,6 +53,7 @@ SpillConfig::SpillConfig(
       maxSpillRunRows(_maxSpillRunRows),
       writerFlushThresholdSize(_writerFlushThresholdSize),
       compressionKind(common::stringToCompressionKind(_compressionKind)),
+      prefixSortConfig(_prefixSortConfig),
       fileCreateConfig(_fileCreateConfig) {
   VELOX_USER_CHECK_GE(
       spillableReservationGrowthPct,

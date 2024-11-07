@@ -161,7 +161,7 @@ void SortWindowBuild::ensureSortFits() {
   uint64_t sortBufferToReserve =
       numRows_ * (sizeof(char*) + sizeof(vector_size_t)) +
       PrefixSort::maxRequiredBytes(
-          pool_, data_.get(), compareFlags_, prefixSortConfig_);
+          data_.get(), compareFlags_, prefixSortConfig_, pool_);
   {
     memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
     if (pool_->maybeReserve(sortBufferToReserve)) {

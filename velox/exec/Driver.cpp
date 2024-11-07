@@ -141,6 +141,9 @@ std::optional<common::SpillConfig> DriverCtx::makeSpillConfig(
       queryConfig.maxSpillRunRows(),
       queryConfig.writerFlushThresholdBytes(),
       queryConfig.spillCompressionKind(),
+      queryConfig.spillEnablePrefixSort()
+          ? std::optional<common::PrefixSortConfig>(prefixSortConfig())
+          : std::nullopt,
       queryConfig.spillFileCreateConfig());
 }
 
