@@ -13,6 +13,9 @@
  */
 
 #include "presto_cpp/main/TaskManager.h"
+
+#include <utility>
+
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
@@ -434,7 +437,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
-      queryCtx,
+      std::move(queryCtx),
       startProcessCpuTime);
 }
 
