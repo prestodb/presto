@@ -23,29 +23,29 @@
 
 #include <aws/s3/S3Errors.h>
 #include <aws/s3/model/HeadObjectResult.h>
+#include <fmt/format.h>
 #include <folly/Uri.h>
 
 #include "velox/common/base/Exceptions.h"
 
-#include <fmt/format.h>
-
-namespace facebook::velox {
+namespace facebook::velox::filesystems {
 
 namespace {
-constexpr std::string_view kSep{"/"};
+static std::string_view kSep{"/"};
 // AWS S3 EMRFS, Hadoop block storage filesystem on-top of Amazon S3 buckets.
-constexpr std::string_view kS3Scheme{"s3://"};
+static std::string_view kS3Scheme{"s3://"};
 // This should not be mixed with s3 nor the s3a.
 // S3A Hadoop 3.x (previous connectors "s3" and "s3n" are deprecated).
-constexpr std::string_view kS3aScheme{"s3a://"};
+static std::string_view kS3aScheme{"s3a://"};
 // DEPRECATED: s3n are deprecated in Hadoop 3.x but we are supporting s3n for
 // data that hasn't been migrated yet.
-constexpr std::string_view kS3nScheme{"s3n://"};
+static std::string_view kS3nScheme{"s3n://"};
 // OSS Alibaba support S3 format, usage only with SSL.
-constexpr std::string_view kOssScheme{"oss://"};
+static std::string_view kOssScheme{"oss://"};
 // Tencent COS support S3 format.
-constexpr std::string_view kCosScheme{"cos://"};
-constexpr std::string_view kCosNScheme{"cosn://"};
+static std::string_view kCosScheme{"cos://"};
+static std::string_view kCosNScheme{"cosn://"};
+
 // From AWS documentation
 constexpr int kS3MaxKeySize{1024};
 } // namespace
@@ -80,8 +80,9 @@ inline bool isS3File(const std::string_view filename) {
       isOssFile(filename) || isCosFile(filename) || isCosNFile(filename);
 }
 
-inline void getBucketAndKeyFromS3Path(
-    const std::string& path,
+// The input `path` must not have the S3 prefix.
+inline void getBucketAndKeyFromPath(
+    std::string_view path,
     std::string& bucket,
     std::string& key) {
   auto firstSep = path.find_first_of(kSep);
@@ -96,32 +97,30 @@ inline void getBucketAndKeyFromS3Path(
 //    regexp="(^[a-z0-9])([.-]?[a-z0-9]+){2,62}([/]?$)"
 // 3. Disallowed IPv4 notation - regexp:
 //    regexp="^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}[/]?$"
-inline std::string s3URI(const std::string& bucket) {
-  return std::string(kS3Scheme) + bucket;
+inline std::string s3URI(std::string_view bucket, std::string_view key) {
+  std::stringstream ss;
+  ss << kS3Scheme << bucket << kSep << key;
+  return ss.str();
 }
 
-inline std::string s3URI(const std::string& bucket, const std::string& key) {
-  return s3URI(bucket) + "/" + key;
-}
-
-inline std::string s3Path(const std::string_view& path) {
+inline std::string_view getPath(std::string_view path) {
   // Remove one of the prefixes 's3://', 'oss://', 's3a://' if any from the
   // given path.
   // TODO: Each prefix should be implemented as its own filesystem.
   if (isS3AwsFile(path)) {
-    return std::string(path.substr(kS3Scheme.length()));
+    return path.substr(kS3Scheme.length());
   } else if (isS3aFile(path)) {
-    return std::string(path.substr(kS3aScheme.length()));
+    return path.substr(kS3aScheme.length());
   } else if (isS3nFile(path)) {
-    return std::string(path.substr(kS3nScheme.length()));
+    return path.substr(kS3nScheme.length());
   } else if (isOssFile(path)) {
-    return std::string(path.substr(kOssScheme.length()));
+    return path.substr(kOssScheme.length());
   } else if (isCosFile(path)) {
-    return std::string(path.substr(kCosScheme.length()));
+    return path.substr(kCosScheme.length());
   } else if (isCosNFile(path)) {
-    return std::string(path.substr(kCosNScheme.length()));
+    return path.substr(kCosNScheme.length());
   }
-  return std::string(path);
+  return path;
 }
 
 inline Aws::String awsString(const std::string& s) {
@@ -209,7 +208,7 @@ class S3ProxyConfigurationBuilder {
   bool useSsl_;
 };
 
-} // namespace facebook::velox
+} // namespace facebook::velox::filesystems
 
 template <>
 struct fmt::formatter<Aws::Http::HttpResponseCode> : formatter<int> {

@@ -27,7 +27,7 @@
 
 using namespace facebook::velox::exec::test;
 
-namespace facebook::velox {
+namespace facebook::velox::filesystems {
 namespace {
 
 class S3ReadTest : public S3Test {
@@ -75,11 +75,9 @@ TEST_F(S3ReadTest, s3ReadTest) {
   dest.close();
 
   // Read the parquet file via the S3 bucket.
-  const auto readDirectory{s3URI(bucketName)};
   auto rowType = ROW({"int", "bigint"}, {INTEGER(), BIGINT()});
   auto plan = PlanBuilder().tableScan(rowType).planNode();
-  auto split = HiveConnectorSplitBuilder(
-                   fmt::format("{}/{}", readDirectory, "int.parquet"))
+  auto split = HiveConnectorSplitBuilder(s3URI(bucketName, "int.parquet"))
                    .fileFormat(dwio::common::FileFormat::PARQUET)
                    .build();
   auto copy = AssertQueryBuilder(plan).split(split).copyResults(pool());
@@ -93,7 +91,7 @@ TEST_F(S3ReadTest, s3ReadTest) {
            kExpectedRows, [](auto row) { return row + 1000; })});
   assertEqualResults({expectedResults}, {copy});
 }
-} // namespace facebook::velox
+} // namespace facebook::velox::filesystems
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

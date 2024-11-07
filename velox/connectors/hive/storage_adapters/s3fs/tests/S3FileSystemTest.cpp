@@ -20,7 +20,7 @@
 
 #include <gtest/gtest.h>
 
-namespace facebook::velox {
+namespace facebook::velox::filesystems {
 namespace {
 
 class S3FileSystemTest : public S3Test {
@@ -31,8 +31,8 @@ class S3FileSystemTest : public S3Test {
 
   void SetUp() override {
     S3Test::SetUp();
-    auto hiveConfig = minioServer_->hiveConfig({{"hive.s3.log-level", "Info"}});
-    filesystems::initializeS3(hiveConfig.get());
+    auto hiveConfig = minioServer_->hiveConfig({});
+    filesystems::initializeS3("Info");
   }
 
   static void TearDownTestSuite() {
@@ -47,15 +47,15 @@ TEST_F(S3FileSystemTest, writeAndRead) {
   setenv("HTTP_PROXY", "http://test:test@127.0.0.1:8888", 1);
   const char* bucketName = "data";
   const char* file = "test.txt";
-  const std::string filename = localPath(bucketName) + "/" + file;
-  const std::string s3File = s3URI(bucketName, file);
+  const auto filename = localPath(bucketName) + "/" + file;
+  const auto s3File = s3URI(bucketName, file);
   addBucket(bucketName);
   {
     LocalWriteFile writeFile(filename);
     writeData(&writeFile);
   }
   auto hiveConfig = minioServer_->hiveConfig();
-  filesystems::S3FileSystem s3fs(hiveConfig);
+  filesystems::S3FileSystem s3fs(bucketName, hiveConfig);
   auto readFile = s3fs.openFileForRead(s3File);
   readData(readFile.get());
 }
@@ -70,7 +70,7 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
 
     // Both instance credentials and iam-role cannot be specified
     VELOX_ASSERT_THROW(
-        filesystems::S3FileSystem(hiveConfig),
+        filesystems::S3FileSystem("", hiveConfig),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
@@ -82,7 +82,7 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
         std::make_shared<const config::ConfigBase>(std::move(config));
     // Both access/secret keys and iam-role cannot be specified
     VELOX_ASSERT_THROW(
-        filesystems::S3FileSystem(hiveConfig),
+        filesystems::S3FileSystem("", hiveConfig),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
@@ -94,7 +94,7 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
         std::make_shared<const config::ConfigBase>(std::move(config));
     // Both access/secret keys and instance credentials cannot be specified
     VELOX_ASSERT_THROW(
-        filesystems::S3FileSystem(hiveConfig),
+        filesystems::S3FileSystem("", hiveConfig),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
@@ -104,7 +104,7 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
         std::make_shared<const config::ConfigBase>(std::move(config));
     // Both access key and secret key must be specified
     VELOX_ASSERT_THROW(
-        filesystems::S3FileSystem(hiveConfig),
+        filesystems::S3FileSystem("", hiveConfig),
         "Invalid configuration: both access key and secret key must be specified");
   }
 }
@@ -115,7 +115,7 @@ TEST_F(S3FileSystemTest, missingFile) {
   const std::string s3File = s3URI(bucketName, file);
   addBucket(bucketName);
   auto hiveConfig = minioServer_->hiveConfig();
-  filesystems::S3FileSystem s3fs(hiveConfig);
+  filesystems::S3FileSystem s3fs(bucketName, hiveConfig);
   VELOX_ASSERT_RUNTIME_THROW_CODE(
       s3fs.openFileForRead(s3File),
       error_code::kFileNotFound,
@@ -124,7 +124,7 @@ TEST_F(S3FileSystemTest, missingFile) {
 
 TEST_F(S3FileSystemTest, missingBucket) {
   auto hiveConfig = minioServer_->hiveConfig();
-  filesystems::S3FileSystem s3fs(hiveConfig);
+  filesystems::S3FileSystem s3fs("", hiveConfig);
   VELOX_ASSERT_RUNTIME_THROW_CODE(
       s3fs.openFileForRead(kDummyPath),
       error_code::kFileNotFound,
@@ -134,7 +134,7 @@ TEST_F(S3FileSystemTest, missingBucket) {
 TEST_F(S3FileSystemTest, invalidAccessKey) {
   auto hiveConfig =
       minioServer_->hiveConfig({{"hive.s3.aws-access-key", "dummy-key"}});
-  filesystems::S3FileSystem s3fs(hiveConfig);
+  filesystems::S3FileSystem s3fs("", hiveConfig);
   // Minio credentials are wrong and this should throw
   VELOX_ASSERT_THROW(
       s3fs.openFileForRead(kDummyPath),
@@ -144,7 +144,7 @@ TEST_F(S3FileSystemTest, invalidAccessKey) {
 TEST_F(S3FileSystemTest, invalidSecretKey) {
   auto hiveConfig =
       minioServer_->hiveConfig({{"hive.s3.aws-secret-key", "dummy-key"}});
-  filesystems::S3FileSystem s3fs(hiveConfig);
+  filesystems::S3FileSystem s3fs("", hiveConfig);
   // Minio credentials are wrong and this should throw.
   VELOX_ASSERT_THROW(
       s3fs.openFileForRead("s3://dummy/foo.txt"),
@@ -154,7 +154,7 @@ TEST_F(S3FileSystemTest, invalidSecretKey) {
 TEST_F(S3FileSystemTest, noBackendServer) {
   auto hiveConfig =
       minioServer_->hiveConfig({{"hive.s3.aws-secret-key", "dummy-key"}});
-  filesystems::S3FileSystem s3fs(hiveConfig);
+  filesystems::S3FileSystem s3fs("", hiveConfig);
   // Stop Minio and check error.
   minioServer_->stop();
   VELOX_ASSERT_THROW(
@@ -169,7 +169,7 @@ TEST_F(S3FileSystemTest, logLevel) {
   auto checkLogLevelName = [&config](std::string_view expected) {
     auto s3Config =
         std::make_shared<const config::ConfigBase>(std::move(config));
-    filesystems::S3FileSystem s3fs(s3Config);
+    filesystems::S3FileSystem s3fs("", s3Config);
     EXPECT_EQ(s3fs.getLogLevelName(), expected);
   };
 
@@ -189,7 +189,7 @@ TEST_F(S3FileSystemTest, writeFileAndRead) {
   const auto s3File = s3URI(bucketName, file);
 
   auto hiveConfig = minioServer_->hiveConfig();
-  filesystems::S3FileSystem s3fs(hiveConfig);
+  filesystems::S3FileSystem s3fs(bucketName, hiveConfig);
   auto pool = memory::memoryManager()->addLeafPool("S3FileSystemTest");
   auto writeFile =
       s3fs.openFileForWrite(s3File, {{}, pool.get(), std::nullopt});
@@ -258,9 +258,11 @@ TEST_F(S3FileSystemTest, writeFileAndRead) {
 TEST_F(S3FileSystemTest, invalidConnectionSettings) {
   auto hiveConfig =
       minioServer_->hiveConfig({{"hive.s3.connect-timeout", "400"}});
-  VELOX_ASSERT_THROW(filesystems::S3FileSystem(hiveConfig), "Invalid duration");
+  VELOX_ASSERT_THROW(
+      filesystems::S3FileSystem("", hiveConfig), "Invalid duration");
 
   hiveConfig = minioServer_->hiveConfig({{"hive.s3.socket-timeout", "abc"}});
-  VELOX_ASSERT_THROW(filesystems::S3FileSystem(hiveConfig), "Invalid duration");
+  VELOX_ASSERT_THROW(
+      filesystems::S3FileSystem("", hiveConfig), "Invalid duration");
 }
-} // namespace facebook::velox
+} // namespace facebook::velox::filesystems

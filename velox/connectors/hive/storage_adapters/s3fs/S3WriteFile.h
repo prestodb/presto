@@ -48,7 +48,7 @@ namespace facebook::velox::filesystems {
 class S3WriteFile : public WriteFile {
  public:
   S3WriteFile(
-      const std::string& path,
+      std::string_view path,
       Aws::S3::S3Client* client,
       memory::MemoryPool* pool);
 

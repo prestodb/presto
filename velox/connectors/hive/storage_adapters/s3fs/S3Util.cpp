@@ -23,7 +23,7 @@
 
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 
-namespace facebook::velox {
+namespace facebook::velox::filesystems {
 
 std::string getErrorStringFromS3Error(
     const Aws::Client::AWSError<Aws::S3::S3Errors>& error) {
@@ -148,4 +148,4 @@ std::optional<folly::Uri> S3ProxyConfigurationBuilder::build() {
   return proxyUri;
 }
 
-} // namespace facebook::velox
+} // namespace facebook::velox::filesystems

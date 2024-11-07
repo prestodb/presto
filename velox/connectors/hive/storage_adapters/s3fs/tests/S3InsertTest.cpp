@@ -28,7 +28,7 @@
 
 using namespace facebook::velox::exec::test;
 
-namespace facebook::velox {
+namespace facebook::velox::filesystems {
 namespace {
 
 class S3InsertTest : public S3Test {
@@ -125,7 +125,7 @@ TEST_F(S3InsertTest, s3InsertTest) {
   auto copy = AssertQueryBuilder(plan).split(split).copyResults(pool());
   assertEqualResults({input}, {copy});
 }
-} // namespace facebook::velox
+} // namespace facebook::velox::filesystems
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

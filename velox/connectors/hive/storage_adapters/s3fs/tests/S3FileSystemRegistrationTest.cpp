@@ -17,7 +17,7 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
 
-namespace facebook::velox {
+namespace facebook::velox::filesystems {
 namespace {
 
 class S3FileSystemRegistrationTest : public S3Test {
@@ -77,4 +77,4 @@ TEST_F(S3FileSystemRegistrationTest, finalize) {
       filesystems::finalizeS3FileSystem(),
       "Cannot finalize S3FileSystem while in use");
 }
-} // namespace facebook::velox
+} // namespace facebook::velox::filesystems

@@ -17,10 +17,9 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h"
 #include "velox/common/config/Config.h"
 #include "velox/common/file/File.h"
-#include "velox/connectors/hive/HiveConfig.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/S3Config.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3WriteFile.h"
-#include "velox/core/QueryConfig.h"
 #include "velox/dwio/common/DataBuffer.h"
 
 #include <fmt/format.h>
@@ -47,7 +46,7 @@
 #include <aws/s3/model/HeadObjectRequest.h>
 #include <aws/s3/model/UploadPartRequest.h>
 
-namespace facebook::velox {
+namespace facebook::velox::filesystems {
 namespace {
 // Reference: https://issues.apache.org/jira/browse/ARROW-8692
 // https://github.com/apache/arrow/blob/master/cpp/src/arrow/filesystem/s3fs.cc#L843
@@ -74,9 +73,9 @@ Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
 
 class S3ReadFile final : public ReadFile {
  public:
-  S3ReadFile(const std::string& path, Aws::S3::S3Client* client)
+  S3ReadFile(std::string_view path, Aws::S3::S3Client* client)
       : client_(client) {
-    getBucketAndKeyFromS3Path(path, bucket_, key_);
+    getBucketAndKeyFromPath(path, bucket_, key_);
   }
 
   // Gets the length of the file.
@@ -190,7 +189,8 @@ class S3ReadFile final : public ReadFile {
   int64_t length_ = -1;
 };
 
-Aws::Utils::Logging::LogLevel inferS3LogLevel(std::string level) {
+Aws::Utils::Logging::LogLevel inferS3LogLevel(std::string_view logLevel) {
+  std::string level = std::string(logLevel);
   // Convert to upper case.
   std::transform(
       level.begin(), level.end(), level.begin(), [](unsigned char c) {
@@ -215,18 +215,16 @@ Aws::Utils::Logging::LogLevel inferS3LogLevel(std::string level) {
 }
 } // namespace
 
-namespace filesystems {
-
 class S3WriteFile::Impl {
  public:
   explicit Impl(
-      const std::string& path,
+      std::string_view path,
       Aws::S3::S3Client* client,
       memory::MemoryPool* pool)
       : client_(client), pool_(pool) {
     VELOX_CHECK_NOT_NULL(client);
     VELOX_CHECK_NOT_NULL(pool);
-    getBucketAndKeyFromS3Path(path, bucket_, key_);
+    getBucketAndKeyFromPath(path, bucket_, key_);
     currentPart_ = std::make_unique<dwio::common::DataBuffer<char>>(*pool_);
     currentPart_->reserve(kPartUploadSize);
     // Check that the object doesn't exist, if it does throw an error.
@@ -412,7 +410,7 @@ class S3WriteFile::Impl {
 };
 
 S3WriteFile::S3WriteFile(
-    const std::string& path,
+    std::string_view path,
     Aws::S3::S3Client* client,
     memory::MemoryPool* pool) {
   impl_ = std::make_shared<Impl>(path, client, pool);
@@ -438,8 +436,6 @@ int S3WriteFile::numPartsUploaded() const {
   return impl_->numPartsUploaded();
 }
 
-using namespace connector::hive;
-
 // Initialize and Finalize the AWS SDK C++ library.
 // Initialization must be done before creating a S3FileSystem.
 // Finalization must be done after all S3FileSystem instances have been deleted.
@@ -451,13 +447,13 @@ struct AwsInstance {
   }
 
   // Returns true iff the instance was newly initialized with config.
-  bool initialize(const config::ConfigBase* config) {
+  bool initialize(std::string_view logLevel) {
     if (isFinalized_.load()) {
       VELOX_FAIL("Attempt to initialize S3 after it has been finalized.");
     }
     if (!isInitialized_.exchange(true)) {
       // Not already initialized.
-      doInitialize(config);
+      doInitialize(logLevel);
       return true;
     }
     return false;
@@ -489,11 +485,8 @@ struct AwsInstance {
   }
 
  private:
-  void doInitialize(const config::ConfigBase* config) {
-    std::shared_ptr<HiveConfig> hiveConfig = std::make_shared<HiveConfig>(
-        std::make_shared<config::ConfigBase>(config->rawConfigsCopy()));
-    awsOptions_.loggingOptions.logLevel =
-        inferS3LogLevel(hiveConfig->s3GetLogLevel());
+  void doInitialize(std::string_view logLevel) {
+    awsOptions_.loggingOptions.logLevel = inferS3LogLevel(logLevel);
     // In some situations, curl triggers a SIGPIPE signal causing the entire
     // process to be terminated without any notification.
     // This behavior is seen via Prestissimo on AmazonLinux2 on AWS EC2.
@@ -516,8 +509,8 @@ AwsInstance* getAwsInstance() {
   return instance.get();
 }
 
-bool initializeS3(const config::ConfigBase* config) {
-  return getAwsInstance()->initialize(config);
+bool initializeS3(std::string_view logLevel) {
+  return getAwsInstance()->initialize(logLevel);
 }
 
 static std::atomic<int> fileSystemCount = 0;
@@ -529,16 +522,14 @@ void finalizeS3() {
 
 class S3FileSystem::Impl {
  public:
-  Impl(const config::ConfigBase* config) {
-    hiveConfig_ = std::make_shared<HiveConfig>(
-        std::make_shared<config::ConfigBase>(config->rawConfigsCopy()));
+  Impl(const S3Config& s3Config) {
     VELOX_CHECK(getAwsInstance()->isInitialized(), "S3 is not initialized");
     Aws::Client::ClientConfiguration clientConfig;
-    clientConfig.endpointOverride = hiveConfig_->s3Endpoint();
+    clientConfig.endpointOverride = s3Config.endpoint();
 
-    if (hiveConfig_->s3UseProxyFromEnv()) {
-      auto proxyConfig = S3ProxyConfigurationBuilder(hiveConfig_->s3Endpoint())
-                             .useSsl(hiveConfig_->s3UseSSL())
+    if (s3Config.useProxyFromEnv()) {
+      auto proxyConfig = S3ProxyConfigurationBuilder(s3Config.endpoint())
+                             .useSsl(s3Config.useSSL())
                              .build();
       if (proxyConfig.has_value()) {
         clientConfig.proxyScheme = Aws::Http::SchemeMapper::FromString(
@@ -550,44 +541,44 @@ class S3FileSystem::Impl {
       }
     }
 
-    if (hiveConfig_->s3UseSSL()) {
+    if (s3Config.useSSL()) {
       clientConfig.scheme = Aws::Http::Scheme::HTTPS;
     } else {
       clientConfig.scheme = Aws::Http::Scheme::HTTP;
     }
 
-    if (hiveConfig_->s3ConnectTimeout().has_value()) {
+    if (s3Config.connectTimeout().has_value()) {
       clientConfig.connectTimeoutMs =
           std::chrono::duration_cast<std::chrono::milliseconds>(
               facebook::velox::config::toDuration(
-                  hiveConfig_->s3ConnectTimeout().value()))
+                  s3Config.connectTimeout().value()))
               .count();
     }
 
-    if (hiveConfig_->s3SocketTimeout().has_value()) {
+    if (s3Config.socketTimeout().has_value()) {
       clientConfig.requestTimeoutMs =
           std::chrono::duration_cast<std::chrono::milliseconds>(
               facebook::velox::config::toDuration(
-                  hiveConfig_->s3SocketTimeout().value()))
+                  s3Config.socketTimeout().value()))
               .count();
     }
 
-    if (hiveConfig_->s3MaxConnections().has_value()) {
-      clientConfig.maxConnections = hiveConfig_->s3MaxConnections().value();
+    if (s3Config.maxConnections().has_value()) {
+      clientConfig.maxConnections = s3Config.maxConnections().value();
     }
 
-    auto retryStrategy = getRetryStrategy();
+    auto retryStrategy = getRetryStrategy(s3Config);
     if (retryStrategy.has_value()) {
       clientConfig.retryStrategy = retryStrategy.value();
     }
 
-    auto credentialsProvider = getCredentialsProvider();
+    auto credentialsProvider = getCredentialsProvider(s3Config);
 
     client_ = std::make_shared<Aws::S3::S3Client>(
         credentialsProvider,
         clientConfig,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-        hiveConfig_->s3UseVirtualAddressing());
+        s3Config.useVirtualAddressing());
     ++fileSystemCount;
   }
 
@@ -622,11 +613,11 @@ class S3FileSystem::Impl {
   }
 
   // Return an AWSCredentialsProvider based on the config.
-  std::shared_ptr<Aws::Auth::AWSCredentialsProvider> getCredentialsProvider()
-      const {
-    auto accessKey = hiveConfig_->s3AccessKey();
-    auto secretKey = hiveConfig_->s3SecretKey();
-    const auto iamRole = hiveConfig_->s3IAMRole();
+  std::shared_ptr<Aws::Auth::AWSCredentialsProvider> getCredentialsProvider(
+      const S3Config& s3Config) const {
+    auto accessKey = s3Config.accessKey();
+    auto secretKey = s3Config.secretKey();
+    const auto iamRole = s3Config.iamRole();
 
     int keyCount = accessKey.has_value() + secretKey.has_value();
     // keyCount=0 means both are not specified
@@ -637,7 +628,7 @@ class S3FileSystem::Impl {
         "Invalid configuration: both access key and secret key must be specified");
 
     int configCount = (accessKey.has_value() && secretKey.has_value()) +
-        iamRole.has_value() + hiveConfig_->s3UseInstanceCredentials();
+        iamRole.has_value() + s3Config.useInstanceCredentials();
     VELOX_USER_CHECK(
         (configCount <= 1),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
@@ -647,23 +638,23 @@ class S3FileSystem::Impl {
           accessKey.value(), secretKey.value());
     }
 
-    if (hiveConfig_->s3UseInstanceCredentials()) {
+    if (s3Config.useInstanceCredentials()) {
       return getDefaultCredentialsProvider();
     }
 
     if (iamRole.has_value()) {
       return getIAMRoleCredentialsProvider(
-          iamRole.value(), hiveConfig_->s3IAMRoleSessionName());
+          iamRole.value(), s3Config.iamRoleSessionName());
     }
 
     return getDefaultCredentialsProvider();
   }
 
   // Return a client RetryStrategy based on the config.
-  std::optional<std::shared_ptr<Aws::Client::RetryStrategy>> getRetryStrategy()
-      const {
-    auto retryMode = hiveConfig_->s3RetryMode();
-    auto maxAttempts = hiveConfig_->s3MaxAttempts();
+  std::optional<std::shared_ptr<Aws::Client::RetryStrategy>> getRetryStrategy(
+      const S3Config& s3Config) const {
+    auto retryMode = s3Config.retryMode();
+    auto maxAttempts = s3Config.maxAttempts();
     if (retryMode.has_value()) {
       if (retryMode.value() == "standard") {
         if (maxAttempts.has_value()) {
@@ -723,13 +714,15 @@ class S3FileSystem::Impl {
   }
 
  private:
-  std::shared_ptr<HiveConfig> hiveConfig_;
   std::shared_ptr<Aws::S3::S3Client> client_;
 };
 
-S3FileSystem::S3FileSystem(std::shared_ptr<const config::ConfigBase> config)
+S3FileSystem::S3FileSystem(
+    std::string_view bucketName,
+    const std::shared_ptr<const config::ConfigBase> config)
     : FileSystem(config) {
-  impl_ = std::make_shared<Impl>(config.get());
+  S3Config s3Config(bucketName, config);
+  impl_ = std::make_shared<Impl>(s3Config);
 }
 
 std::string S3FileSystem::getLogLevelName() const {
@@ -737,20 +730,20 @@ std::string S3FileSystem::getLogLevelName() const {
 }
 
 std::unique_ptr<ReadFile> S3FileSystem::openFileForRead(
-    std::string_view path,
+    std::string_view s3Path,
     const FileOptions& options) {
-  const auto file = s3Path(path);
-  auto s3file = std::make_unique<S3ReadFile>(file, impl_->s3Client());
+  const auto path = getPath(s3Path);
+  auto s3file = std::make_unique<S3ReadFile>(path, impl_->s3Client());
   s3file->initialize(options);
   return s3file;
 }
 
 std::unique_ptr<WriteFile> S3FileSystem::openFileForWrite(
-    std::string_view path,
+    std::string_view s3Path,
     const FileOptions& options) {
-  const auto file = s3Path(path);
+  const auto path = getPath(s3Path);
   auto s3file =
-      std::make_unique<S3WriteFile>(file, impl_->s3Client(), options.pool);
+      std::make_unique<S3WriteFile>(path, impl_->s3Client(), options.pool);
   return s3file;
 }
 
@@ -758,5 +751,4 @@ std::string S3FileSystem::name() const {
   return "S3";
 }
 
-} // namespace filesystems
-} // namespace facebook::velox
+} // namespace facebook::velox::filesystems
