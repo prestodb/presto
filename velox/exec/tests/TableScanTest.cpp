@@ -180,7 +180,7 @@ class TableScanTest : public virtual HiveConnectorTestBase {
       const std::string& filePath,
       const TypePtr& partitionType,
       const std::optional<std::string>& partitionValue) {
-    auto split = HiveConnectorSplitBuilder(filePath)
+    auto split = exec::test::HiveConnectorSplitBuilder(filePath)
                      .partitionKey("pkey", partitionValue)
                      .build();
     auto outputType =
@@ -411,7 +411,7 @@ TEST_F(TableScanTest, partitionKeyAlias) {
       {"a", regularColumn("c0", BIGINT())},
       {"ds_alias", partitionKey("ds", VARCHAR())}};
 
-  auto split = HiveConnectorSplitBuilder(filePath->getPath())
+  auto split = exec::test::HiveConnectorSplitBuilder(filePath->getPath())
                    .partitionKey("ds", "2021-12-02")
                    .build();
 
@@ -1806,7 +1806,8 @@ TEST_F(TableScanTest, splitOffsetAndLength) {
 }
 
 TEST_F(TableScanTest, fileNotFound) {
-  auto split = HiveConnectorSplitBuilder("/path/to/nowhere.orc").build();
+  auto split =
+      exec::test::HiveConnectorSplitBuilder("/path/to/nowhere.orc").build();
   auto assertMissingFile = [&](bool ignoreMissingFiles) {
     AssertQueryBuilder(tableScanNode())
         .connectorSessionProperty(
@@ -1829,7 +1830,7 @@ TEST_F(TableScanTest, validFileNoData) {
 
   auto filePath = facebook::velox::test::getDataFilePath(
       "velox/exec/tests", "data/emptyPresto.dwrf");
-  auto split = HiveConnectorSplitBuilder(filePath)
+  auto split = exec::test::HiveConnectorSplitBuilder(filePath)
                    .start(0)
                    .length(fs::file_size(filePath) / 2)
                    .build();
@@ -1949,7 +1950,7 @@ TEST_F(TableScanTest, partitionedTableDateKey) {
 
   // Test partition filter on date column.
   {
-    auto split = HiveConnectorSplitBuilder(filePath->getPath())
+    auto split = exec::test::HiveConnectorSplitBuilder(filePath->getPath())
                      .partitionKey("pkey", partitionValue)
                      .build();
     auto outputType = ROW({"pkey", "c0", "c1"}, {DATE(), BIGINT(), DOUBLE()});
@@ -2851,9 +2852,10 @@ TEST_F(TableScanTest, bucket) {
     writeToFile(filePaths[i]->getPath(), rowVector);
     rowVectors.emplace_back(rowVector);
 
-    splits.emplace_back(HiveConnectorSplitBuilder(filePaths[i]->getPath())
-                            .tableBucketNumber(bucket)
-                            .build());
+    splits.emplace_back(
+        exec::test::HiveConnectorSplitBuilder(filePaths[i]->getPath())
+            .tableBucketNumber(bucket)
+            .build());
   }
 
   createDuckDbTable(rowVectors);
@@ -2877,7 +2879,7 @@ TEST_F(TableScanTest, bucket) {
 
   for (int i = 0; i < buckets.size(); ++i) {
     int bucketValue = buckets[i];
-    auto hsplit = HiveConnectorSplitBuilder(filePaths[i]->getPath())
+    auto hsplit = exec::test::HiveConnectorSplitBuilder(filePaths[i]->getPath())
                       .tableBucketNumber(bucketValue)
                       .build();
 
@@ -2897,7 +2899,7 @@ TEST_F(TableScanTest, bucket) {
 
     // Filter on bucket column, but don't project it out
     auto rowTypes = ROW({"c0", "c1"}, {INTEGER(), BIGINT()});
-    hsplit = HiveConnectorSplitBuilder(filePaths[i]->getPath())
+    hsplit = exec::test::HiveConnectorSplitBuilder(filePaths[i]->getPath())
                  .tableBucketNumber(bucketValue)
                  .build();
     op = PlanBuilder()
@@ -4141,7 +4143,7 @@ TEST_F(TableScanTest, reuseRowVector) {
                   .tableScan(rowType, {}, "c0 < 5")
                   .project({"c1.c0"})
                   .planNode();
-  auto split = HiveConnectorSplitBuilder(file->getPath()).build();
+  auto split = exec::test::HiveConnectorSplitBuilder(file->getPath()).build();
   auto expected = makeRowVector(
       {makeFlatVector<int32_t>(10, [](auto i) { return i % 5; })});
   AssertQueryBuilder(plan).splits({split, split}).assertResults(expected);
@@ -4722,7 +4724,7 @@ TEST_F(TableScanTest, varbinaryPartitionKey) {
       {"a", regularColumn("c0", BIGINT())},
       {"ds_alias", partitionKey("ds", VARBINARY())}};
 
-  auto split = HiveConnectorSplitBuilder(filePath->getPath())
+  auto split = exec::test::HiveConnectorSplitBuilder(filePath->getPath())
                    .partitionKey("ds", "2021-12-02")
                    .build();
 
@@ -4761,7 +4763,7 @@ TEST_F(TableScanTest, timestampPartitionKey) {
   ColumnHandleMap assignments = {{"t", partitionKey("t", TIMESTAMP())}};
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
   for (auto& t : inputs) {
-    splits.push_back(HiveConnectorSplitBuilder(filePath->getPath())
+    splits.push_back(exec::test::HiveConnectorSplitBuilder(filePath->getPath())
                          .partitionKey("t", t)
                          .build());
   }
@@ -4780,7 +4782,7 @@ TEST_F(TableScanTest, partitionKeyNotMatchPartitionKeysHandle) {
   writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
-  auto split = HiveConnectorSplitBuilder(filePath->getPath())
+  auto split = exec::test::HiveConnectorSplitBuilder(filePath->getPath())
                    .partitionKey("ds", "2021-12-02")
                    .build();
 

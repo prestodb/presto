@@ -58,6 +58,7 @@ add_subdirectory(connectors)
 
 if(${VELOX_ENABLE_EXEC})
   add_subdirectory(exec)
+  add_subdirectory(runner)
 endif()
 
 if(${VELOX_ENABLE_DUCKDB})
