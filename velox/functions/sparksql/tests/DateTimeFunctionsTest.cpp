@@ -51,6 +51,12 @@ class DateTimeFunctionsTest : public SparkFunctionBaseTest {
     });
   }
 
+  void enableLegacyFormatter() {
+    queryCtx_->testingOverrideConfigUnsafe({
+        {core::QueryConfig::kSparkLegacyDateFormatter, "true"},
+    });
+  }
+
   template <typename TOutput, typename TValue>
   std::optional<TOutput> evaluateDateFuncOnce(
       const std::string& expr,
@@ -260,6 +266,9 @@ TEST_F(DateTimeFunctionsTest, unixTimestamp) {
   EXPECT_EQ(std::nullopt, unixTimestamp(std::nullopt));
   EXPECT_EQ(std::nullopt, unixTimestamp("1970-01-01"));
   EXPECT_EQ(std::nullopt, unixTimestamp("00:00:00"));
+  EXPECT_EQ(std::nullopt, unixTimestamp(""));
+  EXPECT_EQ(std::nullopt, unixTimestamp("malformed input"));
+  enableLegacyFormatter();
   EXPECT_EQ(std::nullopt, unixTimestamp(""));
   EXPECT_EQ(std::nullopt, unixTimestamp("malformed input"));
 }
@@ -803,6 +812,14 @@ TEST_F(DateTimeFunctionsTest, getTimestamp) {
   VELOX_ASSERT_THROW(
       getTimestamp("2023-07-13 21:34", "yyyy-MM-dd HH:II"),
       "Specifier I is not supported");
+
+  // Returns null for invalid datetime format when legacy date formatter is
+  // used.
+  enableLegacyFormatter();
+  // Empty format.
+  EXPECT_EQ(getTimestamp("0", ""), std::nullopt);
+  // Unsupported specifier.
+  EXPECT_EQ(getTimestamp("0", "l"), std::nullopt);
 }
 
 TEST_F(DateTimeFunctionsTest, hour) {
@@ -926,6 +943,14 @@ TEST_F(DateTimeFunctionsTest, fromUnixtime) {
       fromUnixTime(0, "FF/MM/dd"), "Specifier F is not supported");
   VELOX_ASSERT_THROW(
       fromUnixTime(0, "yyyy-MM-dd HH:II"), "Specifier I is not supported");
+
+  // Returns null for invalid datetime format when legacy date formatter is
+  // used.
+  enableLegacyFormatter();
+  // Empty format.
+  EXPECT_EQ(fromUnixTime(0, ""), std::nullopt);
+  // Unsupported specifier.
+  EXPECT_EQ(fromUnixTime(0, "l"), std::nullopt);
 }
 
 TEST_F(DateTimeFunctionsTest, makeYMInterval) {

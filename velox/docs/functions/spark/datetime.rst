@@ -82,14 +82,14 @@ These functions support TIMESTAMP and DATE input types.
 
     Adjusts ``unixTime`` (elapsed seconds since UNIX epoch) to configured session timezone, then
     converts it to a formatted time string according to ``format``. Only supports BIGINT type for
-    ``unixTime``. Using `Simple <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>`
+    ``unixTime``. Using `Simple <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>`_
     date formatter in lenient mode that is align with Spark legacy date parser behavior or
-    `Joda <https://www.joda.org/joda-time/>` date formatter depends on ``spark.legacy_date_formatter`` configuration.
+    `Joda <https://www.joda.org/joda-time/>`_ date formatter depends on ``spark.legacy_date_formatter`` configuration.
     `Valid patterns for date format
-    <https://spark.apache.org/docs/latest/sql-ref-datetime-pattern.html>`_. Throws exception for
-    invalid ``format``. This function will convert input to milliseconds, and integer overflow is
-    allowed in the conversion, which aligns with Spark. See the below third example where INT64_MAX
-    is used, -1000 milliseconds are produced by INT64_MAX * 1000 due to integer overflow. ::
+    <https://spark.apache.org/docs/latest/sql-ref-datetime-pattern.html>`_. When `Simple` date formatter is used,
+    null is returned for invalid ``format``; otherwise, exception is thrown. This function will convert input to
+    milliseconds, and integer overflow is allowed in the conversion, which aligns with Spark. See the below third
+    example where INT64_MAX is used, -1000 milliseconds are produced by INT64_MAX * 1000 due to integer overflow. ::
 
         SELECT from_unixtime(100, 'yyyy-MM-dd HH:mm:ss'); -- '1970-01-01 00:01:40'
         SELECT from_unixtime(3600, 'yyyy'); -- '1970'
@@ -113,7 +113,11 @@ These functions support TIMESTAMP and DATE input types.
     The format follows Spark's
     `Datetime patterns
     <https://spark.apache.org/docs/latest/sql-ref-datetime-pattern.html>`_.
-    Returns NULL for parsing error or NULL input. Throws exception for invalid format. ::
+    Using `Simple <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>`_
+    date formatter in lenient mode that is align with Spark legacy date parser behavior or
+    `Joda <https://www.joda.org/joda-time/>`_ date formatter depends on ``spark.legacy_date_formatter`` configuration.
+    Returns NULL for parsing error or NULL input. When `Simple` date formatter is used, null is returned for invalid
+    ``dateFormat``; otherwise, exception is thrown. ::
 
         SELECT get_timestamp('1970-01-01', 'yyyy-MM-dd);  -- timestamp `1970-01-01`
         SELECT get_timestamp('1970-01-01', 'yyyy-MM');  -- NULL (parsing error)
@@ -288,8 +292,8 @@ These functions support TIMESTAMP and DATE input types.
 .. spark:function:: unix_timestamp() -> integer
 
     Returns the current UNIX timestamp in seconds. Using
-    `Simple <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>` date formatter in lenient mode
-    that is align with Spark legacy date parser behavior or `Joda <https://www.joda.org/joda-time/>` date formatter
+    `Simple <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>`_ date formatter in lenient mode
+    that is align with Spark legacy date parser behavior or `Joda <https://www.joda.org/joda-time/>`_ date formatter
     depends on the ``spark.legacy_date_formatter`` configuration.
 
 .. spark:function:: unix_timestamp(string) -> integer
