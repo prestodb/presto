@@ -113,15 +113,16 @@ void extractArray(
     const folly::dynamic* jsonArray,
     const std::string& key,
     JsonVector& ret) {
-  auto arrayLen = jsonArray->size();
+  int64_t arrayLen = jsonArray->size();
   if (key == "*") {
     for (size_t i = 0; i < arrayLen; ++i) {
       ret.push_back(jsonArray->get_ptr(i));
     }
   } else {
-    auto rv = folly::tryTo<int32_t>(key);
+    auto rv = folly::tryTo<int64_t>(key);
     if (rv.hasValue()) {
       auto idx = rv.value();
+      idx = idx >= 0 ? idx : arrayLen + idx;
       if (idx >= 0 && idx < arrayLen) {
         ret.push_back(jsonArray->get_ptr(idx));
       }

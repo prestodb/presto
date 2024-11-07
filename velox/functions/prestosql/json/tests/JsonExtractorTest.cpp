@@ -243,6 +243,9 @@ TEST(JsonExtractorTest, arrayJsonValueTest) {
   EXPECT_JSON_VALUE_EQ("[1, 2, 3]"s, "$[0]"s, "1"s);
   EXPECT_JSON_VALUE_EQ("[1, 2]"s, "$[1]"s, "2"s);
   EXPECT_JSON_VALUE_EQ("[1, null]"s, "$[1]"s, "null"s);
+  // Negative Index
+  EXPECT_JSON_VALUE_EQ("[1, 2, 3]"s, "$[-1]"s, "3"s);
+  EXPECT_JSON_VALUE_NULL("[1, 2, 3]"s, "$[-4]"s);
   // Out of bounds
   EXPECT_JSON_VALUE_NULL("[1]"s, "$[1]"s);
   // Check skipping complex structures
@@ -412,6 +415,21 @@ TEST(JsonExtractorTest, fullJsonValueTest) {
       "{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2 }"s, "$[\"30day\"]"s, "1"s);
   EXPECT_JSON_VALUE_EQ("{\"a\\\\b\": 4}"s, "$[\"a\\\\b\"]"s, "4"s);
   EXPECT_JSON_VALUE_NULL("{\"fuu\" : null}"s, "$.a.b"s);
+
+  // Negative array index
+  EXPECT_JSON_VALUE_EQ(
+      "[{\"id\": 1, \"text\": \"First\"}, {\"id\": 2, \"text\": \"Second\"},"
+      "{\"id\": 3, \"text\": \"Last\"}]"s,
+      "[-1][\"text\"]"s,
+      "\"Last\""s);
+  EXPECT_JSON_VALUE_EQ(
+      "{\"id\": 1, \"entries\": [\"First\", \"Second\", \"Last\"]}"s,
+      "$.entries[-2]"s,
+      "\"Second\""s);
+  EXPECT_JSON_VALUE_EQ(
+      "{\"id\": 1, \"entries\": [\"First\", \"Second\", \"Last\"]}"s,
+      "$.entries.-3"s,
+      "\"First\""s);
 }
 
 TEST(JsonExtractorTest, invalidJsonPathTest) {
