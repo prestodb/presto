@@ -251,6 +251,32 @@ public class InformationSchemaMetadata
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
+    @Override
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        if (constraint.getSummary().isNone()) {
+            return ImmutableList.of();
+        }
+
+        InformationSchemaTableHandle handle = checkTableHandle(table);
+
+        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
+        if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
+            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(session, prefixes, constraint.getSummary(), constraint.predicate());
+            // in case of high number of prefixes it is better to populate all data and then filter
+            if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
+                prefixes = tablePrefixes;
+            }
+        }
+        if (prefixes.size() > MAX_PREFIXES_COUNT) {
+            // in case of high number of prefixes it is better to populate all data and then filter
+            prefixes = ImmutableSet.of(new QualifiedTablePrefix(catalogName));
+        }
+
+        ConnectorTableLayout layout = new ConnectorTableLayout(new InformationSchemaTableLayoutHandle(handle, prefixes));
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+    }
+
     private boolean isTablesEnumeratingTable(SchemaTableName schemaTableName)
     {
         return ImmutableSet.of(TABLE_COLUMNS, TABLE_VIEWS, TABLE_TABLES, TABLE_TABLE_PRIVILEGES).contains(schemaTableName);

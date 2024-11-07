@@ -18,19 +18,19 @@ import com.google.common.base.Joiner;
 import java.util.Objects;
 import java.util.Set;
 
-public class ConnectorTableHandleSet
+public class JoinTableSet
         implements ConnectorTableHandle
 {
-    private final Set<ConnectorTableHandle> connectorTableHandles;
+    private final Set<JoinTableInfo> innerJoinTableInfos;
 
-    public ConnectorTableHandleSet(Set<ConnectorTableHandle> connectorTableHandles)
+    public JoinTableSet(Set<JoinTableInfo> innerJoinTableInfos)
     {
-        this.connectorTableHandles = connectorTableHandles;
+        this.innerJoinTableInfos = innerJoinTableInfos;
     }
 
-    public Set<ConnectorTableHandle> getConnectorTableHandles()
+    public Set<JoinTableInfo> getInnerJoinTableInfos()
     {
-        return connectorTableHandles;
+        return innerJoinTableInfos;
     }
 
     @Override
@@ -42,19 +42,19 @@ public class ConnectorTableHandleSet
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        ConnectorTableHandleSet o = (ConnectorTableHandleSet) obj;
-        return Objects.equals(this.connectorTableHandles, o.connectorTableHandles);
+        JoinTableSet o = (JoinTableSet) obj;
+        return Objects.equals(this.innerJoinTableInfos, o.innerJoinTableInfos);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorTableHandles);
+        return Objects.hash(innerJoinTableInfos);
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on(":").useForNull("null").join(connectorTableHandles.iterator());
+        return Joiner.on(":").useForNull("null").join(innerJoinTableInfos.iterator());
     }
 }

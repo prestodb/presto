@@ -325,7 +325,6 @@ public final class SystemSessionProperties
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
-    public static final String ENABLE_JDBC_JOIN_QUERY_PUSHDOWN = "enable-join-query-pushdown";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -333,6 +332,8 @@ public final class SystemSessionProperties
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
+    public static final String INNER_JOIN_PUSHDOWN_ENABLED = "optimizer_inner_join_pushdown_enabled";
+    public static final String INEQUALITY_JOIN_PUSHDOWN_ENABLED = "optimizer_inequality_join_pushdown_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1827,9 +1828,14 @@ public final class SystemSessionProperties
                         featuresConfig.getInlineProjectionsOnValues(),
                         false),
                 booleanProperty(
-                        ENABLE_JDBC_JOIN_QUERY_PUSHDOWN,
-                        "Enable Join Predicate Pushdown for JDBC connectors",
-                        false,
+                        INNER_JOIN_PUSHDOWN_ENABLED,
+                        "Enable Join Predicate Pushdown",
+                        featuresConfig.isInnerJoinPushdownEnabled(),
+                        false),
+                booleanProperty(
+                        INEQUALITY_JOIN_PUSHDOWN_ENABLED,
+                        "Enable Join Pushdown for Inequality Predicates",
+                        featuresConfig.isInEqualityJoinPushdownEnabled(),
                         false));
     }
 
@@ -3105,5 +3111,15 @@ public final class SystemSessionProperties
     public static boolean isInlineProjectionsOnValues(Session session)
     {
         return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
+    }
+
+    public static Boolean isInnerJoinPushdownEnabled(Session session)
+    {
+        return session.getSystemProperty(INNER_JOIN_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static Boolean isInEqualityPushdownEnabled(Session session)
+    {
+        return session.getSystemProperty(INEQUALITY_JOIN_PUSHDOWN_ENABLED, Boolean.class);
     }
 }

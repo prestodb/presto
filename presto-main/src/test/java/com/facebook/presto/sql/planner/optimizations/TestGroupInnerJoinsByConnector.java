@@ -33,8 +33,9 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableHandleSet;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.JoinTableInfo;
+import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
@@ -75,11 +76,14 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.INEQUALITY_JOIN_PUSHDOWN_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.INNER_JOIN_PUSHDOWN_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -290,7 +294,12 @@ public class TestGroupInnerJoinsByConnector
 
         TestingMetadata.TestingTableHandle connectorHandle = new TestingMetadata.TestingTableHandle();
         Set<ConnectorTableHandle> tableHandles = ImmutableSet.of(connectorHandle);
-        ConnectorTableHandleSet tableHandleSet = new ConnectorTableHandleSet(tableHandles);
+        Set<JoinTableInfo> joinTableInfos = new HashSet<>();
+        tableHandles.forEach(tableHandle -> {
+            String[] columnNames = new String[]{"a1", "b1"};
+            joinTableInfos.add(new JoinTableInfo(tableHandle, Arrays.stream(columnNames).map(TestGroupInnerJoinsByConnector::newBigintVariable).collect(toMap(identity(), variable -> new ColumnHandle() {})), Arrays.stream(columnNames).map(TestGroupInnerJoinsByConnector::newBigintVariable).collect(toImmutableList())));
+        });
+        JoinTableSet tableHandleSet = new JoinTableSet(joinTableInfos);
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(catalogName),
                 tableHandleSet,
@@ -336,7 +345,10 @@ public class TestGroupInnerJoinsByConnector
         TestingRowExpressionTranslator sqlToRowExpressionTranslator = new TestingRowExpressionTranslator(metadata);
 
         TransactionId transactionId = transactionManager.beginTransaction(false);
-        Session session = testSessionBuilder().setTransactionId(transactionId).build();
+        Session session = testSessionBuilder().
+                setSystemProperty(INNER_JOIN_PUSHDOWN_ENABLED, "true")
+                .setSystemProperty(INEQUALITY_JOIN_PUSHDOWN_ENABLED, "true")
+                .setTransactionId(transactionId).build();
 
         ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
@@ -363,7 +375,16 @@ public class TestGroupInnerJoinsByConnector
 
         TestingMetadata.TestingTableHandle connectorHandle = new TestingMetadata.TestingTableHandle();
         Set<ConnectorTableHandle> tableHandles = ImmutableSet.of(connectorHandle);
-        ConnectorTableHandleSet tableHandleSet = new ConnectorTableHandleSet(tableHandles);
+        Set<JoinTableInfo> joinTableInfos = new HashSet<>();
+//        tableHandles.forEach(tableHandle -> {
+//            String[] columnNames1 = new String[]{"a2", "a2"};
+//            String[] columnNames2 = new String[]{"b1", "b2", "b3"};
+//            joinTableInfos.add(new JoinTableInfo(tableHandle, Arrays.stream(columnNames).map(TestGroupInnerJoinsByConnector::newBigintVariable).collect(toMap(identity(),
+//                    variable -> new ColumnHandle() {})), Arrays.stream(columnNames).map(TestGroupInnerJoinsByConnector::newBigintVariable).collect(toImmutableList())));
+//        });
+        JoinTableInfo joinTableInfo = new JoinTableInfo(connectorHandle, ImmutableMap.of(), ImmutableList.of());
+        joinTableInfos.add(joinTableInfo);
+        JoinTableSet tableHandleSet = new JoinTableSet(joinTableInfos);
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(catalogName),
                 tableHandleSet,
@@ -484,7 +505,7 @@ public class TestGroupInnerJoinsByConnector
             ConnectorTableHandle connectorHandle = tableScanNode.getTable().getConnectorHandle();
 
             if (connectorId.equals(tableScanNode.getTable().getConnectorId()) &&
-                    connectorHandle instanceof ConnectorTableHandleSet &&
+                    connectorHandle instanceof JoinTableSet &&
                     connectorHandle.equals(this.tableHandle.getConnectorHandle())) {
                 return MatchResult.match(SymbolAliases.builder().putAll(Arrays.stream(columns).collect(toMap(identity(), SymbolReference::new))).build());
             }

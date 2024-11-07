@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.expressions.LogicalRowExpressions;
@@ -23,7 +24,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableHandleSet;
+import com.facebook.presto.spi.JoinTableInfo;
+import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -66,6 +68,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static com.facebook.presto.SystemSessionProperties.INEQUALITY_JOIN_PUSHDOWN_ENABLED;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
@@ -129,8 +132,11 @@ public class GroupInnerJoinsByConnector
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(new Rewriter(functionResolution, determinismEvaluator, idAllocator, metadata, session), plan);
-        return PlanOptimizerResult.optimizerResult(rewrittenPlan, !rewrittenPlan.equals(plan));
+        if (SystemSessionProperties.isInnerJoinPushdownEnabled(session)) {
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(new Rewriter(functionResolution, determinismEvaluator, idAllocator, metadata, session), plan);
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, !rewrittenPlan.equals(plan));
+        }
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter
@@ -320,6 +326,7 @@ public class GroupInnerJoinsByConnector
             LinkedHashSet<PlanNode> rewrittenSources = new LinkedHashSet<>();
             List<RowExpression> overallTableFilter = extractConjuncts(multiJoinNode.getFilter());
             Map<String, List<PlanNode>> sourcesByConnector = new HashMap<>();
+            final boolean isInEqualityPushDownEnabled = session.getSystemProperty(INEQUALITY_JOIN_PUSHDOWN_ENABLED, Boolean.class);
 
              /*
               Here the join push down is happening based on  multiJoinNode.getJoinFilter() criteria.
@@ -331,7 +338,7 @@ public class GroupInnerJoinsByConnector
             EqualityInference filterEqualityInference = new EqualityInference.Builder(metadata)
                     .addEqualityInference(multiJoinNode.getJoinFilter())
                     .build();
-            Iterable<RowExpression> inequalityPredicates = filter(extractConjuncts(multiJoinNode.getJoinFilter()), isInequalityInferenceCandidate());
+            Iterable<RowExpression> inequalityPredicates = isInEqualityPushDownEnabled ? filter(extractConjuncts(multiJoinNode.getJoinFilter()), isInequalityInferenceCandidate()) : ImmutableSet.of();
             AtomicReference<Boolean> wereSourcesRewritten = new AtomicReference<>(false);
             for (PlanNode source : multiJoinNode.getSources()) {
                 Optional<String> connectorId = getConnectorIdFromSource(source, session);
@@ -415,6 +422,7 @@ public class GroupInnerJoinsByConnector
 
             Set<ConnectorTableHandle> nodeHandles = new HashSet<>();
             TableHandle firstResolvedTableHandle = null;
+            Set<JoinTableInfo> joinTableInfos = new HashSet<>();
             for (PlanNode planNode : nodesToCombine) {
                 TableHandle resolvedTableHandle = getTableScanNode(planNode).getTable();
                 if (firstResolvedTableHandle == null) {
@@ -422,8 +430,9 @@ public class GroupInnerJoinsByConnector
                 }
                 ConnectorTableHandle connectorHandle = resolvedTableHandle.getConnectorHandle();
                 nodeHandles.add(connectorHandle);
+                joinTableInfos.add(new JoinTableInfo(connectorHandle, getTableScanNode(planNode).getAssignments(), planNode.getOutputVariables()));
             }
-            ConnectorTableHandleSet combinedTableHandles = new ConnectorTableHandleSet(nodeHandles);
+            JoinTableSet combinedTableHandles = new JoinTableSet(joinTableInfos);
             TableHandle combinedTableHandle = new TableHandle(firstResolvedTableHandle.getConnectorId(),
                     combinedTableHandles,
                     firstResolvedTableHandle.getTransaction(),
@@ -486,7 +495,7 @@ public class GroupInnerJoinsByConnector
             // Build a set of individual TableHandles that need to be combined
             TableHandle firstResolvedTableHandle = null;
             TableScanNode firstResolvedTableScanNode = null;
-            ImmutableSet.Builder<ConnectorTableHandle> builder = ImmutableSet.builder();
+            ImmutableSet.Builder<JoinTableInfo> builder = ImmutableSet.builder();
             // Get over all output variables and assignments from grouped TableScanNode
             List<VariableReferenceExpression> outputVariables = new ArrayList<>();
             Map<VariableReferenceExpression, ColumnHandle> assignments = new HashMap<>();
@@ -500,12 +509,12 @@ public class GroupInnerJoinsByConnector
 
                 outputVariables.addAll(tableScanNode.getOutputVariables());
                 assignments.putAll(tableScanNode.getAssignments());
-                builder.add(tableHandle.getConnectorHandle());
+                builder.add(new JoinTableInfo(tableHandle.getConnectorHandle(), tableScanNode.getAssignments(), tableScanNode.getOutputVariables()));
             }
 
             // Build an new TableHandle that represents the combined set of TableHandles
             TableHandle updatedTableHandle = new TableHandle(firstResolvedTableHandle.getConnectorId(),
-                    new ConnectorTableHandleSet(builder.build()),
+                    new JoinTableSet(builder.build()),
                     firstResolvedTableHandle.getTransaction(),
                     firstResolvedTableHandle.getLayout(),
                     firstResolvedTableHandle.getDynamicFilter());

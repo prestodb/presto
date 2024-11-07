@@ -287,6 +287,8 @@ public class FeaturesConfig
 
     private boolean eagerPlanValidationEnabled;
     private int eagerPlanValidationThreadPoolSize = 20;
+    private boolean innerJoinPushdownEnabled;
+    private boolean inEqualityJoinPushdownEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2845,5 +2847,31 @@ public class FeaturesConfig
     public int getEagerPlanValidationThreadPoolSize()
     {
         return this.eagerPlanValidationThreadPoolSize;
+    }
+
+    @Config("optimizer.inner-join-pushdown-enabled")
+    @ConfigDescription("push down inner join predicates to database")
+    public FeaturesConfig setInnerJoinPushdownEnabled(boolean innerJoinPushdownEnabled)
+    {
+        this.innerJoinPushdownEnabled = innerJoinPushdownEnabled;
+        return this;
+    }
+
+    public boolean isInnerJoinPushdownEnabled()
+    {
+        return innerJoinPushdownEnabled;
+    }
+
+    @Config("optimizer.inequality-join-pushdown-enabled")
+    @ConfigDescription("push down inner join inequality predicates to database")
+    public FeaturesConfig setInEqualityJoinPushdownEnabled(boolean inEqualityJoinPushdownEnabled)
+    {
+        this.inEqualityJoinPushdownEnabled = inEqualityJoinPushdownEnabled;
+        return this;
+    }
+
+    public boolean isInEqualityJoinPushdownEnabled()
+    {
+        return inEqualityJoinPushdownEnabled;
     }
 }

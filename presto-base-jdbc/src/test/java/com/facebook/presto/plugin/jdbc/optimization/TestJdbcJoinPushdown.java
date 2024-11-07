@@ -28,7 +28,8 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableHandleSet;
+import com.facebook.presto.spi.JoinTableInfo;
+import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -53,7 +54,9 @@ import org.testng.annotations.Test;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -153,7 +156,14 @@ public class TestJdbcJoinPushdown
             tableHandles.add(tableHandle);
         }
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandles.get(0);
-        ConnectorTableHandle connectorTableHandle = new ConnectorTableHandleSet(ImmutableSet.copyOf(tableHandles));
+        Set<JoinTableInfo> joinTableInfos = new HashSet<>();
+        List<VariableReferenceExpression> outputVariables = Arrays.stream(columnNames).map(column -> newVariable(column, type)).collect(toImmutableList());
+        Map<VariableReferenceExpression, ColumnHandle> assignments = Arrays.stream(columnNames)
+                .map(column -> newVariable(column, type)).collect(toMap(identity(), entry -> getColumnHandleForVariable(entry.getName(), type)));
+        tableHandles.forEach(tableHandle -> {
+            joinTableInfos.add(new JoinTableInfo(tableHandle, assignments, outputVariables));
+        });
+        ConnectorTableHandle connectorTableHandle = new JoinTableSet(ImmutableSet.copyOf(joinTableInfos));
 
         Optional<JdbcExpression> additionalExpression = Optional.of(new JdbcExpression("(('c1' + 'c2') - 'c2')"));
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(TEST_SESSION.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), additionalExpression);
@@ -161,10 +171,8 @@ public class TestJdbcJoinPushdown
 
         return PLAN_BUILDER.tableScan(
                 tableHandle,
-                Arrays.stream(columnNames).map(column -> newVariable(column, type)).collect(toImmutableList()),
-                Arrays.stream(columnNames)
-                        .map(column -> newVariable(column, type))
-                        .collect(toMap(identity(), entry -> getColumnHandleForVariable(entry.getName(), type))));
+                outputVariables,
+                assignments);
     }
 
     private TableScanNode jdbcTableScan(String schema, String table, Type type, boolean isJoinPushdown, String... columnNames)
@@ -173,12 +181,19 @@ public class TestJdbcJoinPushdown
         ConnectorTableHandle connectorTableHandle = null;
         if (isJoinPushdown) {
             List<ConnectorTableHandle> tableHandles = new ArrayList<>();
+            Set<JoinTableInfo> joinTableInfos = new HashSet<>();
+            List<VariableReferenceExpression> outputVariables = Arrays.stream(columnNames).map(column -> newVariable(column, type)).collect(toImmutableList());
+            Map<VariableReferenceExpression, ColumnHandle> assignments = Arrays.stream(columnNames)
+                    .map(column -> newVariable(column, type)).collect(toMap(identity(), entry -> getColumnHandleForVariable(entry.getName(), type)));
+            tableHandles.forEach(tableHandle -> {
+                joinTableInfos.add(new JoinTableInfo(tableHandle, assignments, outputVariables));
+            });
             for (int i = 0; i < 3; i++) {
                 connectorTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.empty());
                 tableHandles.add(connectorTableHandle);
             }
             jdbcTableHandle = (JdbcTableHandle) tableHandles.get(0);
-            connectorTableHandle = new ConnectorTableHandleSet(ImmutableSet.copyOf(tableHandles));
+            connectorTableHandle = new JoinTableSet(ImmutableSet.copyOf(joinTableInfos));
         }
         else {
             jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.empty());

@@ -213,7 +213,7 @@ public class BaseJdbcClient
                             resultSet.getString("TABLE_SCHEM"),
                             resultSet.getString("TABLE_NAME"),
                             Optional.empty(),
-                            Optional.of("table_alias_" + UUID.randomUUID().toString().replace("-", ""))));
+                            Optional.empty()));
                 }
                 if (tableHandles.isEmpty()) {
                     return null;

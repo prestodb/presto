@@ -24,12 +24,12 @@ import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableHandleSet;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -287,7 +287,7 @@ public class JdbcMetadata
             RowExpression filter,
             Map<VariableReferenceExpression, ColumnHandle> symbolToColumnHandleMap)
     {
-        if (tableHandle instanceof ConnectorTableHandleSet) {
+        if (tableHandle instanceof JoinTableSet) {
             // We now have all relevant pieces to build a JdbcJoinPredicateToSqlTranslator to test if the passed in filter will translate to SQL
             JdbcJoinPredicateToSqlTranslator jdbcJoinPredicateToSqlTranslator = new JdbcJoinPredicateToSqlTranslator(
                     functionMetadataManager,
