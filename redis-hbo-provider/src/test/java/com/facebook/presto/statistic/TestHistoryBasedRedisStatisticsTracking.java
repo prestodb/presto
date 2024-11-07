@@ -33,7 +33,7 @@ import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.spi.plan.RowNumberNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;

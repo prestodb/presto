@@ -173,7 +173,7 @@ public class SemiJoinNode
     {
         List<VariableReferenceExpression> newList = new ArrayList<>(source.getOutputVariables());
         newList.add(semiJoinOutput);
-        return  Collections.unmodifiableList(newList);
+        return Collections.unmodifiableList(newList);
     }
 
     @Override

@@ -119,4 +119,9 @@ public abstract class PlanVisitor<R, C>
     {
         return visitPlan(node, context);
     }
+
+    public R visitRowNumber(RowNumberNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }

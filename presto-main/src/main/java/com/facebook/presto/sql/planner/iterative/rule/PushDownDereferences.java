@@ -36,7 +36,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.spi.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.spi.plan.RowNumberNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;

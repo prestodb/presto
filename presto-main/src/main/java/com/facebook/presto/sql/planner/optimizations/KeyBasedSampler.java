@@ -36,7 +36,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.spi.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.spi.plan.RowNumberNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;

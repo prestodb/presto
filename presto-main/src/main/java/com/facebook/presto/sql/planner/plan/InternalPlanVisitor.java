@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.CanonicalJoinNode;
 import com.facebook.presto.sql.planner.CanonicalTableScanNode;
@@ -39,11 +38,6 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitIndexSource(IndexSourceNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitJoin(JoinNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -114,11 +108,6 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitGroupId(GroupIdNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitRowNumber(RowNumberNode node, C context)
     {
         return visitPlan(node, context);
     }
