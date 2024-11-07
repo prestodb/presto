@@ -105,11 +105,6 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitConnectorJoinNode(ConnectorJoinNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitWindow(WindowNode node, C context)
     {
         return visitPlan(node, context);
