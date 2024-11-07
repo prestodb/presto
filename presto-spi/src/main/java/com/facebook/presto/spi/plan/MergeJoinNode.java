@@ -11,30 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.EquiJoinClause;
-import com.facebook.presto.spi.plan.JoinType;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class MergeJoinNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final JoinType type;
     private final PlanNode left;
@@ -48,7 +45,7 @@ public class MergeJoinNode
     @JsonCreator
     public MergeJoinNode(
             Optional<SourceLocation> sourceLocation,
-            @JsonProperty ("id") PlanNodeId id,
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") JoinType type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
@@ -78,8 +75,8 @@ public class MergeJoinNode
         this.type = requireNonNull(type, "type is null");
         this.left = requireNonNull(left, "left is null");
         this.right = requireNonNull(right, "right is null");
-        this.criteria = ImmutableList.copyOf(requireNonNull(criteria, "criteria is null"));
-        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
+        this.criteria = unmodifiableList(new ArrayList<>(requireNonNull(criteria, "criteria is null")));
+        this.outputVariables = unmodifiableList(new ArrayList<>(requireNonNull(outputVariables, "outputVariables is null")));
         this.filter = requireNonNull(filter, "filter is null");
         this.leftHashVariable = requireNonNull(leftHashVariable, "leftHashVariable is null");
         this.rightHashVariable = requireNonNull(rightHashVariable, "rightHashVariable is null");
@@ -137,7 +134,10 @@ public class MergeJoinNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(left, right);
+        List<PlanNode> sources = new ArrayList<>();
+        sources.add(left);
+        sources.add(right);
+        return unmodifiableList(sources);
     }
 
     @Override
@@ -154,7 +154,7 @@ public class MergeJoinNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitMergeJoin(this, context);
     }

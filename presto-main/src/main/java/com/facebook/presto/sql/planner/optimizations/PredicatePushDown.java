@@ -30,14 +30,18 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
@@ -54,13 +58,9 @@ import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -731,11 +731,11 @@ public class PredicatePushDown
                 VariableReferenceExpression probeSymbol = clause.getLeft();
                 VariableReferenceExpression buildSymbol = clause.getRight();
                 clausesBuilder.add(call(
-                                    EQUAL.name(),
-                                    functionAndTypeManager.resolveOperator(EQUAL, fromTypes(probeSymbol.getType(), buildSymbol.getType())),
-                                    BOOLEAN,
-                                    probeSymbol,
-                                    buildSymbol));
+                        EQUAL.name(),
+                        functionAndTypeManager.resolveOperator(EQUAL, fromTypes(probeSymbol.getType(), buildSymbol.getType())),
+                        BOOLEAN,
+                        probeSymbol,
+                        buildSymbol));
             }
 
             for (RowExpression filter : joinFilter) {
@@ -754,11 +754,11 @@ public class PredicatePushDown
                         if (function.equals(BETWEEN.name()) && arguments.get(0) instanceof VariableReferenceExpression) {
                             if (arguments.get(1) instanceof VariableReferenceExpression) {
                                 CallExpression callExpression = call(
-                                                                    GREATER_THAN_OR_EQUAL.name(),
-                                                                    functionAndTypeManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(arguments.get(0).getType(), arguments.get(1).getType())),
-                                                                    BOOLEAN,
-                                                                    arguments.get(0),
-                                                                    arguments.get(1));
+                                        GREATER_THAN_OR_EQUAL.name(),
+                                        functionAndTypeManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(arguments.get(0).getType(), arguments.get(1).getType())),
+                                        BOOLEAN,
+                                        arguments.get(0),
+                                        arguments.get(1));
                                 Optional<CallExpression> comparisonExpression = getDynamicFilterComparison(node, callExpression, functionAndTypeManager);
                                 if (comparisonExpression.isPresent()) {
                                     clausesBuilder.add(comparisonExpression.get());
@@ -766,11 +766,11 @@ public class PredicatePushDown
                             }
                             if (arguments.get(2) instanceof VariableReferenceExpression) {
                                 CallExpression callExpression = call(
-                                                                    LESS_THAN_OR_EQUAL.name(),
-                                                                    functionAndTypeManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(arguments.get(0).getType(), arguments.get(2).getType())),
-                                                                    BOOLEAN,
-                                                                    arguments.get(0),
-                                                                    arguments.get(2));
+                                        LESS_THAN_OR_EQUAL.name(),
+                                        functionAndTypeManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(arguments.get(0).getType(), arguments.get(2).getType())),
+                                        BOOLEAN,
+                                        arguments.get(0),
+                                        arguments.get(2));
                                 Optional<CallExpression> comparisonExpression = getDynamicFilterComparison(node, callExpression, functionAndTypeManager);
                                 if (comparisonExpression.isPresent()) {
                                     clausesBuilder.add(comparisonExpression.get());
@@ -839,11 +839,11 @@ public class PredicatePushDown
                 return Optional.empty();
             }
             return Optional.of(call(
-                                operator.name(),
-                                functionAndTypeManager.resolveOperator(operator, fromTypes(left.getType(), right.getType())),
-                                BOOLEAN,
-                                left,
-                                right));
+                    operator.name(),
+                    functionAndTypeManager.resolveOperator(operator, fromTypes(left.getType(), right.getType())),
+                    BOOLEAN,
+                    left,
+                    right));
         }
 
         private static DynamicFiltersResult createDynamicFilters(

@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode.Type;
 import com.facebook.presto.sql.tree.Expression;
 
 import java.util.Optional;

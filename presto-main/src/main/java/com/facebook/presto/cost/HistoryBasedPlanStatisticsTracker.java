@@ -25,6 +25,7 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
@@ -41,7 +42,6 @@ import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.facebook.presto.sql.planner.CanonicalPlan;
 import com.facebook.presto.sql.planner.PlanNodeCanonicalInfo;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;
@@ -324,9 +324,9 @@ public class HistoryBasedPlanStatisticsTracker
         planStatisticsMap.put(
                 finalAggregationStatsInfo.getPlanNodeWithHash(),
                 new PlanStatisticsWithSourceInfo(
-                    planStatisticsWithSourceInfo.getId(),
-                    planStatisticsFinalAgg,
-                    planStatisticsWithSourceInfo.getSourceInfo()));
+                        planStatisticsWithSourceInfo.getId(),
+                        planStatisticsFinalAgg,
+                        planStatisticsWithSourceInfo.getSourceInfo()));
     }
 
     private PartialAggregationStatistics constructAggregationNodeStatistics(PlanNode planNode, Map<PlanNodeId, PlanNodeStats> planNodeStatsMap, double outputBytes, double outputPositions)
