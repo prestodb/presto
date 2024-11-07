@@ -1424,7 +1424,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
   veloxTask->start(1);
   prestoTask->taskStarted = true;
 
-  auto outputBufferManager = OutputBufferManager::getInstance().lock();
+  auto outputBufferManager = OutputBufferManager::getInstance();
   ASSERT_TRUE(outputBufferManager != nullptr);
   // Wait until the task has produced all the output buffers so its memory usage
   // stay constant to ease test.
