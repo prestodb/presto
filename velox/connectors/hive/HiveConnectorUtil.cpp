@@ -836,8 +836,9 @@ core::TypedExprPtr extractFiltersFromRemainingFilter(
   common::Filter* oldFilter = nullptr;
   try {
     common::Subfield subfield;
-    if (auto filter = exec::leafCallToSubfieldFilter(
-            *call, subfield, evaluator, negated)) {
+    if (auto filter = exec::ExprToSubfieldFilterParser::getInstance()
+                          ->leafCallToSubfieldFilter(
+                              *call, subfield, evaluator, negated)) {
       if (auto it = filters.find(subfield); it != filters.end()) {
         oldFilter = it->second.get();
         filter = filter->mergeWith(oldFilter);

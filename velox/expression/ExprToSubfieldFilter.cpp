@@ -54,45 +54,6 @@ const core::CallTypedExpr* asCall(const core::ITypedExpr* expr) {
   return dynamic_cast<const core::CallTypedExpr*>(expr);
 }
 
-bool toSubfield(const core::ITypedExpr* field, common::Subfield& subfield) {
-  std::vector<std::unique_ptr<common::Subfield::PathElement>> path;
-  for (auto* current = field;;) {
-    if (auto* fieldAccess =
-            dynamic_cast<const core::FieldAccessTypedExpr*>(current)) {
-      path.push_back(
-          std::make_unique<common::Subfield::NestedField>(fieldAccess->name()));
-    } else if (
-        auto* dereference =
-            dynamic_cast<const core::DereferenceTypedExpr*>(current)) {
-      const auto& name = dereference->name();
-      // When the field name is empty string, it typically means that the field
-      // name was not set in the parent type.
-      if (name.empty()) {
-        return false;
-      }
-      path.push_back(std::make_unique<common::Subfield::NestedField>(name));
-    } else if (dynamic_cast<const core::InputTypedExpr*>(current) == nullptr) {
-      return false;
-    } else {
-      break;
-    }
-
-    if (current->inputs().empty()) {
-      break;
-    }
-    if (current->inputs().size() != 1) {
-      return false;
-    }
-    current = current->inputs()[0].get();
-    if (current == nullptr) {
-      return false;
-    }
-  }
-  std::reverse(path.begin(), path.end());
-  subfield = common::Subfield(std::move(path));
-  return true;
-}
-
 common::BigintRange* asBigintRange(std::unique_ptr<common::Filter>& filter) {
   return dynamic_cast<common::BigintRange*>(filter.get());
 }
@@ -140,160 +101,82 @@ std::unique_ptr<common::Filter> makeOrFilter(
   return orFilter(std::move(a), std::move(b));
 }
 
-std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
-    const core::TypedExprPtr& upperExpr,
-    core::ExpressionEvaluator* evaluator) {
-  auto upper = toConstant(upperExpr, evaluator);
-  if (!upper) {
-    return nullptr;
+template <typename T>
+std::vector<int64_t>
+toInt64List(const VectorPtr& vector, vector_size_t start, vector_size_t size) {
+  auto ints = vector->as<SimpleVector<T>>();
+  std::vector<int64_t> values;
+  for (auto i = 0; i < size; i++) {
+    values.push_back(ints->valueAt(start + i));
   }
-  switch (upper->typeKind()) {
-    case TypeKind::TINYINT:
-      return lessThanOrEqual(singleValue<int8_t>(upper));
-    case TypeKind::SMALLINT:
-      return lessThanOrEqual(singleValue<int16_t>(upper));
-    case TypeKind::INTEGER:
-      return lessThanOrEqual(singleValue<int32_t>(upper));
-    case TypeKind::BIGINT:
-      return lessThanOrEqual(singleValue<int64_t>(upper));
-    case TypeKind::HUGEINT:
-      return lessThanOrEqualHugeint(singleValue<int128_t>(upper));
-    case TypeKind::DOUBLE:
-      return lessThanOrEqualDouble(singleValue<double>(upper));
-    case TypeKind::REAL:
-      return lessThanOrEqualFloat(singleValue<float>(upper));
-    case TypeKind::VARCHAR:
-      return lessThanOrEqual(singleValue<StringView>(upper));
-    case TypeKind::TIMESTAMP:
-      return lessThanOrEqual(singleValue<Timestamp>(upper));
-    default:
-      return nullptr;
-  }
+  return values;
 }
 
-std::unique_ptr<common::Filter> makeLessThanFilter(
-    const core::TypedExprPtr& upperExpr,
-    core::ExpressionEvaluator* evaluator) {
-  auto upper = toConstant(upperExpr, evaluator);
-  if (!upper) {
-    return nullptr;
+} // namespace
+
+std::function<std::unique_ptr<ExprToSubfieldFilterParser>()>
+    ExprToSubfieldFilterParser::parserFactory_ = nullptr;
+
+// static
+std::unique_ptr<ExprToSubfieldFilterParser>
+ExprToSubfieldFilterParser::getInstance() {
+  if (!parserFactory_) {
+    parserFactory_ = []() {
+      return std::make_unique<PrestoExprToSubfieldFilterParser>();
+    };
   }
-  switch (upper->typeKind()) {
-    case TypeKind::TINYINT:
-      return lessThan(singleValue<int8_t>(upper));
-    case TypeKind::SMALLINT:
-      return lessThan(singleValue<int16_t>(upper));
-    case TypeKind::INTEGER:
-      return lessThan(singleValue<int32_t>(upper));
-    case TypeKind::BIGINT:
-      return lessThan(singleValue<int64_t>(upper));
-    case TypeKind::HUGEINT:
-      return lessThanHugeint(singleValue<int128_t>(upper));
-    case TypeKind::DOUBLE:
-      return lessThanDouble(singleValue<double>(upper));
-    case TypeKind::REAL:
-      return lessThanFloat(singleValue<float>(upper));
-    case TypeKind::VARCHAR:
-      return lessThan(singleValue<StringView>(upper));
-    case TypeKind::TIMESTAMP:
-      return lessThan(singleValue<Timestamp>(upper));
-    default:
-      return nullptr;
-  }
+  return parserFactory_();
 }
 
-std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
-    const core::TypedExprPtr& lowerExpr,
-    core::ExpressionEvaluator* evaluator) {
-  auto lower = toConstant(lowerExpr, evaluator);
-  if (!lower) {
-    return nullptr;
-  }
-  switch (lower->typeKind()) {
-    case TypeKind::TINYINT:
-      return greaterThanOrEqual(singleValue<int8_t>(lower));
-    case TypeKind::SMALLINT:
-      return greaterThanOrEqual(singleValue<int16_t>(lower));
-    case TypeKind::INTEGER:
-      return greaterThanOrEqual(singleValue<int32_t>(lower));
-    case TypeKind::BIGINT:
-      return greaterThanOrEqual(singleValue<int64_t>(lower));
-    case TypeKind::HUGEINT:
-      return greaterThanOrEqualHugeint(singleValue<int128_t>(lower));
-    case TypeKind::DOUBLE:
-      return greaterThanOrEqualDouble(singleValue<double>(lower));
-    case TypeKind::REAL:
-      return greaterThanOrEqualFloat(singleValue<float>(lower));
-    case TypeKind::VARCHAR:
-      return greaterThanOrEqual(singleValue<StringView>(lower));
-    case TypeKind::TIMESTAMP:
-      return greaterThanOrEqual(singleValue<Timestamp>(lower));
-    default:
-      return nullptr;
-  }
+// static
+void ExprToSubfieldFilterParser::registerParserFactory(
+    std::function<std::unique_ptr<ExprToSubfieldFilterParser>()>
+        parserFactory) {
+  parserFactory_ = parserFactory;
 }
 
-std::unique_ptr<common::Filter> makeGreaterThanFilter(
-    const core::TypedExprPtr& lowerExpr,
-    core::ExpressionEvaluator* evaluator) {
-  auto lower = toConstant(lowerExpr, evaluator);
-  if (!lower) {
-    return nullptr;
+bool ExprToSubfieldFilterParser::toSubfield(
+    const core::ITypedExpr* field,
+    common::Subfield& subfield) {
+  std::vector<std::unique_ptr<common::Subfield::PathElement>> path;
+  for (auto* current = field;;) {
+    if (auto* fieldAccess =
+            dynamic_cast<const core::FieldAccessTypedExpr*>(current)) {
+      path.push_back(
+          std::make_unique<common::Subfield::NestedField>(fieldAccess->name()));
+    } else if (
+        auto* dereference =
+            dynamic_cast<const core::DereferenceTypedExpr*>(current)) {
+      const auto& name = dereference->name();
+      // When the field name is empty string, it typically means that the
+      // field name was not set in the parent type.
+      if (name.empty()) {
+        return false;
+      }
+      path.push_back(std::make_unique<common::Subfield::NestedField>(name));
+    } else if (dynamic_cast<const core::InputTypedExpr*>(current) == nullptr) {
+      return false;
+    } else {
+      break;
+    }
+
+    if (current->inputs().empty()) {
+      break;
+    }
+    if (current->inputs().size() != 1) {
+      return false;
+    }
+    current = current->inputs()[0].get();
+    if (current == nullptr) {
+      return false;
+    }
   }
-  switch (lower->typeKind()) {
-    case TypeKind::TINYINT:
-      return greaterThan(singleValue<int8_t>(lower));
-    case TypeKind::SMALLINT:
-      return greaterThan(singleValue<int16_t>(lower));
-    case TypeKind::INTEGER:
-      return greaterThan(singleValue<int32_t>(lower));
-    case TypeKind::BIGINT:
-      return greaterThan(singleValue<int64_t>(lower));
-    case TypeKind::HUGEINT:
-      return greaterThanHugeint(singleValue<int128_t>(lower));
-    case TypeKind::DOUBLE:
-      return greaterThanDouble(singleValue<double>(lower));
-    case TypeKind::REAL:
-      return greaterThanFloat(singleValue<float>(lower));
-    case TypeKind::VARCHAR:
-      return greaterThan(singleValue<StringView>(lower));
-    case TypeKind::TIMESTAMP:
-      return greaterThan(singleValue<Timestamp>(lower));
-    default:
-      return nullptr;
-  }
+  std::reverse(path.begin(), path.end());
+  subfield = common::Subfield(std::move(path));
+  return true;
 }
 
-std::unique_ptr<common::Filter> makeEqualFilter(
-    const core::TypedExprPtr& valueExpr,
-    core::ExpressionEvaluator* evaluator) {
-  auto value = toConstant(valueExpr, evaluator);
-  if (!value) {
-    return nullptr;
-  }
-  switch (value->typeKind()) {
-    case TypeKind::BOOLEAN:
-      return boolEqual(singleValue<bool>(value));
-    case TypeKind::TINYINT:
-      return equal(singleValue<int8_t>(value));
-    case TypeKind::SMALLINT:
-      return equal(singleValue<int16_t>(value));
-    case TypeKind::INTEGER:
-      return equal(singleValue<int32_t>(value));
-    case TypeKind::BIGINT:
-      return equal(singleValue<int64_t>(value));
-    case TypeKind::HUGEINT:
-      return equalHugeint(singleValue<int128_t>(value));
-    case TypeKind::VARCHAR:
-      return equal(singleValue<StringView>(value));
-    case TypeKind::TIMESTAMP:
-      return equal(singleValue<Timestamp>(value));
-    default:
-      return nullptr;
-  }
-}
-
-std::unique_ptr<common::Filter> makeNotEqualFilter(
+std::unique_ptr<common::Filter> ExprToSubfieldFilterParser::makeNotEqualFilter(
     const core::TypedExprPtr& valueExpr,
     core::ExpressionEvaluator* evaluator) {
   auto value = toConstant(valueExpr, evaluator);
@@ -340,18 +223,163 @@ std::unique_ptr<common::Filter> makeNotEqualFilter(
   }
 }
 
-template <typename T>
-std::vector<int64_t>
-toInt64List(const VectorPtr& vector, vector_size_t start, vector_size_t size) {
-  auto ints = vector->as<SimpleVector<T>>();
-  std::vector<int64_t> values;
-  for (auto i = 0; i < size; i++) {
-    values.push_back(ints->valueAt(start + i));
+std::unique_ptr<common::Filter> ExprToSubfieldFilterParser::makeEqualFilter(
+    const core::TypedExprPtr& valueExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto value = toConstant(valueExpr, evaluator);
+  if (!value) {
+    return nullptr;
   }
-  return values;
+  switch (value->typeKind()) {
+    case TypeKind::BOOLEAN:
+      return boolEqual(singleValue<bool>(value));
+    case TypeKind::TINYINT:
+      return equal(singleValue<int8_t>(value));
+    case TypeKind::SMALLINT:
+      return equal(singleValue<int16_t>(value));
+    case TypeKind::INTEGER:
+      return equal(singleValue<int32_t>(value));
+    case TypeKind::BIGINT:
+      return equal(singleValue<int64_t>(value));
+    case TypeKind::HUGEINT:
+      return equalHugeint(singleValue<int128_t>(value));
+    case TypeKind::VARCHAR:
+      return equal(singleValue<StringView>(value));
+    case TypeKind::TIMESTAMP:
+      return equal(singleValue<Timestamp>(value));
+    default:
+      return nullptr;
+  }
 }
 
-std::unique_ptr<common::Filter> makeInFilter(
+std::unique_ptr<common::Filter>
+ExprToSubfieldFilterParser::makeGreaterThanFilter(
+    const core::TypedExprPtr& lowerExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto lower = toConstant(lowerExpr, evaluator);
+  if (!lower) {
+    return nullptr;
+  }
+  switch (lower->typeKind()) {
+    case TypeKind::TINYINT:
+      return greaterThan(singleValue<int8_t>(lower));
+    case TypeKind::SMALLINT:
+      return greaterThan(singleValue<int16_t>(lower));
+    case TypeKind::INTEGER:
+      return greaterThan(singleValue<int32_t>(lower));
+    case TypeKind::BIGINT:
+      return greaterThan(singleValue<int64_t>(lower));
+    case TypeKind::HUGEINT:
+      return greaterThanHugeint(singleValue<int128_t>(lower));
+    case TypeKind::DOUBLE:
+      return greaterThanDouble(singleValue<double>(lower));
+    case TypeKind::REAL:
+      return greaterThanFloat(singleValue<float>(lower));
+    case TypeKind::VARCHAR:
+      return greaterThan(singleValue<StringView>(lower));
+    case TypeKind::TIMESTAMP:
+      return greaterThan(singleValue<Timestamp>(lower));
+    default:
+      return nullptr;
+  }
+}
+
+std::unique_ptr<common::Filter> ExprToSubfieldFilterParser::makeLessThanFilter(
+    const core::TypedExprPtr& upperExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto upper = toConstant(upperExpr, evaluator);
+  if (!upper) {
+    return nullptr;
+  }
+  switch (upper->typeKind()) {
+    case TypeKind::TINYINT:
+      return lessThan(singleValue<int8_t>(upper));
+    case TypeKind::SMALLINT:
+      return lessThan(singleValue<int16_t>(upper));
+    case TypeKind::INTEGER:
+      return lessThan(singleValue<int32_t>(upper));
+    case TypeKind::BIGINT:
+      return lessThan(singleValue<int64_t>(upper));
+    case TypeKind::HUGEINT:
+      return lessThanHugeint(singleValue<int128_t>(upper));
+    case TypeKind::DOUBLE:
+      return lessThanDouble(singleValue<double>(upper));
+    case TypeKind::REAL:
+      return lessThanFloat(singleValue<float>(upper));
+    case TypeKind::VARCHAR:
+      return lessThan(singleValue<StringView>(upper));
+    case TypeKind::TIMESTAMP:
+      return lessThan(singleValue<Timestamp>(upper));
+    default:
+      return nullptr;
+  }
+}
+
+std::unique_ptr<common::Filter>
+ExprToSubfieldFilterParser::makeLessThanOrEqualFilter(
+    const core::TypedExprPtr& upperExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto upper = toConstant(upperExpr, evaluator);
+  if (!upper) {
+    return nullptr;
+  }
+  switch (upper->typeKind()) {
+    case TypeKind::TINYINT:
+      return lessThanOrEqual(singleValue<int8_t>(upper));
+    case TypeKind::SMALLINT:
+      return lessThanOrEqual(singleValue<int16_t>(upper));
+    case TypeKind::INTEGER:
+      return lessThanOrEqual(singleValue<int32_t>(upper));
+    case TypeKind::BIGINT:
+      return lessThanOrEqual(singleValue<int64_t>(upper));
+    case TypeKind::HUGEINT:
+      return lessThanOrEqualHugeint(singleValue<int128_t>(upper));
+    case TypeKind::DOUBLE:
+      return lessThanOrEqualDouble(singleValue<double>(upper));
+    case TypeKind::REAL:
+      return lessThanOrEqualFloat(singleValue<float>(upper));
+    case TypeKind::VARCHAR:
+      return lessThanOrEqual(singleValue<StringView>(upper));
+    case TypeKind::TIMESTAMP:
+      return lessThanOrEqual(singleValue<Timestamp>(upper));
+    default:
+      return nullptr;
+  }
+}
+
+std::unique_ptr<common::Filter>
+ExprToSubfieldFilterParser::makeGreaterThanOrEqualFilter(
+    const core::TypedExprPtr& lowerExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto lower = toConstant(lowerExpr, evaluator);
+  if (!lower) {
+    return nullptr;
+  }
+  switch (lower->typeKind()) {
+    case TypeKind::TINYINT:
+      return greaterThanOrEqual(singleValue<int8_t>(lower));
+    case TypeKind::SMALLINT:
+      return greaterThanOrEqual(singleValue<int16_t>(lower));
+    case TypeKind::INTEGER:
+      return greaterThanOrEqual(singleValue<int32_t>(lower));
+    case TypeKind::BIGINT:
+      return greaterThanOrEqual(singleValue<int64_t>(lower));
+    case TypeKind::HUGEINT:
+      return greaterThanOrEqualHugeint(singleValue<int128_t>(lower));
+    case TypeKind::DOUBLE:
+      return greaterThanOrEqualDouble(singleValue<double>(lower));
+    case TypeKind::REAL:
+      return greaterThanOrEqualFloat(singleValue<float>(lower));
+    case TypeKind::VARCHAR:
+      return greaterThanOrEqual(singleValue<StringView>(lower));
+    case TypeKind::TIMESTAMP:
+      return greaterThanOrEqual(singleValue<Timestamp>(lower));
+    default:
+      return nullptr;
+  }
+}
+
+std::unique_ptr<common::Filter> ExprToSubfieldFilterParser::makeInFilter(
     const core::TypedExprPtr& expr,
     core::ExpressionEvaluator* evaluator,
     bool negated) {
@@ -400,7 +428,7 @@ std::unique_ptr<common::Filter> makeInFilter(
   }
 }
 
-std::unique_ptr<common::Filter> makeBetweenFilter(
+std::unique_ptr<common::Filter> ExprToSubfieldFilterParser::makeBetweenFilter(
     const core::TypedExprPtr& lowerExpr,
     const core::TypedExprPtr& upperExpr,
     core::ExpressionEvaluator* evaluator,
@@ -452,9 +480,8 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
   }
 }
 
-} // namespace
-
-std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
+std::unique_ptr<common::Filter>
+PrestoExprToSubfieldFilterParser::leafCallToSubfieldFilter(
     const core::CallTypedExpr& call,
     common::Subfield& subfield,
     core::ExpressionEvaluator* evaluator,
@@ -532,10 +559,14 @@ std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
     std::unique_ptr<common::Filter> filter;
     if (call->name() == "not") {
       if (auto* inner = asCall(call->inputs()[0].get())) {
-        filter = leafCallToSubfieldFilter(*inner, subfield, evaluator, true);
+        filter =
+            ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+                *inner, subfield, evaluator, true);
       }
     } else {
-      filter = leafCallToSubfieldFilter(*call, subfield, evaluator, false);
+      filter =
+          ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+              *call, subfield, evaluator, false);
     }
     if (filter) {
       return std::make_pair(std::move(subfield), std::move(filter));

@@ -371,17 +371,6 @@ std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
     const core::TypedExprPtr& expr,
     core::ExpressionEvaluator*);
 
-/// Convert a leaf call expression (no conjunction like AND/OR) to subfield and
-/// filter.  Return nullptr if not supported for pushdown.  This is needed
-/// because this conversion is frequently applied when extracting filters from
-/// remaining filter in readers.  Frequent throw clutters logs and slows down
-/// execution.
-std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
-    const core::CallTypedExpr&,
-    common::Subfield&,
-    core::ExpressionEvaluator*,
-    bool negated = false);
-
 inline std::unique_ptr<common::TimestampRange> equal(
     const Timestamp& value,
     bool nullAllowed = false) {
@@ -422,5 +411,95 @@ inline std::unique_ptr<common::TimestampRange> greaterThanOrEqual(
   return std::make_unique<common::TimestampRange>(
       min, std::numeric_limits<Timestamp>::max(), nullAllowed);
 }
+
+/// Provides the instance and helper functions to convert a leaf call
+/// expression to subfield filter. Allows the registration of custom parser.
+class ExprToSubfieldFilterParser {
+ public:
+  virtual ~ExprToSubfieldFilterParser() = default;
+
+  static std::unique_ptr<ExprToSubfieldFilterParser> getInstance();
+
+  /// Registers a custom parser factory. The factory is called to create a
+  /// parser instance.
+  static void registerParserFactory(
+      std::function<std::unique_ptr<ExprToSubfieldFilterParser>()>
+          parserFactory);
+
+  /// Converts a leaf call expression (no conjunction like AND/OR) to subfield
+  /// and filter. Return nullptr if not supported for pushdown. This is needed
+  /// because this conversion is frequently applied when extracting filters from
+  /// remaining filter in readers. Frequent throw clutters logs and slows down
+  /// execution.
+  virtual std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
+      const core::CallTypedExpr& call,
+      common::Subfield& subfield,
+      core::ExpressionEvaluator* evaluator,
+      bool negated = false) = 0;
+
+ protected:
+  // Converts an expression into a subfield. Returns false if the expression is
+  // not a valid field expression.
+  bool toSubfield(const core::ITypedExpr* field, common::Subfield& subfield);
+
+  // Creates a non-equal subfield filter against the given constant.
+  std::unique_ptr<common::Filter> makeNotEqualFilter(
+      const core::TypedExprPtr& valueExpr,
+      core::ExpressionEvaluator* evaluator);
+
+  // Creates an equal subfield filter against the given constant.
+  std::unique_ptr<common::Filter> makeEqualFilter(
+      const core::TypedExprPtr& valueExpr,
+      core::ExpressionEvaluator* evaluator);
+
+  // Creates a greater-than subfield filter against the given constant.
+  std::unique_ptr<common::Filter> makeGreaterThanFilter(
+      const core::TypedExprPtr& lowerExpr,
+      core::ExpressionEvaluator* evaluator);
+
+  // Creates a less-than subfield filter against the given constant.
+  std::unique_ptr<common::Filter> makeLessThanFilter(
+      const core::TypedExprPtr& upperExpr,
+      core::ExpressionEvaluator* evaluator);
+
+  // Creates a less-than-or-equal subfield filter against the given constant.
+  std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
+      const core::TypedExprPtr& upperExpr,
+      core::ExpressionEvaluator* evaluator);
+
+  // Creates a greater-than-or-equal subfield filter against the given constant.
+  std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
+      const core::TypedExprPtr& lowerExpr,
+      core::ExpressionEvaluator* evaluator);
+
+  // Creates an in subfield filter against the given vector.
+  std::unique_ptr<common::Filter> makeInFilter(
+      const core::TypedExprPtr& expr,
+      core::ExpressionEvaluator* evaluator,
+      bool negated);
+
+  // Creates a between subfield filter against the given lower and upper
+  // bounds.
+  std::unique_ptr<common::Filter> makeBetweenFilter(
+      const core::TypedExprPtr& lowerExpr,
+      const core::TypedExprPtr& upperExpr,
+      core::ExpressionEvaluator* evaluator,
+      bool negated);
+
+ private:
+  // Factory method to create a parser instance.
+  static std::function<std::unique_ptr<ExprToSubfieldFilterParser>()>
+      parserFactory_;
+};
+
+// Parser for Presto expressions.
+class PrestoExprToSubfieldFilterParser : public ExprToSubfieldFilterParser {
+ public:
+  std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
+      const core::CallTypedExpr& call,
+      common::Subfield& subfield,
+      core::ExpressionEvaluator* evaluator,
+      bool negated = false) override;
+};
 
 } // namespace facebook::velox::exec

@@ -16,7 +16,9 @@
 
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
+#include "velox/functions/lib/IsNull.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
@@ -75,7 +77,9 @@ class ExprToSubfieldFilterTest : public testing::Test {
 TEST_F(ExprToSubfieldFilterTest, eq) {
   auto call = parseCallExpr("a = 42", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   auto bigintRange = dynamic_cast<BigintRange*>(filter.get());
@@ -88,7 +92,9 @@ TEST_F(ExprToSubfieldFilterTest, eq) {
 TEST_F(ExprToSubfieldFilterTest, eqExpr) {
   auto call = parseCallExpr("a = 21 * 2", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   auto bigintRange = dynamic_cast<BigintRange*>(filter.get());
@@ -101,7 +107,9 @@ TEST_F(ExprToSubfieldFilterTest, eqExpr) {
 TEST_F(ExprToSubfieldFilterTest, eqSubfield) {
   auto call = parseCallExpr("a.b = 42", ROW({{"a", ROW({{"b", BIGINT()}})}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a", "b"});
   auto bigintRange = dynamic_cast<BigintRange*>(filter.get());
@@ -114,7 +122,9 @@ TEST_F(ExprToSubfieldFilterTest, eqSubfield) {
 TEST_F(ExprToSubfieldFilterTest, neq) {
   auto call = parseCallExpr("a <> 42", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   ASSERT_TRUE(filter->testInt64(41));
@@ -125,7 +135,9 @@ TEST_F(ExprToSubfieldFilterTest, neq) {
 TEST_F(ExprToSubfieldFilterTest, lte) {
   auto call = parseCallExpr("a <= 42", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   ASSERT_TRUE(filter->testInt64(41));
@@ -136,7 +148,9 @@ TEST_F(ExprToSubfieldFilterTest, lte) {
 TEST_F(ExprToSubfieldFilterTest, lt) {
   auto call = parseCallExpr("a < 42", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   ASSERT_TRUE(filter->testInt64(41));
@@ -147,7 +161,9 @@ TEST_F(ExprToSubfieldFilterTest, lt) {
 TEST_F(ExprToSubfieldFilterTest, gte) {
   auto call = parseCallExpr("a >= 42", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   ASSERT_FALSE(filter->testInt64(41));
@@ -158,7 +174,9 @@ TEST_F(ExprToSubfieldFilterTest, gte) {
 TEST_F(ExprToSubfieldFilterTest, gt) {
   auto call = parseCallExpr("a > 42", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   ASSERT_FALSE(filter->testInt64(41));
@@ -169,7 +187,9 @@ TEST_F(ExprToSubfieldFilterTest, gt) {
 TEST_F(ExprToSubfieldFilterTest, between) {
   auto call = parseCallExpr("a between 40 and 42", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   for (int i = 39; i <= 43; ++i) {
@@ -180,7 +200,9 @@ TEST_F(ExprToSubfieldFilterTest, between) {
 TEST_F(ExprToSubfieldFilterTest, in) {
   auto call = parseCallExpr("a in (40, 42)", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   for (int i = 39; i <= 43; ++i) {
@@ -191,7 +213,9 @@ TEST_F(ExprToSubfieldFilterTest, in) {
 TEST_F(ExprToSubfieldFilterTest, isNull) {
   auto call = parseCallExpr("a is null", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   ASSERT_FALSE(filter->testInt64(0));
@@ -212,7 +236,9 @@ TEST_F(ExprToSubfieldFilterTest, isNotNull) {
 TEST_F(ExprToSubfieldFilterTest, like) {
   auto call = parseCallExpr("a like 'foo%'", ROW({{"a", VARCHAR()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_FALSE(filter);
 }
 
@@ -220,14 +246,18 @@ TEST_F(ExprToSubfieldFilterTest, nonConstant) {
   auto call =
       parseCallExpr("a = b + 1", ROW({{"a", BIGINT()}, {"b", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_FALSE(filter);
 }
 
 TEST_F(ExprToSubfieldFilterTest, userError) {
   auto call = parseCallExpr("a = 1 / 0", ROW({{"a", BIGINT()}}));
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_FALSE(filter);
 }
 
@@ -246,8 +276,86 @@ TEST_F(ExprToSubfieldFilterTest, dereferenceWithEmptyField) {
               1)},
       "is_null");
   Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  auto filter =
+      ExprToSubfieldFilterParser::getInstance()->leafCallToSubfieldFilter(
+          *call, subfield, evaluator());
   ASSERT_FALSE(filter);
+}
+
+class CustomExprToSubfieldFilterParser : public ExprToSubfieldFilterParser {
+ public:
+  std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
+      const core::CallTypedExpr& call,
+      common::Subfield& subfield,
+      core::ExpressionEvaluator* evaluator,
+      bool negated) override {
+    if (call.inputs().empty()) {
+      return nullptr;
+    }
+
+    const auto* leftSide = call.inputs()[0].get();
+
+    if (call.name() == "custom_eq") {
+      if (toSubfield(leftSide, subfield)) {
+        return negated ? makeNotEqualFilter(call.inputs()[1], evaluator)
+                       : makeEqualFilter(call.inputs()[1], evaluator);
+      }
+    } else if (call.name() == "is_null") {
+      if (toSubfield(call.inputs()[0].get(), subfield)) {
+        if (negated) {
+          return isNotNull();
+        }
+        return isNull();
+      }
+    }
+    return nullptr;
+  }
+};
+
+class CustomExprToSubfieldFilterTest : public ExprToSubfieldFilterTest {
+ public:
+  static void SetUpTestSuite() {
+    functions::prestosql::registerAllScalarFunctions("custom_");
+    functions::registerIsNullFunction("is_null");
+    parse::registerTypeResolver();
+    memory::MemoryManager::testingSetInstance({});
+    ExprToSubfieldFilterParser::registerParserFactory(
+        []() { return std::make_unique<CustomExprToSubfieldFilterParser>(); });
+  }
+
+  static void TearDownTestSuite() {
+    ExprToSubfieldFilterParser::registerParserFactory(
+        []() { return std::make_unique<PrestoExprToSubfieldFilterParser>(); });
+  }
+};
+
+TEST_F(CustomExprToSubfieldFilterTest, isNull) {
+  auto call = parseCallExpr("a is null", ROW({{"a", BIGINT()}}));
+  auto [subfield, filter] = toSubfieldFilter(call, evaluator());
+  ASSERT_TRUE(filter);
+  validateSubfield(subfield, {"a"});
+  ASSERT_FALSE(filter->testInt64(0));
+  ASSERT_FALSE(filter->testInt64(42));
+  ASSERT_TRUE(filter->testNull());
+}
+
+TEST_F(CustomExprToSubfieldFilterTest, eq) {
+  auto call = parseCallExpr("custom_eq(a, 42)", ROW({{"a", BIGINT()}}));
+  auto [subfield, filter] = toSubfieldFilter(call, evaluator());
+  ASSERT_TRUE(filter);
+  validateSubfield(subfield, {"a"});
+  auto bigintRange = dynamic_cast<BigintRange*>(filter.get());
+  ASSERT_TRUE(bigintRange);
+  ASSERT_EQ(bigintRange->lower(), 42);
+  ASSERT_EQ(bigintRange->upper(), 42);
+  ASSERT_FALSE(bigintRange->testNull());
+}
+
+TEST_F(CustomExprToSubfieldFilterTest, unsupported) {
+  auto call = parseCallExpr("custom_neq(a, 42)", ROW({{"a", BIGINT()}}));
+  VELOX_ASSERT_USER_THROW(
+      toSubfieldFilter(call, evaluator()),
+      "Unsupported expression for range filter");
 }
 
 } // namespace

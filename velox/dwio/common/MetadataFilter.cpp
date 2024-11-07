@@ -181,7 +181,8 @@ std::unique_ptr<MetadataFilter::Node> MetadataFilter::Node::fromExpression(
   try {
     Subfield subfield;
     auto filter =
-        exec::leafCallToSubfieldFilter(*call, subfield, evaluator, negated);
+        exec::ExprToSubfieldFilterParser::getInstance()
+            ->leafCallToSubfieldFilter(*call, subfield, evaluator, negated);
     if (!filter) {
       return nullptr;
     }
