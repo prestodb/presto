@@ -20,19 +20,19 @@ import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.AbstractJoinNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
-import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableMap;
@@ -129,18 +129,18 @@ public class RemoveUnsupportedDynamicFilters
                         .filter(expression -> !expression.equals(TRUE_CONSTANT));
                 return new PlanWithConsumedDynamicFilters(
                         new JoinNode(
-                            node.getSourceLocation(),
-                            node.getId(),
-                            node.getType(),
-                            joinDynamicFilterResult.getProbe(),
-                            joinDynamicFilterResult.getBuild(),
-                            node.getCriteria(),
-                            node.getOutputVariables(),
-                            filter,
-                            node.getLeftHashVariable(),
-                            node.getRightHashVariable(),
-                            node.getDistributionType(),
-                            joinDynamicFilterResult.getDynamicFilters()),
+                                node.getSourceLocation(),
+                                node.getId(),
+                                node.getType(),
+                                joinDynamicFilterResult.getProbe(),
+                                joinDynamicFilterResult.getBuild(),
+                                node.getCriteria(),
+                                node.getOutputVariables(),
+                                filter,
+                                node.getLeftHashVariable(),
+                                node.getRightHashVariable(),
+                                node.getDistributionType(),
+                                joinDynamicFilterResult.getDynamicFilters()),
                         ImmutableSet.copyOf(joinDynamicFilterResult.getConsumed()));
             }
             return new PlanWithConsumedDynamicFilters(node, ImmutableSet.copyOf(joinDynamicFilterResult.getConsumed()));

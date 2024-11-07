@@ -21,12 +21,12 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -76,12 +76,12 @@ public class TransformDistinctInnerJoinToLeftEarlyOutJoin
 {
     private static final Capture<JoinNode> JOIN = newCapture();
     private static final Pattern<AggregationNode> PATTERN = aggregation()
-                            .matching(AggregationNode::isDistinct)
-                            .with(source().matching(
-                                    join()
-                                            .capturedAs(JOIN)
-                                            .with(type()
-                                                    .matching(type -> type == INNER))));
+            .matching(AggregationNode::isDistinct)
+            .with(source().matching(
+                    join()
+                            .capturedAs(JOIN)
+                            .with(type()
+                                    .matching(type -> type == INNER))));
 
     @Override
     public Pattern<AggregationNode> getPattern()
