@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -39,7 +40,9 @@ import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
+import com.facebook.presto.telemetry.TracingManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -59,6 +62,7 @@ import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
+import static com.facebook.presto.telemetry.TracingManager.scopedSpan;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -235,7 +239,7 @@ public class DispatchManager
      * @return the listenable future
      * @see ResourceGroupManager <a href="https://prestodb.io/docs/current/admin/resource-groups.html">Resource Groups</a>
      */
-    public ListenableFuture<?> createQuery(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query)
+    public ListenableFuture<?> createQuery(QueryId queryId, BaseSpan querySpan, BaseSpan rootSpan, String slug, int retryCount, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionFactory is null");
@@ -244,14 +248,15 @@ public class DispatchManager
         checkArgument(!queryTracker.tryGetQuery(queryId).isPresent(), "query %s already exists", queryId);
 
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
-        boundedQueryExecutor.execute(() -> {
-            try {
-                createQueryInternal(queryId, slug, retryCount, sessionContext, query, resourceGroupManager);
+
+        boundedQueryExecutor.execute(TracingManager.getCurrentContextWrap(() -> {
+            try (BaseSpan ignored = scopedSpan(querySpan, TracingEnum.DISPATCH.getName())) {
+                createQueryInternal(queryId, querySpan, rootSpan, slug, retryCount, sessionContext, query, resourceGroupManager);
             }
             finally {
                 queryCreationFuture.set(null);
             }
-        });
+        }));
         return queryCreationFuture;
     }
 
@@ -259,7 +264,7 @@ public class DispatchManager
      * Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
      * tracker. If an error occurs while creating a dispatch query, a failed dispatch will be created and registered.
      */
-    private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
+    private <C> void createQueryInternal(QueryId queryId, BaseSpan querySpan, BaseSpan rootSpan, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
         SessionBuilder sessionBuilder = null;
@@ -272,7 +277,7 @@ public class DispatchManager
             }
 
             // decode session
-            sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
+            sessionBuilder = sessionSupplier.createSessionBuilder(queryId, querySpan, rootSpan, sessionContext, warningCollectorFactory);
 
             AccessControlContext accessControlContext = new AccessControlContext(
                     queryId,
@@ -353,6 +358,8 @@ public class DispatchManager
             }
             DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, Optional.empty(), throwable);
             queryCreated(failedDispatchQuery);
+
+            TracingManager.endSpanOnError(querySpan, throwable);
         }
     }
 

@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.StatsCalculator;
@@ -47,6 +48,7 @@ import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Optimizer;
@@ -101,6 +103,7 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingO
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
+import static com.facebook.presto.telemetry.TracingManager.scopedSpan;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -206,14 +209,19 @@ public class SqlQueryExecution
 
             stateMachine.beginSemanticAnalyzing();
 
-            try (TimeoutThread unused = new TimeoutThread(
-                    Thread.currentThread(),
-                    timeoutThreadExecutor,
-                    getQueryAnalyzerTimeout(getSession()))) {
-                this.queryAnalysis = getSession()
-                        .getRuntimeStats()
-                        .recordWallAndCpuTime(ANALYZE_TIME_NANOS, () -> queryAnalyzer.analyze(analyzerContext, preparedQuery));
+            BaseSpan querySpan = getSession().getQuerySpan();
+            try (BaseSpan spanIgnored = scopedSpan(querySpan, TracingEnum.ANALYZER.getName())) {
+                try (TimeoutThread unused = new TimeoutThread(
+                        Thread.currentThread(),
+                        timeoutThreadExecutor,
+                        getQueryAnalyzerTimeout(getSession()))) {
+                    this.queryAnalysis = getSession()
+                            .getRuntimeStats()
+                            .recordWallAndCpuTime(ANALYZE_TIME_NANOS, () -> queryAnalyzer.analyze(analyzerContext, preparedQuery));
+                }
             }
+
+            stateMachine.beginSemanticAnalyzing();
 
             stateMachine.setUpdateType(queryAnalysis.getUpdateType());
             stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
@@ -569,53 +577,72 @@ public class SqlQueryExecution
                             LOGICAL_PLANNER_TIME_NANOS,
                             () -> queryAnalyzer.plan(this.analyzerContext, queryAnalysis));
 
-            Optimizer optimizer = new Optimizer(
-                    stateMachine.getSession(),
-                    metadata,
-                    planOptimizers,
-                    planChecker,
-                    analyzerContext.getVariableAllocator(),
-                    idAllocator,
-                    stateMachine.getWarningCollector(),
-                    statsCalculator,
-                    costCalculator,
-                    false);
+            BaseSpan querySpan = getSession().getQuerySpan();
+            try (BaseSpan ignored = scopedSpan(querySpan, TracingEnum.PLANNER.getName())) {
+                return optimizePlan(planNode);
+            }
+        }
+        catch (StackOverflowError e) {
+            throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
+        }
+    }
 
-            Plan plan = getSession().getRuntimeStats().recordWallAndCpuTime(
+    private PlanRoot optimizePlan(PlanNode planNode)
+    {
+        Optimizer optimizer = new Optimizer(
+                stateMachine.getSession(),
+                metadata,
+                planOptimizers,
+                planChecker,
+                analyzerContext.getVariableAllocator(),
+                idAllocator,
+                stateMachine.getWarningCollector(),
+                statsCalculator,
+                costCalculator,
+                false);
+
+        Plan plan;
+        try (BaseSpan ignored = scopedSpan("Plan Optimizer")) {
+            plan = getSession().getRuntimeStats().recordWallAndCpuTime(
                     OPTIMIZER_TIME_NANOS,
                     () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
+        }
 
-            queryPlan.set(plan);
-            stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
-            stateMachine.setPlanIdNodeMap(plan.getPlanIdNodeMap());
-            List<CanonicalPlanWithInfo> canonicalPlanWithInfos = getSession().getRuntimeStats().recordWallAndCpuTime(
-                    GET_CANONICAL_INFO_TIME_NANOS,
-                    () -> getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
-            stateMachine.setPlanCanonicalInfo(canonicalPlanWithInfos);
+        queryPlan.set(plan);
+        stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
+        stateMachine.setPlanIdNodeMap(plan.getPlanIdNodeMap());
+        List<CanonicalPlanWithInfo> canonicalPlanWithInfos = getSession().getRuntimeStats().recordWallAndCpuTime(
+                GET_CANONICAL_INFO_TIME_NANOS,
+                () -> getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
+        stateMachine.setPlanCanonicalInfo(canonicalPlanWithInfos);
 
-            // extract inputs
+        // extract inputs
+        try (BaseSpan ignored = scopedSpan("extract-inputs")) {
             List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
             stateMachine.setInputs(inputs);
+        }
 
-            // extract output
+        // extract output
+        try (BaseSpan ignored = scopedSpan("extract-outputs")) {
             Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
             stateMachine.setOutput(output);
 
             // fragment the plan
             // the variableAllocator is finally passed to SqlQueryScheduler for runtime cost-based optimizations
             variableAllocator.set(new VariableAllocator(plan.getTypes().allVariables()));
-            SubPlan fragmentedPlan = getSession().getRuntimeStats().recordWallAndCpuTime(
-                    FRAGMENT_PLAN_TIME_NANOS,
-                    () -> planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector()));
+            SubPlan fragmentedPlan;
+
+            try (BaseSpan spanIgnored = scopedSpan("fragment-plan")) {
+                fragmentedPlan = getSession().getRuntimeStats().recordWallAndCpuTime(
+                        FRAGMENT_PLAN_TIME_NANOS,
+                        () -> planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector()));
+            }
 
             // record analysis time
             stateMachine.endAnalysis();
 
             boolean explainAnalyze = queryAnalysis.isExplainAnalyzeQuery();
             return new PlanRoot(fragmentedPlan, !explainAnalyze, queryAnalysis.extractConnectors());
-        }
-        catch (StackOverflowError e) {
-            throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
     }
 

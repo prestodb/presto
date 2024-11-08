@@ -225,9 +225,8 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TruncateTable;
+import com.facebook.presto.telemetry.TracingManager;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
-import com.facebook.presto.tracing.TracerProviderManager;
-import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
@@ -450,7 +449,6 @@ public class LocalQueryRunner
                                 new WarningCollectorConfig(),
                                 new NodeSchedulerConfig(),
                                 new NodeSpillConfig(),
-                                new TracingConfig(),
                                 new CompilerConfig(),
                                 new HistoryBasedOptimizationConfig()).getSessionProperties(),
                         new JavaFeaturesConfig(),
@@ -550,11 +548,11 @@ public class LocalQueryRunner
                 new ThrowingNodeTtlFetcherManager(),
                 new ThrowingClusterTtlProviderManager(),
                 historyBasedPlanStatisticsManager,
-                new TracerProviderManager(new TracingConfig()),
                 new NodeStatusNotificationManager(),
                 new ClientRequestFilterManager(),
                 planCheckerProviderManager,
-                expressionOptimizerManager);
+                expressionOptimizerManager,
+                new TracingManager());
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -565,13 +563,14 @@ public class LocalQueryRunner
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(
                 defaultSession.getQueryId(),
+                null,
+                null,
                 withInitialTransaction ? Optional.of(transactionManager.beginTransaction(false)) : defaultSession.getTransactionId(),
                 defaultSession.isClientTransactionSupport(),
                 defaultSession.getIdentity(),
                 defaultSession.getSource(),
                 defaultSession.getCatalog(),
                 defaultSession.getSchema(),
-                defaultSession.getTraceToken(),
                 defaultSession.getTimeZoneKey(),
                 defaultSession.getLocale(),
                 defaultSession.getRemoteUserAddress(),
@@ -586,7 +585,6 @@ public class LocalQueryRunner
                 metadata.getSessionPropertyManager(),
                 defaultSession.getPreparedStatements(),
                 defaultSession.getSessionFunctions(),
-                defaultSession.getTracer(),
                 defaultSession.getWarningCollector(),
                 defaultSession.getRuntimeStats(),
                 defaultSession.getQueryType());

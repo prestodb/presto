@@ -54,7 +54,6 @@ public class TestingConnectorSession
     private final Optional<String> source;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
-    private final Optional<String> traceToken;
     private final long startTime;
     private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
@@ -66,34 +65,33 @@ public class TestingConnectorSession
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
+        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(ConnectorIdentity identity, List<PropertyMetadata<?>> properties)
     {
-        this(identity.getUser(), identity, Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
+        this(identity.getUser(), identity, Optional.of("test"), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties, Set<String> clientTags)
     {
-        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), clientTags, Optional.empty(), ImmutableMap.of());
+        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), clientTags, Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties, Map<String, Object> propertyValues)
     {
-        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, propertyValues, new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
+        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, propertyValues, new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties, Optional<String> schema)
     {
-        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), schema, ImmutableMap.of());
+        this("user", new ConnectorIdentity("user", Optional.empty(), Optional.empty()), Optional.of("test"), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FunctionsConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), schema, ImmutableMap.of());
     }
 
     public TestingConnectorSession(
             String user,
             ConnectorIdentity identity,
             Optional<String> source,
-            Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime,
@@ -108,7 +106,6 @@ public class TestingConnectorSession
         this.queryId = queryIdGenerator.createNextQueryId().toString();
         this.identity = requireNonNull(identity, "identity is null");
         this.source = requireNonNull(source, "source is null");
-        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
@@ -161,12 +158,6 @@ public class TestingConnectorSession
     public long getStartTime()
     {
         return startTime;
-    }
-
-    @Override
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
     }
 
     @Override
@@ -232,7 +223,6 @@ public class TestingConnectorSession
                 sqlFunctionProperties.getSessionUser(),
                 identity,
                 source,
-                traceToken,
                 timeZoneKey,
                 locale,
                 startTime,
@@ -251,7 +241,6 @@ public class TestingConnectorSession
         return toStringHelper(this)
                 .add("user", getUser())
                 .add("source", source.orElse(null))
-                .add("traceToken", traceToken.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("startTime", startTime)
