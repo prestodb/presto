@@ -173,7 +173,7 @@ public class AsyncPageTransportServlet
         {
             public void onComplete(AsyncEvent event)
             {
-                resultsRequestTime.add(Duration.nanosSince(start));
+                updateResultsRequestTime(Duration.nanosSince(start));
             }
 
             public void onError(AsyncEvent event)
@@ -213,7 +213,7 @@ public class AsyncPageTransportServlet
                 waitTime,
                 timeoutExecutor);
 
-        bufferResultFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
+        bufferResultFuture.addListener(() -> updateReadFromOutputBufferTime(Duration.nanosSince(start)), directExecutor());
 
         ServletOutputStream out = response.getOutputStream();
         addCallback(bufferResultFuture, new FutureCallback<BufferResult>()
@@ -271,5 +271,15 @@ public class AsyncPageTransportServlet
     public TimeStat getResultsRequestTime()
     {
         return resultsRequestTime;
+    }
+
+    private synchronized void updateReadFromOutputBufferTime(Duration duration)
+    {
+        readFromOutputBufferTime.add(duration);
+    }
+
+    private synchronized void updateResultsRequestTime(Duration duration)
+    {
+        resultsRequestTime.add(duration);
     }
 }
