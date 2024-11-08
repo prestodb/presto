@@ -42,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 
 public class NativeSidecarExpressionInterpreter
 {
+    public static final String PRESTO_TIME_ZONE_HEADER = "X-Presto-Time-Zone";
     private final NodeManager nodeManager;
     private final HttpClient httpClient;
     private final JsonCodec<List<RowExpression>> rowExpressionSerde;
@@ -70,6 +71,7 @@ public class NativeSidecarExpressionInterpreter
                 .setBodyGenerator(jsonBodyGenerator(rowExpressionSerde, aliased))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString())
+                .setHeader(PRESTO_TIME_ZONE_HEADER, session.getSqlFunctionProperties().getTimeZoneKey().getId())
                 .build();
 
         List<RowExpression> optimized = httpClient.execute(request, createJsonResponseHandler(rowExpressionSerde));
