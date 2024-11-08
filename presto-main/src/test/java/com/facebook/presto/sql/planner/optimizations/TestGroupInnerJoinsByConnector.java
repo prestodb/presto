@@ -38,6 +38,7 @@ import com.facebook.presto.spi.JoinTableInfo;
 import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.Connector;
@@ -77,6 +78,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -269,7 +271,9 @@ public class TestGroupInnerJoinsByConnector
         Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig());
 
         TransactionId transactionId = transactionManager.beginTransaction(false);
-        Session session = testSessionBuilder().setTransactionId(transactionId).build();
+        Session session = testSessionBuilder()
+                .setSystemProperty(INNER_JOIN_PUSHDOWN_ENABLED, "true")
+                .setTransactionId(transactionId).build();
 
         ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
@@ -292,14 +296,15 @@ public class TestGroupInnerJoinsByConnector
                 joinClause));
         PlanNode actual = optimize(plan, session, ImmutableMap.of(), metadata);
 
-        TestingMetadata.TestingTableHandle connectorHandle = new TestingMetadata.TestingTableHandle();
-        Set<ConnectorTableHandle> tableHandles = ImmutableSet.of(connectorHandle);
         Set<JoinTableInfo> joinTableInfos = new HashSet<>();
-        tableHandles.forEach(tableHandle -> {
-            String[] columnNames = new String[]{"a1", "b1"};
-            joinTableInfos.add(new JoinTableInfo(tableHandle, Arrays.stream(columnNames).map(TestGroupInnerJoinsByConnector::newBigintVariable).collect(toMap(identity(), variable -> new ColumnHandle() {})), Arrays.stream(columnNames).map(TestGroupInnerJoinsByConnector::newBigintVariable).collect(toImmutableList())));
-        });
-        JoinTableSet tableHandleSet = new JoinTableSet(joinTableInfos);
+        Map<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.of(newBigintVariable("a1"), new TestingColumnHandle("a1"), newBigintVariable("a2"),
+                new TestingColumnHandle("a2"), newBigintVariable("b1"), new TestingColumnHandle("b1"), newBigintVariable("b2"),
+                new TestingColumnHandle("b2"));
+        List<VariableReferenceExpression> outputVariables = ImmutableList.of(newBigintVariable("a1"), newBigintVariable("a2"), newBigintVariable("b1"), newBigintVariable("b2"));
+        JoinTableInfo joinTableInfo = new JoinTableInfo(new TestingMetadata.TestingTableHandle(new SchemaTableName("table_schema", "test-table")),
+                assignments, outputVariables);
+        joinTableInfos.add(joinTableInfo);
+        JoinTableSet tableHandleSet = new JoinTableSet(ImmutableSet.copyOf(joinTableInfos));
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(catalogName),
                 tableHandleSet,
@@ -345,8 +350,8 @@ public class TestGroupInnerJoinsByConnector
         TestingRowExpressionTranslator sqlToRowExpressionTranslator = new TestingRowExpressionTranslator(metadata);
 
         TransactionId transactionId = transactionManager.beginTransaction(false);
-        Session session = testSessionBuilder().
-                setSystemProperty(INNER_JOIN_PUSHDOWN_ENABLED, "true")
+        Session session = testSessionBuilder()
+                .setSystemProperty(INNER_JOIN_PUSHDOWN_ENABLED, "true")
                 .setSystemProperty(INEQUALITY_JOIN_PUSHDOWN_ENABLED, "true")
                 .setTransactionId(transactionId).build();
 
@@ -373,18 +378,20 @@ public class TestGroupInnerJoinsByConnector
 
         PlanNode actual = optimize(plan, session, ImmutableMap.of(), metadata);
 
-        TestingMetadata.TestingTableHandle connectorHandle = new TestingMetadata.TestingTableHandle();
-        Set<ConnectorTableHandle> tableHandles = ImmutableSet.of(connectorHandle);
         Set<JoinTableInfo> joinTableInfos = new HashSet<>();
-//        tableHandles.forEach(tableHandle -> {
-//            String[] columnNames1 = new String[]{"a2", "a2"};
-//            String[] columnNames2 = new String[]{"b1", "b2", "b3"};
-//            joinTableInfos.add(new JoinTableInfo(tableHandle, Arrays.stream(columnNames).map(TestGroupInnerJoinsByConnector::newBigintVariable).collect(toMap(identity(),
-//                    variable -> new ColumnHandle() {})), Arrays.stream(columnNames).map(TestGroupInnerJoinsByConnector::newBigintVariable).collect(toImmutableList())));
-//        });
-        JoinTableInfo joinTableInfo = new JoinTableInfo(connectorHandle, ImmutableMap.of(), ImmutableList.of());
-        joinTableInfos.add(joinTableInfo);
-        JoinTableSet tableHandleSet = new JoinTableSet(joinTableInfos);
+        Map<VariableReferenceExpression, ColumnHandle> assignments1 = ImmutableMap.of(newBigintVariable("a1"), new TestingColumnHandle("a1"), newBigintVariable("a2"),
+                new TestingColumnHandle("a2"));
+        Map<VariableReferenceExpression, ColumnHandle> assignments2 = ImmutableMap.of(newBigintVariable("b1"), new TestingColumnHandle("b1"), newBigintVariable("b2"),
+                new TestingColumnHandle("b2"), newBigintVariable("b3"), new TestingColumnHandle("b3"));
+        List<VariableReferenceExpression> outputVariables1 = ImmutableList.of(newBigintVariable("a1"), newBigintVariable("a2"));
+        List<VariableReferenceExpression> outputVariables2 = ImmutableList.of(newBigintVariable("b1"), newBigintVariable("b2"), newBigintVariable("b3"));
+        JoinTableInfo joinTableInfo1 = new JoinTableInfo(new TestingMetadata.TestingTableHandle(new SchemaTableName("table_schema", "test-table")),
+                assignments1, outputVariables1);
+        JoinTableInfo joinTableInfo2 = new JoinTableInfo(new TestingMetadata.TestingTableHandle(new SchemaTableName("table_schema", "test-table")),
+                assignments2, outputVariables2);
+        joinTableInfos.add(joinTableInfo1);
+        joinTableInfos.add(joinTableInfo2);
+        JoinTableSet tableHandleSet = new JoinTableSet(ImmutableSet.copyOf(joinTableInfos));
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(catalogName),
                 tableHandleSet,
@@ -505,8 +512,7 @@ public class TestGroupInnerJoinsByConnector
             ConnectorTableHandle connectorHandle = tableScanNode.getTable().getConnectorHandle();
 
             if (connectorId.equals(tableScanNode.getTable().getConnectorId()) &&
-                    connectorHandle instanceof JoinTableSet &&
-                    connectorHandle.equals(this.tableHandle.getConnectorHandle())) {
+                    connectorHandle instanceof JoinTableSet && connectorHandle.equals(tableScanNode.getTable().getConnectorHandle())) {
                 return MatchResult.match(SymbolAliases.builder().putAll(Arrays.stream(columns).collect(toMap(identity(), SymbolReference::new))).build());
             }
 
