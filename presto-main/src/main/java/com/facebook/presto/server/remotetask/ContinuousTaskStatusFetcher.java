@@ -33,12 +33,15 @@ import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.thrift.ThriftHttpResponseHandler;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.telemetry.TracingManager;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.netty.channel.EventLoop;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -79,6 +82,7 @@ class ContinuousTaskStatusFetcher
     private final boolean thriftTransportEnabled;
     private final Protocol thriftProtocol;
     private long currentRequestStartNanos;
+    private final BaseSpan remoteTaskSpan;
     private boolean running;
 
     private ListenableFuture<BaseResponse<TaskStatus>> future;
@@ -95,7 +99,8 @@ class ContinuousTaskStatusFetcher
             RemoteTaskStats stats,
             boolean binaryTransportEnabled,
             boolean thriftTransportEnabled,
-            Protocol thriftProtocol)
+            Protocol thriftProtocol,
+            BaseSpan remoteTaskSpan)
     {
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
@@ -114,6 +119,8 @@ class ContinuousTaskStatusFetcher
         this.binaryTransportEnabled = binaryTransportEnabled;
         this.thriftTransportEnabled = thriftTransportEnabled;
         this.thriftProtocol = requireNonNull(thriftProtocol, "thriftProtocol is null");
+
+        this.remoteTaskSpan = remoteTaskSpan;
     }
 
     public void start()
@@ -177,6 +184,12 @@ class ContinuousTaskStatusFetcher
         else {
             requestBuilder = getJsonTransportBuilder(prepareGet());
             responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskStatus>) taskStatusCodec);
+        }
+
+        Map<String, String> headersMap = TracingManager.getHeadersMap(remoteTaskSpan);
+
+        for (Map.Entry<String, String> entry : headersMap.entrySet()) {
+            requestBuilder.addHeader(entry.getKey(), entry.getValue());
         }
 
         Request request = requestBuilder.setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())

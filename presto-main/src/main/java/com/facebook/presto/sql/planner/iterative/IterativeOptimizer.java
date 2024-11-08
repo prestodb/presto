@@ -69,6 +69,7 @@ public class IterativeOptimizer
     private final List<PlanOptimizer> legacyRules;
     private final RuleIndex ruleIndex;
     private final Optional<LogicalPropertiesProvider> logicalPropertiesProvider;
+    private final Set<Rule<?>> rules;
 
     public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
@@ -98,6 +99,12 @@ public class IterativeOptimizer
         this.logicalPropertiesProvider = requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider is null");
 
         stats.registerAll(newRules);
+        this.rules = newRules;
+    }
+
+    public Set<Rule<?>> getRules()
+    {
+        return rules;
     }
 
     @Override

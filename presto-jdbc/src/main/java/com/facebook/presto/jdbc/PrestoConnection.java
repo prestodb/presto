@@ -764,7 +764,6 @@ public class PrestoConnection
             source = applicationName;
         }
 
-        Optional<String> traceToken = Optional.ofNullable(clientInfo.get("TraceToken"));
         Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
                 .split(nullToEmpty(clientInfo.get("ClientTags")));
 
@@ -779,7 +778,6 @@ public class PrestoConnection
                 httpUri,
                 user,
                 source,
-                traceToken,
                 ImmutableSet.copyOf(clientTags),
                 clientInfo.get("ClientInfo"),
                 catalog.get(),
