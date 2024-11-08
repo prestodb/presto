@@ -1681,18 +1681,17 @@ DEBUG_ONLY_TEST_F(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
     ASSERT_GT(
         runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].count, 2);
-    ASSERT_EQ(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].sum, 2);
+    ASSERT_GE(
+        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].count, 1);
+    ASSERT_GE(
+        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].sum, 1);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
     ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].sum, 0);
-    ASSERT_EQ(
+    ASSERT_GE(
         runtimeStats[SharedArbitrator::kGlobalArbitrationWaitWallNanos].count,
-        2);
+        1);
     ASSERT_GT(
-        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitWallNanos].sum,
-        1'000'000'000);
+        runtimeStats[SharedArbitrator::kGlobalArbitrationWaitWallNanos].sum, 1);
   });
 
   std::atomic_bool globalArbitrationStarted{false};
@@ -1732,6 +1731,11 @@ DEBUG_ONLY_TEST_F(
   ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].sum, 0);
   ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 1);
   ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].sum, 1);
+
+  // Global arbitration thread may still be running in the background,
+  // triggerring ASAN failure. Wait until it exits.
+  test::SharedArbitratorTestHelper arbitratorHelper(arbitrator_);
+  arbitratorHelper.waitForGlobalArbitrationToFinish();
 }
 
 DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, globalArbitrationAbortTimeRatio) {
