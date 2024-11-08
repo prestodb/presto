@@ -505,9 +505,11 @@ if(${VELOX_BUILD_TESTING})
 
   # 'gRPC_CARES_PROVIDER' is set as 'package', which means c-ares library needs
   # to be installed on the system, instead of being built by gRPC.
-  # set_source(c-ares) resolve_dependency(c-ares)
+  set_source(c-ares)
+  resolve_dependency(c-ares)
 
-  # set_source(gRPC) resolve_dependency(gRPC)
+  set_source(gRPC)
+  resolve_dependency(gRPC)
 endif()
 
 if(VELOX_ENABLE_REMOTE_FUNCTIONS)
@@ -604,7 +606,7 @@ endif()
 set_source(xsimd)
 resolve_dependency(xsimd 10.0.0)
 
-set(stemmer_SOURCE BUNDLED)
+set_source(stemmer)
 resolve_dependency(stemmer)
 
 if(VELOX_BUILD_TESTING)

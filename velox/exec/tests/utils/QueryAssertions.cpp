@@ -1445,18 +1445,6 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
   return {std::move(cursor), std::move(result)};
 }
 
-// static
-std::vector<RowVectorPtr> readCursor(
-    std::shared_ptr<runner::LocalRunner> runner) {
-  // 'result' borrows memory from cursor so the life cycle must be shorter.
-  std::vector<RowVectorPtr> result;
-
-  while (auto rows = runner->next()) {
-    result.push_back(rows);
-  }
-  return result;
-}
-
 bool waitForTaskFinish(
     exec::Task* task,
     TaskState expectedState,

@@ -23,7 +23,6 @@
 #include "velox/vector/ComplexVector.h"
 
 #include <duckdb.hpp> // @manual
-#include "velox/runner/LocalRunner.h"
 
 namespace facebook::velox::exec::test {
 
@@ -177,10 +176,6 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
     const CursorParameters& params,
     std::function<void(exec::Task*)> addSplits,
     uint64_t maxWaitMicros = 5'000'000);
-
-/// Reads all results from 'runner'.
-std::vector<RowVectorPtr> readCursor(
-    std::shared_ptr<runner::LocalRunner> runner);
 
 /// The Task can return results before the Driver is finished executing.
 /// Wait upto maxWaitMicros for the Task to finish as 'expectedState' before
