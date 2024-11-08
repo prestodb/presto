@@ -1412,7 +1412,7 @@ class VectorStream {
           // For fix width types that are smaller than int32_t (the type for
           // indexes into the dictionary) dictionary encoding increases the
           // size, so we should flatten it.
-          if (type->isFixedWidth() &&
+          if (!preserveEncodings() && type->isFixedWidth() &&
               type->cppSizeInBytes() <= sizeof(int32_t)) {
             encoding_ = std::nullopt;
             break;
@@ -1594,6 +1594,10 @@ class VectorStream {
 
   bool isConstantStream() const {
     return isConstantStream_;
+  }
+
+  bool preserveEncodings() const {
+    return opts_.preserveEncodings;
   }
 
   VectorStream* childAt(int32_t index) {
@@ -2128,29 +2132,31 @@ void serializeDictionaryVector(
   auto numUsed = computeSelectedIndices(
       dictionaryVector, ranges, scratch, mutableSelectedIndices);
 
-  // If the values are fixed width and we aren't getting enough reuse to justify
-  // the dictionary, flatten it.
-  // For variable width types, rather than iterate over them computing their
-  // size, we simply assume we'll get a benefit.
-  if constexpr (TypeTraits<Kind>::isFixedWidth) {
-    // This calculation admittdely ignores some constants, but if they really
-    // make a difference, they're small so there's not much difference either
-    // way.
-    if (numUsed * vector->type()->cppSizeInBytes() +
-            numRows * sizeof(int32_t) >=
-        numRows * vector->type()->cppSizeInBytes()) {
+  if (!stream->preserveEncodings()) {
+    // If the values are fixed width and we aren't getting enough reuse to
+    // justify the dictionary, flatten it. For variable width types, rather than
+    // iterate over them computing their size, we simply assume we'll get a
+    // benefit.
+    if constexpr (TypeTraits<Kind>::isFixedWidth) {
+      // This calculation admittdely ignores some constants, but if they really
+      // make a difference, they're small so there's not much difference either
+      // way.
+      if (numUsed * vector->type()->cppSizeInBytes() +
+              numRows * sizeof(int32_t) >=
+          numRows * vector->type()->cppSizeInBytes()) {
+        stream->flattenStream(vector, numRows);
+        serializeWrapped(vector, ranges, stream, scratch);
+        return;
+      }
+    }
+
+    // If every element is unique the dictionary isn't giving us any benefit,
+    // flatten it.
+    if (numUsed == numRows) {
       stream->flattenStream(vector, numRows);
       serializeWrapped(vector, ranges, stream, scratch);
       return;
     }
-  }
-
-  // If every element is unique the dictionary isn't giving us any benefit,
-  // flatten it.
-  if (numUsed == numRows) {
-    stream->flattenStream(vector, numRows);
-    serializeWrapped(vector, ranges, stream, scratch);
-    return;
   }
 
   // Serialize the used elements from the Dictionary.

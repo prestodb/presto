@@ -50,10 +50,12 @@ class PrestoVectorSerde : public VectorSerde {
     PrestoOptions(
         bool _useLosslessTimestamp,
         common::CompressionKind _compressionKind,
-        bool _nullsFirst = false)
+        bool _nullsFirst = false,
+        bool _preserveEncodings = false)
         : VectorSerde::Options(_compressionKind),
           useLosslessTimestamp(_useLosslessTimestamp),
-          nullsFirst(_nullsFirst) {}
+          nullsFirst(_nullsFirst),
+          preserveEncodings(_preserveEncodings) {}
 
     /// Currently presto only supports millisecond precision and the serializer
     /// converts velox native timestamp to that resulting in loss of precision.
@@ -72,6 +74,11 @@ class PrestoVectorSerde : public VectorSerde {
     /// than this causes subsequent compression attempts to be skipped. The more
     /// times compression misses the target the less frequently it is tried.
     float minCompressionRatio{0.8};
+
+    /// If true, the serializer will not employ any optimizations that can
+    /// affect the encoding of the input vectors. This is only relevant when
+    /// using BatchVectorSerializer.
+    bool preserveEncodings{false};
   };
 
   /// Adds the serialized sizes of the rows of 'vector' in 'ranges[i]' to

@@ -76,8 +76,10 @@ class PrestoSerializerTest
     common::CompressionKind kind = GetParam();
     const bool nullsFirst =
         serdeOptions == nullptr ? false : serdeOptions->nullsFirst;
+    const bool preserveEncodings =
+        serdeOptions == nullptr ? false : serdeOptions->preserveEncodings;
     serializer::presto::PrestoVectorSerde::PrestoOptions paramOptions{
-        useLosslessTimestamp, kind, nullsFirst};
+        useLosslessTimestamp, kind, nullsFirst, preserveEncodings};
 
     return paramOptions;
   }
@@ -1157,41 +1159,58 @@ TEST_P(PrestoSerializerTest, dictionaryEncodingTurnedOff) {
       BaseVector::wrapInDictionary(nullptr, allIndices, 32, stringBase),
   });
 
-  std::ostringstream out;
-  serializeBatch(rows, &out, /*serdeOptions=*/nullptr);
-  const auto serialized = out.str();
+  for (bool preserveEncodings : {false, true}) {
+    SCOPED_TRACE(fmt::format("preserveEncodings: {}", preserveEncodings));
+    auto exptectedTransformedEncoding = preserveEncodings
+        ? VectorEncoding::Simple::DICTIONARY
+        : VectorEncoding::Simple::FLAT;
+    serializer::presto::PrestoVectorSerde::PrestoOptions serdeOptions;
+    serdeOptions.preserveEncodings = preserveEncodings;
+    std::ostringstream out;
+    serializeBatch(rows, &out, &serdeOptions);
+    const auto serialized = out.str();
 
-  auto rowType = asRowType(rows->type());
-  auto deserialized =
-      deserialize(rowType, serialized, /*serdeOptions=*/nullptr);
+    auto rowType = asRowType(rows->type());
+    auto deserialized = deserialize(rowType, serialized, &serdeOptions);
 
-  assertEqualVectors(rows, deserialized);
+    assertEqualVectors(rows, deserialized);
 
-  // smallInt + one index
-  ASSERT_EQ(deserialized->childAt(0)->encoding(), VectorEncoding::Simple::FLAT);
-  // int + one index
-  ASSERT_EQ(deserialized->childAt(1)->encoding(), VectorEncoding::Simple::FLAT);
-  // bigint + one index
-  ASSERT_EQ(
-      deserialized->childAt(2)->encoding(), VectorEncoding::Simple::DICTIONARY);
-  // bigint + quarter indices
-  ASSERT_EQ(
-      deserialized->childAt(3)->encoding(), VectorEncoding::Simple::DICTIONARY);
-  // bigint + all but one indices
-  ASSERT_EQ(deserialized->childAt(4)->encoding(), VectorEncoding::Simple::FLAT);
-  // bigint + all indices
-  ASSERT_EQ(deserialized->childAt(5)->encoding(), VectorEncoding::Simple::FLAT);
-  // string + one index
-  ASSERT_EQ(
-      deserialized->childAt(6)->encoding(), VectorEncoding::Simple::DICTIONARY);
-  // string + quarter indices
-  ASSERT_EQ(
-      deserialized->childAt(7)->encoding(), VectorEncoding::Simple::DICTIONARY);
-  // string + all but one indices
-  ASSERT_EQ(
-      deserialized->childAt(8)->encoding(), VectorEncoding::Simple::DICTIONARY);
-  // string + all indices
-  ASSERT_EQ(deserialized->childAt(9)->encoding(), VectorEncoding::Simple::FLAT);
+    // smallInt + one index
+    ASSERT_EQ(
+        deserialized->childAt(0)->encoding(), exptectedTransformedEncoding);
+    // int + one index
+    ASSERT_EQ(
+        deserialized->childAt(1)->encoding(), exptectedTransformedEncoding);
+    // bigint + one index
+    ASSERT_EQ(
+        deserialized->childAt(2)->encoding(),
+        VectorEncoding::Simple::DICTIONARY);
+    // bigint + quarter indices
+    ASSERT_EQ(
+        deserialized->childAt(3)->encoding(),
+        VectorEncoding::Simple::DICTIONARY);
+    // bigint + all but one indices
+    ASSERT_EQ(
+        deserialized->childAt(4)->encoding(), exptectedTransformedEncoding);
+    // bigint + all indices
+    ASSERT_EQ(
+        deserialized->childAt(5)->encoding(), exptectedTransformedEncoding);
+    // string + one index
+    ASSERT_EQ(
+        deserialized->childAt(6)->encoding(),
+        VectorEncoding::Simple::DICTIONARY);
+    // string + quarter indices
+    ASSERT_EQ(
+        deserialized->childAt(7)->encoding(),
+        VectorEncoding::Simple::DICTIONARY);
+    // string + all but one indices
+    ASSERT_EQ(
+        deserialized->childAt(8)->encoding(),
+        VectorEncoding::Simple::DICTIONARY);
+    // string + all indices
+    ASSERT_EQ(
+        deserialized->childAt(9)->encoding(), exptectedTransformedEncoding);
+  }
 }
 
 TEST_P(PrestoSerializerTest, emptyVectorBatchVectorSerializer) {
