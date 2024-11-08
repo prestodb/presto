@@ -67,6 +67,7 @@ import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.updatePlanStatistics;
 import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static com.google.common.base.Preconditions.checkState;
@@ -154,7 +155,16 @@ public class HistoryBasedPlanStatisticsTracker
             allStages = outputStage.getAllStages();
         }
         else if (trackStatsForFailedQueries) {
-            allStages = outputStage.getAllStages().stream().filter(x -> x.getLatestAttemptExecutionInfo().getState().equals(StageExecutionState.FINISHED)).collect(toImmutableList());
+            allStages = outputStage.getAllStages().stream()
+                    .filter(x -> {
+                        StageExecutionState state = x.getLatestAttemptExecutionInfo().getState();
+                        return state.equals(StageExecutionState.FINISHED)
+                                || (state.equals(StageExecutionState.FAILED)
+                                && x.getLatestAttemptExecutionInfo().getFailureCause()
+                                .map(cause -> cause.getErrorCode().equals(EXCEEDED_LOCAL_MEMORY_LIMIT))
+                                .orElse(false));
+                    })
+                    .collect(toImmutableList());
         }
 
         if (allStages.isEmpty()) {
