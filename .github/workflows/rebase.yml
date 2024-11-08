@@ -1,0 +1,43 @@
+name: Nightly Rebase and Push
+env:
+  REBASE_BRANCH: upgradeJava17Bytecode
+on:
+  schedule:
+    - cron: "0 0 * * *" # Every night at midnight UTC
+jobs:
+  rebase-branch:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Ensure full history for rebase
+      - name: Set up Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Rebase $REBASE_BRANCH onto master
+        run: |
+          git checkout $REBASE_BRANCH
+          git rebase origin/master
+
+      - name: Force push to $REBASE_BRANCH
+        run: |
+          git push origin $REBASE_BRANCH --force
+
+      - name: Notify on failure
+        if: ${{ failure() }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const usersToNotify = ["@aaneja", "@ZacBlanco", "@imjalpreet"];
+            const commentBody = `⚠️ Rebase of \`$REBASE_BRANCH\` onto \`master\` failed. Notifying: ${usersToNotify.join(", ")}.`;
+            await github.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 23953,
+              body: commentBody
+            })
