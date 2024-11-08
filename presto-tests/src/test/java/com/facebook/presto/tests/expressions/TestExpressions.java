@@ -203,6 +203,7 @@ public abstract class TestExpressions
 
     @BeforeClass
     public void setup()
+            throws Exception
     {
         setupJsonFunctionNamespaceManager(METADATA.getFunctionAndTypeManager());
     }

@@ -59,6 +59,7 @@ public class TestDelegatingExpressionOptimizer
     public void setup()
             throws Exception
     {
+        super.setup();
         int port = findRandomPortForWorker();
         URI sidecarUri = URI.create("http://127.0.0.1:" + port);
         Optional<BiFunction<Integer, URI, Process>> launcher = PrestoNativeQueryRunnerUtils.getExternalWorkerLauncher(
@@ -79,7 +80,8 @@ public class TestDelegatingExpressionOptimizer
         sidecar.destroyForcibly();
     }
 
-    @Test
+    // TODO: Pending on native function namespace manager.
+    @Test(enabled = false)
     public void assertLikeOptimizations()
     {
         assertOptimizedMatches("unbound_string LIKE bound_pattern", "unbound_string LIKE CAST('%el%' AS varchar)");
@@ -118,6 +120,36 @@ public class TestDelegatingExpressionOptimizer
     @Override
     public void testNonDeterministicFunctionCall()
     { }
+
+    // TODO: apply function is not supported in Presto native.
+    @Test(enabled = false)
+    @Override
+    public void testBind() {}
+
+    // TODO: TIME type is unsupported in Presto native.
+    @Test(enabled = false)
+    @Override
+    public void testLiterals() {}
+
+    // TODO: NULL_IF special form is unsupported in Presto native.
+    @Test(enabled = false)
+    @Override
+    public void testNullIf() {}
+
+    // TODO: Bounded varchar is currently unsupported in Presto native.
+    @Test(enabled = false)
+    @Override
+    public void testCastBigintToBoundedVarchar() {}
+
+    // TODO: current_user function is not implemented in Presto native.
+    @Test(enabled = false)
+    @Override
+    public void testCurrentUser() {}
+
+    // TODO: Non-legacy map subscript is not supported in Presto native.
+    @Test(enabled = false)
+    @Override
+    public void testMapSubscriptMissingKey() {}
 
     @Override
     protected void assertLike(byte[] value, String pattern, boolean expected)
