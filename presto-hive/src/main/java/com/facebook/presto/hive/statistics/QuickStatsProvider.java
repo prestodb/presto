@@ -28,10 +28,10 @@ import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
@@ -101,10 +101,16 @@ public class QuickStatsProvider
     private final Cache<String, PartitionStatistics> partitionToStatsCache;
     private final NamenodeStats nameNodeStats;
     private final TimeStat buildDuration = new TimeStat(MILLISECONDS);
+    private final ExtendedHiveMetastore metastore;
 
-    public QuickStatsProvider(HdfsEnvironment hdfsEnvironment, DirectoryLister directoryLister, HiveClientConfig hiveClientConfig, NamenodeStats nameNodeStats,
+    public QuickStatsProvider(ExtendedHiveMetastore metastore,
+            HdfsEnvironment hdfsEnvironment,
+            DirectoryLister directoryLister,
+            HiveClientConfig hiveClientConfig,
+            NamenodeStats nameNodeStats,
             List<QuickStatsBuilder> statsBuilderStrategies)
     {
+        this.metastore = metastore;
         this.hdfsEnvironment = hdfsEnvironment;
         this.directoryLister = directoryLister;
         this.recursiveDirWalkerEnabled = hiveClientConfig.getRecursiveDirWalkerEnabled();
@@ -151,7 +157,7 @@ public class QuickStatsProvider
         return inProgressBuilds.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, v -> v.getValue().getBuildStart()));
     }
 
-    public Map<String, PartitionStatistics> getQuickStats(ConnectorSession session, SemiTransactionalHiveMetastore metastore, SchemaTableName table,
+    public Map<String, PartitionStatistics> getQuickStats(ConnectorSession session, SchemaTableName table,
             MetastoreContext metastoreContext, List<String> partitionIds)
     {
         if (!isQuickStatsEnabled(session)) {
@@ -161,7 +167,7 @@ public class QuickStatsProvider
         CompletableFuture<PartitionStatistics>[] partitionQuickStatCompletableFutures = new CompletableFuture[partitionIds.size()];
         for (int counter = 0; counter < partitionIds.size(); counter++) {
             String partitionId = partitionIds.get(counter);
-            partitionQuickStatCompletableFutures[counter] = supplyAsync(() -> getQuickStats(session, metastore, table, metastoreContext, partitionId), backgroundFetchExecutor);
+            partitionQuickStatCompletableFutures[counter] = supplyAsync(() -> getQuickStats(session, table, metastoreContext, partitionId), backgroundFetchExecutor);
         }
 
         try {
@@ -203,7 +209,7 @@ public class QuickStatsProvider
         return result.build();
     }
 
-    public PartitionStatistics getQuickStats(ConnectorSession session, SemiTransactionalHiveMetastore metastore, SchemaTableName table,
+    public PartitionStatistics getQuickStats(ConnectorSession session, SchemaTableName table,
             MetastoreContext metastoreContext, String partitionId)
     {
         if (!isQuickStatsEnabled(session)) {
@@ -236,7 +242,7 @@ public class QuickStatsProvider
         // If not, atomically initiate a call to build quick stats in a background thread
         AtomicReference<CompletableFuture<PartitionStatistics>> partitionStatisticsCompletableFuture = new AtomicReference<>();
         inProgressBuilds.computeIfAbsent(partitionKey, (key) -> {
-            CompletableFuture<PartitionStatistics> fetchFuture = supplyAsync(() -> buildQuickStats(partitionKey, partitionId, session, metastore, table, metastoreContext), backgroundFetchExecutor);
+            CompletableFuture<PartitionStatistics> fetchFuture = supplyAsync(() -> buildQuickStats(partitionKey, partitionId, session, table, metastoreContext), backgroundFetchExecutor);
             partitionStatisticsCompletableFuture.set(fetchFuture);
 
             return new InProgressBuildInfo(fetchFuture, Instant.now());
@@ -282,7 +288,7 @@ public class QuickStatsProvider
         else {
             // The quick stats inline fetch was pre-empted by another thread
             // We get the up-to-date value by calling getQuickStats again
-            return getQuickStats(session, metastore, table, metastoreContext, partitionId);
+            return getQuickStats(session, table, metastoreContext, partitionId);
         }
     }
 
@@ -311,7 +317,7 @@ public class QuickStatsProvider
         return getQuickStatsInlineBuildTimeout(session).toMillis();
     }
 
-    private PartitionStatistics buildQuickStats(String partitionKey, String partitionId, ConnectorSession session, SemiTransactionalHiveMetastore metastore, SchemaTableName table,
+    private PartitionStatistics buildQuickStats(String partitionKey, String partitionId, ConnectorSession session, SchemaTableName table,
             MetastoreContext metastoreContext)
     {
         Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();

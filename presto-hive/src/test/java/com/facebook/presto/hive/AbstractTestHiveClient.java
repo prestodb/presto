@@ -1042,7 +1042,7 @@ public abstract class AbstractTestHiveClient
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new QuickStatsProvider(metastoreClient, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(false));
 
         transactionManager = new HiveTransactionManager();
