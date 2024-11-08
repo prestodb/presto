@@ -375,7 +375,7 @@ void ByteRleDecoder::skipBytes(size_t count) {
     count -= skipSize;
   }
   if (count > 0) {
-    inputStream_->Skip(count);
+    inputStream_->SkipInt64(count);
   }
 }
 

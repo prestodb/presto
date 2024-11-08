@@ -68,7 +68,7 @@ class SelectiveStringDirectColumnReader
 
   void extractCrossBuffers(
       const int32_t* lengths,
-      const int32_t* starts,
+      const int64_t* starts,
       int32_t rowIndex,
       int32_t numValues);
 
@@ -76,14 +76,14 @@ class SelectiveStringDirectColumnReader
       int32_t startRow,
       const int32_t* rows,
       int32_t numRows,
-      int32_t* starts);
+      int64_t* starts);
 
   inline void extractNSparse(const int32_t* rows, int32_t row, int numRows);
 
   void extractSparse(const int32_t* rows, int32_t numRows);
 
   template <bool scatter, bool skip>
-  bool try8Consecutive(int32_t start, const int32_t* rows, int32_t row);
+  bool try8Consecutive(int64_t start, const int32_t* rows, int32_t row);
 
   template <bool kScatter, bool kGreaterThan4>
   bool

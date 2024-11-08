@@ -47,7 +47,7 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
 
 uint64_t SelectiveStringDirectColumnReader::skip(uint64_t numValues) {
   numValues = SelectiveColumnReader::skip(numValues);
-  dwio::common::ensureCapacity<int64_t>(lengths_, numValues, memoryPool_);
+  dwio::common::ensureCapacity<uint32_t>(lengths_, numValues, memoryPool_);
   lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), numValues);
   rawLengths_ = lengths_->as<uint32_t>();
   for (auto i = 0; i < numValues; ++i) {
@@ -60,10 +60,10 @@ uint64_t SelectiveStringDirectColumnReader::skip(uint64_t numValues) {
 
 void SelectiveStringDirectColumnReader::extractCrossBuffers(
     const int32_t* lengths,
-    const int32_t* starts,
+    const int64_t* starts,
     int32_t rowIndex,
     int32_t numValues) {
-  int32_t current = 0;
+  int64_t current = 0;
   bool scatter = !outerNonNullRows_.empty();
   for (auto i = 0; i < numValues; ++i) {
     auto gap = starts[i] - current;
@@ -92,8 +92,8 @@ void SelectiveStringDirectColumnReader::extractCrossBuffers(
   }
 }
 
-inline int32_t
-rangeSum(const uint32_t* rows, int32_t start, int32_t begin, int32_t end) {
+inline int64_t
+rangeSum(const uint32_t* rows, int64_t start, int32_t begin, int32_t end) {
   for (auto i = begin; i < end; ++i) {
     start += rows[i];
   }
@@ -104,10 +104,10 @@ inline void SelectiveStringDirectColumnReader::makeSparseStarts(
     int32_t startRow,
     const int32_t* rows,
     int32_t numRows,
-    int32_t* starts) {
+    int64_t* starts) {
   auto previousRow = lengthIndex_;
   int32_t i = 0;
-  int32_t startOffset = 0;
+  int64_t startOffset = 0;
   for (; i < numRows; ++i) {
     int targetRow = rows[startRow + i];
     startOffset = rangeSum(rawLengths_, startOffset, previousRow, targetRow);
@@ -121,7 +121,7 @@ void SelectiveStringDirectColumnReader::extractNSparse(
     const int32_t* rows,
     int32_t row,
     int32_t numValues) {
-  int32_t starts[8];
+  int64_t starts[8];
   if (numValues == 8 &&
       (outerNonNullRows_.empty() ? try8Consecutive<false, true>(0, rows, row)
                                  : try8Consecutive<true, true>(0, rows, row))) {
@@ -224,7 +224,7 @@ bool SelectiveStringDirectColumnReader::try8ConsecutiveSmall(
 
 template <bool scatter, bool sparse>
 inline bool SelectiveStringDirectColumnReader::try8Consecutive(
-    int32_t start,
+    int64_t start,
     const int32_t* rows,
     int32_t row) {
   // If we haven't read in a buffer yet, or there is not enough data left.  This
@@ -317,7 +317,7 @@ void SelectiveStringDirectColumnReader::extractSparse(
       numRows,
       8,
       [&](int32_t row) {
-        int32_t start = rangeSum(rawLengths_, 0, lengthIndex_, rows[row]);
+        auto start = rangeSum(rawLengths_, 0, lengthIndex_, rows[row]);
         lengthIndex_ = rows[row];
         auto lengths =
             reinterpret_cast<const int32_t*>(rawLengths_) + lengthIndex_;
@@ -327,7 +327,7 @@ void SelectiveStringDirectColumnReader::extractSparse(
                 : try8Consecutive<true, false>(start, rows, row)) {
           return;
         }
-        int32_t starts[8];
+        int64_t starts[8];
         for (auto i = 0; i < 8; ++i) {
           starts[i] = start;
           start += lengths[i];

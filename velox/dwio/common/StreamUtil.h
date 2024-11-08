@@ -37,7 +37,7 @@ inline void skipBytes(
     return;
   }
   numBytes -= bufferEnd - bufferStart;
-  input->Skip(numBytes);
+  input->SkipInt64(numBytes);
   bufferStart = bufferEnd;
 }
 

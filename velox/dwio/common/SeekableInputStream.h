@@ -45,7 +45,7 @@ class SeekableInputStream : public google::protobuf::io::ZeroCopyInputStream {
   virtual bool SkipInt64(int64_t count) = 0;
 
   bool Skip(int32_t count) final override {
-    return SkipInt64(count);
+    VELOX_FAIL("Use SkipInt64 instead: {}", count);
   }
 
   void readFully(char* buffer, size_t bufferSize);

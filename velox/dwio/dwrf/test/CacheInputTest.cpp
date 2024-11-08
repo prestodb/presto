@@ -490,7 +490,7 @@ TEST_F(CacheTest, window) {
   // We make a second stream that ranges over a subset of the range of the first
   // one.
   auto clone = cacheInput->clone();
-  clone->Skip(100);
+  clone->SkipInt64(100);
   clone->setRemainingBytes(kMB);
   auto previousRead = ioStats_->rawBytesRead();
   EXPECT_TRUE(clone->Next(&buffer, &size));

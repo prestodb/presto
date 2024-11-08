@@ -72,7 +72,7 @@ class StripeMetadataCache {
 
     auto clone = reinterpret_cast<dwio::common::CacheInputStream*>(input_.get())
                      ->clone();
-    clone->Skip(offset);
+    clone->SkipInt64(offset);
     clone->setRemainingBytes(offsets_[index + 1] - offset);
     return clone;
   }

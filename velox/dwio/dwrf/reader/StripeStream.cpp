@@ -354,7 +354,7 @@ StripeStreamsImpl::getIndexStreamFromCache(
   const auto length = info.getLength();
   if (auto* cacheInput =
           dynamic_cast<dwio::common::CacheInputStream*>(indexBase.get())) {
-    cacheInput->Skip(offset);
+    cacheInput->SkipInt64(offset);
     cacheInput->setRemainingBytes(length);
     return indexBase;
   }

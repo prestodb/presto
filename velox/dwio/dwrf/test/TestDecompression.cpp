@@ -157,14 +157,14 @@ TEST_F(DecompressionTest, testArraySkip) {
   ASSERT_EQ(true, stream.Next(&ptr, &len));
   EXPECT_EQ(bytes.data(), static_cast<const char*>(ptr));
   EXPECT_EQ(20, len);
-  ASSERT_EQ(true, !stream.Skip(-10));
-  ASSERT_EQ(true, stream.Skip(80));
+  ASSERT_EQ(true, !stream.SkipInt64(-10));
+  ASSERT_EQ(true, stream.SkipInt64(80));
   ASSERT_EQ(true, stream.Next(&ptr, &len));
   EXPECT_EQ(bytes.data() + 100, static_cast<const char*>(ptr));
   EXPECT_EQ(20, len);
-  ASSERT_EQ(true, stream.Skip(80));
+  ASSERT_EQ(true, stream.SkipInt64(80));
   ASSERT_EQ(true, !stream.Next(&ptr, &len));
-  ASSERT_EQ(true, !stream.Skip(181));
+  ASSERT_EQ(true, !stream.SkipInt64(181));
   EXPECT_EQ("SeekableArrayInputStream 200 of 200", stream.getName());
 }
 
@@ -181,11 +181,11 @@ TEST_F(DecompressionTest, testArrayCombo) {
   EXPECT_EQ(20, len);
   stream.BackUp(10);
   EXPECT_EQ(10, stream.ByteCount());
-  stream.Skip(4);
+  stream.SkipInt64(4);
   EXPECT_EQ(14, stream.ByteCount());
   ASSERT_EQ(true, stream.Next(&ptr, &len));
   EXPECT_EQ(bytes.data() + 14, static_cast<const char*>(ptr));
-  EXPECT_EQ(true, !stream.Skip(320));
+  EXPECT_EQ(true, !stream.SkipInt64(320));
   EXPECT_EQ(200, stream.ByteCount());
   EXPECT_EQ(true, !stream.Next(&ptr, &len));
 }
@@ -234,14 +234,14 @@ TEST_F(DecompressionTest, testFileSkip) {
   ASSERT_EQ(true, stream.Next(&ptr, &len));
   checkBytes(static_cast<const char*>(ptr), len, 0);
   EXPECT_EQ(20, len);
-  ASSERT_EQ(true, !stream.Skip(-10));
-  ASSERT_EQ(true, stream.Skip(80));
+  ASSERT_EQ(true, !stream.SkipInt64(-10));
+  ASSERT_EQ(true, stream.SkipInt64(80));
   ASSERT_EQ(true, stream.Next(&ptr, &len));
   checkBytes(static_cast<const char*>(ptr), len, 100);
   EXPECT_EQ(20, len);
-  ASSERT_EQ(true, !stream.Skip(80));
+  ASSERT_EQ(true, !stream.SkipInt64(80));
   ASSERT_EQ(true, !stream.Next(&ptr, &len));
-  ASSERT_EQ(true, !stream.Skip(181));
+  ASSERT_EQ(true, !stream.SkipInt64(181));
   EXPECT_EQ(std::string(simpleFile) + " from 0 for 200", stream.getName());
 }
 
@@ -254,11 +254,11 @@ TEST_F(DecompressionTest, testFileCombo) {
   EXPECT_EQ(20, len);
   stream.BackUp(10);
   EXPECT_EQ(10, stream.ByteCount());
-  stream.Skip(4);
+  stream.SkipInt64(4);
   EXPECT_EQ(14, stream.ByteCount());
   ASSERT_EQ(true, stream.Next(&ptr, &len));
   checkBytes(static_cast<const char*>(ptr), len, 14);
-  EXPECT_EQ(true, !stream.Skip(320));
+  EXPECT_EQ(true, !stream.SkipInt64(320));
   EXPECT_EQ(200, stream.ByteCount());
   EXPECT_EQ(true, !stream.Next(&ptr, &len));
 }
@@ -600,7 +600,7 @@ TEST_F(DecompressionTest, testSkipZlib) {
   int32_t length;
   ASSERT_EQ(true, result->Next(&ptr, &length));
   ASSERT_EQ(2, length);
-  result->Skip(2);
+  result->SkipInt64(2);
   ASSERT_EQ(true, result->Next(&ptr, &length));
   ASSERT_EQ(3, length);
   EXPECT_EQ(4, static_cast<const char*>(ptr)[0]);
@@ -611,7 +611,7 @@ TEST_F(DecompressionTest, testSkipZlib) {
   ASSERT_EQ(2, length);
   EXPECT_EQ(5, static_cast<const char*>(ptr)[0]);
   EXPECT_EQ(6, static_cast<const char*>(ptr)[1]);
-  result->Skip(8);
+  result->SkipInt64(8);
   ASSERT_EQ(true, result->Next(&ptr, &length));
   ASSERT_EQ(2, length);
   EXPECT_EQ(15, static_cast<const char*>(ptr)[0]);
@@ -773,8 +773,9 @@ TEST_F(DecompressionTest, testSkipSnappy) {
   const void* data;
   int32_t length;
   // skip 1/2; in 2 jumps
-  ASSERT_TRUE(result->Skip(static_cast<int32_t>(((N / 2) - 2) * sizeof(int))));
-  ASSERT_TRUE(result->Skip(static_cast<int32_t>(2 * sizeof(int))));
+  ASSERT_TRUE(
+      result->SkipInt64(static_cast<int32_t>(((N / 2) - 2) * sizeof(int))));
+  ASSERT_TRUE(result->SkipInt64(static_cast<int32_t>(2 * sizeof(int))));
   ASSERT_TRUE(result->Next(&data, &length));
   ASSERT_EQ((N / 2) * sizeof(int), length);
   for (int32_t i = N / 2; i < N; ++i) {
@@ -820,8 +821,8 @@ TEST_F(DecompressionTest, testDelayedSkip) {
       bufByteSize);
   const void* data;
   int32_t length;
-  ASSERT_TRUE(result->Skip(bufByteSize / 2));
-  ASSERT_TRUE(result->Skip(bufByteSize / 2));
+  ASSERT_TRUE(result->SkipInt64(bufByteSize / 2));
+  ASSERT_TRUE(result->SkipInt64(bufByteSize / 2));
   ASSERT_TRUE(result->Next(&data, &length));
   ASSERT_EQ(length, bufByteSize);
   auto* dataAsInt = reinterpret_cast<const int*>(data);
