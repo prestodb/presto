@@ -563,8 +563,8 @@ class SsdFile {
   // File system.
   std::shared_ptr<filesystems::FileSystem> fs_;
 
-  // The size of actual cached data in bytes. Must be multiple of kRegionSize.
-  uint64_t dataSize_{0};
+  // Size of the backing file in bytes. Must be multiple of kRegionSize.
+  uint64_t fileSize_{0};
 
   // ReadFile for cache data file.
   std::unique_ptr<ReadFile> readFile_;

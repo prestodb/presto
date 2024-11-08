@@ -647,7 +647,7 @@ TEST_F(SsdFileTest, recoverFromCheckpointWithChecksum) {
       ASSERT_EQ(statsAfterRecover.entriesCached, stats.entriesCached);
     } else {
       ASSERT_EQ(statsAfterRecover.bytesCached, 0);
-      ASSERT_EQ(statsAfterRecover.regionsCached, 0);
+      ASSERT_EQ(statsAfterRecover.regionsCached, stats.regionsCached);
       ASSERT_EQ(statsAfterRecover.entriesCached, 0);
     }
 
