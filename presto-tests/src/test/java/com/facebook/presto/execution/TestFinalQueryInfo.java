@@ -27,7 +27,6 @@ import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
-import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -66,7 +65,6 @@ public class TestFinalQueryInfo
                     queryRunner.getCoordinator().getBaseUrl(),
                     "user",
                     "source",
-                    Optional.empty(),
                     ImmutableSet.of(),
                     null,
                     null,

@@ -49,7 +49,7 @@
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.12.560</dep.aws-sdk.version>
-        <dep.okhttp.version>3.9.0</dep.okhttp.version>
+        <dep.okhttp.version>4.12.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.38</dep.drift.version>
@@ -97,6 +97,9 @@
         <grpc.version>1.68.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <opentelemetry.version>1.38.0</opentelemetry.version>
+        <opentelemetry-alpha.version>1.38.0-alpha</opentelemetry-alpha.version>
+        <kotlin-stdlib-jdk8.version>1.9.10</kotlin-stdlib-jdk8.version>
     </properties>
 
     <modules>
@@ -2120,19 +2123,19 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-api</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-context</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-exporter-otlp</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.squareup.okhttp3</groupId>
@@ -2144,31 +2147,37 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-extension-trace-propagators</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-sdk-testing</artifactId>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk-common</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk-trace</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-semconv</artifactId>
-                <version>1.19.0-alpha</version>
+                <version>${opentelemetry-alpha.version}</version>
             </dependency>
 
             <dependency>
@@ -2217,6 +2226,12 @@
                 <groupId>com.datastax.cassandra</groupId>
                 <artifactId>cassandra-driver-core</artifactId>
                 <version>3.11.5</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib-jdk8</artifactId>
+                <version>${kotlin-stdlib-jdk8.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

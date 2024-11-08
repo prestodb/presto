@@ -322,7 +322,13 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
-        
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
+            <version>1.38.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -381,6 +387,17 @@
                     </excludes>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUsedUndeclaredDependencies>
+                        <ignoredUsedUndeclaredDependency>io.opentelemetry:opentelemetry-api</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
+                </configuration>
+            </plugin>
+
         </plugins>
     </build>
 

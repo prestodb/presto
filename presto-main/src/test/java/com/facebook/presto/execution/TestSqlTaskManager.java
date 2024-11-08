@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.opentelemetry.context.Context;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -351,7 +352,8 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(), null);
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
@@ -372,7 +374,8 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 outputBuffers,
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(), null);
     }
 
     public static class MockExchangeClientSupplier

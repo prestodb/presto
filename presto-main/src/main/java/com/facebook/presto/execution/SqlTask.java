@@ -17,6 +17,8 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.TelemetryConfig;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -45,12 +47,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -89,6 +95,7 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
     private final long creationTimeInMillis = System.currentTimeMillis();
+    private Span taskSpan = Span.getInvalid();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -157,49 +164,50 @@ public class SqlTask
     {
         requireNonNull(onDone, "onDone is null");
         requireNonNull(failedTasks, "failedTasks is null");
-        taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-        {
-            @Override
-            public void stateChanged(TaskState newState)
-            {
-                if (!newState.isDone()) {
+
+        taskStateMachine.addStateChangeListener(newState -> {
+            taskSpan.addEvent("task-state " + newState.name());
+            if (!newState.isDone()) {
+                return;
+            }
+
+            // Update failed tasks counter
+            if (newState == FAILED) {
+                failedTasks.update(1);
+            }
+
+            // store final task info
+            while (true) {
+                TaskHolder taskHolder = taskHolderReference.get();
+                if (taskHolder.isFinished()) {
+                    // another concurrent worker already set the final state
                     return;
                 }
 
-                // Update failed tasks counter
-                if (newState == FAILED) {
-                    failedTasks.update(1);
+                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
+                    break;
                 }
+            }
 
-                // store final task info
-                while (true) {
-                    TaskHolder taskHolder = taskHolderReference.get();
-                    if (taskHolder.isFinished()) {
-                        // another concurrent worker already set the final state
-                        return;
-                    }
+            // make sure buffers are cleaned up
+            if (newState == FAILED || newState == ABORTED) {
+                // don't close buffers for a failed query
+                // closed buffers signal to upstream tasks that everything finished cleanly
+                outputBuffer.fail();
+            }
+            else {
+                outputBuffer.destroy();
+            }
 
-                    if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
-                        break;
-                    }
-                }
+            try {
+                onDone.apply(SqlTask.this);
+            }
+            catch (Exception e) {
+                log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
+            }
 
-                // make sure buffers are cleaned up
-                if (newState == FAILED || newState == ABORTED) {
-                    // don't close buffers for a failed query
-                    // closed buffers signal to upstream tasks that everything finished cleanly
-                    outputBuffer.fail();
-                }
-                else {
-                    outputBuffer.destroy();
-                }
-
-                try {
-                    onDone.apply(SqlTask.this);
-                }
-                catch (Exception e) {
-                    log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
-                }
+            if (newState.isDone()) {
+                taskSpan.end();
             }
         });
     }
@@ -433,7 +441,9 @@ public class SqlTask
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            Optional<TableWriteInfo> tableWriteInfo)
+            Optional<TableWriteInfo> tableWriteInfo,
+            Context context,
+            Tracer tracer)
     {
         try {
             // The LazyOutput buffer does not support write methods, so the actual
@@ -453,6 +463,18 @@ public class SqlTask
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
                     checkState(tableWriteInfo.isPresent(), "tableWriteInfo must be present");
+
+                    if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(taskSpan)) {
+                        taskSpan = tracer.spanBuilder(TracingEnum.TASK.getName())
+                                .setParent(context)
+                                .setAttribute("node id", nodeId)
+                                .setAttribute("QUERY_ID", taskId.getQueryId().toString())
+                                .setAttribute("STAGE_ID", taskId.getStageId().toString())
+                                .setAttribute("TASK_ID", taskId.toString())
+                                .setAttribute("task instance id", getTaskInstanceId())
+                                .startSpan();
+                    }
+
                     taskExecution = sqlTaskExecutionFactory.create(
                             session,
                             queryContext,
@@ -461,7 +483,9 @@ public class SqlTask
                             taskExchangeClientManager,
                             fragment.get(),
                             sources,
-                            tableWriteInfo.get());
+                            tableWriteInfo.get(),
+                            taskSpan,
+                            tracer);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }

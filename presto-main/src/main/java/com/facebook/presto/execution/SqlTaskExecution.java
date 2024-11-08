@@ -14,6 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.presto.common.TelemetryConfig;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferState;
@@ -40,6 +42,9 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -54,6 +59,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -127,9 +133,12 @@ public class SqlTaskExecution
     private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithDriverGroupLifeCycle;
     private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle;
 
+    private final Tracer tracer;
+
     // guarded for update only
     @GuardedBy("this")
     private final ConcurrentMap<PlanNodeId, TaskSource> remoteSources = new ConcurrentHashMap<>();
+    private static Span taskSpan;
 
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
@@ -150,7 +159,9 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             Executor notificationExecutor,
-            SplitMonitor queryMonitor)
+            SplitMonitor queryMonitor,
+            Span taskSpan,
+            Tracer tracer)
     {
         SqlTaskExecution task = new SqlTaskExecution(
                 taskStateMachine,
@@ -159,7 +170,12 @@ public class SqlTaskExecution
                 localExecutionPlan,
                 taskExecutor,
                 queryMonitor,
-                notificationExecutor);
+                notificationExecutor,
+                taskSpan,
+                tracer);
+
+        taskExecutor.setTaskId(task.taskId);
+
         try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
             // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
             // The call back is accessed from another thread, so this code can not be placed in the constructor.
@@ -176,7 +192,9 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
-            Executor notificationExecutor)
+            Executor notificationExecutor,
+            Span taskSpan,
+            Tracer tracer)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.taskId = taskStateMachine.getTaskId();
@@ -187,6 +205,8 @@ public class SqlTaskExecution
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
+        this.taskSpan = taskSpan;
+        this.tracer = tracer;
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // index driver factories
@@ -197,15 +217,15 @@ public class SqlTaskExecution
             for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
                 Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
                 if (sourceId.isPresent() && tableScanSources.contains(sourceId.get())) {
-                    driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
+                    driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true, tracer));
                 }
                 else {
                     switch (driverFactory.getPipelineExecutionStrategy()) {
                         case GROUPED_EXECUTION:
-                            driverRunnerFactoriesWithDriverGroupLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false));
+                            driverRunnerFactoriesWithDriverGroupLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false, tracer));
                             break;
                         case UNGROUPED_EXECUTION:
-                            driverRunnerFactoriesWithTaskLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false));
+                            driverRunnerFactoriesWithTaskLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false, tracer));
                             break;
                         default:
                             throw new UnsupportedOperationException();
@@ -558,6 +578,7 @@ public class SqlTaskExecution
 
             // record new driver
             status.incrementRemainingDriver(splitRunner.getLifespan());
+            Span pipelineSpan = splitRunner.getPipelineSpan();
 
             Futures.addCallback(finishedFuture, new FutureCallback<Object>()
             {
@@ -570,7 +591,7 @@ public class SqlTaskExecution
 
                         checkTaskCompletion();
 
-                        splitMonitor.splitCompletedEvent(taskId, getDriverStats());
+                        splitMonitor.splitCompletedEvent(taskId, getDriverStats(), pipelineSpan, tracer);
                     }
                 }
 
@@ -584,7 +605,7 @@ public class SqlTaskExecution
                         status.decrementRemainingDriver(splitRunner.getLifespan());
 
                         // fire failed event with cause
-                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
+                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause, pipelineSpan, tracer);
                     }
                 }
 
@@ -920,11 +941,22 @@ public class SqlTaskExecution
         private final DriverFactory driverFactory;
         private final PipelineContext pipelineContext;
         private boolean closed;
+        private final Span pipelineSpan;
+        private final int pipelineId;
 
-        private DriverSplitRunnerFactory(DriverFactory driverFactory, boolean partitioned)
+        private DriverSplitRunnerFactory(DriverFactory driverFactory, boolean partitioned, Tracer tracer)
         {
             this.driverFactory = driverFactory;
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
+            this.pipelineId = pipelineContext.getPipelineId();
+
+            this.pipelineSpan = (!TelemetryConfig.getTracingEnabled()) ? null : tracer.spanBuilder(TracingEnum.PIPELINE.getName())
+                    .setParent((taskSpan != null) ? Context.current().with(taskSpan) : Context.current())
+                    .setAttribute("QUERY_ID", taskId.getQueryId().toString())
+                    .setAttribute("STAGE_ID", taskId.getStageId().toString())
+                    .setAttribute("TASK_ID", taskId.toString())
+                    .setAttribute("PIPELINE_ID", taskId.getStageId() + "-" + pipelineContext.getPipelineId())
+                    .startSpan();
         }
 
         // TODO: split this method into two: createPartitionedDriverRunner and createUnpartitionedDriverRunner.
@@ -993,6 +1025,9 @@ public class SqlTaskExecution
                 return;
             }
             driverFactory.noMoreDrivers();
+            if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(pipelineSpan)) {
+                pipelineSpan.addEvent("driver-factory-closed");
+            }
             closed = true;
         }
 
@@ -1047,6 +1082,12 @@ public class SqlTaskExecution
         public Lifespan getLifespan()
         {
             return lifespan;
+        }
+
+        @Override
+        public Span getPipelineSpan()
+        {
+            return driverSplitRunnerFactory.pipelineSpan;
         }
 
         @Override

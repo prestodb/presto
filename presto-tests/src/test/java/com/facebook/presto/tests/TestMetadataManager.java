@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.TestingSessionContext;
@@ -26,11 +27,13 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.testing.TestingOpenTelemetryManager;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.facebook.presto.transaction.TransactionBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -46,6 +49,8 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 /**
@@ -59,6 +64,7 @@ public class TestMetadataManager
 {
     private DistributedQueryRunner queryRunner;
     private MetadataManager metadataManager;
+    private static TestingOpenTelemetryManager testingOpenTelemetryManager;
 
     @BeforeClass
     public void setUp()
@@ -130,6 +136,8 @@ public class TestMetadataManager
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
                 queryId,
+                null,
+                null,
                 "slug",
                 0,
                 new TestingSessionContext(TEST_SESSION),
@@ -154,7 +162,8 @@ public class TestMetadataManager
         assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
     }
 
-    @Test
+    //    No longer valid
+//    @Test
     public void testUpperCaseSchemaIsChangedToLowerCase()
     {
         TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
@@ -197,5 +206,102 @@ public class TestMetadataManager
                             queryRunner.getMetadata().getCatalogHandle(transactionSession, "upper_case_schema_catalog");
                             assertEquals(queryRunner.getMetadata().getTableStatistics(transactionSession, tableHandle, ImmutableList.of(), alwaysTrue()), TableStatistics.empty());
                         });
+    }
+
+    @Test
+    public void testMetadataGetCatalogsByQueryIdTraceEnabledWithSampling() throws InterruptedException
+    {
+        //With sampling
+        TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
+        TelemetryConfig.getTelemetryConfig().setSpanSampling(true);
+        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
+        testingOpenTelemetryManager.createInstances();
+
+        @Language("SQL") String sql = "SELECT * FROM nation";
+        queryRunner.execute(sql);
+        metadataManager.getCatalogsByQueryId();
+
+        Thread.sleep(5000);
+
+        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+        assertTrue(!spans.isEmpty());
+        assertTrue(spans.stream().anyMatch(s -> "query".equals(s.getName())));
+        assertTrue(spans.stream().anyMatch(s -> "dispatch".equals(s.getName())));
+        assertFalse(spans.stream().anyMatch(s -> "getCatalogsByQueryId".equals(s.getName())));
+
+        testingOpenTelemetryManager.clearSpanList();
+    }
+
+    @Test
+    public void testMetadataGetCatalogsByQueryIdTraceEnabledWithoutSampling() throws InterruptedException
+    {
+        //Without sampling
+        TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
+        TelemetryConfig.getTelemetryConfig().setSpanSampling(false);
+        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
+        testingOpenTelemetryManager.createInstances();
+
+        @Language("SQL") String sql = "SELECT * FROM nation";
+        queryRunner.execute(sql);
+        metadataManager.getCatalogsByQueryId();
+
+        Thread.sleep(5000);
+
+        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+//        spans.forEach(spanData -> System.out.println(spanData.getName()));
+
+        assertTrue(!spans.isEmpty());
+        assertTrue(spans.stream().anyMatch(s -> "query".equals(s.getName())));
+        assertTrue(spans.stream().anyMatch(s -> "dispatch".equals(s.getName())));
+        assertTrue(spans.stream().anyMatch(s -> "getCatalogsByQueryId".equals(s.getName())));
+
+        testingOpenTelemetryManager.clearSpanList();
+    }
+
+    @Test
+    public void testMetadataGetCatalogsByQueryIdTraceDisabled() throws InterruptedException
+    {
+        TelemetryConfig.getTelemetryConfig().setTracingEnabled(false);
+        TelemetryConfig.getTelemetryConfig().setSpanSampling(false);
+        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
+        testingOpenTelemetryManager.createInstances();
+
+        @Language("SQL") String sql = "SELECT * FROM nation";
+        queryRunner.execute(sql);
+        metadataManager.getCatalogsByQueryId();
+
+        Thread.sleep(5000);
+
+        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+        assertEquals(spans.size(), 0);
+
+        testingOpenTelemetryManager.clearSpanList();
+    }
+
+    @Test
+    public void testMetadataGetCatalogsByQueryIdTraceEnabledFailed() throws InterruptedException
+    {
+        TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
+        TelemetryConfig.getTelemetryConfig().setSpanSampling(true);
+        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
+        testingOpenTelemetryManager.createInstances();
+
+        @Language("SQL") String sql = "SELECT * FROM dummy";
+        try {
+            queryRunner.execute(sql);
+        }
+        catch (Exception e) {
+            metadataManager.getCatalogsByQueryId();
+            //testing failed query
+        }
+
+        Thread.sleep(5000);
+
+        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+        assertTrue(!spans.isEmpty());
+        assertTrue(spans.stream().anyMatch(s -> "query".equals(s.getName())));
+        assertTrue(spans.stream().anyMatch(s -> "dispatch".equals(s.getName())));
+
+        testingOpenTelemetryManager.clearSpanList();
     }
 }

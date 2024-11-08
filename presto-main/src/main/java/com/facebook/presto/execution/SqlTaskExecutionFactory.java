@@ -28,6 +28,8 @@ import com.facebook.presto.sql.planner.HttpRemoteSourceFactory;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 
 import java.util.List;
 import java.util.Optional;
@@ -85,7 +87,9 @@ public class SqlTaskExecutionFactory
             TaskExchangeClientManager taskExchangeClientManager,
             PlanFragment fragment,
             List<TaskSource> sources,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            Span taskSpan,
+            Tracer tracer)
     {
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
@@ -123,6 +127,8 @@ public class SqlTaskExecutionFactory
                 localExecutionPlan,
                 taskExecutor,
                 taskNotificationExecutor,
-                splitMonitor);
+                splitMonitor,
+                taskSpan,
+                tracer);
     }
 }

@@ -319,6 +319,18 @@
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUsedUndeclaredDependencies>
+                        <dependency>io.opentelemetry:opentelemetry-context</dependency>
+                        <dependency>io.opentelemetry:opentelemetry-api</dependency>
+                    </ignoredUsedUndeclaredDependencies>
+                </configuration>
+            </plugin>
+	    
         </plugins>
     </build>
 

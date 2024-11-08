@@ -59,6 +59,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
+import io.opentelemetry.api.trace.Span;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -148,7 +149,7 @@ public class MockRemoteTaskFactory
                 nodeStatsTracker,
                 true,
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
-                SchedulerStatsTracker.NOOP);
+                SchedulerStatsTracker.NOOP, null);
     }
 
     @Override
@@ -162,7 +163,8 @@ public class MockRemoteTaskFactory
             NodeTaskMap.NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
-            SchedulerStatsTracker schedulerStatsTracker)
+            SchedulerStatsTracker schedulerStatsTracker,
+            Span stageSpan)
     {
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, nodeStatsTracker);
     }
