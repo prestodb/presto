@@ -46,6 +46,7 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -205,7 +206,8 @@ public class HttpRemoteTaskFactory
             NodeTaskMap.NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
-            SchedulerStatsTracker schedulerStatsTracker)
+            SchedulerStatsTracker schedulerStatsTracker,
+            BaseSpan stageSpan)
     {
         return HttpRemoteTask.createHttpRemoteTask(
                 session,
@@ -242,7 +244,8 @@ public class HttpRemoteTaskFactory
                 handleResolver,
                 connectorTypeSerdeManager,
                 schedulerStatsTracker,
-                (SafeEventLoop) eventLoopGroup.next());
+                (SafeEventLoop) eventLoopGroup.next(),
+                stageSpan);
     }
 
     /***

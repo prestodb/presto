@@ -18,6 +18,7 @@ import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.dispatcher.DispatchExecutor;
 import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.dispatcher.DispatchManager;
@@ -28,8 +29,10 @@ import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.facebook.presto.tracing.TracerProviderManager;
+import com.facebook.presto.telemetry.TracingManager;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -125,7 +128,6 @@ public class QueuedStatementResource
     private final boolean nestedDataSerializationEnabled;
 
     private final SqlParserOptions sqlParserOptions;
-    private final TracerProviderManager tracerProviderManager;
     private final SessionPropertyManager sessionPropertyManager;     // We may need some system default session property values at early query stage even before session is created.
 
     private final QueryBlockingRateLimiter queryRateLimiter;
@@ -137,7 +139,6 @@ public class QueuedStatementResource
             ExecutingQueryResponseProvider executingQueryResponseProvider,
             SqlParserOptions sqlParserOptions,
             ServerConfig serverConfig,
-            TracerProviderManager tracerProviderManager,
             SessionPropertyManager sessionPropertyManager,
             QueryBlockingRateLimiter queryRateLimiter)
     {
@@ -149,7 +150,6 @@ public class QueuedStatementResource
 
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
-        this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
         this.sessionPropertyManager = sessionPropertyManager;
 
         this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
@@ -216,7 +216,6 @@ public class QueuedStatementResource
         SessionContext sessionContext = new HttpRequestSessionContext(
                 servletRequest,
                 sqlParserOptions,
-                tracerProviderManager.getTracerProvider(),
                 Optional.of(sessionPropertyManager));
         Query query = new Query(statement, sessionContext, dispatchManager, executingQueryResponseProvider, 0);
         queries.put(query.getQueryId(), query);
@@ -264,7 +263,6 @@ public class QueuedStatementResource
         SessionContext sessionContext = new HttpRequestSessionContext(
                 servletRequest,
                 sqlParserOptions,
-                tracerProviderManager.getTracerProvider(),
                 Optional.of(sessionPropertyManager));
         Query attemptedQuery = new Query(statement, sessionContext, dispatchManager, executingQueryResponseProvider, 0, queryId, slug);
         Query query = queries.computeIfAbsent(queryId, unused -> attemptedQuery);
@@ -534,7 +532,12 @@ public class QueuedStatementResource
             // if query submission has not finished, wait for it to finish
             synchronized (this) {
                 if (querySubmissionFuture == null) {
-                    querySubmissionFuture = dispatchManager.createQuery(queryId, slug, retryCount, sessionContext, query);
+                    //start tracing with root span for POST /v1/statement endpoint
+                    BaseSpan rootSpan = TracingManager.getRootSpan();
+                    BaseSpan querySpan = TracingManager.getSpan(rootSpan, TracingEnum.QUERY.getName(), ImmutableMap.of("QUERY_ID", queryId.toString()));
+
+                    //propagate root and query spans through session
+                    querySubmissionFuture = dispatchManager.createQuery(queryId, querySpan, rootSpan, slug, retryCount, sessionContext, query);
                 }
                 if (!querySubmissionFuture.isDone()) {
                     return querySubmissionFuture;
