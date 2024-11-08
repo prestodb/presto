@@ -13,37 +13,32 @@
  */
 package com.facebook.presto.spi.tracing;
 
-public class NoopTracer
-        implements Tracer
+import java.util.Optional;
+
+/**
+ * The SPI BaseSpan implemented by TracingSpan and ScopedSpan.
+ */
+public interface BaseSpan
+        extends AutoCloseable
 {
     @Override
-    public void addPoint(String annotation)
+    default void close()
     {
+        return;
     }
 
-    @Override
-    public void startBlock(String blockName, String annotation)
+    default void end()
     {
+        return;
     }
 
-    @Override
-    public void addPointToBlock(String blockName, String annotation)
+    /**
+     * Returns the span info as string.
+     *
+     * @return the optional
+     */
+    default Optional<String> spanString()
     {
-    }
-
-    @Override
-    public void endBlock(String blockName, String annotation)
-    {
-    }
-
-    @Override
-    public void endTrace(String annotation)
-    {
-    }
-
-    @Override
-    public String getTracerId()
-    {
-        return "noop_dummy_id";
+        return Optional.empty();
     }
 }

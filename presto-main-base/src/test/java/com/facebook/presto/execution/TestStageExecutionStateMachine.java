@@ -289,6 +289,6 @@ public class TestStageExecutionStateMachine
 
     private StageExecutionStateMachine createStageStateMachine()
     {
-        return new StageExecutionStateMachine(STAGE_ID, executor, new SplitSchedulerStats(), false);
+        return new StageExecutionStateMachine(STAGE_ID, executor, new SplitSchedulerStats(), false, null);
     }
 }

@@ -182,6 +182,7 @@ public class TaskExecutor
     private volatile boolean closed;
 
     private volatile boolean lowMemory;
+    private TaskId taskId;
 
     @Inject
     public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue)
@@ -297,6 +298,11 @@ public class TaskExecutor
         this.interruptRunawaySplitsTimeout = interruptRunawaySplitsTimeout;
         this.interruptibleSplitPredicate = interruptibleSplitPredicate;
         this.interruptSplitInterval = interruptSplitInterval;
+    }
+
+    public void setTaskId(TaskId taskId)
+    {
+        this.taskId = taskId;
     }
 
     @PostConstruct

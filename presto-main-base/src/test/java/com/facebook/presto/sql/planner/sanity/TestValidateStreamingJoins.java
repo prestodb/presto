@@ -42,7 +42,6 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tpch.TpchTableLayoutHandle;
-import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -87,7 +86,6 @@ public class TestValidateStreamingJoins
                         new WarningCollectorConfig(),
                         new NodeSchedulerConfig(),
                         new NodeSpillConfig(),
-                        new TracingConfig(),
                         new CompilerConfig(),
                         new HistoryBasedOptimizationConfig())))
                 .setCatalog("local")

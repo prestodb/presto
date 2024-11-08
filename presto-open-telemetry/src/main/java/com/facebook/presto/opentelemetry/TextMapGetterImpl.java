@@ -13,12 +13,25 @@
  */
 package com.facebook.presto.opentelemetry;
 
-public class OpenTelemetryHeaders
-{
-    public static final String PRESTO_W3C_PROPAGATION = "traceparent";
-    public static final String PRESTO_B3_SINGLE_HEADER_PROPAGATION = "b3";
-    public static final String PRESTO_TRACE_TOKEN = "X-Presto-Trace-Token";
-    public static final String PRESTO_BAGGAGE_HEADER = "baggage";
+import io.opentelemetry.context.propagation.TextMapGetter;
 
-    private OpenTelemetryHeaders() {}
+import java.util.Collections;
+
+public class TextMapGetterImpl
+        implements TextMapGetter<Object>
+{
+    @Override
+    public Iterable<String> keys(Object carrier)
+    {
+        return Collections.singletonList("traceparent");
+    }
+
+    @Override
+    public String get(Object carrier, String key)
+    {
+        if ("traceparent".equals(key)) {
+            return (String) carrier;
+        }
+        return null;
+    }
 }

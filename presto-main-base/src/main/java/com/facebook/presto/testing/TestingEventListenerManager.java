@@ -22,6 +22,7 @@ import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -75,7 +76,7 @@ public class TestingEventListenerManager
     }
 
     @Override
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
+    public void splitCompleted(SplitCompletedEvent splitCompletedEvent, BaseSpan span)
     {
         configuredEventListeners.get()
                 .forEach(eventListener -> eventListener.splitCompleted(splitCompletedEvent));

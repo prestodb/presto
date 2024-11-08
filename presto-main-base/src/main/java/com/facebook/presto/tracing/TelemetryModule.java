@@ -11,12 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.opentelemetry;
+package com.facebook.presto.tracing;
 
-public final class OpenTelemetryContextPropagator
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
+
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
+
+public class TelemetryModule
+        implements Module
 {
-    private OpenTelemetryContextPropagator() {};
-
-    public static final String W3C = "w3c";
-    public static final String B3_SINGLE_HEADER = "b3_single_header";
+    @Override
+    public void configure(Binder binder)
+    {
+        binder.bind(TracingManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TracingManager.class).withGeneratedName();
+    }
 }

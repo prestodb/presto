@@ -15,10 +15,11 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.tracing.BaseSpan;
 
 import static com.facebook.presto.Session.SessionBuilder;
 
 public interface SessionSupplier
 {
-    SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory);
+    SessionBuilder createSessionBuilder(QueryId queryId, BaseSpan querySpan, BaseSpan rootSpan, SessionContext context, WarningCollectorFactory warningCollectorFactory);
 }

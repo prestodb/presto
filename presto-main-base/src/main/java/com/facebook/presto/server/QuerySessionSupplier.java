@@ -27,6 +27,7 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.transaction.TransactionManager;
 
@@ -74,10 +75,12 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
+    public SessionBuilder createSessionBuilder(QueryId queryId, BaseSpan querySpan, BaseSpan rootSpan, SessionContext context, WarningCollectorFactory warningCollectorFactory)
     {
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
+                .setQuerySpan(querySpan)
+                .setRootSpan(rootSpan)
                 .setIdentity(authenticateIdentity(queryId, context))
                 .setSource(context.getSource())
                 .setCatalog(context.getCatalog())
@@ -88,7 +91,6 @@ public class QuerySessionSupplier
                 .setClientTags(context.getClientTags())
                 .setTraceToken(context.getTraceToken())
                 .setResourceEstimates(context.getResourceEstimates())
-                .setTracer(context.getTracer())
                 .setRuntimeStats(context.getRuntimeStats());
 
         if (forcedSessionTimeZone.isPresent()) {

@@ -40,6 +40,7 @@ import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -171,7 +172,8 @@ public class SectionExecutionFactory
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             int attemptId,
-            CTEMaterializationTracker cteMaterializationTracker)
+            CTEMaterializationTracker cteMaterializationTracker,
+            BaseSpan schedulerSpan)
     {
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
@@ -188,7 +190,8 @@ public class SectionExecutionFactory
                 remoteTaskFactory,
                 splitSourceFactory,
                 attemptId,
-                cteMaterializationTracker);
+                cteMaterializationTracker,
+                schedulerSpan);
         StageExecutionAndScheduler rootStage = getLast(sectionStages);
         rootStage.getStageExecution().setOutputBuffers(outputBuffers);
         return new SectionExecution(rootStage, sectionStages);
@@ -208,7 +211,8 @@ public class SectionExecutionFactory
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             int attemptId,
-            CTEMaterializationTracker cteMaterializationTracker)
+            CTEMaterializationTracker cteMaterializationTracker,
+            BaseSpan schedulerSpan)
     {
         ImmutableList.Builder<StageExecutionAndScheduler> stageExecutionAndSchedulers = ImmutableList.builder();
 
@@ -224,7 +228,8 @@ public class SectionExecutionFactory
                 executor,
                 failureDetector,
                 schedulerStats,
-                tableWriteInfo);
+                tableWriteInfo,
+                schedulerSpan);
 
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
         List<RemoteSourceNode> remoteSourceNodes = plan.getFragment().getRemoteSourceNodes();
@@ -244,7 +249,8 @@ public class SectionExecutionFactory
                     remoteTaskFactory,
                     splitSourceFactory,
                     attemptId,
-                    cteMaterializationTracker);
+                    cteMaterializationTracker,
+                    schedulerSpan);
             stageExecutionAndSchedulers.addAll(subTree);
             childStagesBuilder.add(getLast(subTree).getStageExecution());
         }
