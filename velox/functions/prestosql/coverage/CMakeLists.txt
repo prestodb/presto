@@ -18,5 +18,6 @@ target_link_libraries(
   velox_functions_prestosql
   velox_function_registry
   velox_aggregates
+  velox_row_fast
   velox_window
   velox_coverage_util)

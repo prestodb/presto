@@ -21,13 +21,12 @@ namespace facebook::velox::serializer::spark {
 
 class UnsafeRowVectorSerde : public VectorSerde {
  public:
-  UnsafeRowVectorSerde() = default;
-  // We do not implement this method since it is not used in production code.
+  UnsafeRowVectorSerde() : VectorSerde(VectorSerde::Kind::kUnsafeRow) {}
+
   void estimateSerializedSize(
-      const BaseVector* vector,
-      const folly::Range<const IndexRange*>& ranges,
-      vector_size_t** sizes,
-      Scratch& scratch) override;
+      const row::UnsafeRowFast* unsafeRow,
+      const folly::Range<const vector_size_t*>& rows,
+      vector_size_t** sizes) override;
 
   // This method is not used in production code. It is only used to
   // support round-trip tests for deserialization.
@@ -46,5 +45,6 @@ class UnsafeRowVectorSerde : public VectorSerde {
       const Options* options) override;
 
   static void registerVectorSerde();
+  static void registerNamedVectorSerde();
 };
 } // namespace facebook::velox::serializer::spark

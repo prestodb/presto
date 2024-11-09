@@ -30,6 +30,7 @@ DECLARE_int32(pipeline_id);
 DECLARE_string(operator_type);
 DECLARE_string(table_writer_output_dir);
 DECLARE_double(hiveConnectorExecutorHwMultiplier);
+DECLARE_int32(shuffle_serialization_format);
 
 namespace facebook::velox::tool::trace {
 

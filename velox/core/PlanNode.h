@@ -22,6 +22,7 @@
 #include "velox/connectors/Connector.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/vector/VectorStream.h"
 
 struct ArrowArrayStream;
 
@@ -1012,8 +1013,16 @@ class GroupIdNode : public PlanNode {
 
 class ExchangeNode : public PlanNode {
  public:
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   ExchangeNode(const PlanNodeId& id, RowTypePtr type)
-      : PlanNode(id), outputType_(type) {}
+      : ExchangeNode(id, std::move(type), VectorSerde::Kind::kPresto) {}
+#endif
+
+  ExchangeNode(
+      const PlanNodeId& id,
+      RowTypePtr type,
+      VectorSerde::Kind serdeKind)
+      : PlanNode(id), outputType_(type), serdeKind_(serdeKind) {}
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -1033,6 +1042,10 @@ class ExchangeNode : public PlanNode {
     return "Exchange";
   }
 
+  VectorSerde::Kind serdeKind() const {
+    return serdeKind_;
+  }
+
   folly::dynamic serialize() const override;
 
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
@@ -1040,19 +1053,32 @@ class ExchangeNode : public PlanNode {
  private:
   void addDetails(std::stringstream& stream) const override;
 
-  RowTypePtr outputType_;
+  const RowTypePtr outputType_;
+  const VectorSerde::Kind serdeKind_;
 };
 
 class MergeExchangeNode : public ExchangeNode {
  public:
-  explicit MergeExchangeNode(
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  MergeExchangeNode(
       const PlanNodeId& id,
       const RowTypePtr& type,
       const std::vector<FieldAccessTypedExprPtr>& sortingKeys,
       const std::vector<SortOrder>& sortingOrders)
-      : ExchangeNode(id, type),
-        sortingKeys_(sortingKeys),
-        sortingOrders_(sortingOrders) {}
+      : MergeExchangeNode(
+            id,
+            type,
+            sortingKeys,
+            sortingOrders,
+            VectorSerde::Kind::kPresto) {}
+#endif
+
+  MergeExchangeNode(
+      const PlanNodeId& id,
+      const RowTypePtr& type,
+      const std::vector<FieldAccessTypedExprPtr>& sortingKeys,
+      const std::vector<SortOrder>& sortingOrders,
+      VectorSerde::Kind serdeKind);
 
   const std::vector<FieldAccessTypedExprPtr>& sortingKeys() const {
     return sortingKeys_;
@@ -1271,6 +1297,7 @@ class PartitionedOutputNode : public PlanNode {
   static std::string kindString(Kind kind);
   static Kind stringToKind(const std::string& str);
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   PartitionedOutputNode(
       const PlanNodeId& id,
       Kind kind,
@@ -1280,72 +1307,84 @@ class PartitionedOutputNode : public PlanNode {
       PartitionFunctionSpecPtr partitionFunctionSpec,
       RowTypePtr outputType,
       PlanNodePtr source)
-      : PlanNode(id),
-        kind_(kind),
-        sources_{{std::move(source)}},
-        keys_(keys),
-        numPartitions_(numPartitions),
-        replicateNullsAndAny_(replicateNullsAndAny),
-        partitionFunctionSpec_(std::move(partitionFunctionSpec)),
-        outputType_(std::move(outputType)) {
-    VELOX_USER_CHECK_GT(numPartitions, 0);
-    if (numPartitions_ == 1) {
-      VELOX_USER_CHECK(
-          keys_.empty(),
-          "Non-empty partitioning keys require more than one partition");
-    }
-    if (!isPartitioned()) {
-      VELOX_USER_CHECK(
-          keys_.empty(),
-          "{} partitioning doesn't allow for partitioning keys",
-          kindString(kind_));
-    }
-  }
+      : PartitionedOutputNode(
+            id,
+            kind,
+            keys,
+            numPartitions,
+            replicateNullsAndAny,
+            std::move(partitionFunctionSpec),
+            std::move(outputType),
+            VectorSerde::Kind::kPresto,
+            std::move(source)) {}
+#endif
 
+  PartitionedOutputNode(
+      const PlanNodeId& id,
+      Kind kind,
+      const std::vector<TypedExprPtr>& keys,
+      int numPartitions,
+      bool replicateNullsAndAny,
+      PartitionFunctionSpecPtr partitionFunctionSpec,
+      RowTypePtr outputType,
+      VectorSerde::Kind serdeKind,
+      PlanNodePtr source);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   static std::shared_ptr<PartitionedOutputNode> broadcast(
       const PlanNodeId& id,
       int numPartitions,
       RowTypePtr outputType,
       PlanNodePtr source) {
-    std::vector<TypedExprPtr> noKeys;
-    return std::make_shared<PartitionedOutputNode>(
+    return broadcast(
         id,
-        Kind::kBroadcast,
-        noKeys,
         numPartitions,
-        false,
-        std::make_shared<GatherPartitionFunctionSpec>(),
         std::move(outputType),
+        VectorSerde::Kind::kPresto,
         std::move(source));
   }
+#endif
 
+  static std::shared_ptr<PartitionedOutputNode> broadcast(
+      const PlanNodeId& id,
+      int numPartitions,
+      RowTypePtr outputType,
+      VectorSerde::Kind serdeKind,
+      PlanNodePtr source);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   static std::shared_ptr<PartitionedOutputNode>
   arbitrary(const PlanNodeId& id, RowTypePtr outputType, PlanNodePtr source) {
-    std::vector<TypedExprPtr> noKeys;
-    return std::make_shared<PartitionedOutputNode>(
+    return arbitrary(
         id,
-        Kind::kArbitrary,
-        noKeys,
-        1,
-        false,
-        std::make_shared<GatherPartitionFunctionSpec>(),
         std::move(outputType),
+        VectorSerde::Kind::kPresto,
         std::move(source));
   }
+#endif
 
+  static std::shared_ptr<PartitionedOutputNode> arbitrary(
+      const PlanNodeId& id,
+      RowTypePtr outputType,
+      VectorSerde::Kind serdeKind,
+      PlanNodePtr source);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   static std::shared_ptr<PartitionedOutputNode>
   single(const PlanNodeId& id, RowTypePtr outputType, PlanNodePtr source) {
-    std::vector<TypedExprPtr> noKeys;
-    return std::make_shared<PartitionedOutputNode>(
+    return single(
         id,
-        Kind::kPartitioned,
-        noKeys,
-        1,
-        false,
-        std::make_shared<GatherPartitionFunctionSpec>(),
         std::move(outputType),
+        VectorSerde::Kind::kPresto,
         std::move(source));
   }
+#endif
+
+  static std::shared_ptr<PartitionedOutputNode> single(
+      const PlanNodeId& id,
+      RowTypePtr outputType,
+      VectorSerde::Kind VectorSerde,
+      PlanNodePtr source);
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -1383,6 +1422,10 @@ class PartitionedOutputNode : public PlanNode {
     return kind_;
   }
 
+  VectorSerde::Kind serdeKind() const {
+    return serdeKind_;
+  }
+
   /// Returns true if an arbitrary row and all rows with null keys must be
   /// replicated to all destinations. This is used to ensure correct results
   /// for anti-join which requires all nodes to know whether combined build
@@ -1416,6 +1459,7 @@ class PartitionedOutputNode : public PlanNode {
   const int numPartitions_;
   const bool replicateNullsAndAny_;
   const PartitionFunctionSpecPtr partitionFunctionSpec_;
+  const VectorSerde::Kind serdeKind_;
   const RowTypePtr outputType_;
 };
 

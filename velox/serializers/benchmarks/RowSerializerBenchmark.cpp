@@ -43,7 +43,7 @@ class RowSerializerBenchmark {
     suspender.dismiss();
 
     Scratch scratch;
-    auto group = std::make_unique<VectorStreamGroup>(pool_.get());
+    auto group = std::make_unique<VectorStreamGroup>(pool_.get(), nullptr);
     group->createStreamTree(rowType, data->size());
     group->append(
         data, folly::Range(indexRanges.data(), indexRanges.size()), scratch);

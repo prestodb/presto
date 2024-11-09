@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/Exchange.h"
+
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
@@ -74,12 +75,9 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
     getSplits(&splitFuture_);
   }
 
-  const auto maxBytes = getSerde()->supportsAppendInDeserialize()
-      ? preferredOutputBatchBytes_
-      : 1;
-
   ContinueFuture dataFuture;
-  currentPages_ = exchangeClient_->next(maxBytes, &atEnd_, &dataFuture);
+  currentPages_ =
+      exchangeClient_->next(preferredOutputBatchBytes_, &atEnd_, &dataFuture);
   if (!currentPages_.empty() || atEnd_) {
     if (atEnd_ && noMoreSplits_) {
       const auto numSplits = stats_.rlock()->numSplits;
@@ -116,23 +114,51 @@ RowVectorPtr Exchange::getOutput() {
 
   uint64_t rawInputBytes{0};
   vector_size_t resultOffset = 0;
-  for (const auto& page : currentPages_) {
-    rawInputBytes += page->size();
+  if (getSerde()->supportsAppendInDeserialize()) {
+    for (const auto& page : currentPages_) {
+      rawInputBytes += page->size();
 
-    auto inputStream = page->prepareStreamForDeserialize();
+      auto inputStream = page->prepareStreamForDeserialize();
 
-    while (!inputStream->atEnd()) {
-      getSerde()->deserialize(
-          inputStream.get(),
-          pool(),
-          outputType_,
-          &result_,
-          resultOffset,
-          &options_);
-      resultOffset = result_->size();
+      while (!inputStream->atEnd()) {
+        getSerde()->deserialize(
+            inputStream.get(),
+            pool(),
+            outputType_,
+            &result_,
+            resultOffset,
+            &options_);
+        resultOffset = result_->size();
+      }
     }
-  }
+  } else {
+    VELOX_CHECK(
+        getSerde()->kind() == VectorSerde::Kind::kCompactRow ||
+        getSerde()->kind() == VectorSerde::Kind::kUnsafeRow);
 
+    std::unique_ptr<folly::IOBuf> mergedBufs;
+    for (const auto& page : currentPages_) {
+      rawInputBytes += page->size();
+      if (mergedBufs == nullptr) {
+        mergedBufs = page->getIOBuf()->clone();
+      } else {
+        mergedBufs->appendToChain(page->getIOBuf()->clone());
+      }
+    }
+    VELOX_CHECK_NOT_NULL(mergedBufs);
+    auto mergedPages = std::make_unique<SerializedPage>(std::move(mergedBufs));
+    auto inputStream = mergedPages->prepareStreamForDeserialize();
+    getSerde()->deserialize(
+        inputStream.get(),
+        pool(),
+        outputType_,
+        &result_,
+        resultOffset,
+        &options_);
+    // We expect the row-wise deserialization to consume all the input into one
+    // output vector.
+    VELOX_CHECK(inputStream->atEnd());
+  }
   currentPages_.clear();
 
   {
@@ -154,6 +180,9 @@ void Exchange::close() {
     exchangeClient_->close();
   }
   exchangeClient_ = nullptr;
+  stats_.wlock()->addRuntimeStat(
+      Operator::kShuffleSerdeKind,
+      RuntimeCounter(static_cast<int64_t>(serdeKind_)));
 }
 
 void Exchange::recordExchangeClientStats() {
@@ -182,7 +211,7 @@ void Exchange::recordExchangeClientStats() {
 }
 
 VectorSerde* Exchange::getSerde() {
-  return getVectorSerde();
+  return getNamedVectorSerde(serdeKind_);
 }
 
 } // namespace facebook::velox::exec

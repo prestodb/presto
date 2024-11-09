@@ -15,11 +15,16 @@
  */
 
 #include <gtest/gtest.h>
-#include <velox/vector/VectorStream.h>
+
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::test {
 
 class MockVectorSerde : public VectorSerde {
+ public:
+  MockVectorSerde() : VectorSerde(VectorSerde::Kind::kPresto) {}
+
   void estimateSerializedSize(
       const BaseVector* /*vector*/,
       const folly::Range<const IndexRange*>& ranges,
@@ -66,35 +71,40 @@ TEST(VectorStreamTest, serdeRegistration) {
 }
 
 TEST(VectorStreamTest, namedSerdeRegistration) {
-  std::string_view mySerde = "my_serde";
+  const VectorSerde::Kind kind = VectorSerde::Kind::kPresto;
 
   // Nothing registered yet.
-  deregisterNamedVectorSerde(mySerde);
-  EXPECT_FALSE(isRegisteredNamedVectorSerde(mySerde));
-  EXPECT_THROW(getNamedVectorSerde(mySerde), VeloxRuntimeError);
+  deregisterNamedVectorSerde(kind);
+  EXPECT_FALSE(isRegisteredNamedVectorSerde(kind));
+  VELOX_ASSERT_THROW(
+      getNamedVectorSerde(kind),
+      "Named vector serde 'Presto' is not registered.");
 
   // Register a mock serde.
-  registerNamedVectorSerde(mySerde, std::make_unique<MockVectorSerde>());
+  registerNamedVectorSerde(kind, std::make_unique<MockVectorSerde>());
 
-  auto serde = getNamedVectorSerde(mySerde);
+  auto serde = getNamedVectorSerde(kind);
   EXPECT_NE(serde, nullptr);
   EXPECT_NE(dynamic_cast<MockVectorSerde*>(serde), nullptr);
 
+  const VectorSerde::Kind otherKind = VectorSerde::Kind::kUnsafeRow;
+  EXPECT_FALSE(isRegisteredNamedVectorSerde(otherKind));
+  VELOX_ASSERT_THROW(
+      getNamedVectorSerde(otherKind),
+      "Named vector serde 'UnsafeRow' is not registered.");
+
   // Can't double register.
-  EXPECT_THROW(
-      registerNamedVectorSerde(mySerde, std::make_unique<MockVectorSerde>()),
-      VeloxRuntimeError);
+  VELOX_ASSERT_THROW(
+      registerNamedVectorSerde(kind, std::make_unique<MockVectorSerde>()),
+      "Vector serde 'Presto' is already registered.");
 
   // Register another one.
-  std::string_view myOtherSerde = "my_other_serde";
+  EXPECT_FALSE(isRegisteredNamedVectorSerde(otherKind));
+  EXPECT_THROW(getNamedVectorSerde(otherKind), VeloxRuntimeError);
+  registerNamedVectorSerde(otherKind, std::make_unique<MockVectorSerde>());
+  EXPECT_TRUE(isRegisteredNamedVectorSerde(otherKind));
 
-  EXPECT_FALSE(isRegisteredNamedVectorSerde(myOtherSerde));
-  EXPECT_THROW(getNamedVectorSerde(myOtherSerde), VeloxRuntimeError);
-  registerNamedVectorSerde(myOtherSerde, std::make_unique<MockVectorSerde>());
-  EXPECT_TRUE(isRegisteredNamedVectorSerde(myOtherSerde));
-
-  deregisterNamedVectorSerde(myOtherSerde);
-  EXPECT_FALSE(isRegisteredNamedVectorSerde(myOtherSerde));
+  deregisterNamedVectorSerde(otherKind);
+  EXPECT_FALSE(isRegisteredNamedVectorSerde(otherKind));
 }
-
 } // namespace facebook::velox::test

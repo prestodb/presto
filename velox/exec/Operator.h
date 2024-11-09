@@ -360,6 +360,10 @@ class Operator : public BaseRuntimeStatWriter {
   static inline const std::string kSpillDeserializationTime{
       "spillDeserializationWallNanos"};
 
+  /// The vector serde kind used by an operator for shuffle. The recorded
+  /// runtime stats value is the corresponding enum value.
+  static inline const std::string kShuffleSerdeKind{"shuffleSerdeKind"};
+
   /// 'operatorId' is the initial index of the 'this' in the Driver's list of
   /// Operators. This is used as in index into OperatorStats arrays in the Task.
   /// 'planNodeId' is a query-level unique identifier of the PlanNode to which

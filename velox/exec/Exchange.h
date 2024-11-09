@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <algorithm>
 #include <random>
+
 #include "velox/exec/ExchangeClient.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/OutputBufferManager.h"
@@ -51,6 +51,7 @@ class Exchange : public SourceOperator {
             operatorType),
         preferredOutputBatchBytes_{
             driverCtx->queryConfig().preferredOutputBatchBytes()},
+        serdeKind_(exchangeNode->serdeKind()),
         processSplits_{operatorCtx_->driverCtx()->driverId == 0},
         exchangeClient_{std::move(exchangeClient)} {
     options_.compressionKind =
@@ -94,10 +95,15 @@ class Exchange : public SourceOperator {
 
   const uint64_t preferredOutputBatchBytes_;
 
+  const VectorSerde::Kind serdeKind_;
+
   /// True if this operator is responsible for fetching splits from the Task and
   /// passing these to ExchangeClient.
   const bool processSplits_;
+
   bool noMoreSplits_ = false;
+
+  std::shared_ptr<ExchangeClient> exchangeClient_;
 
   /// A future received from Task::getSplitOrFuture(). It will be complete when
   /// there are more splits available or no-more-splits signal has arrived.
@@ -106,7 +112,6 @@ class Exchange : public SourceOperator {
   // Reusable result vector.
   RowVectorPtr result_;
 
-  std::shared_ptr<ExchangeClient> exchangeClient_;
   std::vector<std::unique_ptr<SerializedPage>> currentPages_;
   bool atEnd_{false};
   std::default_random_engine rng_{std::random_device{}()};

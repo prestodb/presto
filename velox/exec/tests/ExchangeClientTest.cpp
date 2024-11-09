@@ -18,28 +18,42 @@
 #include <atomic>
 #include <thread>
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/exec/Exchange.h"
+// #include "velox/exec/Exchange.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/SerializedPageUtil.h"
+#include "velox/serializers/CompactRowSerializer.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/serializers/UnsafeRowSerializer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::exec {
 
 namespace {
 
-class ExchangeClientTest : public testing::Test,
-                           public velox::test::VectorTestBase {
+class ExchangeClientTest
+    : public testing::Test,
+      public velox::test::VectorTestBase,
+      public testing::WithParamInterface<VectorSerde::Kind> {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
+      serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kCompactRow)) {
+      serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kUnsafeRow)) {
+      serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
+    }
   }
 
   void SetUp() override {
+    serdeKind_ = GetParam();
     test::testingStartLocalExchangeSource();
     executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(16);
     exec::ExchangeSource::factories().clear();
@@ -82,7 +96,8 @@ class ExchangeClientTest : public testing::Test,
       const std::string& taskId,
       int32_t destination,
       const RowVectorPtr& data) {
-    auto page = test::toSerializedPage(data, bufferManager_, pool());
+    auto page =
+        test::toSerializedPage(data, serdeKind_, bufferManager_, pool());
     const auto pageSize = page->size();
     ContinueFuture unused;
     auto blocked =
@@ -143,11 +158,12 @@ class ExchangeClientTest : public testing::Test,
     return executor_.get();
   }
 
+  VectorSerde::Kind serdeKind_;
   std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
   std::shared_ptr<OutputBufferManager> bufferManager_;
 };
 
-TEST_F(ExchangeClientTest, nonVeloxCreateExchangeSourceException) {
+TEST_P(ExchangeClientTest, nonVeloxCreateExchangeSourceException) {
   ExchangeSource::registerFactory(
       [](const auto& taskId, auto destination, auto queue, auto pool)
           -> std::shared_ptr<ExchangeSource> {
@@ -170,7 +186,7 @@ TEST_F(ExchangeClientTest, nonVeloxCreateExchangeSourceException) {
   client->close();
 }
 
-TEST_F(ExchangeClientTest, stats) {
+TEST_P(ExchangeClientTest, stats) {
   auto data = {
       makeRowVector({makeFlatVector<int32_t>({1, 2, 3})}),
       makeRowVector({makeFlatVector<int32_t>({1, 2, 3, 4, 5})}),
@@ -215,12 +231,12 @@ TEST_F(ExchangeClientTest, stats) {
 // Test scenario where fetching data from all sources at once would exceed queue
 // size. Verify that ExchangeClient is fetching data only from a few sources at
 // a time to avoid exceeding the limit.
-TEST_F(ExchangeClientTest, flowControl) {
+TEST_P(ExchangeClientTest, flowControl) {
   auto data = makeRowVector({
       makeFlatVector<int64_t>(10'000, [](auto row) { return row; }),
   });
 
-  auto page = test::toSerializedPage(data, bufferManager_, pool());
+  auto page = test::toSerializedPage(data, serdeKind_, bufferManager_, pool());
 
   // Set limit at 3.5 pages.
   auto client = std::make_shared<ExchangeClient>(
@@ -259,7 +275,7 @@ TEST_F(ExchangeClientTest, flowControl) {
   client->close();
 }
 
-TEST_F(ExchangeClientTest, largeSinglePage) {
+TEST_P(ExchangeClientTest, largeSinglePage) {
   auto data = {
       makeRowVector({makeFlatVector<int64_t>(10000, folly::identity)}),
       makeRowVector({makeFlatVector<int64_t>(1, folly::identity)}),
@@ -284,7 +300,7 @@ TEST_F(ExchangeClientTest, largeSinglePage) {
   client->close();
 }
 
-TEST_F(ExchangeClientTest, multiPageFetch) {
+TEST_P(ExchangeClientTest, multiPageFetch) {
   auto client =
       std::make_shared<ExchangeClient>("test", 17, 1 << 20, pool(), executor());
 
@@ -336,7 +352,7 @@ TEST_F(ExchangeClientTest, multiPageFetch) {
   client->close();
 }
 
-TEST_F(ExchangeClientTest, sourceTimeout) {
+TEST_P(ExchangeClientTest, sourceTimeout) {
   constexpr int32_t kNumSources = 3;
   auto client =
       std::make_shared<ExchangeClient>("test", 17, 1 << 20, pool(), executor());
@@ -416,7 +432,7 @@ TEST_F(ExchangeClientTest, sourceTimeout) {
   client->close();
 }
 
-TEST_F(ExchangeClientTest, callNextAfterClose) {
+TEST_P(ExchangeClientTest, callNextAfterClose) {
   constexpr int32_t kNumSources = 3;
   common::testutil::TestValue::enable();
   auto client =
@@ -462,7 +478,7 @@ TEST_F(ExchangeClientTest, callNextAfterClose) {
   client->close();
 }
 
-TEST_F(ExchangeClientTest, acknowledge) {
+TEST_P(ExchangeClientTest, acknowledge) {
   const int64_t pageSize = 1024;
   const int64_t clientBufferSize = pageSize;
   const int64_t serverBufferSize = 2 * pageSize;
@@ -599,6 +615,14 @@ TEST_F(ExchangeClientTest, acknowledge) {
   ASSERT_EQ(0, pages.size());
   ASSERT_TRUE(atEnd);
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    ExchangeClientTest,
+    ExchangeClientTest,
+    testing::Values(
+        VectorSerde::Kind::kPresto,
+        VectorSerde::Kind::kCompactRow,
+        VectorSerde::Kind::kUnsafeRow));
 
 } // namespace
 } // namespace facebook::velox::exec

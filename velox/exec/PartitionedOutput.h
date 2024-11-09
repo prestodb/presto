@@ -18,6 +18,8 @@
 #include <folly/Random.h>
 #include "velox/exec/Operator.h"
 #include "velox/exec/OutputBufferManager.h"
+#include "velox/row/CompactRow.h"
+#include "velox/row/UnsafeRowFast.h"
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
@@ -30,11 +32,13 @@ class Destination {
   Destination(
       const std::string& taskId,
       int destination,
+      VectorSerde* serde,
       memory::MemoryPool* pool,
       bool eagerFlush,
       std::function<void(uint64_t bytes, uint64_t rows)> recordEnqueued)
       : taskId_(taskId),
         destination_(destination),
+        serde_(serde),
         pool_(pool),
         eagerFlush_(eagerFlush),
         recordEnqueued_(std::move(recordEnqueued)) {
@@ -63,6 +67,8 @@ class Destination {
       uint64_t maxBytes,
       const std::vector<vector_size_t>& sizes,
       const RowVectorPtr& output,
+      const row::CompactRow* outputCompactRow,
+      const row::UnsafeRowFast* outputUnsafeRow,
       OutputBufferManager& bufferManager,
       const std::function<void()>& bufferReleaseFn,
       bool* atEnd,
@@ -105,6 +111,7 @@ class Destination {
 
   const std::string taskId_;
   const int destination_;
+  VectorSerde* const serde_;
   memory::MemoryPool* const pool_;
   const bool eagerFlush_;
   const std::function<void(uint64_t bytes, uint64_t rows)> recordEnqueued_;
@@ -182,9 +189,7 @@ class PartitionedOutput : public Operator {
 
   bool isFinished() override;
 
-  void close() override {
-    destinations_.clear();
-  }
+  void close() override;
 
   static void testingSetMinCompressionRatio(float ratio) {
     minCompressionRatio_ = ratio;
@@ -220,6 +225,7 @@ class PartitionedOutput : public Operator {
   const std::function<void()> bufferReleaseFn_;
   const int64_t maxBufferedBytes_;
   const bool eagerFlush_;
+  VectorSerde* const serde_;
 
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   ContinueFuture future_;
@@ -232,6 +238,16 @@ class PartitionedOutput : public Operator {
   std::vector<std::unique_ptr<detail::Destination>> destinations_;
   bool replicatedAny_{false};
   RowVectorPtr output_;
+  // This is only set with current 'output_' in case of compact row serde
+  // format. It is used to accelerate serialized row size calculation and the
+  // actual serialization processing.
+  //
+  // NOTE: 'outputCompactRow_' construction is expensive so we cache it here to
+  // do it only once for an entire input processing across different
+  // destinations.
+  std::unique_ptr<row::CompactRow> outputCompactRow_;
+  // Simialr to 'outputcompactRow_' for unsafe row serde format.
+  std::unique_ptr<row::UnsafeRowFast> outputUnsafeRow_;
 
   // Reusable memory.
   SelectivityVector rows_;

@@ -162,3 +162,20 @@ These stats are reported by operators that support spilling.
    * - spillDeserializationWallNanos
      - nanos
      - The time spent on deserializing rows read from spilled files.
+
+Shuffle
+--------
+These stats are reported by shuffle operators.
+
+.. list-table::
+   :widths: 50 25 50
+   :header-rows: 1
+
+   * - Stats
+     - Unit
+     - Description
+   * - shuffleSerdeKind
+     -
+     - Indicates the vector serde kind used by an operator for shuffle with 1
+       for Presto, 2 for CompactRow, 3 for UnsafeRow. It is reported by Exchange,
+       MergeExchange and PartitionedOutput operators for now.

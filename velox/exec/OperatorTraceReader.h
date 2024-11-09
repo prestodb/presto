@@ -47,6 +47,7 @@ class OperatorTraceInputReader {
   const std::shared_ptr<filesystems::FileSystem> fs_;
   const RowTypePtr dataType_;
   memory::MemoryPool* const pool_;
+  VectorSerde* const serde_;
   const std::unique_ptr<common::FileInputStream> inputStream_;
 };
 

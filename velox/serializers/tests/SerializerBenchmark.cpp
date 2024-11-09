@@ -106,7 +106,7 @@ class SerializerBenchmark : public VectorTestBase {
       auto rowVector = vm.rowVector({vector});
       {
         MicrosecondTimer t(&item.irTime);
-        auto group = std::make_unique<VectorStreamGroup>(pool_.get());
+        auto group = std::make_unique<VectorStreamGroup>(pool_.get(), nullptr);
         group->createStreamTree(rowType, rowSets[selIdx].size() - kPad);
         for (auto repeat = 0; repeat < numRepeat; ++repeat) {
           group->append(
@@ -119,7 +119,7 @@ class SerializerBenchmark : public VectorTestBase {
 
       {
         MicrosecondTimer t(&item.rrTime);
-        auto group = std::make_unique<VectorStreamGroup>(pool_.get());
+        auto group = std::make_unique<VectorStreamGroup>(pool_.get(), nullptr);
         group->createStreamTree(rowType, rowSets[selIdx].size());
 
         for (auto repeat = 0; repeat < numRepeat; ++repeat) {

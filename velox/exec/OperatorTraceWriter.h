@@ -61,6 +61,7 @@ class OperatorTraceWriter {
       /*nullsFirst=*/true};
   const std::shared_ptr<filesystems::FileSystem> fs_;
   memory::MemoryPool* const pool_;
+  VectorSerde* const serde_;
   const UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB_;
 
   std::unique_ptr<WriteFile> traceFile_;

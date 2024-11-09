@@ -304,7 +304,8 @@ MergeExchange::MergeExchange(
           mergeExchangeNode->sortingKeys(),
           mergeExchangeNode->sortingOrders(),
           mergeExchangeNode->id(),
-          "MergeExchange") {}
+          "MergeExchange"),
+      serde_(getNamedVectorSerde(mergeExchangeNode->serdeKind())) {}
 
 BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
   if (operatorCtx_->driverCtx()->driverId != 0) {
@@ -364,4 +365,10 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
   }
 }
 
+void MergeExchange::close() {
+  Operator::close();
+  stats_.wlock()->addRuntimeStat(
+      Operator::kShuffleSerdeKind,
+      RuntimeCounter(static_cast<int64_t>(serde_->kind())));
+}
 } // namespace facebook::velox::exec

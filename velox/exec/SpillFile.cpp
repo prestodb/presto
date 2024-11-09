@@ -17,6 +17,7 @@
 #include "velox/exec/SpillFile.h"
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
 namespace {
@@ -93,6 +94,7 @@ SpillWriter::SpillWriter(
       fileCreateConfig_(fileCreateConfig),
       updateAndCheckSpillLimitCb_(updateAndCheckSpillLimitCb),
       pool_(pool),
+      serde_(getNamedVectorSerde(VectorSerde::Kind::kPresto)),
       stats_(stats) {
   // NOTE: if the associated spilling operator has specified the sort
   // comparison flags, then it must match the number of sorting keys.
@@ -174,7 +176,7 @@ uint64_t SpillWriter::write(
     if (batch_ == nullptr) {
       serializer::presto::PrestoVectorSerde::PrestoOptions options = {
           kDefaultUseLosslessTimestamp, compressionKind_, true /*nullsFirst*/};
-      batch_ = std::make_unique<VectorStreamGroup>(pool_);
+      batch_ = std::make_unique<VectorStreamGroup>(pool_, serde_);
       batch_->createStreamTree(
           std::static_pointer_cast<const RowType>(rows->type()),
           1'000,
@@ -300,6 +302,7 @@ SpillReadFile::SpillReadFile(
           compressionKind_,
           /*nullsFirst=*/true},
       pool_(pool),
+      serde_(getNamedVectorSerde(VectorSerde::Kind::kPresto)),
       stats_(stats) {
   auto fs = filesystems::getFileSystem(path_, nullptr);
   auto file = fs->openFileForRead(path_);
@@ -317,7 +320,7 @@ bool SpillReadFile::nextBatch(RowVectorPtr& rowVector) {
   {
     NanosecondTimer timer{&timeNs};
     VectorStreamGroup::read(
-        input_.get(), pool_, type_, &rowVector, &readOptions_);
+        input_.get(), pool_, type_, serde_, &rowVector, &readOptions_);
   }
   stats_->wlock()->spillDeserializationTimeNanos += timeNs;
   common::updateGlobalSpillDeserializationTimeNs(timeNs);

@@ -2954,12 +2954,12 @@ void estimateFlatSerializedSize(
     const BaseVector* vector,
     const folly::Range<const IndexRange*>& ranges,
     vector_size_t** sizes) {
-  auto valueSize = vector->type()->cppSizeInBytes();
+  const auto valueSize = vector->type()->cppSizeInBytes();
   if (vector->mayHaveNulls()) {
-    auto rawNulls = vector->rawNulls();
+    const auto* rawNulls = vector->rawNulls();
     for (int32_t i = 0; i < ranges.size(); ++i) {
-      auto end = ranges[i].begin + ranges[i].size;
-      auto numValues = bits::countBits(rawNulls, ranges[i].begin, end);
+      const auto end = ranges[i].begin + ranges[i].size;
+      const auto numValues = bits::countBits(rawNulls, ranges[i].begin, end);
       // Add the size of the values.
       *(sizes[i]) += numValues * valueSize;
       // Add the size of the null bit mask if there are nulls in the range.
@@ -3069,19 +3069,20 @@ void estimateFlattenedConstantSerializedSize(
     const folly::Range<const IndexRange*>& ranges,
     vector_size_t** sizes,
     Scratch& scratch) {
-  VELOX_CHECK(vector->encoding() == VectorEncoding::Simple::CONSTANT);
+  VELOX_CHECK_EQ(vector->encoding(), VectorEncoding::Simple::CONSTANT);
   using T = typename KindToFlatVector<Kind>::WrapperType;
-  auto constantVector = vector->as<ConstantVector<T>>();
+  auto* constantVector = vector->as<ConstantVector<T>>();
   if (constantVector->valueVector()) {
     estimateWrapperSerializedSize(ranges, sizes, vector, scratch);
     return;
   }
+
   int32_t elementSize = sizeof(T);
   if (constantVector->isNullAt(0)) {
     elementSize = 1;
   } else if (std::is_same_v<T, StringView>) {
-    auto value = constantVector->valueAt(0);
-    auto string = reinterpret_cast<const StringView*>(&value);
+    const auto value = constantVector->valueAt(0);
+    const auto* string = reinterpret_cast<const StringView*>(&value);
     elementSize = string->size();
   }
   for (int32_t i = 0; i < ranges.size(); ++i) {
@@ -3190,7 +3191,7 @@ void estimateSerializedSizeInt(
       estimateSerializedSizeInt(vector->loadedVector(), ranges, sizes, scratch);
       break;
     default:
-      VELOX_CHECK(false, "Unsupported vector encoding {}", vector->encoding());
+      VELOX_UNSUPPORTED("Unsupported vector encoding {}", vector->encoding());
   }
 }
 
@@ -3286,8 +3287,8 @@ void estimateWrapperSerializedSize(
   ScratchPtr<vector_size_t*, 1> innerSizesHolder(scratch);
   const int32_t numRows = rows.size();
   int32_t numInner = 0;
-  auto innerRows = innerRowsHolder.get(numRows);
-  auto innerSizes = sizes;
+  auto* innerRows = innerRowsHolder.get(numRows);
+  auto* innerSizes = sizes;
   const BaseVector* wrapped;
   if (wrapper->encoding() == VectorEncoding::Simple::DICTIONARY &&
       !wrapper->rawNulls()) {
@@ -3310,6 +3311,7 @@ void estimateWrapperSerializedSize(
   if (numInner == 0) {
     return;
   }
+
   estimateSerializedSizeInt(
       wrapped,
       folly::Range<const vector_size_t*>(innerRows, numInner),
@@ -3323,30 +3325,32 @@ void estimateFlattenedConstantSerializedSize(
     const folly::Range<const vector_size_t*>& rows,
     vector_size_t** sizes,
     Scratch& scratch) {
-  VELOX_CHECK(vector->encoding() == VectorEncoding::Simple::CONSTANT);
+  VELOX_CHECK_EQ(vector->encoding(), VectorEncoding::Simple::CONSTANT);
+
   using T = typename KindToFlatVector<Kind>::WrapperType;
-  auto constantVector = vector->as<ConstantVector<T>>();
+  auto* constantVector = vector->as<ConstantVector<T>>();
   int32_t elementSize = sizeof(T);
   if (constantVector->isNullAt(0)) {
     elementSize = 1;
   } else if (vector->valueVector()) {
-    auto values = constantVector->wrappedVector();
+    const auto* values = constantVector->wrappedVector();
     vector_size_t* sizePtr = &elementSize;
-    vector_size_t singleRow = constantVector->wrappedIndex(0);
+    const vector_size_t singleRow = constantVector->wrappedIndex(0);
     estimateSerializedSizeInt(
         values,
         folly::Range<const vector_size_t*>(&singleRow, 1),
         &sizePtr,
         scratch);
   } else if (std::is_same_v<T, StringView>) {
-    auto value = constantVector->valueAt(0);
-    auto string = reinterpret_cast<const StringView*>(&value);
+    const auto value = constantVector->valueAt(0);
+    const auto string = reinterpret_cast<const StringView*>(&value);
     elementSize = string->size();
   }
   for (int32_t i = 0; i < rows.size(); ++i) {
     *sizes[i] += elementSize;
   }
 }
+
 void estimateSerializedSizeInt(
     const BaseVector* vector,
     const folly::Range<const vector_size_t*>& rows,
@@ -3410,7 +3414,7 @@ void estimateSerializedSizeInt(
             mutableInnerRows);
         innerRows = mutableInnerRows;
       }
-      auto rowVector = vector->as<RowVector>();
+      auto* rowVector = vector->as<RowVector>();
       auto& children = rowVector->children();
       for (auto& child : children) {
         if (child) {
@@ -3424,7 +3428,7 @@ void estimateSerializedSizeInt(
       break;
     }
     case VectorEncoding::Simple::MAP: {
-      auto mapVector = vector->asUnchecked<MapVector>();
+      auto* mapVector = vector->asUnchecked<MapVector>();
       ScratchPtr<IndexRange> rangeHolder(scratch);
       ScratchPtr<vector_size_t*> sizesHolder(scratch);
       const auto numRanges = rowsToRanges(
@@ -3453,7 +3457,7 @@ void estimateSerializedSizeInt(
       break;
     }
     case VectorEncoding::Simple::ARRAY: {
-      auto arrayVector = vector->as<ArrayVector>();
+      auto* arrayVector = vector->as<ArrayVector>();
       ScratchPtr<IndexRange> rangeHolder(scratch);
       ScratchPtr<vector_size_t*> sizesHolder(scratch);
       const auto numRanges = rowsToRanges(
@@ -3480,7 +3484,7 @@ void estimateSerializedSizeInt(
       estimateSerializedSizeInt(vector->loadedVector(), rows, sizes, scratch);
       break;
     default:
-      VELOX_CHECK(false, "Unsupported vector encoding {}", vector->encoding());
+      VELOX_UNSUPPORTED("Unsupported vector encoding {}", vector->encoding());
   }
 }
 
@@ -3706,7 +3710,7 @@ void estimateDictionarySerializedSize(
     const folly::Range<const IndexRange*>& ranges,
     vector_size_t** sizes,
     Scratch& scratch) {
-  VELOX_CHECK(vector->encoding() == VectorEncoding::Simple::DICTIONARY);
+  VELOX_CHECK_EQ(vector->encoding(), VectorEncoding::Simple::DICTIONARY);
   using T = typename KindToFlatVector<Kind>::WrapperType;
   auto dictionaryVector = vector->as<DictionaryVector<T>>();
 
@@ -3917,8 +3921,7 @@ class PrestoBatchVectorSerializer : public BatchVectorSerializer {
             scratch);
         break;
       default:
-        VELOX_CHECK(
-            false, "Unsupported vector encoding {}", vector->encoding());
+        VELOX_UNSUPPORTED("Unsupported vector encoding {}", vector->encoding());
     }
   }
 
@@ -4087,7 +4090,7 @@ void PrestoVectorSerde::estimateSerializedSize(
 
 void PrestoVectorSerde::estimateSerializedSize(
     const BaseVector* vector,
-    const folly::Range<const vector_size_t*> rows,
+    const folly::Range<const vector_size_t*>& rows,
     vector_size_t** sizes,
     Scratch& scratch) {
   estimateSerializedSizeInt(vector->loadedVector(), rows, sizes, scratch);
@@ -4269,17 +4272,33 @@ void PrestoVectorSerde::deserializeSingleColumn(
   *result = row->childAt(0);
 }
 
+namespace {
+void initBitsToMapOnce() {
+  static folly::once_flag initOnceFlag;
+  folly::call_once(initOnceFlag, [&]() {
+    auto toByte = [](int32_t number, int32_t bit) {
+      return static_cast<uint64_t>(bits::isBitSet(&number, bit)) << (bit * 8);
+    };
+    for (auto i = 0; i < 256; ++i) {
+      bitsToBytesMap[i] = toByte(i, 0) | toByte(i, 1) | toByte(i, 2) |
+          toByte(i, 3) | toByte(i, 4) | toByte(i, 5) | toByte(i, 6) |
+          toByte(i, 7);
+    }
+  });
+}
+} // namespace
+
 // static
 void PrestoVectorSerde::registerVectorSerde() {
-  auto toByte = [](int32_t number, int32_t bit) {
-    return static_cast<uint64_t>(bits::isBitSet(&number, bit)) << (bit * 8);
-  };
-  for (auto i = 0; i < 256; ++i) {
-    bitsToBytesMap[i] = toByte(i, 0) | toByte(i, 1) | toByte(i, 2) |
-        toByte(i, 3) | toByte(i, 4) | toByte(i, 5) | toByte(i, 6) |
-        toByte(i, 7);
-  }
+  initBitsToMapOnce();
   velox::registerVectorSerde(std::make_unique<PrestoVectorSerde>());
+}
+
+// static
+void PrestoVectorSerde::registerNamedVectorSerde() {
+  initBitsToMapOnce();
+  velox::registerNamedVectorSerde(
+      VectorSerde::Kind::kPresto, std::make_unique<PrestoVectorSerde>());
 }
 
 namespace {

@@ -21,7 +21,9 @@
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/SerializedPageUtil.h"
+#include "velox/serializers/CompactRowSerializer.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/serializers/UnsafeRowSerializer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -29,9 +31,26 @@ using namespace facebook::velox::core;
 
 using facebook::velox::test::BatchMaker;
 
+struct TestParam {
+  PartitionedOutputNode::Kind outputKind;
+  VectorSerde::Kind serdeKind;
+
+  TestParam(
+      PartitionedOutputNode::Kind _outputKind,
+      VectorSerde::Kind _serdeKind)
+      : outputKind(_outputKind), serdeKind(_serdeKind) {}
+};
+
 class OutputBufferManagerTest : public testing::Test {
  protected:
-  OutputBufferManagerTest() {
+  OutputBufferManagerTest() : serdeKind_(VectorSerde::Kind::kPresto) {
+    std::vector<std::string> names = {"c0", "c1"};
+    std::vector<TypePtr> types = {BIGINT(), VARCHAR()};
+    rowType_ = ROW(std::move(names), std::move(types));
+  }
+
+  explicit OutputBufferManagerTest(VectorSerde::Kind serdeKind)
+      : serdeKind_(serdeKind) {
     std::vector<std::string> names = {"c0", "c1"};
     std::vector<TypePtr> types = {BIGINT(), VARCHAR()};
     rowType_ = ROW(std::move(names), std::move(types));
@@ -51,6 +70,16 @@ class OutputBufferManagerTest : public testing::Test {
         return std::make_unique<
             serializer::presto::PrestoOutputStreamListener>();
       });
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
+      facebook::velox::serializer::presto::PrestoVectorSerde::
+          registerNamedVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kCompactRow)) {
+      serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kUnsafeRow)) {
+      serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
     }
   }
 
@@ -91,7 +120,8 @@ class OutputBufferManagerTest : public testing::Test {
       vector_size_t size) {
     auto vector = std::dynamic_pointer_cast<RowVector>(
         BatchMaker::createBatch(rowType, size, *pool_));
-    return exec::test::toSerializedPage(vector, bufferManager_, pool_.get());
+    return exec::test::toSerializedPage(
+        vector, serdeKind_, bufferManager_, pool_.get());
   }
 
   void enqueue(
@@ -403,6 +433,7 @@ class OutputBufferManagerTest : public testing::Test {
     }
   }
 
+  const VectorSerde::Kind serdeKind_;
   std::shared_ptr<folly::Executor> executor_{
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency())};
@@ -411,29 +442,52 @@ class OutputBufferManagerTest : public testing::Test {
   RowTypePtr rowType_;
 };
 
-struct TestParam {
-  PartitionedOutputNode::Kind kind;
+class OutputBufferManagerWithDifferentSerdeKindsTest
+    : public OutputBufferManagerTest,
+      public testing::WithParamInterface<VectorSerde::Kind> {
+ public:
+  static std::vector<VectorSerde::Kind> getTestParams() {
+    static std::vector<VectorSerde::Kind> params = {
+        VectorSerde::Kind::kPresto,
+        VectorSerde::Kind::kCompactRow,
+        VectorSerde::Kind::kUnsafeRow};
+    return params;
+  }
 };
 
 class AllOutputBufferManagerTest
     : public OutputBufferManagerTest,
-      public testing::WithParamInterface<PartitionedOutputNode::Kind> {
+      public testing::WithParamInterface<TestParam> {
  public:
-  AllOutputBufferManagerTest() : kind_(GetParam()) {}
-
-  static std::vector<PartitionedOutputNode::Kind> getTestParams() {
-    static std::vector<PartitionedOutputNode::Kind> params = {
-        PartitionedOutputNode::Kind::kBroadcast,
-        PartitionedOutputNode::Kind::kPartitioned,
-        PartitionedOutputNode::Kind::kArbitrary};
+  static std::vector<TestParam> getTestParams() {
+    static std::vector<TestParam> params = {
+        {PartitionedOutputNode::Kind::kBroadcast, VectorSerde::Kind::kPresto},
+        {PartitionedOutputNode::Kind::kBroadcast,
+         VectorSerde::Kind::kCompactRow},
+        {PartitionedOutputNode::Kind::kBroadcast,
+         VectorSerde::Kind::kUnsafeRow},
+        {PartitionedOutputNode::Kind::kPartitioned, VectorSerde::Kind::kPresto},
+        {PartitionedOutputNode::Kind::kPartitioned,
+         VectorSerde::Kind::kCompactRow},
+        {PartitionedOutputNode::Kind::kPartitioned,
+         VectorSerde::Kind::kUnsafeRow},
+        {PartitionedOutputNode::Kind::kArbitrary, VectorSerde::Kind::kPresto},
+        {PartitionedOutputNode::Kind::kArbitrary,
+         VectorSerde::Kind::kCompactRow},
+        {PartitionedOutputNode::Kind::kArbitrary,
+         VectorSerde::Kind::kUnsafeRow}};
     return params;
   }
 
+  AllOutputBufferManagerTest()
+      : OutputBufferManagerTest(GetParam().serdeKind),
+        outputKind_(GetParam().outputKind) {}
+
  protected:
-  PartitionedOutputNode::Kind kind_;
+  const PartitionedOutputNode::Kind outputKind_;
 };
 
-TEST_F(OutputBufferManagerTest, arbitrayBuffer) {
+TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, arbitrayBuffer) {
   {
     ArbitraryBuffer buffer;
     ASSERT_TRUE(buffer.empty());
@@ -509,6 +563,12 @@ TEST_F(OutputBufferManagerTest, arbitrayBuffer) {
   }
 }
 
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    OutputBufferManagerWithDifferentSerdeKindsTest,
+    OutputBufferManagerWithDifferentSerdeKindsTest,
+    testing::ValuesIn(
+        OutputBufferManagerWithDifferentSerdeKindsTest::getTestParams()));
+
 TEST_F(OutputBufferManagerTest, outputType) {
   ASSERT_EQ(
       PartitionedOutputNode::kindString(
@@ -528,7 +588,7 @@ TEST_F(OutputBufferManagerTest, outputType) {
       "Invalid Output Kind 100");
 }
 
-TEST_F(OutputBufferManagerTest, destinationBuffer) {
+TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, destinationBuffer) {
   {
     ArbitraryBuffer buffer;
     DestinationBuffer destinationBuffer;
@@ -717,7 +777,7 @@ TEST_F(OutputBufferManagerTest, destinationBuffer) {
   }
 }
 
-TEST_F(OutputBufferManagerTest, basicPartitioned) {
+TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, basicPartitioned) {
   vector_size_t size = 100;
   std::string taskId = "t0";
   auto task = initializeTask(
@@ -727,11 +787,12 @@ TEST_F(OutputBufferManagerTest, basicPartitioned) {
   // Duplicateb update buffers with the same settings are allowed and ignored.
   ASSERT_TRUE(bufferManager_->updateOutputBuffers(taskId, 5, true));
   ASSERT_FALSE(bufferManager_->isFinished(taskId));
-  // Partitioned output buffer doesn't allow to update with different number of
-  // output buffers once created.
+  // Partitioned output buffer doesn't allow to update with different number
+  // of output buffers once created.
   VELOX_ASSERT_THROW(
       bufferManager_->updateOutputBuffers(taskId, 5 + 1, true), "");
-  // Partitioned output buffer doesn't expect more output buffers once created.
+  // Partitioned output buffer doesn't expect more output buffers once
+  // created.
   VELOX_ASSERT_THROW(bufferManager_->updateOutputBuffers(taskId, 5, false), "");
   VELOX_ASSERT_THROW(
       bufferManager_->updateOutputBuffers(taskId, 5 - 1, true), "");
@@ -796,7 +857,7 @@ TEST_F(OutputBufferManagerTest, basicPartitioned) {
   EXPECT_TRUE(task->isFinished());
 }
 
-TEST_F(OutputBufferManagerTest, basicBroadcast) {
+TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, basicBroadcast) {
   vector_size_t size = 100;
 
   std::string taskId = "t0";
@@ -867,7 +928,7 @@ TEST_F(OutputBufferManagerTest, basicBroadcast) {
   EXPECT_TRUE(task->isFinished());
 }
 
-TEST_F(OutputBufferManagerTest, basicArbitrary) {
+TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, basicArbitrary) {
   const vector_size_t size = 100;
   int numDestinations = 5;
   const std::string taskId = "t0";
@@ -950,7 +1011,9 @@ TEST_F(OutputBufferManagerTest, basicArbitrary) {
   EXPECT_TRUE(task->isFinished());
 }
 
-TEST_F(OutputBufferManagerTest, inactiveDestinationBuffer) {
+TEST_P(
+    OutputBufferManagerWithDifferentSerdeKindsTest,
+    inactiveDestinationBuffer) {
   const vector_size_t dataSize = 1'000;
   const int maxBytes = 1;
   int numDestinations = 2;
@@ -1040,8 +1103,8 @@ TEST_F(OutputBufferManagerTest, inactiveDestinationBuffer) {
     ASSERT_EQ(stats.buffersStats[i].bytesBuffered, 0);
   }
 
-  // Set the second destination buffer active to load data with notify when data
-  // gets queued.
+  // Set the second destination buffer active to load data with notify when
+  // data gets queued.
   actives[1] = true;
   ASSERT_TRUE(bufferManager_->getData(
       taskId,
@@ -1087,7 +1150,9 @@ TEST_F(OutputBufferManagerTest, inactiveDestinationBuffer) {
   EXPECT_TRUE(task->isFinished());
 }
 
-TEST_F(OutputBufferManagerTest, broadcastWithDynamicAddedDestination) {
+TEST_P(
+    OutputBufferManagerWithDifferentSerdeKindsTest,
+    broadcastWithDynamicAddedDestination) {
   vector_size_t size = 100;
 
   std::string taskId = "t0";
@@ -1131,7 +1196,9 @@ TEST_F(OutputBufferManagerTest, broadcastWithDynamicAddedDestination) {
   EXPECT_TRUE(task->isFinished());
 }
 
-TEST_F(OutputBufferManagerTest, arbitraryWithDynamicAddedDestination) {
+TEST_P(
+    OutputBufferManagerWithDifferentSerdeKindsTest,
+    arbitraryWithDynamicAddedDestination) {
   const vector_size_t size = 100;
   int numDestinations = 5;
   const std::string taskId = "t0";
@@ -1190,7 +1257,7 @@ TEST_F(OutputBufferManagerTest, arbitraryWithDynamicAddedDestination) {
 TEST_P(AllOutputBufferManagerTest, maxBytes) {
   const vector_size_t size = 100;
   const std::string taskId = "t0";
-  initializeTask(taskId, rowType_, kind_, 1, 1);
+  initializeTask(taskId, rowType_, outputKind_, 1, 1);
 
   enqueue(taskId, 0, rowType_, size);
   enqueue(taskId, 0, rowType_, size);
@@ -1205,7 +1272,7 @@ TEST_P(AllOutputBufferManagerTest, maxBytes) {
   fetchOneAndAck(taskId, 0, 1);
   fetchOneAndAck(taskId, 0, 2);
 
-  if (kind_ != PartitionedOutputNode::Kind::kPartitioned) {
+  if (outputKind_ != PartitionedOutputNode::Kind::kPartitioned) {
     bufferManager_->updateOutputBuffers(taskId, 0, true);
   }
   noMoreData(taskId);
@@ -1216,9 +1283,10 @@ TEST_P(AllOutputBufferManagerTest, maxBytes) {
 TEST_P(AllOutputBufferManagerTest, outputBufferUtilization) {
   const std::string taskId = std::to_string(rand());
   const auto destination = 0;
-  auto task = initializeTask(taskId, rowType_, kind_, 1, 1);
+  auto task = initializeTask(taskId, rowType_, outputKind_, 1, 1);
   verifyOutputBuffer(task, OutputBufferStatus::kInitiated);
-  if (kind_ == facebook::velox::core::PartitionedOutputNode::Kind::kBroadcast) {
+  if (outputKind_ ==
+      facebook::velox::core::PartitionedOutputNode::Kind::kBroadcast) {
     bufferManager_->updateOutputBuffers(taskId, destination, true);
   }
 
@@ -1259,10 +1327,10 @@ TEST_P(AllOutputBufferManagerTest, outputBufferUtilization) {
 TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
   const vector_size_t vectorSize = 100;
   const std::string taskId = std::to_string(folly::Random::rand32());
-  initializeTask(taskId, rowType_, kind_, 1, 1);
+  initializeTask(taskId, rowType_, outputKind_, 1, 1);
   {
     const auto stats = getStats(taskId);
-    ASSERT_EQ(stats.kind, kind_);
+    ASSERT_EQ(stats.kind, outputKind_);
     ASSERT_FALSE(stats.noMoreData);
     ASSERT_FALSE(stats.finished);
     ASSERT_FALSE(stats.noMoreBuffers);
@@ -1283,13 +1351,13 @@ TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
     totalNumRows += vectorSize;
     // Force ArbitraryBuffer to load data, otherwise the data would
     // not be buffered in DestinationBuffer.
-    if (kind_ == PartitionedOutputNode::Kind::kArbitrary) {
+    if (outputKind_ == PartitionedOutputNode::Kind::kArbitrary) {
       fetchOne(taskId, 0, pageId);
     }
     const auto statsEnqueue = getStats(taskId);
     ASSERT_EQ(statsEnqueue.buffersStats[0].pagesBuffered, 1);
     ASSERT_EQ(statsEnqueue.buffersStats[0].rowsBuffered, vectorSize);
-    if (kind_ == core::PartitionedOutputNode::Kind::kBroadcast) {
+    if (outputKind_ == core::PartitionedOutputNode::Kind::kBroadcast) {
       ASSERT_EQ(statsEnqueue.bufferedPages, pageId + 1);
       ASSERT_EQ(statsEnqueue.bufferedBytes, totalBytes);
     } else {
@@ -1307,7 +1375,7 @@ TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
     ASSERT_EQ(statsAck.buffersStats[0].rowsSent, totalNumRows);
     ASSERT_EQ(statsAck.buffersStats[0].pagesBuffered, 0);
     ASSERT_EQ(statsAck.buffersStats[0].rowsBuffered, 0);
-    if (kind_ == core::PartitionedOutputNode::Kind::kBroadcast) {
+    if (outputKind_ == core::PartitionedOutputNode::Kind::kBroadcast) {
       ASSERT_EQ(statsAck.bufferedPages, pageId + 1);
       ASSERT_EQ(statsAck.bufferedBytes, totalBytes);
     } else {
@@ -1352,7 +1420,7 @@ TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
   ASSERT_FALSE(bufferManager_->stats(taskId).has_value());
 }
 
-TEST_F(OutputBufferManagerTest, outOfOrderAcks) {
+TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, outOfOrderAcks) {
   const vector_size_t size = 100;
   const std::string taskId = "t0";
   auto task = initializeTask(
@@ -1394,7 +1462,9 @@ TEST_F(OutputBufferManagerTest, errorInQueue) {
       queue->dequeueLocked(1, &atEnd, &future), "Forced failure");
 }
 
-TEST_F(OutputBufferManagerTest, setQueueErrorWithPendingPages) {
+TEST_P(
+    OutputBufferManagerWithDifferentSerdeKindsTest,
+    setQueueErrorWithPendingPages) {
   const uint64_t kBufferSize = 128;
   auto iobuf = folly::IOBuf::create(kBufferSize);
   const std::string payload("setQueueErrorWithPendingPages");
@@ -1421,10 +1491,10 @@ TEST_F(OutputBufferManagerTest, setQueueErrorWithPendingPages) {
       queue->dequeueLocked(1, &atEnd, &future), "Forced failure");
 }
 
-TEST_F(OutputBufferManagerTest, getDataOnFailedTask) {
+TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, getDataOnFailedTask) {
   // Fetching data on a task which was either never initialized in the buffer
-  // manager or was removed by a parallel thread must return false. The `notify`
-  // callback must not be registered.
+  // manager or was removed by a parallel thread must return false. The
+  // `notify` callback must not be registered.
   ASSERT_FALSE(bufferManager_->getData(
       "test.0.1",
       1,
@@ -1438,7 +1508,9 @@ TEST_F(OutputBufferManagerTest, getDataOnFailedTask) {
   ASSERT_FALSE(bufferManager_->updateNumDrivers("test.0.2", 1));
 }
 
-TEST_F(OutputBufferManagerTest, updateBrodcastBufferOnFailedTask) {
+TEST_P(
+    OutputBufferManagerWithDifferentSerdeKindsTest,
+    updateBrodcastBufferOnFailedTask) {
   // Updating broadcast buffer count in the buffer manager for a given unknown
   // task must not throw exception, instead must return FALSE.
   ASSERT_FALSE(bufferManager_->updateOutputBuffers(
@@ -1459,10 +1531,10 @@ TEST_P(AllOutputBufferManagerTest, multiFetchers) {
     initializeTask(
         taskId,
         rowType_,
-        kind_,
+        outputKind_,
         numPartitions,
         1,
-        kind_ == PartitionedOutputNode::Kind::kBroadcast ? 256 << 20 : 0);
+        outputKind_ == PartitionedOutputNode::Kind::kBroadcast ? 256 << 20 : 0);
 
     std::vector<std::thread> threads;
     std::vector<int64_t> fetchedPages(numPartitions + extendedNumPartitions, 0);
@@ -1477,7 +1549,8 @@ TEST_P(AllOutputBufferManagerTest, multiFetchers) {
     std::vector<int64_t> producedPages(
         numPartitions + extendedNumPartitions, 0);
     for (int i = 0; i < totalPages; ++i) {
-      const int partition = kind_ == PartitionedOutputNode::Kind::kPartitioned
+      const int partition =
+          outputKind_ == PartitionedOutputNode::Kind::kPartitioned
           ? folly::Random().rand32(rng) % numPartitions
           : 0;
       try {
@@ -1491,7 +1564,8 @@ TEST_P(AllOutputBufferManagerTest, multiFetchers) {
       if (folly::Random().oneIn(4)) {
         std::this_thread::sleep_for(std::chrono::microseconds(5)); // NOLINT
       }
-      if (i == 1000 && (kind_ != PartitionedOutputNode::Kind::kPartitioned)) {
+      if (i == 1000 &&
+          (outputKind_ != PartitionedOutputNode::Kind::kPartitioned)) {
         bufferManager_->updateOutputBuffers(
             taskId, numPartitions + extendedNumPartitions, false);
         for (size_t i = numPartitions;
@@ -1512,11 +1586,11 @@ TEST_P(AllOutputBufferManagerTest, multiFetchers) {
     }
 
     if (!earlyTermination) {
-      if (kind_ == PartitionedOutputNode::Kind::kPartitioned) {
+      if (outputKind_ == PartitionedOutputNode::Kind::kPartitioned) {
         for (int i = 0; i < numPartitions; ++i) {
           ASSERT_EQ(fetchedPages[i], producedPages[i]);
         }
-      } else if (kind_ == PartitionedOutputNode::Kind::kBroadcast) {
+      } else if (outputKind_ == PartitionedOutputNode::Kind::kBroadcast) {
         int64_t totalFetchedPages{0};
         for (const auto& pages : fetchedPages) {
           totalFetchedPages += pages;

@@ -16,13 +16,15 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/row/UnsafeRowFast.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
 
 class UnsafeRowSerializerTest : public ::testing::Test,
-                                public test::VectorTestBase {
+                                public test::VectorTestBase,
+                                public testing::WithParamInterface<bool> {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
@@ -30,24 +32,56 @@ class UnsafeRowSerializerTest : public ::testing::Test,
 
   void SetUp() override {
     pool_ = memory::memoryManager()->addLeafPool();
-    serde_ = std::make_unique<serializer::spark::UnsafeRowVectorSerde>();
+    deregisterVectorSerde();
+    deregisterNamedVectorSerde(VectorSerde::Kind::kCompactRow);
+    serializer::spark::UnsafeRowVectorSerde::registerVectorSerde();
+    serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
+    ASSERT_EQ(getVectorSerde()->kind(), VectorSerde::Kind::kUnsafeRow);
+    ASSERT_EQ(
+        getNamedVectorSerde(VectorSerde::Kind::kUnsafeRow)->kind(),
+        VectorSerde::Kind::kUnsafeRow);
+  }
+
+  void TearDown() override {
+    deregisterVectorSerde();
+    deregisterNamedVectorSerde(VectorSerde::Kind::kUnsafeRow);
   }
 
   void serialize(RowVectorPtr rowVector, std::ostream* output) {
-    auto numRows = rowVector->size();
+    const auto numRows = rowVector->size();
 
-    std::vector<IndexRange> rows(numRows);
+    std::vector<IndexRange> ranges(numRows);
     for (int i = 0; i < numRows; i++) {
-      rows[i] = IndexRange{i, 1};
+      ranges[i] = IndexRange{i, 1};
+    }
+
+    std::unique_ptr<row::UnsafeRowFast> unsafeRow;
+    std::vector<vector_size_t> serializedRowSizes(numRows);
+    std::vector<vector_size_t*> serializedRowSizesPtr(numRows);
+    std::vector<vector_size_t> rows(numRows);
+    std::iota(rows.begin(), rows.end(), 0);
+    for (auto i = 0; i < numRows; ++i) {
+      serializedRowSizesPtr[i] = &serializedRowSizes[i];
+    }
+    if (GetParam()) {
+      unsafeRow = std::make_unique<row::UnsafeRowFast>(rowVector);
+      getVectorSerde()->estimateSerializedSize(
+          unsafeRow.get(), rows, serializedRowSizesPtr.data());
     }
 
     auto arena = std::make_unique<StreamArena>(pool_.get());
     auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
-    auto serializer =
-        serde_->createIterativeSerializer(rowType, numRows, arena.get());
+    auto serializer = getVectorSerde()->createIterativeSerializer(
+        rowType, numRows, arena.get());
 
-    Scratch scratch;
-    serializer->append(rowVector, folly::Range(rows.data(), numRows), scratch);
+    if (GetParam()) {
+      serializer->append(*unsafeRow, rows, serializedRowSizes);
+    } else {
+      Scratch scratch;
+      serializer->append(
+          rowVector, folly::Range(ranges.data(), numRows), scratch);
+    }
+
     auto size = serializer->maxSerializedSize();
     OStreamOutputStream out(output);
     serializer->flush(&out);
@@ -74,7 +108,8 @@ class UnsafeRowSerializerTest : public ::testing::Test,
     auto byteStream = toByteStream(input);
 
     RowVectorPtr result;
-    serde_->deserialize(byteStream.get(), pool_.get(), rowType, &result);
+    getVectorSerde()->deserialize(
+        byteStream.get(), pool_.get(), rowType, &result);
     return result;
   }
 
@@ -109,11 +144,10 @@ class UnsafeRowSerializerTest : public ::testing::Test,
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
-  std::unique_ptr<VectorSerde> serde_;
 };
 
 // These expected binary buffers were samples taken using Spark's java code.
-TEST_F(UnsafeRowSerializerTest, tinyint) {
+TEST_P(UnsafeRowSerializerTest, tinyint) {
   int8_t data[20] = {0, 0, 0,   16, 0, 0, 0, 0, 0, 0,
                      0, 0, 123, 0,  0, 0, 0, 0, 0, 0};
   auto expected = makeRowVector({makeFlatVector(std::vector<int8_t>{123})});
@@ -122,7 +156,7 @@ TEST_F(UnsafeRowSerializerTest, tinyint) {
   testDeserialize(data, 20, expected);
 }
 
-TEST_F(UnsafeRowSerializerTest, bigint) {
+TEST_P(UnsafeRowSerializerTest, bigint) {
   int8_t data[20] = {0, 0, 0,  16, 0,   0,   0, 0, 0, 0,
                      0, 0, 62, 28, -36, -33, 2, 0, 0, 0};
   auto expected =
@@ -132,7 +166,7 @@ TEST_F(UnsafeRowSerializerTest, bigint) {
   testDeserialize(data, 20, expected);
 }
 
-TEST_F(UnsafeRowSerializerTest, double) {
+TEST_P(UnsafeRowSerializerTest, double) {
   int8_t data[20] = {0, 0, 0,   16, 0,  0,  0,   0,  0,    0,
                      0, 0, 125, 63, 53, 94, -70, 73, -109, 64};
   auto expected =
@@ -142,7 +176,7 @@ TEST_F(UnsafeRowSerializerTest, double) {
   testDeserialize(data, 20, expected);
 }
 
-TEST_F(UnsafeRowSerializerTest, boolean) {
+TEST_P(UnsafeRowSerializerTest, boolean) {
   int8_t data[20] = {0, 0, 0, 16, 0, 0, 0, 0, 0, 0,
                      0, 0, 1, 0,  0, 0, 0, 0, 0, 0};
   auto expected = makeRowVector({makeFlatVector(std::vector<bool>{true})});
@@ -151,7 +185,7 @@ TEST_F(UnsafeRowSerializerTest, boolean) {
   testDeserialize(data, 20, expected);
 }
 
-TEST_F(UnsafeRowSerializerTest, string) {
+TEST_P(UnsafeRowSerializerTest, string) {
   int8_t data[28] = {0, 0, 0,  24, 0, 0, 0,  0,  0,  0,  0,  0, 5, 0,
                      0, 0, 16, 0,  0, 0, 72, 69, 76, 76, 79, 0, 0, 0};
   auto expected =
@@ -161,7 +195,7 @@ TEST_F(UnsafeRowSerializerTest, string) {
   testDeserialize(data, 28, expected);
 }
 
-TEST_F(UnsafeRowSerializerTest, null) {
+TEST_P(UnsafeRowSerializerTest, null) {
   int8_t data[20] = {0, 0, 0, 16, 1, 0, 0, 0, 0, 0,
                      0, 0, 0, 0,  0, 0, 0, 0, 0, 0};
   auto expected = makeRowVector({makeNullableFlatVector(
@@ -182,7 +216,7 @@ TEST_F(UnsafeRowSerializerTest, null) {
 //   unsafeRow.getBaseObject().asInstanceOf[Array[Byte]].foreach(b => print(b +
 //   ", ")) print("\n")
 // }
-TEST_F(UnsafeRowSerializerTest, decimal) {
+TEST_P(UnsafeRowSerializerTest, decimal) {
   // short decimal
   int8_t data[20] = {0, 0, 0,  16, 0,   0,   0, 0, 0, 0,
                      0, 0, 62, 28, -36, -33, 2, 0, 0, 0};
@@ -206,7 +240,7 @@ TEST_F(UnsafeRowSerializerTest, decimal) {
   testDeserialize(longData, 36, longExpected);
 }
 
-TEST_F(UnsafeRowSerializerTest, manyRows) {
+TEST_P(UnsafeRowSerializerTest, manyRows) {
   int8_t data[140] = {0, 0, 0,  24, 0, 0, 0,   0,   0,   0,   0,   0,  4,   0,
                       0, 0, 16, 0,  0, 0, 109, 97,  110, 121, 0,   0,  0,   0,
                       0, 0, 0,  24, 0, 0, 0,   0,   0,   0,   0,   0,  4,   0,
@@ -224,7 +258,7 @@ TEST_F(UnsafeRowSerializerTest, manyRows) {
   testDeserialize(data, 140, expected);
 }
 
-TEST_F(UnsafeRowSerializerTest, splitRow) {
+TEST_P(UnsafeRowSerializerTest, splitRow) {
   int8_t data[20] = {0, 0, 0,  16, 0,   0,   0, 0, 0, 0,
                      0, 0, 62, 28, -36, -33, 2, 0, 0, 0};
   auto expected =
@@ -254,7 +288,7 @@ TEST_F(UnsafeRowSerializerTest, splitRow) {
   testDeserialize(buffers, expected);
 }
 
-TEST_F(UnsafeRowSerializerTest, incompleteRow) {
+TEST_P(UnsafeRowSerializerTest, incompleteRow) {
   int8_t data[20] = {0, 0, 0,  16, 0,   0,   0, 0, 0, 0,
                      0, 0, 62, 28, -36, -33, 2, 0, 0, 0};
   auto expected =
@@ -288,7 +322,7 @@ TEST_F(UnsafeRowSerializerTest, incompleteRow) {
       "(1 vs. 1) Reading past end of BufferInputStream");
 }
 
-TEST_F(UnsafeRowSerializerTest, types) {
+TEST_P(UnsafeRowSerializerTest, types) {
   auto rowType = ROW(
       {BOOLEAN(),
        TINYINT(),
@@ -330,7 +364,7 @@ TEST_F(UnsafeRowSerializerTest, types) {
   testRoundTrip(data);
 }
 
-TEST_F(UnsafeRowSerializerTest, date) {
+TEST_P(UnsafeRowSerializerTest, date) {
   auto rowVector = makeRowVector({
       makeFlatVector<int32_t>({0, 1}, DATE()),
   });
@@ -338,7 +372,7 @@ TEST_F(UnsafeRowSerializerTest, date) {
   testRoundTrip(rowVector);
 }
 
-TEST_F(UnsafeRowSerializerTest, unknown) {
+TEST_P(UnsafeRowSerializerTest, unknown) {
   // UNKNOWN type.
   auto rowVector = makeRowVector({
       BaseVector::createNullConstant(UNKNOWN(), 10, pool()),
@@ -374,7 +408,7 @@ TEST_F(UnsafeRowSerializerTest, unknown) {
   });
 }
 
-TEST_F(UnsafeRowSerializerTest, decimalVector) {
+TEST_P(UnsafeRowSerializerTest, decimalVector) {
   auto rowVectorDecimal = makeRowVector({makeFlatVector<int128_t>(
       {
           0,
@@ -397,3 +431,8 @@ TEST_F(UnsafeRowSerializerTest, decimalVector) {
 
   testRoundTrip(rowVectorArray);
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    UnsafeRowSerializerTest,
+    UnsafeRowSerializerTest,
+    testing::Values(false, true));

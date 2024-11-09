@@ -119,10 +119,13 @@ class PrestoSerializerTest
           rowVector.get(), indexRanges.value(), sizes.data(), scratch);
       serializer->append(rowVector, indexRanges.value(), scratch);
     } else if (rows.has_value()) {
-      raw_vector<vector_size_t*> sizes(rows.value().size());
-      std::fill(sizes.begin(), sizes.end(), &sizeEstimate);
+      raw_vector<vector_size_t> sizes(rows.value().size());
+      std::vector<vector_size_t*> sizePointers(rows.value().size());
+      for (vector_size_t i = 0; i < sizes.size(); ++i) {
+        sizePointers[i] = &sizes[i];
+      }
       serde_->estimateSerializedSize(
-          rowVector.get(), rows.value(), sizes.data(), scratch);
+          rowVector.get(), rows.value(), sizePointers.data(), scratch);
       serializer->append(rowVector, rows.value(), scratch);
     } else {
       vector_size_t* sizes = &sizeEstimate;
@@ -1612,6 +1615,13 @@ class PrestoSerializerBatchEstimateSizeTest : public testing::Test,
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();
     }
+    ASSERT_EQ(getVectorSerde()->kind(), VectorSerde::Kind::kPresto);
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
+      serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
+    }
+    ASSERT_EQ(
+        getNamedVectorSerde(VectorSerde::Kind::kPresto)->kind(),
+        VectorSerde::Kind::kPresto);
 
     memory::MemoryManager::testingSetInstance({});
   }

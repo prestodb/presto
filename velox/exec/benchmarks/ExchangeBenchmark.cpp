@@ -132,11 +132,12 @@ class ExchangeBenchmark : public VectorTestBase {
 
     core::PlanNodePtr finalAggPlan;
     std::vector<std::string> finalAggTaskIds;
-    finalAggPlan = exec::test::PlanBuilder()
-                       .exchange(leafPlan->outputType())
-                       .singleAggregation({}, {"count(1)"})
-                       .partitionedOutput({}, 1)
-                       .planNode();
+    finalAggPlan =
+        exec::test::PlanBuilder()
+            .exchange(leafPlan->outputType(), VectorSerde::Kind::kPresto)
+            .singleAggregation({}, {"count(1)"})
+            .partitionedOutput({}, 1)
+            .planNode();
 
     std::vector<exec::Split> finalAggSplits;
     for (int i = 0; i < width; i++) {
@@ -149,10 +150,11 @@ class ExchangeBenchmark : public VectorTestBase {
       addRemoteSplits(task, leafTaskIds);
     }
 
-    auto plan = exec::test::PlanBuilder()
-                    .exchange(finalAggPlan->outputType())
-                    .singleAggregation({}, {"sum(a0)"})
-                    .planNode();
+    auto plan =
+        exec::test::PlanBuilder()
+            .exchange(finalAggPlan->outputType(), VectorSerde::Kind::kPresto)
+            .singleAggregation({}, {"sum(a0)"})
+            .planNode();
 
     auto expected =
         makeRowVector({makeFlatVector<int64_t>(1, [&](auto /*row*/) {

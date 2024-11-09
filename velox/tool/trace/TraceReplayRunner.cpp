@@ -40,6 +40,8 @@
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/serializers/CompactRowSerializer.h"
+#include "velox/serializers/UnsafeRowSerializer.h"
 #include "velox/tool/trace/AggregationReplayer.h"
 #include "velox/tool/trace/FilterProjectReplayer.h"
 #include "velox/tool/trace/HashJoinReplayer.h"
@@ -74,12 +76,30 @@ DEFINE_string(
     "",
     "Specify output directory of TableWriter.");
 DEFINE_double(
-    hiveConnectorExecutorHwMultiplier,
+    hive_connector_executor_hw_multiplier,
     2.0,
     "Hardware multipler for hive connector.");
+DEFINE_int32(
+    shuffle_serialization_format,
+    0,
+    "Specify the shuffle serialization format, 0: presto columnar, 1: compact row, 2: spark unsafe row.");
 
 namespace facebook::velox::tool::trace {
 namespace {
+VectorSerde::Kind getVectorSerdeKind() {
+  switch (FLAGS_shuffle_serialization_format) {
+    case 0:
+      return VectorSerde::Kind::kPresto;
+    case 1:
+      return VectorSerde::Kind::kCompactRow;
+    case 2:
+      return VectorSerde::Kind::kUnsafeRow;
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported shuffle serialization format: {}",
+          static_cast<int>(FLAGS_shuffle_serialization_format));
+  }
+}
 
 std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
   std::unique_ptr<tool::trace::OperatorReplayerBase> replayer;
@@ -110,6 +130,7 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
         FLAGS_task_id,
         FLAGS_node_id,
         FLAGS_pipeline_id,
+        getVectorSerdeKind(),
         FLAGS_operator_type);
   } else if (FLAGS_operator_type == "FilterProject") {
     replayer = std::make_unique<tool::trace::FilterProjectReplayer>(
@@ -236,7 +257,7 @@ void printSummary(
 TraceReplayRunner::TraceReplayRunner()
     : ioExecutor_(std::make_unique<folly::IOThreadPoolExecutor>(
           std::thread::hardware_concurrency() *
-              FLAGS_hiveConnectorExecutorHwMultiplier,
+              FLAGS_hive_connector_executor_hw_multiplier,
           std::make_shared<folly::NamedThreadFactory>(
               "TraceReplayIoConnector"))) {}
 
@@ -261,6 +282,15 @@ void TraceReplayRunner::init() {
   exec::registerPartitionFunctionSerDe();
   if (!isRegisteredVectorSerde()) {
     serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
+    serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kCompactRow)) {
+    serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kUnsafeRow)) {
+    serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
   }
   connector::hive::HiveTableHandle::registerSerDe();
   connector::hive::LocationHandle::registerSerDe();
@@ -301,6 +331,7 @@ void TraceReplayRunner::run() {
     return;
   }
 
+  VELOX_USER_CHECK(!FLAGS_task_id.empty(), "--task_id must be provided");
   VELOX_USER_CHECK(
       !FLAGS_operator_type.empty(), "--operator_type must be provided");
   createReplayer()->run();

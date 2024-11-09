@@ -246,10 +246,12 @@ PlanBuilder& PlanBuilder::traceScan(
   return *this;
 }
 
-PlanBuilder& PlanBuilder::exchange(const RowTypePtr& outputType) {
+PlanBuilder& PlanBuilder::exchange(
+    const RowTypePtr& outputType,
+    VectorSerde::Kind serdeKind) {
   VELOX_CHECK_NULL(planNode_, "Exchange must be the source node");
-  planNode_ =
-      std::make_shared<core::ExchangeNode>(nextPlanNodeId(), outputType);
+  planNode_ = std::make_shared<core::ExchangeNode>(
+      nextPlanNodeId(), outputType, serdeKind);
   return *this;
 }
 
@@ -284,13 +286,14 @@ parseOrderByClauses(
 
 PlanBuilder& PlanBuilder::mergeExchange(
     const RowTypePtr& outputType,
-    const std::vector<std::string>& keys) {
+    const std::vector<std::string>& keys,
+    VectorSerde::Kind serdeKind) {
   VELOX_CHECK_NULL(planNode_, "MergeExchange must be the source node");
   auto [sortingKeys, sortingOrders] =
       parseOrderByClauses(keys, outputType, pool_);
 
   planNode_ = std::make_shared<core::MergeExchangeNode>(
-      nextPlanNodeId(), outputType, sortingKeys, sortingOrders);
+      nextPlanNodeId(), outputType, sortingKeys, sortingOrders, serdeKind);
 
   return *this;
 }
@@ -1182,15 +1185,17 @@ core::PlanNodePtr createLocalPartitionNode(
 PlanBuilder& PlanBuilder::partitionedOutput(
     const std::vector<std::string>& keys,
     int numPartitions,
-    const std::vector<std::string>& outputLayout) {
-  return partitionedOutput(keys, numPartitions, false, outputLayout);
+    const std::vector<std::string>& outputLayout,
+    VectorSerde::Kind serdeKind) {
+  return partitionedOutput(keys, numPartitions, false, outputLayout, serdeKind);
 }
 
 PlanBuilder& PlanBuilder::partitionedOutput(
     const std::vector<std::string>& keys,
     int numPartitions,
     bool replicateNullsAndAny,
-    const std::vector<std::string>& outputLayout) {
+    const std::vector<std::string>& outputLayout,
+    VectorSerde::Kind serdeKind) {
   VELOX_CHECK_NOT_NULL(
       planNode_, "PartitionedOutput cannot be the source node");
 
@@ -1200,7 +1205,8 @@ PlanBuilder& PlanBuilder::partitionedOutput(
       numPartitions,
       replicateNullsAndAny,
       createPartitionFunctionSpec(planNode_->outputType(), keyExprs, pool_),
-      outputLayout);
+      outputLayout,
+      serdeKind);
 }
 
 PlanBuilder& PlanBuilder::partitionedOutput(
@@ -1208,7 +1214,8 @@ PlanBuilder& PlanBuilder::partitionedOutput(
     int numPartitions,
     bool replicateNullsAndAny,
     core::PartitionFunctionSpecPtr partitionFunctionSpec,
-    const std::vector<std::string>& outputLayout) {
+    const std::vector<std::string>& outputLayout,
+    VectorSerde::Kind serdeKind) {
   VELOX_CHECK_NOT_NULL(
       planNode_, "PartitionedOutput cannot be the source node");
   auto outputType = outputLayout.empty()
@@ -1222,31 +1229,34 @@ PlanBuilder& PlanBuilder::partitionedOutput(
       replicateNullsAndAny,
       std::move(partitionFunctionSpec),
       outputType,
+      serdeKind,
       planNode_);
   return *this;
 }
 
 PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
-    const std::vector<std::string>& outputLayout) {
+    const std::vector<std::string>& outputLayout,
+    VectorSerde::Kind serdeKind) {
   VELOX_CHECK_NOT_NULL(
       planNode_, "PartitionedOutput cannot be the source node");
   auto outputType = outputLayout.empty()
       ? planNode_->outputType()
       : extract(planNode_->outputType(), outputLayout);
   planNode_ = core::PartitionedOutputNode::broadcast(
-      nextPlanNodeId(), 1, outputType, planNode_);
+      nextPlanNodeId(), 1, outputType, serdeKind, planNode_);
   return *this;
 }
 
 PlanBuilder& PlanBuilder::partitionedOutputArbitrary(
-    const std::vector<std::string>& outputLayout) {
+    const std::vector<std::string>& outputLayout,
+    VectorSerde::Kind serdeKind) {
   VELOX_CHECK_NOT_NULL(
       planNode_, "PartitionedOutput cannot be the source node");
   auto outputType = outputLayout.empty()
       ? planNode_->outputType()
       : extract(planNode_->outputType(), outputLayout);
   planNode_ = core::PartitionedOutputNode::arbitrary(
-      nextPlanNodeId(), outputType, planNode_);
+      nextPlanNodeId(), outputType, serdeKind, planNode_);
   return *this;
 }
 

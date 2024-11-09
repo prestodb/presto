@@ -22,9 +22,11 @@ namespace facebook::velox::exec::test {
 
 std::unique_ptr<SerializedPage> toSerializedPage(
     const RowVectorPtr& vector,
+    VectorSerde::Kind serdeKind,
     const std::shared_ptr<OutputBufferManager>& bufferManager,
     memory::MemoryPool* pool) {
-  auto data = std::make_unique<VectorStreamGroup>(pool);
+  auto data =
+      std::make_unique<VectorStreamGroup>(pool, getNamedVectorSerde(serdeKind));
   auto size = vector->size();
   auto range = IndexRange{0, size};
   data->createStreamTree(asRowType(vector->type()), size);

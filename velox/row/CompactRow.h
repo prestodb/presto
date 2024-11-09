@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include "velox/common/base/RawVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 
@@ -25,17 +24,24 @@ class CompactRow {
  public:
   explicit CompactRow(const RowVectorPtr& vector);
 
+  /// Returns the serialized sizes of the rows at specified indexes.
+  ///
+  /// TODO: optimizes using columnar serialization size calculation.
+  void serializedRowSizes(
+      const folly::Range<const vector_size_t*>& rows,
+      vector_size_t** sizes) const;
+
   /// Returns row size if all fields are fixed width. Return std::nullopt if
   /// there are variable-width fields.
   static std::optional<int32_t> fixedRowSize(const RowTypePtr& rowType);
 
   /// Returns serialized size of the row at specified index. Use only if
   /// 'fixedRowSize' returned std::nullopt.
-  int32_t rowSize(vector_size_t index);
+  int32_t rowSize(vector_size_t index) const;
 
   /// Serializes row at specified index into 'buffer'.
   /// 'buffer' must have sufficient capacity and set to all zeros.
-  int32_t serialize(vector_size_t index, char* buffer);
+  int32_t serialize(vector_size_t index, char* buffer) const;
 
   /// Serializes rows in the range [offset, offset + size) into 'buffer' at
   /// given 'bufferOffsets'. 'buffer' must have sufficient capacity and set to
@@ -47,7 +53,7 @@ class CompactRow {
       vector_size_t offset,
       vector_size_t size,
       const size_t* bufferOffsets,
-      char* buffer);
+      char* buffer) const;
 
   /// Deserializes multiple rows into a RowVector of specified type. The type
   /// must match the contents of the serialized rows.
@@ -61,7 +67,7 @@ class CompactRow {
 
   void initialize(const TypePtr& type);
 
-  bool isNullAt(vector_size_t);
+  bool isNullAt(vector_size_t) const;
 
   /// Fixed-width types only. Returns number of bytes used by single value.
   int32_t valueBytes() const {
@@ -70,56 +76,59 @@ class CompactRow {
 
   /// Writes fixed-width value at specified index into 'buffer'. Value must not
   /// be null.
-  void serializeFixedWidth(vector_size_t index, char* buffer);
+  void serializeFixedWidth(vector_size_t index, char* buffer) const;
 
   /// Writes range of fixed-width values between 'offset' and 'offset + size'
   /// into 'buffer'. Values can be null.
-  void
-  serializeFixedWidth(vector_size_t offset, vector_size_t size, char* buffer);
+  void serializeFixedWidth(
+      vector_size_t offset,
+      vector_size_t size,
+      char* buffer) const;
 
   /// Returns serialized size of variable-width row.
-  int32_t variableWidthRowSize(vector_size_t index);
+  int32_t variableWidthRowSize(vector_size_t index) const;
 
   /// Writes variable-width value at specified index into 'buffer'. Value must
   /// not be null. Returns number of bytes written to 'buffer'.
-  int32_t serializeVariableWidth(vector_size_t index, char* buffer);
+  int32_t serializeVariableWidth(vector_size_t index, char* buffer) const;
 
  private:
   /// Returns serialized size of array row.
-  int32_t arrayRowSize(vector_size_t index);
+  int32_t arrayRowSize(vector_size_t index) const;
 
   /// Serializes array value to buffer. Value must not be null. Returns number
   /// of bytes written to 'buffer'.
-  int32_t serializeArray(vector_size_t index, char* buffer);
+  int32_t serializeArray(vector_size_t index, char* buffer) const;
 
   /// Returns serialized size of map row.
-  int32_t mapRowSize(vector_size_t index);
+  int32_t mapRowSize(vector_size_t index) const;
 
   /// Serializes map value to buffer. Value must not be null. Returns number of
   /// bytes written to 'buffer'.
-  int32_t serializeMap(vector_size_t index, char* buffer);
+  int32_t serializeMap(vector_size_t index, char* buffer) const;
 
   /// Returns serialized size of a range of values.
   int32_t arrayRowSize(
-      CompactRow& elements,
+      const CompactRow& elements,
       vector_size_t offset,
       vector_size_t size,
-      bool fixedWidth);
+      bool fixedWidth) const;
 
   /// Serializes a range of values into buffer. Returns number of bytes written
   /// to 'buffer'.
   int32_t serializeAsArray(
-      CompactRow& elements,
+      const CompactRow& elements,
       vector_size_t offset,
       vector_size_t size,
       bool fixedWidth,
-      char* buffer);
+      char* buffer) const;
+  ;
 
   /// Returns serialized size of struct value.
-  int32_t rowRowSize(vector_size_t index);
+  int32_t rowRowSize(vector_size_t index) const;
 
   /// Serializes struct value to buffer. Value must not be null.
-  int32_t serializeRow(vector_size_t index, char* buffer);
+  int32_t serializeRow(vector_size_t index, char* buffer) const;
 
   /// Serializes struct values in range [offset, offset + size) to buffer.
   /// Value must not be null.
@@ -127,7 +136,7 @@ class CompactRow {
       vector_size_t offset,
       vector_size_t size,
       char* buffer,
-      const size_t* bufferOffsets);
+      const size_t* bufferOffsets) const;
 
   const TypeKind typeKind_;
   DecodedVector decoded_;

@@ -30,6 +30,7 @@ OperatorTraceInputReader::OperatorTraceInputReader(
       fs_(filesystems::getFileSystem(traceDir_, nullptr)),
       dataType_(std::move(dataType)),
       pool_(pool),
+      serde_(getNamedVectorSerde(VectorSerde::Kind::kPresto)),
       inputStream_(getInputStream()) {
   VELOX_CHECK_NOT_NULL(dataType_);
 }
@@ -45,7 +46,7 @@ bool OperatorTraceInputReader::read(RowVectorPtr& batch) const {
   }
 
   VectorStreamGroup::read(
-      inputStream_.get(), pool_, dataType_, &batch, &readOptions_);
+      inputStream_.get(), pool_, dataType_, serde_, &batch, &readOptions_);
   return true;
 }
 

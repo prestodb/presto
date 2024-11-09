@@ -60,7 +60,7 @@ target_link_libraries(
 
 add_executable(velox_benchmark_feature_normalization FeatureNormalization.cpp)
 target_link_libraries(
-  velox_benchmark_feature_normalization ${velox_benchmark_deps}
+  velox_benchmark_feature_normalization ${velox_benchmark_deps} velox_row_fast
   velox_functions_prestosql)
 
 add_executable(velox_benchmark_basic_preproc Preproc.cpp)
@@ -99,4 +99,5 @@ target_link_libraries(
   ${velox_benchmark_deps}
   velox_vector_test_lib
   velox_functions_spark
-  velox_functions_prestosql)
+  velox_functions_prestosql
+  velox_row_fast)

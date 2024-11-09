@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include <algorithm>
-#include <array>
-#include <random>
+
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/RowContainer.h"
-#include "velox/exec/VectorHasher.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/serializers/CompactRowSerializer.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/serializers/UnsafeRowSerializer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::exec::test {
@@ -46,6 +45,18 @@ class RowContainerTestBase : public testing::Test,
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::
           registerVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
+      facebook::velox::serializer::presto::PrestoVectorSerde::
+          registerNamedVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kCompactRow)) {
+      facebook::velox::serializer::CompactRowVectorSerde::
+          registerNamedVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kUnsafeRow)) {
+      facebook::velox::serializer::spark::UnsafeRowVectorSerde::
+          registerNamedVectorSerde();
     }
     filesystems::registerLocalFileSystem();
   }

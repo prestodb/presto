@@ -31,7 +31,10 @@ TaskTraceMetadataReader::TaskTraceMetadataReader(
       traceFilePath_(getTaskTraceMetaFilePath(traceDir_)),
       pool_(pool) {
   VELOX_CHECK_NOT_NULL(fs_);
-  VELOX_CHECK(fs_->exists(traceFilePath_));
+  VELOX_CHECK(
+      fs_->exists(traceFilePath_),
+      "Task trace file not found: {}",
+      traceFilePath_);
 }
 
 void TaskTraceMetadataReader::read(

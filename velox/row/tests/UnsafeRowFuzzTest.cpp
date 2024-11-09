@@ -163,10 +163,26 @@ TEST_F(UnsafeRowFuzzTests, fast) {
   });
 
   doTest(rowType, [&](const RowVectorPtr& data) {
+    const auto numRows = data->size();
     std::vector<std::optional<std::string_view>> serialized;
-    serialized.reserve(data->size());
+    serialized.reserve(numRows);
 
     UnsafeRowFast fast(data);
+
+    std::vector<vector_size_t> rows(numRows);
+    std::iota(rows.begin(), rows.end(), 0);
+    std::vector<vector_size_t> serializedRowSizes(numRows);
+    std::vector<vector_size_t*> serializedRowSizesPtr(numRows);
+    for (auto i = 0; i < numRows; ++i) {
+      serializedRowSizesPtr[i] = &serializedRowSizes[i];
+    }
+    fast.serializedRowSizes(
+        folly::Range(rows.data(), numRows), serializedRowSizesPtr.data());
+    for (auto i = 0; i < numRows; ++i) {
+      // The serialized row includes the size of the row.
+      VELOX_CHECK_EQ(serializedRowSizes[i], fast.rowSize(i) + sizeof(uint32_t));
+    }
+
     for (auto i = 0; i < data->size(); ++i) {
       auto rowSize = fast.serialize(i, buffers_[i]);
       VELOX_CHECK_LE(rowSize, kBufferSize);

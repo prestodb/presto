@@ -34,6 +34,7 @@ OperatorTraceWriter::OperatorTraceWriter(
       traceDir_(std::move(traceDir)),
       fs_(filesystems::getFileSystem(traceDir_, nullptr)),
       pool_(pool),
+      serde_(getNamedVectorSerde(VectorSerde::Kind::kPresto)),
       updateAndCheckTraceLimitCB_(std::move(updateAndCheckTraceLimitCB)) {
   traceFile_ = fs_->openFileForWrite(getOpTraceInputFilePath(traceDir_));
   VELOX_CHECK_NOT_NULL(traceFile_);
@@ -48,7 +49,7 @@ void OperatorTraceWriter::write(const RowVectorPtr& rows) {
   }
 
   if (batch_ == nullptr) {
-    batch_ = std::make_unique<VectorStreamGroup>(pool_);
+    batch_ = std::make_unique<VectorStreamGroup>(pool_, serde_);
     batch_->createStreamTree(
         std::static_pointer_cast<const RowType>(rows->type()),
         1'000,

@@ -189,8 +189,9 @@ class SpillWriter {
 
   // Updates the aggregated spill bytes of this query, and throws if exceeds
   // the max spill bytes limit.
-  common::UpdateAndCheckSpillLimitCB updateAndCheckSpillLimitCb_;
+  const common::UpdateAndCheckSpillLimitCB updateAndCheckSpillLimitCb_;
   memory::MemoryPool* const pool_;
+  VectorSerde* const serde_;
   folly::Synchronized<common::SpillStats>* const stats_;
 
   bool finished_{false};
@@ -200,8 +201,8 @@ class SpillWriter {
   SpillFiles finishedFiles_;
 };
 
-/// Represents a spill file for read which turns the serialized spilled data on
-/// disk back into a sequence of spilled row vectors.
+/// Represents a spill file for read which turns the serialized spilled data
+/// on disk back into a sequence of spilled row vectors.
 ///
 /// NOTE: The class will not delete spill file upon destruction, so the user
 /// needs to remove the unused spill files at some point later. For example, a
@@ -269,6 +270,7 @@ class SpillReadFile {
   const common::CompressionKind compressionKind_;
   const serializer::presto::PrestoVectorSerde::PrestoOptions readOptions_;
   memory::MemoryPool* const pool_;
+  VectorSerde* const serde_;
   folly::Synchronized<common::SpillStats>* const stats_;
 
   std::unique_ptr<common::FileInputStream> input_;

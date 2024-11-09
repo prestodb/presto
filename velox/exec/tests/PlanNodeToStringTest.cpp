@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -589,52 +588,85 @@ TEST_F(PlanNodeToStringTest, localPartition) {
 }
 
 TEST_F(PlanNodeToStringTest, partitionedOutput) {
-  auto plan =
-      PlanBuilder().values({data_}).partitionedOutput({"c0"}, 4).planNode();
+  for (auto serdeKind : std::vector<VectorSerde::Kind>{
+           VectorSerde::Kind::kPresto,
+           VectorSerde::Kind::kCompactRow,
+           VectorSerde::Kind::kUnsafeRow}) {
+    SCOPED_TRACE(fmt::format("serdeKind: {}", serdeKind));
+    auto plan =
+        PlanBuilder()
+            .values({data_})
+            .partitionedOutput({"c0"}, 4, /*outputLayout=*/{}, serdeKind)
+            .planNode();
 
-  ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
-  ASSERT_EQ(
-      "-- PartitionedOutput[1][partitionFunction: HASH(c0) with 4 partitions] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
-      plan->toString(true, false));
+    ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
+    ASSERT_EQ(
+        fmt::format(
+            "-- PartitionedOutput[1][partitionFunction: HASH(c0) with 4 partitions {}] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
+            serdeKind),
+        plan->toString(true, false));
 
-  plan = PlanBuilder().values({data_}).partitionedOutputBroadcast().planNode();
+    plan = PlanBuilder()
+               .values({data_})
+               .partitionedOutputBroadcast(/*outputLayout=*/{}, serdeKind)
+               .planNode();
 
-  ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
-  ASSERT_EQ(
-      "-- PartitionedOutput[1][BROADCAST] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
-      plan->toString(true, false));
+    ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
+    ASSERT_EQ(
+        fmt::format(
+            "-- PartitionedOutput[1][BROADCAST {}] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
+            serdeKind),
+        plan->toString(true, false));
 
-  plan = PlanBuilder().values({data_}).partitionedOutput({}, 1).planNode();
+    plan = PlanBuilder()
+               .values({data_})
+               .partitionedOutput({}, 1, /*outputLayout=*/{}, serdeKind)
+               .planNode();
 
-  ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
-  ASSERT_EQ(
-      "-- PartitionedOutput[1][SINGLE] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
-      plan->toString(true, false));
+    ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
+    ASSERT_EQ(
+        fmt::format(
+            "-- PartitionedOutput[1][SINGLE {}] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
+            serdeKind),
+        plan->toString(true, false));
 
-  plan = PlanBuilder()
-             .values({data_})
-             .partitionedOutput({"c1", "c2"}, 5, true)
-             .planNode();
+    plan = PlanBuilder()
+               .values({data_})
+               .partitionedOutput(
+                   {"c1", "c2"}, 5, true, /*outputLayout=*/{}, serdeKind)
+               .planNode();
 
-  ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
-  ASSERT_EQ(
-      "-- PartitionedOutput[1][partitionFunction: HASH(c1, c2) with 5 partitions replicate nulls and any] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
-      plan->toString(true, false));
+    ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
+    ASSERT_EQ(
+        fmt::format(
+            "-- PartitionedOutput[1][partitionFunction: HASH(c1, c2) with 5 partitions replicate nulls and any {}] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
+            serdeKind),
+        plan->toString(true, false));
 
-  auto hiveSpec = std::make_shared<connector::hive::HivePartitionFunctionSpec>(
-      4,
-      std::vector<int>{0, 1, 0, 1},
-      std::vector<column_index_t>{1, 2},
-      std::vector<VectorPtr>{});
+    auto hiveSpec =
+        std::make_shared<connector::hive::HivePartitionFunctionSpec>(
+            4,
+            std::vector<int>{0, 1, 0, 1},
+            std::vector<column_index_t>{1, 2},
+            std::vector<VectorPtr>{});
 
-  plan = PlanBuilder()
-             .values({data_})
-             .partitionedOutput({"c1", "c2"}, 2, false, hiveSpec)
-             .planNode();
-  ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
-  ASSERT_EQ(
-      "-- PartitionedOutput[1][partitionFunction: HIVE((1, 2) buckets: 4) with 2 partitions] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
-      plan->toString(true, false));
+    plan = PlanBuilder()
+               .values({data_})
+               .partitionedOutput(
+                   {"c1", "c2"},
+                   2,
+                   false,
+                   hiveSpec,
+                   /*outputLayout=*/{},
+                   serdeKind)
+               .planNode();
+    ASSERT_EQ("-- PartitionedOutput[1]\n", plan->toString());
+    ASSERT_EQ(
+        fmt::format(
+            "-- PartitionedOutput[1][partitionFunction: HIVE((1, 2) buckets: 4) with 2 partitions {}] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
+            serdeKind),
+        plan->toString(true, false));
+  }
 }
 
 TEST_F(PlanNodeToStringTest, localMerge) {
@@ -662,12 +694,43 @@ TEST_F(PlanNodeToStringTest, localMerge) {
 }
 
 TEST_F(PlanNodeToStringTest, exchange) {
-  auto plan =
-      PlanBuilder().exchange(ROW({"a", "b"}, {BIGINT(), VARCHAR()})).planNode();
+  for (auto serdeKind : std::vector<VectorSerde::Kind>{
+           VectorSerde::Kind::kPresto,
+           VectorSerde::Kind::kCompactRow,
+           VectorSerde::Kind::kUnsafeRow}) {
+    SCOPED_TRACE(fmt::format("serdeKind: {}", serdeKind));
 
-  ASSERT_EQ("-- Exchange[0]\n", plan->toString());
-  ASSERT_EQ(
-      "-- Exchange[0][] -> a:BIGINT, b:VARCHAR\n", plan->toString(true, false));
+    auto plan = PlanBuilder()
+                    .exchange(ROW({"a", "b"}, {BIGINT(), VARCHAR()}), serdeKind)
+                    .planNode();
+
+    ASSERT_EQ("-- Exchange[0]\n", plan->toString());
+    ASSERT_EQ(
+        fmt::format("-- Exchange[0][{}] -> a:BIGINT, b:VARCHAR\n", serdeKind),
+        plan->toString(true, false));
+  }
+}
+
+TEST_F(PlanNodeToStringTest, mergeExchange) {
+  for (auto serdeKind : std::vector<VectorSerde::Kind>{
+           VectorSerde::Kind::kPresto,
+           VectorSerde::Kind::kCompactRow,
+           VectorSerde::Kind::kUnsafeRow}) {
+    SCOPED_TRACE(fmt::format("serdeKind: {}", serdeKind));
+
+    auto plan =
+        PlanBuilder()
+            .mergeExchange(
+                ROW({"a", "b"}, {BIGINT(), VARCHAR()}), {"a"}, serdeKind)
+            .planNode();
+
+    ASSERT_EQ("-- MergeExchange[0]\n", plan->toString());
+    ASSERT_EQ(
+        fmt::format(
+            "-- MergeExchange[0][a ASC NULLS LAST, {}] -> a:BIGINT, b:VARCHAR\n",
+            serdeKind),
+        plan->toString(true, false));
+  }
 }
 
 TEST_F(PlanNodeToStringTest, tableScan) {

@@ -19,6 +19,7 @@ namespace facebook::velox::row {
 
 namespace {
 static const int32_t kFieldWidth = 8;
+using TRowSize = uint32_t;
 
 int32_t alignBits(int32_t numBits) {
   return bits::nwords(numBits) * 8;
@@ -121,11 +122,27 @@ void UnsafeRowFast::initialize(const TypePtr& type) {
   }
 }
 
-int32_t UnsafeRowFast::rowSize(vector_size_t index) {
+void UnsafeRowFast::serializedRowSizes(
+    const folly::Range<const vector_size_t*>& rows,
+    vector_size_t** sizes) const {
+  if (const auto fixedRowSize =
+          UnsafeRowFast::fixedRowSize(asRowType(decoded_.base()->type()))) {
+    for (const auto row : rows) {
+      *sizes[row] = fixedRowSize.value() + sizeof(TRowSize);
+    }
+    return;
+  }
+
+  for (const auto& row : rows) {
+    *sizes[row] = rowSize(row) + sizeof(TRowSize);
+  }
+}
+
+int32_t UnsafeRowFast::rowSize(vector_size_t index) const {
   return rowRowSize(index);
 }
 
-int32_t UnsafeRowFast::variableWidthRowSize(vector_size_t index) {
+int32_t UnsafeRowFast::variableWidthRowSize(vector_size_t index) const {
   switch (typeKind_) {
     case TypeKind::VARCHAR:
       [[fallthrough]];
@@ -147,15 +164,16 @@ int32_t UnsafeRowFast::variableWidthRowSize(vector_size_t index) {
   };
 }
 
-bool UnsafeRowFast::isNullAt(vector_size_t index) {
+bool UnsafeRowFast::isNullAt(vector_size_t index) const {
   return decoded_.isNullAt(index);
 }
 
-int32_t UnsafeRowFast::serialize(vector_size_t index, char* buffer) {
+int32_t UnsafeRowFast::serialize(vector_size_t index, char* buffer) const {
   return serializeRow(index, buffer);
 }
 
-void UnsafeRowFast::serializeFixedWidth(vector_size_t index, char* buffer) {
+void UnsafeRowFast::serializeFixedWidth(vector_size_t index, char* buffer)
+    const {
   VELOX_DCHECK(fixedWidthTypeKind_);
   switch (typeKind_) {
     case TypeKind::BOOLEAN:
@@ -176,7 +194,7 @@ void UnsafeRowFast::serializeFixedWidth(vector_size_t index, char* buffer) {
 void UnsafeRowFast::serializeFixedWidth(
     vector_size_t offset,
     vector_size_t size,
-    char* buffer) {
+    char* buffer) const {
   VELOX_DCHECK(supportsBulkCopy_);
   // decoded_.data<char>() can be null if all values are null.
   if (decoded_.data<char>()) {
@@ -187,9 +205,8 @@ void UnsafeRowFast::serializeFixedWidth(
   }
 }
 
-int32_t UnsafeRowFast::serializeVariableWidth(
-    vector_size_t index,
-    char* buffer) {
+int32_t UnsafeRowFast::serializeVariableWidth(vector_size_t index, char* buffer)
+    const {
   switch (typeKind_) {
     case TypeKind::VARCHAR:
       [[fallthrough]];
@@ -214,7 +231,7 @@ int32_t UnsafeRowFast::serializeVariableWidth(
   };
 }
 
-int32_t UnsafeRowFast::arrayRowSize(vector_size_t index) {
+int32_t UnsafeRowFast::arrayRowSize(vector_size_t index) const {
   auto baseIndex = decoded_.index(index);
 
   // array size | null bits | fixed-width data | variable-width data
@@ -225,7 +242,7 @@ int32_t UnsafeRowFast::arrayRowSize(vector_size_t index) {
   return arrayRowSize(children_[0], offset, size, childIsFixedWidth_[0]);
 }
 
-int32_t UnsafeRowFast::serializeArray(vector_size_t index, char* buffer) {
+int32_t UnsafeRowFast::serializeArray(vector_size_t index, char* buffer) const {
   auto baseIndex = decoded_.index(index);
 
   // array size | null bits | fixed-width data | variable-width data
@@ -237,7 +254,7 @@ int32_t UnsafeRowFast::serializeArray(vector_size_t index, char* buffer) {
       children_[0], offset, size, childIsFixedWidth_[0], buffer);
 }
 
-int32_t UnsafeRowFast::mapRowSize(vector_size_t index) {
+int32_t UnsafeRowFast::mapRowSize(vector_size_t index) const {
   auto baseIndex = decoded_.index(index);
 
   //  size of serialized keys array in bytes | <keys array> | <values array>
@@ -251,7 +268,7 @@ int32_t UnsafeRowFast::mapRowSize(vector_size_t index) {
       arrayRowSize(children_[1], offset, size, childIsFixedWidth_[1]);
 }
 
-int32_t UnsafeRowFast::serializeMap(vector_size_t index, char* buffer) {
+int32_t UnsafeRowFast::serializeMap(vector_size_t index, char* buffer) const {
   auto baseIndex = decoded_.index(index);
 
   //  size of serialized keys array in bytes | <keys array> | <values array>
@@ -285,10 +302,10 @@ int32_t UnsafeRowFast::serializeMap(vector_size_t index, char* buffer) {
 }
 
 int32_t UnsafeRowFast::arrayRowSize(
-    UnsafeRowFast& elements,
+    const UnsafeRowFast& elements,
     vector_size_t offset,
     vector_size_t size,
-    bool fixedWidth) {
+    bool fixedWidth) const {
   int32_t nullBytes = alignBits(size);
 
   int32_t rowSize = kFieldWidth + nullBytes;
@@ -308,11 +325,11 @@ int32_t UnsafeRowFast::arrayRowSize(
 }
 
 int32_t UnsafeRowFast::serializeAsArray(
-    UnsafeRowFast& elements,
+    const UnsafeRowFast& elements,
     vector_size_t offset,
     vector_size_t size,
     bool fixedWidth,
-    char* buffer) {
+    char* buffer) const {
   // array size | null bits | fixed-width data | variable-width data
 
   // Write array size.
@@ -362,7 +379,7 @@ int32_t UnsafeRowFast::serializeAsArray(
   return variableWidthOffset;
 }
 
-int32_t UnsafeRowFast::rowRowSize(vector_size_t index) {
+int32_t UnsafeRowFast::rowRowSize(vector_size_t index) const {
   auto childIndex = decoded_.index(index);
 
   const auto numFields = children_.size();
@@ -377,7 +394,7 @@ int32_t UnsafeRowFast::rowRowSize(vector_size_t index) {
   return size;
 }
 
-int32_t UnsafeRowFast::serializeRow(vector_size_t index, char* buffer) {
+int32_t UnsafeRowFast::serializeRow(vector_size_t index, char* buffer) const {
   auto childIndex = decoded_.index(index);
 
   int64_t variableWidthOffset = rowNullBytes_ + kFieldWidth * children_.size();

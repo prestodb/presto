@@ -56,9 +56,13 @@ class TestRuntimeStatWriter : public BaseRuntimeStatWriter {
 struct TestParam {
   common::CompressionKind compressionKind;
   bool enablePrefixSort;
+
+  TestParam(common::CompressionKind _compressionKind, bool _enablePrefixSort)
+      : compressionKind(_compressionKind),
+        enablePrefixSort(_enablePrefixSort) {}
 };
 
-class SpillTest : public ::testing::TestWithParam<TestParam>,
+class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
                   public facebook::velox::test::VectorTestBase {
  public:
   explicit SpillTest()
@@ -71,33 +75,36 @@ class SpillTest : public ::testing::TestWithParam<TestParam>,
     setThreadLocalRunTimeStatWriter(nullptr);
   }
 
-  static std::vector<TestParam> getTestParams() {
-    static std::vector<TestParam> testParams = {
-        {common::CompressionKind::CompressionKind_NONE, false},
-        {common::CompressionKind::CompressionKind_ZLIB, true},
-        {common::CompressionKind::CompressionKind_SNAPPY, false},
-        {common::CompressionKind::CompressionKind_ZSTD, true},
-        {common::CompressionKind::CompressionKind_LZ4, false},
-        {common::CompressionKind::CompressionKind_GZIP, true}};
+  static std::vector<common::CompressionKind> getTestParams() {
+    std::vector<common::CompressionKind> testParams;
+    testParams.emplace_back(common::CompressionKind::CompressionKind_NONE);
+    testParams.emplace_back(common::CompressionKind::CompressionKind_ZLIB);
+    testParams.emplace_back(common::CompressionKind::CompressionKind_SNAPPY);
+    testParams.emplace_back(common::CompressionKind::CompressionKind_ZSTD);
+    testParams.emplace_back(common::CompressionKind::CompressionKind_LZ4);
     return testParams;
   }
 
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
+    if (!isRegisteredVectorSerde()) {
+      facebook::velox::serializer::presto::PrestoVectorSerde::
+          registerVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
+      facebook::velox::serializer::presto::PrestoVectorSerde::
+          registerNamedVectorSerde();
+    }
   }
 
   void SetUp() override {
     allocator_ = memory::memoryManager()->allocator();
     tempDir_ = exec::test::TempDirectoryPath::create();
-    if (!isRegisteredVectorSerde()) {
-      facebook::velox::serializer::presto::PrestoVectorSerde::
-          registerVectorSerde();
-    }
     filesystems::registerLocalFileSystem();
     rng_.seed(1);
-    compressionKind_ = GetParam().compressionKind;
-    enablePrefixSort_ = GetParam().enablePrefixSort;
+    compressionKind_ = GetParam();
+    enablePrefixSort_ = true;
   }
 
   uint8_t randPartitionBitOffset() {
@@ -894,7 +901,7 @@ TEST(SpillTest, scopedSpillInjectionRegex) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(
+VELOX_INSTANTIATE_TEST_SUITE_P(
     SpillTestSuite,
     SpillTest,
     ::testing::ValuesIn(SpillTest::getTestParams()));

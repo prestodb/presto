@@ -24,11 +24,14 @@ BlockingReason Destination::advance(
     uint64_t maxBytes,
     const std::vector<vector_size_t>& sizes,
     const RowVectorPtr& output,
+    const row::CompactRow* outputCompactRow,
+    const row::UnsafeRowFast* outputUnsafeRow,
     OutputBufferManager& bufferManager,
     const std::function<void()>& bufferReleaseFn,
     bool* atEnd,
     ContinueFuture* future,
     Scratch& scratch) {
+  VELOX_CHECK_LE(!!outputCompactRow + !!outputUnsafeRow, 1);
   if (rowIdx_ >= rows_.size()) {
     *atEnd = true;
     return BlockingReason::kNotBlocked;
@@ -51,17 +54,32 @@ BlockingReason Destination::advance(
   }
 
   // Serialize
-  if (!current_) {
-    current_ = std::make_unique<VectorStreamGroup>(pool_);
-    auto rowType = asRowType(output->type());
-    serializer::presto::PrestoVectorSerde::PrestoOptions options;
-    options.compressionKind =
-        OutputBufferManager::getInstance().lock()->compressionKind();
-    options.minCompressionRatio = PartitionedOutput::minCompressionRatio();
-    current_->createStreamTree(rowType, rowsInCurrent_, &options);
+  if (current_ == nullptr) {
+    current_ = std::make_unique<VectorStreamGroup>(pool_, serde_);
+    const auto rowType = asRowType(output->type());
+    if (serde_->kind() == VectorSerde::Kind::kPresto) {
+      serializer::presto::PrestoVectorSerde::PrestoOptions options;
+      options.compressionKind =
+          OutputBufferManager::getInstance().lock()->compressionKind();
+      options.minCompressionRatio = PartitionedOutput::minCompressionRatio();
+      current_->createStreamTree(rowType, rowsInCurrent_, &options);
+    } else {
+      current_->createStreamTree(rowType, rowsInCurrent_);
+    }
   }
-  current_->append(
-      output, folly::Range(&rows_[firstRow], rowIdx_ - firstRow), scratch);
+
+  const auto rows = folly::Range(&rows_[firstRow], rowIdx_ - firstRow);
+  if (serde_->kind() == VectorSerde::Kind::kCompactRow) {
+    VELOX_CHECK_NOT_NULL(outputCompactRow);
+    current_->append(*outputCompactRow, rows, sizes);
+  } else if (serde_->kind() == VectorSerde::Kind::kUnsafeRow) {
+    VELOX_CHECK_NOT_NULL(outputUnsafeRow);
+    current_->append(*outputUnsafeRow, rows, sizes);
+  } else {
+    VELOX_CHECK_EQ(serde_->kind(), VectorSerde::Kind::kPresto);
+    current_->append(output, rows, scratch);
+  }
+
   // Update output state variable.
   if (rowIdx_ == rows_.size()) {
     *atEnd = true;
@@ -156,7 +174,8 @@ PartitionedOutput::PartitionedOutput(
       maxBufferedBytes_(ctx->task->queryCtx()
                             ->queryConfig()
                             .maxPartitionedOutputBufferSize()),
-      eagerFlush_(eagerFlush) {
+      eagerFlush_(eagerFlush),
+      serde_(getNamedVectorSerde(planNode->serdeKind())) {
   if (!planNode->isPartitioned()) {
     VELOX_USER_CHECK_EQ(numDestinations_, 1);
   }
@@ -191,6 +210,17 @@ void PartitionedOutput::initializeInput(RowVectorPtr input) {
         input_->size(),
         outputColumns);
   }
+
+  // Lazy load all the input columns.
+  for (auto i = 0; i < output_->childrenSize(); ++i) {
+    output_->childAt(i)->loadedVector();
+  }
+
+  if (serde_->kind() == VectorSerde::Kind::kCompactRow) {
+    outputCompactRow_ = std::make_unique<row::CompactRow>(output_);
+  } else if (serde_->kind() == VectorSerde::Kind::kUnsafeRow) {
+    outputUnsafeRow_ = std::make_unique<row::UnsafeRowFast>(output_);
+  }
 }
 
 void PartitionedOutput::initializeDestinations() {
@@ -198,7 +228,12 @@ void PartitionedOutput::initializeDestinations() {
     auto taskId = operatorCtx_->taskId();
     for (int i = 0; i < numDestinations_; ++i) {
       destinations_.push_back(std::make_unique<detail::Destination>(
-          taskId, i, pool(), eagerFlush_, [&](uint64_t bytes, uint64_t rows) {
+          taskId,
+          i,
+          serde_,
+          pool(),
+          eagerFlush_,
+          [&](uint64_t bytes, uint64_t rows) {
             auto lockedStats = stats_.wlock();
             lockedStats->addOutputVector(bytes, rows);
           }));
@@ -207,7 +242,7 @@ void PartitionedOutput::initializeDestinations() {
 }
 
 void PartitionedOutput::initializeSizeBuffers() {
-  auto numInput = input_->size();
+  const auto numInput = input_->size();
   if (numInput > rowSize_.size()) {
     rowSize_.resize(numInput);
     sizePointers_.resize(numInput);
@@ -219,16 +254,23 @@ void PartitionedOutput::initializeSizeBuffers() {
 }
 
 void PartitionedOutput::estimateRowSizes() {
-  auto numInput = input_->size();
+  const auto numInput = input_->size();
   std::fill(rowSize_.begin(), rowSize_.end(), 0);
   raw_vector<vector_size_t> storage;
-  auto numbers = iota(numInput, storage);
-  for (int i = 0; i < output_->childrenSize(); ++i) {
-    VectorStreamGroup::estimateSerializedSize(
-        output_->childAt(i).get(),
-        folly::Range(numbers, numInput),
-        sizePointers_.data(),
-        scratch_);
+  const auto numbers = iota(numInput, storage);
+  const auto rows = folly::Range(numbers, numInput);
+  if (serde_->kind() == VectorSerde::Kind::kCompactRow) {
+    VELOX_CHECK_NOT_NULL(outputCompactRow_);
+    serde_->estimateSerializedSize(
+        outputCompactRow_.get(), rows, sizePointers_.data());
+  } else if (serde_->kind() == VectorSerde::Kind::kUnsafeRow) {
+    VELOX_CHECK_NOT_NULL(outputUnsafeRow_);
+    serde_->estimateSerializedSize(
+        outputUnsafeRow_.get(), rows, sizePointers_.data());
+  } else {
+    VELOX_CHECK_EQ(serde_->kind(), VectorSerde::Kind::kPresto);
+    serde_->estimateSerializedSize(
+        output_.get(), rows, sizePointers_.data(), scratch_);
   }
 }
 
@@ -341,6 +383,8 @@ RowVectorPtr PartitionedOutput::getOutput() {
           maxPageSize,
           rowSize_,
           output_,
+          outputCompactRow_.get(),
+          outputUnsafeRow_.get(),
           *bufferManager,
           bufferReleaseFn_,
           &atEnd,
@@ -392,11 +436,21 @@ RowVectorPtr PartitionedOutput::getOutput() {
   // The input is fully processed, drop the reference to allow reuse.
   input_ = nullptr;
   output_ = nullptr;
+  outputCompactRow_.reset();
+  outputUnsafeRow_.reset();
   return nullptr;
 }
 
 bool PartitionedOutput::isFinished() {
   return finished_;
+}
+
+void PartitionedOutput::close() {
+  Operator::close();
+  stats_.wlock()->addRuntimeStat(
+      Operator::kShuffleSerdeKind,
+      RuntimeCounter(static_cast<int64_t>(serde_->kind())));
+  destinations_.clear();
 }
 
 } // namespace facebook::velox::exec

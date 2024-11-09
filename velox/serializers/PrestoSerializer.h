@@ -81,6 +81,8 @@ class PrestoVectorSerde : public VectorSerde {
     bool preserveEncodings{false};
   };
 
+  PrestoVectorSerde() : VectorSerde(Kind::kPresto) {}
+
   /// Adds the serialized sizes of the rows of 'vector' in 'ranges[i]' to
   /// '*sizes[i]'.
   void estimateSerializedSize(
@@ -89,9 +91,11 @@ class PrestoVectorSerde : public VectorSerde {
       vector_size_t** sizes,
       Scratch& scratch) override;
 
+  /// Adds the serialized sizes of the rows of 'vector' in 'rows[i]' to
+  /// '*sizes[i]'.
   void estimateSerializedSize(
       const BaseVector* vector,
-      const folly::Range<const vector_size_t*> rows,
+      const folly::Range<const vector_size_t*>& rows,
       vector_size_t** sizes,
       Scratch& scratch) override;
 
@@ -195,6 +199,7 @@ class PrestoVectorSerde : public VectorSerde {
       const Options* options = nullptr);
 
   static void registerVectorSerde();
+  static void registerNamedVectorSerde();
 };
 
 class PrestoOutputStreamListener : public OutputStreamListener {

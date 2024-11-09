@@ -191,10 +191,17 @@ class MergeExchange : public Merge {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::MergeExchangeNode>& orderByNode);
 
+  VectorSerde* serde() const {
+    return serde_;
+  }
+
+  void close() override;
+
  protected:
   BlockingReason addMergeSources(ContinueFuture* future) override;
 
  private:
+  VectorSerde* const serde_;
   bool noMoreSplits_ = false;
   // Task Ids from all the splits we took to process so far.
   std::vector<std::string> remoteSourceTaskIds_;

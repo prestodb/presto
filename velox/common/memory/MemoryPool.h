@@ -16,17 +16,14 @@
 
 #pragma once
 
-#include <array>
 #include <atomic>
 #include <memory>
 #include <optional>
-#include <queue>
 
 #include <fmt/format.h>
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Portability.h"
-#include "velox/common/future/VeloxPromise.h"
 #include "velox/common/memory/Allocation.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MemoryArbitrator.h"

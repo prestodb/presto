@@ -69,6 +69,20 @@ class CompactRowTest : public ::testing::Test, public VectorTestBase {
       }
     }
 
+    std::vector<vector_size_t> rows(numRows);
+    std::iota(rows.begin(), rows.end(), 0);
+    std::vector<vector_size_t> serializedRowSizes(numRows);
+    std::vector<vector_size_t*> serializedRowSizesPtr(numRows);
+    for (auto i = 0; i < numRows; ++i) {
+      serializedRowSizesPtr[i] = &serializedRowSizes[i];
+    }
+    row.serializedRowSizes(
+        folly::Range(rows.data(), numRows), serializedRowSizesPtr.data());
+    for (auto i = 0; i < numRows; ++i) {
+      // The serialized row includes the size of the row.
+      ASSERT_EQ(serializedRowSizes[i], row.rowSize(i) + sizeof(uint32_t));
+    }
+
     BufferPtr buffer = AlignedBuffer::allocate<char>(totalSize, pool(), 0);
     auto* rawBuffer = buffer->asMutable<char>();
     {

@@ -333,7 +333,15 @@ class PlanBuilder {
   /// splits.
   ///
   /// @param outputType The type of the data coming in and out of the exchange.
-  PlanBuilder& exchange(const RowTypePtr& outputType);
+  /// @param serdekind The kind of seralized data format.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  PlanBuilder& exchange(const RowTypePtr& outputType) {
+    return exchange(outputType, VectorSerde::Kind::kPresto);
+  }
+#endif
+  PlanBuilder& exchange(
+      const RowTypePtr& outputType,
+      VectorSerde::Kind serdekind);
 
   /// Add a MergeExchangeNode using specified ORDER BY clauses.
   ///
@@ -343,9 +351,17 @@ class PlanBuilder {
   ///
   /// By default, uses ASC NULLS LAST sort order, e.g. column "a" above will use
   /// ASC NULLS LAST and column "b" will use DESC NULLS LAST.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   PlanBuilder& mergeExchange(
       const RowTypePtr& outputType,
-      const std::vector<std::string>& keys);
+      const std::vector<std::string>& keys) {
+    return mergeExchange(outputType, keys, VectorSerde::Kind::kPresto);
+  }
+#endif
+  PlanBuilder& mergeExchange(
+      const RowTypePtr& outputType,
+      const std::vector<std::string>& keys,
+      VectorSerde::Kind serdekind);
 
   /// Add a ProjectNode using specified SQL expressions.
   ///
@@ -785,13 +801,15 @@ class PlanBuilder {
       const std::vector<std::string>& keys,
       int numPartitions,
       bool replicateNullsAndAny,
-      const std::vector<std::string>& outputLayout = {});
+      const std::vector<std::string>& outputLayout = {},
+      VectorSerde::Kind serdeKind = VectorSerde::Kind::kPresto);
 
   /// Same as above, but assumes 'replicateNullsAndAny' is false.
   PlanBuilder& partitionedOutput(
       const std::vector<std::string>& keys,
       int numPartitions,
-      const std::vector<std::string>& outputLayout = {});
+      const std::vector<std::string>& outputLayout = {},
+      VectorSerde::Kind serdeKind = VectorSerde::Kind::kPresto);
 
   /// Same as above, but allows to provide custom partition function.
   PlanBuilder& partitionedOutput(
@@ -799,7 +817,8 @@ class PlanBuilder {
       int numPartitions,
       bool replicateNullsAndAny,
       core::PartitionFunctionSpecPtr partitionFunctionSpec,
-      const std::vector<std::string>& outputLayout = {});
+      const std::vector<std::string>& outputLayout = {},
+      VectorSerde::Kind serdeKind = VectorSerde::Kind::kPresto);
 
   /// Adds a PartitionedOutputNode to broadcast the input data.
   ///
@@ -808,11 +827,13 @@ class PlanBuilder {
   /// some input columns may be missing in the output, some columns may be
   /// duplicated in the output.
   PlanBuilder& partitionedOutputBroadcast(
-      const std::vector<std::string>& outputLayout = {});
+      const std::vector<std::string>& outputLayout = {},
+      VectorSerde::Kind serdeKind = VectorSerde::Kind::kPresto);
 
   /// Adds a PartitionedOutputNode to put data into arbitrary buffer.
   PlanBuilder& partitionedOutputArbitrary(
-      const std::vector<std::string>& outputLayout = {});
+      const std::vector<std::string>& outputLayout = {},
+      VectorSerde::Kind serdeKind = VectorSerde::Kind::kPresto);
 
   /// Adds a LocalPartitionNode to hash-partition the input on the specified
   /// keys using exec::HashPartitionFunction. Number of partitions is determined

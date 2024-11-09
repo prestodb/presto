@@ -25,6 +25,9 @@
 #include "velox/exec/fuzzer/TransformResultVerifier.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
+#include "velox/serializers/CompactRowSerializer.h"
+#include "velox/serializers/PrestoSerializer.h"
+#include "velox/serializers/UnsafeRowSerializer.h"
 
 DEFINE_int64(
     seed,
@@ -51,6 +54,21 @@ int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
 
   facebook::velox::functions::prestosql::registerInternalFunctions();
+  if (!isRegisteredNamedVectorSerde(
+          facebook::velox::VectorSerde::Kind::kPresto)) {
+    facebook::velox::serializer::presto::PrestoVectorSerde::
+        registerNamedVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(
+          facebook::velox::VectorSerde::Kind::kCompactRow)) {
+    facebook::velox::serializer::CompactRowVectorSerde::
+        registerNamedVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(
+          facebook::velox::VectorSerde::Kind::kUnsafeRow)) {
+    facebook::velox::serializer::spark::UnsafeRowVectorSerde::
+        registerNamedVectorSerde();
+  }
   facebook::velox::memory::MemoryManager::initialize({});
 
   // TODO: List of the functions that at some point crash or fail and need to

@@ -15,6 +15,8 @@
  */
 #include "velox/serializers/CompactRowSerializer.h"
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/row/CompactRow.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -22,7 +24,8 @@ namespace facebook::velox::serializer {
 namespace {
 
 class CompactRowSerializerTest : public ::testing::Test,
-                                 public test::VectorTestBase {
+                                 public test::VectorTestBase,
+                                 public testing::WithParamInterface<bool> {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
@@ -30,31 +33,67 @@ class CompactRowSerializerTest : public ::testing::Test,
 
   void SetUp() override {
     pool_ = memory::memoryManager()->addLeafPool();
-    serde_ = std::make_unique<serializer::CompactRowVectorSerde>();
+    deregisterVectorSerde();
+    deregisterNamedVectorSerde(VectorSerde::Kind::kCompactRow);
+    serializer::CompactRowVectorSerde::registerVectorSerde();
+    serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+    ASSERT_EQ(getVectorSerde()->kind(), VectorSerde::Kind::kCompactRow);
+    ASSERT_EQ(
+        getNamedVectorSerde(VectorSerde::Kind::kCompactRow)->kind(),
+        VectorSerde::Kind::kCompactRow);
+  }
+
+  void TearDown() override {
+    deregisterVectorSerde();
+    deregisterNamedVectorSerde(VectorSerde::Kind::kCompactRow);
   }
 
   void serialize(RowVectorPtr rowVector, std::ostream* output) {
-    auto numRows = rowVector->size();
+    const auto numRows = rowVector->size();
 
     // Serialize with different range size.
-    std::vector<IndexRange> rows;
+    std::vector<IndexRange> ranges;
     vector_size_t offset = 0;
     vector_size_t rangeSize = 1;
+    std::unique_ptr<row::CompactRow> compactRow;
+    if (GetParam()) {
+      compactRow = std::make_unique<row::CompactRow>(rowVector);
+    }
     while (offset < numRows) {
       auto size = std::min<vector_size_t>(rangeSize, numRows - offset);
-      rows.push_back(IndexRange{offset, size});
+      ranges.push_back(IndexRange{offset, size});
       offset += size;
       rangeSize = checkedMultiply<vector_size_t>(rangeSize, 2);
     }
 
     auto arena = std::make_unique<StreamArena>(pool_.get());
     auto rowType = asRowType(rowVector->type());
-    auto serializer =
-        serde_->createIterativeSerializer(rowType, numRows, arena.get());
+    auto serializer = getVectorSerde()->createIterativeSerializer(
+        rowType, numRows, arena.get());
 
     Scratch scratch;
-    serializer->append(
-        rowVector, folly::Range(rows.data(), rows.size()), scratch);
+    if (GetParam()) {
+      std::vector<vector_size_t> serializedRowSizes(numRows);
+      std::vector<vector_size_t*> serializedRowSizesPtr(numRows);
+      for (auto i = 0; i < numRows; ++i) {
+        serializedRowSizesPtr[i] = &serializedRowSizes[i];
+      }
+      for (const auto& range : ranges) {
+        std::vector<vector_size_t> rows(range.size);
+        for (auto i = 0; i < range.size; ++i) {
+          rows[i] = range.begin + i;
+        }
+        getVectorSerde()->estimateSerializedSize(
+            compactRow.get(), rows, serializedRowSizesPtr.data());
+        serializer->append(
+            *compactRow,
+            folly::Range(rows.data(), rows.size()),
+            serializedRowSizes);
+      }
+    } else {
+      serializer->append(
+          rowVector, folly::Range(ranges.data(), ranges.size()), scratch);
+    }
     auto size = serializer->maxSerializedSize();
     OStreamOutputStream out(output);
     serializer->flush(&out);
@@ -87,7 +126,8 @@ class CompactRowSerializerTest : public ::testing::Test,
     auto byteStream = toByteStream(input);
 
     RowVectorPtr result;
-    serde_->deserialize(byteStream.get(), pool_.get(), rowType, &result);
+    getVectorSerde()->deserialize(
+        byteStream.get(), pool_.get(), rowType, &result);
     return result;
   }
 
@@ -101,11 +141,10 @@ class CompactRowSerializerTest : public ::testing::Test,
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
-  std::unique_ptr<VectorSerde> serde_;
 };
 
-TEST_F(CompactRowSerializerTest, fuzz) {
-  auto rowType = ROW({
+TEST_P(CompactRowSerializerTest, fuzz) {
+  const auto rowType = ROW({
       BOOLEAN(),
       TINYINT(),
       SMALLINT(),
@@ -135,7 +174,7 @@ TEST_F(CompactRowSerializerTest, fuzz) {
       VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;
   opts.containerLength = 10;
 
-  auto seed = folly::Random::rand32();
+  const auto seed = folly::Random::rand32();
 
   LOG(ERROR) << "Seed: " << seed;
   SCOPED_TRACE(fmt::format("seed: {}", seed));
@@ -145,5 +184,9 @@ TEST_F(CompactRowSerializerTest, fuzz) {
   testRoundTrip(data);
 }
 
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    CompactRowSerializerTest,
+    CompactRowSerializerTest,
+    testing::Values(false, true));
 } // namespace
 } // namespace facebook::velox::serializer

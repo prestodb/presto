@@ -24,7 +24,9 @@
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/serializers/CompactRowSerializer.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/serializers/UnsafeRowSerializer.h"
 
 /// Join FuzzerRunner leverages JoinFuzzer and VectorFuzzer to
 /// automatically generate and execute join tests. It works by:
@@ -69,6 +71,15 @@ class JoinFuzzerRunner {
     filesystems::registerLocalFileSystem();
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
+      serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kCompactRow)) {
+      serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+    }
+    if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kUnsafeRow)) {
+      serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
+    }
     joinFuzzer(seed, std::move(referenceQueryRunner));
     return RUN_ALL_TESTS();
   }

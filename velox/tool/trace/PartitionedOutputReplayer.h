@@ -45,7 +45,8 @@ class PartitionedOutputReplayer final : public OperatorReplayerBase {
       const std::string& queryId,
       const std::string& taskId,
       const std::string& nodeId,
-      const int32_t pipelineId,
+      int32_t pipelineId,
+      VectorSerde::Kind serdeKind,
       const std::string& operatorType,
       const ConsumerCallBack& consumerCb = [](auto partition, auto page) {});
 
@@ -58,6 +59,7 @@ class PartitionedOutputReplayer final : public OperatorReplayerBase {
       const core::PlanNodePtr& source) const override;
 
   const core::PartitionedOutputNode* const originalNode_;
+  const VectorSerde::Kind serdeKind_;
   const std::shared_ptr<exec::OutputBufferManager> bufferManager_{
       exec::OutputBufferManager::getInstance().lock()};
   const std::unique_ptr<folly::Executor> executor_{

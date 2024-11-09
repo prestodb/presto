@@ -27,6 +27,7 @@ target_link_libraries(
   aggregate_companion_functions_test
   velox_exec
   velox_function_registry
+  velox_exec_test_lib
   GTest::gtest
   GTest::gtest_main)
 
