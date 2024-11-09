@@ -13,6 +13,9 @@
 # limitations under the License.
 
 add_subdirectory(utils)
+velox_add_library(velox_dwio_faulty_file_sink FaultyFileSink.cpp)
+velox_link_libraries(velox_dwio_faulty_file_sink velox_file_test_utils
+                     velox_dwio_common)
 
 add_executable(
   velox_dwio_common_test

@@ -23,8 +23,10 @@
 #include <vector>
 
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/FileSink.h"
+#include "velox/dwio/common/tests/FaultyFileSink.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
@@ -74,6 +76,7 @@ class WriterFuzzerRunner {
       size_t seed,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
     filesystems::registerLocalFileSystem();
+    tests::utils::registerFaultyFileSystem();
     connector::registerConnectorFactory(
         std::make_shared<connector::hive::HiveConnectorFactory>());
     auto hiveConnector =
@@ -87,6 +90,7 @@ class WriterFuzzerRunner {
     dwrf::registerDwrfReaderFactory();
     dwrf::registerDwrfWriterFactory();
     dwio::common::registerFileSinks();
+    dwio::common::registerFaultyFileSinks();
     facebook::velox::exec::test::writerFuzzer(
         seed, std::move(referenceQueryRunner));
     // Calling gtest here so that it can be recognized as tests in CI systems.

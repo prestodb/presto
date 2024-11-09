@@ -45,6 +45,11 @@ class TempDirectoryPath {
     return path_;
   }
 
+  /// The actual file path if fault injection is enabled.
+  const std::string& getDelegatePath() const {
+    return tempPath_;
+  }
+
  private:
   static std::string createTempDirectory();
 

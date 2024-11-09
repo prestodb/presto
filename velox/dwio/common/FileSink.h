@@ -166,9 +166,14 @@ class LocalFileSink : public FileSink {
   static void registerFactory();
 
  protected:
+  // 'initializeWriter' is false if it is used by FaultyFileSink which setups
+  // the write file through the fault filesystem.
+  LocalFileSink(
+      const std::string& name,
+      const Options& options,
+      bool initializeWriter);
   void doClose() override;
 
- private:
   std::unique_ptr<WriteFile> writeFile_;
 };
 
