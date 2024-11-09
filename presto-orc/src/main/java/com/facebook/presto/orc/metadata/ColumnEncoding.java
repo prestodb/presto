@@ -83,13 +83,13 @@ public class ColumnEncoding
                 additionalSequenceEncodings.isPresent(),
                 "Got non-zero sequence: %s, but there are no additional sequence encodings: %s", sequence, this);
 
-        DwrfSequenceEncoding sequenceEncoding = additionalSequenceEncodings.get().get(sequence);
+        DwrfSequenceEncoding sequenceEncoding = additionalSequenceEncodings.orElseThrow().get(sequence);
 
         checkState(
                 sequenceEncoding != null,
                 "Non-zero sequence %s is not present in the ColumnEncoding's additional sequences: %s",
                 sequence,
-                additionalSequenceEncodings.get().keySet());
+                additionalSequenceEncodings.orElseThrow().keySet());
 
         return sequenceEncoding.getValueEncoding();
     }

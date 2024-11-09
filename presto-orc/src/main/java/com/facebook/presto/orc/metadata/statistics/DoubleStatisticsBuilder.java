@@ -84,7 +84,7 @@ public class DoubleStatisticsBuilder
     {
         Optional<DoubleStatistics> doubleStatistics = buildDoubleStatistics();
         if (doubleStatistics.isPresent()) {
-            return new DoubleColumnStatistics(nonNullValueCount, null, rawSize, storageSize, doubleStatistics.get());
+            return new DoubleColumnStatistics(nonNullValueCount, null, rawSize, storageSize, doubleStatistics.orElseThrow());
         }
         return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }

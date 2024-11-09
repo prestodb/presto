@@ -42,7 +42,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
@@ -74,6 +73,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -209,7 +209,7 @@ public class MapFlatSelectiveStreamReader
         }
 
         checkArgument(topLevelFilters.size() == 1, "MAP column may have at most one top-level range filter");
-        TupleDomainFilter filter = Iterables.getOnlyElement(topLevelFilters.values());
+        TupleDomainFilter filter = topLevelFilters.values().stream().collect(onlyElement());
         checkArgument(filter == IS_NULL || filter == IS_NOT_NULL, "Top-level range filter on MAP column must be IS NULL or IS NOT NULL");
         return Optional.of(filter);
     }
@@ -647,7 +647,7 @@ public class MapFlatSelectiveStreamReader
         SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
         // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
         if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
-            additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().get();
+            additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().orElseThrow();
         }
         keyIndices = ensureCapacity(keyIndices, additionalSequenceEncodings.size());
         keyCount = 0;

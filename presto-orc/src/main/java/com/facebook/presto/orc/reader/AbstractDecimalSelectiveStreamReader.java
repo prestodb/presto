@@ -93,7 +93,7 @@ public abstract class AbstractDecimalSelectiveStreamReader
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
         this.nullsAllowed = this.filter == null || this.nonDeterministicFilter || this.filter.testNull();
-        this.scale = streamDescriptor.getOrcType().getScale().get();
+        this.scale = streamDescriptor.getOrcType().getScale().orElseThrow();
         this.nullBlock = outputType.map(type -> type.createBlockBuilder(null, 1).appendNull().build()).orElse(null);
         this.valuesPerPosition = valuesPerPosition;
     }

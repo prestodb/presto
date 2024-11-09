@@ -49,7 +49,7 @@ public class TestOrcWriterOptions
 
             assertEquals(options.getDwrfStripeCacheOptions().isPresent(), value);
             if (value) {
-                DwrfStripeCacheOptions dwrfStripeCacheOptions = options.getDwrfStripeCacheOptions().get();
+                DwrfStripeCacheOptions dwrfStripeCacheOptions = options.getDwrfStripeCacheOptions().orElseThrow();
                 assertEquals(dwrfStripeCacheOptions.getStripeCacheMode(), DWRF_STRIPE_CACHE_MODE);
                 assertEquals(dwrfStripeCacheOptions.getStripeCacheMaxSize(), DWRF_STRIPE_CACHE_MAX_SIZE);
             }

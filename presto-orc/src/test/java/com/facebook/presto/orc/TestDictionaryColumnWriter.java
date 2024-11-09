@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -56,9 +57,6 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_I
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
-import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -104,7 +102,7 @@ public class TestDictionaryColumnWriter
     public void testStringAllNullsWithDirectConversion()
             throws Exception
     {
-        List<String> values = newArrayList(limit(cycle(new String[] {null}), 90_000));
+        List<String> values = Stream.<String>generate(() -> null).limit(90_000).toList();
         for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
             directConversionTester.add(7, megabytes(1), true);
@@ -295,7 +293,7 @@ public class TestDictionaryColumnWriter
     public void testDisableStringOnlyNulls()
             throws IOException
     {
-        List<String> values = newArrayList(limit(cycle(new String[] {null}), 3 * STRIPE_MAX_ROWS));
+        List<String> values = Stream.<String>generate(() -> null).limit(3 * STRIPE_MAX_ROWS).toList();
         testStringDirectColumn(values);
     }
 
@@ -356,7 +354,7 @@ public class TestDictionaryColumnWriter
         directConversionTester.add(7, megabytes(1), true);
         directConversionTester.add(14, megabytes(1), true);
         directConversionTester.add(32, megabytes(1), true);
-        List<Integer> values = newArrayList(limit(cycle(new Integer[] {null}), 60_000));
+        List<Integer> values = Stream.<Integer>generate(() -> null).limit(60_000).toList();
 
         List<StripeFooter> stripeFooters = testIntegerDictionary(directConversionTester, values);
         verifyDwrfDirectEncoding(getStripeSize(values.size()), stripeFooters);
@@ -367,7 +365,10 @@ public class TestDictionaryColumnWriter
             throws IOException
     {
         DirectConversionTester directConversionTester = new DirectConversionTester();
-        List<Integer> values = newArrayList(limit(cycle(Integer.MAX_VALUE, null, Integer.MIN_VALUE), 60_000));
+        List<Integer> values = Stream.generate(() -> new Integer[] {Integer.MAX_VALUE, null, Integer.MIN_VALUE})
+                .flatMap(Arrays::stream)
+                .limit(60_000)
+                .toList();
 
         List<StripeFooter> stripeFooters = testIntegerDictionary(directConversionTester, values);
         verifyDictionaryEncoding(getStripeSize(values.size()), DWRF, stripeFooters, ImmutableList.of(2, 2, 2, 2));

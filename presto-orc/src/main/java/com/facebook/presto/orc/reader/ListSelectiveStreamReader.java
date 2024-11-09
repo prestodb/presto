@@ -33,7 +33,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -59,6 +58,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -167,7 +167,7 @@ public class ListSelectiveStreamReader
         else if (!filters.isEmpty()) {
             Optional<TupleDomainFilter> topLevelFilter = getTopLevelFilter(filters);
             if (topLevelFilter.isPresent()) {
-                nullsAllowed = topLevelFilter.get() == IS_NULL;
+                nullsAllowed = topLevelFilter.orElseThrow() == IS_NULL;
                 nonNullsAllowed = !nullsAllowed;
             }
             else {
@@ -223,7 +223,7 @@ public class ListSelectiveStreamReader
         }
 
         checkArgument(topLevelFilters.size() == 1, "ARRAY column may have at most one top-level range filter");
-        TupleDomainFilter filter = Iterables.getOnlyElement(topLevelFilters.values());
+        TupleDomainFilter filter = topLevelFilters.values().stream().collect(onlyElement());
         checkArgument(filter == IS_NULL || filter == IS_NOT_NULL, "Top-level range filter on ARRAY column must be IS NULL or IS NOT NULL");
         return Optional.of(filter);
     }

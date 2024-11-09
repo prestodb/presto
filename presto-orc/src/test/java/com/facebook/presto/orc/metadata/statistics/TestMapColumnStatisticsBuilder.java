@@ -128,7 +128,7 @@ public class TestMapColumnStatisticsBuilder
         builder2.increaseValueCount(16);
         ColumnStatistics columnStatistics2 = builder2.buildColumnStatistics();
 
-        MapStatistics mergedMapStatistics = MapColumnStatisticsBuilder.mergeMapStatistics(ImmutableList.of(columnStatistics1, columnStatistics2), null).get();
+        MapStatistics mergedMapStatistics = MapColumnStatisticsBuilder.mergeMapStatistics(ImmutableList.of(columnStatistics1, columnStatistics2), null).orElseThrow();
         assertMergedMapStatistics(keys, mergedMapStatistics);
     }
 
