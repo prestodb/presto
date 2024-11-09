@@ -251,7 +251,7 @@ public class TestOrcBloomFilters
             Domain predicateDomain = Domain.singleValue(testValue.getKey(), testValue.getValue());
             Optional<Collection<Object>> discreteValues = extractDiscreteValues(predicateDomain.getValues());
             assertTrue(discreteValues.isPresent());
-            Collection<Object> objects = discreteValues.get();
+            Collection<Object> objects = discreteValues.orElseThrow();
             assertEquals(objects.size(), 1);
             assertEquals(objects.iterator().next(), testValue.getValue());
         }

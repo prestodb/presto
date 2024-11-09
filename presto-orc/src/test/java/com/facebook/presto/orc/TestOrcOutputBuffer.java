@@ -346,7 +346,7 @@ public class TestOrcOutputBuffer
 
     private DecompressionResult decompress(Slice slice)
     {
-        OrcDecompressor decompressor = OrcDecompressor.createOrcDecompressor(DATA_SOURCE_ID, ZSTD, 256 * 1024).get();
+        OrcDecompressor decompressor = OrcDecompressor.createOrcDecompressor(DATA_SOURCE_ID, ZSTD, 256 * 1024).orElseThrow();
         SharedBuffer decompressionBuffer = new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT);
         ImmutableList.Builder<Integer> sizes = ImmutableList.builder();
         BasicSliceInput input = slice.getInput();

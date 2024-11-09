@@ -42,7 +42,7 @@ public class TestDefaultOrcWriterFlushPolicy
 
         actual = flushPolicy.shouldFlushStripe(10, 0, false);
         assertTrue(actual.isPresent());
-        assertEquals(actual.get(), MAX_ROWS);
+        assertEquals(actual.orElseThrow(), MAX_ROWS);
 
         actual = flushPolicy.shouldFlushStripe(20, 0, false);
         assertFalse(actual.isPresent());
@@ -67,7 +67,7 @@ public class TestDefaultOrcWriterFlushPolicy
 
         actual = flushPolicy.shouldFlushStripe(1, 200, false);
         assertTrue(actual.isPresent());
-        assertEquals(actual.get(), MAX_BYTES);
+        assertEquals(actual.orElseThrow(), MAX_BYTES);
     }
 
     @Test
@@ -80,6 +80,6 @@ public class TestDefaultOrcWriterFlushPolicy
 
         actual = flushPolicy.shouldFlushStripe(1, 1, true);
         assertTrue(actual.isPresent());
-        assertEquals(actual.get(), DICTIONARY_FULL);
+        assertEquals(actual.orElseThrow(), DICTIONARY_FULL);
     }
 }

@@ -121,7 +121,7 @@ public class StorageOrcFileTailSource
         boolean readDwrfStripeCache = dwrfStripeCacheEnabled
                 && postScript.getDwrfStripeCacheLength().isPresent()
                 && postScript.getDwrfStripeCacheMode().isPresent()
-                && postScript.getDwrfStripeCacheMode().get() != DwrfStripeCacheMode.NONE;
+                && postScript.getDwrfStripeCacheMode().orElseThrow() != DwrfStripeCacheMode.NONE;
         int dwrfStripeCacheSize = 0;
         if (readDwrfStripeCache) {
             dwrfStripeCacheSize = postScript.getDwrfStripeCacheLength().getAsInt();
@@ -158,7 +158,7 @@ public class StorageOrcFileTailSource
         Optional<DwrfStripeCacheData> dwrfStripeCacheData = Optional.empty();
         if (readDwrfStripeCache) {
             Slice dwrfStripeCacheSlice = completeFooterSlice.slice(0, dwrfStripeCacheSize);
-            DwrfStripeCacheMode stripeCacheMode = postScript.getDwrfStripeCacheMode().get();
+            DwrfStripeCacheMode stripeCacheMode = postScript.getDwrfStripeCacheMode().orElseThrow();
             dwrfStripeCacheData = Optional.of(new DwrfStripeCacheData(dwrfStripeCacheSlice, dwrfStripeCacheSize, stripeCacheMode));
         }
 

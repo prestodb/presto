@@ -315,10 +315,10 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             List<Subfield> subfields = ImmutableList.of();
             if (requiredFields.isPresent()) {
                 String fieldName = type.getFieldNames().get(i).toLowerCase(Locale.ENGLISH);
-                if (!requiredFields.get().containsKey(fieldName)) {
+                if (!requiredFields.orElseThrow().containsKey(fieldName)) {
                     continue;
                 }
-                subfields = requiredFields.get().get(fieldName);
+                subfields = requiredFields.orElseThrow().get(fieldName);
             }
 
             includeOrcColumnsRecursive(types, result, type.getFieldTypeIndex(i), subfields);
@@ -436,7 +436,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         if (!stripeStats.isPresent()) {
             return true;
         }
-        return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.get().getColumnStatistics()));
+        return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.orElseThrow().getColumnStatistics()));
     }
 
     @VisibleForTesting
@@ -511,7 +511,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         }
         rowGroups = null;
         if (writeChecksumBuilder.isPresent()) {
-            OrcWriteValidation.WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
+            OrcWriteValidation.WriteChecksum actualChecksum = writeChecksumBuilder.orElseThrow().build();
             validateWrite(validation -> validation.getChecksum().getTotalRowCount() == actualChecksum.getTotalRowCount(), "Invalid row count");
             List<Long> columnHashes = actualChecksum.getColumnHashes();
             for (int i = 0; i < columnHashes.size(); i++) {
@@ -522,8 +522,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             validateWrite(validation -> validation.getChecksum().getStripeHash() == actualChecksum.getStripeHash(), "Invalid stripes checksum");
         }
         if (fileStatisticsValidation.isPresent()) {
-            List<ColumnStatistics> columnStatistics = fileStatisticsValidation.get().build();
-            writeValidation.get().validateFileStatistics(orcDataSource.getId(), columnStatistics);
+            List<ColumnStatistics> columnStatistics = fileStatisticsValidation.orElseThrow().build();
+            writeValidation.orElseThrow().validateFileStatistics(orcDataSource.getId(), columnStatistics);
         }
     }
 
@@ -544,9 +544,9 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         if (currentRowGroup >= 0) {
             if (rowGroupStatisticsValidation.isPresent()) {
-                OrcWriteValidation.StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
+                OrcWriteValidation.StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.orElseThrow();
                 long offset = stripes.get(currentStripe).getOffset();
-                writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), offset, currentRowGroup, statisticsValidation.build());
+                writeValidation.orElseThrow().validateRowGroupStatistics(orcDataSource.getId(), offset, currentRowGroup, statisticsValidation.build());
                 statisticsValidation.reset();
             }
         }
@@ -637,9 +637,9 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         if (currentStripe >= 0) {
             if (stripeStatisticsValidation.isPresent()) {
-                OrcWriteValidation.StatisticsValidation statisticsValidation = stripeStatisticsValidation.get();
+                OrcWriteValidation.StatisticsValidation statisticsValidation = stripeStatisticsValidation.orElseThrow();
                 long offset = stripes.get(currentStripe).getOffset();
-                writeValidation.get().validateStripeStatistics(orcDataSource.getId(), offset, statisticsValidation.build());
+                writeValidation.orElseThrow().validateStripeStatistics(orcDataSource.getId(), offset, statisticsValidation.build());
                 statisticsValidation.reset();
             }
         }
@@ -661,9 +661,9 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         // or it has been set, but we have new decryption keys,
         // set dwrfEncryptionInfo
         if ((!stripeDecryptionKeyMetadata.isEmpty() && !dwrfEncryptionInfo.isPresent())
-                || (dwrfEncryptionInfo.isPresent() && !stripeDecryptionKeyMetadata.equals(dwrfEncryptionInfo.get().getEncryptedKeyMetadatas()))) {
+                || (dwrfEncryptionInfo.isPresent() && !stripeDecryptionKeyMetadata.equals(dwrfEncryptionInfo.orElseThrow().getEncryptedKeyMetadatas()))) {
             verify(encryptionLibrary.isPresent(), "encryptionLibrary is absent");
-            dwrfEncryptionInfo = Optional.of(createDwrfEncryptionInfo(encryptionLibrary.get(), stripeDecryptionKeyMetadata, intermediateKeyMetadata, dwrfEncryptionGroupMap));
+            dwrfEncryptionInfo = Optional.of(createDwrfEncryptionInfo(encryptionLibrary.orElseThrow(), stripeDecryptionKeyMetadata, intermediateKeyMetadata, dwrfEncryptionGroupMap));
         }
 
         SharedBuffer sharedDecompressionBuffer = new SharedBuffer(currentStripeSystemMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer"));
@@ -698,7 +698,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
             throws OrcCorruptionException
     {
-        if (writeValidation.isPresent() && !test.apply(writeValidation.get())) {
+        if (writeValidation.isPresent() && !test.apply(writeValidation.orElseThrow())) {
             throw new OrcCorruptionException(orcDataSource.getId(), "Write validation failed: " + messageFormat, args);
         }
     }
@@ -706,7 +706,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private void validateWriteStripe(long rowCount)
     {
         if (writeChecksumBuilder.isPresent()) {
-            writeChecksumBuilder.get().addStripe(rowCount);
+            writeChecksumBuilder.orElseThrow().addStripe(rowCount);
         }
     }
 
@@ -775,10 +775,10 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     protected void validateWritePageChecksum(Page page)
     {
         if (writeChecksumBuilder.isPresent()) {
-            writeChecksumBuilder.get().addPage(page);
-            rowGroupStatisticsValidation.get().addPage(page);
-            stripeStatisticsValidation.get().addPage(page);
-            fileStatisticsValidation.get().addPage(page);
+            writeChecksumBuilder.orElseThrow().addPage(page);
+            rowGroupStatisticsValidation.orElseThrow().addPage(page);
+            stripeStatisticsValidation.orElseThrow().addPage(page);
+            fileStatisticsValidation.orElseThrow().addPage(page);
         }
     }
 

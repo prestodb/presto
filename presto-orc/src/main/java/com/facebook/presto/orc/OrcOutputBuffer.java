@@ -504,7 +504,7 @@ public class OrcOutputBuffer
                 }
             }
             if (dwrfEncryptor.isPresent()) {
-                chunk = dwrfEncryptor.get().encrypt(chunk, offset, length);
+                chunk = dwrfEncryptor.orElseThrow().encrypt(chunk, offset, length);
                 length = chunk.length;
                 offset = 0;
                 // size after encryption should not exceed what the 3 byte header can hold (2^23)

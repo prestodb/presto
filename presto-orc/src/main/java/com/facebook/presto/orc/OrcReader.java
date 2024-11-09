@@ -201,11 +201,11 @@ public class OrcReader
             requireNonNull(dwrfKeyProvider, "dwrfKeyProvider is null");
             validateEncryption(footer, this.orcDataSource.getId());
             this.dwrfEncryptionGroupMap = createNodeToGroupMap(
-                    encryption.get().getEncryptionGroups().stream()
+                    encryption.orElseThrow().getEncryptionGroups().stream()
                             .map(EncryptionGroup::getNodes)
                             .collect(toImmutableList()),
                     footer.getTypes());
-            this.encryptionLibrary = Optional.of(dwrfEncryptionProvider.getEncryptionLibrary(encryption.get().getKeyProvider()));
+            this.encryptionLibrary = Optional.of(dwrfEncryptionProvider.getEncryptionLibrary(encryption.orElseThrow().getKeyProvider()));
             this.columnsToIntermediateKeys = ImmutableMap.copyOf(dwrfKeyProvider.getIntermediateKeys(footer.getTypes()));
         }
         else {
@@ -228,17 +228,17 @@ public class OrcReader
         validateWrite(writeValidation, orcDataSource, validation -> validation.getColumnNames().equals(footer.getTypes().get(0).getFieldNames()), "Unexpected column names");
         validateWrite(writeValidation, orcDataSource, validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup(), "Unexpected rows in group");
         if (writeValidation.isPresent()) {
-            writeValidation.get().validateMetadata(orcDataSource.getId(), footer.getUserMetadata());
-            writeValidation.get().validateFileStatistics(orcDataSource.getId(), footer.getFileStats());
-            writeValidation.get().validateStripeStatistics(orcDataSource.getId(), footer.getStripes(), metadata.getStripeStatsList());
+            writeValidation.orElseThrow().validateMetadata(orcDataSource.getId(), footer.getUserMetadata());
+            writeValidation.orElseThrow().validateFileStatistics(orcDataSource.getId(), footer.getFileStats());
+            writeValidation.orElseThrow().validateStripeStatistics(orcDataSource.getId(), footer.getStripes(), metadata.getStripeStatsList());
         }
 
         this.cacheable = requireNonNull(cacheable, "cacheable is null");
 
         Optional<DwrfStripeCache> dwrfStripeCache = Optional.empty();
         if (orcFileTail.getDwrfStripeCacheData().isPresent() && footer.getDwrfStripeCacheOffsets().isPresent()) {
-            DwrfStripeCacheData dwrfStripeCacheData = orcFileTail.getDwrfStripeCacheData().get();
-            DwrfStripeCache cache = dwrfStripeCacheData.buildDwrfStripeCache(footer.getStripes(), footer.getDwrfStripeCacheOffsets().get());
+            DwrfStripeCacheData dwrfStripeCacheData = orcFileTail.getDwrfStripeCacheData().orElseThrow();
+            DwrfStripeCache cache = dwrfStripeCacheData.buildDwrfStripeCache(footer.getStripes(), footer.getDwrfStripeCacheOffsets().orElseThrow());
             dwrfStripeCache = Optional.of(cache);
         }
 
@@ -252,7 +252,7 @@ public class OrcReader
         if (!footer.getEncryption().isPresent()) {
             return;
         }
-        DwrfEncryption dwrfEncryption = footer.getEncryption().get();
+        DwrfEncryption dwrfEncryption = footer.getEncryption().orElseThrow();
         int encryptionGroupSize = dwrfEncryption.getEncryptionGroups().size();
         List<StripeInformation> stripes = footer.getStripes();
         if (!stripes.isEmpty() && encryptionGroupSize > 0 && stripes.get(0).getKeyMetadata().isEmpty()) {
@@ -483,7 +483,7 @@ public class OrcReader
     public static void validateWrite(Optional<OrcWriteValidation> writeValidation, OrcDataSource orcDataSource, Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
             throws OrcCorruptionException
     {
-        if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
+        if (writeValidation.isPresent() && !test.test(writeValidation.orElseThrow())) {
             throw new OrcCorruptionException(orcDataSource.getId(), "Write validation failed: " + messageFormat, args);
         }
     }

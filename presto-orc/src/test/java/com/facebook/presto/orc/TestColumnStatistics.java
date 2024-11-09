@@ -1127,7 +1127,7 @@ public class TestColumnStatistics
                 // additionalSequence will be absent if map statistics are not enabled
                 if (flatMapColumnEncoding.getAdditionalSequenceEncodings().isPresent()) {
                     Object2LongMap<KeyInfo> fileLevelKeySizes = flatMapKeySizes.computeIfAbsent(flatMapNode.intValue(), (ignore) -> new Object2LongOpenHashMap<>());
-                    Map<Integer, DwrfSequenceEncoding> stripeSequenceToKey = flatMapColumnEncoding.getAdditionalSequenceEncodings().get();
+                    Map<Integer, DwrfSequenceEncoding> stripeSequenceToKey = flatMapColumnEncoding.getAdditionalSequenceEncodings().orElseThrow();
                     for (Map.Entry<Integer, DwrfSequenceEncoding> entry : stripeSequenceToKey.entrySet()) {
                         Integer sequence = entry.getKey();
                         KeyInfo flatMapKey = entry.getValue().getKey();

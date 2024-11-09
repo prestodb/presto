@@ -278,7 +278,7 @@ public class SliceDictionaryColumnWriter
         checkState(optionalSortedIndex.isPresent() == sortDictionaryKeys, "SortedIndex and sortDictionaryKeys(%s) are inconsistent", sortDictionaryKeys);
 
         if (sortDictionaryKeys) {
-            int[] sortedIndexes = optionalSortedIndex.get();
+            int[] sortedIndexes = optionalSortedIndex.orElseThrow();
             for (int position = 0; position < rowGroupValueCount; position++) {
                 int originalDictionaryIndex = rowGroupIndexes[position];
                 int sortedIndex = sortedIndexes[originalDictionaryIndex];
@@ -302,7 +302,7 @@ public class SliceDictionaryColumnWriter
     {
         checkState(optionalSortedIndex.isPresent() == sortDictionaryKeys, "SortedIndex and sortDictionaryKeys(%s) are inconsistent", sortDictionaryKeys);
         if (sortDictionaryKeys) {
-            int[] sortedIndexes = optionalSortedIndex.get();
+            int[] sortedIndexes = optionalSortedIndex.orElseThrow();
             for (int position = 0; position < rowGroupValueCount; position++) {
                 int originalDictionaryIndex = rowGroupIndexes[position];
                 int sortedIndex = sortedIndexes[originalDictionaryIndex];
@@ -326,7 +326,7 @@ public class SliceDictionaryColumnWriter
     {
         checkState(optionalSortedIndex.isPresent() == sortDictionaryKeys, "SortedIndex and sortDictionaryKeys(%s) are inconsistent", sortDictionaryKeys);
         if (sortDictionaryKeys) {
-            int[] sortedIndexes = optionalSortedIndex.get();
+            int[] sortedIndexes = optionalSortedIndex.orElseThrow();
             for (int position = 0; position < rowGroupValueCount; position++) {
                 int originalDictionaryIndex = rowGroupIndexes[position];
                 int sortedIndex = sortedIndexes[originalDictionaryIndex];
