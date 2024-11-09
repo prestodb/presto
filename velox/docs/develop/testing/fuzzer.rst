@@ -369,7 +369,7 @@ ExpressionRunner supports the following flags:
 
 * ``--complex_constant_path`` optional path to complex constants that aren't accurately expressable in SQL (Array, Map, Structs, ...). This is used with SQL file to reproduce the exact expression, not needed when the expression doesn't contain complex constants.
 
-* ``--lazy_column_list_path`` optional path for the file stored on-disk which contains a vector of column indices that specify which columns of the input row vector should be wrapped in lazy. This is used when the failing test included input columns that were lazy vector.
+* ``--input_row_metadata_path`` optional path for the file stored on-disk which contains a struct containing input row metadata. This includes columns in the input row vector to be wrapped in a lazy vector and/or dictionary encoded. It may also contain a dictionary peel for columns requiring dictionary encoding. This is used when the failing test included input columns that were lazy vectors and/or had columns wrapped with a common dictionary wrap.
 
 * ``--result_path`` optional path to result vector that was created by the Fuzzer. Result vector is used to reproduce cases where Fuzzer passes dirty vectors to expression evaluation as a result buffer. This ensures that functions are implemented correctly, taking into consideration dirty result buffer.
 

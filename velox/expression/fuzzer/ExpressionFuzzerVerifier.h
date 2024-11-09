@@ -24,6 +24,7 @@
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/functions/FunctionRegistry.h"
+#include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
@@ -95,6 +96,14 @@ class ExpressionFuzzerVerifier {
     // 1).
     double lazyVectorGenerationRatio = 0.0;
 
+    // Specifies the probability with which columns in the input row vector will
+    // be selected to be wrapped in a common dictionary layer (expressed as
+    // double from 0 to 1). Only columns that are not already dictionary encoded
+    // will be selected as eventually only one dictionary wrap will be allowed
+    // so additional wrap can be folded into the existing one. This is to
+    // replicate inputs coming from a filter, union, or join.
+    double commonDictionaryWrapRatio = 0.0;
+
     // This sets an upper limit on the number of expression trees to generate
     // per step. These trees would be executed in the same ExprSet and can
     // re-use already generated columns and subexpressions (if re-use is
@@ -164,7 +173,7 @@ class ExpressionFuzzerVerifier {
       std::vector<core::TypedExprPtr> plans,
       const RowVectorPtr& rowVector,
       const VectorPtr& resultVectors,
-      const std::vector<int>& columnsToWrapInLazy);
+      const InputRowMetadata& columnsToWrapInLazy);
 
   /// If --duration_sec > 0, check if we expired the time budget. Otherwise,
   /// check if we expired the number of iterations (--steps).
@@ -180,11 +189,15 @@ class ExpressionFuzzerVerifier {
   /// proportionOfTimesSelected numProcessedRows.
   void logStats();
 
-  // Randomly pick columns from the input row vector to wrap in lazy.
-  // Negative column indices represent lazy vectors that have been preloaded
-  // before feeding them to the evaluator. This list is sorted on the absolute
-  // value of the entries.
-  std::vector<int> generateLazyColumnIds(
+  // Generates InputRowMetadata which contains the following:
+  // 1. Randomly picked columns from the input row vector to wrap
+  // in lazy. Negative column indices represent lazy vectors that have been
+  // preloaded before feeding them to the evaluator.
+  // 2. Randomly picked columns (2 or more) from the input row vector to
+  // wrap in a common dictionary layer. Only columns not already dictionary
+  // encoded are picked.
+  // Note: These lists are sorted on the absolute value of the entries.
+  InputRowMetadata generateInputRowMetadata(
       const RowVectorPtr& rowVector,
       VectorFuzzer& vectorFuzzer);
 

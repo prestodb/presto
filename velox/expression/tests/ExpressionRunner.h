@@ -47,9 +47,9 @@ class ExpressionRunner {
   /// @param storeResultPath The path to a directory on disk where the results
   /// of expression or query evaluation will be stored. If empty, the results
   /// will not be stored.
-  /// @param lazyColumnListPath The path to on-disk vector of column indices
-  /// that specify which columns of the input row vector should be wrapped in
-  /// lazy.
+  /// @param inputRowMetadataPath The path to on-disk serialized struct that
+  ///        contains metadata about the input row vector like the columns
+  ///        to wrap in lazy or dictionary encoding and the dictionary wrap.
   /// @param findMinimalSubExpression Whether to find minimum failing
   ///        subexpression on result mismatch.
   /// @param useSeperatePoolForInput Whether to use separate memory pools for
@@ -70,7 +70,7 @@ class ExpressionRunner {
       const std::string& mode,
       vector_size_t numRows,
       const std::string& storeResultPath,
-      const std::string& lazyColumnListPath,
+      const std::string& inputRowMetadataPath,
       std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner,
       bool findMinimalSubExpression = false,
       bool useSeperatePoolForInput = true);

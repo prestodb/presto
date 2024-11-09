@@ -53,15 +53,6 @@ VectorPtr restoreVectorFromFile(const char* filePath, memory::MemoryPool* pool);
 /// Reads a string from a file stored by saveStringToFile() method
 std::string restoreStringFromFile(const char* filePath);
 
-// Write the vector to a file. Contents would include the size of the list
-// followed by all the values.
-template <typename T>
-void saveStdVectorToFile(const std::vector<T>& list, const char* filePath);
-
-// Reads a std::vector from a file stored by saveStdVectorToFile() method.
-template <typename T>
-std::vector<T> restoreStdVectorFromFile(const char* filePath);
-
 /// Serializes a SelectivityVector into binary format and writes it to the
 /// provided output stream.
 void saveSelectivityVector(const SelectivityVector& rows, std::ostream& out);
@@ -69,5 +60,21 @@ void saveSelectivityVector(const SelectivityVector& rows, std::ostream& out);
 /// Deserializes a SelectivityVector serialized by 'saveSelectivityVector' from
 /// the provided input stream.
 SelectivityVector restoreSelectivityVector(std::istream& in);
+
+/// Serializes a BufferPtr into binary format and writes it to the
+/// provided output stream. 'buffer' must be non-null.
+void writeBuffer(const BufferPtr& buffer, std::ostream& out);
+
+/// Serializes a optional BufferPtr into binary format and writes it to the
+/// provided output stream.
+void writeOptionalBuffer(const BufferPtr& buffer, std::ostream& out);
+
+/// Deserializes a BufferPtr serialized by 'writeBuffer' from the provided
+/// input stream.
+BufferPtr readBuffer(std::istream& in, memory::MemoryPool* pool);
+
+/// Deserializes a optional BufferPtr serialized by 'writeOptionalBuffer' from
+/// the provided input stream.
+BufferPtr readOptionalBuffer(std::istream& in, memory::MemoryPool* pool);
 
 } // namespace facebook::velox

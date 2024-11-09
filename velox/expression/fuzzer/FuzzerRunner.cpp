@@ -65,6 +65,14 @@ DEFINE_double(
     "vector will be selected to be wrapped in lazy encoding "
     "(expressed as double from 0 to 1).");
 
+DEFINE_double(
+    common_dictionary_wraps_generation_ratio,
+    0.0,
+    "Specifies the probability with which columns in the input row "
+    "vector will be selected to be wrapped in a common dictionary wrap "
+    "(expressed as double from 0 to 1). Only columns not already encoded "
+    "will be considered.");
+
 DEFINE_int32(
     max_expression_trees_per_step,
     1,
@@ -207,6 +215,8 @@ ExpressionFuzzerVerifier::Options getExpressionFuzzerVerifierOptions(
   opts.reproPersistPath = FLAGS_repro_persist_path;
   opts.persistAndRunOnce = FLAGS_persist_and_run_once;
   opts.lazyVectorGenerationRatio = FLAGS_lazy_vector_generation_ratio;
+  opts.commonDictionaryWrapRatio =
+      FLAGS_common_dictionary_wraps_generation_ratio;
   opts.maxExpressionTreesPerStep = FLAGS_max_expression_trees_per_step;
   opts.vectorFuzzerOptions = getVectorFuzzerOptions();
   opts.expressionFuzzerOptions = getExpressionFuzzerOptions(

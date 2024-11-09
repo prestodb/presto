@@ -115,20 +115,39 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
   }
 }
 
-std::vector<int> ExpressionFuzzerVerifier::generateLazyColumnIds(
+InputRowMetadata ExpressionFuzzerVerifier::generateInputRowMetadata(
     const RowVectorPtr& rowVector,
     VectorFuzzer& vectorFuzzer) {
-  std::vector<int> columnsToWrapInLazy;
-  if (options_.lazyVectorGenerationRatio > 0) {
-    for (int idx = 0; idx < rowVector->childrenSize(); idx++) {
-      VELOX_CHECK_NOT_NULL(rowVector->childAt(idx));
-      if (vectorFuzzer.coinToss(options_.lazyVectorGenerationRatio)) {
-        columnsToWrapInLazy.push_back(
-            vectorFuzzer.coinToss(0.8) ? idx : -1 * idx);
-      }
+  InputRowMetadata inputRowMetadata;
+  if (options_.commonDictionaryWrapRatio <= 0 &&
+      options_.lazyVectorGenerationRatio <= 0) {
+    return inputRowMetadata;
+  }
+
+  bool wrapInCommonDictionary =
+      vectorFuzzer.coinToss(options_.commonDictionaryWrapRatio);
+  for (int idx = 0; idx < rowVector->childrenSize(); idx++) {
+    const auto& child = rowVector->childAt(idx);
+    VELOX_CHECK_NOT_NULL(child);
+    if (child->encoding() != VectorEncoding::Simple::DICTIONARY &&
+        wrapInCommonDictionary) {
+      inputRowMetadata.columnsToWrapInCommonDictionary.push_back(idx);
+    }
+    if (vectorFuzzer.coinToss(options_.lazyVectorGenerationRatio)) {
+      inputRowMetadata.columnsToWrapInLazy.push_back(
+          vectorFuzzer.coinToss(0.8) ? idx : -1 * idx);
     }
   }
-  return columnsToWrapInLazy;
+  // Skip wrapping in common dictionary if there is only one column.
+  if (inputRowMetadata.columnsToWrapInCommonDictionary.size() > 1) {
+    auto inputSize = rowVector->size();
+    inputRowMetadata.commonDictionaryIndices =
+        vectorFuzzer.fuzzIndices(inputSize, inputSize);
+    inputRowMetadata.commonDictionaryNulls = vectorFuzzer.fuzzNulls(inputSize);
+  } else {
+    inputRowMetadata.columnsToWrapInCommonDictionary.clear();
+  }
+  return inputRowMetadata;
 }
 
 void ExpressionFuzzerVerifier::reSeed() {
@@ -233,7 +252,7 @@ void ExpressionFuzzerVerifier::retryWithTry(
     std::vector<core::TypedExprPtr> plans,
     const RowVectorPtr& rowVector,
     const VectorPtr& resultVector,
-    const std::vector<int>& columnsToWrapInLazy) {
+    const InputRowMetadata& inputRowMetadata) {
   // Wrap each expression tree with 'try'.
   std::vector<core::TypedExprPtr> tryPlans;
   for (auto& plan : plans) {
@@ -252,7 +271,7 @@ void ExpressionFuzzerVerifier::retryWithTry(
         std::nullopt,
         resultVector ? BaseVector::copy(*resultVector) : nullptr,
         false, // canThrow
-        columnsToWrapInLazy);
+        inputRowMetadata);
   } catch (const std::exception&) {
     if (options_.findMinimalSubexpression) {
       test::computeMinimumSubExpression(
@@ -261,7 +280,7 @@ void ExpressionFuzzerVerifier::retryWithTry(
           plans,
           rowVector,
           std::nullopt,
-          columnsToWrapInLazy);
+          inputRowMetadata);
     }
     throw;
   }
@@ -286,7 +305,7 @@ void ExpressionFuzzerVerifier::retryWithTry(
           noErrorRows,
           resultVector ? BaseVector::copy(*resultVector) : nullptr,
           false, // canThrow
-          columnsToWrapInLazy);
+          inputRowMetadata);
     } catch (const std::exception&) {
       if (options_.findMinimalSubexpression) {
         test::computeMinimumSubExpression(
@@ -295,7 +314,7 @@ void ExpressionFuzzerVerifier::retryWithTry(
             plans,
             rowVector,
             noErrorRows,
-            columnsToWrapInLazy);
+            inputRowMetadata);
       }
       throw;
     }
@@ -358,7 +377,8 @@ void ExpressionFuzzerVerifier::go() {
 
     auto rowVector = fuzzInputWithRowNumber(*vectorFuzzer_, inputType);
 
-    auto columnsToWrapInLazy = generateLazyColumnIds(rowVector, *vectorFuzzer_);
+    InputRowMetadata inputRowMetadata =
+        generateInputRowMetadata(rowVector, *vectorFuzzer_);
 
     auto resultVectors = generateResultVectors(plans);
     ResultOrError result;
@@ -370,7 +390,7 @@ void ExpressionFuzzerVerifier::go() {
           std::nullopt,
           resultVectors ? BaseVector::copy(*resultVectors) : nullptr,
           true, // canThrow
-          columnsToWrapInLazy);
+          inputRowMetadata);
     } catch (const std::exception&) {
       if (options_.findMinimalSubexpression) {
         test::computeMinimumSubExpression(
@@ -379,7 +399,7 @@ void ExpressionFuzzerVerifier::go() {
             plans,
             rowVector,
             std::nullopt,
-            columnsToWrapInLazy);
+            inputRowMetadata);
       }
       throw;
     }
@@ -396,7 +416,7 @@ void ExpressionFuzzerVerifier::go() {
         !result.unsupportedInputUncatchableError) {
       LOG(INFO)
           << "Both paths failed with compatible exceptions. Retrying expression using try().";
-      retryWithTry(plans, rowVector, resultVectors, columnsToWrapInLazy);
+      retryWithTry(plans, rowVector, resultVectors, inputRowMetadata);
     }
 
     LOG(INFO) << "==============================> Done with iteration " << i;

@@ -328,7 +328,7 @@ class VectorFuzzer {
       RowVectorPtr rowVector,
       const std::vector<int>& columnsToWrapInLazy);
 
-  /// Generate a random null buffer.
+  /// Generate a random null buffer. Can return nullptr if no nulls are set.
   BufferPtr fuzzNulls(vector_size_t size);
 
   /// Generate a random indices buffer of 'size' with maximum possible index

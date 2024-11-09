@@ -87,11 +87,12 @@ DEFINE_string(
     "table 't'.");
 
 DEFINE_string(
-    lazy_column_list_path,
+    input_row_metadata_path,
     "",
-    "Path for the file stored on-disk which contains a vector of column "
-    "indices that specify which columns of the input row vector should "
-    "be wrapped in lazy.");
+    "Path for the file stored on-disk which contains a struct containing "
+    "input row metadata. This includes columns in the input row vector to "
+    "be wrapped in a lazy vector and/or dictionary encoded. It may also "
+    "contain a dictionary peel for columns requiring dictionary encoding.");
 
 DEFINE_bool(
     use_seperate_memory_pool_for_input_vector,
@@ -204,11 +205,11 @@ static void checkDirForExpectedFiles() {
       ? checkAndReturnFilePath(
             test::ExpressionVerifier::kExpressionSqlFileName, "sql_path")
       : FLAGS_sql_path;
-  FLAGS_lazy_column_list_path = FLAGS_lazy_column_list_path.empty()
+  FLAGS_input_row_metadata_path = FLAGS_input_row_metadata_path.empty()
       ? checkAndReturnFilePath(
-            test::ExpressionVerifier::kIndicesOfLazyColumnsFileName,
-            "lazy_column_list_path")
-      : FLAGS_lazy_column_list_path;
+            test::ExpressionVerifier::kInputRowMetadataFileName,
+            "input_row_metadata_path")
+      : FLAGS_input_row_metadata_path;
   FLAGS_complex_constant_path = FLAGS_complex_constant_path.empty()
       ? checkAndReturnFilePath(
             test::ExpressionVerifier::kComplexConstantsFileName,
@@ -266,7 +267,7 @@ int main(int argc, char** argv) {
       FLAGS_mode,
       FLAGS_num_rows,
       FLAGS_store_result_path,
-      FLAGS_lazy_column_list_path,
+      FLAGS_input_row_metadata_path,
       referenceQueryRunner,
       FLAGS_find_minimal_subexpression,
       FLAGS_use_seperate_memory_pool_for_input_vector);

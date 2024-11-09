@@ -21,6 +21,7 @@
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/expression/tests/ExpressionRunner.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/parse/Expressions.h"
@@ -114,7 +115,7 @@ void ExpressionRunner::run(
     const std::string& mode,
     vector_size_t numRows,
     const std::string& storeResultPath,
-    const std::string& lazyColumnListPath,
+    const std::string& inputRowMetadataPath,
     std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner,
     bool findMinimalSubExpression,
     bool useSeperatePoolForInput) {
@@ -143,10 +144,10 @@ void ExpressionRunner::run(
     VELOX_CHECK_GT(inputVector->size(), 0, "Input vector must not be empty.");
   }
 
-  std::vector<int> columnsToWrapInLazy;
-  if (!lazyColumnListPath.empty()) {
-    columnsToWrapInLazy =
-        restoreStdVectorFromFile<int>(lazyColumnListPath.c_str());
+  fuzzer::InputRowMetadata inputRowMetadata;
+  if (!inputRowMetadataPath.empty()) {
+    inputRowMetadata = fuzzer::InputRowMetadata::restoreFromFile(
+        inputRowMetadataPath.c_str(), pool.get());
   }
 
   parse::registerTypeResolver();
@@ -200,7 +201,7 @@ void ExpressionRunner::run(
           std::nullopt,
           std::move(resultVector),
           true,
-          columnsToWrapInLazy);
+          inputRowMetadata);
     } catch (const std::exception&) {
       if (findMinimalSubExpression) {
         VectorFuzzer::Options options;
@@ -211,16 +212,15 @@ void ExpressionRunner::run(
             typedExprs,
             inputVector,
             std::nullopt,
-            columnsToWrapInLazy);
+            inputRowMetadata);
       }
       throw;
     }
 
   } else if (mode == "common") {
-    if (!columnsToWrapInLazy.empty()) {
-      inputVector =
-          VectorFuzzer::fuzzRowChildrenToLazy(inputVector, columnsToWrapInLazy);
-    }
+    inputVector = VectorFuzzer::fuzzRowChildrenToLazy(
+        inputVector, inputRowMetadata.columnsToWrapInLazy);
+    inputVector = applyCommonDictionaryLayer(inputVector, inputRowMetadata);
     exec::ExprSet exprSet(typedExprs, &execCtx);
     auto results = evaluateAndPrintResults(exprSet, inputVector, rows, execCtx);
     if (!storeResultPath.empty()) {

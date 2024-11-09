@@ -24,11 +24,13 @@
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::test {
 
 using exec::test::ReferenceQueryRunner;
+using facebook::velox::fuzzer::InputRowMetadata;
 
 struct ExpressionVerifierOptions {
   bool disableConstantFolding{false};
@@ -41,8 +43,8 @@ class ExpressionVerifier {
   // File names used to persist data required for reproducing a failed test
   // case.
   static constexpr const std::string_view kInputVectorFileName = "input_vector";
-  static constexpr const std::string_view kIndicesOfLazyColumnsFileName =
-      "indices_of_lazy_columns";
+  static constexpr const std::string_view kInputRowMetadataFileName =
+      "input_row_metadata";
   static constexpr const std::string_view kResultVectorFileName =
       "result_vector";
   static constexpr const std::string_view kExpressionSqlFileName = "sql";
@@ -80,14 +82,14 @@ class ExpressionVerifier {
       const std::optional<SelectivityVector>& rowsToVerify,
       VectorPtr&& resultVector,
       bool canThrow,
-      std::vector<int> columnsToWarpInLazy = {});
+      const InputRowMetadata& inputRowMetadata = {});
 
  private:
   // Utility method used to serialize the relevant data required to repro a
   // crash.
   void persistReproInfo(
       const VectorPtr& inputVector,
-      std::vector<int> columnsToWarpInLazy,
+      const InputRowMetadata& inputRowMetadata,
       const VectorPtr& resultVector,
       const std::string& sql,
       const std::vector<VectorPtr>& complexConstants);
@@ -97,7 +99,7 @@ class ExpressionVerifier {
   // otherwise.
   void persistReproInfoIfNeeded(
       const VectorPtr& inputVector,
-      const std::vector<int>& columnsToWarpInLazy,
+      const InputRowMetadata& inputRowMetadata,
       const VectorPtr& resultVector,
       const std::string& sql,
       const std::vector<VectorPtr>& complexConstants);
@@ -117,5 +119,5 @@ void computeMinimumSubExpression(
     const std::vector<core::TypedExprPtr>& plans,
     const RowVectorPtr& rowVector,
     const std::optional<SelectivityVector>& rowsToVerify,
-    const std::vector<int>& columnsToWrapInLazy);
+    const InputRowMetadata& inputRowMetadata);
 } // namespace facebook::velox::test
