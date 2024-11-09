@@ -151,13 +151,13 @@ public class OrcMetadataWriter
                 .addAllAttributes(toStringPairList(type.getAttributes()));
 
         if (type.getLength().isPresent()) {
-            builder.setMaximumLength(type.getLength().get());
+            builder.setMaximumLength(type.getLength().orElseThrow());
         }
         if (type.getPrecision().isPresent()) {
-            builder.setPrecision(type.getPrecision().get());
+            builder.setPrecision(type.getPrecision().orElseThrow());
         }
         if (type.getScale().isPresent()) {
-            builder.setScale(type.getScale().get());
+            builder.setScale(type.getScale().orElseThrow());
         }
         return builder.build();
     }

@@ -31,7 +31,7 @@ public class TestDwrfStripeCacheOptions
                 .withDwrfStripeCacheMaxSize(new DataSize(27, MEGABYTE))
                 .build();
 
-        DwrfStripeCacheOptions dwrfStripeCacheOptions = options.getDwrfStripeCacheOptions().get();
+        DwrfStripeCacheOptions dwrfStripeCacheOptions = options.getDwrfStripeCacheOptions().orElseThrow();
 
         String expectedString = "DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=27MB}";
         assertEquals(dwrfStripeCacheOptions.toString(), expectedString);

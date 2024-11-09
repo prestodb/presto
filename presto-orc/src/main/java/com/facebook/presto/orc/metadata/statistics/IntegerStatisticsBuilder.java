@@ -90,7 +90,7 @@ public class IntegerStatisticsBuilder
     {
         Optional<IntegerStatistics> integerStatistics = buildIntegerStatistics();
         if (integerStatistics.isPresent()) {
-            return new IntegerColumnStatistics(nonNullValueCount, null, rawSize, storageSize, integerStatistics.get());
+            return new IntegerColumnStatistics(nonNullValueCount, null, rawSize, storageSize, integerStatistics.orElseThrow());
         }
         return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }

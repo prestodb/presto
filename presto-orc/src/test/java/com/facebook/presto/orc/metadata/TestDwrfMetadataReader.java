@@ -88,7 +88,7 @@ public class TestDwrfMetadataReader
         assertEquals(postScript.getCompression(), CompressionKind.ZSTD);
         assertEquals(postScript.getCompressionBlockSize(), compressionBlockSize);
         assertEquals(postScript.getDwrfStripeCacheLength().getAsInt(), 12);
-        assertEquals(postScript.getDwrfStripeCacheMode().get(), DwrfStripeCacheMode.INDEX_AND_FOOTER);
+        assertEquals(postScript.getDwrfStripeCacheMode().orElseThrow(), DwrfStripeCacheMode.INDEX_AND_FOOTER);
     }
 
     @Test
@@ -195,7 +195,7 @@ public class TestDwrfMetadataReader
 
             assertEquals(footer.getNumberOfRows(), numberOfRows);
             assertEquals(footer.getRowsInRowGroup(), rowIndexStride);
-            assertEquals(footer.getDwrfStripeCacheOffsets().get(), stripeCacheOffsets);
+            assertEquals(footer.getDwrfStripeCacheOffsets().orElseThrow(), stripeCacheOffsets);
             assertEquals(footer.getRawSize(), rawDataSize);
             assertEquals(footer.getStripes(), Collections.emptyList());
         }

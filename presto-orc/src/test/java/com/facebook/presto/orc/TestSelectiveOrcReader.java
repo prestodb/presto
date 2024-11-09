@@ -53,6 +53,7 @@ import org.testng.annotations.Test;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -61,6 +62,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
@@ -97,12 +99,10 @@ import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.concat;
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -133,13 +133,13 @@ public class TestSelectiveOrcReader
     {
         tester.testRoundTrip(
                 BOOLEAN,
-                newArrayList(limit(cycle(ImmutableList.of(true, false, false)), NUM_ROWS)),
+                Stream.generate(() -> ImmutableList.of(true, false, false)).flatMap(Collection::stream).limit(NUM_ROWS).toList(),
                 BooleanValue.of(true, false), TupleDomainFilter.IS_NULL);
 
         tester.testRoundTripTypes(ImmutableList.of(BOOLEAN, BOOLEAN),
                 ImmutableList.of(
-                        newArrayList(limit(cycle(ImmutableList.of(true, false, false)), NUM_ROWS)),
-                        newArrayList(limit(cycle(ImmutableList.of(true, true, false)), NUM_ROWS))),
+                        Stream.generate(() -> ImmutableList.of(true, false, false)).flatMap(Collection::stream).limit(NUM_ROWS).toList(),
+                        Stream.generate(() -> ImmutableList.of(true, true, false)).flatMap(Collection::stream).limit(NUM_ROWS).toList()),
                 toSubfieldFilters(
                         ImmutableMap.of(0, BooleanValue.of(true, false)),
                         ImmutableMap.of(0, TupleDomainFilter.IS_NULL),
@@ -193,7 +193,10 @@ public class TestSelectiveOrcReader
                 .collect(toList());
         tester.testRoundTrip(
                 TINYINT,
-                newArrayList(limit(repeatEach(4, cycle(byteValues)), NUM_ROWS)),
+                Stream.generate(() -> byteValues)
+                        .flatMap(Collection::stream)
+                        .flatMap(item -> repeat(4, item))
+                        .limit(NUM_ROWS).toList(),
                 BigintRange.of(1, 14, true));
     }
 
@@ -201,14 +204,15 @@ public class TestSelectiveOrcReader
     public void testByteValuesPatchedBase()
             throws Exception
     {
-        List<Byte> byteValues = newArrayList(
-                limit(cycle(concat(
-                        intsBetween(0, 18),
-                        intsBetween(0, 18),
-                        ImmutableList.of(NUM_ROWS, 20_000, 400_000, NUM_ROWS, 20_000))), NUM_ROWS))
-                .stream()
-                .map(Integer::byteValue)
-                .collect(toList());
+        List<Byte> byteValues =
+                Stream.generate(() -> Streams.concat(
+                                intsBetween(0, 18).stream(),
+                                intsBetween(0, 18).stream(),
+                                ImmutableList.of(NUM_ROWS, 20_000, 400_000, NUM_ROWS, 20_000).stream()))
+                        .flatMap(identity())
+                        .limit(NUM_ROWS)
+                        .map(Integer::byteValue)
+                        .collect(toList());
         tester.testRoundTrip(
                 TINYINT,
                 byteValues,
@@ -285,7 +289,10 @@ public class TestSelectiveOrcReader
     public void testLongDirect()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), NUM_ROWS), BigintRange.of(4, 14, false));
+        testRoundTripNumeric(Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11, 13, 17))
+                        .flatMap(Collection::stream)
+                        .limit(NUM_ROWS).toList(),
+                BigintRange.of(4, 14, false));
 
         Random random = new Random(0);
 
@@ -319,14 +326,25 @@ public class TestSelectiveOrcReader
     public void testLongShortRepeat()
             throws Exception
     {
-        testRoundTripNumeric(limit(repeatEach(4, cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17))), NUM_ROWS), BigintRange.of(4, 14, true));
+        testRoundTripNumeric(
+                Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11, 13, 17))
+                        .flatMap(Collection::stream)
+                        .flatMap(item -> repeat(4, item))
+                        .limit(NUM_ROWS).toList(),
+                BigintRange.of(4, 14, true));
     }
 
     @Test
     public void testLongPatchedBase()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(NUM_ROWS, 20_000, 400_000, NUM_ROWS, 20_000))), NUM_ROWS),
+        testRoundTripNumeric(Stream.generate(() -> Streams.concat(
+                                intsBetween(0, 18).stream(),
+                                intsBetween(0, 18).stream(),
+                                ImmutableList.of(NUM_ROWS, 20_000, 400_000, NUM_ROWS, 20_000).stream()))
+                        .flatMap(identity())
+                        .limit(NUM_ROWS)
+                        .toList(),
                 toBigintValues(new long[] {0, 5, 10, 15, 20_000}, true));
     }
 
@@ -334,7 +352,12 @@ public class TestSelectiveOrcReader
     public void testLongStrideDictionary()
             throws Exception
     {
-        testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)), BigintRange.of(123, 123, true));
+        testRoundTripNumeric(
+                Streams.concat(
+                        ImmutableList.of(1).stream(), nCopies(9999, 123).stream(),
+                        ImmutableList.of(2).stream(), nCopies(9999, 123).stream())
+                        .toList(),
+                BigintRange.of(123, 123, true));
     }
 
     @Test
@@ -346,15 +369,31 @@ public class TestSelectiveOrcReader
                 FloatRange.of(-100.0f, false, true, 0.0f, false, true, false),
                 IS_NULL);
 
-        tester.testRoundTrip(REAL, ImmutableList.copyOf(repeatEach(10, ImmutableList.of(-100.0f, 0.0f, 100.0f))), filters);
-        tester.testRoundTrip(REAL, ImmutableList.copyOf(repeatEach(10, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY))));
+        tester.testRoundTrip(REAL,
+                Stream.generate(() -> ImmutableList.of(-100.0f, 0.0f, 100.0f))
+                        .flatMap(Collection::stream)
+                        .flatMap(item -> repeat(10, item))
+                        .limit(30).toList(),
+                filters);
+        tester.testRoundTrip(REAL,
+                Stream.generate(() -> ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY))
+                        .flatMap(Collection::stream)
+                        .flatMap(item -> repeat(10, item))
+                        .limit(30).toList());
 
         List<Float> floatValues = ImmutableList.of(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f);
         tester.testRoundTripTypes(
                 ImmutableList.of(REAL, REAL),
-                ImmutableList.of(
-                        ImmutableList.copyOf(limit(repeatEach(4, cycle(floatValues)), 100)),
-                        ImmutableList.copyOf(limit(repeatEach(4, cycle(floatValues)), 100))),
+                ImmutableList.of(Stream.generate(() -> floatValues)
+                                .flatMap(Collection::stream)
+                                .flatMap(item -> repeat(4, item))
+                                .limit(100)
+                                .toList(),
+                        Stream.generate(() -> floatValues)
+                                .flatMap(Collection::stream)
+                                .flatMap(item -> repeat(4, item))
+                                .limit(100)
+                                .toList()),
                 toSubfieldFilters(
                         ImmutableMap.of(
                                 0, FloatRange.of(1.0f, false, true, 7.0f, false, true, true),
@@ -378,7 +417,9 @@ public class TestSelectiveOrcReader
         Random random = new Random(0);
 
         tester.testRoundTripTypesWithOrder(ImmutableList.of(INTEGER, INTEGER),
-                ImmutableList.of(newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11)), NUM_ROWS)), randomIntegers(NUM_ROWS, random)),
+                ImmutableList.of(
+                        Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11)).flatMap(Collection::stream).limit(NUM_ROWS).toList(),
+                        randomIntegers(NUM_ROWS, random)),
                 toSubfieldFilters(
                         ImmutableMap.of(
                                 0, BigintRange.of(1, 1, true),
@@ -386,7 +427,9 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(ImmutableList.of(0, 1)));
 
         tester.testRoundTripTypesWithOrder(ImmutableList.of(INTEGER, INTEGER),
-                ImmutableList.of(newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11)), NUM_ROWS)), randomIntegers(NUM_ROWS, random)),
+                ImmutableList.of(
+                        Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11)).flatMap(Collection::stream).limit(NUM_ROWS).toList(),
+                        randomIntegers(NUM_ROWS, random)),
                 toSubfieldFilters(
                         ImmutableMap.of(
                                 0, BigintRange.of(100, 100, false),
@@ -395,7 +438,10 @@ public class TestSelectiveOrcReader
 
         tester.testRoundTripTypesWithOrder(
                 ImmutableList.of(INTEGER, INTEGER, DOUBLE, arrayType(INTEGER)),
-                ImmutableList.of(newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11)), NUM_ROWS)), createList(NUM_ROWS, i -> random.nextInt(200)), doubleSequence(0, 0.1, NUM_ROWS), nCopies(NUM_ROWS, randomIntegers(5, random))),
+                ImmutableList.of(
+                        Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11)).flatMap(Collection::stream).limit(NUM_ROWS).toList(),
+                        createList(NUM_ROWS, i -> random.nextInt(200)), doubleSequence(0, 0.1, NUM_ROWS),
+                        nCopies(NUM_ROWS, randomIntegers(5, random))),
                 ImmutableList.of(
                         ImmutableMap.of(
                                 0, toSubfieldFilter(BigintRange.of(1, 1, true)),
@@ -732,7 +778,7 @@ public class TestSelectiveOrcReader
     private static Map<Integer, Integer> createMap(int seed)
     {
         int mapSize = Math.abs(seed) % 7 + 1;
-        return IntStream.range(0, mapSize).boxed().collect(toImmutableMap(Function.identity(), i -> i + seed));
+        return IntStream.range(0, mapSize).boxed().collect(toImmutableMap(identity(), i -> i + seed));
     }
 
     private static <T> List<T> createList(int size, Function<Integer, T> createElement)
@@ -789,7 +835,7 @@ public class TestSelectiveOrcReader
                         2, stringIn(true, "def", "abc"))));
 
         // direct and dictionary
-        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS)),
+        tester.testRoundTrip(VARCHAR, Stream.generate(() -> ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")).flatMap(Collection::stream).limit(NUM_ROWS).toList(),
                 stringIn(false, "apple", "apple pie"));
 
         // direct and dictionary materialized
@@ -804,25 +850,28 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(VARCHAR, VARCHAR),
                 ImmutableList.of(
                         intsBetween(0, NUM_ROWS).stream().map(Object::toString).collect(toList()),
-                        newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS))),
+                        Stream.generate(() -> ImmutableList.of("A", "B", "C")).flatMap(Collection::stream).limit(NUM_ROWS).toList()),
                 toSubfieldFilters(ImmutableMap.of(
                         0, stringBetween(true, "16", "10"),
                         1, stringBetween(false, "B", "A"))));
 
         //stripe dictionary
-        tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))));
+        tester.testRoundTrip(VARCHAR, Streams.concat(
+                ImmutableList.of("a").stream(), nCopies(9999, "123").stream(),
+                ImmutableList.of("b").stream(), nCopies(9999, "123").stream()).toList());
 
         //empty sequence
         tester.testRoundTrip(VARCHAR, nCopies(NUM_ROWS, ""), stringEquals(false, ""));
 
         // copy of AbstractOrcTester::testDwrfInvalidCheckpointsForRowGroupDictionary
-        List<Integer> values = newArrayList(limit(
-                cycle(concat(
-                        ImmutableList.of(1), nCopies(9999, 123),
-                        ImmutableList.of(2), nCopies(9999, 123),
-                        ImmutableList.of(3), nCopies(9999, 123),
-                        nCopies(1_000_000, null))),
-                200_000));
+        List<Integer> values = Stream.generate(() -> Streams.concat(
+                        ImmutableList.of(1).stream(), nCopies(9999, 123).stream(),
+                        ImmutableList.of(2).stream(), nCopies(9999, 123).stream(),
+                        ImmutableList.of(3).stream(), nCopies(9999, 123).stream(),
+                        nCopies(1_000_000, (Integer) null).stream()))
+                .flatMap(identity())
+                .limit(200_000)
+                .toList();
 
         tester.assertRoundTrip(
                 VARCHAR,
@@ -833,7 +882,8 @@ public class TestSelectiveOrcReader
         //copy of AbstractOrcTester::testDwrfInvalidCheckpointsForStripeDictionary
         tester.testRoundTrip(
                 VARCHAR,
-                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 200_000)).stream()
+                Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11, 13, 17)).flatMap(Collection::stream)
+                        .limit(200_000)
                         .map(Object::toString)
                         .collect(toList()));
 
@@ -857,15 +907,15 @@ public class TestSelectiveOrcReader
         // multiple columns filter on not null
         tester.testRoundTripTypes(ImmutableList.of(VARCHAR, createCharType(5)),
                 ImmutableList.of(
-                        newArrayList(limit(cycle(ImmutableList.of("123456789", "23456789", "3456789")), NUM_ROWS)),
-                        newArrayList(limit(cycle(ImmutableList.of("12345", "23456", "34567")), NUM_ROWS))),
+                        Stream.generate(() -> ImmutableList.of("123456789", "23456789", "3456789")).flatMap(Collection::stream).limit(NUM_ROWS).toList(),
+                        Stream.generate(() -> ImmutableList.of("12345", "23456", "34567")).flatMap(Collection::stream).limit(NUM_ROWS).toList()),
                 toSubfieldFilters(ImmutableMap.of(0, IS_NOT_NULL)));
 
-        tester.testRoundTrip(createCharType(2), newArrayList(limit(cycle(ImmutableList.of("aa", "bb", "cc", "dd")), NUM_ROWS)), IS_NULL);
+        tester.testRoundTrip(createCharType(2), Stream.generate(() -> ImmutableList.of("aa", "bb", "cc", "dd")).flatMap(Collection::stream).limit(NUM_ROWS).toList(), IS_NULL);
 
         tester.testRoundTrip(
                 createCharType(1),
-                newArrayList(limit(cycle(ImmutableList.of("a", "b", "c", "d")), NUM_ROWS)),
+                Stream.generate(() -> ImmutableList.of("a", "b", "c", "d")).flatMap(Collection::stream).limit(NUM_ROWS).toList(),
                 stringIn(false, "a", "b"),
                 stringIn(true, "a", "b"));
 
@@ -878,7 +928,9 @@ public class TestSelectiveOrcReader
 
         // char with filter
         // The values are padded with trailing spaces so that they are all 10 characters long
-        List<?> values = newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), NUM_ROWS)).stream()
+        List<?> values = Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11, 13, 17))
+                .flatMap(Collection::stream)
+                .limit(NUM_ROWS)
                 .map(i -> toCharValue(i, 10))
                 .collect(toList());
         // Test with filter c IN {'1','3'}. Note that the values should not have any paddings since the filter passed to the reader is without paddings for CHAR(n).
@@ -890,11 +942,13 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(ImmutableMap.of(new Subfield("c"), stringIn(true, toCharValue(1, 10), toCharValue(3, 10)))));
 
         // char with 0 truncated length
-        tester.testRoundTrip(CHAR_10, newArrayList(limit(cycle(toCharValue("", 10)), NUM_ROWS)));
+        tester.testRoundTrip(CHAR_10, Stream.generate(() -> toCharValue("", 10)).limit(NUM_ROWS).toList());
 
         tester.testRoundTrip(
                 VARCHAR,
-                newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))),
+                Streams.concat(
+                        ImmutableList.of("a").stream(), nCopies(9999, "123").stream(),
+                        ImmutableList.of("b").stream(), nCopies(9999, "123").stream()).toList(),
                 ImmutableList.of(ImmutableMap.of(new Subfield("c"), stringIn(false, "a", "b"))),
                 ImmutableList.of(ImmutableMap.of(new Subfield("c"), stringIn(false, "a", "b"))));
     }
@@ -912,7 +966,9 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(VARBINARY, VARBINARY),
                 ImmutableList.of(
                         createList(NUM_ROWS, i -> new SqlVarbinary(Ints.toByteArray(i))),
-                        Streams.stream(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS))
+                        Stream.generate(() -> ImmutableList.of("A", "B", "C"))
+                                .flatMap(Collection::stream)
+                                .limit(NUM_ROWS)
                                 .map(String::getBytes)
                                 .map(SqlVarbinary::new)
                                 .collect(toImmutableList())),
@@ -932,7 +988,9 @@ public class TestSelectiveOrcReader
 
         tester.testRoundTrip(
                 VARBINARY,
-                ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), NUM_ROWS)).stream()
+                Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11, 13, 17))
+                        .flatMap(Collection::stream)
+                        .limit(NUM_ROWS)
                         .map(String::valueOf)
                         .map(string -> string.getBytes(UTF_8))
                         .map(SqlVarbinary::new)
@@ -954,15 +1012,16 @@ public class TestSelectiveOrcReader
     {
         List<Type> types = ImmutableList.of(INTEGER, VARCHAR, VARCHAR);
         TempFile tempFile = new TempFile();
-        List<Integer> intValues = newArrayList(limit(
-                cycle(concat(
-                        ImmutableList.of(1), nCopies(9999, 123),
-                        ImmutableList.of(2), nCopies(9999, 123),
-                        ImmutableList.of(3), nCopies(9999, 123),
-                        nCopies(1_000_000, null))),
-                NUM_ROWS));
-        List<String> varcharDirectValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
-        List<String> varcharDictionaryValues = newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS));
+        List<Integer> intValues = Stream.generate(() -> Streams.concat(
+                        ImmutableList.of(1).stream(), nCopies(9999, 123).stream(),
+                        ImmutableList.of(2).stream(), nCopies(9999, 123).stream(),
+                        ImmutableList.of(3).stream(), nCopies(9999, 123).stream(),
+                        nCopies(1_000_000, (Integer) null).stream()))
+                .flatMap(identity())
+                .limit(NUM_ROWS)
+                .toList();
+        List<String> varcharDirectValues = Stream.generate(() -> ImmutableList.of("A", "B", "C")).flatMap(Collection::stream).limit(NUM_ROWS).toList();
+        List<String> varcharDictionaryValues = Stream.generate(() -> ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")).flatMap(Collection::stream).limit(NUM_ROWS).toList();
         List<List<?>> values = ImmutableList.of(intValues, varcharDirectValues, varcharDictionaryValues);
 
         writeOrcColumnsPresto(tempFile.getFile(), DWRF, compression, Optional.empty(), types, values, NOOP_WRITER_STATS);
@@ -970,7 +1029,7 @@ public class TestSelectiveOrcReader
         OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
         Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
                 .boxed()
-                .collect(toImmutableMap(Function.identity(), types::get));
+                .collect(toImmutableMap(identity(), types::get));
         List<Integer> outputColumns = IntStream.range(0, types.size())
                 .boxed()
                 .collect(toImmutableList());
@@ -1018,7 +1077,8 @@ public class TestSelectiveOrcReader
     }
 
     @Test
-    public void testToZeroBasedColumnIndex() throws Exception
+    public void testToZeroBasedColumnIndex()
+            throws Exception
     {
         List<Type> types = ImmutableList.of(INTEGER, INTEGER, INTEGER);
         TempFile tempFile = new TempFile();
@@ -1060,7 +1120,7 @@ public class TestSelectiveOrcReader
     public void testOutputNotRequired()
             throws Exception
     {
-        List<String> inputValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
+        List<String> inputValues = Stream.generate(() -> ImmutableList.of("A", "B", "C")).flatMap(Collection::stream).limit(NUM_ROWS).toList();
         Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), stringIn(true, "A", "B", "C"));
         verifyOutputNotRequired(inputValues, filters, inputValues);
     }
@@ -1069,8 +1129,11 @@ public class TestSelectiveOrcReader
     public void testOutputNotRequiredNonNullFilterNulls()
             throws Exception
     {
-        List<String> inputValues = newArrayList(limit(cycle(Arrays.asList("A", null)), NUM_ROWS));
-        List<String> expectedValues = newArrayList(limit(cycle(Arrays.asList("A")), (NUM_ROWS + 1) / 2));
+        List<String> inputValues = Stream.generate(() -> Arrays.asList("A", null))
+                .flatMap(Collection::stream)
+                .limit(NUM_ROWS)
+                .toList();
+        List<String> expectedValues = Stream.generate(() -> "A").limit((NUM_ROWS + 1) / 2).toList();
 
         Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), IS_NOT_NULL);
         verifyOutputNotRequired(inputValues, filters, expectedValues);
@@ -1080,7 +1143,10 @@ public class TestSelectiveOrcReader
     public void testOutputNotRequiredNonNullFilterNoNulls()
             throws Exception
     {
-        List<String> inputValues = newArrayList(limit(cycle(Arrays.asList("A", "B", "C")), NUM_ROWS));
+        List<String> inputValues = Stream.generate(() -> Arrays.asList("A", "B", "C"))
+                .flatMap(Collection::stream)
+                .limit(NUM_ROWS)
+                .toList();
 
         Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), IS_NOT_NULL);
         verifyOutputNotRequired(inputValues, filters, inputValues);
@@ -1098,7 +1164,7 @@ public class TestSelectiveOrcReader
         OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
         Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
                 .boxed()
-                .collect(toImmutableMap(Function.identity(), types::get));
+                .collect(toImmutableMap(identity(), types::get));
 
         // Do not output column 0 but only column 1
         List<Integer> outputColumns = ImmutableList.of(1);
@@ -1376,31 +1442,9 @@ public class TestSelectiveOrcReader
         };
     }
 
-    private static <T> Iterable<T> repeatEach(int n, Iterable<T> iterable)
+    private static <T> Stream<T> repeat(int n, T item)
     {
-        return () -> new AbstractIterator<T>()
-        {
-            private final Iterator<T> delegate = iterable.iterator();
-            private int position;
-            private T value;
-
-            @Override
-            protected T computeNext()
-            {
-                if (position == 0) {
-                    if (!delegate.hasNext()) {
-                        return endOfData();
-                    }
-                    value = delegate.next();
-                }
-
-                position++;
-                if (position >= n) {
-                    position = 0;
-                }
-                return value;
-            }
-        };
+        return Stream.generate(() -> item).limit(n);
     }
 
     private static String toCharValue(Object value, int minLength)
