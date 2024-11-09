@@ -57,7 +57,7 @@ public class DwrfAwareStripeMetadataSource
     {
         Optional<Slice> stripeFooterSlice = stripeCache.getStripeFooterSlice(stripeId, footerLength);
         if (stripeFooterSlice.isPresent()) {
-            return stripeFooterSlice.get();
+            return stripeFooterSlice.orElseThrow();
         }
         return delegate.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable);
     }
@@ -71,7 +71,7 @@ public class DwrfAwareStripeMetadataSource
             return delegate.getInputs(orcDataSource, stripeId, diskRanges, cacheable);
         }
 
-        Slice cacheSlice = stripeCacheIndexStreamsSlice.get();
+        Slice cacheSlice = stripeCacheIndexStreamsSlice.orElseThrow();
         ImmutableMap.Builder<StreamId, OrcDataSourceInput> inputsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<StreamId, DiskRange> dataStreamsBuilder = ImmutableMap.builder();
 

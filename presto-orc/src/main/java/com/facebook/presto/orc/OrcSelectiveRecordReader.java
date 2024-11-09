@@ -40,7 +40,6 @@ import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.SelectiveStreamReader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -84,6 +83,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -470,7 +470,7 @@ public class OrcSelectiveRecordReader
             return Optional.empty();
         }
 
-        return Optional.of(Iterables.getOnlyElement(functions));
+        return Optional.of(functions.stream().collect(onlyElement()));
     }
 
     private static boolean containsNonNullFilter(Map<Subfield, TupleDomainFilter> columnFilters)
@@ -487,7 +487,7 @@ public class OrcSelectiveRecordReader
             return 1000;
         }
 
-        Map.Entry<Subfield, TupleDomainFilter> filterEntry = Iterables.getOnlyElement(filters.entrySet());
+        Map.Entry<Subfield, TupleDomainFilter> filterEntry = filters.entrySet().stream().collect(onlyElement());
         if (!filterEntry.getKey().getPath().isEmpty()) {
             // Complex type column. Complex types are expensive!
             return 1000;
@@ -785,7 +785,7 @@ public class OrcSelectiveRecordReader
     {
         initializeOutputPositions(positionCount);
         Page page = new Page(positionCount);
-        return filterFunctionWithoutInput.get().filter(page, outputPositions, positionCount, errors);
+        return filterFunctionWithoutInput.orElseThrow().filter(page, outputPositions, positionCount, errors);
     }
 
     private int applyFilterFunctions(List<FilterFunctionWithStats> filterFunctions, Set<Integer> filterFunctionInputs, int[] positions, int positionCount)

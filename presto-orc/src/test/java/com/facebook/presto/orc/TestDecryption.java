@@ -651,7 +651,7 @@ public class TestDecryption
             List<ColumnStatistics> fileStatsNoKey = readerNoKeys.getFooter().getFileStats();
             assertEquals(fileStatsNoKey.size(), types.size());
 
-            Set<Integer> allEncryptedNodes = dwrfWriterEncryption.get().getWriterEncryptionGroups().stream()
+            Set<Integer> allEncryptedNodes = dwrfWriterEncryption.orElseThrow().getWriterEncryptionGroups().stream()
                     .flatMap(group -> group.getNodes().stream())
                     .flatMap(node -> collectNodeTree(types, node).stream())
                     .collect(Collectors.toSet());

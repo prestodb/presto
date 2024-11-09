@@ -68,7 +68,7 @@ public class BooleanStatisticsBuilder
     {
         Optional<BooleanStatistics> booleanStatistics = buildBooleanStatistics();
         if (booleanStatistics.isPresent()) {
-            return new BooleanColumnStatistics(nonNullValueCount, null, rawSize, storageSize, booleanStatistics.get());
+            return new BooleanColumnStatistics(nonNullValueCount, null, rawSize, storageSize, booleanStatistics.orElseThrow());
         }
         return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }

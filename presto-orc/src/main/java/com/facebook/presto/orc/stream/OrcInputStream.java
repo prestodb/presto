@@ -471,7 +471,7 @@ public final class OrcInputStream
             buffer = ensureCapacity(buffer, chunkLength);
             length = compressedSliceInput.read(buffer, 0, chunkLength);
             if (dwrfDecryptor.isPresent()) {
-                buffer = dwrfDecryptor.get().decrypt(buffer, 0, chunkLength);
+                buffer = dwrfDecryptor.orElseThrow().decrypt(buffer, 0, chunkLength);
                 length = buffer.length;
             }
             position = 0;
@@ -481,11 +481,11 @@ public final class OrcInputStream
             byte[] compressedBuffer = sharedDecompressionBuffer.get();
             int readCompressed = compressedSliceInput.read(compressedBuffer, 0, chunkLength);
             if (dwrfDecryptor.isPresent()) {
-                compressedBuffer = dwrfDecryptor.get().decrypt(compressedBuffer, 0, chunkLength);
+                compressedBuffer = dwrfDecryptor.orElseThrow().decrypt(compressedBuffer, 0, chunkLength);
                 readCompressed = compressedBuffer.length;
             }
 
-            length = decompressor.get().decompress(compressedBuffer, 0, readCompressed, createDecompressorOutputBufferAdapter());
+            length = decompressor.orElseThrow().decompress(compressedBuffer, 0, readCompressed, createDecompressorOutputBufferAdapter());
             position = 0;
         }
         uncompressedOffset = position;

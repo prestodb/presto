@@ -59,7 +59,7 @@ public class BinaryStatisticsBuilder
         Optional<BinaryStatistics> binaryStatistics = buildBinaryStatistics();
         if (binaryStatistics.isPresent()) {
             verify(nonNullValueCount > 0);
-            return new BinaryColumnStatistics(nonNullValueCount, null, rawSize, storageSize, binaryStatistics.get());
+            return new BinaryColumnStatistics(nonNullValueCount, null, rawSize, storageSize, binaryStatistics.orElseThrow());
         }
         return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }
