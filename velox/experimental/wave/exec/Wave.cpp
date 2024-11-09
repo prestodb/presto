@@ -748,7 +748,6 @@ LaunchControl* WaveStream::prepareProgramLaunch(
   int32_t numBlocks = std::max<int32_t>(1, exes.size()) * blocksPerExe;
   int32_t size = 2 * numBlocks * sizeof(int32_t);
   std::vector<ExeLaunchInfo> info(exes.size());
-  auto exeOffset = size;
   // 2 pointers per exe: TB program and start of its param array and 1 int for
   // start PC. Round to 3 for alignment.
   size += exes.size() * sizeof(void*) * 3;
@@ -1370,7 +1369,6 @@ int32_t Program::addLiteralTyped(AbstractOperand* op) {
   }
   T value = op->constant->as<SimpleVector<T>>()->valueAt(0);
   if constexpr (std::is_same_v<T, StringView>) {
-    int64_t inlined = 0;
     StringView* stringView = reinterpret_cast<StringView*>(&value);
     if (stringView->size() <= 6) {
       int64_t inlined = static_cast<int64_t>(stringView->size()) << 48;
