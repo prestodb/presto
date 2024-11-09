@@ -204,7 +204,6 @@ class MockMemoryOperator {
         return 0;
       }
       if (reclaimInjectCb_ != nullptr) {
-        uint64_t injectedReclaimedBytes{0};
         if (!reclaimInjectCb_(pool, targetBytes)) {
           return 0;
         }
@@ -788,7 +787,6 @@ TEST_F(MockSharedArbitrationTest, constructor) {
 
 TEST_F(MockSharedArbitrationTest, arbitrationStateCheck) {
   const int memCapacity = 256 * MB;
-  const int minPoolCapacity = 32 * MB;
   std::atomic<int> checkCount{0};
   MemoryArbitrationStateCheckCB checkCountCb = [&](MemoryPool& pool) {
     const std::string re("RootPool.*");
@@ -2139,7 +2137,6 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowWithoutArbitration) {
 }
 
 TEST_F(MockSharedArbitrationTest, maxCapacityReserve) {
-  const int memCapacity = 256 * MB;
   struct {
     uint64_t memCapacity;
     uint64_t reservedCapacity;
@@ -2437,7 +2434,6 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, arbitrationAbort) {
   ASSERT_EQ(task3->capacity(), memoryCapacity / 4);
 
   folly::EventCount globalArbitrationWait;
-  std::atomic_bool globalArbitrationWaitFlag{true};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::memory::SharedArbitrator::runGlobalArbitration",
       std::function<void(const SharedArbitrator*)>(
@@ -3112,7 +3108,6 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
 
 TEST_F(MockSharedArbitrationTest, globalArbitrationReclaimPct) {
   const int64_t memoryCapacity = 256 << 20;
-  const int64_t memoryPoolCapacity = 64 << 20;
 
   struct TestTask {
     uint64_t capacity{0};

@@ -33,7 +33,6 @@ class ReaderTest : public testing::Test, public test::VectorTestBase {
 };
 
 TEST_F(ReaderTest, getOrCreateChild) {
-  constexpr int kSize = 5;
   auto input = makeRowVector(
       {"c.0", "c.1"},
       {
