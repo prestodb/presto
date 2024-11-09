@@ -123,7 +123,7 @@ public class StreamSizeHelper
                 checkArgument(columnEncoding != null, "columnEncoding for flat map node %s is null", flatMapNode);
                 checkArgument(columnEncoding.getAdditionalSequenceEncodings().isPresent(), "columnEncoding for flat map node %s does not have keys", flatMapNode);
 
-                SortedMap<Integer, DwrfSequenceEncoding> sequenceToKey = columnEncoding.getAdditionalSequenceEncodings().get();
+                SortedMap<Integer, DwrfSequenceEncoding> sequenceToKey = columnEncoding.getAdditionalSequenceEncodings().orElseThrow();
                 Int2LongMap sequenceToSize = flatMapNodeSizes.get(flatMapNode);
                 Object2LongMap<DwrfProto.KeyInfo> keyToSize = keySizes.computeIfAbsent(flatMapNode, (ignore) -> new Object2LongOpenHashMap<>());
 

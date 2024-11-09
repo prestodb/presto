@@ -37,7 +37,6 @@ import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
@@ -49,6 +48,7 @@ import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 
 public final class SelectiveStreamReaders
@@ -103,7 +103,7 @@ public final class SelectiveStreamReaders
                 return new SliceSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext, isLowMemory);
             case TIMESTAMP:
             case TIMESTAMP_MICROSECONDS: {
-                boolean enableMicroPrecision = outputType.isPresent() && outputType.get() == TIMESTAMP_MICROSECONDS;
+                boolean enableMicroPrecision = outputType.isPresent() && outputType.orElseThrow() == TIMESTAMP_MICROSECONDS;
                 checkArgument(requiredSubfields.isEmpty(), "Timestamp stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, TimestampType.class::isInstance);
                 return new TimestampSelectiveStreamReader(
@@ -125,7 +125,7 @@ public final class SelectiveStreamReaders
                 return new MapSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, options, systemMemoryContext, isLowMemory);
             case DECIMAL: {
                 verifyStreamType(streamDescriptor, outputType, DecimalType.class::isInstance);
-                if (streamDescriptor.getOrcType().getPrecision().get() <= MAX_SHORT_PRECISION) {
+                if (streamDescriptor.getOrcType().getPrecision().orElseThrow() <= MAX_SHORT_PRECISION) {
                     return new ShortDecimalSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
                 }
                 else {
@@ -141,7 +141,7 @@ public final class SelectiveStreamReaders
     private static void verifyStreamType(StreamDescriptor streamDescriptor, Optional<Type> outputType, Predicate<Type> predicate)
     {
         if (outputType.isPresent()) {
-            ReaderUtils.verifyStreamType(streamDescriptor, outputType.get(), predicate);
+            ReaderUtils.verifyStreamType(streamDescriptor, outputType.orElseThrow(), predicate);
         }
     }
 
@@ -152,7 +152,7 @@ public final class SelectiveStreamReaders
         }
 
         checkArgument(filters.size() == 1, format("Stream reader for %s doesn't support multiple range filters", type));
-        return Optional.of(Iterables.getOnlyElement(filters.values()));
+        return Optional.of(filters.values().stream().collect(onlyElement()));
     }
 
     public static SelectiveStreamReader createNestedStreamReader(
@@ -184,7 +184,7 @@ public final class SelectiveStreamReaders
             case DECIMAL:
                 Map<Subfield, TupleDomainFilter> elementFilters = ImmutableMap.of();
                 if (parentFilter.isPresent()) {
-                    TupleDomainFilter.PositionalFilter positionalFilter = parentFilter.get().getPositionalFilter();
+                    TupleDomainFilter.PositionalFilter positionalFilter = parentFilter.orElseThrow().getPositionalFilter();
                     if (positionalFilter != null) {
                         elementFilters = ImmutableMap.of(new Subfield("c"), positionalFilter);
                     }

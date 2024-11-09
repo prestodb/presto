@@ -128,7 +128,7 @@ public class StringStatisticsBuilder
         Optional<StringStatistics> stringStatistics = buildStringStatistics();
         if (stringStatistics.isPresent()) {
             verify(nonNullValueCount > 0);
-            return new StringColumnStatistics(nonNullValueCount, null, rawSize, storageSize, stringStatistics.get());
+            return new StringColumnStatistics(nonNullValueCount, null, rawSize, storageSize, stringStatistics.orElseThrow());
         }
         return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }
