@@ -138,11 +138,12 @@ void Operator::maybeSetTracer() {
   const auto opTraceDirPath = trace::getOpTraceDirectory(
       traceConfig->queryTraceDir, planNodeId(), pipelineId, driverId);
   trace::createTraceDirectory(opTraceDirPath);
-  inputTracer_ = std::make_unique<trace::OperatorTraceWriter>(
-      this,
-      opTraceDirPath,
-      memory::traceMemoryPool(),
-      traceConfig->updateAndCheckTraceLimitCB);
+
+  if (operatorType() == "TableScan") {
+    setupSplitTracer(opTraceDirPath);
+  } else {
+    setupInputTracer(opTraceDirPath);
+  }
 }
 
 void Operator::traceInput(const RowVectorPtr& input) {
@@ -152,8 +153,13 @@ void Operator::traceInput(const RowVectorPtr& input) {
 }
 
 void Operator::finishTrace() {
+  VELOX_CHECK(inputTracer_ == nullptr || splitTracer_ == nullptr);
   if (inputTracer_ != nullptr) {
     inputTracer_->finish();
+  }
+
+  if (splitTracer_ != nullptr) {
+    splitTracer_->finish();
   }
 }
 
@@ -161,6 +167,19 @@ std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&
 Operator::translators() {
   static std::vector<std::unique_ptr<PlanNodeTranslator>> translators;
   return translators;
+}
+
+void Operator::setupInputTracer(const std::string& opTraceDirPath) {
+  inputTracer_ = std::make_unique<trace::OperatorTraceInputWriter>(
+      this,
+      opTraceDirPath,
+      memory::traceMemoryPool(),
+      operatorCtx_->driverCtx()->traceConfig()->updateAndCheckTraceLimitCB);
+}
+
+void Operator::setupSplitTracer(const std::string& opTraceDirPath) {
+  splitTracer_ =
+      std::make_unique<trace::OperatorTraceSplitWriter>(this, opTraceDirPath);
 }
 
 // static

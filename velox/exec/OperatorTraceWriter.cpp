@@ -16,7 +16,10 @@
 
 #include "velox/exec/OperatorTraceWriter.h"
 
+#include <folly/hash/Checksum.h>
+#include <folly/io/Cursor.h>
 #include <utility>
+
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/Operator.h"
@@ -25,7 +28,7 @@
 
 namespace facebook::velox::exec::trace {
 
-OperatorTraceWriter::OperatorTraceWriter(
+OperatorTraceInputWriter::OperatorTraceInputWriter(
     Operator* traceOp,
     std::string traceDir,
     memory::MemoryPool* pool,
@@ -40,7 +43,7 @@ OperatorTraceWriter::OperatorTraceWriter(
   VELOX_CHECK_NOT_NULL(traceFile_);
 }
 
-void OperatorTraceWriter::write(const RowVectorPtr& rows) {
+void OperatorTraceInputWriter::write(const RowVectorPtr& rows) {
   if (FOLLY_UNLIKELY(finished_)) {
     return;
   }
@@ -67,7 +70,7 @@ void OperatorTraceWriter::write(const RowVectorPtr& rows) {
   traceFile_->append(std::move(iobuf));
 }
 
-void OperatorTraceWriter::finish() {
+void OperatorTraceInputWriter::finish() {
   if (finished_) {
     return;
   }
@@ -81,7 +84,7 @@ void OperatorTraceWriter::finish() {
   finished_ = true;
 }
 
-void OperatorTraceWriter::writeSummary() const {
+void OperatorTraceInputWriter::writeSummary() const {
   const auto summaryFilePath = getOpTraceSummaryFilePath(traceDir_);
   const auto file = fs_->openFileForWrite(summaryFilePath);
   folly::dynamic obj = folly::dynamic::object;
@@ -97,4 +100,63 @@ void OperatorTraceWriter::writeSummary() const {
   file->close();
 }
 
+OperatorTraceSplitWriter::OperatorTraceSplitWriter(
+    Operator* traceOp,
+    std::string traceDir)
+    : traceOp_(traceOp),
+      traceDir_(std::move(traceDir)),
+      fs_(filesystems::getFileSystem(traceDir_, nullptr)),
+      splitFile_(fs_->openFileForWrite(getOpTraceSplitFilePath(traceDir_))) {
+  VELOX_CHECK_NOT_NULL(splitFile_);
+}
+
+void OperatorTraceSplitWriter::write(const exec::Split& split) const {
+  // TODO: Supports group later once we have driver id mapping in trace node.
+  VELOX_CHECK(!split.hasGroup(), "Do not support grouped execution");
+  VELOX_CHECK(split.hasConnectorSplit());
+  const auto splitObj = split.connectorSplit->serialize();
+  const auto splitJson = folly::toJson(splitObj);
+  auto ioBuf = serialize(splitJson);
+  splitFile_->append(std::move(ioBuf));
+}
+
+void OperatorTraceSplitWriter::finish() {
+  if (finished_) {
+    return;
+  }
+
+  VELOX_CHECK_NOT_NULL(
+      splitFile_, "The query data writer has already been finished");
+  splitFile_->close();
+  writeSummary();
+  finished_ = true;
+}
+
+// static
+std::unique_ptr<folly::IOBuf> OperatorTraceSplitWriter::serialize(
+    const std::string& split) {
+  const uint32_t length = split.length();
+  const uint32_t crc32 = folly::crc32(
+      reinterpret_cast<const uint8_t*>(split.data()), split.size());
+  auto ioBuf =
+      folly::IOBuf::create(sizeof(length) + split.size() + sizeof(crc32));
+  folly::io::Appender appender(ioBuf.get(), 0);
+  appender.writeLE(length);
+  appender.push(reinterpret_cast<const uint8_t*>(split.data()), length);
+  appender.writeLE(crc32);
+  return ioBuf;
+}
+
+void OperatorTraceSplitWriter::writeSummary() const {
+  const auto summaryFilePath = getOpTraceSummaryFilePath(traceDir_);
+  const auto file = fs_->openFileForWrite(summaryFilePath);
+  folly::dynamic obj = folly::dynamic::object;
+  obj[OperatorTraceTraits::kOpTypeKey] = traceOp_->operatorType();
+  const auto stats = traceOp_->stats(/*clear=*/false);
+  obj[OperatorTraceTraits::kPeakMemoryKey] =
+      stats.memoryStats.peakTotalMemoryReservation;
+  obj[OperatorTraceTraits::kNumSplits] = stats.numSplits;
+  file->append(folly::toJson(obj));
+  file->close();
+}
 } // namespace facebook::velox::exec::trace

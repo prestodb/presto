@@ -19,6 +19,7 @@ velox_add_library(
   HashJoinReplayer.cpp
   OperatorReplayerBase.cpp
   PartitionedOutputReplayer.cpp
+  TableScanReplayer.cpp
   TableWriterReplayer.cpp
   TraceReplayRunner.cpp)
 
@@ -30,6 +31,7 @@ velox_link_libraries(
   velox_vector_test_lib
   velox_exec
   velox_exec_test_lib
+  velox_hive_connector
   velox_tpch_connector
   velox_memory
   Folly::folly

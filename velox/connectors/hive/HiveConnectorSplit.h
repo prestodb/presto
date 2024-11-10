@@ -84,7 +84,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
       const std::unordered_map<std::string, std::string>& _serdeParameters = {},
       int64_t _splitWeight = 0,
       const std::unordered_map<std::string, std::string>& _infoColumns = {},
-      std::optional<FileProperties> _properties = std::nullopt)
+      std::optional<FileProperties> _properties = std::nullopt,
+      std::optional<RowIdProperties> _rowIdProperties = std::nullopt)
       : ConnectorSplit(connectorId, _splitWeight),
         filePath(_filePath),
         fileFormat(_fileFormat),
@@ -96,7 +97,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
         extraFileInfo(_extraFileInfo),
         serdeParameters(_serdeParameters),
         infoColumns(_infoColumns),
-        properties(_properties) {}
+        properties(_properties),
+        rowIdProperties(_rowIdProperties) {}
 
   std::string toString() const override;
 

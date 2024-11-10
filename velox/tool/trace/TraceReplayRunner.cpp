@@ -47,6 +47,7 @@
 #include "velox/tool/trace/HashJoinReplayer.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
 #include "velox/tool/trace/PartitionedOutputReplayer.h"
+#include "velox/tool/trace/TableScanReplayer.h"
 #include "velox/tool/trace/TableWriterReplayer.h"
 #include "velox/type/Type.h"
 
@@ -70,6 +71,7 @@ DEFINE_string(
     "query task.");
 DEFINE_string(node_id, "", "Specify the target node id.");
 DEFINE_int32(pipeline_id, 0, "Specify the target pipeline id.");
+DEFINE_int32(driver_id, -1, "Specify the target driver id.");
 DEFINE_string(operator_type, "", "Specify the target operator type.");
 DEFINE_string(
     table_writer_output_dir,
@@ -131,6 +133,14 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
         FLAGS_node_id,
         FLAGS_pipeline_id,
         getVectorSerdeKind(),
+        FLAGS_operator_type);
+  } else if (FLAGS_operator_type == "TableScan") {
+    replayer = std::make_unique<tool::trace::TableScanReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        FLAGS_pipeline_id,
         FLAGS_operator_type);
   } else if (FLAGS_operator_type == "FilterProject") {
     replayer = std::make_unique<tool::trace::FilterProjectReplayer>(

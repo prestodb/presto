@@ -33,11 +33,13 @@ struct TraceTraits {
 struct OperatorTraceTraits {
   static inline const std::string kSummaryFileName = "op_trace_summary.json";
   static inline const std::string kInputFileName = "op_input_trace.data";
+  static inline const std::string kSplitFileName = "op_split_trace.split";
 
   /// Keys for operator trace summary file.
   static inline const std::string kOpTypeKey = "opType";
   static inline const std::string kPeakMemoryKey = "peakMemory";
-  static inline const std::string kInputRowsKey = "inputhRows";
+  static inline const std::string kInputRowsKey = "inputRows";
+  static inline const std::string kNumSplits = "numSplits";
 };
 
 /// Contains the summary of an operator trace.

@@ -15,16 +15,21 @@
  */
 
 #include <folly/init/Init.h>
+#include <folly/io/Cursor.h>
 #include <gtest/gtest.h>
 #include <memory>
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/exec/OperatorTraceReader.h"
+#include "velox/exec/OperatorTraceWriter.h"
 #include "velox/exec/PartitionFunction.h"
+#include "velox/exec/Split.h"
 #include "velox/exec/TaskTraceReader.h"
 #include "velox/exec/Trace.h"
 #include "velox/exec/TraceUtil.h"
+#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -49,6 +54,7 @@ class OperatorTraceTest : public HiveConnectorTestBase {
     connector::hive::LocationHandle::registerSerDe();
     connector::hive::HiveColumnHandle::registerSerDe();
     connector::hive::HiveInsertTableHandle::registerSerDe();
+    connector::hive::HiveConnectorSplit::registerSerDe();
     core::PlanNode::registerSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
@@ -73,17 +79,12 @@ class OperatorTraceTest : public HiveConnectorTestBase {
     filesystems::registerLocalFileSystem();
   }
 
-  RowTypePtr generateTypes(size_t numColumns) {
-    std::vector<std::string> names;
-    names.reserve(numColumns);
-    std::vector<TypePtr> types;
-    types.reserve(numColumns);
-    for (auto i = 0; i < numColumns; ++i) {
-      names.push_back(fmt::format("c{}", i));
-      types.push_back(vectorFuzzer_.randType((2)));
-    }
-    return ROW(std::move(names), std::move(types));
-    ;
+  std::vector<RowVectorPtr> makeVectors(
+      int32_t count,
+      int32_t rowsPerVector,
+      const RowTypePtr& rowType = nullptr) {
+    auto inputs = rowType ? rowType : dataType_;
+    return HiveConnectorTestBase::makeVectors(inputs, count, rowsPerVector);
   }
 
   bool isSamePlan(
@@ -727,6 +728,252 @@ TEST_F(OperatorTraceTest, filterProject) {
   }
 }
 
+TEST_F(OperatorTraceTest, traceSplitRoundTrip) {
+  constexpr auto numSplits = 5;
+  const auto vectors = makeVectors(10, 100);
+  const auto testDir = TempDirectoryPath::create();
+  const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+  const auto fs = filesystems::getFileSystem(testDir->getPath(), nullptr);
+  std::vector<std::shared_ptr<TempFilePath>> splitFiles;
+  for (int i = 0; i < numSplits; ++i) {
+    auto filePath = TempFilePath::create();
+    writeToFile(filePath->getPath(), vectors);
+    splitFiles.push_back(std::move(filePath));
+  }
+  auto splits = makeHiveConnectorSplits(splitFiles);
+  std::sort(splits.begin(), splits.end());
+
+  auto traceDirPath = TempDirectoryPath::create();
+  auto plan = PlanBuilder().tableScan(dataType_).planNode();
+  std::shared_ptr<Task> task;
+  AssertQueryBuilder(plan)
+      .maxDrivers(3)
+      .config(core::QueryConfig::kQueryTraceEnabled, true)
+      .config(core::QueryConfig::kQueryTraceDir, traceDirPath->getPath())
+      .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+      .config(core::QueryConfig::kQueryTraceNodeIds, "0")
+      .splits(splits)
+      .copyResults(pool(), task);
+
+  const auto taskTraceDir =
+      getTaskTraceDirectory(traceDirPath->getPath(), *task);
+  std::vector<std::string> traceDirs;
+  for (int i = 0; i < 3; ++i) {
+    const auto opTraceDir = getOpTraceDirectory(
+        taskTraceDir,
+        /*planNodeId=*/"0",
+        /*pipelineId=*/0,
+        /*driverId=*/i);
+    const auto summaryFilePath = getOpTraceSummaryFilePath(opTraceDir);
+    const auto splitFilePath = getOpTraceSplitFilePath(opTraceDir);
+    ASSERT_TRUE(fs->exists(summaryFilePath));
+    ASSERT_TRUE(fs->exists(splitFilePath));
+
+    traceDirs.push_back(opTraceDir);
+  }
+
+  const auto reader = exec::trace::OperatorTraceSplitReader(
+      traceDirs, memory::MemoryManager::getInstance()->tracePool());
+  auto actualSplits = reader.read();
+  std::unordered_set<std::string> splitStrs;
+  std::transform(
+      splits.begin(),
+      splits.end(),
+      std::inserter(splitStrs, splitStrs.begin()),
+      [](const auto& s) { return s->toString(); });
+  ASSERT_EQ(actualSplits.size(), splits.size());
+  for (int i = 0; i < numSplits; ++i) {
+    folly::dynamic splitInfoObj = folly::parseJson(actualSplits[i]);
+    const auto actualSplit = exec::Split{
+        std::const_pointer_cast<connector::hive::HiveConnectorSplit>(
+            ISerializable::deserialize<connector::hive::HiveConnectorSplit>(
+                splitInfoObj))};
+    ASSERT_FALSE(actualSplit.hasGroup());
+    ASSERT_TRUE(actualSplit.hasConnectorSplit());
+    const auto actualConnectorSplit = actualSplit.connectorSplit;
+    ASSERT_EQ(splitStrs.count(actualConnectorSplit->toString()), 1);
+  }
+}
+
+TEST_F(OperatorTraceTest, traceSplitPartial) {
+  constexpr auto numSplits = 3;
+  const auto vectors = makeVectors(2, 100);
+  const auto testDir = TempDirectoryPath::create();
+  const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+  const auto fs = filesystems::getFileSystem(testDir->getPath(), nullptr);
+  std::vector<std::shared_ptr<TempFilePath>> splitFiles;
+  for (int i = 0; i < numSplits; ++i) {
+    auto filePath = TempFilePath::create();
+    writeToFile(filePath->getPath(), vectors);
+    splitFiles.push_back(std::move(filePath));
+  }
+  auto splits = makeHiveConnectorSplits(splitFiles);
+
+  auto traceDirPath = TempDirectoryPath::create();
+  auto plan = PlanBuilder().tableScan(dataType_).planNode();
+  std::shared_ptr<Task> task;
+  AssertQueryBuilder(plan)
+      .maxDrivers(3)
+      .config(core::QueryConfig::kQueryTraceEnabled, true)
+      .config(core::QueryConfig::kQueryTraceDir, traceDirPath->getPath())
+      .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+      .config(core::QueryConfig::kQueryTraceNodeIds, "0")
+      .splits(splits)
+      .copyResults(pool(), task);
+
+  const auto taskTraceDir =
+      getTaskTraceDirectory(traceDirPath->getPath(), *task);
+  std::vector<std::string> traceDirs;
+  for (int i = 0; i < 3; ++i) {
+    const auto opTraceDir = getOpTraceDirectory(
+        taskTraceDir,
+        /*planNodeId=*/"0",
+        /*pipelineId=*/0,
+        /*driverId=*/i);
+    const auto summaryFilePath = getOpTraceSummaryFilePath(opTraceDir);
+    const auto splitFilePath = getOpTraceSplitFilePath(opTraceDir);
+    ASSERT_TRUE(fs->exists(summaryFilePath));
+    ASSERT_TRUE(fs->exists(splitFilePath));
+
+    traceDirs.push_back(opTraceDir);
+  }
+
+  // Append a partial split to the split info file.
+  const std::string split = "split123";
+  const uint32_t length = split.length();
+  const uint32_t crc32 = folly::crc32(
+      reinterpret_cast<const uint8_t*>(split.data()), split.size());
+  const auto splitInfoFile = fs->openFileForWrite(
+      fmt::format(
+          "{}/{}",
+          traceDirPath->getPath(),
+          OperatorTraceTraits::kSplitFileName),
+      filesystems::FileOptions{.shouldThrowOnFileAlreadyExists = false});
+  auto ioBuf = folly::IOBuf::create(12 + 16);
+  folly::io::Appender appender(ioBuf.get(), 0);
+  // Writes an invalid split without crc.
+  appender.writeLE(length);
+  appender.push(reinterpret_cast<const uint8_t*>(split.data()), length);
+  // Writes a valid spilt.
+  appender.writeLE(length);
+  appender.push(reinterpret_cast<const uint8_t*>(split.data()), length);
+  appender.writeLE(crc32);
+  splitInfoFile->append(std::move(ioBuf));
+  splitInfoFile->close();
+
+  const auto reader = exec::trace::OperatorTraceSplitReader(
+      traceDirs, memory::MemoryManager::getInstance()->tracePool());
+  auto actualSplits = reader.read();
+  std::unordered_set<std::string> splitStrs;
+  std::transform(
+      splits.begin(),
+      splits.end(),
+      std::inserter(splitStrs, splitStrs.begin()),
+      [](const auto& s) { return s->toString(); });
+  ASSERT_EQ(actualSplits.size(), splits.size());
+  for (int i = 0; i < numSplits; ++i) {
+    folly::dynamic splitInfoObj = folly::parseJson(actualSplits[i]);
+    const auto actualSplit = exec::Split{
+        std::const_pointer_cast<connector::hive::HiveConnectorSplit>(
+            ISerializable::deserialize<connector::hive::HiveConnectorSplit>(
+                splitInfoObj))};
+    ASSERT_FALSE(actualSplit.hasGroup());
+    ASSERT_TRUE(actualSplit.hasConnectorSplit());
+    const auto actualConnectorSplit = actualSplit.connectorSplit;
+    ASSERT_EQ(splitStrs.count(actualConnectorSplit->toString()), 1);
+  }
+}
+
+TEST_F(OperatorTraceTest, traceSplitCorrupted) {
+  constexpr auto numSplits = 3;
+  const auto vectors = makeVectors(2, 100);
+  const auto testDir = TempDirectoryPath::create();
+  const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+  const auto fs = filesystems::getFileSystem(testDir->getPath(), nullptr);
+  std::vector<std::shared_ptr<TempFilePath>> splitFiles;
+  for (int i = 0; i < numSplits; ++i) {
+    auto filePath = TempFilePath::create();
+    writeToFile(filePath->getPath(), vectors);
+    splitFiles.push_back(std::move(filePath));
+  }
+  auto splits = makeHiveConnectorSplits(splitFiles);
+
+  auto traceDirPath = TempDirectoryPath::create();
+  auto plan = PlanBuilder().tableScan(dataType_).planNode();
+  std::shared_ptr<Task> task;
+  AssertQueryBuilder(plan)
+      .maxDrivers(3)
+      .config(core::QueryConfig::kQueryTraceEnabled, true)
+      .config(core::QueryConfig::kQueryTraceDir, traceDirPath->getPath())
+      .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+      .config(core::QueryConfig::kQueryTraceNodeIds, "0")
+      .splits(splits)
+      .copyResults(pool(), task);
+
+  const auto taskTraceDir =
+      getTaskTraceDirectory(traceDirPath->getPath(), *task);
+  std::vector<std::string> traceDirs;
+  for (int i = 0; i < 3; ++i) {
+    const auto opTraceDir = getOpTraceDirectory(
+        taskTraceDir,
+        /*planNodeId=*/"0",
+        /*pipelineId=*/0,
+        /*driverId=*/i);
+    const auto summaryFilePath = getOpTraceSummaryFilePath(opTraceDir);
+    const auto splitFilePath = getOpTraceSplitFilePath(opTraceDir);
+    ASSERT_TRUE(fs->exists(summaryFilePath));
+    ASSERT_TRUE(fs->exists(splitFilePath));
+
+    traceDirs.push_back(opTraceDir);
+  }
+
+  // Append a split with wrong checksum to the split info file.
+  const std::string split = "split123";
+  const uint32_t length = split.length();
+  const uint32_t crc32 = folly::crc32(
+      reinterpret_cast<const uint8_t*>(split.data()), split.size());
+  const auto splitInfoFile = fs->openFileForWrite(
+      fmt::format(
+          "{}/{}",
+          traceDirPath->getPath(),
+          OperatorTraceTraits::kSplitFileName),
+      filesystems::FileOptions{.shouldThrowOnFileAlreadyExists = false});
+  auto ioBuf = folly::IOBuf::create(16 * 2);
+  folly::io::Appender appender(ioBuf.get(), 0);
+  // Writes an invalid split with a wrong checksum.
+  appender.writeLE(length);
+  appender.push(reinterpret_cast<const uint8_t*>(split.data()), length);
+  appender.writeLE(crc32 - 1);
+  // Writes a valid split.
+  appender.writeLE(length);
+  appender.push(reinterpret_cast<const uint8_t*>(split.data()), length);
+  appender.writeLE(crc32);
+  splitInfoFile->append(std::move(ioBuf));
+  splitInfoFile->close();
+
+  const auto reader = exec::trace::OperatorTraceSplitReader(
+      traceDirs, memory::MemoryManager::getInstance()->tracePool());
+  auto actualSplits = reader.read();
+  std::unordered_set<std::string> splitStrs;
+  std::transform(
+      splits.begin(),
+      splits.end(),
+      std::inserter(splitStrs, splitStrs.begin()),
+      [](const auto& s) { return s->toString(); });
+  ASSERT_EQ(actualSplits.size(), splits.size());
+  for (int i = 0; i < numSplits; ++i) {
+    folly::dynamic splitInfoObj = folly::parseJson(actualSplits[i]);
+    const auto actualSplit = exec::Split{
+        std::const_pointer_cast<connector::hive::HiveConnectorSplit>(
+            ISerializable::deserialize<connector::hive::HiveConnectorSplit>(
+                splitInfoObj))};
+    ASSERT_FALSE(actualSplit.hasGroup());
+    ASSERT_TRUE(actualSplit.hasConnectorSplit());
+    const auto actualConnectorSplit = actualSplit.connectorSplit;
+    ASSERT_EQ(splitStrs.count(actualConnectorSplit->toString()), 1);
+  }
+}
+
 TEST_F(OperatorTraceTest, hashJoin) {
   std::vector<RowVectorPtr> probeInput;
   RowTypePtr probeType =
@@ -882,6 +1129,7 @@ TEST_F(OperatorTraceTest, canTrace) {
       {"PartialAggregation", true},
       {"Aggregation", true},
       {"TableWrite", true},
+      {"TableScan", true},
       {"FilterProject", true}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());

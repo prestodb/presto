@@ -81,7 +81,11 @@ class HiveConnectorSerDeTest : public exec::test::HiveConnectorTestBase {
       ASSERT_EQ(value, clone->customSplitInfo.at(key));
     }
 
-    ASSERT_EQ(*split.extraFileInfo, *clone->extraFileInfo);
+    if (split.extraFileInfo != nullptr) {
+      ASSERT_EQ(*split.extraFileInfo, *clone->extraFileInfo);
+    } else {
+      ASSERT_EQ(clone->extraFileInfo, nullptr);
+    }
     ASSERT_EQ(split.serdeParameters.size(), clone->serdeParameters.size());
     for (const auto& [key, value] : split.serdeParameters) {
       ASSERT_EQ(value, clone->serdeParameters.at(key));
@@ -235,7 +239,9 @@ TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
   FileProperties fileProperties{
       .fileSize = 2048, .modificationTime = std::nullopt};
   const auto properties = std::optional<FileProperties>(fileProperties);
-  const auto split = HiveConnectorSplit(
+  RowIdProperties rowIdProperties{
+      .metadataVersion = 2, .partitionId = 3, .tableGuid = "test"};
+  const auto split1 = HiveConnectorSplit(
       connectorId,
       filePath,
       fileFormat,
@@ -248,8 +254,26 @@ TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
       serdeParameters,
       splitWeight,
       infoColumns,
+      properties,
+      rowIdProperties);
+  testSerde(split1);
+
+  const auto split2 = HiveConnectorSplit(
+      connectorId,
+      filePath,
+      fileFormat,
+      start,
+      length,
+      {},
+      tableBucketNumber,
+      customSplitInfo,
+      nullptr,
+      {},
+      splitWeight,
+      {},
+      std::nullopt,
       std::nullopt);
-  testSerde(split);
+  testSerde(split2);
 }
 
 } // namespace

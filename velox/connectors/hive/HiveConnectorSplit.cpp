@@ -61,7 +61,8 @@ folly::dynamic HiveConnectorSplit::serialize() const {
     customSplitInfoObj[key] = value;
   }
   obj["customSplitInfo"] = customSplitInfoObj;
-  obj["extraFileInfo"] = *extraFileInfo;
+  obj["extraFileInfo"] =
+      extraFileInfo == nullptr ? nullptr : folly::dynamic(*extraFileInfo);
 
   folly::dynamic serdeParametersObj = folly::dynamic::object;
   for (const auto& [key, value] : serdeParameters) {
@@ -84,8 +85,14 @@ folly::dynamic HiveConnectorSplit::serialize() const {
         ? folly::dynamic(properties->modificationTime.value())
         : nullptr;
     obj["properties"] = propertiesObj;
-  } else {
-    obj["properties"] = nullptr;
+  }
+
+  if (rowIdProperties.has_value()) {
+    folly::dynamic rowIdObj = folly::dynamic::object;
+    rowIdObj["metadataVersion"] = rowIdProperties->metadataVersion;
+    rowIdObj["partitionId"] = rowIdProperties->partitionId;
+    rowIdObj["tableGuid"] = rowIdProperties->tableGuid;
+    obj["rowIdProperties"] = rowIdObj;
   }
 
   return obj;
@@ -118,8 +125,9 @@ std::shared_ptr<HiveConnectorSplit> HiveConnectorSplit::create(
     customSplitInfo[key.asString()] = value.asString();
   }
 
-  std::shared_ptr<std::string> extraFileInfo =
-      std::make_shared<std::string>(obj["extraFileInfo"].asString());
+  std::shared_ptr<std::string> extraFileInfo = obj["extraFileInfo"].isNull()
+      ? nullptr
+      : std::make_shared<std::string>(obj["extraFileInfo"].asString());
   std::unordered_map<std::string, std::string> serdeParameters;
   for (const auto& [key, value] : obj["serdeParameters"].items()) {
     serdeParameters[key.asString()] = value.asString();
@@ -131,8 +139,8 @@ std::shared_ptr<HiveConnectorSplit> HiveConnectorSplit::create(
   }
 
   std::optional<FileProperties> properties = std::nullopt;
-  const auto propertiesObj = obj["properties"];
-  if (!propertiesObj.isNull()) {
+  const auto& propertiesObj = obj.getDefault("properties", nullptr);
+  if (propertiesObj != nullptr) {
     properties = FileProperties{
         propertiesObj["fileSize"].isNull()
             ? std::nullopt
@@ -140,6 +148,15 @@ std::shared_ptr<HiveConnectorSplit> HiveConnectorSplit::create(
         propertiesObj["modificationTime"].isNull()
             ? std::nullopt
             : std::optional(propertiesObj["modificationTime"].asInt())};
+  }
+
+  std::optional<RowIdProperties> rowIdProperties = std::nullopt;
+  const auto& rowIdObj = obj.getDefault("rowIdProperties", nullptr);
+  if (rowIdObj != nullptr) {
+    rowIdProperties = RowIdProperties{
+        .metadataVersion = rowIdObj["metadataVersion"].asInt(),
+        .partitionId = rowIdObj["partitionId"].asInt(),
+        .tableGuid = rowIdObj["tableGuid"].asString()};
   }
 
   return std::make_shared<HiveConnectorSplit>(
@@ -155,7 +172,8 @@ std::shared_ptr<HiveConnectorSplit> HiveConnectorSplit::create(
       serdeParameters,
       splitWeight,
       infoColumns,
-      properties);
+      properties,
+      rowIdProperties);
 }
 
 // static

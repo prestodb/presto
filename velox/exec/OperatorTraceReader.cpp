@@ -16,12 +16,12 @@
 
 #include <utility>
 
+#include <folly/hash/Checksum.h>
+#include "velox/common/file/FileInputStream.h"
 #include "velox/exec/OperatorTraceReader.h"
-
 #include "velox/exec/TraceUtil.h"
 
 namespace facebook::velox::exec::trace {
-
 OperatorTraceInputReader::OperatorTraceInputReader(
     std::string traceDir,
     RowTypePtr dataType,
@@ -83,5 +83,69 @@ OperatorTraceSummary OperatorTraceSummaryReader::read() const {
   summary.peakMemory = summaryObj[OperatorTraceTraits::kPeakMemoryKey].asInt();
   summary.inputRows = summaryObj[OperatorTraceTraits::kInputRowsKey].asInt();
   return summary;
+}
+
+OperatorTraceSplitReader::OperatorTraceSplitReader(
+    std::vector<std::string> traceDirs,
+    memory::MemoryPool* pool)
+    : traceDirs_(std::move(traceDirs)),
+      fs_(filesystems::getFileSystem(traceDirs_[0], nullptr)),
+      pool_(pool) {
+  VELOX_CHECK_NOT_NULL(fs_);
+}
+
+std::vector<std::string> OperatorTraceSplitReader::read() const {
+  std::vector<std::string> splits;
+  for (const auto& traceDir : traceDirs_) {
+    auto stream = getSplitInputStream(traceDir);
+    if (stream == nullptr) {
+      continue;
+    }
+    auto curSplits = deserialize(stream.get());
+    splits.insert(
+        splits.end(),
+        std::make_move_iterator(curSplits.begin()),
+        std::make_move_iterator(curSplits.end()));
+  }
+  return splits;
+}
+
+std::unique_ptr<common::FileInputStream>
+OperatorTraceSplitReader::getSplitInputStream(
+    const std::string& traceDir) const {
+  auto splitInfoFile = fs_->openFileForRead(getOpTraceSplitFilePath(traceDir));
+  if (splitInfoFile->size() == 0) {
+    LOG(WARNING) << "Split info is empty in " << traceDir;
+    return nullptr;
+  }
+  // TODO: Make the buffer size configurable.
+  return std::make_unique<common::FileInputStream>(
+      std::move(splitInfoFile), 1 << 20, pool_);
+}
+
+// static
+std::vector<std::string> OperatorTraceSplitReader::deserialize(
+    common::FileInputStream* stream) {
+  std::vector<std::string> splits;
+  try {
+    while (!stream->atEnd()) {
+      const auto length = stream->read<uint32_t>();
+      std::string splitStr(length, '\0');
+      stream->readBytes(reinterpret_cast<uint8_t*>(splitStr.data()), length);
+      const auto crc32 = stream->read<uint32_t>();
+      const auto actualCrc32 = folly::crc32(
+          reinterpret_cast<const uint8_t*>(splitStr.data()), splitStr.size());
+      if (crc32 != actualCrc32) {
+        LOG(ERROR) << "Failed to verify the split checksum " << crc32
+                   << " which does not equal to the actual computed checksum "
+                   << actualCrc32;
+        break;
+      }
+      splits.push_back(std::move(splitStr));
+    }
+  } catch (const VeloxException& e) {
+    LOG(ERROR) << "Failed to deserialize split: " << e.message();
+  }
+  return splits;
 }
 } // namespace facebook::velox::exec::trace

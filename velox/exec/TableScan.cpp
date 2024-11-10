@@ -17,6 +17,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Task.h"
+#include "velox/exec/TraceUtil.h"
 #include "velox/expression/Expr.h"
 
 using facebook::velox::common::testutil::TestValue;
@@ -135,6 +136,9 @@ RowVectorPtr TableScan::getOutput() {
         return nullptr;
       }
 
+      if (FOLLY_UNLIKELY(splitTracer_ != nullptr)) {
+        splitTracer_->write(split);
+      }
       const auto& connectorSplit = split.connectorSplit;
       currentSplitWeight_ = connectorSplit->splitWeight;
       needNewSplit_ = false;

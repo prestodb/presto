@@ -73,6 +73,9 @@ std::string getOpTraceDirectory(
 /// Returns the file path for a given operator's traced input file.
 std::string getOpTraceInputFilePath(const std::string& opTraceDir);
 
+/// Returns the file path for a given operator's traced split file.
+std::string getOpTraceSplitFilePath(const std::string& opTraceDir);
+
 /// Returns the file path for a given operator's traced input file.
 std::string getOpTraceSummaryFilePath(const std::string& opTraceDir);
 

@@ -124,6 +124,9 @@ TEST_F(TraceUtilTest, traceDirectoryLayoutUtilities) {
   ASSERT_EQ(
       getOpTraceSummaryFilePath(opTraceDir),
       "/traceRoot/queryId/taskId/1/1/1/op_trace_summary.json");
+  ASSERT_EQ(
+      getOpTraceSplitFilePath(opTraceDir),
+      "/traceRoot/queryId/taskId/1/1/1/op_split_trace.split");
 }
 
 TEST_F(TraceUtilTest, getTaskIds) {

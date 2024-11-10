@@ -108,6 +108,10 @@ std::string getOpTraceInputFilePath(const std::string& opTraceDir) {
   return fmt::format("{}/{}", opTraceDir, OperatorTraceTraits::kInputFileName);
 }
 
+std::string getOpTraceSplitFilePath(const std::string& opTraceDir) {
+  return fmt::format("{}/{}", opTraceDir, OperatorTraceTraits::kSplitFileName);
+}
+
 std::string getOpTraceSummaryFilePath(const std::string& opTraceDir) {
   return fmt::format(
       "{}/{}", opTraceDir, OperatorTraceTraits::kSummaryFileName);
@@ -182,13 +186,14 @@ size_t getNumDrivers(
 
 bool canTrace(const std::string& operatorType) {
   static const std::unordered_set<std::string> kSupportedOperatorTypes{
-      "FilterProject",
-      "TableWrite",
       "Aggregation",
+      "FilterProject",
+      "HashBuild",
+      "HashProbe",
       "PartialAggregation",
       "PartitionedOutput",
-      "HashBuild",
-      "HashProbe"};
+      "TableScan",
+      "TableWrite"};
   return kSupportedOperatorTypes.count(operatorType) > 0;
 }
 } // namespace facebook::velox::exec::trace

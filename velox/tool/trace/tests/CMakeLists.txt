@@ -18,6 +18,7 @@ add_executable(
   FilterProjectReplayerTest.cpp
   HashJoinReplayerTest.cpp
   PartitionedOutputReplayerTest.cpp
+  TableScanReplayerTest.cpp
   TableWriterReplayerTest.cpp)
 
 add_test(
