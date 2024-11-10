@@ -65,7 +65,9 @@
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
+#include "velox/serializers/CompactRowSerializer.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
@@ -1274,6 +1276,15 @@ void PrestoServer::registerRemoteFunctions() {
 void PrestoServer::registerVectorSerdes() {
   if (!velox::isRegisteredVectorSerde()) {
     velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
+    velox::serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kCompactRow)) {
+    velox::serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kUnsafeRow)) {
+    velox::serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
   }
 }
 
