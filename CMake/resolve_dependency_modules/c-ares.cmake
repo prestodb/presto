@@ -21,7 +21,7 @@ string(
          "https://github.com/c-ares/c-ares/archive/refs/tags/"
          "${VELOX_CARES_BUILD_VERSION}.tar.gz")
 
-resolve_dependency_url(CARES)
+velox_resolve_dependency_url(CARES)
 
 message(STATUS "Building C-ARES from source")
 

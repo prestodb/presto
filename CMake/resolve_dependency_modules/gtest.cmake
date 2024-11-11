@@ -20,7 +20,7 @@ set(VELOX_GTEST_SOURCE_URL
     "https://github.com/google/googletest/archive/refs/tags/v${VELOX_GTEST_VERSION}.tar.gz"
 )
 
-resolve_dependency_url(GTEST)
+velox_resolve_dependency_url(GTEST)
 
 message(STATUS "Building gtest from source")
 FetchContent_Declare(

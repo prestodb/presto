@@ -20,7 +20,7 @@ set(VELOX_SIMDJSON_SOURCE_URL
     "https://github.com/simdjson/simdjson/archive/refs/tags/v${VELOX_SIMDJSON_VERSION}.tar.gz"
 )
 
-resolve_dependency_url(SIMDJSON)
+velox_resolve_dependency_url(SIMDJSON)
 
 message(STATUS "Building simdjson from source")
 

@@ -13,8 +13,8 @@
 # limitations under the License.
 include_guard(GLOBAL)
 
-set_source(gRPC)
-resolve_dependency(gRPC CONFIG 1.48.1 REQUIRED)
+velox_set_source(gRPC)
+velox_resolve_dependency(gRPC CONFIG 1.48.1 REQUIRED)
 
 set(VELOX_GOOGLE_CLOUD_CPP_BUILD_VERSION 2.22.0)
 set(VELOX_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM
@@ -24,7 +24,7 @@ string(
          "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/"
          "v${VELOX_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz")
 
-resolve_dependency_url(GOOGLE_CLOUD_CPP)
+velox_resolve_dependency_url(GOOGLE_CLOUD_CPP)
 
 message(STATUS "Building Google Cloud CPP storage from source")
 

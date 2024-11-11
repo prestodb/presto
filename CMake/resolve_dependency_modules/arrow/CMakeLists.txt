@@ -62,7 +62,7 @@ if(VELOX_ENABLE_ARROW)
       "https://archive.apache.org/dist/arrow/arrow-${VELOX_ARROW_BUILD_VERSION}/apache-arrow-${VELOX_ARROW_BUILD_VERSION}.tar.gz"
   )
 
-  resolve_dependency_url(ARROW)
+  velox_resolve_dependency_url(ARROW)
 
   ExternalProject_Add(
     arrow_ep

@@ -16,11 +16,12 @@ include_guard(GLOBAL)
 set(VELOX_ABSL_BUILD_VERSION 20240116.2)
 set(VELOX_ABSL_BUILD_SHA256_CHECKSUM
     733726b8c3a6d39a4120d7e45ea8b41a434cdacde401cba500f14236c49b39dc)
-string(CONCAT VELOX_ABSL_SOURCE_URL
-              "https://github.com/abseil/abseil-cpp/archive/refs/tags/"
-              "${VELOX_ABSL_BUILD_VERSION}.tar.gz")
+string(
+  CONCAT VELOX_ABSL_SOURCE_URL
+         "https://github.com/abseil/abseil-cpp/archive/refs/tags/"
+         "${VELOX_ABSL_BUILD_VERSION}.tar.gz")
 
-resolve_dependency_url(ABSL)
+velox_resolve_dependency_url(ABSL)
 
 message(STATUS "Building Abseil from source")
 

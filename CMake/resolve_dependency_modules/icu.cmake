@@ -22,12 +22,12 @@ string(
          "release-${VELOX_ICU4C_BUILD_VERSION}-1/"
          "icu4c-${VELOX_ICU4C_BUILD_VERSION}_1-src.tgz")
 
-resolve_dependency_url(ICU4C)
+velox_resolve_dependency_url(ICU4C)
 
 message(STATUS "Building ICU4C from source")
 
 ProcessorCount(NUM_JOBS)
-set_with_default(NUM_JOBS NUM_THREADS ${NUM_JOBS})
+velox_set_with_default(NUM_JOBS NUM_THREADS ${NUM_JOBS})
 find_program(MAKE_PROGRAM make REQUIRED)
 
 set(ICU_CFG --disable-tests --disable-samples)
@@ -65,12 +65,22 @@ file(MAKE_DIRECTORY ${ICU_INCLUDE_DIRS})
 file(MAKE_DIRECTORY ${ICU_LIBRARIES})
 
 # Create a target for each component
-set(icu_components data i18n io uc tu test)
+set(icu_components
+    data
+    i18n
+    io
+    uc
+    tu
+    test)
 
 foreach(component ${icu_components})
   add_library(ICU::${component} SHARED IMPORTED)
-  string(CONCAT ICU_${component}_LIBRARY ${ICU_LIBRARIES} "/libicu"
-                ${component} ".so")
+  string(
+    CONCAT ICU_${component}_LIBRARY
+           ${ICU_LIBRARIES}
+           "/libicu"
+           ${component}
+           ".so")
   file(TOUCH ${ICU_${component}_LIBRARY})
   set_target_properties(
     ICU::${component}

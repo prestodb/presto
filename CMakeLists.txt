@@ -57,7 +57,8 @@ list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/CMake"
 include(ResolveDependency)
 include(VeloxUtils)
 
-set_with_default(VELOX_DEPENDENCY_SOURCE_DEFAULT VELOX_DEPENDENCY_SOURCE AUTO)
+velox_set_with_default(VELOX_DEPENDENCY_SOURCE_DEFAULT VELOX_DEPENDENCY_SOURCE
+                       AUTO)
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # Add all options below
@@ -171,7 +172,7 @@ endif()
 
 if(VELOX_BUILD_TESTING OR VELOX_BUILD_TEST_UTILS)
   set(cpr_SOURCE BUNDLED)
-  resolve_dependency(cpr)
+  velox_resolve_dependency(cpr)
   set(VELOX_ENABLE_DUCKDB ON)
   set(VELOX_ENABLE_PARSE ON)
 endif()
@@ -191,8 +192,8 @@ if(${VELOX_BUILD_PYTHON_PACKAGE})
 endif()
 
 if(${VELOX_ENABLE_DUCKDB})
-  set_source(DuckDB)
-  resolve_dependency(DuckDB)
+  velox_set_source(DuckDB)
+  velox_resolve_dependency(DuckDB)
 endif()
 
 if(DEFINED ENV{INSTALL_PREFIX})
@@ -399,8 +400,8 @@ if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
   endif()
 endif()
 
-set_source(ICU)
-resolve_dependency(
+velox_set_source(ICU)
+velox_resolve_dependency(
   ICU
   COMPONENTS
   data
@@ -420,14 +421,14 @@ set(BOOST_INCLUDE_LIBRARIES
     system
     thread)
 
-set_source(Boost)
-resolve_dependency(Boost 1.77.0 COMPONENTS ${BOOST_INCLUDE_LIBRARIES})
+velox_set_source(Boost)
+velox_resolve_dependency(Boost 1.77.0 COMPONENTS ${BOOST_INCLUDE_LIBRARIES})
 
 # Range-v3 will be enable when the codegen code actually lands keeping it here
 # for reference. find_package(range-v3)
 
-set_source(gflags)
-resolve_dependency(gflags COMPONENTS ${VELOX_GFLAGS_TYPE})
+velox_set_source(gflags)
+velox_resolve_dependency(gflags COMPONENTS ${VELOX_GFLAGS_TYPE})
 if(NOT TARGET gflags::gflags)
   # This is a bit convoluted, but we want to be able to use gflags::gflags as a
   # target even when velox is built as a subproject which uses
@@ -445,10 +446,10 @@ if(${gflags_SOURCE} STREQUAL "BUNDLED")
 else()
   set(glog_SOURCE SYSTEM)
 endif()
-resolve_dependency(glog)
+velox_resolve_dependency(glog)
 
-set_source(fmt)
-resolve_dependency(fmt 9.0.0)
+velox_set_source(fmt)
+velox_resolve_dependency(fmt 9.0.0)
 
 if(${VELOX_BUILD_MINIMAL_WITH_DWIO} OR ${VELOX_ENABLE_HIVE_CONNECTOR})
   # DWIO needs all sorts of stream compression libraries.
@@ -469,12 +470,12 @@ if(${VELOX_BUILD_MINIMAL_WITH_DWIO} OR ${VELOX_ENABLE_HIVE_CONNECTOR})
   endif()
 endif()
 
-set_source(re2)
-resolve_dependency(re2)
+velox_set_source(re2)
+velox_resolve_dependency(re2)
 
 if(${VELOX_BUILD_PYTHON_PACKAGE})
-  set_source(pybind11)
-  resolve_dependency(pybind11 2.10.0)
+  velox_set_source(pybind11)
+  velox_resolve_dependency(pybind11 2.10.0)
   add_subdirectory(pyvelox)
 endif()
 
@@ -485,31 +486,31 @@ if(${VELOX_BUILD_MINIMAL_WITH_DWIO}
    OR VELOX_ENABLE_GCS)
 
   # Locate or build protobuf.
-  set_source(Protobuf)
-  resolve_dependency(Protobuf CONFIG 3.21.7 REQUIRED)
+  velox_set_source(Protobuf)
+  velox_resolve_dependency(Protobuf CONFIG 3.21.7 REQUIRED)
   include_directories(${Protobuf_INCLUDE_DIRS})
 endif()
 
-set_source(simdjson)
-resolve_dependency(simdjson 3.9.3)
+velox_set_source(simdjson)
+velox_resolve_dependency(simdjson 3.9.3)
 
 # Locate or build folly.
 add_compile_definitions(FOLLY_HAVE_INT128_T=1)
-set_source(folly)
-resolve_dependency(folly)
+velox_set_source(folly)
+velox_resolve_dependency(folly)
 
 if(${VELOX_BUILD_TESTING})
   # Spark qury runner depends on absl, gRPC.
-  set_source(absl)
-  resolve_dependency(absl)
+  velox_set_source(absl)
+  velox_resolve_dependency(absl)
 
   # 'gRPC_CARES_PROVIDER' is set as 'package', which means c-ares library needs
   # to be installed on the system, instead of being built by gRPC.
-  set_source(c-ares)
-  resolve_dependency(c-ares)
+  velox_set_source(c-ares)
+  velox_resolve_dependency(c-ares)
 
-  set_source(gRPC)
-  resolve_dependency(gRPC)
+  velox_set_source(gRPC)
+  velox_resolve_dependency(gRPC)
 endif()
 
 if(VELOX_ENABLE_REMOTE_FUNCTIONS)
@@ -527,8 +528,8 @@ else()
 endif()
 
 if(VELOX_ENABLE_GCS)
-  set_source(google_cloud_cpp_storage)
-  resolve_dependency(google_cloud_cpp_storage CONFIG 2.22.0 REQUIRED)
+  velox_set_source(google_cloud_cpp_storage)
+  velox_resolve_dependency(google_cloud_cpp_storage CONFIG 2.22.0 REQUIRED)
   add_definitions(-DVELOX_ENABLE_GCS)
 endif()
 
@@ -596,18 +597,18 @@ include_directories(SYSTEM velox/external)
 
 # these were previously vendored in third-party/
 if(NOT VELOX_DISABLE_GOOGLETEST)
-  set_source(GTest)
-  resolve_dependency(GTest)
+  velox_set_source(GTest)
+  velox_resolve_dependency(GTest)
   set(VELOX_GTEST_INCUDE_DIR
       "${gtest_SOURCE_DIR}/googletest/include"
       PARENT_SCOPE)
 endif()
 
-set_source(xsimd)
-resolve_dependency(xsimd 10.0.0)
+velox_set_source(xsimd)
+velox_resolve_dependency(xsimd 10.0.0)
 
-set_source(stemmer)
-resolve_dependency(stemmer)
+velox_set_source(stemmer)
+velox_resolve_dependency(stemmer)
 
 if(VELOX_BUILD_TESTING)
   set(BUILD_TESTING ON)
@@ -627,8 +628,8 @@ if("${TREAT_WARNINGS_AS_ERRORS}")
 endif()
 
 if(VELOX_ENABLE_ARROW)
-  set_source(Arrow)
-  resolve_dependency(Arrow)
+  velox_set_source(Arrow)
+  velox_resolve_dependency(Arrow)
 endif()
 
 add_subdirectory(velox)

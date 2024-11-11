@@ -19,7 +19,7 @@ set(VELOX_<PACKAGE>_BUILD_SHA256_CHECKSUM 123)
 set(VELOX_<PACKAGE>_SOURCE_URL "") # ideally don't use github archive links as
                                    # they are not guranteed to be hash stable
 
-resolve_dependency_url(<PACKAGE>)
+velox_resolve_dependency_url(<PACKAGE>)
 
 message(STATUS "Building <PACKAGE> from source")
 FetchContent_Declare(

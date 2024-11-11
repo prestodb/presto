@@ -20,7 +20,7 @@ set(VELOX_STEMMER_SOURCE_URL
     "https://snowballstem.org/dist/libstemmer_c-${VELOX_STEMMER_VERSION}.tar.gz"
 )
 
-resolve_dependency_url(STEMMER)
+velox_resolve_dependency_url(STEMMER)
 
 message(STATUS "Building stemmer from source")
 find_program(MAKE_PROGRAM make REQUIRED)

@@ -21,7 +21,7 @@ set(VELOX_FOLLY_SOURCE_URL
     "https://github.com/facebook/folly/releases/download/${VELOX_FOLLY_BUILD_VERSION}/folly-${VELOX_FOLLY_BUILD_VERSION}.tar.gz"
 )
 
-resolve_dependency_url(FOLLY)
+velox_resolve_dependency_url(FOLLY)
 
 message(STATUS "Building Folly from source")
 

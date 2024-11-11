@@ -20,7 +20,7 @@ set(VELOX_XSIMD_SOURCE_URL
     "https://github.com/xtensor-stack/xsimd/archive/refs/tags/${VELOX_XSIMD_VERSION}.tar.gz"
 )
 
-resolve_dependency_url(XSIMD)
+velox_resolve_dependency_url(XSIMD)
 
 message(STATUS "Building xsimd from source")
 FetchContent_Declare(

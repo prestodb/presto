@@ -20,7 +20,7 @@ set(VELOX_DUCKDB_SOURCE_URL
     "https://github.com/duckdb/duckdb/archive/refs/tags/v${VELOX_DUCKDB_VERSION}.tar.gz"
 )
 
-resolve_dependency_url(DUCKDB)
+velox_resolve_dependency_url(DUCKDB)
 
 message(STATUS "Building DuckDB from source")
 # We need remove-ccache.patch to remove adding ccache to the build command

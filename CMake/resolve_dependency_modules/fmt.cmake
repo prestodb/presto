@@ -19,7 +19,7 @@ set(VELOX_FMT_BUILD_SHA256_CHECKSUM
 set(VELOX_FMT_SOURCE_URL
     "https://github.com/fmtlib/fmt/archive/${VELOX_FMT_VERSION}.tar.gz")
 
-resolve_dependency_url(FMT)
+velox_resolve_dependency_url(FMT)
 
 message(STATUS "Building fmt from source")
 FetchContent_Declare(

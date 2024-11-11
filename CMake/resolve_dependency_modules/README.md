@@ -69,7 +69,7 @@ Ideally all patches should be upstream when possible and removed once merged.
 ## Adding new dependencies
 
 - Copy `template.cmake` and rename it to the name used in `find_package` but all lower-case.
-- Switch `find_package` vs `set_source('package')` `resolve_dependency('package' 'optional args for find_package')` in `CMakeLists.txt`
+- Switch `find_package` vs `velox_set_source('package')` `velox_resolve_dependency('package' 'optional args for find_package')` in `CMakeLists.txt`
 - Update the template with the correct package name and download url/repo etc., set any necessary package options
 - Try to build and make necessary changes
   - Repeat until success :D (Feel free to raise and issue for review & support)

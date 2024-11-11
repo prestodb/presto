@@ -13,8 +13,8 @@
 # limitations under the License.
 include_guard(GLOBAL)
 
-set_source(absl)
-resolve_dependency(absl CONFIG REQUIRED)
+velox_set_source(absl)
+velox_resolve_dependency(absl CONFIG REQUIRED)
 
 set(VELOX_GRPC_BUILD_VERSION 1.48.1)
 set(VELOX_GRPC_BUILD_SHA256_CHECKSUM
@@ -24,7 +24,7 @@ string(
          "https://github.com/grpc/grpc/archive/refs/tags/"
          "v${VELOX_GRPC_BUILD_VERSION}.tar.gz")
 
-resolve_dependency_url(GRPC)
+velox_resolve_dependency_url(GRPC)
 
 message(STATUS "Building gRPC from source")
 

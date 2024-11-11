@@ -22,7 +22,7 @@ string(
     VELOX_CURL_SOURCE_URL "https://github.com/curl/curl/releases/download/"
     "curl-${VELOX_CURL_VERSION_UNDERSCORES}/curl-${VELOX_CURL_VERSION}.tar.xz")
 
-resolve_dependency_url(CURL)
+velox_resolve_dependency_url(CURL)
 
 FetchContent_Declare(
   curl

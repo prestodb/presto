@@ -30,7 +30,7 @@ string(
 set(VELOX_BOOST_BUILD_SHA256_CHECKSUM
     4d27e9efed0f6f152dc28db6430b9d3dfb40c0345da7342eaa5a987dde57bd95)
 
-resolve_dependency_url(BOOST)
+velox_resolve_dependency_url(BOOST)
 message(STATUS "Building boost from source")
 
 # required for Boost::thread
@@ -66,5 +66,7 @@ set(BUILD_SHARED_LIBS OFF)
 FetchContent_MakeAvailable(Boost)
 
 list(TRANSFORM BOOST_HEADER_ONLY PREPEND Boost::)
-target_link_libraries(boost_headers INTERFACE ${BOOST_HEADER_ONLY})
+target_link_libraries(
+  boost_headers
+  INTERFACE ${BOOST_HEADER_ONLY})
 add_library(Boost::headers ALIAS boost_headers)
