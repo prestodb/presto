@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.UnsafeSlice;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
+import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -113,7 +113,7 @@ public final class SimpleSliceInputStream
 
     public void ensureBytesAvailable(int bytes)
     {
-        checkPositionIndexes(offset, offset + bytes, slice.length());
+        checkFromToIndex(offset, offset + bytes, slice.length());
     }
 
     /**

@@ -307,7 +307,7 @@ public class BenchmarkParquetReader
             MessageType schema = parquetMetadata.getFileMetaData().getSchema();
             MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
 
-            this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).get();
+            this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).orElseThrow();
 
             return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableBatchReader, enableVerification, null, null, false, Optional.empty());
         }
