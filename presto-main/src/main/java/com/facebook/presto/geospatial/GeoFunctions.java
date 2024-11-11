@@ -28,6 +28,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.KdbTreeType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.geospatial.serde.GeometrySerializationType;
 import com.facebook.presto.spi.PrestoException;
@@ -55,6 +56,7 @@ import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 import org.locationtech.jts.operation.distance.DistanceOp;
 
+import java.text.StringCharacterIterator;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -133,6 +135,8 @@ public final class GeoFunctions
             .build();
     private static final int NUMBER_OF_DIMENSIONS = 3;
     private static final Block EMPTY_ARRAY_OF_INTS = IntegerType.INTEGER.createFixedSizeBlockBuilder(0).build();
+    private static final long DEFAULT_POLYLINE_PRECISION_EXPONENT = 5;
+    private static final long MINIMUM_POLYLINE_PRECISION_EXPONENT = 1;
 
     private GeoFunctions() {}
 
@@ -1340,5 +1344,113 @@ public final class GeoFunctions
                 return GEOMETRY.getSlice(block, iteratorPosition++);
             }
         };
+    }
+
+    @Description("Decodes a Google Polyline string into an array of Points")
+    @ScalarFunction("google_polyline_decode")
+    @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
+    public static Block gMapsPolylineDecode(@SqlType(StandardTypes.VARCHAR) Slice polyline) throws PrestoException
+    {
+        return googlePolylineDecodePrecision(polyline, DEFAULT_POLYLINE_PRECISION_EXPONENT);
+    }
+
+    @Description("Decodes a Google Polyline string into an array of Points, specifying encoded precision")
+    @ScalarFunction("google_polyline_decode")
+    @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
+    public static Block googlePolylineDecodePrecision(@SqlType(StandardTypes.VARCHAR) Slice polyline, @SqlType(INTEGER) final long precisionExponent) throws PrestoException
+    {
+        if (precisionExponent < MINIMUM_POLYLINE_PRECISION_EXPONENT) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Polyline precision must be greater or equal to " + MINIMUM_POLYLINE_PRECISION_EXPONENT);
+        }
+
+        double precision = Math.pow(10.0, (double) precisionExponent);
+        List<org.locationtech.jts.geom.Point> points = new ArrayList<>();
+        int lat = 0;
+        int lng = 0;
+
+        StringCharacterIterator encodedStringIterator = new StringCharacterIterator(polyline.toStringUtf8());
+        while (encodedStringIterator.current() != StringCharacterIterator.DONE) {
+            lat += decodeNextDelta(encodedStringIterator);
+            lng += decodeNextDelta(encodedStringIterator);
+            points.add(createJtsPoint((double) lat / precision, (double) lng / precision));
+        }
+
+        final BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, points.size());
+        points.forEach(p -> GEOMETRY.writeSlice(blockBuilder, serialize(p)));
+        return blockBuilder.build();
+    }
+
+    // implements decoding of the encoding method specified by
+    // https://developers.google.com/maps/documentation/utilities/polylinealgorithm
+    private static int decodeNextDelta(StringCharacterIterator encodedStringIterator)
+    {
+        int character;
+        int shift = 0;
+        int result = 0;
+
+        do {
+            character = encodedStringIterator.current();
+            if (character == StringCharacterIterator.DONE) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Input is not a valid Google polyline string");
+            }
+            character -= 0x3f;
+            result |= (character & 0x1f) << shift;
+            shift += 5;
+            encodedStringIterator.next();
+        } while (character >= 0x20);
+        return ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+    }
+
+    @Description("Encodes an array of ST_Points into a Google Polyline")
+    @ScalarFunction("google_polyline_encode")
+    @SqlType(VARCHAR)
+    public static Slice googlePolylineEncode(@SqlType("array(" + GEOMETRY_TYPE_NAME + ")") Block points) throws PrestoException
+    {
+        return googlePolylineEncodePrecision(points, DEFAULT_POLYLINE_PRECISION_EXPONENT);
+    }
+
+    @Description("Encodes an array of ST_Points into a Google Polyline, specifying encoded precision")
+    @ScalarFunction("google_polyline_encode")
+    @SqlType(VARCHAR)
+    public static Slice googlePolylineEncodePrecision(@SqlType("array(" + GEOMETRY_TYPE_NAME + ")") Block points, @SqlType(INTEGER) final long precisionExponent) throws PrestoException
+    {
+        if (precisionExponent < MINIMUM_POLYLINE_PRECISION_EXPONENT) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Polyline precision must be greater or equal to " + MINIMUM_POLYLINE_PRECISION_EXPONENT);
+        }
+        final double precision = Math.pow(10.0, (double) precisionExponent);
+        final CoordinateSequence coordinateSequence = readPointCoordinates(points, "gMapsPolylineEncodePrecision", false);
+        StringBuilder stringBuilder = new StringBuilder();
+        long prevX = 0;
+        long prevY = 0;
+        for (int i = 0; i < coordinateSequence.size(); i++) {
+            long x = Math.round(coordinateSequence.getX(i) * precision);
+            long y = Math.round(coordinateSequence.getY(i) * precision);
+            if (i == 0) {
+                encodeNextDelta(x, stringBuilder);
+                encodeNextDelta(y, stringBuilder);
+            }
+            else {
+                encodeNextDelta(x - prevX, stringBuilder);
+                encodeNextDelta(y - prevY, stringBuilder);
+            }
+            prevX = x;
+            prevY = y;
+        }
+        return utf8Slice(stringBuilder.toString());
+    }
+
+    // implements encoding of the encoding method specified by
+    // https://developers.google.com/maps/documentation/utilities/polylinealgorithm
+    private static void encodeNextDelta(long delta, StringBuilder stringBuilder)
+    {
+        delta <<= 1;
+        if (delta < 0) {
+            delta = ~delta;
+        }
+        while (delta >= 0x20) {
+            stringBuilder.append(Character.toChars((int) (((delta & 0x1f) | 0x20)) + 0x3f));
+            delta >>= 5;
+        }
+        stringBuilder.append(Character.toChars((int) (delta + 0x3f)));
     }
 }
