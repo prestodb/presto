@@ -379,6 +379,7 @@ jobs:
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
                 --lazy_vector_generation_ratio 0.2 \
+                --common_dictionary_wraps_generation_ratio=0.3 \
                 --velox_fuzzer_enable_column_reuse \
                 --velox_fuzzer_enable_expression_reuse \
                 --max_expression_trees_per_step 2 \
@@ -428,6 +429,7 @@ jobs:
             ./velox_expression_fuzzer_test \
                 --seed ${RANDOM} \
                 --lazy_vector_generation_ratio 0.2 \
+                --common_dictionary_wraps_generation_ratio=0.3 \
                 --assign_function_tickets  $(cat /tmp/signatures/presto_bias_functions) \
                 --duration_sec 3600 \
                 --enable_variadic_signatures \
