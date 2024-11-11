@@ -181,7 +181,7 @@ public class ParquetSchemaConverter
         Types.GroupBuilder<GroupType> builder = Types.buildGroup(repetition);
         for (RowType.Field field : type.getFields()) {
             com.google.common.base.Preconditions.checkArgument(field.getName().isPresent(), "field in struct type doesn't have name");
-            builder.addField(convert(field.getType(), field.getName().get(), parent, OPTIONAL));
+            builder.addField(convert(field.getType(), field.getName().orElseThrow(), parent, OPTIONAL));
         }
         return builder.named(name);
     }
