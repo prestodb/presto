@@ -1384,7 +1384,6 @@ SharedArbitrator::GlobalArbitrationSection::GlobalArbitrationSection(
 SharedArbitrator::GlobalArbitrationSection::~GlobalArbitrationSection() {
   VELOX_CHECK(arbitrator_->globalArbitrationRunning_);
   arbitrator_->globalArbitrationRunning_ = false;
-  ;
 }
 
 std::string SharedArbitrator::kind() const {

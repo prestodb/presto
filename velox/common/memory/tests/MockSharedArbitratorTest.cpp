@@ -2287,6 +2287,7 @@ TEST_F(MockSharedArbitrationTest, ensureMemoryPoolMaxCapacity) {
        memCapacity - memCapacity / 2,
        false,
        false}};
+
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     setupMemory(
@@ -2322,6 +2323,8 @@ TEST_F(MockSharedArbitrationTest, ensureMemoryPoolMaxCapacity) {
     } else if (testData.hasOtherTask) {
       ASSERT_EQ(otherOp->reclaimer()->stats().numReclaims, 0);
     }
+    test::SharedArbitratorTestHelper arbitratorHelper(arbitrator_);
+    arbitratorHelper.waitForGlobalArbitrationToFinish();
     if (testData.expectedSuccess &&
         (((testData.allocatedBytes + testData.requestBytes) >
           testData.poolMaxCapacity) ||
