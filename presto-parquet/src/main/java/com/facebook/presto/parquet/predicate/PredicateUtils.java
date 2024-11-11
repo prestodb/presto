@@ -189,7 +189,7 @@ public final class PredicateUtils
     private static boolean isColumnPredicate(ColumnDescriptor columnDescriptor, TupleDomain<ColumnDescriptor> parquetTupleDomain)
     {
         verify(parquetTupleDomain.getDomains().isPresent(), "parquetTupleDomain is empty");
-        return parquetTupleDomain.getDomains().get().containsKey(columnDescriptor);
+        return parquetTupleDomain.getDomains().orElseThrow().containsKey(columnDescriptor);
     }
 
     @VisibleForTesting
