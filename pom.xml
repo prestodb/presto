@@ -2544,7 +2544,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.7</version>
+                <version>0.8.12</version>
                 <executions>
                     <execution>
                         <goals>
@@ -2667,6 +2667,53 @@
                                 </configuration>
                             </execution>
                         </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>java21Presto</id>
+            <activation>
+                <jdk>21</jdk>
+            </activation>
+            <dependencyManagement>
+                <dependencies>
+                    <!-- Google Guice -->
+                    <dependency>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                        <version>5.0.1</version>
+                    </dependency>
+                    <!-- ASM version updates -->
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-tree</artifactId>
+                        <version>9.5</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-util</artifactId>
+                        <version>9.5</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-analysis</artifactId>
+                        <version>9.5</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm</artifactId>
+                        <version>9.5</version>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>4.8.2.0</version>
                     </plugin>
                 </plugins>
             </build>

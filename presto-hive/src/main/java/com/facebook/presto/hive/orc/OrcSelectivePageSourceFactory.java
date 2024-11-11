@@ -106,6 +106,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStr
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcUseVectorFilter;
 import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReorderingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
@@ -291,12 +292,14 @@ public class OrcSelectivePageSourceFactory
         DataSize maxMergeDistance = getOrcMaxMergeDistance(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
         DataSize maxReadBlockSize = getOrcMaxReadBlockSize(session);
+        boolean orcUseVectorFilter = getOrcUseVectorFilter(session);
         OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
                 .withMaxMergeDistance(maxMergeDistance)
                 .withTinyStripeThreshold(tinyStripeThreshold)
                 .withMaxBlockSize(maxReadBlockSize)
                 .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
                 .withAppendRowNumber(appendRowNumberEnabled || supplyRowIDs)
+                .withOrcUseVectorFilter(orcUseVectorFilter)
                 .build();
         OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
