@@ -1437,7 +1437,7 @@ TEST_P(AsyncDataCacheTest, ssdWriteOptions) {
       {0.8, 0.95, 4UL << 20, false},
       {0.8, 0.3, 32UL << 20, false},
       {0.8, 0.3, 4UL << 20, true},
-      {0.0, 0.95, 0, true}};
+      {0.0, 0.8, 0, true}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
