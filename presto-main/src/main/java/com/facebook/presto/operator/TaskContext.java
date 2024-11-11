@@ -717,7 +717,7 @@ public class TaskContext
             return Optional.empty();
         }
 
-        if (context.getOperatorType().equals(HashBuilderOperator.class.getSimpleName())) {
+        if (context.getOperatorType().equals(HashBuilderOperator.OPERATOR_TYPE)) {
             Optional<JoinNode> planNode = findPlanNode(context.getPlanNodeId(), JoinNode.class);
             if (!planNode.isPresent()) {
                 return Optional.empty();
@@ -729,8 +729,8 @@ public class TaskContext
             return Optional.of(info);
         }
 
-        if (context.getOperatorType().equals(HashAggregationOperator.class.getSimpleName()) ||
-                context.getOperatorType().equals(AggregationOperator.class.getSimpleName())) {
+        if (context.getOperatorType().equals(HashAggregationOperator.OPERATOR_TYPE) ||
+                context.getOperatorType().equals(AggregationOperator.OPERATOR_TYPE)) {
             Optional<AggregationNode> planNode = findPlanNode(context.getPlanNodeId(), AggregationNode.class);
             if (!planNode.isPresent()) {
                 return Optional.empty();
