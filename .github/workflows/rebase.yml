@@ -2,8 +2,8 @@ name: Nightly Rebase and Push
 env:
   REBASE_BRANCH: upgradeJava17Bytecode
 on:
-  schedule:
-    - cron: "0 0 * * *" # Every night at midnight UTC
+  workflow_dispatch:
+
 jobs:
   rebase-branch:
     permissions:
