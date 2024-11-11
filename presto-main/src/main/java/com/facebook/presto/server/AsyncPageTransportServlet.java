@@ -128,12 +128,14 @@ public class AsyncPageTransportServlet
         OutputBufferId bufferId = null;
         long token = 0;
 
+        String sanitizedRequestURI = requestURI.replaceAll("[\\r\\n]", "");
+
         int previousIndex = -1;
         for (int part = 0; part < 8; part++) {
             int nextIndex = requestURI.indexOf('/', previousIndex + 1);
 
             if (nextIndex == -1 && part != 7 || nextIndex != -1 && part == 7) {
-                reportFailure(response, format("Unexpected URI for task result request in async mode: %s", requestURI));
+                reportFailure(response, format("Unexpected URI for task result request in async mode: %s", sanitizedRequestURI));
                 return;
             }
 
@@ -152,7 +154,7 @@ public class AsyncPageTransportServlet
             previousIndex = nextIndex;
         }
         // This is sent forward instead of returned to avoid allocations
-        processRequest(requestURI, taskId, bufferId, token, request, response);
+        processRequest(sanitizedRequestURI, taskId, bufferId, token, request, response);
     }
 
     protected void processRequest(
