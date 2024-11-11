@@ -118,7 +118,7 @@ public class JdbcComputePushdown
                 return node;
             }
 
-            JdbcTableLayoutHandle oldTableLayoutHandle = (JdbcTableLayoutHandle) oldTableHandle.getLayout().get();
+            JdbcTableLayoutHandle oldTableLayoutHandle = (JdbcTableLayoutHandle) oldTableHandle.getLayout().orElseThrow();
             JdbcTableLayoutHandle newTableLayoutHandle = new JdbcTableLayoutHandle(
                     session.getSqlFunctionProperties(),
                     oldConnectorTable,
