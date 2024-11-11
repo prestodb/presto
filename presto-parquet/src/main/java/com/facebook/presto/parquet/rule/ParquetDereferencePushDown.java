@@ -189,7 +189,7 @@ public abstract class ParquetDereferencePushDown
                     if (index instanceof Number) {
                         Optional<String> fieldName = baseType.getFields().get(((Number) index).intValue()).getName();
                         if (fieldName.isPresent()) {
-                            elements.add(new Subfield.NestedField(fieldName.get()));
+                            elements.add(new Subfield.NestedField(fieldName.orElseThrow()));
                             currentRowExpression = base;
                             continue;
                         }
