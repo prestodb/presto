@@ -54,11 +54,11 @@ std::vector<exec::Split> TableScanReplayer::getSplits() const {
   std::vector<std::string> splitInfoDirs;
   if (driverId_ != -1) {
     splitInfoDirs.push_back(exec::trace::getOpTraceDirectory(
-        nodeTraceDir_, pipelineId_, driverId_));
+        nodeTraceDir_, pipelineIds_.front(), driverId_));
   } else {
     for (auto i = 0; i < maxDrivers_; ++i) {
-      splitInfoDirs.push_back(
-          exec::trace::getOpTraceDirectory(nodeTraceDir_, pipelineId_, i));
+      splitInfoDirs.push_back(exec::trace::getOpTraceDirectory(
+          nodeTraceDir_, pipelineIds_.front(), i));
     }
   }
   const auto splitStrs =

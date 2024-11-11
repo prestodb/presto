@@ -232,7 +232,6 @@ TEST_F(HashJoinReplayerTest, basic) {
                                    task->queryCtx()->queryId(),
                                    task->taskId(),
                                    traceNodeId_,
-                                   0,
                                    "HashJoin")
                                    .run();
   assertEqualResults({result}, {replayingResult});
@@ -308,7 +307,6 @@ DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashBuildSpill) {
                                    task->queryCtx()->queryId(),
                                    task->taskId(),
                                    traceNodeId_,
-                                   0,
                                    "HashJoin")
                                    .run();
   assertEqualResults({result}, {replayingResult});
@@ -388,7 +386,6 @@ DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashProbeSpill) {
                                    task->queryCtx()->queryId(),
                                    task->taskId(),
                                    traceNodeId_,
-                                   0,
                                    "HashJoin")
                                    .run();
   assertEqualResults({result}, {replayingResult});

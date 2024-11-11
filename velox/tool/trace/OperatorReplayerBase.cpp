@@ -16,6 +16,8 @@
 
 #include <folly/json.h>
 
+#include <utility>
+
 #include "velox/core/PlanNode.h"
 #include "velox/exec/TaskTraceReader.h"
 #include "velox/exec/TraceUtil.h"
@@ -31,23 +33,30 @@ OperatorReplayerBase::OperatorReplayerBase(
     std::string queryId,
     std::string taskId,
     std::string nodeId,
-    int32_t pipelineId,
     std::string operatorType)
-    : queryId_(std::string(queryId)),
+    : queryId_(std::string(std::move(queryId))),
       taskId_(std::move(taskId)),
       nodeId_(std::move(nodeId)),
-      pipelineId_(pipelineId),
       operatorType_(std::move(operatorType)),
       taskTraceDir_(
           exec::trace::getTaskTraceDirectory(traceDir, queryId_, taskId_)),
       nodeTraceDir_(exec::trace::getNodeTraceDirectory(taskTraceDir_, nodeId_)),
       fs_(filesystems::getFileSystem(taskTraceDir_, nullptr)),
-      maxDrivers_(exec::trace::getNumDrivers(nodeTraceDir_, pipelineId_, fs_)) {
+      pipelineIds_(exec::trace::listPipelineIds(nodeTraceDir_, fs_)),
+      maxDrivers_(exec::trace::getNumDrivers(
+          nodeTraceDir_,
+          pipelineIds_.front(),
+          fs_)) {
   VELOX_USER_CHECK(!taskTraceDir_.empty());
   VELOX_USER_CHECK(!taskId_.empty());
   VELOX_USER_CHECK(!nodeId_.empty());
-  VELOX_USER_CHECK_GE(pipelineId_, 0);
   VELOX_USER_CHECK(!operatorType_.empty());
+  if (operatorType_ == "HashJoin") {
+    VELOX_USER_CHECK_EQ(pipelineIds_.size(), 2);
+  } else {
+    VELOX_USER_CHECK_EQ(pipelineIds_.size(), 1);
+  }
+
   const auto taskMetaReader = exec::trace::TaskTraceMetadataReader(
       taskTraceDir_, memory::MemoryManager::getInstance()->tracePool());
   taskMetaReader.read(queryConfigs_, connectorConfigs_, planFragment_);
@@ -77,7 +86,7 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() const {
   return exec::test::PlanBuilder(planNodeIdGenerator_)
       .traceScan(
           nodeTraceDir_,
-          pipelineId_,
+          pipelineIds_.front(),
           exec::trace::getDataType(planFragment_, nodeId_))
       .addNode(replayNodeFactory(replayNode))
       .planNode();

@@ -67,7 +67,7 @@ std::string getOpTraceDirectory(
 
 std::string getOpTraceDirectory(
     const std::string& nodeTraceDir,
-    int pipelineId,
+    uint32_t pipelineId,
     int driverId);
 
 /// Returns the file path for a given operator's traced input file.
@@ -98,9 +98,18 @@ RowTypePtr getDataType(
     const std::string& tracedNodeId,
     size_t sourceIndex = 0);
 
-/// Extracts the driver ids by listing the sub-directors under the trace
-/// directory for a given pipeline and decode the sub-directory names to get
-/// driver id. 'nodeTraceDir' is the trace directory of the plan node.
+/// Extracts pipeline IDs in ascending order by listing the trace directory,
+/// then decoding the names of the subdirectories to obtain the pipeline IDs,
+/// and finally sorting them. 'nodeTraceDir' corresponds to the trace directory
+/// of the plan node.
+std::vector<uint32_t> listPipelineIds(
+    const std::string& nodeTraceDir,
+    const std::shared_ptr<filesystems::FileSystem>& fs);
+
+/// Extracts driver IDs in ascending order by listing the trace directory for a
+/// given pipeline then decoding the names of the subdirectories to obtain the
+/// driver IDs, and finally sorting them. 'nodeTraceDir' corresponds to the
+/// trace directory of the plan node.
 std::vector<uint32_t> listDriverIds(
     const std::string& nodeTraceDir,
     uint32_t pipelineId,

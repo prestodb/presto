@@ -32,16 +32,9 @@ class TableScanReplayer final : public OperatorReplayerBase {
       const std::string& queryId,
       const std::string& taskId,
       const std::string& nodeId,
-      const int32_t pipelineId,
       const std::string& operatorType,
       const int32_t driverId = -1)
-      : OperatorReplayerBase(
-            traceDir,
-            queryId,
-            taskId,
-            nodeId,
-            pipelineId,
-            operatorType),
+      : OperatorReplayerBase(traceDir, queryId, taskId, nodeId, operatorType),
         driverId_(driverId) {}
 
   RowVectorPtr run() override;

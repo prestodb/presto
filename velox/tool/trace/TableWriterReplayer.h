@@ -31,16 +31,9 @@ class TableWriterReplayer final : public OperatorReplayerBase {
       const std::string& queryId,
       const std::string& taskId,
       const std::string& nodeId,
-      const int32_t pipelineId,
       const std::string& operatorType,
       const std::string& replayOutputDir)
-      : OperatorReplayerBase(
-            traceDir,
-            queryId,
-            taskId,
-            nodeId,
-            pipelineId,
-            operatorType),
+      : OperatorReplayerBase(traceDir, queryId, taskId, nodeId, operatorType),
         replayOutputDir_(replayOutputDir) {
     VELOX_CHECK(!replayOutputDir_.empty());
   }

@@ -70,7 +70,6 @@ DEFINE_string(
     "Specify the target task id, if empty, show the summary of all the traced "
     "query task.");
 DEFINE_string(node_id, "", "Specify the target node id.");
-DEFINE_int32(pipeline_id, 0, "Specify the target pipeline id.");
 DEFINE_int32(driver_id, -1, "Specify the target driver id.");
 DEFINE_string(operator_type, "", "Specify the target operator type.");
 DEFINE_string(
@@ -114,7 +113,6 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        FLAGS_pipeline_id,
         FLAGS_operator_type,
         FLAGS_table_writer_output_dir);
   } else if (FLAGS_operator_type == "Aggregation") {
@@ -123,7 +121,6 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        FLAGS_pipeline_id,
         FLAGS_operator_type);
   } else if (FLAGS_operator_type == "PartitionedOutput") {
     replayer = std::make_unique<tool::trace::PartitionedOutputReplayer>(
@@ -131,7 +128,6 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        FLAGS_pipeline_id,
         getVectorSerdeKind(),
         FLAGS_operator_type);
   } else if (FLAGS_operator_type == "TableScan") {
@@ -140,7 +136,6 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        FLAGS_pipeline_id,
         FLAGS_operator_type);
   } else if (FLAGS_operator_type == "FilterProject") {
     replayer = std::make_unique<tool::trace::FilterProjectReplayer>(
@@ -148,7 +143,6 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        FLAGS_pipeline_id,
         FLAGS_operator_type);
   } else if (FLAGS_operator_type == "HashJoin") {
     replayer = std::make_unique<tool::trace::HashJoinReplayer>(
@@ -156,7 +150,6 @@ std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        FLAGS_pipeline_id,
         FLAGS_operator_type);
   } else {
     VELOX_UNSUPPORTED("Unsupported operator type: {}", FLAGS_operator_type);
@@ -194,31 +187,48 @@ void printTaskMetadata(
   oss << queryPlan->toString(true, true);
 }
 
+void printPipelineTraceSummary(
+    const std::string& taskTraceDir,
+    const std::string& nodeId,
+    uint32_t pipelineId,
+    uint32_t driverId,
+    memory::MemoryPool* pool,
+    std::ostringstream& oss) {
+  const auto opTraceDir = exec::trace::getOpTraceDirectory(
+      taskTraceDir, nodeId, pipelineId, driverId);
+  const auto opTraceSummary =
+      exec::trace::OperatorTraceSummaryReader(
+          exec::trace::getOpTraceDirectory(
+              taskTraceDir, nodeId, pipelineId, driverId),
+          pool)
+          .read();
+  oss << "driver " << driverId << ": " << opTraceSummary.toString() << "\n";
+}
+
 void printTaskTraceSummary(
     const std::string& traceDir,
     const std::string& queryId,
     const std::string& taskId,
     const std::string& nodeId,
-    uint32_t pipelineId,
     memory::MemoryPool* pool,
     std::ostringstream& oss) {
   auto fs = filesystems::getFileSystem(traceDir, nullptr);
   const auto taskTraceDir =
       exec::trace::getTaskTraceDirectory(traceDir, queryId, taskId);
+  const auto pipelineIds = exec::trace::listPipelineIds(
+      exec::trace::getNodeTraceDirectory(taskTraceDir, nodeId), fs);
 
-  const std::vector<uint32_t> driverIds = exec::trace::listDriverIds(
-      exec::trace::getNodeTraceDirectory(taskTraceDir, nodeId), pipelineId, fs);
   oss << "\n++++++Task " << taskId << "++++++\n";
-  for (const auto& driverId : driverIds) {
-    const auto opTraceDir = exec::trace::getOpTraceDirectory(
-        taskTraceDir, nodeId, pipelineId, driverId);
-    const auto opTraceSummary =
-        exec::trace::OperatorTraceSummaryReader(
-            exec::trace::getOpTraceDirectory(
-                taskTraceDir, nodeId, pipelineId, driverId),
-            pool)
-            .read();
-    oss << driverId << " driver, " << opTraceSummary.toString() << "\n";
+  for (const auto pipelineId : pipelineIds) {
+    oss << "\n++++++Pipeline " << pipelineId << "++++++\n";
+    const auto driverIds = exec::trace::listDriverIds(
+        exec::trace::getNodeTraceDirectory(taskTraceDir, nodeId),
+        pipelineId,
+        fs);
+    for (const auto& driverId : driverIds) {
+      printPipelineTraceSummary(
+          taskTraceDir, nodeId, pipelineId, driverId, pool, oss);
+    }
   }
 }
 
@@ -252,13 +262,7 @@ void printSummary(
   summary << "\n++++++Task Summaries++++++\n";
   for (const auto& taskId : summaryTaskIds) {
     printTaskTraceSummary(
-        rootDir,
-        queryId,
-        taskId,
-        FLAGS_node_id,
-        FLAGS_pipeline_id,
-        pool,
-        summary);
+        rootDir, queryId, taskId, FLAGS_node_id, pool, summary);
   }
   LOG(INFO) << summary.str();
 }

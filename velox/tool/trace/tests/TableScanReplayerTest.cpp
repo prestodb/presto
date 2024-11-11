@@ -137,7 +137,6 @@ TEST_F(TableScanReplayerTest, basic) {
                                    task->queryCtx()->queryId(),
                                    task->taskId(),
                                    traceNodeId_,
-                                   0,
                                    "TableScan")
                                    .run();
   assertEqualResults({results}, {replayingResult});
@@ -182,7 +181,6 @@ TEST_F(TableScanReplayerTest, columnPrunning) {
                                    task->queryCtx()->queryId(),
                                    task->taskId(),
                                    traceNodeId_,
-                                   0,
                                    "TableScan")
                                    .run();
   assertEqualResults({results}, {replayingResult});
@@ -243,7 +241,6 @@ TEST_F(TableScanReplayerTest, subfieldPrunning) {
                                    task->queryCtx()->queryId(),
                                    task->taskId(),
                                    traceNodeId_,
-                                   0,
                                    "TableScan")
                                    .run();
   assertEqualResults({results}, {replayingResult});

@@ -192,7 +192,6 @@ TEST_F(FilterProjectReplayerTest, filterProject) {
                                task->queryCtx()->queryId(),
                                task->taskId(),
                                projectNodeId_,
-                               0,
                                "FilterProject")
                                .run();
     assertEqualResults({result}, {replayingResult});
@@ -227,7 +226,6 @@ TEST_F(FilterProjectReplayerTest, filterOnly) {
                              task->queryCtx()->queryId(),
                              task->taskId(),
                              filterNodeId_,
-                             0,
                              "FilterProject")
                              .run();
   assertEqualResults({result}, {replayingResult});
@@ -261,7 +259,6 @@ TEST_F(FilterProjectReplayerTest, projectOnly) {
                              task->queryCtx()->queryId(),
                              task->taskId(),
                              projectNodeId_,
-                             0,
                              "FilterProject")
                              .run();
   assertEqualResults({result}, {replayingResult});

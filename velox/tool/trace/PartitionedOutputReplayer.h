@@ -45,7 +45,6 @@ class PartitionedOutputReplayer final : public OperatorReplayerBase {
       const std::string& queryId,
       const std::string& taskId,
       const std::string& nodeId,
-      int32_t pipelineId,
       VectorSerde::Kind serdeKind,
       const std::string& operatorType,
       const ConsumerCallBack& consumerCb = [](auto partition, auto page) {});

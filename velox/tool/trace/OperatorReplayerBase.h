@@ -32,7 +32,6 @@ class OperatorReplayerBase {
       std::string queryId,
       std::string taskId,
       std::string nodeId,
-      int32_t pipelineId,
       std::string operatorType);
   virtual ~OperatorReplayerBase() = default;
 
@@ -55,13 +54,12 @@ class OperatorReplayerBase {
   const std::string queryId_;
   const std::string taskId_;
   const std::string nodeId_;
-  const int32_t pipelineId_;
   const std::string operatorType_;
-
   const std::string taskTraceDir_;
   const std::string nodeTraceDir_;
   const std::shared_ptr<filesystems::FileSystem> fs_;
-  const int32_t maxDrivers_;
+  const std::vector<uint32_t> pipelineIds_;
+  const uint32_t maxDrivers_;
 
   const std::shared_ptr<core::PlanNodeIdGenerator> planNodeIdGenerator_{
       std::make_shared<core::PlanNodeIdGenerator>()};

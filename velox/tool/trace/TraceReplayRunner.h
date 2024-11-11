@@ -26,7 +26,6 @@ DECLARE_bool(short_summary);
 DECLARE_string(query_id);
 DECLARE_string(task_id);
 DECLARE_string(node_id);
-DECLARE_int32(pipeline_id);
 DECLARE_int32(driver_id);
 DECLARE_string(operator_type);
 DECLARE_string(table_writer_output_dir);

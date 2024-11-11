@@ -158,7 +158,6 @@ TEST_P(PartitionedOutputReplayerTest, defaultConsumer) {
                       originalTask->queryCtx()->queryId(),
                       originalTask->taskId(),
                       planNodeId,
-                      0,
                       GetParam(),
                       "PartitionedOutput")
                       .run());
@@ -250,7 +249,6 @@ TEST_P(PartitionedOutputReplayerTest, basic) {
           queryId,
           taskId,
           planNodeId,
-          0,
           GetParam(),
           "PartitionedOutput",
           [&](auto partition, auto page) {

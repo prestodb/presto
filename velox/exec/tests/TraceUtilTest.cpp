@@ -147,6 +147,38 @@ TEST_F(TraceUtilTest, getTaskIds) {
   ASSERT_EQ(taskIds[1], taskId2);
 }
 
+TEST_F(TraceUtilTest, getPipelineIds) {
+  const auto rootDir = TempDirectoryPath::create();
+  const auto rootPath = rootDir->getPath();
+  const auto fs = filesystems::getFileSystem(rootPath, nullptr);
+  const std::string queryId = "queryId";
+  fs->mkdir(trace::getQueryTraceDirectory(rootPath, queryId));
+  ASSERT_TRUE(getTaskIds(rootPath, queryId, fs).empty());
+  const std::string taskId = "task";
+  const std::string taskTraceDir =
+      trace::getTaskTraceDirectory(rootPath, queryId, taskId);
+  fs->mkdir(taskTraceDir);
+  const std::string nodeId = "node";
+  const std::string nodeTraceDir =
+      trace::getNodeTraceDirectory(taskTraceDir, nodeId);
+  fs->mkdir(nodeTraceDir);
+
+  const std::vector<uint32_t> expectedPipelineIds{0, 1, 2};
+  for (const auto pipelineId : expectedPipelineIds) {
+    fs->mkdir(trace::getPipelineTraceDirectory(nodeTraceDir, pipelineId));
+  }
+  const auto pipelineIds = listPipelineIds(nodeTraceDir, fs);
+  for (int i = 0; i < 3; ++i) {
+    ASSERT_EQ(expectedPipelineIds[i], pipelineIds[i]);
+  }
+
+  // Bad pipeline id.
+  const std::string badPipelineId = "badPipelineId";
+  fs->mkdir(fmt::format("{}/{}", nodeTraceDir, badPipelineId));
+  VELOX_ASSERT_THROW(
+      listPipelineIds(nodeTraceDir, fs), "Failed to list pipeline IDs");
+}
+
 TEST_F(TraceUtilTest, getDriverIds) {
   const auto rootDir = TempDirectoryPath::create();
   const auto rootPath = rootDir->getPath();
