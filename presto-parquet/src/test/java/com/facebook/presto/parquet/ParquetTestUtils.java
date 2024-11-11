@@ -202,7 +202,7 @@ public class ParquetTestUtils
         }
 
         if (type instanceof RowType) {
-            return "struct<" + Joiner.on(",").join(((RowType) type).getFields().stream().map(t -> t.getName().get() + ":" + getHiveType(t.getType())).collect(toList())) + ">";
+            return "struct<" + Joiner.on(",").join(((RowType) type).getFields().stream().map(t -> t.getName().orElseThrow() + ":" + getHiveType(t.getType())).collect(toList())) + ">";
         }
 
         throw new IllegalArgumentException("unsupported type: " + type);
@@ -378,7 +378,7 @@ public class ParquetTestUtils
         else if (type instanceof RowType) {
             return ObjectInspectorFactory.getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
-                            .map(parameter -> parameter.getNamedTypeSignature().getName().get())
+                            .map(parameter -> parameter.getNamedTypeSignature().getName().orElseThrow())
                             .collect(toList()),
                     type.getTypeParameters().stream()
                             .map(ParquetTestUtils::getJavaObjectInspector)

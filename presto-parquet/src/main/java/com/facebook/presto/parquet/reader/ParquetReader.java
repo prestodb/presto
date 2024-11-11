@@ -269,7 +269,7 @@ public class ParquetReader
     {
         List<Type> parameters = field.getType().getTypeParameters();
         checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %d", parameters.size());
-        Field elementField = field.getChildren().get(0).get();
+        Field elementField = field.getChildren().get(0).orElseThrow();
         ColumnChunk columnChunk = readColumnChunk(elementField);
         IntList offsets = new IntArrayList();
         BooleanList valueIsNull = new BooleanArrayList();
@@ -286,9 +286,9 @@ public class ParquetReader
         checkArgument(parameters.size() == 2, "Maps must have two type parameters, found %d", parameters.size());
         Block[] blocks = new Block[parameters.size()];
 
-        ColumnChunk columnChunk = readColumnChunk(field.getChildren().get(0).get());
+        ColumnChunk columnChunk = readColumnChunk(field.getChildren().get(0).orElseThrow());
         blocks[0] = columnChunk.getBlock();
-        blocks[1] = readColumnChunk(field.getChildren().get(1).get()).getBlock();
+        blocks[1] = readColumnChunk(field.getChildren().get(1).orElseThrow()).getBlock();
         IntList offsets = new IntArrayList();
         BooleanList valueIsNull = new BooleanArrayList();
         calculateCollectionOffsets(field, offsets, valueIsNull, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -306,7 +306,7 @@ public class ParquetReader
         for (int i = 0; i < fields.size(); i++) {
             Optional<Field> parameter = parameters.get(i);
             if (parameter.isPresent()) {
-                columnChunk = readColumnChunk(parameter.get());
+                columnChunk = readColumnChunk(parameter.orElseThrow());
                 blocks[i] = columnChunk.getBlock();
             }
         }
@@ -494,14 +494,14 @@ public class ParquetReader
             return columnChunk.buildPageReader(Optional.empty(), -1, -1);
         }
 
-        int columnOrdinal = fileDecryptor.get().getColumnSetup(ColumnPath.get(columnChunk.getDescriptor().getColumnDescriptor().getPath())).getOrdinal();
+        int columnOrdinal = fileDecryptor.orElseThrow().getColumnSetup(ColumnPath.get(columnChunk.getDescriptor().getColumnDescriptor().getPath())).getOrdinal();
         return columnChunk.buildPageReader(fileDecryptor, currentBlock, columnOrdinal);
     }
 
     private boolean isEncryptedColumn(Optional<InternalFileDecryptor> fileDecryptor, ColumnDescriptor columnDescriptor)
     {
         ColumnPath columnPath = ColumnPath.get(columnDescriptor.getPath());
-        return fileDecryptor.isPresent() && !fileDecryptor.get().plaintextFile() && fileDecryptor.get().getColumnSetup(columnPath).isEncrypted();
+        return fileDecryptor.isPresent() && !fileDecryptor.orElseThrow().plaintextFile() && fileDecryptor.orElseThrow().getColumnSetup(columnPath).isEncrypted();
     }
 
     private ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
