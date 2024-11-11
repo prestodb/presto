@@ -70,8 +70,6 @@ constexpr uint64_t kFastExponentialGrowthCapacityLimit = 32 * MB;
 constexpr double kSlowCapacityGrowPct = 0.25;
 constexpr uint64_t kMemoryPoolMinFreeCapacity = 8 * MB;
 constexpr double kMemoryPoolMinFreeCapacityPct = 0.25;
-// constexpr uint64_t kMemoryPoolMinReclaimBytes = 8 * MB;
-// constexpr uint64_t kMemoryPoolAbortCapacityLimit = 16 * MB;
 constexpr double kGlobalArbitrationReclaimPct = 10;
 constexpr double kMemoryReclaimThreadsHwMultiplier = 0.5;
 
@@ -450,7 +448,9 @@ class MockSharedArbitrationTest : public testing::Test {
       bool globalArtbitrationEnabled = true,
       uint64_t arbitrationTimeoutNs = 5 * 60 * 1'000'000'000UL,
       bool globalArbitrationWithoutSpill = false,
-      double globalArbitrationAbortTimeRatio = 0.5) {
+      // Set the globalArbitrationAbortTimeRatio to be very small so that the
+      // query can be aborted sooner and the test would not timeout.
+      double globalArbitrationAbortTimeRatio = 0.005) {
     MemoryManagerOptions options;
     options.allocatorCapacity = memoryCapacity;
     std::string arbitratorKind = "SHARED";
@@ -858,26 +858,6 @@ TEST_F(MockSharedArbitrationTest, asyncArbitrationWork) {
 
 // Test different kinds of arbitraton failures.
 TEST_F(MockSharedArbitrationTest, arbitrationFailures) {
-  // Set the globalArbitrationAbortTimeRatio to be very small so that the query
-  // can be aborted sooner and the test would not timeout.
-  setupMemory(
-      kMemoryCapacity,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      kMemoryReclaimThreadsHwMultiplier,
-      nullptr,
-      true,
-      5 * 60 * 1'000'000'000UL,
-      false,
-      0.005);
   // Local arbitration failure with exceeded capacity limit.
   {
     auto task = addTask(64 * MB);
@@ -3048,28 +3028,8 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-
-    // Make simple settings to focus shrink capacity logic testing. Set the
-    // globalArbitrationAbortTimeRatio to be very small so that the query
-    // can be aborted sooner and the test would not timeout.
-    setupMemory(
-        memoryCapacity,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        testData.minReclaimBytes,
-        0,
-        0,
-        kMemoryReclaimThreadsHwMultiplier,
-        nullptr,
-        true,
-        5 * 60 * 1'000'000'000UL,
-        false,
-        0.005);
+    // Make simple settings to focus shrink capacity logic testing.
+    setupMemory(memoryCapacity, 0, 0, 0, 0, 0, 0, 0, testData.minReclaimBytes);
     std::vector<TestTaskContainer> taskContainers;
     for (const auto& testTask : testData.testTasks) {
       auto task = addTask();
@@ -3943,26 +3903,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailure) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    // Set the globalArbitrationAbortTimeRatio to be very small so that the
-    // query can be aborted sooner and the test would not timeout.
-    setupMemory(
-        maxCapacity,
-        0,
-        initialCapacity,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        kMemoryReclaimThreadsHwMultiplier,
-        nullptr,
-        true,
-        5 * 60 * 1'000'000'000UL,
-        false,
-        0.005);
+    setupMemory(maxCapacity, 0, initialCapacity);
     std::shared_ptr<MockTask> requestorTask = addTask();
     MockMemoryOperator* requestorOp = addMemoryOp(requestorTask, false);
     requestorOp->allocate(testData.requestorCapacity);
