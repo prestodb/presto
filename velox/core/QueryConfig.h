@@ -31,27 +31,6 @@ class QueryConfig {
 
   explicit QueryConfig(std::unordered_map<std::string, std::string>&& values);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static constexpr const char* kCodegenEnabled = "codegen.enabled";
-
-  static constexpr const char* kCodegenConfigurationFilePath =
-      "codegen.configuration_file_path";
-
-  static constexpr const char* kCodegenLazyLoading = "codegen.lazy_loading";
-
-  bool codegenEnabled() const {
-    return get<bool>(kCodegenEnabled, false);
-  }
-
-  std::string codegenConfigurationFilePath() const {
-    return get<std::string>(kCodegenConfigurationFilePath, "");
-  }
-
-  bool codegenLazyLoading() const {
-    return get<bool>(kCodegenLazyLoading, true);
-  }
-#endif
-
   /// Maximum memory that a query can use on a single host.
   static constexpr const char* kQueryMaxMemoryPerNode =
       "query_max_memory_per_node";

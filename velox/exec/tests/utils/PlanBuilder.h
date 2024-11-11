@@ -334,11 +334,6 @@ class PlanBuilder {
   ///
   /// @param outputType The type of the data coming in and out of the exchange.
   /// @param serdekind The kind of seralized data format.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  PlanBuilder& exchange(const RowTypePtr& outputType) {
-    return exchange(outputType, VectorSerde::Kind::kPresto);
-  }
-#endif
   PlanBuilder& exchange(
       const RowTypePtr& outputType,
       VectorSerde::Kind serdekind);
@@ -351,13 +346,6 @@ class PlanBuilder {
   ///
   /// By default, uses ASC NULLS LAST sort order, e.g. column "a" above will use
   /// ASC NULLS LAST and column "b" will use DESC NULLS LAST.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  PlanBuilder& mergeExchange(
-      const RowTypePtr& outputType,
-      const std::vector<std::string>& keys) {
-    return mergeExchange(outputType, keys, VectorSerde::Kind::kPresto);
-  }
-#endif
   PlanBuilder& mergeExchange(
       const RowTypePtr& outputType,
       const std::vector<std::string>& keys,

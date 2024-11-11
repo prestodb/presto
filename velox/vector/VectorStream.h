@@ -391,16 +391,6 @@ class VectorStreamGroup : public StreamArena {
   void flush(OutputStream* stream);
 
   // Reads data in wire format. Returns the RowVector in 'result'.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static void read(
-      ByteInputStream* source,
-      velox::memory::MemoryPool* pool,
-      RowTypePtr type,
-      RowVectorPtr* result,
-      const VectorSerde::Options* options = nullptr) {
-    read(source, pool, type, nullptr, result, options);
-  }
-#endif
   static void read(
       ByteInputStream* source,
       velox::memory::MemoryPool* pool,

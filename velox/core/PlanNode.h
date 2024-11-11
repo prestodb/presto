@@ -738,30 +738,6 @@ class TableWriteNode : public PlanNode {
     }
   }
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  TableWriteNode(
-      const PlanNodeId& id,
-      const RowTypePtr& columns,
-      const std::vector<std::string>& columnNames,
-      std::shared_ptr<AggregationNode> aggregationNode,
-      std::shared_ptr<InsertTableHandle> insertTableHandle,
-      bool hasPartitioningScheme,
-      bool /*unused*/,
-      RowTypePtr outputType,
-      connector::CommitStrategy commitStrategy,
-      const PlanNodePtr& source)
-      : TableWriteNode(
-            id,
-            columns,
-            columnNames,
-            std::move(aggregationNode),
-            std::move(insertTableHandle),
-            hasPartitioningScheme,
-            std::move(outputType),
-            commitStrategy,
-            source) {}
-#endif
-
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
@@ -1013,11 +989,6 @@ class GroupIdNode : public PlanNode {
 
 class ExchangeNode : public PlanNode {
  public:
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  ExchangeNode(const PlanNodeId& id, RowTypePtr type)
-      : ExchangeNode(id, std::move(type), VectorSerde::Kind::kPresto) {}
-#endif
-
   ExchangeNode(
       const PlanNodeId& id,
       RowTypePtr type,
@@ -1059,20 +1030,6 @@ class ExchangeNode : public PlanNode {
 
 class MergeExchangeNode : public ExchangeNode {
  public:
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  MergeExchangeNode(
-      const PlanNodeId& id,
-      const RowTypePtr& type,
-      const std::vector<FieldAccessTypedExprPtr>& sortingKeys,
-      const std::vector<SortOrder>& sortingOrders)
-      : MergeExchangeNode(
-            id,
-            type,
-            sortingKeys,
-            sortingOrders,
-            VectorSerde::Kind::kPresto) {}
-#endif
-
   MergeExchangeNode(
       const PlanNodeId& id,
       const RowTypePtr& type,
@@ -1297,28 +1254,6 @@ class PartitionedOutputNode : public PlanNode {
   static std::string kindString(Kind kind);
   static Kind stringToKind(const std::string& str);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  PartitionedOutputNode(
-      const PlanNodeId& id,
-      Kind kind,
-      const std::vector<TypedExprPtr>& keys,
-      int numPartitions,
-      bool replicateNullsAndAny,
-      PartitionFunctionSpecPtr partitionFunctionSpec,
-      RowTypePtr outputType,
-      PlanNodePtr source)
-      : PartitionedOutputNode(
-            id,
-            kind,
-            keys,
-            numPartitions,
-            replicateNullsAndAny,
-            std::move(partitionFunctionSpec),
-            std::move(outputType),
-            VectorSerde::Kind::kPresto,
-            std::move(source)) {}
-#endif
-
   PartitionedOutputNode(
       const PlanNodeId& id,
       Kind kind,
@@ -1330,55 +1265,18 @@ class PartitionedOutputNode : public PlanNode {
       VectorSerde::Kind serdeKind,
       PlanNodePtr source);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static std::shared_ptr<PartitionedOutputNode> broadcast(
-      const PlanNodeId& id,
-      int numPartitions,
-      RowTypePtr outputType,
-      PlanNodePtr source) {
-    return broadcast(
-        id,
-        numPartitions,
-        std::move(outputType),
-        VectorSerde::Kind::kPresto,
-        std::move(source));
-  }
-#endif
-
   static std::shared_ptr<PartitionedOutputNode> broadcast(
       const PlanNodeId& id,
       int numPartitions,
       RowTypePtr outputType,
       VectorSerde::Kind serdeKind,
       PlanNodePtr source);
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static std::shared_ptr<PartitionedOutputNode>
-  arbitrary(const PlanNodeId& id, RowTypePtr outputType, PlanNodePtr source) {
-    return arbitrary(
-        id,
-        std::move(outputType),
-        VectorSerde::Kind::kPresto,
-        std::move(source));
-  }
-#endif
 
   static std::shared_ptr<PartitionedOutputNode> arbitrary(
       const PlanNodeId& id,
       RowTypePtr outputType,
       VectorSerde::Kind serdeKind,
       PlanNodePtr source);
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static std::shared_ptr<PartitionedOutputNode>
-  single(const PlanNodeId& id, RowTypePtr outputType, PlanNodePtr source) {
-    return single(
-        id,
-        std::move(outputType),
-        VectorSerde::Kind::kPresto,
-        std::move(source));
-  }
-#endif
 
   static std::shared_ptr<PartitionedOutputNode> single(
       const PlanNodeId& id,

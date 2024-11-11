@@ -252,10 +252,8 @@ class SpillReadFile {
       memory::MemoryPool* pool,
       folly::Synchronized<common::SpillStats>* stats);
 
-#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   // Invoked to record spill read stats at the end of read input.
   void recordSpillStats();
-#endif
 
   // The spill file id which is monotonically increasing and unique for each
   // associated spill partition.
