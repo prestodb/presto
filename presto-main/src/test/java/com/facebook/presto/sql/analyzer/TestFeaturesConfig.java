@@ -246,7 +246,9 @@ public class TestFeaturesConfig
                 .setUseHistograms(false)
                 .setInlineProjectionsOnValues(false)
                 .setEagerPlanValidationEnabled(false)
-                .setEagerPlanValidationThreadPoolSize(20));
+                .setEagerPlanValidationThreadPoolSize(20)
+                .setInnerJoinPushdownEnabled(false)
+                .setInEqualityJoinPushdownEnabled(false));
     }
 
     @Test
@@ -442,6 +444,8 @@ public class TestFeaturesConfig
                 .put("optimizer.inline-projections-on-values", "true")
                 .put("eager-plan-validation-enabled", "true")
                 .put("eager-plan-validation-thread-pool-size", "2")
+                .put("optimizer.inner-join-pushdown-enabled", "true")
+                .put("optimizer.inequality-join-pushdown-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -634,7 +638,9 @@ public class TestFeaturesConfig
                 .setUseHistograms(true)
                 .setInlineProjectionsOnValues(true)
                 .setEagerPlanValidationEnabled(true)
-                .setEagerPlanValidationThreadPoolSize(2);
+                .setEagerPlanValidationThreadPoolSize(2)
+                .setInEqualityJoinPushdownEnabled(true)
+                .setInnerJoinPushdownEnabled(true);
         assertFullMapping(properties, expected);
     }
 
