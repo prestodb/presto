@@ -44,7 +44,6 @@ import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
 import static com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.io.ByteStreams.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.min;
@@ -294,7 +293,7 @@ public class RcFileReader
             }
         }
         if (writeChecksumBuilder.isPresent()) {
-            WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
+            WriteChecksum actualChecksum = writeChecksumBuilder.orElseThrow().build();
             validateWrite(validation -> validation.getChecksum().getTotalRowCount() == actualChecksum.getTotalRowCount(), "Invalid row count");
             List<Long> columnHashes = actualChecksum.getColumnHashes();
             for (int i = 0; i < columnHashes.size(); i++) {
@@ -407,7 +406,7 @@ public class RcFileReader
                 columns[columnIndex].setBuffers(lengthsBuffer, dataBuffer, uncompressedDataSize);
             }
             else {
-                skipFully(input, compressedDataSize);
+                input.skipNBytes(compressedDataSize);
             }
         }
 
@@ -484,7 +483,7 @@ public class RcFileReader
     private void validateWrite(Predicate<RcFileWriteValidation> test, String messageFormat, Object... args)
             throws RcFileCorruptionException
     {
-        if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
+        if (writeValidation.isPresent() && !test.test(writeValidation.orElseThrow())) {
             throw corrupt("Write validation failed: " + messageFormat, args);
         }
     }
@@ -492,7 +491,7 @@ public class RcFileReader
     private void validateWriteRowGroupChecksum()
     {
         if (writeChecksumBuilder.isPresent()) {
-            writeChecksumBuilder.get().addRowGroup(rowGroupRowCount);
+            writeChecksumBuilder.orElseThrow().addRowGroup(rowGroupRowCount);
         }
     }
 
@@ -504,7 +503,7 @@ public class RcFileReader
             for (int columnIndex = 0; columnIndex < columns.length; columnIndex++) {
                 blocks[columnIndex] = readBlock(columnIndex);
             }
-            writeChecksumBuilder.get().addPage(new Page(currentChunkRowCount, blocks));
+            writeChecksumBuilder.orElseThrow().addPage(new Page(currentChunkRowCount, blocks));
         }
     }
 
