@@ -30,7 +30,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
-import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.spi.plan.WindowNode;
 
 import java.util.List;
 import java.util.Map;

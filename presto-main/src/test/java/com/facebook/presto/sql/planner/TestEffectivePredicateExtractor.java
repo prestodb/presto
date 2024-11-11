@@ -41,7 +41,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;

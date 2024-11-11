@@ -21,7 +21,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.spi.plan.WindowNode;
 
 import java.util.List;
 import java.util.Map;

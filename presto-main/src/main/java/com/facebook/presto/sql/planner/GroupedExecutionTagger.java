@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -30,7 +31,7 @@ import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 
@@ -231,7 +232,7 @@ class GroupedExecutionTagger
     {
         GroupedExecutionTagger.GroupedExecutionProperties properties = node.getSource().accept(this, null);
         boolean recoveryEligible = properties.isRecoveryEligible();
-        TableWriterNode.WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+        TableFinishNode.WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
         if (target instanceof TableWriterNode.CreateName || target instanceof TableWriterNode.InsertReference || target instanceof TableWriterNode.RefreshMaterializedViewReference) {
             recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PAGE_SINK_COMMIT);
         }

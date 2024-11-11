@@ -16,10 +16,10 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 
 public class TestingWriterTarget
-        extends TableWriterNode.WriterTarget
+        extends TableFinishNode.WriterTarget
 {
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
     private static final SchemaTableName SCHEMA_TABLE_NAME = new SchemaTableName("test-schema", "test-table");

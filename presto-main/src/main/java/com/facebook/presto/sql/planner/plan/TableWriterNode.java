@@ -23,6 +23,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.StatisticAggregations;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -45,7 +47,7 @@ public class TableWriterNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final Optional<WriterTarget> target;
+    private final Optional<TableFinishNode.WriterTarget> target;
     private final VariableReferenceExpression rowCountVariable;
     private final VariableReferenceExpression fragmentVariable;
     private final VariableReferenceExpression tableCommitContextVariable;
@@ -64,7 +66,7 @@ public class TableWriterNode
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") Optional<WriterTarget> target,
+            @JsonProperty("target") Optional<TableFinishNode.WriterTarget> target,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("fragmentVariable") VariableReferenceExpression fragmentVariable,
             @JsonProperty("tableCommitContextVariable") VariableReferenceExpression tableCommitContextVariable,
@@ -85,7 +87,7 @@ public class TableWriterNode
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
-            Optional<WriterTarget> target,
+            Optional<TableFinishNode.WriterTarget> target,
             VariableReferenceExpression rowCountVariable,
             VariableReferenceExpression fragmentVariable,
             VariableReferenceExpression tableCommitContextVariable,
@@ -139,7 +141,7 @@ public class TableWriterNode
     }
 
     @JsonIgnore
-    public Optional<WriterTarget> getTarget()
+    public Optional<TableFinishNode.WriterTarget> getTarget()
     {
         return target;
     }
@@ -270,20 +272,8 @@ public class TableWriterNode
                 taskCountIfScaledWriter, isTemporaryTableWriter);
     }
 
-    // only used during planning -- will not be serialized
-    @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
-    public abstract static class WriterTarget
-    {
-        public abstract ConnectorId getConnectorId();
-
-        public abstract SchemaTableName getSchemaTableName();
-
-        @Override
-        public abstract String toString();
-    }
-
     public static class CreateName
-            extends WriterTarget
+            extends TableFinishNode.WriterTarget
     {
         private final ConnectorId connectorId;
         private final ConnectorTableMetadata tableMetadata;
@@ -327,7 +317,7 @@ public class TableWriterNode
     }
 
     public static class InsertReference
-            extends WriterTarget
+            extends TableFinishNode.WriterTarget
     {
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;
@@ -363,7 +353,7 @@ public class TableWriterNode
     }
 
     public static class DeleteHandle
-            extends WriterTarget
+            extends TableFinishNode.WriterTarget
     {
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;
@@ -400,7 +390,7 @@ public class TableWriterNode
     }
 
     public static class RefreshMaterializedViewReference
-            extends WriterTarget
+            extends TableFinishNode.WriterTarget
     {
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;
@@ -436,7 +426,7 @@ public class TableWriterNode
     }
 
     public static class UpdateTarget
-            extends WriterTarget
+            extends TableFinishNode.WriterTarget
     {
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;

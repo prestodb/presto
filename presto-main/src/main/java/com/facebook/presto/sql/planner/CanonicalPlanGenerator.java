@@ -58,11 +58,11 @@ import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.RowNumberNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -1079,7 +1079,7 @@ public class CanonicalPlanGenerator
     }
 
     private static class CanonicalWriterTarget
-            extends TableWriterNode.WriterTarget
+            extends TableFinishNode.WriterTarget
     {
         private final ConnectorId connectorId;
         // Include classname of WriterTarget, as it signifies type of table operation.
@@ -1119,7 +1119,7 @@ public class CanonicalPlanGenerator
             return format("WriterTarget{connectorId: %s, type: %s}", connectorId, writerTargetType);
         }
 
-        private static CanonicalWriterTarget from(TableWriterNode.WriterTarget target)
+        private static CanonicalWriterTarget from(TableFinishNode.WriterTarget target)
         {
             return new CanonicalWriterTarget(target.getConnectorId(), target.getClass().getSimpleName());
         }

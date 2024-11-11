@@ -11,30 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TableFinishNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final Optional<WriterTarget> target;
@@ -67,13 +64,13 @@ public class TableFinishNode
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
-        checkArgument(target != null || source instanceof TableWriterNode);
+//        checkArgument(target != null || source instanceof TableWriterNode);
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
         this.statisticsAggregationDescriptor = requireNonNull(statisticsAggregationDescriptor, "statisticsAggregationDescriptor is null");
-        checkArgument(statisticsAggregation.isPresent() == statisticsAggregationDescriptor.isPresent(), "statisticsAggregation and statisticsAggregationDescriptor must both be either present or absent");
+//        checkArgument(statisticsAggregation.isPresent() == statisticsAggregationDescriptor.isPresent(), "statisticsAggregation and statisticsAggregationDescriptor must both be either present or absent");
     }
 
     @JsonProperty
@@ -109,17 +106,17 @@ public class TableFinishNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return Collections.singletonList(source);
     }
 
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.of(rowCountVariable);
+        return Collections.singletonList(rowCountVariable);
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTableFinish(this, context);
     }
@@ -131,7 +128,7 @@ public class TableFinishNode
                 getSourceLocation(),
                 getId(),
                 getStatsEquivalentPlanNode(),
-                Iterables.getOnlyElement(newChildren),
+                newChildren.get(0),
                 target,
                 rowCountVariable,
                 statisticsAggregation,
@@ -150,5 +147,17 @@ public class TableFinishNode
                 rowCountVariable,
                 statisticsAggregation,
                 statisticsAggregationDescriptor);
+    }
+
+    // only used during planning -- will not be serialized
+    @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
+    public abstract static class WriterTarget
+    {
+        public abstract ConnectorId getConnectorId();
+
+        public abstract SchemaTableName getSchemaTableName();
+
+        @Override
+        public abstract String toString();
     }
 }

@@ -46,7 +46,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -59,14 +59,14 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.StatisticAggregations;
+import com.facebook.presto.spi.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -442,10 +442,10 @@ public class PruneUnreferencedOutputs
             }
 
             Map<VariableReferenceExpression, WindowNode.Function> functions = functionsBuilder.build();
-            if (functions.size() == 0) {
-                // As the window plan node is getting skipped, use the inputs needed by the parent of the Window plan node
-                return context.rewrite(node.getSource(), context.get());
-            }
+//            if (functions.size() == 0) {
+//                // As the window plan node is getting skipped, use the inputs needed by the parent of the Window plan node
+//                return context.rewrite(node.getSource(), context.get());
+//            }
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new WindowNode(

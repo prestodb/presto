@@ -17,6 +17,7 @@ import com.facebook.presto.execution.Output;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -54,7 +55,7 @@ public class OutputExtractor
         @Override
         public Void visitTableWriter(TableWriterNode node, Void context)
         {
-            TableWriterNode.WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            TableFinishNode.WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             connectorId = writerTarget.getConnectorId();
             checkState(schemaTableName == null || schemaTableName.equals(writerTarget.getSchemaTableName()),
                     "cannot have more than a single create, insert or delete in a query");

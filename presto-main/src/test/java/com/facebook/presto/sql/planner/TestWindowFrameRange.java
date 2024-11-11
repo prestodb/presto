@@ -47,10 +47,10 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specif
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.windowFrame;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.FOLLOWING;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.PRECEDING;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.RANGE;
 
 public class TestWindowFrameRange
         extends BasePlanTest

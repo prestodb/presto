@@ -45,6 +45,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitTableFinish(TableFinishNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitSort(SortNode node, C context)
     {
         return visitPlan(node, context);
@@ -121,6 +126,16 @@ public abstract class PlanVisitor<R, C>
     }
 
     public R visitRowNumber(RowNumberNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitDelete(DeleteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitWindow(WindowNode node, C context)
     {
         return visitPlan(node, context);
     }
