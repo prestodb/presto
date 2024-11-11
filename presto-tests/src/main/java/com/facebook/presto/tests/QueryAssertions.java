@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -347,6 +348,30 @@ public final class QueryAssertions
         }
         catch (RuntimeException ex) {
             assertExceptionMessage(sql, ex, expectedMessageRegExp);
+        }
+    }
+
+    private static void assertExceptionWithPatternMatch(String sql, Exception exception, @Language("RegExp") String regex)
+    {
+        Pattern p = Pattern.compile(regex, Pattern.MULTILINE);
+        if (!(p.matcher(exception.getMessage()).find())) {
+            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+        }
+    }
+
+    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Boolean usePatternMatcher)
+    {
+        try {
+            queryRunner.execute(session, sql);
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            if (usePatternMatcher) {
+                assertExceptionWithPatternMatch(sql, ex, expectedMessageRegExp);
+            }
+            else {
+                assertExceptionMessage(sql, ex, expectedMessageRegExp);
+            }
         }
     }
 

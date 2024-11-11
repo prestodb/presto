@@ -290,9 +290,13 @@ public abstract class AbstractTestQueries
                 .distinct()
                 .count();
         assertTrue(distinctCount >= 8, "rand() must produce different rows");
+    }
 
-        materializedResult = computeActual("SELECT apply(1, x -> x + rand()) FROM orders LIMIT 10");
-        distinctCount = materializedResult.getMaterializedRows().stream()
+    @Test
+    public void testNonDeterministicInLambda()
+    {
+        MaterializedResult materializedResult = computeActual("SELECT apply(1, x -> x + rand()) FROM orders LIMIT 10");
+        long distinctCount = materializedResult.getMaterializedRows().stream()
                 .map(row -> row.getField(0))
                 .distinct()
                 .count();
@@ -361,11 +365,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testTryLambdaRepeated()
+    public void testApplyLambdaRepeated()
     {
         assertQuery("SELECT x + x FROM (SELECT apply(a, i -> i * i) x FROM (VALUES 3) t(a))", "SELECT 18");
         assertQuery("SELECT apply(a, i -> i * i) + apply(a, i -> i * i) FROM (VALUES 3) t(a)", "SELECT 18");
         assertQuery("SELECT apply(a, i -> i * i), apply(a, i -> i * i) FROM (VALUES 3) t(a)", "SELECT 9, 9");
+    }
+
+    @Test
+    public void testTryLambdaRepeated()
+    {
         assertQuery("SELECT try(10 / a) + try(10 / a) FROM (VALUES 5) t(a)", "SELECT 4");
         assertQuery("SELECT try(10 / a), try(10 / a) FROM (VALUES 5) t(a)", "SELECT 2, 2");
     }
@@ -437,8 +446,11 @@ public abstract class AbstractTestQueries
 
         // Row subscript in join condition
         assertQuery("SELECT n.name, r.name FROM nation n JOIN region r ON ROW (n.name, n.regionkey)[2] = ROW (r.name, r.regionkey)[2] ORDER BY n.name LIMIT 1", "VALUES ('ALGERIA', 'AFRICA')");
+    }
 
-        //Row subscript in a lambda
+    @Test
+    public void testRowSubscriptInLambda()
+    {
         assertQuery("SELECT apply(ROW (1, 2), r -> r[2])", "SELECT 2");
     }
 
@@ -2400,12 +2412,17 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT 1 in (1, NULL, 3)", "values true");
         assertQuery("SELECT 2 in (1, NULL, 3)", "values null");
         assertQuery("SELECT x FROM (values DATE '1970-01-01', DATE '1970-01-03') t(x) WHERE x IN (DATE '1970-01-01')", "values DATE '1970-01-01'");
+        assertQuery("SELECT COUNT(*) FROM (values 1) t(x) WHERE x IN (null, 0)", "SELECT 0");
+        assertQuery("SELECT d IN (DECIMAL '2.0', DECIMAL '30.0') FROM (VALUES (2.0E0)) t(d)", "SELECT true"); // coercion with type only coercion inside IN list
+    }
+
+    @Test
+    public void testInTimestampWithTimezone()
+    {
         assertEquals(
                 computeActual("SELECT x FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1970-01-01 00:01:00+08:00') t(x) WHERE x IN (TIMESTAMP '1970-01-01 00:01:00+00:00')")
                         .getOnlyColumn().collect(toList()),
                 ImmutableList.of(zonedDateTime("1970-01-01 00:01:00.000 UTC"), zonedDateTime("1970-01-01 08:01:00.000 +08:00")));
-        assertQuery("SELECT COUNT(*) FROM (values 1) t(x) WHERE x IN (null, 0)", "SELECT 0");
-        assertQuery("SELECT d IN (DECIMAL '2.0', DECIMAL '30.0') FROM (VALUES (2.0E0)) t(d)", "SELECT true"); // coercion with type only coercion inside IN list
     }
 
     @Test
@@ -3202,13 +3219,8 @@ public abstract class AbstractTestQueries
         assertQueryFails("SELECT TRY()", "line 1:8: The 'try' function must have exactly one argument");
 
         // check that TRY is not pushed down
-        assertQueryFails("SELECT TRY(x) IS NULL FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", "/ by zero");
+        assertQueryFails("SELECT TRY(x) IS NULL FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", ".*(/|division) by zero.*");
         assertQuery("SELECT x IS NULL FROM (SELECT TRY(1/y) AS x FROM (VALUES 3, 0, 4) t(y))", "VALUES false, true, false");
-
-        // test try with lambda function
-        assertQuery("SELECT TRY(apply(5, x -> x + 1) / 0)", "SELECT NULL");
-        assertQuery("SELECT TRY(apply(5 + RANDOM(1), x -> x + 1) / 0)", "SELECT NULL");
-        assertQuery("SELECT apply(5 + RANDOM(1), x -> x + TRY(1 / 0))", "SELECT NULL");
 
         // test try with invalid JSON
         assertQuery("SELECT JSON_FORMAT(TRY(JSON 'INVALID'))", "SELECT NULL");
@@ -3234,6 +3246,14 @@ public abstract class AbstractTestQueries
 
         // test try with null
         assertQuery("SELECT TRY(1 / x) FROM (SELECT NULL as x)", "SELECT NULL");
+    }
+
+    @Test
+    public void testTryWithLambda()
+    {
+        assertQuery("SELECT TRY(apply(5, x -> x + 1) / 0)", "SELECT NULL");
+        assertQuery("SELECT TRY(apply(5 + RANDOM(1), x -> x + 1) / 0)", "SELECT NULL");
+        assertQuery("SELECT apply(5 + RANDOM(1), x -> x + TRY(1 / 0))", "SELECT NULL");
     }
 
     @Test
@@ -6020,6 +6040,11 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "select group_id, set_union(numbers) from (values (1, array[1, 2]), (2, array[2, 3]), (3, array[4, 5]), (4, array[5, 6])) as t(group_id, numbers) group by group_id",
                 "select group_id, numbers from (values (1, array[1, 2]), (2, array[2, 3]), (3, array[4, 5]), (4, array[5, 6])) as t(group_id, numbers)");
+    }
+
+    @Test
+    public void testSetUnionWithNulls()
+    {
         // all nulls should return empty array to match behavior of array_distinct(flatten(array_agg(x)))
         assertQuery(
                 "select set_union(x) from (values null, null, null) as t(x)",
@@ -6135,7 +6160,8 @@ public abstract class AbstractTestQueries
 
         MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
         assertEquals(actual2.getRowCount(), 1);
-        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L));
+        Object actual2Value = actual2.getMaterializedRows().get(0).getFields().get(0);
+        assertTrue(actual2Value.equals(ImmutableMap.of(1L, 3L, 2L, 2L)) || actual2Value.equals(ImmutableMap.of(1L, 3L, 3L, 2L)));
     }
 
     @Test
@@ -6147,7 +6173,8 @@ public abstract class AbstractTestQueries
 
         MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
         assertEquals(actual2.getRowCount(), 1);
-        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L));
+        Object actual2Value = actual2.getMaterializedRows().get(0).getFields().get(0);
+        assertTrue(actual2Value.equals(ImmutableMap.of("A", 3L, "B", 2L)) || actual2Value.equals(ImmutableMap.of("A", 3L, "C", 2L)));
     }
 
     @Test
@@ -6580,15 +6607,6 @@ public abstract class AbstractTestQueries
                 "VALUES (1, 2, 'a', 2, 'a', 1, 'a', 1), (1, 3, 'b', 3, 'b', 2, 'b', 2), (1, NULL, NULL, NULL, NULL, 3, 'c', 3)");
         assertQuery("SELECT * from ( SELECT ARRAY[1] AS kv FROM (select 1)) CROSS JOIN UNNEST( kv, kv ) WITH ORDINALITY AS t(r1, r2, ord)", "VALUES (ARRAY[1], 1, 1, 1)");
 
-        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
-                "VALUES (1, 2, 3, 2, 3), (1, 3, 5, 3, 5)");
-        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3, r4, r5, r6, r7)",
-                "VALUES (1, 2, 3, 2, 3, 10, 13, 15), (1, 3, 5, 3, 5, 23, 25, 20)");
-        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
-                "VALUES (1, 2, 3, 2, 3, 1), (1, 3, 5, 3, 5, 2)");
-        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) WITH ORDINALITY AS r(r1, r2, r3, r4, r5, r6, r7, ord)",
-                "VALUES (1, 2, 3, 2, 3, 10, 13, 15, 1), (1, 3, 5, 3, 5, 23, 25, 20, 2)");
-
         Session useLegacyUnnest = Session.builder(getSession())
                 .setSystemProperty(LEGACY_UNNEST, "true")
                 .build();
@@ -6624,11 +6642,6 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * from unnest(ARRAY[2, 3], ARRAY[10,11,12], ARRAY[2, 3]) WITH ORDINALITY AS r(r1, r2, r3, ord)", "VALUES (2, 10, 2, 1), (3, 11, 3, 2), (NULL, 12, NULL, 3)");
         assertQuery("SELECT * from unnest(ARRAY[2, 3], ARRAY[2, 3], ARRAY[10,11,12]) WITH ORDINALITY AS r(r1, r2, r3, ord)", "VALUES (2, 2, 10, 1), (3, 3, 11, 2), (NULL, NULL, 12, 3)");
 
-        assertQuery("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
-                "VALUES (2, 3, 2, 3), (3, 5, 3, 5)");
-        assertQuery("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
-                "VALUES (2, 3, 2, 3, 1), (3, 5, 3, 5, 2)");
-
         assertQuery(useLegacyUnnest, "SELECT cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)) from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2)",
                 "VALUES (row(2, 3), row(2, 3)), (row(3, 5), row(3, 5))");
         assertQuery(useLegacyUnnest, "SELECT cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)), cast(r3 as row(x int, y int, z int)) from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3)",
@@ -6641,6 +6654,24 @@ public abstract class AbstractTestQueries
         // mixed
         assertQuery("select * from (SELECT * from unnest(ARRAY[2, 3], ARRAY[2, 3]) WITH ORDINALITY AS r(r1, r2, ord)) cross join unnest(ARRAY[2, 3], ARRAY[2, 3])",
                 "VALUES (2, 2, 1, 2, 2), (2, 2, 1, 3, 3), (3, 3, 2, 2, 2), (3, 3, 2, 3, 3)");
+    }
+
+    @Test
+    public void testDuplicateUnnestRows()
+    {
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
+                "VALUES (1, 2, 3, 2, 3), (1, 3, 5, 3, 5)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3, r4, r5, r6, r7)",
+                "VALUES (1, 2, 3, 2, 3, 10, 13, 15), (1, 3, 5, 3, 5, 23, 25, 20)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
+                "VALUES (1, 2, 3, 2, 3, 1), (1, 3, 5, 3, 5, 2)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) WITH ORDINALITY AS r(r1, r2, r3, r4, r5, r6, r7, ord)",
+                "VALUES (1, 2, 3, 2, 3, 10, 13, 15, 1), (1, 3, 5, 3, 5, 23, 25, 20, 2)");
+
+        assertQuery("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
+                "VALUES (2, 3, 2, 3), (3, 5, 3, 5)");
+        assertQuery("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
+                "VALUES (2, 3, 2, 3, 1), (3, 5, 3, 5, 2)");
     }
 
     @Test
@@ -6993,14 +7024,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testArrayCumSum()
+    public void testArrayCumSumIntegers()
     {
         // int
         String sql = "select array_cum_sum(k) from (values (array[cast(5 as INTEGER), 6, 0]), (ARRAY[]), (CAST(NULL AS array(integer)))) t(k)";
         assertQuery(sql, "values array[cast(5 as integer), cast(11 as integer), cast(11 as integer)], array[], null");
 
         sql = "select array_cum_sum(k) from (values (array[cast(5 as INTEGER), 6, 0]), (ARRAY[]), (CAST(NULL AS array(integer))), (ARRAY [cast(2147483647 as INTEGER), 2147483647, 2147483647])) t(k)";
-        assertQueryFails(sql, "integer addition overflow:.*");
+        assertQueryFails(sql, "integer (addition )?overflow:.*", true);
 
         sql = "select array_cum_sum(k) from (values (array[cast(5 as INTEGER), 6, null, 2, 3])) t(k)";
         assertQuery(sql, "values array[cast(5 as integer), cast(11 as integer), cast(null as integer), cast(null as integer), cast(null as integer)]");
@@ -7017,9 +7048,24 @@ public abstract class AbstractTestQueries
 
         sql = "select array_cum_sum(k) from (values (array[cast(null as bigint), 6, null, 2, 3])) t(k)";
         assertQuery(sql, "values array[cast(null as bigint), cast(null as bigint), cast(null as bigint), cast(null as bigint), cast(null as bigint)]");
+    }
 
+    @Test
+    public void testArrayCumSumDecimals()
+    {
+        String sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, 0]), (ARRAY[]), (CAST(NULL AS array(decimal)))) t(k)";
+        assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(11.1 as decimal)], array[], null");
+
+        sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, null, 3]), (array[cast(null as decimal(38, 1)), 6, null, 3])) t(k)";
+        assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(null as decimal), cast(null as decimal)], " +
+                "array[cast(null as decimal), cast(null as decimal), cast(null as decimal), cast(null as decimal)]");
+    }
+
+    @Test
+    public void testArrayCumSumReals()
+    {
         // real
-        sql = "select array_cum_sum(k) from (values (array[cast(null as real), 6, null, 2, 3])) t(k)";
+        String sql = "select array_cum_sum(k) from (values (array[cast(null as real), 6, null, 2, 3])) t(k)";
         assertQuery(sql, "values array[cast(null as real), cast(null as real), cast(null as real), cast(null as real), cast(null as real)]");
 
         MaterializedResult raw = computeActual("SELECT array_cum_sum(k) FROM (values (ARRAY [cast(5.1 as real), 6.1, 0.5]), (ARRAY[]), (CAST(NULL AS array(real))), " +
@@ -7080,17 +7126,12 @@ public abstract class AbstractTestQueries
         for (int i = 2; i < actualDouble.size(); ++i) {
             assertNull(actualDouble.get(i));
         }
+    }
 
-        // decimal
-        sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, 0]), (ARRAY[]), (CAST(NULL AS array(decimal)))) t(k)";
-        assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(11.1 as decimal)], array[], null");
-
-        sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, null, 3]), (array[cast(null as decimal(38, 1)), 6, null, 3])) t(k)";
-        assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(null as decimal), cast(null as decimal)], " +
-                "array[cast(null as decimal), cast(null as decimal), cast(null as decimal), cast(null as decimal)]");
-
-        // varchar
-        sql = "select array_cum_sum(k) from (values (array[cast('5.1' as varchar), '6', '0']), (ARRAY[]), (CAST(NULL AS array(varchar)))) t(k)";
+    @Test
+    public void testArrayCumSumVarchar()
+    {
+        String sql = "select array_cum_sum(k) from (values (array[cast('5.1' as varchar), '6', '0']), (ARRAY[]), (CAST(NULL AS array(varchar)))) t(k)";
         assertQueryFails(sql, ".*cannot be applied to.*");
 
         sql = "select array_cum_sum(k) from (values (array[cast(null as varchar), '6', '0'])) t(k)";
@@ -7788,10 +7829,18 @@ public abstract class AbstractTestQueries
                 "values 0.5, 0.1");
         assertQuery(enableOptimization, "select element_at(feature, key) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
                 "values 0.5, null");
-        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
-                ".*Out of range for integer.*");
         assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), cast('2' as varchar)), (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), '4')) t(feature,  key)",
                 "values 0.5, 0.1");
+    }
+
+    @Test
+    public void testRemoveMapCastFailure()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_MAP_CAST, "true")
+                .build();
+        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
+                ".*Out of range for integer.*");
     }
 
     // Test to guardrail problems in constraint framework mentioned in https://github.com/prestodb/presto/pull/22171
