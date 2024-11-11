@@ -168,6 +168,16 @@ SessionProperties::SessionProperties() {
       boolToString(c.writerSpillEnabled()));
 
   addSessionProperty(
+      kWriterFlushThresholdBytes,
+      "Native Execution only. Minimum memory footprint size required "
+      "to reclaim memory from a file writer by flushing its buffered data to "
+      "disk.",
+      BIGINT(),
+      false,
+      QueryConfig::kWriterFlushThresholdBytes,
+      std::to_string(c.writerFlushThresholdBytes()));
+
+  addSessionProperty(
       kRowNumberSpillEnabled,
       "Native Execution only. Enable row number spilling on native engine",
       BOOLEAN(),
@@ -176,17 +186,9 @@ SessionProperties::SessionProperties() {
       boolToString(c.rowNumberSpillEnabled()));
 
   addSessionProperty(
-      kJoinSpillPartitionBits,
-      "Native Execution only. The number of bits (N) used to calculate the "
-      "spilling partition number for hash join and RowNumber: 2 ^ N",
-      INTEGER(),
-      false,
-      QueryConfig::kJoinSpillPartitionBits,
-      std::to_string(c.rowNumberSpillEnabled()));
-
-  addSessionProperty(
       kSpillerNumPartitionBits,
-      "none",
+      "The number of bits (N) used to calculate the spilling "
+      "partition number for hash join and RowNumber: 2 ^ N",
       TINYINT(),
       false,
       QueryConfig::kSpillNumPartitionBits,
@@ -352,6 +354,15 @@ SessionProperties::SessionProperties() {
       // Overrides velox default value. Set it to 1 second to be aligned with
       // Presto Java.
       std::to_string(1000));
+
+  addSessionProperty(
+      kMaxLocalExchangePartitionCount,
+      "Maximum number of partitions created by a local exchange."
+      "Affects concurrency for pipelines containing LocalPartitionNode",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxLocalExchangePartitionCount,
+      std::to_string(c.maxLocalExchangePartitionCount()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&

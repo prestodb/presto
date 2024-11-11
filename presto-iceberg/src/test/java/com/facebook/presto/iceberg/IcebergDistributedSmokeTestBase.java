@@ -640,7 +640,6 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testRollbackSnapshot()
     {
         Session session = getSession();
-        MaterializedResult result = computeActual("SHOW SCHEMAS FROM system");
         assertUpdate(session, "CREATE TABLE test_rollback AS SELECT * FROM (VALUES (123, CAST(321 AS BIGINT))) AS t (col0, col1)", 1);
         long afterCreateTableId = getLatestSnapshotId();
 

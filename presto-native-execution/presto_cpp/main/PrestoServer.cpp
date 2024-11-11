@@ -16,8 +16,9 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <glog/logging.h>
-#include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
+#include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/SystemConnector.h"
@@ -48,7 +49,11 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
+#ifdef VELOX_ENABLE_FORWARD_COMPATIBILITY
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
+#else
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
+#endif
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/tpch/TpchConnector.h"
@@ -60,7 +65,9 @@
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
+#include "velox/serializers/CompactRowSerializer.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
@@ -339,7 +346,7 @@ void PrestoServer::run() {
   }
 
   httpServer_ = std::make_unique<http::HttpServer>(
-      httpSrvIOExecutor_, std::move(httpConfig), std::move(httpsConfig));
+      httpSrvIoExecutor_, std::move(httpConfig), std::move(httpsConfig));
 
   httpServer_->registerPost(
       "/v1/memory",
@@ -555,7 +562,10 @@ void PrestoServer::run() {
   periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverExecutor_.get(),
       spillerExecutor_.get(),
-      httpServer_->getExecutor(),
+      httpSrvIoExecutor_.get(),
+      httpSrvCpuExecutor_.get(),
+      exchangeHttpIoExecutor_.get(),
+      exchangeHttpCpuExecutor_.get(),
       taskManager_.get(),
       memoryAllocator,
       asyncDataCache,
@@ -564,6 +574,8 @@ void PrestoServer::run() {
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
+
+  addMemoryCheckerPeriodicTask();
 
   // Start everything. After the return from the following call we are shutting
   // down.
@@ -583,6 +595,8 @@ void PrestoServer::run() {
   periodicTaskManager_->stop();
 
   stopAdditionalPeriodicTasks();
+
+  stopMemoryCheckerPeriodicTask();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
@@ -623,12 +637,12 @@ void PrestoServer::run() {
         << ", task queue: " << httpSrvCpuExecutor_->getTaskQueueSize();
     httpSrvCpuExecutor_->join();
   }
-  if (httpSrvIOExecutor_ != nullptr) {
+  if (httpSrvIoExecutor_ != nullptr) {
     PRESTO_SHUTDOWN_LOG(INFO)
-        << "Joining HTTP Server IO Executor '" << httpSrvIOExecutor_->getName()
-        << "': threads: " << httpSrvIOExecutor_->numActiveThreads() << "/"
-        << httpSrvIOExecutor_->numThreads();
-    httpSrvIOExecutor_->join();
+        << "Joining HTTP Server IO Executor '" << httpSrvIoExecutor_->getName()
+        << "': threads: " << httpSrvIoExecutor_->numActiveThreads() << "/"
+        << httpSrvIoExecutor_->numThreads();
+    httpSrvIoExecutor_->join();
   }
 
   PRESTO_SHUTDOWN_LOG(INFO)
@@ -742,7 +756,7 @@ void PrestoServer::initializeThreadPools() {
 
   const auto numIoThreads = std::max<size_t>(
       systemConfig->httpServerNumIoThreadsHwMultiplier() * hwConcurrency, 1);
-  httpSrvIOExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+  httpSrvIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
       numIoThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
 
   const auto numCpuThreads = std::max<size_t>(
@@ -963,6 +977,18 @@ void PrestoServer::updateAnnouncerDetails() {
   if (announcer_ != nullptr) {
     announcer_->setDetails(
         fmt::format("State: {}.", nodeState2String(nodeState_)));
+  }
+}
+
+void PrestoServer::addMemoryCheckerPeriodicTask() {
+  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
+    folly::Singleton<PeriodicMemoryChecker>::try_get()->start();
+  }
+}
+
+void PrestoServer::stopMemoryCheckerPeriodicTask() {
+  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
+    folly::Singleton<PeriodicMemoryChecker>::try_get()->stop();
   }
 }
 
@@ -1251,6 +1277,15 @@ void PrestoServer::registerVectorSerdes() {
   if (!velox::isRegisteredVectorSerde()) {
     velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
   }
+  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
+    velox::serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kCompactRow)) {
+    velox::serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+  }
+  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kUnsafeRow)) {
+    velox::serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
+  }
 }
 
 void PrestoServer::registerFileSinks() {
@@ -1261,7 +1296,11 @@ void PrestoServer::registerFileSystems() {
   velox::filesystems::registerLocalFileSystem();
   velox::filesystems::registerS3FileSystem();
   velox::filesystems::registerHdfsFileSystem();
+#ifdef VELOX_ENABLE_FORWARD_COMPATIBILITY
+  velox::filesystems::registerGcsFileSystem();
+#else
   velox::filesystems::registerGCSFileSystem();
+#endif
   velox::filesystems::abfs::registerAbfsFileSystem();
 }
 

@@ -34,6 +34,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/Values.h"
+#include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -112,11 +113,13 @@ class Cursor {
       TaskManager* taskManager,
       const protocol::TaskId& taskId,
       const RowTypePtr& rowType,
+      velox::VectorSerde::Kind serdeKind,
       memory::MemoryPool* pool)
       : pool_(pool),
         taskManager_(taskManager),
         taskId_(taskId),
-        rowType_(rowType) {}
+        rowType_(rowType),
+        serdeKind_(serdeKind) {}
 
   std::optional<std::vector<RowVectorPtr>> next() {
     if (atEnd_) {
@@ -156,23 +159,25 @@ class Cursor {
           const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
     }
 
-    auto input = std::make_unique<BufferInputStream>(std::move(byteRanges));
-
+    const auto input =
+        std::make_unique<BufferInputStream>(std::move(byteRanges));
+    auto* serde = velox::getNamedVectorSerde(serdeKind_);
     std::vector<RowVectorPtr> vectors;
     while (!input->atEnd()) {
       RowVectorPtr vector;
-      VectorStreamGroup::read(input.get(), pool_, rowType_, &vector);
+      VectorStreamGroup::read(input.get(), pool_, rowType_, serde, &vector);
       vectors.emplace_back(vector);
     }
     return vectors;
   }
 
-  memory::MemoryPool* pool_;
-  TaskManager* taskManager_;
+  memory::MemoryPool* const pool_;
+  TaskManager* const taskManager_;
   const protocol::TaskId taskId_;
-  RowTypePtr rowType_;
-  bool atEnd_ = false;
-  uint64_t sequence_ = 0;
+  const RowTypePtr rowType_;
+  const velox::VectorSerde::Kind serdeKind_;
+  bool atEnd_{false};
+  uint64_t sequence_{0};
 };
 
 void setAggregationSpillConfig(
@@ -181,9 +186,19 @@ void setAggregationSpillConfig(
   queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
 }
 
-class TaskManagerTest : public testing::Test {
+class TaskManagerTest : public exec::test::OperatorTestBase,
+                        public testing::WithParamInterface<VectorSerde::Kind> {
  public:
+  static std::vector<VectorSerde::Kind> getTestParams() {
+    const std::vector<VectorSerde::Kind> kinds(
+        {VectorSerde::Kind::kPresto,
+         VectorSerde::Kind::kCompactRow,
+         VectorSerde::Kind::kUnsafeRow});
+    return kinds;
+  }
+
   static void SetUpTestCase() {
+    OperatorTestBase::SetUpTestCase();
     filesystems::registerLocalFileSystem();
     if (!connector::hasConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
@@ -194,32 +209,12 @@ class TaskManagerTest : public testing::Test {
     SystemConfig::instance()->setValue(
         std::string(SystemConfig::kMemoryArbitratorKind), "SHARED");
     ASSERT_EQ(SystemConfig::instance()->memoryArbitratorKind(), "SHARED");
-    FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
-    FLAGS_velox_memory_leak_check_enabled = true;
-    velox::memory::SharedArbitrator::registerFactory();
-    velox::memory::MemoryManagerOptions options;
-    options.allocatorCapacity = 8L << 30;
-    options.arbitratorCapacity = 6L << 30;
-    options.extraArbitratorConfigs = {
-        {std::string(velox::memory::SharedArbitrator::ExtraConfig::
-                         kMemoryPoolInitialCapacity),
-         "512MB"},
-        {std::string(velox::memory::SharedArbitrator::ExtraConfig::
-                         kMemoryPoolMinReclaimBytes),
-         "0B"}};
-    options.arbitratorKind = "SHARED";
-    options.checkUsageLeak = true;
-    options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
-    memory::MemoryManager::testingSetInstance(options);
     common::testutil::TestValue::enable();
   }
 
  protected:
   void SetUp() override {
-    FLAGS_velox_memory_leak_check_enabled = true;
-    functions::prestosql::registerAllScalarFunctions();
-    aggregate::prestosql::registerAllAggregateFunctions();
-    parse::registerTypeResolver();
+    OperatorTestBase::SetUp();
     dwrf::registerDwrfWriterFactory();
     dwrf::registerDwrfReaderFactory();
     exec::ExchangeSource::registerFactory(
@@ -240,9 +235,6 @@ class TaskManagerTest : public testing::Test {
               connPool.get(),
               nullptr);
         });
-    if (!isRegisteredVectorSerde()) {
-      serializer::presto::PrestoVectorSerde::registerVectorSerde();
-    };
 
     registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
         connector::hive::HiveConnectorFactory::kHiveConnectorName));
@@ -255,9 +247,6 @@ class TaskManagerTest : public testing::Test {
                     std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
 
-    rootPool_ = memory::memoryManager()->addRootPool("TaskManagerTest.root");
-    leafPool_ =
-        memory::deprecatedAddDefaultLeafMemoryPool("TaskManagerTest.leaf");
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
 
     taskManager_ = std::make_unique<TaskManager>(
@@ -265,7 +254,7 @@ class TaskManagerTest : public testing::Test {
 
     auto validator = std::make_shared<facebook::presto::VeloxPlanValidator>();
     taskResource_ = std::make_unique<TaskResource>(
-        leafPool_.get(),
+        pool_.get(),
         httpSrvCpuExecutor_.get(),
         validator.get(),
         *taskManager_.get());
@@ -298,6 +287,8 @@ class TaskManagerTest : public testing::Test {
         connector::hive::HiveConnectorFactory::kHiveConnectorName);
     dwrf::unregisterDwrfWriterFactory();
     dwrf::unregisterDwrfReaderFactory();
+    taskManager_.reset();
+    OperatorTestBase::TearDown();
   }
 
   std::vector<RowVectorPtr> makeVectors(int count, int rowsPerVector) {
@@ -305,7 +296,7 @@ class TaskManagerTest : public testing::Test {
     for (int i = 0; i < count; ++i) {
       auto vector = std::dynamic_pointer_cast<RowVector>(
           facebook::velox::test::BatchMaker::createBatch(
-              rowType_, rowsPerVector, *leafPool_));
+              rowType_, rowsPerVector, *pool_));
       vectors.emplace_back(vector);
     }
     return vectors;
@@ -398,7 +389,8 @@ class TaskManagerTest : public testing::Test {
       const protocol::TaskId& taskId,
       const RowTypePtr& resultType,
       const std::vector<std::string>& allTaskIds) {
-    Cursor cursor(taskManager_.get(), taskId, resultType, leafPool_.get());
+    Cursor cursor(
+        taskManager_.get(), taskId, resultType, GetParam(), pool_.get());
     std::vector<RowVectorPtr> vectors;
     for (;;) {
       auto moreVectors = cursor.next();
@@ -438,10 +430,11 @@ class TaskManagerTest : public testing::Test {
       const RowTypePtr& outputType,
       long& splitSequenceId,
       protocol::TaskId outputTaskId = "output.0.0.1.0") {
-    auto planFragment = exec::test::PlanBuilder()
-                            .exchange(outputType)
-                            .partitionedOutput({}, 1)
-                            .planFragment();
+    auto planFragment =
+        exec::test::PlanBuilder()
+            .exchange(outputType, GetParam())
+            .partitionedOutput({}, 1, /*outputLayout=*/{}, GetParam())
+            .planFragment();
 
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(
@@ -519,7 +512,7 @@ class TaskManagerTest : public testing::Test {
             .tableScan(rowType_)
             .project({"c0 % 5"})
             .partialAggregation({"p0"}, {"count(1)"})
-            .partitionedOutput({"p0"}, numPartitions, {"p0", "a0"})
+            .partitionedOutput({"p0"}, numPartitions, {"p0", "a0"}, GetParam())
             .planFragment();
 
     TaskIdGenerator taskIdGenerator(queryId);
@@ -548,10 +541,12 @@ class TaskManagerTest : public testing::Test {
             .localPartition(
                 {"p0"},
                 {exec::test::PlanBuilder(planNodeIdGenerator)
-                     .exchange(partialAggPlanFragment.planNode->outputType())
+                     .exchange(
+                         partialAggPlanFragment.planNode->outputType(),
+                         GetParam())
                      .planNode()})
             .finalAggregation({"p0"}, {"count(a0)"}, {{BIGINT()}})
-            .partitionedOutput({}, 1, {"p0", "a0"})
+            .partitionedOutput({}, 1, {"p0", "a0"}, GetParam())
             .planFragment();
 
     std::vector<std::string> finalAggTasks;
@@ -678,8 +673,6 @@ class TaskManagerTest : public testing::Test {
         taskId, updateRequest, planFragment, std::move(queryCtx), 0);
   }
 
-  std::shared_ptr<memory::MemoryPool> rootPool_;
-  std::shared_ptr<memory::MemoryPool> leafPool_;
   RowTypePtr rowType_;
   exec::test::DuckDbQueryRunner duckDbQueryRunner_;
   std::unique_ptr<TaskManager> taskManager_;
@@ -709,7 +702,7 @@ class TaskManagerTest : public testing::Test {
 
 // Runs "select * from t where c0 % 5 = 0" query.
 // Creates one task and provides all splits at once.
-TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
+TEST_P(TaskManagerTest, tableScanAllSplitsAtOnce) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
@@ -721,7 +714,7 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .filter("c0 % 5 = 0")
-                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
                           .planFragment();
 
   long splitSequenceId{0};
@@ -736,7 +729,7 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
 }
 
-TEST_F(TaskManagerTest, fecthFromFinishedTask) {
+TEST_P(TaskManagerTest, fecthFromFinishedTask) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
@@ -748,7 +741,7 @@ TEST_F(TaskManagerTest, fecthFromFinishedTask) {
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .filter("c0 % 5 = 0")
-                          .partitionedOutputArbitrary({"c0", "c1"})
+                          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
                           .planFragment();
 
   const protocol::TaskId taskId = "scan.0.0.1.0";
@@ -787,7 +780,7 @@ TEST_F(TaskManagerTest, fecthFromFinishedTask) {
   ASSERT_TRUE(newResult.value()->complete);
 }
 
-DEBUG_ONLY_TEST_F(TaskManagerTest, fecthFromArbitraryOutput) {
+DEBUG_ONLY_TEST_P(TaskManagerTest, fecthFromArbitraryOutput) {
   // Block output until the first fetch destination becomes inactive.
   folly::EventCount outputWait;
   std::atomic<bool> outputWaitFlag{false};
@@ -801,7 +794,7 @@ DEBUG_ONLY_TEST_F(TaskManagerTest, fecthFromArbitraryOutput) {
   const std::vector<RowVectorPtr> batches = makeVectors(1, 1'000);
   auto planFragment = exec::test::PlanBuilder()
                           .values(batches)
-                          .partitionedOutputArbitrary({"c0", "c1"})
+                          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
                           .planFragment();
   const protocol::TaskId taskId = "source.0.0.1.0";
   const auto taskInfo = createOrUpdateTask(taskId, {}, planFragment);
@@ -851,7 +844,7 @@ DEBUG_ONLY_TEST_F(TaskManagerTest, fecthFromArbitraryOutput) {
       prestoTask->task.get(), TaskState::kFinished, 3'000'000));
 }
 
-TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
+TEST_P(TaskManagerTest, taskCleanupWithPendingResultData) {
   // Trigger old task cleanup immediately.
   taskManager_->setOldTaskCleanUpMs(0);
 
@@ -865,7 +858,7 @@ TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .filter("c0 % 5 = 0")
-                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
                           .planFragment();
 
   long splitSequenceId{0};
@@ -910,7 +903,7 @@ TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
 
 // Runs "select * from t where c0 % 5 = 1" query.
 // Creates one task and provides splits one at a time.
-TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
+TEST_P(TaskManagerTest, tableScanOneSplitAtATime) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
@@ -922,7 +915,7 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .filter("c0 % 5 = 1")
-                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
                           .planFragment();
 
   protocol::TaskId taskId = "scan.0.0.1.0";
@@ -945,7 +938,7 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
 }
 
 // Runs 2-stage tableScan: (1) multiple table scan tasks; (2) single output task
-TEST_F(TaskManagerTest, tableScanMultipleTasks) {
+TEST_P(TaskManagerTest, tableScanMultipleTasks) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
@@ -957,7 +950,7 @@ TEST_F(TaskManagerTest, tableScanMultipleTasks) {
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .filter("c0 % 5 = 1")
-                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
                           .planFragment();
 
   TaskIdGenerator taskIdGenerator("scan");
@@ -981,7 +974,7 @@ TEST_F(TaskManagerTest, tableScanMultipleTasks) {
 
 // Create a task to scan an empty (invalid) ORC file. Ensure that the error
 // propagates via getTaskStatus().
-TEST_F(TaskManagerTest, emptyFile) {
+TEST_P(TaskManagerTest, emptyFile) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeEmptyFiles(tableDir, 1);
   auto planFragment = exec::test::PlanBuilder()
@@ -1018,7 +1011,7 @@ TEST_F(TaskManagerTest, emptyFile) {
   }
 }
 
-TEST_F(TaskManagerTest, countAggregation) {
+TEST_P(TaskManagerTest, countAggregation) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
@@ -1032,7 +1025,7 @@ TEST_F(TaskManagerTest, countAggregation) {
 
 // Run distributed sort query that has 2 stages. First stage runs multiple
 // tasks with partial sort. Second stage runs single task with merge exchange.
-TEST_F(TaskManagerTest, distributedSort) {
+TEST_P(TaskManagerTest, distributedSort) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
@@ -1042,11 +1035,12 @@ TEST_F(TaskManagerTest, distributedSort) {
   duckDbQueryRunner_.createTable("tmp", vectors);
 
   // Create partial sort tasks.
-  auto partialSortPlan = exec::test::PlanBuilder()
-                             .tableScan(rowType_)
-                             .orderBy({"c0"}, true)
-                             .partitionedOutput({}, 1)
-                             .planFragment();
+  auto partialSortPlan =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .orderBy({"c0"}, true)
+          .partitionedOutput({}, 1, /*outputLayout=*/{}, GetParam())
+          .planFragment();
 
   TaskIdGenerator taskIdGenerator("distributed-sort");
 
@@ -1064,10 +1058,11 @@ TEST_F(TaskManagerTest, distributedSort) {
   }
 
   // Create final sort task.
-  auto finalSortPlan = exec::test::PlanBuilder()
-                           .mergeExchange(rowType_, {"c0"})
-                           .partitionedOutput({}, 1)
-                           .planFragment();
+  auto finalSortPlan =
+      exec::test::PlanBuilder()
+          .mergeExchange(rowType_, {"c0"}, GetParam())
+          .partitionedOutput({}, 1, /*outputLayout=*/{}, GetParam())
+          .planFragment();
 
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(
@@ -1105,7 +1100,7 @@ TEST_F(TaskManagerTest, distributedSort) {
       finalPrestoTaskStats.peakUserMemoryInBytes);
 }
 
-TEST_F(TaskManagerTest, outOfQueryUserMemory) {
+TEST_P(TaskManagerTest, outOfQueryUserMemory) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
@@ -1139,7 +1134,7 @@ TEST_F(TaskManagerTest, outOfQueryUserMemory) {
 }
 
 // Tests whether the returned futures timeout.
-TEST_F(TaskManagerTest, outOfOrderRequests) {
+TEST_P(TaskManagerTest, outOfOrderRequests) {
   auto eventBase = folly::EventBaseManager::get()->getEventBase();
   // 5 minute wait to ensure we don't timeout the out-of-order requests.
   auto longWait = protocol::Duration("300s");
@@ -1153,7 +1148,7 @@ TEST_F(TaskManagerTest, outOfOrderRequests) {
   auto planFragment = exec::test::PlanBuilder()
                           .values(vectors)
                           .filter("c0 % 5 = 0")
-                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
                           .planFragment();
 
   protocol::TaskId taskId = "scan.0.0.1.0";
@@ -1183,7 +1178,7 @@ TEST_F(TaskManagerTest, outOfOrderRequests) {
 }
 
 // Tests whether the returned futures timeout.
-TEST_F(TaskManagerTest, timeoutOutOfOrderRequests) {
+TEST_P(TaskManagerTest, timeoutOutOfOrderRequests) {
   auto eventBase = folly::EventBaseManager::get()->getEventBase();
   auto shortWait = protocol::Duration("100ms");
   auto longWait = std::chrono::seconds(5);
@@ -1221,7 +1216,7 @@ TEST_F(TaskManagerTest, timeoutOutOfOrderRequests) {
           .getVia(eventBase));
 }
 
-TEST_F(TaskManagerTest, aggregationSpill) {
+TEST_P(TaskManagerTest, aggregationSpill) {
   // NOTE: we need to write more than one batches to each file (source split) to
   // trigger spill.
   const int numBatchesPerFile = 5;
@@ -1266,7 +1261,7 @@ TEST_F(TaskManagerTest, aggregationSpill) {
   }
 }
 
-TEST_F(TaskManagerTest, buildTaskSpillDirectoryPath) {
+TEST_P(TaskManagerTest, buildTaskSpillDirectoryPath) {
   EXPECT_EQ(
       "fs::/base/presto_native/192.168.10.2_19/2022-12-20/20221220-Q/Task1/",
       TaskManager::buildTaskSpillDirectoryPath(
@@ -1295,7 +1290,7 @@ TEST_F(TaskManagerTest, buildTaskSpillDirectoryPath) {
           false));
 }
 
-TEST_F(TaskManagerTest, getDataOnAbortedTask) {
+TEST_P(TaskManagerTest, getDataOnAbortedTask) {
   // Simulate scenario where Driver encountered a VeloxException and terminated
   // a task, which removes the entry in BufferManager. The main taskmanager
   // tries to process the resultRequest and calls getData() which must return
@@ -1303,7 +1298,7 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .filter("c0 % 5 = 0")
-                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
                           .planFragment();
 
   int token = 123;
@@ -1343,7 +1338,7 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
   ASSERT_TRUE(promiseFulfilled);
 }
 
-TEST_F(TaskManagerTest, getResultsFromFailedTask) {
+TEST_P(TaskManagerTest, getResultsFromFailedTask) {
   const protocol::TaskId taskId = "error-task.0.0.0.0";
   std::exception e;
   taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
@@ -1373,7 +1368,7 @@ TEST_F(TaskManagerTest, getResultsFromFailedTask) {
   ASSERT_EQ(results->data->capacity(), 0);
 }
 
-TEST_F(TaskManagerTest, getResultsFromAbortedTask) {
+TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
   const protocol::TaskId taskId = "aborted-task.0.0.0.0";
   // deleting a non existing task creates an aborted task
   taskManager_->deleteTask(taskId, true);
@@ -1403,12 +1398,13 @@ TEST_F(TaskManagerTest, getResultsFromAbortedTask) {
   ASSERT_EQ(results->data->capacity(), 0);
 }
 
-TEST_F(TaskManagerTest, testCumulativeMemory) {
+TEST_P(TaskManagerTest, testCumulativeMemory) {
   const std::vector<RowVectorPtr> batches = makeVectors(4, 128);
-  const auto planFragment = exec::test::PlanBuilder()
-                                .values(batches)
-                                .partitionedOutput({}, 1)
-                                .planFragment();
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .values(batches)
+          .partitionedOutput({}, 1, /*outputLayout=*/{}, GetParam())
+          .planFragment();
   auto queryCtx = core::QueryCtx::create(driverExecutor_.get());
   const protocol::TaskId taskId = "scan.0.0.1.0";
   auto veloxTask = Task::create(
@@ -1491,28 +1487,29 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
   velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
 }
 
-TEST_F(TaskManagerTest, checkBatchSplits) {
+TEST_P(TaskManagerTest, checkBatchSplits) {
   const auto taskId = "test.1.2.3.4";
 
   core::PlanNodeId probeId;
   core::PlanNodeId buildId;
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  auto planFragment = exec::test::PlanBuilder(planNodeIdGenerator)
-                          .tableScan(rowType_)
-                          .capturePlanNodeId(probeId)
-                          .hashJoin(
-                              {"c0"},
-                              {"u_c0"},
-                              exec::test::PlanBuilder(planNodeIdGenerator)
-                                  .tableScan(rowType_)
-                                  .capturePlanNodeId(buildId)
-                                  .project({"c0 as u_c0", "c1 as u_c1"})
-                                  .planNode(),
-                              "",
-                              {"u_c0", "u_c1"})
-                          .singleAggregation({}, {"count(1)"})
-                          .partitionedOutput({}, 1)
-                          .planFragment();
+  auto planFragment =
+      exec::test::PlanBuilder(planNodeIdGenerator)
+          .tableScan(rowType_)
+          .capturePlanNodeId(probeId)
+          .hashJoin(
+              {"c0"},
+              {"u_c0"},
+              exec::test::PlanBuilder(planNodeIdGenerator)
+                  .tableScan(rowType_)
+                  .capturePlanNodeId(buildId)
+                  .project({"c0 as u_c0", "c1 as u_c1"})
+                  .planNode(),
+              "",
+              {"u_c0", "u_c1"})
+          .singleAggregation({}, {"count(1)"})
+          .partitionedOutput({}, 1, /*outputLayout=*/{}, GetParam())
+          .planFragment();
 
   // No splits.
   auto queryCtx =
@@ -1549,7 +1546,7 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
   ASSERT_EQ(resultOrFailure.status, nullptr);
 }
 
-TEST_F(TaskManagerTest, buildSpillDirectoryFailure) {
+TEST_P(TaskManagerTest, buildSpillDirectoryFailure) {
   // Cleanup old tasks between test iterations.
   taskManager_->setOldTaskCleanUpMs(0);
   for (bool buildSpillDirectoryFailure : {false}) {
@@ -1606,6 +1603,9 @@ TEST_F(TaskManagerTest, buildSpillDirectoryFailure) {
   }
 }
 
-// TODO: add disk spilling test for order by and hash join later.
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TaskManagerTest,
+    TaskManagerTest,
+    testing::ValuesIn(TaskManagerTest::getTestParams()));
 } // namespace
 } // namespace facebook::presto

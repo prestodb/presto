@@ -11,29 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
 
-import com.facebook.presto.spi.WarningCode;
-import com.facebook.presto.spi.WarningCodeSupplier;
+package com.facebook.presto.spi.plan;
 
-public enum IcebergWarningCode
-        implements WarningCodeSupplier
+import static java.util.Objects.requireNonNull;
+
+public class PlanCheckerProviderContext
 {
-    ICEBERG_TABLESCAN_CONVERTED_TO_VALUESNODE(1),
-    /**/;
+    private final SimplePlanFragmentSerde simplePlanFragmentSerde;
 
-    private final WarningCode warningCode;
-
-    public static final int WARNING_CODE_MASK = 0x0100_0000;
-
-    IcebergWarningCode(int code)
+    public PlanCheckerProviderContext(SimplePlanFragmentSerde simplePlanFragmentSerde)
     {
-        warningCode = new WarningCode(code + WARNING_CODE_MASK, name());
+        this.simplePlanFragmentSerde = requireNonNull(simplePlanFragmentSerde, "simplePlanFragmentSerde is null");
     }
 
-    @Override
-    public WarningCode toWarningCode()
+    public SimplePlanFragmentSerde getSimplePlanFragmentSerde()
     {
-        return warningCode;
+        return simplePlanFragmentSerde;
     }
 }

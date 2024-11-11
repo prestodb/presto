@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.testing.QueryRunner;
@@ -31,7 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitemStandard;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNationWithFormat;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart;
@@ -39,6 +40,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.createExternalTable;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.createSchemaIfNotExist;
 import static com.facebook.presto.nativeworker.SymlinkManifestGeneratorUtils.cleanupSymlinkData;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static java.lang.String.format;
@@ -47,11 +49,18 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
         extends AbstractTestNativeTpchQueries
 {
     private static final String HIVE = "hive";
-    private static final String TPCH = "tpch";
+    private static final String TPCH_SCHEMA = "tpch_schema";
+    private static final String TPCH_EXTERNAL_SCHEMA = "tpch_external_schema";
     private static final String SYMLINK_FOLDER = "symlink_tables_manifests";
     private static final String HIVE_DATA = "hive_data";
     private static final ImmutableList<String> TPCH_TABLES = ImmutableList.of("orders", "lineitem", "nation",
             "customer", "part", "partsupp", "region", "supplier");
+
+    @Override
+    public Session getSession()
+    {
+        return Session.builder(super.getSession()).setCatalog(HIVE).setSchema(TPCH_EXTERNAL_SCHEMA).build();
+    }
 
     /**
      * Returns the Hive type string corresponding to a given TPCH type.
@@ -78,13 +87,17 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
      * @param tableName the name of the TPCH table
      * @return a list of Column objects representing the columns of the table
      */
-    private static List<Column> getTpchTableColumns(String tableName)
+    private static List<Column> getTpchTableColumns(String tableName, boolean castDateToVarchar)
     {
         TpchTable<?> table = TpchTable.getTable(tableName);
         ColumnNaming columnNaming = ColumnNaming.SIMPLIFIED;
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
         for (TpchColumn<? extends TpchEntity> column : table.getColumns()) {
-            columns.add(new Column(columnNaming.getName(column), HiveType.valueOf(getHiveTypeString(getPrestoType(column).getDisplayName())), Optional.empty(), Optional.empty()));
+            HiveType hiveType = HiveType.valueOf(getHiveTypeString(getPrestoType(column).getDisplayName()));
+            if (castDateToVarchar && hiveType.getHiveTypeName().toString().equals("date")) {
+                hiveType = HiveType.valueOf("string");
+            }
+            columns.add(new Column(columnNaming.getName(column), hiveType, Optional.empty(), Optional.empty()));
         }
         return columns.build();
     }
@@ -93,17 +106,19 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
     protected void createTables()
     {
         QueryRunner javaQueryRunner = (QueryRunner) getExpectedQueryRunner();
-        createOrders(javaQueryRunner);
-        createLineitem(javaQueryRunner);
-        createNationWithFormat(javaQueryRunner, "PARQUET");
-        createCustomer(javaQueryRunner);
-        createPart(javaQueryRunner);
-        createPartSupp(javaQueryRunner);
-        createRegion(javaQueryRunner);
-        createSupplier(javaQueryRunner);
+        createSchemaIfNotExist(javaQueryRunner, TPCH_SCHEMA);
+        Session session = Session.builder(super.getSession()).setCatalog(HIVE).setSchema(TPCH_SCHEMA).build();
+        createOrders(session, javaQueryRunner, true);
+        createLineitemStandard(session, javaQueryRunner);
+        createNationWithFormat(session, javaQueryRunner, "PARQUET");
+        createCustomer(session, javaQueryRunner);
+        createPart(session, javaQueryRunner);
+        createPartSupp(session, javaQueryRunner);
+        createRegion(session, javaQueryRunner);
+        createSupplier(session, javaQueryRunner);
 
         for (String tableName : TPCH_TABLES) {
-            createExternalTable(javaQueryRunner, TPCH, tableName, getTpchTableColumns(tableName));
+            createExternalTable(javaQueryRunner, TPCH_SCHEMA, tableName, getTpchTableColumns(tableName, true), TPCH_EXTERNAL_SCHEMA);
         }
     }
 
@@ -112,9 +127,12 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
     {
         QueryRunner javaQueryRunner = (QueryRunner) getExpectedQueryRunner();
         for (String tableName : TPCH_TABLES) {
-            dropTableIfExists(javaQueryRunner, HIVE, TPCH, tableName);
+            dropTableIfExists(javaQueryRunner, HIVE, TPCH_EXTERNAL_SCHEMA, tableName);
+            dropTableIfExists(javaQueryRunner, HIVE, TPCH_SCHEMA, tableName);
         }
-        assertUpdate(format("DROP SCHEMA IF EXISTS %s.%s", HIVE, TPCH));
+
+        assertUpdate(format("DROP SCHEMA IF EXISTS %s.%s", HIVE, TPCH_SCHEMA));
+        assertUpdate(format("DROP SCHEMA IF EXISTS %s.%s", HIVE, TPCH_EXTERNAL_SCHEMA));
 
         File dataDirectory = ((DistributedQueryRunner) javaQueryRunner).getCoordinator().getDataDirectory().resolve(HIVE_DATA).toFile();
         Path symlinkTableDataPath = dataDirectory.toPath().getParent().resolve(SYMLINK_FOLDER);

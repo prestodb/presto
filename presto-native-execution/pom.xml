@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.291-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-native-execution</artifactId>
@@ -374,9 +374,9 @@
                         </executions>
                     </plugin>
                     <plugin>
-                        <groupId>com.spotify</groupId>
-                        <artifactId>dockerfile-maven-plugin</artifactId>
-                        <version>1.4.13</version>
+                        <groupId>io.fabric8</groupId>
+                        <artifactId>docker-maven-plugin</artifactId>
+                        <version>0.45.1</version>
                         <executions>
                             <execution>
                                 <id>coordinator</id>
@@ -385,14 +385,18 @@
                                     <goal>build</goal>
                                 </goals>
                                 <configuration>
-                                    <repository>presto-coordinator</repository>
-                                    <tag>latest</tag>
-                                    <contextDirectory>${project.parent.basedir}/docker/</contextDirectory>
-                                    <dockerfile>${project.parent.basedir}/docker/Dockerfile</dockerfile>
-                                    <buildArgs>
-                                        <PRESTO_VERSION>${project.version}</PRESTO_VERSION>
-                                    </buildArgs>
-                                    <writeTestMetadata>false</writeTestMetadata>
+                                    <images>
+                                        <image>
+                                            <name>presto-coordinator:latest</name>
+                                            <build>
+                                                <dockerFile>${project.parent.basedir}/docker/Dockerfile</dockerFile>
+                                                <contextDir>${project.parent.basedir}/docker</contextDir>
+                                                <args>
+                                                    <PRESTO_VERSION>${project.version}</PRESTO_VERSION>
+                                                </args>
+                                            </build>
+                                        </image>
+                                    </images>
                                 </configuration>
                             </execution>
                             <execution>
@@ -402,14 +406,15 @@
                                     <goal>build</goal>
                                 </goals>
                                 <configuration>
-                                    <repository>presto-native-dependency</repository>
-                                    <tag>latest</tag>
-                                    <contextDirectory>${project.basedir}</contextDirectory>
-                                    <dockerfile>${project.basedir}/scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile</dockerfile>
-                                    <buildArgs>
-                                        <BUILD_TYPE>Release</BUILD_TYPE>
-                                    </buildArgs>
-                                    <writeTestMetadata>false</writeTestMetadata>
+                                    <images>
+                                        <image>
+                                            <name>presto-native-dependency:latest</name>
+                                            <build>
+                                                <dockerFile>${project.basedir}/scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile</dockerFile>
+                                                <contextDir>${project.basedir}</contextDir>
+                                            </build>
+                                        </image>
+                                    </images>
                                 </configuration>
                             </execution>
                             <execution>
@@ -419,20 +424,24 @@
                                     <goal>build</goal>
                                 </goals>
                                 <configuration>
-                                    <repository>presto-worker</repository>
-                                    <tag>latest</tag>
-                                    <contextDirectory>${project.basedir}</contextDirectory>
-                                    <dockerfile>${project.basedir}/scripts/dockerfiles/prestissimo-runtime.dockerfile</dockerfile>
-                                    <buildArgs>
-                                        <BUILD_TYPE>Release</BUILD_TYPE>
-                                        <DEPENDENCY_IMAGE>presto-native-dependency:latest</DEPENDENCY_IMAGE>
-                                        <EXTRA_CMAKE_FLAGS>-DPRESTO_ENABLE_TESTING=OFF</EXTRA_CMAKE_FLAGS>
-                                        <NUM_THREADS>2</NUM_THREADS>
-                                        <BASE_IMAGE>ubuntu:22.04</BASE_IMAGE>
-                                        <OSNAME>ubuntu</OSNAME>
-                                    </buildArgs>
-                                    <pullNewerImage>false</pullNewerImage>
-                                    <writeTestMetadata>false</writeTestMetadata>
+                                    <images>
+                                        <image>
+                                            <name>presto-worker:latest</name>
+                                            <build>
+                                                <dockerFile>${project.basedir}/scripts/dockerfiles/prestissimo-runtime.dockerfile</dockerFile>
+                                                <contextDir>${project.basedir}</contextDir>
+                                                <args>
+                                                    <BUILD_TYPE>Release</BUILD_TYPE>
+                                                    <DEPENDENCY_IMAGE>presto-native-dependency:latest</DEPENDENCY_IMAGE>
+                                                    <EXTRA_CMAKE_FLAGS>-DPRESTO_ENABLE_TESTING=OFF</EXTRA_CMAKE_FLAGS>
+                                                    <NUM_THREADS>2</NUM_THREADS>
+                                                    <BASE_IMAGE>ubuntu:22.04</BASE_IMAGE>
+                                                    <OSNAME>ubuntu</OSNAME>
+                                                </args>
+                                                <imagePullPolicy>IfNotPresent</imagePullPolicy>
+                                            </build>
+                                        </image>
+                                    </images>
                                 </configuration>
                             </execution>
                         </executions>

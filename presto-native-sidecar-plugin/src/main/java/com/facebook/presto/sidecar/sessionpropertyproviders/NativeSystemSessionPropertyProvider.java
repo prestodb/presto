@@ -102,7 +102,7 @@ public class NativeSystemSessionPropertyProvider
             return propertyMetadataList;
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get session properties from sidecar.");
+            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get session properties from sidecar.", e);
         }
     }
 

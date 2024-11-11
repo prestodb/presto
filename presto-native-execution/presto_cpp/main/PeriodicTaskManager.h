@@ -44,7 +44,10 @@ class PeriodicTaskManager {
   explicit PeriodicTaskManager(
       folly::CPUThreadPoolExecutor* driverCPUExecutor,
       folly::CPUThreadPoolExecutor* spillerExecutor,
-      folly::IOThreadPoolExecutor* httpExecutor,
+      folly::IOThreadPoolExecutor* httpSrvIoExecutor,
+      folly::CPUThreadPoolExecutor* httpSrvCpuExecutor,
+      folly::IOThreadPoolExecutor* exchangeHttpIoExecutor,
+      folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor,
       TaskManager* taskManager,
       const velox::memory::MemoryAllocator* memoryAllocator,
       const velox::cache::AsyncDataCache* asyncDataCache,
@@ -96,7 +99,6 @@ class PeriodicTaskManager {
 
  private:
   void addExecutorStatsTask();
-  void updateExecutorStats();
 
   void addTaskStatsTask();
   void updateTaskStats();
@@ -123,9 +125,15 @@ class PeriodicTaskManager {
   void detachWorker(const char* reason);
   void maybeAttachWorker();
 
-  folly::CPUThreadPoolExecutor* driverCPUExecutor_;
-  folly::CPUThreadPoolExecutor* spillerExecutor_;
-  folly::IOThreadPoolExecutor* httpExecutor_;
+  folly::CPUThreadPoolExecutor* driverCPUExecutor_{nullptr};
+  folly::CPUThreadPoolExecutor* spillerExecutor_{nullptr};
+
+  folly::IOThreadPoolExecutor* httpSrvIoExecutor_{nullptr};
+  folly::CPUThreadPoolExecutor* httpSrvCpuExecutor_{nullptr};
+
+  folly::IOThreadPoolExecutor* exchangeHttpIoExecutor_{nullptr};
+  folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor_{nullptr};
+
   TaskManager* taskManager_;
   const velox::memory::MemoryAllocator* memoryAllocator_;
   const velox::cache::AsyncDataCache* asyncDataCache_;

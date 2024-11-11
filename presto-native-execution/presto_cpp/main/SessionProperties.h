@@ -131,11 +131,13 @@ class SessionProperties {
   static constexpr const char* kWriterSpillEnabled =
       "native_writer_spill_enabled";
 
-  /// The number of bits (N) used to calculate the spilling
-  /// partition number for hash join and RowNumber: 2 ^ N
-  static constexpr const char* kJoinSpillPartitionBits =
-      "native_join_spiller_partition_bits";
+  /// Minimum memory footprint size required to reclaim memory from a file
+  /// writer by flushing its buffered data to disk.
+  static constexpr const char* kWriterFlushThresholdBytes =
+      "native_writer_flush_threshold_bytes";
 
+  /// The number of bits (N) used to calculate the spilling partition number for
+  /// hash join and RowNumber: 2 ^ N
   static constexpr const char* kSpillerNumPartitionBits =
       "native_spiller_num_partition_bits";
 
@@ -217,6 +219,11 @@ class SessionProperties {
   /// destination before producing a SerializedPage.
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "native_max_page_partitioning_buffer_size";
+
+  /// Maximum number of partitions created by a local exchange.
+  /// Affects concurrency for pipelines containing LocalPartitionNode.
+  static constexpr const char* kMaxLocalExchangePartitionCount =
+      "native_max_local_exchange_partition_count";
 
   SessionProperties();
 

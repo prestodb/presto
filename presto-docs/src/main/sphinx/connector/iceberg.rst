@@ -1134,10 +1134,15 @@ Create an Iceberg table partitioned by ``ts``::
 CREATE VIEW
 ^^^^^^^^^^^
 
-The Iceberg connector supports creating views in Hive and Glue metastores.
+The Iceberg connector supports creating views in Hive, Glue, REST, and Nessie catalogs.
 To create a view named ``view_page_views`` for the ``iceberg.web.page_views`` table created in the `CREATE TABLE`_ example::
 
     CREATE VIEW iceberg.web.view_page_views AS SELECT user_id, country FROM iceberg.web.page_views;
+
+.. note::
+
+    The Iceberg REST catalog may not support view creation depending on the
+    type of the backing catalog.
 
 INSERT INTO
 ^^^^^^^^^^^

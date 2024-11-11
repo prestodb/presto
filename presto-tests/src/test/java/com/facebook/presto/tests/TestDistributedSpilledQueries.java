@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
@@ -76,5 +77,22 @@ public class TestDistributedSpilledQueries
     {
         // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
         //       due to long running query test created many spill files on disk.
+    }
+
+    @Test
+    public void testQueriesWithSpill()
+    {
+        // Test double filtered left, right, full and inner joins with right constant equality.
+        @Language("SQL") String query = "with t1 as (select max(totalprice) maxprice, min(totalprice) minprice, custkey ckey from orders group by custkey), " +
+                "t2 as (select custkey, totalprice, (select maxprice from t1 where ckey = custkey) maxprice, " +
+                "(select minprice from t1 where ckey=custkey) minprice from orders) select custkey from t2 where " +
+                "(totalprice between minprice and maxprice) group by custkey";
+        Session enableSpill = Session.builder(getSession())
+                .setSystemProperty("spill_enabled", "true")
+                .build();
+        Session disableSpill = Session.builder(getSession())
+                .setSystemProperty("spill_enabled", "true")
+                .build();
+        assertQueryWithSameQueryRunner(disableSpill, query, enableSpill);
     }
 }

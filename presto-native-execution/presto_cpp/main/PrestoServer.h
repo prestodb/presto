@@ -121,6 +121,10 @@ class PrestoServer {
 
   virtual void stopAdditionalPeriodicTasks(){};
 
+  virtual void addMemoryCheckerPeriodicTask();
+
+  virtual void stopMemoryCheckerPeriodicTask();
+
   virtual void initializeCoordinatorDiscoverer();
 
   virtual std::shared_ptr<velox::exec::TaskListener> getTaskListener();
@@ -237,7 +241,7 @@ class PrestoServer {
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeHttpCpuExecutor_;
 
   // Executor for HTTP request dispatching
-  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIOExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIoExecutor_;
 
   // Executor for HTTP request processing after dispatching
   std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;

@@ -13,8 +13,6 @@
  */
 #include <boost/algorithm/string/join.hpp>
 #include <folly/Uri.h>
-#include "folly/init/Init.h"
-#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
@@ -106,7 +104,9 @@ class BroadcastTest : public exec::test::OperatorTestBase {
       const std::string& basePath,
       const std::vector<std::string>& broadcastFilePaths) {
     // Create plan for read node using file path.
-    auto readerPlan = exec::test::PlanBuilder().exchange(dataType).planNode();
+    auto readerPlan = exec::test::PlanBuilder()
+                          .exchange(dataType, velox::VectorSerde::Kind::kPresto)
+                          .planNode();
     exec::test::CursorParameters broadcastReadParams;
     broadcastReadParams.planNode = readerPlan;
 
@@ -211,7 +211,12 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     auto byteStream = std::make_unique<BufferInputStream>(std::move(ranges));
 
     RowVectorPtr result;
-    VectorStreamGroup::read(byteStream.get(), pool(), dataType, &result);
+    VectorStreamGroup::read(
+        byteStream.get(),
+        pool(),
+        dataType,
+        velox::getNamedVectorSerde(velox::VectorSerde::Kind::kPresto),
+        &result);
     return result;
   }
 };
@@ -352,7 +357,9 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
   std::string basePath = "/tmp";
   std::string invalidBroadcastFilePath = "/tmp/file.bin";
 
-  auto readerPlan = exec::test::PlanBuilder().exchange(dataType).planNode();
+  auto readerPlan = exec::test::PlanBuilder()
+                        .exchange(dataType, velox::VectorSerde::Kind::kPresto)
+                        .planNode();
   exec::test::CursorParameters broadcastReadParams;
   broadcastReadParams.planNode = readerPlan;
 

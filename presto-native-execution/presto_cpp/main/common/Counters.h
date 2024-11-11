@@ -157,6 +157,19 @@ constexpr std::string_view kCounterHiveFileHandleCacheNumHitsFormat{
 constexpr std::string_view kCounterHiveFileHandleCacheNumLookupsFormat{
     "presto_cpp.{}.hive_file_handle_cache_num_lookups"};
 
+/// ================== Thread Pool Counters ====================
+
+constexpr std::string_view kCounterThreadPoolNumThreadsFormat{
+    "presto_cpp.{}.num_threads"};
+constexpr std::string_view kCounterThreadPoolNumActiveThreadsFormat{
+    "presto_cpp.{}.num_active_threads"};
+constexpr std::string_view kCounterThreadPoolNumPendingTasksFormat{
+    "presto_cpp.{}.num_pending_tasks"};
+constexpr std::string_view kCounterThreadPoolNumTotalTasksFormat{
+    "presto_cpp.{}.num_total_tasks"};
+constexpr std::string_view kCounterThreadPoolMaxIdleTimeNsFormat{
+    "presto_cpp.{}.max_idle_time_ns"};
+
 /// ================== Memory Pushback Counters =================
 
 /// Number of times memory pushback mechanism is triggered.
