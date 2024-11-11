@@ -116,17 +116,15 @@ public class TableStatisticsMaker
     private static final String ICEBERG_DATA_SIZE_BLOB_PROPERTY_KEY = "data_size";
     private final Table icebergTable;
     private final ConnectorSession session;
-    private final TypeManager typeManager;
 
     private static final String STATISITCS_CACHE_METRIC_FILE_SIZE_FORMAT = "StatisticsFileCache/PuffinFileSize/%s/%s";
     private static final String STATISITCS_CACHE_METRIC_FILE_COLUMN_COUNT_FORMAT = "StatisticsFileCache/ColumnCount/%s/%s";
     private static final String STATISITCS_CACHE_METRIC_PARTIAL_MISS_FORMAT = "StatisticsFileCache/PartialMiss/%s/%s";
 
-    private TableStatisticsMaker(Table icebergTable, ConnectorSession session, TypeManager typeManager)
+    private TableStatisticsMaker(Table icebergTable, ConnectorSession session)
     {
         this.icebergTable = icebergTable;
         this.session = session;
-        this.typeManager = typeManager;
     }
 
     private static final Map<ColumnStatisticType, PuffinBlobGenerator> puffinStatWriters = ImmutableMap.<ColumnStatisticType, PuffinBlobGenerator>builder()
@@ -149,7 +147,7 @@ public class TableStatisticsMaker
             Table icebergTable,
             List<IcebergColumnHandle> columns)
     {
-        return new TableStatisticsMaker(icebergTable, session, typeManager).makeTableStatistics(statisticsFileCache, tableHandle, currentPredicate, constraint, columns);
+        return new TableStatisticsMaker(icebergTable, session).makeTableStatistics(statisticsFileCache, tableHandle, currentPredicate, constraint, columns);
     }
 
     private TableStatistics makeTableStatistics(StatisticsFileCache statisticsFileCache,
@@ -312,9 +310,9 @@ public class TableStatisticsMaker
         return summary;
     }
 
-    public static void writeTableStatistics(NodeVersion nodeVersion, TypeManager typeManager, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
+    public static void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
     {
-        new TableStatisticsMaker(icebergTable, session, typeManager).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
+        new TableStatisticsMaker(icebergTable, session).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
     }
 
     private void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)

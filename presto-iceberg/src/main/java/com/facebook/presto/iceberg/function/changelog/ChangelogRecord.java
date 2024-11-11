@@ -80,11 +80,6 @@ public class ChangelogRecord
         return lastOperation;
     }
 
-    private int getLastOrdinal()
-    {
-        return lastOrdinal;
-    }
-
     public ChangelogRecord merge(ChangelogRecord other)
     {
         if (other.lastOrdinal > lastOrdinal) {

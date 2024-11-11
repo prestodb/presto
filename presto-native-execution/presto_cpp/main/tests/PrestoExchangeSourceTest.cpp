@@ -696,6 +696,7 @@ DEBUG_ONLY_TEST_P(
       std::function<void(const PrestoExchangeSource*)>(
           ([&](const auto* prestoExchangeSource) {
             allCloseCheckPassed = true;
+            closeWait.notifyAll();
           })));
   SCOPED_TESTVALUE_SET(
       "facebook::presto::PrestoExchangeSource::handleDataResponse",
@@ -739,8 +740,9 @@ DEBUG_ONLY_TEST_P(
   // all resources have been cleaned up, so explicitly waiting is the only way
   // to allow the execution of background processing. We expect the test to not
   // crash.
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  EXPECT_TRUE(codePointHit);
+  while (!codePointHit) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
   serverWrapper.stop();
 }
 

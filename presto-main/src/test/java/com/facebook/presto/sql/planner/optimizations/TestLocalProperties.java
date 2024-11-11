@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -39,7 +40,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.extractLeadingConstants;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.stripLeadingConstants;
 import static org.testng.Assert.assertEquals;
@@ -721,6 +724,34 @@ public class TestLocalProperties
         assertEquals(property3, mapper.readValue(mapper.writeValueAsString(property3), new TypeReference<LocalProperty<ColumnHandle>>() {}));
     }
 
+    @Test
+    public void testUnorderedProperties()
+    {
+        List<LocalProperty<VariableReferenceExpression>> original = ImmutableList.of(groupedVariable("a"), constantVariable("b"));
+        List<LocalProperty<VariableReferenceExpression>> expected = ImmutableList.of();
+        assertEquals(ActualProperties.builder().local(original).unordered(true).build(), ActualProperties.builder().local(expected).build());
+
+        original = ImmutableList.of(constantVariable("c"), groupedVariable("a"), constantVariable("b"));
+        expected = ImmutableList.of(constantVariable("c"));
+        assertEquals(ActualProperties.builder().local(original).unordered(true).build(), ActualProperties.builder().local(expected).build());
+
+        original = ImmutableList.of(constantVariable("c"), sortedVariable("a", SortOrder.ASC_NULLS_FIRST), constantVariable("b"));
+        expected = ImmutableList.of(constantVariable("c"));
+        assertEquals(ActualProperties.builder().local(original).unordered(true).build(), ActualProperties.builder().local(expected).build());
+
+        original = ImmutableList.of(constantVariable("c"), constantVariable("d"), sortedVariable("a", SortOrder.ASC_NULLS_FIRST), constantVariable("b"));
+        expected = ImmutableList.of(constantVariable("c"), constantVariable("d"));
+        assertEquals(ActualProperties.builder().local(original).unordered(true).build(), ActualProperties.builder().local(expected).build());
+
+        original = ImmutableList.of(sortedVariable("a", SortOrder.ASC_NULLS_FIRST), constantVariable("b"), constantVariable("c"));
+        expected = ImmutableList.of();
+        assertEquals(ActualProperties.builder().local(original).unordered(true).build(), ActualProperties.builder().local(expected).build());
+
+        original = ImmutableList.of(constantVariable("c"), sortedVariable("a", SortOrder.ASC_NULLS_FIRST), groupedVariable("d"), constantVariable("b"));
+        expected = ImmutableList.of(constantVariable("c"));
+        assertEquals(ActualProperties.builder().local(original).unordered(true).build(), ActualProperties.builder().local(expected).build());
+    }
+
     @SafeVarargs
     private static <T> void assertMatch(List<LocalProperty<T>> actual, List<LocalProperty<T>> wanted, Optional<LocalProperty<T>>... match)
     {
@@ -785,5 +816,20 @@ public class TestLocalProperties
         {
             return new ArrayList<>(properties);
         }
+    }
+
+    private static ConstantProperty<VariableReferenceExpression> constantVariable(String column)
+    {
+        return new ConstantProperty<>(new VariableReferenceExpression(Optional.empty(), column, BIGINT));
+    }
+
+    private static GroupingProperty<VariableReferenceExpression> groupedVariable(String... columns)
+    {
+        return new GroupingProperty<>(Arrays.stream(columns).map(x -> new VariableReferenceExpression(Optional.empty(), x, BIGINT)).collect(Collectors.toList()));
+    }
+
+    private static SortingProperty<VariableReferenceExpression> sortedVariable(String column, SortOrder order)
+    {
+        return new SortingProperty<>(new VariableReferenceExpression(Optional.empty(), column, BIGINT), order);
     }
 }

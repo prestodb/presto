@@ -86,6 +86,6 @@ public class TestIcebergRestCatalogDistributedQueries
     @Override
     protected boolean supportsViews()
     {
-        return false;
+        return true;
     }
 }
