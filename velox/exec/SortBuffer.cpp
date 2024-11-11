@@ -129,7 +129,7 @@ void SortBuffer::noMoreInput() {
     RowContainerIterator iter;
     data_->listRows(&iter, numInputRows_, sortedRows_.data());
     PrefixSort::sort(
-        sortedRows_, pool_, data_.get(), sortCompareFlags_, prefixSortConfig_);
+        data_.get(), sortCompareFlags_, prefixSortConfig_, pool_, sortedRows_);
   } else {
     // Spill the remaining in-memory state to disk if spilling has been
     // triggered on this sort buffer. This is to simplify query OOM prevention

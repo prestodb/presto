@@ -147,7 +147,7 @@ class PrefixSortBenchmark {
     auto sortedRows = std::vector<char*, memory::StlAllocator<char*>>(
         rows.begin(), rows.end(), *pool_);
     PrefixSort::sort(
-        sortedRows, pool_, rowContainer, compareFlags, kDefaultSortConfig);
+        rowContainer, compareFlags, kDefaultSortConfig, pool_, sortedRows);
   }
 
   void runStdSort(
@@ -157,7 +157,7 @@ class PrefixSortBenchmark {
     auto sortedRows = std::vector<char*, memory::StlAllocator<char*>>(
         rows.begin(), rows.end(), *pool_);
     PrefixSort::sort(
-        sortedRows, pool_, rowContainer, compareFlags, kStdSortConfig);
+        rowContainer, compareFlags, kStdSortConfig, pool_, sortedRows);
   }
 
   // Add benchmark manually to avoid writing a lot of BENCHMARK.

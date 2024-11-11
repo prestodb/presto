@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/common/base/PrefixSortConfig.h"
-#include "velox/common/memory/MemoryAllocator.h"
 #include "velox/exec/RowContainer.h"
 #include "velox/exec/prefixsort/PrefixSortAlgorithm.h"
 #include "velox/exec/prefixsort/PrefixSortEncoder.h"
@@ -47,8 +46,8 @@ struct PrefixSortLayout {
   const std::vector<CompareFlags> compareFlags;
 
   /// Whether the sort keys contains normalized key.
-  /// It equals to 'numNormalizedKeys == 0', a little faster.
-  const bool noNormalizedKeys;
+  /// It equals to 'numNormalizedKeys != 0', a little faster.
+  const bool hasNormalizedKeys;
 
   /// Whether the sort keys contains non-normalized key.
   const bool hasNonNormalizedKey;
@@ -60,9 +59,9 @@ struct PrefixSortLayout {
   /// The encoders for normalized keys.
   const std::vector<prefixsort::PrefixSortEncoder> encoders;
 
-  /// Align the buffer size to 8 so that long compare can replace byte compare
-  /// during ‘memcmp’
-  const int32_t padding;
+  /// The number of padding bytes to align each prefix encoded row size to 8
+  /// for fast long compare.
+  const int32_t numPaddingBytes;
 
   static PrefixSortLayout makeSortLayout(
       const std::vector<TypePtr>& types,
@@ -73,9 +72,9 @@ struct PrefixSortLayout {
 class PrefixSort {
  public:
   PrefixSort(
-      memory::MemoryPool* pool,
       RowContainer* rowContainer,
-      const PrefixSortLayout& sortLayout);
+      const PrefixSortLayout& sortLayout,
+      memory::MemoryPool* pool);
 
   /// Follow the steps below to sort the data in RowContainer:
   /// 1. Allocate a contiguous block of memory to store normalized keys.
@@ -101,26 +100,27 @@ class PrefixSort {
   /// @param rows The result of RowContainer::listRows(), assuming that the
   /// caller (SortBuffer etc.) has already got the result.
   FOLLY_ALWAYS_INLINE static void sort(
-      std::vector<char*, memory::StlAllocator<char*>>& rows,
-      memory::MemoryPool* pool,
       RowContainer* rowContainer,
       const std::vector<CompareFlags>& compareFlags,
-      const velox::common::PrefixSortConfig& config) {
+      const velox::common::PrefixSortConfig& config,
+      memory::MemoryPool* pool,
+      std::vector<char*, memory::StlAllocator<char*>>& rows) {
     if (rowContainer->numRows() < config.threshold) {
       stdSort(rows, rowContainer, compareFlags);
       return;
     }
-    VELOX_DCHECK_EQ(rowContainer->keyTypes().size(), compareFlags.size());
+
+    VELOX_CHECK_EQ(rowContainer->keyTypes().size(), compareFlags.size());
     const auto sortLayout = PrefixSortLayout::makeSortLayout(
         rowContainer->keyTypes(), compareFlags, config.maxNormalizedKeySize);
     // All keys can not normalize, skip the binary string compare opt.
     // Putting this outside sort-internal helps with stdSort.
-    if (sortLayout.noNormalizedKeys) {
+    if (!sortLayout.hasNormalizedKeys) {
       stdSort(rows, rowContainer, compareFlags);
       return;
     }
 
-    PrefixSort prefixSort(pool, rowContainer, sortLayout);
+    PrefixSort prefixSort(rowContainer, sortLayout, pool);
     prefixSort.sortInternal(rows);
   }
 
@@ -144,7 +144,7 @@ class PrefixSort {
 
   // Estimates the memory required for prefix sort such as prefix buffer and
   // swap buffer.
-  uint32_t maxRequiredBytes();
+  uint32_t maxRequiredBytes() const;
 
   void sortInternal(std::vector<char*, memory::StlAllocator<char*>>& rows);
 
@@ -152,15 +152,17 @@ class PrefixSort {
 
   int comparePartNormalizedKeys(char* left, char* right);
 
-  void extractRowToPrefix(char* row, char* prefix);
+  void extractRowAndEncodePrefixKeys(char* row, char* prefixBuffer);
 
-  // Return the reference of row address ptr for read/write.
-  FOLLY_ALWAYS_INLINE char*& getAddressFromPrefix(char* prefix) {
-    return *reinterpret_cast<char**>(prefix + sortLayout_.normalizedBufferSize);
+  // Return the row address refenence in the prefix encoded buffer.
+  FOLLY_ALWAYS_INLINE char*& getRowAddrFromPrefixBuffer(
+      char* prefixBuffer) const {
+    return *reinterpret_cast<char**>(
+        prefixBuffer + sortLayout_.normalizedBufferSize);
   }
 
-  memory::MemoryPool* const pool_;
-  const PrefixSortLayout sortLayout_;
   RowContainer* const rowContainer_;
+  const PrefixSortLayout sortLayout_;
+  memory::MemoryPool* const pool_;
 };
 } // namespace facebook::velox::exec

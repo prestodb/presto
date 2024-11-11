@@ -258,7 +258,7 @@ void SortWindowBuild::sortPartitions() {
   data_->listRows(&iter, numRows_, sortedRows_.data());
 
   PrefixSort::sort(
-      sortedRows_, pool_, data_.get(), compareFlags_, prefixSortConfig_);
+      data_.get(), compareFlags_, prefixSortConfig_, pool_, sortedRows_);
 
   computePartitionStartRows();
 }

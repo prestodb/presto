@@ -72,14 +72,14 @@ class PrefixSortTest : public exec::test::OperatorTestBase {
     ASSERT_EQ(sortPool->peakBytes(), 0);
     // Use PrefixSort to sort rows.
     PrefixSort::sort(
-        rows,
-        sortPool.get(),
         &rowContainer,
         compareFlags,
         common::PrefixSortConfig{
             1024,
             // Set threshold to 0 to enable prefix-sort in small dataset.
-            0});
+            0},
+        sortPool.get(),
+        rows);
     ASSERT_GE(maxBytes, sortPool->peakBytes() - beforeBytes);
 
     // Extract data from the RowContainer in order.

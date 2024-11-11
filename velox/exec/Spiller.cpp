@@ -441,11 +441,11 @@ void Spiller::ensureSorted(SpillRun& run) {
           });
     } else {
       PrefixSort::sort(
-          run.rows,
-          memory::spillMemoryPool(),
           container_,
           state_.sortCompareFlags(),
-          state_.prefixSortConfig().value());
+          state_.prefixSortConfig().value(),
+          memory::spillMemoryPool(),
+          run.rows);
     }
 
     run.sorted = true;

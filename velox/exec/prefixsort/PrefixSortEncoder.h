@@ -16,11 +16,7 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
-#include <memory>
 
-#include "velox/common/base/BitUtil.h"
-#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/Type.h"
@@ -34,7 +30,7 @@ class PrefixSortEncoder {
       : ascending_(ascending), nullsFirst_(nullsFirst){};
 
   /// Encode native primitive types(such as uint64_t, int64_t, uint32_t,
-  /// int32_t, float, double, Timestamp). TODO: Add support for strings.
+  /// int32_t, float, double, Timestamp).
   /// 1. The first byte of the encoded result is null byte. The value is 0 if
   ///    (nulls first and value is null) or (nulls last and value is not null).
   ///    Otherwise, the value is 1.
@@ -42,6 +38,8 @@ class PrefixSortEncoder {
   ///    -If value is null, we set the remaining sizeof(T) bytes to '0', they
   ///     do not affect the comparison results at all.
   ///    -If value is not null, the result is set by calling encodeNoNulls.
+  ///
+  /// TODO: add support for strings.
   template <typename T>
   FOLLY_ALWAYS_INLINE void encode(std::optional<T> value, char* dest) const {
     if (value.has_value()) {
@@ -70,6 +68,7 @@ class PrefixSortEncoder {
   ///         For not supported types, returns 'std::nullopt'.
   FOLLY_ALWAYS_INLINE static std::optional<uint32_t> encodedSize(
       TypeKind typeKind) {
+    // NOTE: one byte is reserved for nullable comparison.
     switch ((typeKind)) {
       case ::facebook::velox::TypeKind::SMALLINT: {
         return 3;
