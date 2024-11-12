@@ -366,7 +366,7 @@ void WindowPartition::updateKRangeFrameBounds(
   // frameColumn is a column index into the original input rows, while
   // orderByColumn is a column index into rows in data_ after the columns are
   // reordered as per inputMapping_.
-  RowColumn frameRowColumn = columns_[frameColumn];
+  VELOX_DEBUG_ONLY RowColumn frameRowColumn = columns_[frameColumn];
   RowColumn orderByRowColumn = data_->columnAt(orderByColumn);
   for (auto i = 0; i < numRows; i++) {
     auto currentRow = startRow + i;

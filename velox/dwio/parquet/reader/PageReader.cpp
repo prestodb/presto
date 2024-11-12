@@ -42,7 +42,6 @@ void PageReader::seekToPage(int64_t row) {
   // 'rowOfPage_' is the row number of the first row of the next page.
   rowOfPage_ += numRowsInPage_;
   for (;;) {
-    auto dataStart = pageStart_;
     if (chunkSize_ <= pageStart_) {
       // This may happen if seeking to exactly end of row group.
       numRepDefsInPage_ = 0;
