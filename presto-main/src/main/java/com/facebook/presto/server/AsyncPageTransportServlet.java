@@ -57,6 +57,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.PAGE_METADATA_SIZE;
+import static com.facebook.presto.util.SanitizeMessage.getSanitizeMessage;
 import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.net.HttpHeaders.CONTENT_LENGTH;
@@ -116,9 +117,8 @@ public class AsyncPageTransportServlet
     protected void reportFailure(HttpServletResponse response, String message)
             throws IOException
     {
-        response.sendError(SC_BAD_REQUEST, message);
+        response.sendError(SC_BAD_REQUEST, getSanitizeMessage(message));
     }
-
     protected void parseURI(String requestURI, HttpServletRequest request, HttpServletResponse response)
             throws IOException
     {
@@ -181,7 +181,7 @@ public class AsyncPageTransportServlet
             {
                 String errorMessage = format("Server error to process task result request %s : %s", requestURI, event.getThrowable().getMessage());
                 log.error(event.getThrowable(), errorMessage);
-                response.sendError(SC_INTERNAL_SERVER_ERROR, errorMessage);
+                response.sendError(SC_INTERNAL_SERVER_ERROR, getSanitizeMessage(errorMessage));
             }
 
             public void onStartAsync(AsyncEvent event)
