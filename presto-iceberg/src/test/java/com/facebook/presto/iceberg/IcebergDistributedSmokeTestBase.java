@@ -1054,6 +1054,42 @@ public abstract class IcebergDistributedSmokeTestBase
         dropTable(session, "test_nested_table2");
     }
 
+    @DataProvider(name = "testPartitionedByTimeProvider")
+    public Object[][] testPartitionedByTimeProvider()
+    {
+        return new Object[][] {
+                {false, FileFormat.PARQUET},
+                {false, FileFormat.ORC},
+                {true, FileFormat.PARQUET},
+                {true, FileFormat.ORC}
+        };
+    }
+
+    @Test(dataProvider = "testPartitionedByTimeProvider")
+    private void testSelectOrPartitionedByTime(boolean partitioned, FileFormat format)
+    {
+        String tableName = format("test_%s_by_time", partitioned ? "partitioned" : "selected");
+        try {
+            String partitioning = partitioned ? ", partitioning = ARRAY['x']" : "";
+            assertUpdate(format("CREATE TABLE %s (x TIME, y BIGINT) WITH (format = '%s'%s)", tableName, format, partitioning));
+            assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 12345)", tableName), 1);
+            assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 1");
+            assertQuery(format("SELECT x FROM %s", tableName), "SELECT CAST('10:12:34' AS TIME)");
+            assertUpdate(format("INSERT INTO %s VALUES (TIME '9:00:00', 67890)", tableName), 1);
+            assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 2");
+            assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('10:12:34' AS TIME)");
+            assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('9:00:00' AS TIME)");
+            assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 54321)", tableName), 1);
+            assertQuery(
+                    format("SELECT x, COUNT(*) FROM %s GROUP BY x ORDER BY x", tableName),
+                    "SELECT CAST('9:00:00' AS TIME), 1 UNION ALL SELECT CAST('10:12:34' AS TIME), 2");
+            assertQuery(format("SELECT y FROM %s WHERE x = time '10:12:34'", tableName), "values 12345, 54321");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
     @Test
     public void testReadEmptyTable()
     {
