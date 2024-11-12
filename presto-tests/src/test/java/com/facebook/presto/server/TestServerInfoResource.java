@@ -93,7 +93,7 @@ public class TestServerInfoResource
                 ImmutableMap.of("query.client.timeout", "10s"), 2);
     }
 
-    @Test(timeOut = 30_000, groups = {"createQueryRunner"}, dataProvider = "thriftEncodingToggle")
+    @Test(timeOut = 30_000, groups = "createQueryRunner", dataProvider = "thriftEncodingToggle")
     public void testGetServerStateWithRequiredResourceManagerCoordinators(boolean useThriftEncoding, Protocol thriftProtocol)
     {
         TestingPrestoServer server = queryRunner.getCoordinator(0);
@@ -114,7 +114,7 @@ public class TestServerInfoResource
                         ImmutableMap.of("query.client.timeout", "10s"), 2, false);
     }
 
-    @Test(timeOut = 30_000, groups = {"getServerStateWithoutRequiredResourceManagers"}, dataProvider = "thriftEncodingToggle")
+    @Test(timeOut = 30_000, groups = "getServerStateWithoutRequiredResourceManagers", dataProvider = "thriftEncodingToggle")
     public void testGetServerStateWithoutRequiredResourceManagers(boolean useThriftEncoding, Protocol thriftProtocol)
     {
         TestingPrestoServer server = queryRunner.getCoordinator(0);
@@ -135,7 +135,7 @@ public class TestServerInfoResource
                 ImmutableMap.of("query.client.timeout", "10s"), 2, false);
     }
 
-    @Test(timeOut = 30_000, groups = {"getServerStateWithoutRequiredCoordinators"}, dataProvider = "thriftEncodingToggle")
+    @Test(timeOut = 30_000, groups = "getServerStateWithoutRequiredCoordinators", dataProvider = "thriftEncodingToggle")
     public void testGetServerStateWithoutRequiredCoordinators(boolean useThriftEncoding, Protocol thriftProtocol)
     {
         TestingPrestoServer server = queryRunner.getCoordinator(0);
@@ -157,7 +157,7 @@ public class TestServerInfoResource
                 ImmutableMap.of("query.client.timeout", "10s"), 2, true);
     }
 
-    @Test(groups = {"createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager"})
+    @Test(groups = "createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager")
     public void testGetServerStateWhenResourceGroupConfigurationManagerNotLoaded()
             throws Exception
     {

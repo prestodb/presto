@@ -80,13 +80,13 @@ public class TestAsyncPageTransportServlet
         assertEquals(789, servlet.token);
     }
 
-    @Test (expectedExceptions = { IllegalArgumentException.class })
+    @Test (expectedExceptions = IllegalArgumentException.class)
     public void testParseTooFewElements()
     {
         parse("/v1/task/async/SomeQueryId.1.2.3.4/results/456");
     }
 
-    @Test (expectedExceptions = { IllegalArgumentException.class })
+    @Test (expectedExceptions = IllegalArgumentException.class)
     public void testParseTooManyElements()
     {
         parse("/v1/task/async/SomeQueryId.1.2.3.4/results/456/789/foo");
