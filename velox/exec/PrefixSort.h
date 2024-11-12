@@ -72,7 +72,7 @@ struct PrefixSortLayout {
 class PrefixSort {
  public:
   PrefixSort(
-      RowContainer* rowContainer,
+      const RowContainer* rowContainer,
       const PrefixSortLayout& sortLayout,
       memory::MemoryPool* pool);
 
@@ -100,7 +100,7 @@ class PrefixSort {
   /// @param rows The result of RowContainer::listRows(), assuming that the
   /// caller (SortBuffer etc.) has already got the result.
   FOLLY_ALWAYS_INLINE static void sort(
-      RowContainer* rowContainer,
+      const RowContainer* rowContainer,
       const std::vector<CompareFlags>& compareFlags,
       const velox::common::PrefixSortConfig& config,
       memory::MemoryPool* pool,
@@ -128,7 +128,7 @@ class PrefixSort {
   /// such as prefix data. The logic is similar to the above function
   /// PrefixSort::sort but returns the maximum buffer the sort may need.
   static uint32_t maxRequiredBytes(
-      RowContainer* rowContainer,
+      const RowContainer* rowContainer,
       const std::vector<CompareFlags>& compareFlags,
       const velox::common::PrefixSortConfig& config,
       memory::MemoryPool* pool);
@@ -139,7 +139,7 @@ class PrefixSort {
   /// user experienced data.
   static void stdSort(
       std::vector<char*, memory::StlAllocator<char*>>& rows,
-      RowContainer* rowContainer,
+      const RowContainer* rowContainer,
       const std::vector<CompareFlags>& compareFlags);
 
   // Estimates the memory required for prefix sort such as prefix buffer and
@@ -161,7 +161,7 @@ class PrefixSort {
         prefixBuffer + sortLayout_.normalizedBufferSize);
   }
 
-  RowContainer* const rowContainer_;
+  const RowContainer* const rowContainer_;
   const PrefixSortLayout sortLayout_;
   memory::MemoryPool* const pool_;
 };
