@@ -11,7 +11,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <lettuce.version>6.2.4.RELEASE</lettuce.version>
-        <netty.version>4.1.91.Final</netty.version>
+        <netty.version>4.1.94.final</netty.version>
     </properties>
 
     <artifactId>redis-hbo-provider</artifactId>
