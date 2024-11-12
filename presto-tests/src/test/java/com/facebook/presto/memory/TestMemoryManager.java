@@ -81,20 +81,20 @@ public class TestMemoryManager
         executor = null;
     }
 
-    @AfterGroups(groups = {"basicQueryRunner"})
+    @AfterGroups(groups = "basicQueryRunner")
     public void basicQueryRunnerCleanup()
     {
         queryRunner.close();
     }
 
-    @BeforeGroups(groups = {"basicQueryRunner"})
+    @BeforeGroups(groups = "basicQueryRunner")
     public void basicQueryRunnerSetup()
             throws Exception
     {
         queryRunner = createQueryRunner();
     }
 
-    @Test(timeOut = 240_000, groups = {"basicQueryRunner"})
+    @Test(timeOut = 240_000, groups = "basicQueryRunner")
     public void testResourceOverCommit()
     {
         try {
@@ -122,7 +122,7 @@ public class TestMemoryManager
         queryRunner.execute(session, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
     }
 
-    @Test(timeOut = 240_000, groups = {"basicQueryRunner"})
+    @Test(timeOut = 240_000, groups = "basicQueryRunner")
     public void testClusterPools()
             throws Exception
     {
@@ -201,7 +201,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000, groups = {"basicQueryRunner"})
+    @Test(timeOut = 240_000, groups = "basicQueryRunner")
     public void testNoLeak()
             throws Exception
     {
@@ -228,7 +228,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 60_000, groups = {"basicQueryRunner"}, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed total memory limit of 2kB.*")
+    @Test(timeOut = 60_000, groups = "basicQueryRunner", expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed total memory limit of 2kB.*")
     public void testQueryTotalMemoryLimit()
     {
         Session session = testSessionBuilder()
@@ -240,7 +240,7 @@ public class TestMemoryManager
         queryRunner.execute(session, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
     }
 
-    @BeforeGroups(groups = {"outOfMemoryKiller"})
+    @BeforeGroups(groups = "outOfMemoryKiller")
     public void outOfMemoryKillerSetup()
             throws Exception
     {
@@ -253,13 +253,13 @@ public class TestMemoryManager
         queryRunner2 = createQueryRunner(properties);
     }
 
-    @AfterGroups(groups = {"outOfMemoryKiller"})
+    @AfterGroups(groups = "outOfMemoryKiller")
     public void outOfMemoryKillerCleanup()
     {
         queryRunner2.close();
     }
 
-    @Test(timeOut = 240_000, groups = {"outOfMemoryKiller"}, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    @Test(timeOut = 240_000, groups = "outOfMemoryKiller", expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
     public void testOutOfMemoryKiller()
             throws Exception
     {
@@ -314,7 +314,7 @@ public class TestMemoryManager
         }
     }
 
-    @BeforeGroups(groups = {"reservedPoolDisabled"})
+    @BeforeGroups(groups = "reservedPoolDisabled")
     public void reservedPoolDisabledSetup()
             throws Exception
     {
@@ -326,13 +326,13 @@ public class TestMemoryManager
         queryRunner2 = createQueryRunner(properties);
     }
 
-    @AfterGroups(groups = {"reservedPoolDisabled"})
+    @AfterGroups(groups = "reservedPoolDisabled")
     public void reservedPoolDisabledCleanup()
     {
         queryRunner2.close();
     }
 
-    @Test(timeOut = 240_000, groups = {"reservedPoolDisabled"}, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    @Test(timeOut = 240_000, groups = "reservedPoolDisabled", expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
     public void testReservedPoolDisabled()
             throws Exception
     {
@@ -368,7 +368,7 @@ public class TestMemoryManager
         }
     }
 
-    @BeforeGroups(groups = {"outOfMemoryKillerMultiCoordinator"})
+    @BeforeGroups(groups = "outOfMemoryKillerMultiCoordinator")
     public void outOfMemoryKillerMultiCoordinatorSetup()
             throws Exception
     {
@@ -382,14 +382,14 @@ public class TestMemoryManager
         queryRunner2 = createQueryRunner(properties, 2);
     }
 
-    @AfterGroups(groups = {"outOfMemoryKillerMultiCoordinator"})
+    @AfterGroups(groups = "outOfMemoryKillerMultiCoordinator")
     public void outOfMemoryKillerMultiCoordinatorCleanup()
     {
         queryRunner2.close();
     }
 
     // Flaky: https://github.com/prestodb/presto/issues/19679
-    @Test(enabled = false, timeOut = 300_000, groups = {"outOfMemoryKillerMultiCoordinator"}, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    @Test(enabled = false, timeOut = 300_000, groups = "outOfMemoryKillerMultiCoordinator", expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
     public void testOutOfMemoryKillerMultiCoordinator()
             throws Exception
     {
@@ -427,7 +427,7 @@ public class TestMemoryManager
         }
     }
 
-    @BeforeGroups(groups = {"reservedPoolDisabledMultiCoordinator"})
+    @BeforeGroups(groups = "reservedPoolDisabledMultiCoordinator")
     public void reservedPoolDisabledMultiCoordinatorSetup()
             throws Exception
     {
@@ -449,13 +449,13 @@ public class TestMemoryManager
         queryRunner2 = createQueryRunner(rmProperties, extraProperties, extraProperties, coordinatorProperties, extraProperties, 2);
     }
 
-    @AfterGroups(groups = {"reservedPoolDisabledMultiCoordinator"})
+    @AfterGroups(groups = "reservedPoolDisabledMultiCoordinator")
     public void reservedPoolDisabledMultiCoordinatorCleanup()
     {
         queryRunner2.close();
     }
 
-    @Test(timeOut = 240_000, groups = {"reservedPoolDisabledMultiCoordinator"}, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    @Test(timeOut = 240_000, groups = "reservedPoolDisabledMultiCoordinator", expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
     public void testReservedPoolDisabledMultiCoordinator()
             throws Exception
     {
@@ -493,7 +493,7 @@ public class TestMemoryManager
         }
     }
 
-    @BeforeGroups(groups = {"clusterPoolsMultiCoordinator"})
+    @BeforeGroups(groups = "clusterPoolsMultiCoordinator")
     public void clusterPoolsMultiCoordinatorSetup()
             throws Exception
     {
@@ -506,13 +506,13 @@ public class TestMemoryManager
         queryRunner2 = createQueryRunner(properties, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), properties, 2);
     }
 
-    @AfterGroups(groups = {"clusterPoolsMultiCoordinator"})
+    @AfterGroups(groups = "clusterPoolsMultiCoordinator")
     public void clusterPoolsMultiCoordinatorCleanup()
     {
         queryRunner2.close();
     }
 
-    @Test(timeOut = 60_000, groups = {"clusterPoolsMultiCoordinator"})
+    @Test(timeOut = 60_000, groups = "clusterPoolsMultiCoordinator")
     public void testClusterPoolsMultiCoordinator()
             throws Exception
     {
@@ -637,7 +637,7 @@ public class TestMemoryManager
         queryRunner2.close();
     }
 
-    @Test(timeOut = 60_000, groups = {"queryUserMemoryLimit"}, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed user memory limit of 1kB.*")
+    @Test(timeOut = 60_000, groups = "queryUserMemoryLimit", expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed user memory limit of 1kB.*")
     public void testQueryUserMemoryLimit()
     {
         Session session = testSessionBuilder()
@@ -649,7 +649,7 @@ public class TestMemoryManager
         queryRunner2.execute(session, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
     }
 
-    @Test(timeOut = 120_000, groups = {"queryMemoryPerNodeLimit"}, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-node user memory limit of 1kB.*")
+    @Test(timeOut = 120_000, groups = "queryMemoryPerNodeLimit", expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-node user memory limit of 1kB.*")
     public void testQueryMemoryPerNodeLimit()
     {
         Session session = testSessionBuilder()
