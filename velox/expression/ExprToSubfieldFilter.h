@@ -418,13 +418,17 @@ class ExprToSubfieldFilterParser {
  public:
   virtual ~ExprToSubfieldFilterParser() = default;
 
-  static std::unique_ptr<ExprToSubfieldFilterParser> getInstance();
+  static std::shared_ptr<ExprToSubfieldFilterParser> getInstance() {
+    return parserFactory_();
+  }
 
   /// Registers a custom parser factory. The factory is called to create a
   /// parser instance.
   static void registerParserFactory(
-      std::function<std::unique_ptr<ExprToSubfieldFilterParser>()>
-          parserFactory);
+      std::function<std::shared_ptr<ExprToSubfieldFilterParser>()>
+          parserFactory) {
+    parserFactory_ = std::move(parserFactory);
+  }
 
   /// Converts a leaf call expression (no conjunction like AND/OR) to subfield
   /// and filter. Return nullptr if not supported for pushdown. This is needed
@@ -488,7 +492,7 @@ class ExprToSubfieldFilterParser {
 
  private:
   // Factory method to create a parser instance.
-  static std::function<std::unique_ptr<ExprToSubfieldFilterParser>()>
+  static std::function<std::shared_ptr<ExprToSubfieldFilterParser>()>
       parserFactory_;
 };
 
