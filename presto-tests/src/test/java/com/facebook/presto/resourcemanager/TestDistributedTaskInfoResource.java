@@ -25,20 +25,21 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
+import static com.facebook.presto.tests.BlackHoleQueryRunner.createQueryRunner;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.getResponseEntity;
-import static com.facebook.presto.utils.QueryExecutionClientUtil.runToCompletion;
-import static com.facebook.presto.utils.QueryExecutionClientUtil.runToFirstResult;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -56,24 +57,32 @@ public class TestDistributedTaskInfoResource
     private TestingPrestoServer coordinator1;
     private TestingPrestoServer coordinator2;
     private TestingPrestoServer resourceManager;
+    private DistributedQueryRunner runner;
+    private ScheduledExecutorService executor;
 
     @BeforeClass
     public void setup()
             throws Exception
     {
         client = new JettyHttpClient();
-        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"), COORDINATOR_COUNT);
+        runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"), COORDINATOR_COUNT);
         coordinator1 = runner.getCoordinator(0);
         coordinator2 = runner.getCoordinator(1);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
         checkState(resourceManager.isPresent(), "resource manager not present");
         this.resourceManager = resourceManager.get();
+        executor = Executors.newSingleThreadScheduledExecutor();
         coordinator1.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
         coordinator1.getResourceGroupManager().get()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
         coordinator2.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
         coordinator2.getResourceGroupManager().get()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
+
+        @Language("SQL") String createTableSql =
+                "CREATE TABLE blackhole.default.test_table (x bigint) WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '1h')";
+        runner.execute(0, createTableSql);
+        runner.execute(1, createTableSql);
     }
 
     @Test(timeOut = 220_000)
@@ -82,8 +91,8 @@ public class TestDistributedTaskInfoResource
     {
         sleep(SECONDS.toMillis(5));
         waitUntilCoordinatorsDiscoveredHealthyInRM(SECONDS.toMillis(15));
-        runToCompletion(client, coordinator1, "SELECT 1");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
+
+        executor.execute(() -> runner.execute(0, "SELECT * FROM blackhole.default.test_table"));
 
         Map<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfoSnapshot;
         int globalRunningQueries = 0;

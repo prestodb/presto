@@ -38,12 +38,26 @@ public final class BlackHoleQueryRunner
     public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
+        return createQueryRunner(extraProperties, 1);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, int coordinatorCount)
+            throws Exception
+    {
         Session session = testSessionBuilder()
                 .setCatalog("blackhole")
                 .setSchema("default")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4, extraProperties);
+        DistributedQueryRunner.Builder builder = DistributedQueryRunner.builder(session)
+                .setNodeCount(4)
+                .setCoordinatorCount(coordinatorCount)
+                .setExtraProperties(extraProperties);
+        if (coordinatorCount > 1) {
+            builder = builder.setResourceManagerEnabled(true)
+                    .setResourceManagerCount(1);
+        }
+        DistributedQueryRunner queryRunner = builder.build();
 
         try {
             queryRunner.installPlugin(new BlackHolePlugin());

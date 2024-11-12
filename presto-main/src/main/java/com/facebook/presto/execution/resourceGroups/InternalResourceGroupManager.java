@@ -32,6 +32,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.util.PeriodicTaskExecutor;
+import com.facebook.presto.util.PeriodicTaskExecutorFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -90,7 +91,7 @@ public final class InternalResourceGroupManager<C>
     private static final int REFRESH_EXECUTOR_POOL_SIZE = 2;
 
     private final ScheduledExecutorService refreshExecutor = newScheduledThreadPool(REFRESH_EXECUTOR_POOL_SIZE, daemonThreadsNamed("resource-group-manager-refresher-%d-" + REFRESH_EXECUTOR_POOL_SIZE));
-    private final PeriodicTaskExecutor resourceGroupRuntimeExecutor;
+    private final Optional<PeriodicTaskExecutor> resourceGroupRuntimeExecutor;
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
     private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager;
@@ -122,7 +123,8 @@ public final class InternalResourceGroupManager<C>
             MBeanExporter exporter,
             ResourceGroupService resourceGroupService,
             ServerConfig serverConfig,
-            InternalNodeManager nodeManager)
+            InternalNodeManager nodeManager,
+            PeriodicTaskExecutorFactory periodicTaskExecutorFactory)
     {
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
@@ -135,9 +137,15 @@ public final class InternalResourceGroupManager<C>
         this.concurrencyThreshold = queryManagerConfig.getConcurrencyThresholdToEnableResourceGroupRefresh();
         this.resourceGroupRuntimeInfoRefreshInterval = queryManagerConfig.getResourceGroupRunTimeInfoRefreshInterval();
         this.isResourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
-        this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
         configurationManagerFactories.putIfAbsent(LegacyResourceGroupConfigurationManager.NAME, new LegacyResourceGroupConfigurationManager.Factory());
         this.isConfigurationManagerLoaded = new AtomicBoolean(false);
+        if (isResourceManagerEnabled) {
+            this.resourceGroupRuntimeExecutor = Optional.of(requireNonNull(periodicTaskExecutorFactory, "periodicTaskExecutorFactory is null")
+                    .createPeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), this::refreshResourceGroupRuntimeInfo));
+        }
+        else {
+            this.resourceGroupRuntimeExecutor = Optional.empty();
+        }
     }
 
     @Override
@@ -256,7 +264,7 @@ public final class InternalResourceGroupManager<C>
     public void destroy()
     {
         refreshExecutor.shutdownNow();
-        resourceGroupRuntimeExecutor.stop();
+        resourceGroupRuntimeExecutor.ifPresent(PeriodicTaskExecutor::stop);
     }
 
     @PostConstruct
@@ -273,9 +281,7 @@ public final class InternalResourceGroupManager<C>
                     throw t;
                 }
             }, 1, 1, MILLISECONDS);
-            if (isResourceManagerEnabled) {
-                resourceGroupRuntimeExecutor.start();
-            }
+            resourceGroupRuntimeExecutor.ifPresent(PeriodicTaskExecutor::start);
         }
     }
 
