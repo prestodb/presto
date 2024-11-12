@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.util;
 
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.base.Splitter;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 
@@ -21,6 +22,9 @@ import java.util.Optional;
 
 public class IcebergPrestoModelConverters
 {
+    private static final String NAMESPACE_SEPARATOR = ".";
+    private static final Splitter NAMESPACE_SPLITTER = Splitter.on(NAMESPACE_SEPARATOR).omitEmptyStrings().trimResults();
+
     private IcebergPrestoModelConverters()
     {
     }
@@ -32,7 +36,10 @@ public class IcebergPrestoModelConverters
 
     public static Namespace toIcebergNamespace(Optional<String> prestoSchemaName)
     {
-        return prestoSchemaName.map(Namespace::of).orElse(Namespace.empty());
+        if (prestoSchemaName.isPresent()) {
+            return Namespace.of(NAMESPACE_SPLITTER.splitToList(prestoSchemaName.get()).toArray(new String[0]));
+        }
+        return Namespace.empty();
     }
 
     public static SchemaTableName toPrestoSchemaTableName(TableIdentifier icebergTableIdentifier)
@@ -42,11 +49,11 @@ public class IcebergPrestoModelConverters
 
     public static TableIdentifier toIcebergTableIdentifier(SchemaTableName prestoSchemaTableName)
     {
-        return toIcebergTableIdentifier(prestoSchemaTableName.getSchemaName(), prestoSchemaTableName.getTableName());
+        return toIcebergTableIdentifier(toIcebergNamespace(Optional.ofNullable(prestoSchemaTableName.getSchemaName())), prestoSchemaTableName.getTableName());
     }
 
-    public static TableIdentifier toIcebergTableIdentifier(String prestoSchemaName, String prestoTableName)
+    public static TableIdentifier toIcebergTableIdentifier(Namespace icebergNamespace, String prestoTableName)
     {
-        return TableIdentifier.of(prestoSchemaName, prestoTableName);
+        return TableIdentifier.of(icebergNamespace, prestoTableName);
     }
 }
