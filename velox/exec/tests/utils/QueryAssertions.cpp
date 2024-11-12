@@ -1383,16 +1383,24 @@ tsan_atomic<int32_t>& testingAbortCounter() {
   return counter;
 }
 
+std::function<void(Task*)>& testingAbortHook() {
+  static std::function<void(Task*)> hook = nullptr;
+  return hook;
+}
+
 TestScopedAbortInjection::TestScopedAbortInjection(
     int32_t abortPct,
-    int32_t maxInjections) {
+    int32_t maxInjections,
+    std::function<void(Task*)> hook) {
   testingAbortPct() = abortPct;
   testingAbortCounter() = maxInjections;
+  testingAbortHook() = hook;
 }
 
 TestScopedAbortInjection::~TestScopedAbortInjection() {
   testingAbortPct() = 0;
   testingAbortCounter() = 0;
+  testingAbortHook() = nullptr;
 }
 
 bool testingMaybeTriggerAbort(exec::Task* task) {
@@ -1402,6 +1410,9 @@ bool testingMaybeTriggerAbort(exec::Task* task) {
 
   if ((folly::Random::rand32() % 100) < testingAbortPct()) {
     if (testingAbortCounter()-- > 0) {
+      if (testingAbortHook() != nullptr) {
+        testingAbortHook()(task);
+      }
       task->requestAbort();
       return true;
     }

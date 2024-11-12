@@ -92,11 +92,13 @@ class DuckDbQueryRunner {
 /// 'abortPct' is 20 and 'maxInjections' is 10, continuous calls to
 /// testingMaybeTriggerAbort() will keep rolling the dice that has a chance of
 /// 20% triggering until 10 triggers have been invoked.
+/// 'hook' will be invoked whenever abort is triggered, if not nullptr.
 class TestScopedAbortInjection {
  public:
   explicit TestScopedAbortInjection(
       int32_t abortPct,
-      int32_t maxInjections = std::numeric_limits<int32_t>::max());
+      int32_t maxInjections = std::numeric_limits<int32_t>::max(),
+      std::function<void(Task*)> hook = nullptr);
 
   ~TestScopedAbortInjection();
 };
