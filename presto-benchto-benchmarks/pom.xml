@@ -26,6 +26,12 @@
             <groupId>com.teradata.benchto</groupId>
             <artifactId>benchto-driver</artifactId>
             <version>0.4</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.yaml</groupId>
+                    <artifactId>snakeyaml</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
