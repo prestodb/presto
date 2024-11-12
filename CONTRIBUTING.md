@@ -83,11 +83,8 @@ The contribution process is outlined below:
    * Always follow the [coding best practices](#coding-best-practices) outlined below.
    * If the change is large, consider posting a draft Github pull request (PR)
      with the title prefixed with [WIP], and share with collaborators to get early feedback.
-   * Give the PR a clear, brief description; when the PR is
-   merged, this will be retained in the extended commit message. Check out 
-   [How to Write Better Git Commit Messages – A Step-By-Step Guide](https://www.freecodecamp.org/news/how-to-write-better-git-commit-messages/)
-   and [How to Write a Git Commit Message](https://cbea.ms/git-commit/) to
-   learn more about how to write good commit messages.
+   * Ensure the PR follows the [title and description
+     guidelines](#commit-messages) presented below.
    * Make sure the PR passes all CI tests.
    * Create/submit a Github PR and tag the reviewers identified in Step 3.
 
@@ -108,6 +105,81 @@ The contribution process is outlined below:
 7. Iterate on this process until your changes are reviewed and accepted by a 
    maintainer. At this point, a Meta employee will be notified to merge your PR,
    due to tooling limitations.
+
+## Commit Messages
+
+We build Velox for the long-run, and to do so it is crucial that project
+maintainers are able to efficiently inspect and understand project logs.
+
+Commit messages that follow a strict pattern improve maintainability, and allow
+tasks such as summarizing changelogs and identifying API breaking changes to be
+automated. Despite requiring more rigor from authors and reviewers, consistency
+and uniformity in developer workflows improve productivity in the long term.
+
+In Velox, commit messages are generated based on the input provided to PRs, and
+must follow the [conventional commit
+specification](https://www.conventionalcommits.org/en/v1.0.0/) in the following
+manner:
+
+**PR titles** must follow the pattern:
+
+> \<type\>[(optional scope)]: \<description\>
+
+where:
+
+* *Type* can be any of the following keywords:
+  * **feat** when new features are being added.
+  * **fix** for bug fixes.
+  * **build** for build or CI-related improvements.
+  * **test** for adding tests (only).
+  * **docs** for enhancements to documentation (only).
+  * **refactor** for refactoring (no logic changes).
+  * **misc** for other changes that may not match any of the categories above.
+
+* PR titles also take an *optional scope* field containing the area
+  of the code being target by the PR, to further help commit classification.
+  For example, "fix(expr): " or "refactor(parquet): " or "feat(memory):".
+  It is ok to omit this field if there is no adequate classification for the
+  PR, or if the PR touches multiple different components.
+
+  * Examples of scopes are *vector, type, expr, operator, memory, dwio,
+    parquet, dwrf, filesystem, connector, hive, function, aggregate*, but not
+    limited to.
+
+* A *description* sentence summarizing the PR, written in imperative tone. The
+  description must be capitalized, not contain a period at the end, and wrap
+  lines at the 80 characters limit to improve git-log readability.
+
+ * PR titles should also add a '!' to signal if the PR may break backward
+   compatibility. For example: "fix(expr)!: ..." or "feat!: ...". Moreover, the
+   compatibility changes need to be described in a section in the PR body as
+   described below.
+
+Examples of PR titles are:
+
+* feature(type): Add IPPREFIX
+* fix: Prevent unnecessary flatmap to map conversion
+* refactor(vector): Use 'if constexpr' for Buffer::is_pod_like_v\<T\>
+
+The **PR body** must contain a summary of the change, focusing on the *what*
+and *why*. Wrap lines at 80 characters for better git-log readability.
+
+**Breaking API Changes.** A "BREAKING CHANGE:" footer must be added to PRs
+that break backwards compatibility of any external API in Velox, followed by a
+sentence explaining the extent of the API change. This means either API changes
+that may break client builds, or semantic changes on the behavior of such APIs.
+
+If there is a Github Issue or Discussion related to the PR, authors must also
+add a "Fixes #[number]" line to the bottom of the PR body. This instructs
+Github to automatically close the associated Issue when the PR is merged. If
+you merely want to link the PR to an Issue (without closing it when the PR gets
+merged), use the pattern "Part of #[number]".
+
+Before contributing PRs to Velox, please review these resource about how to
+write great commit messages:
+
+* [How to Write Better Git Commit Messages – A Step-By-Step Guide](https://www.freecodecamp.org/news/how-to-write-better-git-commit-messages/)
+* [How to Write a Git Commit Message](https://cbea.ms/git-commit/)
 
 ## Coding Best Practices
 
@@ -208,7 +280,7 @@ with a benchmark.
    line arguments.
 
    ```
-   # Test the new function in isolation. Use --only flag to restrict the set of functions
+# Test the new function in isolation. Use --only flag to restrict the set of functions
    # and run for 60 seconds or longer.
    velox_expression_fuzzer_test --only <my-new-function-name> --duration_sec 60 --logtostderr=1 --enable_variadic_signatures --velox_fuzzer_enable_complex_types --velox_fuzzer_enable_decimal_type --lazy_vector_generation_ratio 0.2 --velox_fuzzer_enable_column_reuse --velox_fuzzer_enable_expression_reuse
 
