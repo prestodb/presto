@@ -20,6 +20,7 @@
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/SharedArbitrator.h"
+#include "velox/common/memory/tests/SharedArbitratorTestUtil.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/HashBuild.h"
@@ -5783,7 +5784,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
 
     if (testData.expectedReclaimable) {
       {
-        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        auto arbitrationStructs =
+            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+                op->pool()->shared_from_this());
+        memory::ScopedMemoryArbitrationContext ctx(
+            op->pool(), arbitrationStructs.operation.get());
         op->pool()->reclaim(
             folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
             0,
@@ -5923,7 +5928,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
   ASSERT_GT(reclaimableBytes, 0);
 
   {
-    memory::ScopedMemoryArbitrationContext ctx(op->pool());
+    auto arbitrationStructs =
+        memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+            op->pool()->shared_from_this());
+    memory::ScopedMemoryArbitrationContext ctx(
+        op->pool(), arbitrationStructs.operation.get());
     op->pool()->reclaim(
         folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
         0,
@@ -6178,7 +6187,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
       ASSERT_GT(reclaimableBytes, 0);
       const auto usedMemoryBytes = op->pool()->usedBytes();
       {
-        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        auto arbitrationStructs =
+            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+                op->pool()->shared_from_this());
+        memory::ScopedMemoryArbitrationContext ctx(
+            op->pool(), arbitrationStructs.operation.get());
         op->pool()->reclaim(
             folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
             0,
@@ -6259,7 +6272,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
         }
         auto* driver = op->testingOperatorCtx()->driver();
         auto task = driver->task();
-        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        auto arbitrationStructs =
+            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+                op->pool()->shared_from_this());
+        memory::ScopedMemoryArbitrationContext ctx(
+            op->pool(), arbitrationStructs.operation.get());
         SuspendedSection suspendedSection(driver);
         auto taskPauseWait = task->requestPause();
         taskPauseWait.wait();
@@ -6326,7 +6343,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
   const auto usedMemoryBytes = op->pool()->usedBytes();
   reclaimerStats_.reset();
   {
-    memory::ScopedMemoryArbitrationContext ctx(op->pool());
+    auto arbitrationStructs =
+        memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+            op->pool()->shared_from_this());
+    memory::ScopedMemoryArbitrationContext ctx(
+        op->pool(), arbitrationStructs.operation.get());
     op->pool()->reclaim(
         folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
         0,

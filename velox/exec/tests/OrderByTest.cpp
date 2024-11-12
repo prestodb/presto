@@ -19,6 +19,7 @@
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/tests/SharedArbitratorTestUtil.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
@@ -651,7 +652,11 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
 
     if (testData.expectedReclaimable) {
       {
-        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        auto arbitrationStructs =
+            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+                op->pool()->shared_from_this());
+        memory::ScopedMemoryArbitrationContext ctx(
+            op->pool(), arbitrationStructs.operation.get());
         op->pool()->reclaim(
             folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
             0,
@@ -777,7 +782,11 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
   ASSERT_GT(reclaimableBytes, 0);
 
   {
-    memory::ScopedMemoryArbitrationContext ctx(op->pool());
+    auto arbitrationStructs =
+        memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+            op->pool()->shared_from_this());
+    memory::ScopedMemoryArbitrationContext ctx(
+        op->pool(), arbitrationStructs.operation.get());
     op->pool()->reclaim(
         folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
         0,
@@ -1028,7 +1037,11 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
       ASSERT_GT(reclaimableBytes, 0);
       reclaimerStats_.reset();
       {
-        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        auto arbitrationStructs =
+            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+                op->pool()->shared_from_this());
+        memory::ScopedMemoryArbitrationContext ctx(
+            op->pool(), arbitrationStructs.operation.get());
         op->pool()->reclaim(reclaimableBytes, 0, reclaimerStats_);
       }
       ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
@@ -1037,7 +1050,11 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
     } else {
       ASSERT_EQ(reclaimableBytes, 0);
       {
-        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        auto arbitrationStructs =
+            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+                op->pool()->shared_from_this());
+        memory::ScopedMemoryArbitrationContext ctx(
+            op->pool(), arbitrationStructs.operation.get());
         VELOX_ASSERT_THROW(
             op->reclaim(
                 folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),

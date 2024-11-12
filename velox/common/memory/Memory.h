@@ -347,7 +347,6 @@ std::shared_ptr<MemoryPool> deprecatedAddDefaultLeafMemoryPool(
 /// using this method can get a pool that is shared with other threads. The goal
 /// is to minimize lock contention while supporting such use cases.
 ///
-///
 /// TODO: deprecate this API after all the use cases are able to manage the
 /// lifecycle of the allocated memory pools properly.
 MemoryPool& deprecatedSharedLeafPool();

@@ -25,12 +25,36 @@
 #include "velox/common/memory/Memory.h"
 
 namespace facebook::velox::memory {
+
+#define VELOX_MEM_ARBITRATION_TIMEOUT(errorMessage)                  \
+  _VELOX_THROW(                                                      \
+      ::facebook::velox::VeloxRuntimeError,                          \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(),  \
+      ::facebook::velox::error_code::kMemArbitrationTimeout.c_str(), \
+      /* isRetriable */ true,                                        \
+      "{}",                                                          \
+      errorMessage);
+
 namespace test {
 class ArbitrationParticipantTestHelper;
 }
 
 class ArbitrationOperation;
 class ScopedArbitrationParticipant;
+
+/// Custom lock that keeps track of the time of the ongoing arbitration
+/// operation while waiting for the lock. The lock will identify if it needs to
+/// apply a wait timeout by checking arbitrationCtx thread local variable. If a
+/// local arbitration is ongoing on the current locking thread, timeout will
+/// automatically be applied.
+class ArbitrationOperationTimedLock {
+ public:
+  explicit ArbitrationOperationTimedLock(std::timed_mutex& mutex);
+  ~ArbitrationOperationTimedLock();
+
+ private:
+  std::timed_mutex& mutex_;
+};
 
 /// Manages the memory arbitration operations on a query memory pool. It also
 /// tracks the arbitration stats during the query memory pool's lifecycle.
@@ -154,9 +178,9 @@ class ArbitrationParticipant
   /// which ensures the liveness of underlying query memory pool. If the query
   /// memory pool is being destroyed, then this function returns std::nullopt.
   ///
-  // NOTE: it is not safe to directly access arbitration participant as it only
-  // holds a weak ptr to the query memory pool. Use 'lock()' to get a scoped
-  // arbitration participant for access.
+  /// NOTE: it is not safe to directly access arbitration participant as it only
+  /// holds a weak ptr to the query memory pool. Use 'lock()' to get a scoped
+  /// arbitration participant for access.
   std::optional<ScopedArbitrationParticipant> lock();
 
   /// Returns the corresponding query memory pool.
@@ -222,11 +246,6 @@ class ArbitrationParticipant
     std::lock_guard<std::mutex> l(stateLock_);
     return aborted_;
   }
-
-  /// Invoked to wait for the pending memory reclaim or abort operation to
-  /// complete within a 'maxWaitTimeMs' time window. The function returns false
-  /// if the wait has timed out.
-  bool waitForReclaimOrAbort(uint64_t maxWaitTimeNs) const;
 
   /// Invoked to start arbitration operation 'op'. The operation needs to wait
   /// for the prior arbitration operations to finish first before executing to
@@ -333,7 +352,7 @@ class ArbitrationParticipant
   tsan_atomic<uint64_t> reclaimedBytes_{0};
   tsan_atomic<uint64_t> growBytes_{0};
 
-  mutable std::timed_mutex reclaimLock_;
+  mutable std::timed_mutex reclaimMutex_;
 
   friend class ScopedArbitrationParticipant;
   friend class test::ArbitrationParticipantTestHelper;

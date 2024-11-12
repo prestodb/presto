@@ -304,6 +304,9 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     const std::chrono::steady_clock::time_point startTime_;
   };
 
+  // The scoped object to cover the global arbitration execution. It ensures
+  // the setups and teardowns of 'arbitrator' global arbitration state and
+  // thread_local 'arbitrationCtx' global context.
   class GlobalArbitrationSection {
    public:
     explicit GlobalArbitrationSection(SharedArbitrator* arbitrator);
@@ -311,11 +314,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
    private:
     SharedArbitrator* const arbitrator_;
+
+    // Default to global arbitration context.
     const memory::ScopedMemoryArbitrationContext arbitrationCtx_{};
   };
 
   FOLLY_ALWAYS_INLINE void checkRunning() {
-    std::lock_guard<std::mutex> l(stateLock_);
+    std::lock_guard<std::mutex> l(stateMutex_);
     VELOX_CHECK(!hasShutdownLocked(), "SharedArbitrator is not running");
   }
 
@@ -341,13 +346,6 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // Run arbitration to grow capacity for 'op'. The function returns true on
   // success.
   bool growCapacity(ArbitrationOperation& op);
-
-  // Gets the mim/max memory capacity growth targets for 'op' once after it
-  // starts to run.
-  void getGrowTargets(
-      ArbitrationOperation& op,
-      uint64_t& maxGrowTarget,
-      uint64_t& minGrowTarget);
 
   // Invoked to start execution of 'op'. It waits for the serialized execution
   // on the same arbitration participant and returns when 'op' is ready to run.
@@ -408,10 +406,10 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // Invoked to get the global arbitration target in bytes.
   uint64_t getGlobalArbitrationTarget();
 
-  // Invoked to run global arbitration to reclaim free or used memory from the
-  // other queries. The global arbitration run is protected by the exclusive
-  // lock of 'arbitrationLock_' for serial execution mode. The function returns
-  // true on success, false on failure.
+  // Invoked to run global arbitration to reclaim free or used memory from other
+  // queries. The global arbitration run is protected by the exclusive lock of
+  // 'arbitrationLock_' for serial execution mode. The function returns true on
+  // success, false on failure.
   bool startAndWaitGlobalArbitration(ArbitrationOperation& op);
 
   // Invoked to get stats of candidate participants for arbitration. If
@@ -430,21 +428,30 @@ class SharedArbitrator : public memory::MemoryArbitrator {
       std::vector<ArbitrationCandidate>& candidates);
 
   // Invoked to reclaim the specified used memory capacity from one or more
-  // participants in parallel by spilling. 'reclaimedParticipants' tracks the
-  // participants that have been reclaimed by spill across multiple global
-  // arbitration runs. 'failedParticipants' tracks the participants that have
-  // failed to reclaim any memory by spill. This could happen if there is some
-  // unknown bug or limitation in specific spillable operator implementation.
-  // Correspondingly, the global arbitration shall skip reclaiming from those
-  // participants in next arbitration round. 'allParticipantsReclaimed'
-  // indicates if all participants have been reclaimed by spill so far. It is
-  // used by gllobal arbitration to decide if need to switch to abort to reclaim
-  // used memory in the next arbitration round. The function returns the
-  // actually reclaimed used capacity in bytes.
+  // participants in parallel by spilling.
   //
-  // NOTE: the function sort participants based on their reclaimable used memory
-  // capacity, and reclaim from participants with larger reclaimable used memory
-  // first.
+  // 'reclaimedParticipants' keeps track of the participants that have been
+  // reclaimed by spilling. It will be taken as input to avoid reclaiming from
+  // these participants again. It will also be updated when additional
+  // participants are reclaimed. From caller's perspective, it should be kept
+  // and provided from across multiple global arbitration runs.
+  //
+  // 'failedParticipants' keeps track of the participants that have failed to
+  // reclaim any memory by spilling. This could happen if there is some unknown
+  // bug or limitation in specific spillable operator implementation. It will be
+  // taken as input to avoid reclaiming from these participants again. It will
+  // also be updated when additional participants fail to be reclaimed any
+  // memory. From caller's perspective, it should be kept and provided from
+  // across multiple global arbitration runs.
+  //
+  // 'allParticipantsReclaimed' returns if all participants have been
+  // reclaimed by spilling so far. It is used by gllobal arbitration to decide
+  // if need to switch to abort to reclaim used memory in the next arbitration
+  // round. The function returns the actually reclaimed used capacity in bytes.
+  //
+  // NOTE: the function sorts participants based on their reclaimable used
+  // memory capacity, and reclaims from participants with larger reclaimable
+  // used memory first.
   uint64_t reclaimUsedMemoryBySpill(
       uint64_t targetBytes,
       std::unordered_set<uint64_t>& reclaimedParticipants,
@@ -565,11 +572,6 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // corresponding operator's runtime stats.
   void incrementLocalArbitrationCount();
 
-  size_t numParticipants() const {
-    std::shared_lock<folly::SharedMutex> l(participantLock_);
-    return participants_.size();
-  }
-
   Stats statsLocked() const;
 
   void updateMemoryReclaimStats(
@@ -605,9 +607,8 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   std::unordered_map<std::string, std::shared_ptr<ArbitrationParticipant>>
       participants_;
 
-  // Lock used to protect the arbitrator internal state.
-  mutable std::mutex stateLock_;
-
+  // Mutex used to protect the arbitrator internal state.
+  mutable std::mutex stateMutex_;
   State state_{State::kRunning};
 
   tsan_atomic<uint64_t> freeReservedCapacity_{0};
@@ -627,7 +628,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   std::unique_ptr<std::thread> globalArbitrationController_;
   // Signal used to wakeup 'globalArbitrationController_' to run global
   // arbitration on-demand.
-  std::condition_variable globalArbitrationThreadCv_;
+  std::condition_variable_any globalArbitrationThreadCv_;
 
   // Records an arbitration operation waiting for global memory arbitration.
   struct ArbitrationWait {
@@ -640,7 +641,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   };
 
   // The map of global arbitration waiters. The key is the arbitration operation
-  // id which is set to id the of the corresponding arbitration participant.
+  // id which is set to the id of the corresponding arbitration participant.
   // This ensures to satisfy the arbitration request in the order of the age of
   // arbitration participants with old participants being served first.
   std::map<uint64_t, ArbitrationWait*> globalArbitrationWaiters_;

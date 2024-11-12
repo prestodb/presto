@@ -1484,81 +1484,6 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, reclaimLock) {
   ASSERT_EQ(scopedParticipant->stats().reclaimedBytes, 32 << 20);
 }
 
-DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, waitForReclaimOrAbort) {
-  struct {
-    uint64_t waitTimeNs;
-    bool pendingReclaim;
-    uint64_t reclaimWaitMs{0};
-    bool expectedTimeout;
-
-    std::string debugString() const {
-      return fmt::format(
-          "waitTime {}, pendingReclaim {}, reclaimWait {}, expectedTimeout {}",
-          succinctNanos(waitTimeNs),
-          pendingReclaim,
-          succinctMillis(reclaimWaitMs),
-          expectedTimeout);
-    }
-  } testSettings[] = {
-      {0, true, 1'000, true},
-      {0, false, 1'000, true},
-      {1'000'000'000'000UL, true, 1'000, false},
-      {1'000'000'000'000UL, true, 1'000, false}};
-
-  for (const auto& testData : testSettings) {
-    SCOPED_TRACE(testData.debugString());
-
-    std::atomic_bool reclaimWaitFlag{false};
-    folly::EventCount reclaimWait;
-    SCOPED_TESTVALUE_SET(
-        "facebook::velox::memory::ArbitrationParticipant::reclaim",
-        std::function<void(ArbitrationParticipant*)>(
-            ([&](ArbitrationParticipant* /*unused*/) {
-              reclaimWaitFlag = true;
-              reclaimWait.notifyAll();
-              std::this_thread::sleep_for(
-                  std::chrono::milliseconds(testData.reclaimWaitMs)); // NOLINT
-            })));
-
-    SCOPED_TESTVALUE_SET(
-        "facebook::velox::memory::ArbitrationParticipant::abortLocked",
-        std::function<void(ArbitrationParticipant*)>(
-            ([&](ArbitrationParticipant* /*unused*/) {
-              reclaimWaitFlag = true;
-              reclaimWait.notifyAll();
-              std::this_thread::sleep_for(
-                  std::chrono::milliseconds(testData.reclaimWaitMs)); // NOLINT
-            })));
-
-    auto task = createTask(kMemoryCapacity);
-    const auto config = arbitrationConfig();
-    auto participant =
-        ArbitrationParticipant::create(10, task->pool(), &config);
-    task->allocate(MB);
-    auto scopedParticipant = participant->lock().value();
-
-    std::thread reclaimThread([&]() {
-      if (testData.pendingReclaim) {
-        memory::MemoryReclaimer::Stats stats;
-        ASSERT_EQ(
-            scopedParticipant->reclaim(MB, 1'000'000'000'000UL, stats), MB);
-      } else {
-        const std::string abortReason = "test abort";
-        try {
-          VELOX_FAIL(abortReason);
-        } catch (const VeloxRuntimeError& e) {
-          ASSERT_EQ(scopedParticipant->abort(std::current_exception()), MB);
-        }
-      }
-    });
-    reclaimWait.await([&]() { return reclaimWaitFlag.load(); });
-    ASSERT_EQ(
-        scopedParticipant->waitForReclaimOrAbort(testData.waitTimeNs),
-        !testData.expectedTimeout);
-    reclaimThread.join();
-  }
-}
-
 // This test verifies the aborted returns true until the participant has been
 // aborted.
 DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, abortedCheck) {
@@ -1949,6 +1874,87 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperationState) {
       ArbitrationOperation::stateName(
           static_cast<ArbitrationOperation::State>(10)),
       "unknown state: 10");
+}
+
+TEST_F(ArbitrationParticipantTest, arbitrationOperationTimedLock) {
+  auto participantPool = manager_->addRootPool("arbitrationOperationTimedLock");
+  auto config = ArbitrationParticipant::Config(0, 1024, 0, 0, 0, 0, 128, 512);
+  auto participant = ArbitrationParticipant::create(
+      folly::Random::rand64(), participantPool, &config);
+
+  auto createLockHolderThread = [](std::timed_mutex& mutex,
+                                   uint64_t lockHoldTimeNs,
+                                   folly::EventCount& lockWait,
+                                   std::atomic_bool& lockWaitFlag) {
+    return std::thread([&, sleepNs = lockHoldTimeNs]() {
+      std::lock_guard<std::timed_mutex> l(mutex);
+      lockWaitFlag = false;
+      lockWait.notifyAll();
+      std::this_thread::sleep_for(std::chrono::nanoseconds(sleepNs));
+    });
+  };
+
+  struct TestData {
+    std::string type;
+    uint64_t lockHoldTimeNs;
+    uint64_t opTimeoutNs;
+  };
+
+  std::timed_mutex mutex;
+  std::vector<TestData> testDataVec{
+      {"local", 1'000'000'000UL, 2'000'000'000UL},
+      {"local", 2'000'000'000UL, 1'000'000'000UL},
+      {"global", 1'000'000'000UL, 2'000'000'000UL},
+      {"global", 2'000'000'000UL, 1'000'000'000UL},
+      {"none", 1'000'000'000UL, 2'000'000'000UL}};
+
+  for (auto& testData : testDataVec) {
+    ScopedArbitrationParticipant scopedArbitrationParticipant(
+        participant, participantPool);
+    ArbitrationOperation operation(
+        std::move(scopedArbitrationParticipant), 1024, testData.opTimeoutNs);
+    if (testData.type == "local") {
+      MemoryArbitrationContext ctx(participantPool.get(), &operation);
+      ScopedMemoryArbitrationContext scopedCtx(&ctx);
+
+      folly::EventCount lockWait;
+      std::atomic_bool lockWaitFlag{true};
+      auto lockHolder = createLockHolderThread(
+          mutex, testData.lockHoldTimeNs, lockWait, lockWaitFlag);
+      std::unique_ptr<ArbitrationOperationTimedLock> timedLock{nullptr};
+      lockWait.await([&]() { return !lockWaitFlag.load(); });
+      if (testData.lockHoldTimeNs < testData.opTimeoutNs) {
+        timedLock = std::make_unique<ArbitrationOperationTimedLock>(mutex);
+        ASSERT_FALSE(mutex.try_lock());
+      } else {
+        VELOX_ASSERT_THROW(
+            std::make_unique<ArbitrationOperationTimedLock>(mutex),
+            "Memory arbitration lock timed out");
+      }
+      lockHolder.join();
+    } else if (testData.type == "global") {
+      MemoryArbitrationContext ctx;
+      ScopedMemoryArbitrationContext scopedCtx(&ctx);
+
+      folly::EventCount lockWait;
+      std::atomic_bool lockWaitFlag{true};
+      auto lockHolder = createLockHolderThread(
+          mutex, testData.lockHoldTimeNs, lockWait, lockWaitFlag);
+      lockWait.await([&]() { return !lockWaitFlag.load(); });
+      ArbitrationOperationTimedLock timedLock(mutex);
+      ASSERT_FALSE(mutex.try_lock());
+      lockHolder.join();
+    } else {
+      folly::EventCount lockWait;
+      std::atomic_bool lockWaitFlag{true};
+      auto lockHolder = createLockHolderThread(
+          mutex, testData.lockHoldTimeNs, lockWait, lockWaitFlag);
+      lockWait.await([&]() { return !lockWaitFlag.load(); });
+      ArbitrationOperationTimedLock timedLock(mutex);
+      ASSERT_FALSE(mutex.try_lock());
+      lockHolder.join();
+    }
+  }
 }
 } // namespace
 } // namespace facebook::velox::memory

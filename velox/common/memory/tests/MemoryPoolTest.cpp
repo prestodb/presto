@@ -26,6 +26,7 @@
 #include "velox/common/memory/MemoryPool.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/memory/SharedArbitrator.h"
+#include "velox/common/memory/tests/SharedArbitratorTestUtil.h"
 #include "velox/common/testutil/TestValue.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
@@ -3887,7 +3888,10 @@ TEST_P(MemoryPoolTest, overuseUnderArbitration) {
   ASSERT_FALSE(child->maybeReserve(2 * kMaxSize));
   ASSERT_EQ(child->usedBytes(), 0);
   ASSERT_EQ(child->reservedBytes(), 0);
-  ScopedMemoryArbitrationContext scopedMemoryArbitration(child.get());
+  auto arbitrationTestStructs =
+      test::ArbitrationTestStructs::createArbitrationTestStructs(root);
+  ScopedMemoryArbitrationContext scopedMemoryArbitration(
+      root.get(), arbitrationTestStructs.operation.get());
   ASSERT_TRUE(underMemoryArbitration());
   ASSERT_TRUE(child->maybeReserve(2 * kMaxSize));
   ASSERT_EQ(child->usedBytes(), 0);

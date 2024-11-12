@@ -42,7 +42,6 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::memory {
-namespace {
 // Class to write runtime stats in the tests to the stats container.
 class TestRuntimeStatWriter : public BaseRuntimeStatWriter {
  public:
@@ -80,7 +79,7 @@ using ReclaimInjectionCallback =
     std::function<bool(MemoryPool* pool, uint64_t targetByte)>;
 using ArbitrationInjectionCallback = std::function<void()>;
 
-struct Allocation {
+struct AllocatedBuffer {
   void* buffer{nullptr};
   size_t size{0};
 };
@@ -298,7 +297,7 @@ class MockMemoryOperator {
   }
 
   void free() {
-    Allocation allocation;
+    AllocatedBuffer allocation;
     {
       std::lock_guard<std::mutex> l(mu_);
       if (allocations_.empty()) {
@@ -327,7 +326,7 @@ class MockMemoryOperator {
   uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) {
     VELOX_CHECK_GT(targetBytes, 0);
     uint64_t bytesReclaimed{0};
-    std::vector<Allocation> allocationsToFree;
+    std::vector<AllocatedBuffer> allocationsToFree;
     {
       std::lock_guard<std::mutex> l(mu_);
       VELOX_CHECK_NOT_NULL(pool_);
@@ -2831,6 +2830,60 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, localArbitrationTimeout) {
   ASSERT_EQ(task->capacity(), 0);
 }
 
+DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, reclaimLockTimeout) {
+  const uint64_t memoryCapacity = 256 * MB;
+  const uint64_t arbitrationTimeoutMs = 1'000;
+  setupMemory(
+      memoryCapacity,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1.0,
+      nullptr,
+      false,
+      arbitrationTimeoutMs);
+  std::shared_ptr<MockTask> task = addTask(memoryCapacity);
+  ASSERT_EQ(task->capacity(), 0);
+  auto* op = task->addMemoryOp(true);
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::ArbitrationParticipant::abort",
+      std::function<void(const ArbitrationParticipant*)>(
+          ([&](const ArbitrationParticipant* /*unused*/) {
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(2 * arbitrationTimeoutMs)); // NOLINT
+          })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::ArbitrationParticipant::reclaim",
+      std::function<void(const ArbitrationParticipant*)>(
+          ([&](const ArbitrationParticipant* /*unused*/) {
+            // Timeout shall be enforced at lock level. We don't expect code to
+            // execute pass the lock in reclaim method.
+            FAIL();
+          })));
+
+  auto abortThread = std::thread(
+      [&]() { arbitrator_->shrinkCapacity(memoryCapacity, false, true); });
+  try {
+    op->allocate(memoryCapacity / 2);
+  } catch (const VeloxException& ex) {
+    ASSERT_EQ(ex.errorCode(), error_code::kMemArbitrationTimeout);
+    ASSERT_THAT(
+        ex.what(),
+        testing::HasSubstr("Memory arbitration timed out on memory pool"));
+  }
+
+  abortThread.join();
+}
+
 DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, localArbitrationQueueTimeout) {
   uint64_t memoryCapacity = 256 * MB;
   setupMemory(
@@ -4173,5 +4226,4 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
   }
   controlThread.join();
 }
-} // namespace
 } // namespace facebook::velox::memory

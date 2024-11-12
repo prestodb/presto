@@ -23,6 +23,7 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/memory/SharedArbitrator.h"
+#include "velox/common/memory/tests/SharedArbitratorTestUtil.h"
 
 using namespace ::testing;
 
@@ -989,13 +990,19 @@ TEST_F(MemoryReclaimerTest, arbitrationContext) {
   ASSERT_FALSE(isSpillMemoryPool(leafChild2.get()));
   ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   {
-    ScopedMemoryArbitrationContext arbitrationContext(leafChild1.get());
+    auto arbitrationStructs =
+        test::ArbitrationTestStructs::createArbitrationTestStructs(leafChild1);
+    ScopedMemoryArbitrationContext arbitrationContext(
+        leafChild1.get(), arbitrationStructs.operation.get());
     ASSERT_TRUE(memoryArbitrationContext() != nullptr);
     ASSERT_EQ(memoryArbitrationContext()->requestorName, leafChild1->name());
   }
   ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   {
-    ScopedMemoryArbitrationContext arbitrationContext(leafChild2.get());
+    auto arbitrationStructs =
+        test::ArbitrationTestStructs::createArbitrationTestStructs(leafChild2);
+    ScopedMemoryArbitrationContext arbitrationContext(
+        leafChild2.get(), arbitrationStructs.operation.get());
     ASSERT_TRUE(memoryArbitrationContext() != nullptr);
     ASSERT_EQ(memoryArbitrationContext()->requestorName, leafChild2->name());
   }
@@ -1003,13 +1010,21 @@ TEST_F(MemoryReclaimerTest, arbitrationContext) {
   std::thread nonAbitrationThread([&]() {
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
     {
-      ScopedMemoryArbitrationContext arbitrationContext(leafChild1.get());
+      auto arbitrationStructs =
+          test::ArbitrationTestStructs::createArbitrationTestStructs(
+              leafChild1);
+      ScopedMemoryArbitrationContext arbitrationContext(
+          leafChild1.get(), arbitrationStructs.operation.get());
       ASSERT_TRUE(memoryArbitrationContext() != nullptr);
       ASSERT_EQ(memoryArbitrationContext()->requestorName, leafChild1->name());
     }
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
     {
-      ScopedMemoryArbitrationContext arbitrationContext(leafChild2.get());
+      auto arbitrationStructs =
+          test::ArbitrationTestStructs::createArbitrationTestStructs(
+              leafChild2);
+      ScopedMemoryArbitrationContext arbitrationContext(
+          leafChild2.get(), arbitrationStructs.operation.get());
       ASSERT_TRUE(memoryArbitrationContext() != nullptr);
       ASSERT_EQ(memoryArbitrationContext()->requestorName, leafChild2->name());
     }

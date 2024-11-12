@@ -22,6 +22,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/SharedArbitrator.h"
+#include "velox/common/memory/tests/SharedArbitratorTestUtil.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Aggregate.h"
@@ -2132,7 +2133,11 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
 
     if (testData.expectedReclaimable) {
       {
-        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        auto arbitrationStructs =
+            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+                op->pool()->shared_from_this());
+        memory::ScopedMemoryArbitrationContext ctx(
+            op->pool(), arbitrationStructs.operation.get());
         op->pool()->reclaim(
             folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
             0,
@@ -2145,7 +2150,11 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
       ASSERT_EQ(op->pool()->usedBytes(), 0);
     } else {
       {
-        memory::ScopedMemoryArbitrationContext ctx(op->pool());
+        auto arbitrationStructs =
+            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+                op->pool()->shared_from_this());
+        memory::ScopedMemoryArbitrationContext ctx(
+            op->pool(), arbitrationStructs.operation.get());
         VELOX_ASSERT_THROW(
             op->reclaim(
                 folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
@@ -2261,7 +2270,11 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
 
   const auto usedMemory = op->pool()->usedBytes();
   {
-    memory::ScopedMemoryArbitrationContext ctx(op->pool());
+    auto arbitrationStructs =
+        memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+            op->pool()->shared_from_this());
+    memory::ScopedMemoryArbitrationContext ctx(
+        op->pool(), arbitrationStructs.operation.get());
     op->pool()->reclaim(
         folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
         0,
@@ -2506,7 +2519,11 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
       const auto usedMemory = op->pool()->usedBytes();
-      memory::ScopedMemoryArbitrationContext ctx(op->pool());
+      auto arbitrationStructs =
+          memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+              op->pool()->shared_from_this());
+      memory::ScopedMemoryArbitrationContext ctx(
+          op->pool(), arbitrationStructs.operation.get());
       op->pool()->reclaim(
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
           0,
@@ -2518,7 +2535,11 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
       reclaimerStats_.reset();
     } else {
       ASSERT_EQ(reclaimableBytes, 0);
-      memory::ScopedMemoryArbitrationContext ctx(op->pool());
+      auto arbitrationStructs =
+          memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
+              op->pool()->shared_from_this());
+      memory::ScopedMemoryArbitrationContext ctx(
+          op->pool(), arbitrationStructs.operation.get());
       VELOX_ASSERT_THROW(
           op->reclaim(
               folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
@@ -3141,7 +3162,10 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
-          memory::ScopedMemoryArbitrationContext ctx(op->pool());
+          auto arbitrationStructs = memory::test::ArbitrationTestStructs::
+              createArbitrationTestStructs(op->pool()->shared_from_this());
+          memory::ScopedMemoryArbitrationContext ctx(
+              op->pool(), arbitrationStructs.operation.get());
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
           ASSERT_GT(stats.reclaimExecTimeUs, 0);
