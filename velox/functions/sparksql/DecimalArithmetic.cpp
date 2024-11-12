@@ -21,15 +21,18 @@
 namespace facebook::velox::functions::sparksql {
 namespace {
 
+static constexpr const char* kDenyPrecisionLoss = "_deny_precision_loss";
+
 struct DecimalAddSubtractBase {
  protected:
+  template <bool allowPrecisionLoss>
   void initializeBase(const std::vector<TypePtr>& inputTypes) {
     auto [aPrecision, aScale] = getDecimalPrecisionScale(*inputTypes[0]);
     auto [bPrecision, bScale] = getDecimalPrecisionScale(*inputTypes[1]);
     aScale_ = aScale;
     bScale_ = bScale;
-    auto [rPrecision, rScale] =
-        computeResultPrecisionScale(aPrecision, aScale_, bPrecision, bScale_);
+    auto [rPrecision, rScale] = computeResultPrecisionScale<allowPrecisionLoss>(
+        aPrecision, aScale_, bPrecision, bScale_);
     rPrecision_ = rPrecision;
     rScale_ = rScale;
     aRescale_ = computeRescaleFactor(aScale_, bScale_);
@@ -252,11 +255,13 @@ struct DecimalAddSubtractBase {
     }
   }
 
-  // Computes the result precision and scale for decimal add and subtract
-  // operations following Hive's formulas.
-  // If result is representable with long decimal, the result
-  // scale is the maximum of 'aScale' and 'bScale'. If not, reduces result scale
-  // and caps the result precision at 38.
+  // When `allowPrecisionLoss` is true, computes the result precision and scale
+  // for decimal add and subtract operations following Hive's formulas. If
+  // result is representable with long decimal, the result scale is the maximum
+  // of 'aScale' and 'bScale'. If not, reduces result scale and caps the result
+  // precision at 38.
+  // When `allowPrecisionLoss` is false, caps p and s at 38.
+  template <bool allowPrecisionLoss>
   static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
       uint8_t aPrecision,
       uint8_t aScale,
@@ -265,7 +270,11 @@ struct DecimalAddSubtractBase {
     auto precision = std::max(aPrecision - aScale, bPrecision - bScale) +
         std::max(aScale, bScale) + 1;
     auto scale = std::max(aScale, bScale);
-    return sparksql::DecimalUtil::adjustPrecisionScale(precision, scale);
+    if constexpr (allowPrecisionLoss) {
+      return sparksql::DecimalUtil::adjustPrecisionScale(precision, scale);
+    } else {
+      return sparksql::DecimalUtil::bounded(precision, scale);
+    }
   }
 
   static uint8_t computeRescaleFactor(uint8_t fromScale, uint8_t toScale) {
@@ -280,7 +289,7 @@ struct DecimalAddSubtractBase {
   uint8_t rScale_;
 };
 
-template <typename TExec>
+template <typename TExec, bool allowPrecisionLoss>
 struct DecimalAddFunction : DecimalAddSubtractBase {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
@@ -290,7 +299,7 @@ struct DecimalAddFunction : DecimalAddSubtractBase {
       const core::QueryConfig& /*config*/,
       A* /*a*/,
       B* /*b*/) {
-    initializeBase(inputTypes);
+    initializeBase<allowPrecisionLoss>(inputTypes);
   }
 
   template <typename R, typename A, typename B>
@@ -299,7 +308,7 @@ struct DecimalAddFunction : DecimalAddSubtractBase {
   }
 };
 
-template <typename TExec>
+template <typename TExec, bool allowPrecisionLoss>
 struct DecimalSubtractFunction : DecimalAddSubtractBase {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
@@ -309,7 +318,7 @@ struct DecimalSubtractFunction : DecimalAddSubtractBase {
       const core::QueryConfig& /*config*/,
       A* /*a*/,
       B* /*b*/) {
-    initializeBase(inputTypes);
+    initializeBase<allowPrecisionLoss>(inputTypes);
   }
 
   template <typename R, typename A, typename B>
@@ -318,7 +327,7 @@ struct DecimalSubtractFunction : DecimalAddSubtractBase {
   }
 };
 
-template <typename TExec>
+template <typename TExec, bool allowPrecisionLoss>
 struct DecimalMultiplyFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
@@ -330,10 +339,16 @@ struct DecimalMultiplyFunction {
       B* /*b*/) {
     auto [aPrecision, aScale] = getDecimalPrecisionScale(*inputTypes[0]);
     auto [bPrecision, bScale] = getDecimalPrecisionScale(*inputTypes[1]);
-    auto [rPrecision, rScale] = DecimalUtil::adjustPrecisionScale(
-        aPrecision + bPrecision + 1, aScale + bScale);
-    rPrecision_ = rPrecision;
-    deltaScale_ = aScale + bScale - rScale;
+    std::pair<uint8_t, uint8_t> rPrecisionScale;
+    if constexpr (allowPrecisionLoss) {
+      rPrecisionScale = DecimalUtil::adjustPrecisionScale(
+          aPrecision + bPrecision + 1, aScale + bScale);
+    } else {
+      rPrecisionScale =
+          DecimalUtil::bounded(aPrecision + bPrecision + 1, aScale + bScale);
+    }
+    rPrecision_ = rPrecisionScale.first;
+    deltaScale_ = aScale + bScale - rPrecisionScale.second;
   }
 
   template <typename R, typename A, typename B>
@@ -426,7 +441,7 @@ struct DecimalMultiplyFunction {
   int32_t deltaScale_;
 };
 
-template <typename TExec>
+template <typename TExec, bool allowPrecisionLoss>
 struct DecimalDivideFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
@@ -453,14 +468,30 @@ struct DecimalDivideFunction {
   }
 
  private:
+  // When allowing precision loss, computes the result precision and scale
+  // following Hive's formulas. When denying precision loss, calculates the
+  // number of whole digits and fraction digits. If the total number of digits
+  // exceed 38, we reduce both the number of fraction digits and whole digits to
+  // fit within this limit.
   static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
       uint8_t aPrecision,
       uint8_t aScale,
       uint8_t bPrecision,
       uint8_t bScale) {
-    auto scale = std::max(6, aScale + bPrecision + 1);
-    auto precision = aPrecision - aScale + bScale + scale;
-    return DecimalUtil::adjustPrecisionScale(precision, scale);
+    if constexpr (allowPrecisionLoss) {
+      auto scale = std::max(6, aScale + bPrecision + 1);
+      auto precision = aPrecision - aScale + bScale + scale;
+      return DecimalUtil::adjustPrecisionScale(precision, scale);
+    } else {
+      auto wholeDigits = std::min(38, aPrecision - aScale + bScale);
+      auto fractionDigits = std::min(38, std::max(6, aScale + bPrecision + 1));
+      auto diff = (wholeDigits + fractionDigits) - 38;
+      if (diff > 0) {
+        fractionDigits -= diff / 2 + 1;
+        wholeDigits = 38 - fractionDigits;
+      }
+      return DecimalUtil::bounded(wholeDigits + fractionDigits, fractionDigits);
+    }
   }
 
   uint8_t aRescale_;
@@ -507,16 +538,24 @@ void registerDecimalBinary(
       ShortDecimal<P2, S2>>({name}, constraints);
 }
 
+// Used in function registration to generate the string to cap value at 38.
+std::string bounded(const std::string& value) {
+  return fmt::format("({}) <= 38 ? ({}) : 38", value, value);
+}
+
 std::vector<exec::SignatureVariable> makeConstraints(
     const std::string& rPrecision,
-    const std::string& rScale) {
-  std::string finalScale = fmt::format(
-      "({}) <= 38 ? ({}) : max(({}) - ({}) + 38, min(({}), 6))",
-      rPrecision,
-      rScale,
-      rScale,
-      rPrecision,
-      rScale);
+    const std::string& rScale,
+    bool allowPrecisionLoss) {
+  std::string finalScale = allowPrecisionLoss
+      ? fmt::format(
+            "({}) <= 38 ? ({}) : max(({}) - ({}) + 38, min(({}), 6))",
+            rPrecision,
+            rScale,
+            rScale,
+            rPrecision,
+            rScale)
+      : bounded(rScale);
   return {
       exec::SignatureVariable(
           P3::name(),
@@ -527,8 +566,7 @@ std::vector<exec::SignatureVariable> makeConstraints(
           S3::name(), finalScale, exec::ParameterType::kIntegerParameter)};
 }
 
-template <template <class> typename Func>
-void registerDecimalAddSubtract(const std::string& name) {
+std::pair<std::string, std::string> getAddSubtractResultPrecisionScale() {
   std::string rPrecision = fmt::format(
       "max({a_precision} - {a_scale}, {b_precision} - {b_scale}) + max({a_scale}, {b_scale}) + 1",
       fmt::arg("a_precision", P1::name()),
@@ -539,17 +577,118 @@ void registerDecimalAddSubtract(const std::string& name) {
       "max({a_scale}, {b_scale})",
       fmt::arg("a_scale", S1::name()),
       fmt::arg("b_scale", S2::name()));
-  registerDecimalBinary<Func>(name, makeConstraints(rPrecision, rScale));
+  return {rPrecision, rScale};
 }
 
+template <typename TExec>
+using AddFunctionAllowPrecisionLoss = DecimalAddFunction<TExec, true>;
+
+template <typename TExec>
+using AddFunctionDenyPrecisionLoss = DecimalAddFunction<TExec, false>;
+
+template <typename TExec>
+using SubtractFunctionAllowPrecisionLoss = DecimalSubtractFunction<TExec, true>;
+
+template <typename TExec>
+using SubtractFunctionDenyPrecisionLoss = DecimalSubtractFunction<TExec, false>;
+
+template <typename TExec>
+using MultiplyFunctionAllowPrecisionLoss = DecimalMultiplyFunction<TExec, true>;
+
+template <typename TExec>
+using MultiplyFunctionDenyPrecisionLoss = DecimalMultiplyFunction<TExec, false>;
+
+template <typename TExec>
+using DivideFunctionAllowPrecisionLoss = DecimalDivideFunction<TExec, true>;
+
+template <typename TExec>
+using DivideFunctionDenyPrecisionLoss = DecimalDivideFunction<TExec, false>;
+
+std::vector<exec::SignatureVariable> getDivideConstraintsDenyPrecisionLoss() {
+  std::string wholeDigits = fmt::format(
+      "min(38, {a_precision} - {a_scale} + {b_scale})",
+      fmt::arg("a_precision", P1::name()),
+      fmt::arg("a_scale", S1::name()),
+      fmt::arg("b_scale", S2::name()));
+  std::string fractionDigits = fmt::format(
+      "min(38, max(6, {a_scale} + {b_precision} + 1))",
+      fmt::arg("a_scale", S1::name()),
+      fmt::arg("b_precision", P2::name()));
+  std::string diff = wholeDigits + " + " + fractionDigits + " - 38";
+  std::string newFractionDigits =
+      fmt::format("({}) - ({}) / 2 - 1", fractionDigits, diff);
+  std::string newWholeDigits = fmt::format("38 - ({})", newFractionDigits);
+  return {
+      exec::SignatureVariable(
+          P3::name(),
+          fmt::format(
+              "({}) > 0 ? ({}) : ({})",
+              diff,
+              bounded(newWholeDigits + " + " + newFractionDigits),
+              bounded(wholeDigits + " + " + fractionDigits)),
+          exec::ParameterType::kIntegerParameter),
+      exec::SignatureVariable(
+          S3::name(),
+          fmt::format(
+              "({}) > 0 ? ({}) : ({})",
+              diff,
+              bounded(newFractionDigits),
+              bounded(fractionDigits)),
+          exec::ParameterType::kIntegerParameter)};
+}
+
+std::vector<exec::SignatureVariable> getDivideConstraintsAllowPrecisionLoss() {
+  std::string rPrecision = fmt::format(
+      "{a_precision} - {a_scale} + {b_scale} + max(6, {a_scale} + {b_precision} + 1)",
+      fmt::arg("a_precision", P1::name()),
+      fmt::arg("b_precision", P2::name()),
+      fmt::arg("a_scale", S1::name()),
+      fmt::arg("b_scale", S2::name()));
+  std::string rScale = fmt::format(
+      "max(6, {a_scale} + {b_precision} + 1)",
+      fmt::arg("a_scale", S1::name()),
+      fmt::arg("b_precision", P2::name()));
+  return makeConstraints(rPrecision, rScale, true);
+}
+
+template <template <class> typename Func>
+void registerDecimalDivide(
+    const std::string& functionName,
+    std::vector<exec::SignatureVariable> constraints) {
+  registerDecimalBinary<Func>(functionName, constraints);
+
+  // (short, long) -> short
+  registerFunction<
+      Func,
+      ShortDecimal<P3, S3>,
+      ShortDecimal<P1, S1>,
+      LongDecimal<P2, S2>>({functionName}, constraints);
+
+  // (long, short) -> short
+  registerFunction<
+      Func,
+      ShortDecimal<P3, S3>,
+      LongDecimal<P1, S1>,
+      ShortDecimal<P2, S2>>({functionName}, constraints);
+}
 } // namespace
 
 void registerDecimalAdd(const std::string& prefix) {
-  registerDecimalAddSubtract<DecimalAddFunction>(prefix + "add");
+  auto [rPrecision, rScale] = getAddSubtractResultPrecisionScale();
+  registerDecimalBinary<AddFunctionAllowPrecisionLoss>(
+      prefix + "add", makeConstraints(rPrecision, rScale, true));
+  registerDecimalBinary<AddFunctionDenyPrecisionLoss>(
+      prefix + "add" + kDenyPrecisionLoss,
+      makeConstraints(rPrecision, rScale, false));
 }
 
 void registerDecimalSubtract(const std::string& prefix) {
-  registerDecimalAddSubtract<DecimalSubtractFunction>(prefix + "subtract");
+  auto [rPrecision, rScale] = getAddSubtractResultPrecisionScale();
+  registerDecimalBinary<SubtractFunctionAllowPrecisionLoss>(
+      prefix + "subtract", makeConstraints(rPrecision, rScale, true));
+  registerDecimalBinary<SubtractFunctionDenyPrecisionLoss>(
+      prefix + "subtract" + kDenyPrecisionLoss,
+      makeConstraints(rPrecision, rScale, false));
 }
 
 void registerDecimalMultiply(const std::string& prefix) {
@@ -561,40 +700,18 @@ void registerDecimalMultiply(const std::string& prefix) {
       "{a_scale} + {b_scale}",
       fmt::arg("a_scale", S1::name()),
       fmt::arg("b_scale", S2::name()));
-  registerDecimalBinary<DecimalMultiplyFunction>(
-      prefix + "multiply", makeConstraints(rPrecision, rScale));
-}
-
-std::vector<exec::SignatureVariable> getDivideConstraints() {
-  std::string rPrecision = fmt::format(
-      "{a_precision} - {a_scale} + {b_scale} + max(6, {a_scale} + {b_precision} + 1)",
-      fmt::arg("a_precision", P1::name()),
-      fmt::arg("b_precision", P2::name()),
-      fmt::arg("a_scale", S1::name()),
-      fmt::arg("b_scale", S2::name()));
-  std::string rScale = fmt::format(
-      "max(6, {a_scale} + {b_precision} + 1)",
-      fmt::arg("a_scale", S1::name()),
-      fmt::arg("b_precision", P2::name()));
-  return makeConstraints(rPrecision, rScale);
+  registerDecimalBinary<MultiplyFunctionAllowPrecisionLoss>(
+      prefix + "multiply", makeConstraints(rPrecision, rScale, true));
+  registerDecimalBinary<MultiplyFunctionDenyPrecisionLoss>(
+      prefix + "multiply" + kDenyPrecisionLoss,
+      makeConstraints(rPrecision, rScale, false));
 }
 
 void registerDecimalDivide(const std::string& prefix) {
-  std::vector<exec::SignatureVariable> constraints = getDivideConstraints();
-  registerDecimalBinary<DecimalDivideFunction>(prefix + "divide", constraints);
-
-  // (short, long) -> short
-  registerFunction<
-      DecimalDivideFunction,
-      ShortDecimal<P3, S3>,
-      ShortDecimal<P1, S1>,
-      LongDecimal<P2, S2>>({prefix + "divide"}, constraints);
-
-  // (long, short) -> short
-  registerFunction<
-      DecimalDivideFunction,
-      ShortDecimal<P3, S3>,
-      LongDecimal<P1, S1>,
-      ShortDecimal<P2, S2>>({prefix + "divide"}, constraints);
+  registerDecimalDivide<DivideFunctionAllowPrecisionLoss>(
+      prefix + "divide", getDivideConstraintsAllowPrecisionLoss());
+  registerDecimalDivide<DivideFunctionDenyPrecisionLoss>(
+      prefix + "divide" + kDenyPrecisionLoss,
+      getDivideConstraintsDenyPrecisionLoss());
 }
 } // namespace facebook::velox::functions::sparksql

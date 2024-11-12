@@ -211,6 +211,16 @@ class DecimalUtil {
     }
   }
 
+  /// This method is used when the function is registered with
+  /// ``allowPrecisionLoss`` being false. Caps precision and scale at 38.
+  static std::pair<uint8_t, uint8_t> bounded(
+      uint8_t rPrecision,
+      uint8_t rScale) {
+    return {
+        std::min(rPrecision, DecimalType<TypeKind::HUGEINT>::kMaxPrecision),
+        std::min(rScale, DecimalType<TypeKind::HUGEINT>::kMaxPrecision)};
+  }
+
  private:
   /// Maintains the max bits that need to be increased for rescaling a value by
   /// certain scale. The calculation relies on the following formula:

@@ -60,4 +60,16 @@ TEST_F(DecimalUtilTest, minLeadingZeros) {
       12);
   ASSERT_EQ(result, 0);
 }
+
+TEST_F(DecimalUtilTest, bounded) {
+  auto testBounded = [](uint8_t rPrecision,
+                        uint8_t rScale,
+                        std::pair<uint8_t, uint8_t> expected) {
+    ASSERT_EQ(DecimalUtil::bounded(rPrecision, rScale), expected);
+  };
+
+  testBounded(10, 3, {10, 3});
+  testBounded(40, 3, {38, 3});
+  testBounded(44, 42, {38, 38});
+}
 } // namespace facebook::velox::functions::sparksql::test
