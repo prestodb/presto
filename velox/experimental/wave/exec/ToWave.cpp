@@ -625,7 +625,6 @@ bool isProjectedThrough(
 
 bool CompileState::compile() {
   auto operators = driver_.operators();
-  auto& nodes = driverFactory_.planNodes;
 
   int32_t first = 0;
   int32_t operatorIndex = 0;
