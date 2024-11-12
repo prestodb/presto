@@ -197,15 +197,11 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
   }
 
   // Write data to a parquet file on specified path.
-  // @param writeInt96AsTimestamp Write timestamp as Int96 if enabled.
   void writeToParquetFile(
       const std::string& path,
       const std::vector<RowVectorPtr>& data,
-      bool writeInt96AsTimestamp) {
+      WriterOptions options) {
     VELOX_CHECK_GT(data.size(), 0);
-
-    WriterOptions options;
-    options.writeInt96AsTimestamp = writeInt96AsTimestamp;
 
     auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
     auto sink = std::make_unique<dwio::common::WriteFileSink>(
@@ -221,6 +217,72 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
       writer->write(vector);
     }
     writer->close();
+  }
+
+  void testInt96TimestampRead(const WriterOptions& options) {
+    auto stringToTimestamp = [](std::string_view view) {
+      return util::fromTimestampString(
+                 view.data(),
+                 view.size(),
+                 util::TimestampParseMode::kPrestoCast)
+          .thenOrThrow(folly::identity, [&](const Status& status) {
+            VELOX_USER_FAIL("{}", status.message());
+          });
+    };
+    std::vector<std::string_view> views = {
+        "2015-06-01 19:34:56",
+        "2015-06-02 19:34:56",
+        "2001-02-03 03:34:06",
+        "1998-03-01 08:01:06",
+        "2022-12-23 03:56:01",
+        "1980-01-24 00:23:07",
+        "1999-12-08 13:39:26",
+        "2023-04-21 09:09:34",
+        "2000-09-12 22:36:29",
+        "2007-12-12 04:27:56",
+    };
+    std::vector<Timestamp> values;
+    values.reserve(views.size());
+    for (auto view : views) {
+      values.emplace_back(stringToTimestamp(view));
+    }
+
+    auto vector = makeRowVector(
+        {"t"},
+        {
+            makeFlatVector<Timestamp>(values),
+        });
+    auto schema = asRowType(vector->type());
+    auto file = TempFilePath::create();
+    writeToParquetFile(file->getPath(), {vector}, options);
+    loadData(file->getPath(), schema, vector);
+
+    assertSelectWithFilter({"t"}, {}, "", "SELECT t from tmp");
+    assertSelectWithFilter(
+        {"t"},
+        {},
+        "t < TIMESTAMP '2000-09-12 22:36:29'",
+        "SELECT t from tmp where t < TIMESTAMP '2000-09-12 22:36:29'");
+    assertSelectWithFilter(
+        {"t"},
+        {},
+        "t <= TIMESTAMP '2000-09-12 22:36:29'",
+        "SELECT t from tmp where t <= TIMESTAMP '2000-09-12 22:36:29'");
+    assertSelectWithFilter(
+        {"t"},
+        {},
+        "t > TIMESTAMP '1980-01-24 00:23:07'",
+        "SELECT t from tmp where t > TIMESTAMP '1980-01-24 00:23:07'");
+    assertSelectWithFilter(
+        {"t"},
+        {},
+        "t >= TIMESTAMP '1980-01-24 00:23:07'",
+        "SELECT t from tmp where t >= TIMESTAMP '1980-01-24 00:23:07'");
+    assertSelectWithFilter(
+        {"t"},
+        {},
+        "t == TIMESTAMP '2022-12-23 03:56:01'",
+        "SELECT t from tmp where t == TIMESTAMP '2022-12-23 03:56:01'");
   }
 
  private:
@@ -753,70 +815,18 @@ TEST_F(ParquetTableScanTest, sessionTimezone) {
   assertSelectWithTimezone({"a"}, "SELECT a FROM tmp", "Asia/Shanghai");
 }
 
-TEST_F(ParquetTableScanTest, timestampFilter) {
-  // Timestamp-int96.parquet holds one column (t: TIMESTAMP) and
-  // 10 rows in one row group. Data is in SNAPPY compressed format.
-  // The values are:
-  // |t                  |
-  // +-------------------+
-  // |2015-06-01 19:34:56|
-  // |2015-06-02 19:34:56|
-  // |2001-02-03 03:34:06|
-  // |1998-03-01 08:01:06|
-  // |2022-12-23 03:56:01|
-  // |1980-01-24 00:23:07|
-  // |1999-12-08 13:39:26|
-  // |2023-04-21 09:09:34|
-  // |2000-09-12 22:36:29|
-  // |2007-12-12 04:27:56|
-  // +-------------------+
-  auto vector = makeFlatVector<Timestamp>(
-      {Timestamp(1433187296, 0),
-       Timestamp(1433273696, 0),
-       Timestamp(981171246, 0),
-       Timestamp(888739266, 0),
-       Timestamp(1671767761, 0),
-       Timestamp(317521387, 0),
-       Timestamp(944660366, 0),
-       Timestamp(1682068174, 0),
-       Timestamp(968798189, 0),
-       Timestamp(1197433676, 0)});
+TEST_F(ParquetTableScanTest, timestampInt96Dictionary) {
+  WriterOptions options;
+  options.writeInt96AsTimestamp = true;
+  options.enableDictionary = true;
+  testInt96TimestampRead(options);
+}
 
-  loadData(
-      getExampleFilePath("timestamp_int96.parquet"),
-      ROW({"t"}, {TIMESTAMP()}),
-      makeRowVector(
-          {"t"},
-          {
-              vector,
-          }));
-
-  assertSelectWithFilter({"t"}, {}, "", "SELECT t from tmp");
-  assertSelectWithFilter(
-      {"t"},
-      {},
-      "t < TIMESTAMP '2000-09-12 22:36:29'",
-      "SELECT t from tmp where t < TIMESTAMP '2000-09-12 22:36:29'");
-  assertSelectWithFilter(
-      {"t"},
-      {},
-      "t <= TIMESTAMP '2000-09-12 22:36:29'",
-      "SELECT t from tmp where t <= TIMESTAMP '2000-09-12 22:36:29'");
-  assertSelectWithFilter(
-      {"t"},
-      {},
-      "t > TIMESTAMP '1980-01-24 00:23:07'",
-      "SELECT t from tmp where t > TIMESTAMP '1980-01-24 00:23:07'");
-  assertSelectWithFilter(
-      {"t"},
-      {},
-      "t >= TIMESTAMP '1980-01-24 00:23:07'",
-      "SELECT t from tmp where t >= TIMESTAMP '1980-01-24 00:23:07'");
-  assertSelectWithFilter(
-      {"t"},
-      {},
-      "t == TIMESTAMP '2022-12-23 03:56:01'",
-      "SELECT t from tmp where t == TIMESTAMP '2022-12-23 03:56:01'");
+TEST_F(ParquetTableScanTest, timestampInt96Plain) {
+  WriterOptions options;
+  options.writeInt96AsTimestamp = true;
+  options.enableDictionary = false;
+  testInt96TimestampRead(options);
 }
 
 TEST_F(ParquetTableScanTest, timestampPrecisionMicrosecond) {
@@ -828,7 +838,9 @@ TEST_F(ParquetTableScanTest, timestampPrecisionMicrosecond) {
   });
   auto schema = asRowType(vector->type());
   auto file = TempFilePath::create();
-  writeToParquetFile(file->getPath(), {vector}, true);
+  WriterOptions options;
+  options.writeInt96AsTimestamp = true;
+  writeToParquetFile(file->getPath(), {vector}, options);
   auto plan = PlanBuilder().tableScan(schema).planNode();
 
   // Read timestamp data from parquet with microsecond precision.
@@ -924,7 +936,9 @@ TEST_F(ParquetTableScanTest, readParquetColumnsByIndexMixedType) {
   const std::shared_ptr<exec::test::TempDirectoryPath> dataFileFolder =
       exec::test::TempDirectoryPath::create();
   auto filePath = dataFileFolder->getPath() + "/" + "nested_data.parquet";
-  writeToParquetFile(filePath, {dataFileVectors}, false);
+  WriterOptions options;
+  options.writeInt96AsTimestamp = false;
+  writeToParquetFile(filePath, {dataFileVectors}, options);
 
   // Create a row type with columns having different names than in the file.
   auto structType = ROW({"aa1", "bb1"}, {BIGINT(), BIGINT()});
@@ -1036,7 +1050,9 @@ TEST_F(ParquetTableScanTest, readParquetColumnsByIndex) {
   const std::shared_ptr<exec::test::TempDirectoryPath> dataFileFolder =
       exec::test::TempDirectoryPath::create();
   auto filePath = dataFileFolder->getPath() + "/" + "data.parquet";
-  writeToParquetFile(filePath, {dataFileVectors}, false);
+  WriterOptions options;
+  options.writeInt96AsTimestamp = false;
+  writeToParquetFile(filePath, {dataFileVectors}, options);
 
   auto rowType = ROW({"c2", "c3"}, {BIGINT(), BIGINT()});
 

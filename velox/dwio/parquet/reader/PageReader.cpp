@@ -377,7 +377,7 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
       break;
     }
     case thrift::Type::INT96: {
-      auto numVeloxBytes = dictionary_.numValues * sizeof(Timestamp);
+      auto numVeloxBytes = dictionary_.numValues * sizeof(int128_t);
       dictionary_.values = AlignedBuffer::allocate<char>(numVeloxBytes, &pool_);
       auto numBytes = dictionary_.numValues * sizeof(Int96Timestamp);
       if (pageData_) {
@@ -392,23 +392,16 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
       }
       // Expand the Parquet type length values to Velox type length.
       // We start from the end to allow in-place expansion.
-      auto values = dictionary_.values->asMutable<Timestamp>();
+      auto values = dictionary_.values->asMutable<int128_t>();
       auto parquetValues = dictionary_.values->asMutable<char>();
 
       for (auto i = dictionary_.numValues - 1; i >= 0; --i) {
-        // Convert the timestamp into seconds and nanos since the Unix epoch,
-        // 00:00:00.000000 on 1 January 1970.
-        int64_t nanos;
+        int128_t result = 0;
         memcpy(
-            &nanos,
+            &result,
             parquetValues + i * sizeof(Int96Timestamp),
-            sizeof(int64_t));
-        int32_t days;
-        memcpy(
-            &days,
-            parquetValues + i * sizeof(Int96Timestamp) + sizeof(int64_t),
-            sizeof(int32_t));
-        values[i] = Timestamp::fromDaysAndNanos(days, nanos);
+            sizeof(Int96Timestamp));
+        values[i] = result;
       }
       break;
     }
