@@ -234,10 +234,10 @@ class QueryConfig {
       "spill_compression_codec";
 
   /// Enable the prefix sort or fallback to timsort in spill. The prefix sort is
-  /// faster than timsort but requires the memory to build prefix data, which
-  /// may cause out of memory.
-  static constexpr const char* kSpillEnablePrefixSort =
-      "spill_enable_prefix_sort";
+  /// faster than std::sort but requires the memory to build normalized prefix
+  /// keys, which might have potential risk of running out of server memory.
+  static constexpr const char* kSpillPrefixSortEnabled =
+      "spill_prefixsort_enabled";
 
   /// Specifies spill write buffer size in bytes. The spiller tries to buffer
   /// serialized spill data up to the specified size before write to storage
@@ -641,8 +641,8 @@ class QueryConfig {
     return get<std::string>(kSpillCompressionKind, "none");
   }
 
-  bool spillEnablePrefixSort() const {
-    return get<bool>(kSpillEnablePrefixSort, false);
+  bool spillPrefixSortEnabled() const {
+    return get<bool>(kSpillPrefixSortEnabled, false);
   }
 
   uint64_t spillWriteBufferSize() const {

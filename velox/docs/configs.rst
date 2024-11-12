@@ -349,11 +349,11 @@ Spilling
      - Specifies the compression algorithm type to compress the spilled data before write to disk to trade CPU for IO
        efficiency. The supported compression codecs are: ZLIB, SNAPPY, LZO, ZSTD, LZ4 and GZIP.
        NONE means no compression.
-   * - spill_enable_prefix_sort
+   * - spill_prefixsort_enabled
      - bool
      - false
-     - Enable the prefix sort or fallback to timsort in spill. The prefix sort is faster than timsort but requires the
-       memory to build prefix data, which might have potential risk of running out of server memory.
+     - Enable the prefix sort or fallback to timsort in spill. The prefix sort is faster than std::sort but requires the
+       memory to build normalized prefix keys, which might have potential risk of running out of server memory.
    * - spiller_start_partition_bit
      - integer
      - 29

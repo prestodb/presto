@@ -54,15 +54,30 @@ class TestRuntimeStatWriter : public BaseRuntimeStatWriter {
 } // namespace
 
 struct TestParam {
-  common::CompressionKind compressionKind;
-  bool enablePrefixSort;
+  const common::CompressionKind compressionKind;
+  const bool enablePrefixSort;
 
   TestParam(common::CompressionKind _compressionKind, bool _enablePrefixSort)
       : compressionKind(_compressionKind),
         enablePrefixSort(_enablePrefixSort) {}
+
+  TestParam(uint32_t value)
+      : compressionKind(static_cast<common::CompressionKind>(value >> 1)),
+        enablePrefixSort(!!(value & 1)) {}
+
+  uint32_t value() const {
+    return static_cast<uint32_t>(compressionKind) << 1 | enablePrefixSort;
+  }
+
+  std::string toString() const {
+    return fmt::format(
+        "compressionKind: {}, enablePrefixSort: {}",
+        compressionKind,
+        enablePrefixSort);
+  }
 };
 
-class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
+class SpillTest : public ::testing::TestWithParam<uint32_t>,
                   public facebook::velox::test::VectorTestBase {
  public:
   explicit SpillTest()
@@ -75,13 +90,33 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     setThreadLocalRunTimeStatWriter(nullptr);
   }
 
-  static std::vector<common::CompressionKind> getTestParams() {
-    std::vector<common::CompressionKind> testParams;
-    testParams.emplace_back(common::CompressionKind::CompressionKind_NONE);
-    testParams.emplace_back(common::CompressionKind::CompressionKind_ZLIB);
-    testParams.emplace_back(common::CompressionKind::CompressionKind_SNAPPY);
-    testParams.emplace_back(common::CompressionKind::CompressionKind_ZSTD);
-    testParams.emplace_back(common::CompressionKind::CompressionKind_LZ4);
+  static std::vector<uint32_t> getTestParams() {
+    std::vector<uint32_t> testParams;
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_NONE, false}
+            .value());
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_ZLIB, false}
+            .value());
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_SNAPPY, false}
+            .value());
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_ZSTD, false}
+            .value());
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_LZ4, false}.value());
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_NONE, true}.value());
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_ZLIB, true}.value());
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_SNAPPY, true}
+            .value());
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_ZSTD, true}.value());
+    testParams.emplace_back(
+        TestParam{common::CompressionKind::CompressionKind_LZ4, true}.value());
     return testParams;
   }
 
@@ -103,8 +138,8 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     tempDir_ = exec::test::TempDirectoryPath::create();
     filesystems::registerLocalFileSystem();
     rng_.seed(1);
-    compressionKind_ = GetParam();
-    enablePrefixSort_ = true;
+    compressionKind_ = TestParam{GetParam()}.compressionKind;
+    enablePrefixSort_ = TestParam{GetParam()}.enablePrefixSort;
   }
 
   uint8_t randPartitionBitOffset() {
