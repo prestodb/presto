@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
@@ -71,6 +72,7 @@ import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartiti
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
+import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toPrestoSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.Verify.verify;
@@ -137,9 +139,16 @@ public class IcebergNativeMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         SupportsNamespaces supportsNamespaces = catalogFactory.getNamespaces(session);
-        return supportsNamespaces.listNamespaces()
+        return listNestedNamespaces(supportsNamespaces, Namespace.empty());
+    }
+
+    private List<String> listNestedNamespaces(SupportsNamespaces supportsNamespaces, Namespace parentNamespace)
+    {
+        return supportsNamespaces.listNamespaces(parentNamespace)
                 .stream()
-                .map(IcebergPrestoModelConverters::toPrestoSchemaName)
+                .flatMap(childNamespace -> Stream.concat(
+                        Stream.of(toPrestoSchemaName(childNamespace)),
+                        listNestedNamespaces(supportsNamespaces, childNamespace).stream()))
                 .collect(toList());
     }
 
@@ -191,9 +200,9 @@ public class IcebergNativeMetadata
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
         }
         Schema schema = toIcebergSchema(viewMetadata.getColumns());
-        ViewBuilder viewBuilder = ((ViewCatalog) catalog).buildView(TableIdentifier.of(viewMetadata.getTable().getSchemaName(), viewMetadata.getTable().getTableName()))
+        ViewBuilder viewBuilder = ((ViewCatalog) catalog).buildView(toIcebergTableIdentifier(viewMetadata.getTable()))
                 .withSchema(schema)
-                .withDefaultNamespace(Namespace.of(viewMetadata.getTable().getSchemaName()))
+                .withDefaultNamespace(toIcebergNamespace(Optional.ofNullable(viewMetadata.getTable().getSchemaName())))
                 .withQuery(VIEW_DIALECT, viewData)
                 .withProperties(createIcebergViewProperties(session, nodeVersion.toString()));
         if (replace) {
@@ -212,7 +221,7 @@ public class IcebergNativeMetadata
         if (catalog instanceof ViewCatalog) {
             for (String schema : listSchemas(session, schemaName.orElse(null))) {
                 try {
-                    for (TableIdentifier tableIdentifier : ((ViewCatalog) catalog).listViews(Namespace.of(schema))) {
+                    for (TableIdentifier tableIdentifier : ((ViewCatalog) catalog).listViews(toIcebergNamespace(Optional.ofNullable(schema)))) {
                         tableNames.add(new SchemaTableName(schema, tableIdentifier.name()));
                     }
                 }
@@ -248,8 +257,8 @@ public class IcebergNativeMetadata
 
             for (SchemaTableName schemaTableName : tableNames) {
                 try {
-                    if (((ViewCatalog) catalog).viewExists(TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName()))) {
-                        View view = ((ViewCatalog) catalog).loadView(TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
+                    if (((ViewCatalog) catalog).viewExists(toIcebergTableIdentifier(schemaTableName))) {
+                        View view = ((ViewCatalog) catalog).loadView(toIcebergTableIdentifier(schemaTableName));
                         verifyAndPopulateViews(view, schemaTableName, view.sqlFor(VIEW_DIALECT).sql(), views);
                     }
                 }
@@ -268,7 +277,7 @@ public class IcebergNativeMetadata
         if (!(catalog instanceof ViewCatalog)) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
         }
-        ((ViewCatalog) catalog).dropView(TableIdentifier.of(viewName.getSchemaName(), viewName.getTableName()));
+        ((ViewCatalog) catalog).dropView(toIcebergTableIdentifier(viewName));
     }
 
     private void verifyAndPopulateViews(View view, SchemaTableName schemaTableName, String viewData, ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views)

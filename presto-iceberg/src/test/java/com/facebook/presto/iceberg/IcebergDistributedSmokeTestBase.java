@@ -125,8 +125,9 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testShowCreateTable()
     {
+        String schemaName = getSession().getSchema().get();
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo(format("CREATE TABLE iceberg.tpch.orders (\n" +
+                .isEqualTo(format("CREATE TABLE iceberg.%s.orders (\n" +
                         "   \"orderkey\" bigint,\n" +
                         "   \"custkey\" bigint,\n" +
                         "   \"orderstatus\" varchar,\n" +
@@ -145,7 +146,7 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100\n" +
-                        ")", getLocation("tpch", "orders")));
+                        ")", schemaName, getLocation(schemaName, "orders")));
     }
 
     @Test
@@ -397,7 +398,7 @@ public abstract class IcebergDistributedSmokeTestBase
         testWithAllFileFormats(this::testCreatePartitionedTableAs);
     }
 
-    private void testCreatePartitionedTableAs(Session session, FileFormat fileFormat)
+    protected void testCreatePartitionedTableAs(Session session, FileFormat fileFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH) + " " +
@@ -602,9 +603,10 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testTableComments()
     {
         Session session = getSession();
+        String schemaName = session.getSchema().get();
 
         @Language("SQL") String createTable = "" +
-                "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
+                "CREATE TABLE iceberg.%s.test_table_comments (\n" +
                 "   \"_x\" bigint\n" +
                 ")\n" +
                 "COMMENT '%s'\n" +
@@ -613,10 +615,10 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   format_version = '2'\n" +
                 ")";
 
-        assertUpdate(format(createTable, "test table comment"));
+        assertUpdate(format(createTable, schemaName, "test table comment"));
 
         String createTableTemplate = "" +
-                "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
+                "CREATE TABLE iceberg.%s.test_table_comments (\n" +
                 "   \"_x\" bigint\n" +
                 ")\n" +
                 "COMMENT '%s'\n" +
@@ -629,7 +631,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100\n" +
                 ")";
-        String createTableSql = format(createTableTemplate, "test table comment", getLocation("tpch", "test_table_comments"));
+        String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
 
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
         assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
@@ -651,11 +653,11 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0",
                 "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT)), (123, CAST(321 AS BIGINT))");
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterFirstInsertId));
+        assertUpdate(format("CALL system.rollback_to_snapshot('%s', 'test_rollback', %s)", session.getSchema().get(), afterFirstInsertId));
         assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0",
                 "VALUES (123, CAST(987 AS BIGINT)), (123, CAST(321 AS BIGINT))");
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterCreateTableId));
+        assertUpdate(format("CALL system.rollback_to_snapshot('%s', 'test_rollback', %s)", session.getSchema().get(), afterCreateTableId));
         assertEquals((long) computeActual(session, "SELECT COUNT(*) FROM test_rollback").getOnlyValue(), 1);
 
         dropTable(session, "test_rollback");
@@ -708,6 +710,7 @@ public abstract class IcebergDistributedSmokeTestBase
     private void testCreateTableLike()
     {
         Session session = getSession();
+        String schemaName = session.getSchema().get();
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
@@ -719,7 +722,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate']\n" +
-                ")", getLocation("tpch", "test_create_table_like_original")));
+                ")", getLocation(schemaName, "test_create_table_like_original")));
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
         assertUpdate(session, "INSERT INTO test_create_table_like_copy0 (col1, aDate, col2) VALUES (1, CAST('1950-06-28' AS DATE), 3)", 1);
@@ -735,7 +738,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100\n" +
-                ")", getLocation("tpch", "test_create_table_like_copy1")));
+                ")", getLocation(schemaName, "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
@@ -747,7 +750,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100\n" +
-                ")", getLocation("tpch", "test_create_table_like_copy2")));
+                ")", getLocation(schemaName, "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
@@ -761,8 +764,8 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
-                getLocation("tpch", "test_create_table_like_original") :
-                getLocation("tpch", "test_create_table_like_copy3")));
+                getLocation(schemaName, "test_create_table_like_original") :
+                getLocation(schemaName, "test_create_table_like_copy3")));
         dropTable(session, "test_create_table_like_copy3");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
@@ -776,8 +779,8 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
-                getLocation("tpch", "test_create_table_like_original") :
-                getLocation("tpch", "test_create_table_like_copy4")));
+                getLocation(schemaName, "test_create_table_like_original") :
+                getLocation(schemaName, "test_create_table_like_copy4")));
         dropTable(session, "test_create_table_like_copy4");
 
         dropTable(session, "test_create_table_like_original");
@@ -1168,11 +1171,12 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testMergeOnReadEnabled()
     {
+        String schemaName = getSession().getSchema().get();
         String tableName = "test_merge_on_read_enabled";
         try {
             Session session = getSession();
 
-            createTableWithMergeOnRead(session, "tpch", tableName);
+            createTableWithMergeOnRead(session, schemaName, tableName);
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 1)", 1);
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, 2)", 1);
             assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, 1), (2, 2)");
@@ -1192,7 +1196,7 @@ public abstract class IcebergDistributedSmokeTestBase
                     .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "false")
                     .build();
 
-            createTableWithMergeOnRead(session, "tpch", tableName);
+            createTableWithMergeOnRead(session, session.getSchema().get(), tableName);
             assertQueryFails(session, "INSERT INTO " + tableName + " VALUES (1, 1)", errorMessage);
             assertQueryFails(session, "INSERT INTO " + tableName + " VALUES (2, 2)", errorMessage);
             assertQueryFails(session, "SELECT * FROM " + tableName, errorMessage);
@@ -1849,6 +1853,7 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testUpdateNonExistentTable()
     {
         assertQuerySucceeds("ALTER TABLE IF EXISTS non_existent_test_table1 SET PROPERTIES (commit_retries = 6)");
-        assertQueryFails("ALTER TABLE non_existent_test_table2 SET PROPERTIES (commit_retries = 6)", "Table does not exist: iceberg.tpch.non_existent_test_table2");
+        assertQueryFails("ALTER TABLE non_existent_test_table2 SET PROPERTIES (commit_retries = 6)",
+                format("Table does not exist: iceberg.%s.non_existent_test_table2", getSession().getSchema().get()));
     }
 }
