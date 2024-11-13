@@ -229,7 +229,7 @@ public class ReloadingResourceGroupConfigurationManager
         for (ResourceGroupSpec resourceGroupSpec : childResourceGroups) {
             ResourceGroupIdTemplate childId;
             if (parentId.isPresent()) {
-                childId = ResourceGroupIdTemplate.forSubGroupNamed(parentId.get(), resourceGroupSpec.getName().toString());
+                childId = ResourceGroupIdTemplate.forSubGroupNamed(parentId.orElseThrow(), resourceGroupSpec.getName().toString());
             }
             else {
                 childId = new ResourceGroupIdTemplate(resourceGroupSpec.getName().toString());
@@ -274,7 +274,7 @@ public class ReloadingResourceGroupConfigurationManager
         ResourceGroupId current = groupId;
         Optional<ResourceGroupId> parent = current.getParent();
         while (parent.isPresent()) {
-            current = parent.get();
+            current = parent.orElseThrow();
             parent = current.getParent();
         }
 

@@ -64,10 +64,10 @@ public abstract class AbstractResourceConfigurationManager
             }
             if (group.getSoftCpuLimit().isPresent()) {
                 checkArgument(group.getHardCpuLimit().isPresent(), "Must specify hard CPU limit in addition to soft limit");
-                checkArgument(group.getSoftCpuLimit().get().compareTo(group.getHardCpuLimit().get()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
+                checkArgument(group.getSoftCpuLimit().orElseThrow().compareTo(group.getHardCpuLimit().orElseThrow()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
             }
             if (group.getSchedulingPolicy().isPresent()) {
-                switch (group.getSchedulingPolicy().get()) {
+                switch (group.getSchedulingPolicy().orElseThrow()) {
                     case WEIGHTED:
                     case WEIGHTED_FAIR:
                         checkArgument(
@@ -123,7 +123,7 @@ public abstract class AbstractResourceConfigurationManager
                 throw new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName.toString()));
             }
             fullyQualifiedGroupName.append(".");
-            groups = match.get().getSubGroups();
+            groups = match.orElseThrow().getSubGroups();
             selectorGroups = selectorGroups.subList(1, selectorGroups.size());
         }
     }
@@ -196,11 +196,11 @@ public abstract class AbstractResourceConfigurationManager
     protected void configureGroup(ResourceGroup group, ResourceGroupSpec match)
     {
         if (match.getSoftMemoryLimit().isPresent()) {
-            group.setSoftMemoryLimit(match.getSoftMemoryLimit().get());
+            group.setSoftMemoryLimit(match.getSoftMemoryLimit().orElseThrow());
         }
         else {
             synchronized (generalPoolMemoryFraction) {
-                double fraction = match.getSoftMemoryLimitFraction().get();
+                double fraction = match.getSoftMemoryLimitFraction().orElseThrow();
                 generalPoolMemoryFraction.put(group, fraction);
                 group.setSoftMemoryLimit(new DataSize(generalPoolBytes * fraction, BYTE));
             }
@@ -220,12 +220,12 @@ public abstract class AbstractResourceConfigurationManager
             checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");
             Duration limit;
             if (match.getHardCpuLimit().isPresent()) {
-                limit = match.getHardCpuLimit().get();
+                limit = match.getHardCpuLimit().orElseThrow();
             }
             else {
-                limit = match.getSoftCpuLimit().get();
+                limit = match.getSoftCpuLimit().orElseThrow();
             }
-            long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
+            long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriod().orElseThrow().toMillis(), Long.MAX_VALUE);
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);
         }
