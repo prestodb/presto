@@ -25,7 +25,7 @@
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
-#include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/core/PlanNode.h"
@@ -228,7 +228,7 @@ void TraceReplayRunner::init() {
   filesystems::registerLocalFileSystem();
   filesystems::registerS3FileSystem();
   filesystems::registerHdfsFileSystem();
-  filesystems::registerGCSFileSystem();
+  filesystems::registerGcsFileSystem();
   filesystems::abfs::registerAbfsFileSystem();
 
   dwio::common::registerFileSinks();

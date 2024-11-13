@@ -14,24 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/connectors/hive/storage_adapters/gcs/GCSUtil.h"
+#pragma once
 
-namespace facebook::velox {
+namespace facebook::velox::filesystems {
 
-std::string getErrorStringFromGCSError(const google::cloud::StatusCode& code) {
-  using ::google::cloud::StatusCode;
+// Register the GCS filesystem.
+void registerGcsFileSystem();
 
-  switch (code) {
-    case StatusCode::kNotFound:
-      return "Resource not found";
-    case StatusCode::kPermissionDenied:
-      return "Access denied";
-    case StatusCode::kUnavailable:
-      return "Service unavailable";
-
-    default:
-      return "Unknown error";
-  }
-}
-
-} // namespace facebook::velox
+} // namespace facebook::velox::filesystems

@@ -30,7 +30,7 @@ using namespace facebook::velox::exec::test;
 namespace facebook::velox::filesystems {
 namespace {
 
-class S3ReadTest : public S3Test {
+class S3ReadTest : public S3Test, public ::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});

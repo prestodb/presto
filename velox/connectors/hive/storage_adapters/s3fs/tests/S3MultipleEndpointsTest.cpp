@@ -35,7 +35,7 @@ using namespace facebook::velox::exec::test;
 namespace facebook::velox {
 namespace {
 
-class S3MultipleEndpoints : public S3Test {
+class S3MultipleEndpoints : public S3Test, public ::test::VectorTestBase {
  public:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});

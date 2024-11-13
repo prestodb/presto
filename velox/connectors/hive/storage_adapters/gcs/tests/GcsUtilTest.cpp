@@ -14,11 +14,23 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "velox/connectors/hive/storage_adapters/gcs/GcsUtil.h"
 
-namespace facebook::velox::filesystems {
+#include "gtest/gtest.h"
 
-// Register the GCS filesystem.
-void registerGCSFileSystem();
+using namespace facebook::velox;
 
-} // namespace facebook::velox::filesystems
+TEST(GcsUtilTest, isGcsFile) {
+  EXPECT_FALSE(isGcsFile("gs:"));
+  EXPECT_FALSE(isGcsFile("gs::/bucket"));
+  EXPECT_FALSE(isGcsFile("gs:/bucket"));
+  EXPECT_TRUE(isGcsFile("gs://bucket/file.txt"));
+}
+
+TEST(GcsUtilTest, setBucketAndKeyFromGcsPath) {
+  std::string bucket, key;
+  auto path = "bucket/file.txt";
+  setBucketAndKeyFromGcsPath(path, bucket, key);
+  EXPECT_EQ(bucket, "bucket");
+  EXPECT_EQ(key, "file.txt");
+}

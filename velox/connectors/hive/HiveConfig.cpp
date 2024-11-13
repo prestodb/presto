@@ -72,20 +72,20 @@ bool HiveConfig::immutablePartitions() const {
 }
 
 std::string HiveConfig::gcsEndpoint() const {
-  return config_->get<std::string>(kGCSEndpoint, std::string(""));
+  return config_->get<std::string>(kGcsEndpoint, std::string(""));
 }
 
 std::string HiveConfig::gcsCredentialsPath() const {
-  return config_->get<std::string>(kGCSCredentialsPath, std::string(""));
+  return config_->get<std::string>(kGcsCredentialsPath, std::string(""));
 }
 
 std::optional<int> HiveConfig::gcsMaxRetryCount() const {
-  return static_cast<std::optional<int>>(config_->get<int>(kGCSMaxRetryCount));
+  return static_cast<std::optional<int>>(config_->get<int>(kGcsMaxRetryCount));
 }
 
 std::optional<std::string> HiveConfig::gcsMaxRetryTime() const {
   return static_cast<std::optional<std::string>>(
-      config_->get<std::string>(kGCSMaxRetryTime));
+      config_->get<std::string>(kGcsMaxRetryTime));
 }
 
 bool HiveConfig::isOrcUseColumnNames(const config::ConfigBase* session) const {

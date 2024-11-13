@@ -18,7 +18,7 @@
 
 #include "velox/common/config/Config.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
-#include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 
@@ -105,7 +105,7 @@ void ReadBenchmark::initialize() {
   } else {
     filesystems::registerLocalFileSystem();
     filesystems::registerS3FileSystem();
-    filesystems::registerGCSFileSystem();
+    filesystems::registerGcsFileSystem();
     filesystems::registerHdfsFileSystem();
     filesystems::abfs::registerAbfsFileSystem();
     std::shared_ptr<config::ConfigBase> config;

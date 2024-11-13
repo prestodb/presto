@@ -14,11 +14,11 @@
 
 # for generated headers
 
-velox_add_library(velox_gcs RegisterGCSFileSystem.cpp)
+velox_add_library(velox_gcs RegisterGcsFileSystem.cpp)
 
 if(VELOX_ENABLE_GCS)
-  velox_sources(velox_gcs PRIVATE GCSFileSystem.cpp GCSUtil.cpp)
-  velox_link_libraries(velox_gcs velox_exception Folly::folly
+  velox_sources(velox_gcs PRIVATE GcsFileSystem.cpp GcsUtil.cpp)
+  velox_link_libraries(velox_gcs velox_dwio_common Folly::folly
                        google-cloud-cpp::storage)
 
   if(${VELOX_BUILD_TESTING})

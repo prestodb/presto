@@ -31,7 +31,7 @@ constexpr int kOneMB = 1 << 20;
 
 static constexpr std::string_view kDummyPath = "s3://dummy/foo.txt";
 
-class S3Test : public testing::Test, public ::test::VectorTestBase {
+class S3Test : public testing::Test {
  protected:
   void SetUp() override {
     minioServer_ = std::make_unique<MinioServer>();

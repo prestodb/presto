@@ -194,7 +194,7 @@ function cmake_install {
     if prompt "Do you want to rebuild ${NAME}?"; then
       ${SUDO} rm -rf "${BINARY_DIR}"
     else
-      return
+      return 0
     fi
   fi
 

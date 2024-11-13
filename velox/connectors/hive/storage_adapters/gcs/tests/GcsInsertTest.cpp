@@ -17,34 +17,38 @@
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
 
-#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
-#include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/gcs/tests/GcsEmulator.h"
 #include "velox/connectors/hive/storage_adapters/test_common/InsertTest.h"
+
+using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::filesystems {
 namespace {
 
-class S3InsertTest : public S3Test, public test::InsertTest {
+class GcsInsertTest : public testing::Test, public test::InsertTest {
  protected:
-  static void SetUpTestCase() {
+  static void SetUpTestSuite() {
+    registerGcsFileSystem();
     memory::MemoryManager::testingSetInstance({});
   }
 
   void SetUp() override {
-    S3Test::SetUp();
-    filesystems::registerS3FileSystem();
     connector::registerConnectorFactory(
         std::make_shared<connector::hive::HiveConnectorFactory>());
+    emulator_ = std::make_shared<GcsEmulator>();
+    emulator_->bootstrap();
     auto hiveConnector =
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
             ->newConnector(
-                ::exec::test::kHiveConnectorId,
-                minioServer_->hiveConfig(),
+                exec::test::kHiveConnectorId,
+                emulator_->hiveConfig(),
                 ioExecutor_.get());
     connector::registerConnector(hiveConnector);
     parquet::registerParquetReaderFactory();
     parquet::registerParquetWriterFactory();
+    ioExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
   }
 
   void TearDown() override {
@@ -52,19 +56,18 @@ class S3InsertTest : public S3Test, public test::InsertTest {
     parquet::unregisterParquetWriterFactory();
     connector::unregisterConnectorFactory(
         connector::hive::HiveConnectorFactory::kHiveConnectorName);
-    connector::unregisterConnector(::exec::test::kHiveConnectorId);
-    S3Test::TearDown();
-    filesystems::finalizeS3FileSystem();
+    connector::unregisterConnector(exec::test::kHiveConnectorId);
   }
+
+  std::shared_ptr<GcsEmulator> emulator_;
+  std::unique_ptr<folly::IOThreadPoolExecutor> ioExecutor_;
 };
 } // namespace
 
-TEST_F(S3InsertTest, s3InsertTest) {
+TEST_F(GcsInsertTest, gcsInsertTest) {
   const int64_t kExpectedRows = 1'000;
-  const std::string_view kOutputDirectory{"s3://writedata/"};
-  minioServer_->addBucket("writedata");
-
-  runInsertTest(kOutputDirectory, kExpectedRows, pool());
+  const auto gcsBucket = gcsURI(emulator_->preexistingBucketName(), "");
+  runInsertTest(gcsBucket, kExpectedRows, pool());
 }
 } // namespace facebook::velox::filesystems
 

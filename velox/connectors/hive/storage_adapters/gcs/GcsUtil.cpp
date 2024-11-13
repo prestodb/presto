@@ -14,23 +14,24 @@
  * limitations under the License.
  */
 
-#include "velox/connectors/hive/storage_adapters/gcs/GCSUtil.h"
+#include "velox/connectors/hive/storage_adapters/gcs/GcsUtil.h"
 
-#include "gtest/gtest.h"
+namespace facebook::velox {
 
-using namespace facebook::velox;
+std::string getErrorStringFromGcsError(const google::cloud::StatusCode& code) {
+  using ::google::cloud::StatusCode;
 
-TEST(GCSUtilTest, isGCSFile) {
-  EXPECT_FALSE(isGCSFile("gs:"));
-  EXPECT_FALSE(isGCSFile("gs::/bucket"));
-  EXPECT_FALSE(isGCSFile("gs:/bucket"));
-  EXPECT_TRUE(isGCSFile("gs://bucket/file.txt"));
+  switch (code) {
+    case StatusCode::kNotFound:
+      return "Resource not found";
+    case StatusCode::kPermissionDenied:
+      return "Access denied";
+    case StatusCode::kUnavailable:
+      return "Service unavailable";
+
+    default:
+      return "Unknown error";
+  }
 }
 
-TEST(GCSUtilTest, setBucketAndKeyFromGCSPath) {
-  std::string bucket, key;
-  auto path = "bucket/file.txt";
-  setBucketAndKeyFromGCSPath(path, bucket, key);
-  EXPECT_EQ(bucket, "bucket");
-  EXPECT_EQ(key, "file.txt");
-}
+} // namespace facebook::velox

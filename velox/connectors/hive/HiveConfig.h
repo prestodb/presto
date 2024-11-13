@@ -58,17 +58,17 @@ class HiveConfig {
       "hive.immutable-partitions";
 
   /// The GCS storage endpoint server.
-  static constexpr const char* kGCSEndpoint = "hive.gcs.endpoint";
+  static constexpr const char* kGcsEndpoint = "hive.gcs.endpoint";
 
   /// The GCS service account configuration JSON key file.
-  static constexpr const char* kGCSCredentialsPath =
+  static constexpr const char* kGcsCredentialsPath =
       "hive.gcs.json-key-file-path";
 
   /// The GCS maximum retry counter of transient errors.
-  static constexpr const char* kGCSMaxRetryCount = "hive.gcs.max-retry-count";
+  static constexpr const char* kGcsMaxRetryCount = "hive.gcs.max-retry-count";
 
   /// The GCS maximum time allowed to retry transient errors.
-  static constexpr const char* kGCSMaxRetryTime = "hive.gcs.max-retry-time";
+  static constexpr const char* kGcsMaxRetryTime = "hive.gcs.max-retry-time";
 
   /// Maps table field names to file field names using names, not indices.
   // TODO: remove hive_orc_use_column_names since it doesn't exist in presto,
