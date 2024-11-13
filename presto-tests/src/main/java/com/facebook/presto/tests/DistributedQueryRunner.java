@@ -63,6 +63,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -105,6 +106,7 @@ public class DistributedQueryRunner
     private static final String ENVIRONMENT = "testing";
     private static final String DEFAULT_USER = "user";
     private static final SqlParserOptions DEFAULT_SQL_PARSER_OPTIONS = new SqlParserOptions();
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     private final TestingDiscoveryServer discoveryServer;
     private final List<TestingPrestoServer> coordinators;
@@ -503,7 +505,7 @@ public class DistributedQueryRunner
 
     private int getRandomCoordinatorIndex()
     {
-        return ThreadLocalRandom.current().nextInt(prestoClients.size());
+        return secureRandom.nextInt(prestoClients.size());
     }
 
     @Override
