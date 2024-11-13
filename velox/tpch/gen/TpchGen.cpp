@@ -454,7 +454,7 @@ RowVectorPtr genTpchLineItem(
 
       lineNumberVector->set(lineItemCount + l, line.lcnt);
 
-      quantityVector->set(lineItemCount + l, decimalToDouble(line.quantity));
+      quantityVector->set(lineItemCount + l, line.quantity);
       extendedPriceVector->set(lineItemCount + l, decimalToDouble(line.eprice));
       discountVector->set(lineItemCount + l, decimalToDouble(line.discount));
       taxVector->set(lineItemCount + l, decimalToDouble(line.tax));

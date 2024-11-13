@@ -334,14 +334,17 @@ TEST_F(TpchGenTestLineItemTest, batches) {
   EXPECT_LE(rowVector1->size(), ordersMaxSize * 7);
 
   auto orderKey = rowVector1->childAt(0)->asFlatVector<int64_t>();
+  auto quantity = rowVector1->childAt(4)->asFlatVector<double>();
   auto shipDate = rowVector1->childAt(10)->asFlatVector<int32_t>();
 
   EXPECT_EQ(1, orderKey->valueAt(0));
+  EXPECT_EQ(17, quantity->valueAt(0));
   EXPECT_EQ("1996-03-13", DATE()->toString(shipDate->valueAt(0)));
   LOG(INFO) << rowVector1->toString(0);
 
   vector_size_t lastRow = rowVector1->size() - 1;
   EXPECT_EQ(388, orderKey->valueAt(lastRow));
+  EXPECT_EQ(40, quantity->valueAt(lastRow));
   EXPECT_EQ("1992-12-24", DATE()->toString(shipDate->valueAt(lastRow)));
   LOG(INFO) << rowVector1->toString(lastRow);
 
