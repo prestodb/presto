@@ -1549,7 +1549,7 @@ public class TestPrestoDriver
             while (true) {
                 Optional<QueryState> state = findQueryState(queryUuid);
                 if (state.isPresent()) {
-                    assertFalse(state.get().isDone());
+                    assertFalse(state.orElseThrow().isDone());
                     break;
                 }
                 MILLISECONDS.sleep(50);
