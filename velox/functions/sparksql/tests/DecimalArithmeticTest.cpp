@@ -37,13 +37,15 @@ class DecimalArithmeticTest : public SparkFunctionBaseTest {
       const std::string& functionName,
       const VectorPtr& expected,
       const std::vector<VectorPtr>& inputs) {
-    VELOX_USER_CHECK_EQ(
+    VELOX_USER_CHECK_GE(
         inputs.size(),
-        2,
-        "Two input vectors are needed for arithmetic function test.");
-    std::vector<core::TypedExprPtr> inputExprs = {
-        std::make_shared<core::FieldAccessTypedExpr>(inputs[0]->type(), "c0"),
-        std::make_shared<core::FieldAccessTypedExpr>(inputs[1]->type(), "c1")};
+        1,
+        "At least one input vector is needed for arithmetic function test.");
+    std::vector<core::TypedExprPtr> inputExprs;
+    for (int i = 0; i < inputs.size(); ++i) {
+      inputExprs.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+          inputs[i]->type(), fmt::format("c{}", i)));
+    }
     auto expr = std::make_shared<const core::CallTypedExpr>(
         expected->type(), std::move(inputExprs), functionName);
     assertEqualVectors(expected, evaluate(expr, makeRowVector(inputs)));
@@ -575,6 +577,44 @@ TEST_F(DecimalArithmeticTest, denyPrecisionLoss) {
           HugeInt::parse("5" + std::string(10, '0')), 1, DECIMAL(31, 10)),
       {makeConstant<int128_t>(500, 1, DECIMAL(20, 2)),
        makeConstant<int64_t>(1000, 1, DECIMAL(7, 3))});
+}
+
+TEST_F(DecimalArithmeticTest, unaryMinus) {
+  testArithmeticFunction(
+      "unaryminus",
+      makeFlatVector<int64_t>(
+          {1111,
+           -1112,
+           9999,
+           0,
+           -DecimalUtil::kShortDecimalMin,
+           -DecimalUtil::kShortDecimalMax},
+          DECIMAL(18, 9)),
+      {makeFlatVector<int64_t>(
+          {-1111,
+           1112,
+           -9999,
+           0,
+           DecimalUtil::kShortDecimalMin,
+           DecimalUtil::kShortDecimalMax},
+          DECIMAL(18, 9))});
+
+  testArithmeticFunction(
+      "unaryminus",
+      makeFlatVector<int128_t>(
+          {11111111,
+           -11112112,
+           99999999,
+           -DecimalUtil::kLongDecimalMax,
+           -DecimalUtil::kLongDecimalMin},
+          DECIMAL(38, 19)),
+      {makeFlatVector<int128_t>(
+          {-11111111,
+           11112112,
+           -99999999,
+           DecimalUtil::kLongDecimalMax,
+           DecimalUtil::kLongDecimalMin},
+          DECIMAL(38, 19))});
 }
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

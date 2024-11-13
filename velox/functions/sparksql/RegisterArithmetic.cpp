@@ -38,6 +38,14 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerFunction<DivideFunction, double, double, double>({prefix + "divide"});
   registerBinaryNumeric<RemainderFunction>({prefix + "remainder"});
   registerUnaryNumeric<UnaryMinusFunction>({prefix + "unaryminus"});
+  registerFunction<
+      UnaryMinusFunction,
+      LongDecimal<P1, S1>,
+      LongDecimal<P1, S1>>({prefix + "unaryminus"});
+  registerFunction<
+      UnaryMinusFunction,
+      ShortDecimal<P1, S1>,
+      ShortDecimal<P1, S1>>({prefix + "unaryminus"});
   // Math functions.
   registerUnaryNumeric<AbsFunction>({prefix + "abs"});
   registerFunction<
