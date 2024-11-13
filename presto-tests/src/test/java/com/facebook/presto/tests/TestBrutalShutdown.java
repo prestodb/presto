@@ -145,7 +145,7 @@ public class TestBrutalShutdown
                 .stream()
                 .filter(server -> !server.isCoordinator())
                 .findFirst()
-                .get();
+                .orElseThrow();
 
         TaskManager taskManager = worker.getTaskManager();
 

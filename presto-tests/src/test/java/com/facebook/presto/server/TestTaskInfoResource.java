@@ -78,7 +78,7 @@ public class TestTaskInfoResource
         Optional<StageInfo> stageInfo = server.getQueryManager().getFullQueryInfo(queryId).getOutputStage();
 
         if (stageInfo.isPresent()) {
-            Stream<TaskInfo> latestTaskInfo = stageInfo.get().getAllStages().stream()
+            Stream<TaskInfo> latestTaskInfo = stageInfo.orElseThrow().getAllStages().stream()
                     .flatMap(stage -> stage.getLatestAttemptExecutionInfo().getTasks().stream());
             Iterable<TaskInfo> iterableTaskInfo = latestTaskInfo::iterator;
 

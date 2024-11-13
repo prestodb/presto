@@ -25,7 +25,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.QueryRunner.MaterializedResultWithPlan;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import io.airlift.tpch.TpchTable;
@@ -44,6 +43,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.StreamSupport.stream;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
@@ -76,7 +76,7 @@ public final class QueryAssertions
         }
 
         if (planAssertion.isPresent()) {
-            planAssertion.get().accept(queryPlan);
+            planAssertion.orElseThrow().accept(queryPlan);
         }
 
         if (!results.getUpdateType().isPresent()) {
@@ -179,7 +179,7 @@ public final class QueryAssertions
             }
         }
         if (planAssertion.isPresent()) {
-            planAssertion.get().accept(queryPlan);
+            planAssertion.orElseThrow().accept(queryPlan);
         }
         Duration actualTime = nanosSince(start);
 
@@ -260,7 +260,7 @@ public final class QueryAssertions
                         numShown,
                         unexpectedRows.size(),
                         actualSet.size(),
-                        Joiner.on("\n    ").join(Iterables.limit(unexpectedRows, limit)));
+                        Joiner.on("\n    ").join(unexpectedRows.stream().limit(limit).iterator()));
             }
             String missingRowsMessage = "";
             if (!missingRows.isEmpty()) {
@@ -270,7 +270,7 @@ public final class QueryAssertions
                         numShown,
                         missingRows.size(),
                         expectedSet.size(),
-                        Joiner.on("\n    ").join(Iterables.limit(missingRows, limit)));
+                        Joiner.on("\n    ").join(missingRows.stream().limit(limit).iterator()));
             }
             String rowsDiff = format(
                     "%snot equal\n%s%s",
@@ -305,9 +305,9 @@ public final class QueryAssertions
                 fail(format("expected row missing: %s%nAll %s rows:%n    %s%nExpected subset %s rows:%n    %s%n",
                         row,
                         all.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(all, 100)),
+                        Joiner.on("\n    ").join(all.getMaterializedRows().stream().limit(100).iterator()),
                         expectedSubset.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(expectedSubset, 100))));
+                        Joiner.on("\n    ").join(expectedSubset.getMaterializedRows().stream().limit(100).iterator())));
             }
         }
     }
@@ -381,7 +381,7 @@ public final class QueryAssertions
                 sourceCatalog,
                 sourceSchema,
                 session,
-                Iterables.transform(tables, table -> table.getTableName()),
+                stream(tables.spliterator(), false).map(TpchTable::getTableName).toList(),
                 false,
                 false);
     }
@@ -399,7 +399,7 @@ public final class QueryAssertions
                 sourceCatalog,
                 sourceSchema,
                 session,
-                Iterables.transform(tables, table -> table.getTableName()),
+                stream(tables.spliterator(), false).map(TpchTable::getTableName).toList(),
                 ifNotExists,
                 false);
     }

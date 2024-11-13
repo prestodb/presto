@@ -87,10 +87,10 @@ public class TestDistributedClusterStatsResource
         coordinator2 = runner.getCoordinator(1);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
         checkState(resourceManager.isPresent(), "resource manager not present");
-        this.resourceManager = resourceManager.get();
+        this.resourceManager = resourceManager.orElseThrow();
         runner.getCoordinators().stream().forEach(coordinator -> {
-            coordinator.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-            coordinator.getResourceGroupManager().get()
+            coordinator.getResourceGroupManager().orElseThrow().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+            coordinator.getResourceGroupManager().orElseThrow()
                     .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath(RESOURCE_GROUPS_CONFIG_FILE)));
         });
     }
@@ -142,7 +142,7 @@ public class TestDistributedClusterStatsResource
                 if (!globalQueryCountFromCoordinator.isPresent()) {
                     continue;
                 }
-                globalQueryCount += globalQueryCountFromCoordinator.get();
+                globalQueryCount += globalQueryCountFromCoordinator.orElseThrow();
             }
             finalGlobalQueryCount = globalQueryCount;
 
@@ -156,7 +156,7 @@ public class TestDistributedClusterStatsResource
 
     private Optional<Integer> getGlobalQueryCountIfAvailable(QueryState state, TestingPrestoServer coordinator)
     {
-        Map<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfoSnapshot = coordinator.getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
+        Map<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfoSnapshot = coordinator.getResourceGroupManager().orElseThrow().getResourceGroupRuntimeInfosSnapshot();
         ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId(RESOURCE_GROUP_GLOBAL));
         if (resourceGroupRuntimeInfo == null) {
             return Optional.empty();

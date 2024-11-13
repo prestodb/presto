@@ -44,7 +44,7 @@ import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -68,7 +68,7 @@ public class TestLocalQueries
         // add the tpch catalog
         // local queries run directly against the generator
         localQueryRunner.createCatalog(
-                defaultSession.getCatalog().get(),
+                defaultSession.getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 
@@ -141,7 +141,7 @@ public class TestLocalQueries
                                                         new FormattedMarker(Optional.of("P"), EXACTLY),
                                                         new FormattedMarker(Optional.of("P"), EXACTLY)))))));
         assertEquals(
-                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                jsonCodec(IOPlan.class).fromJson((String) result.getOnlyColumnAsSet().stream().collect(onlyElement())),
                 new IOPlan(ImmutableSet.of(input), Optional.empty()));
     }
 
