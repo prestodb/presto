@@ -95,7 +95,9 @@ file_types = OrderedDict(
     {
         "CMakeLists.txt": attrdict({"wrapper": wrapper_hash, "hashbang": False}),
         "Makefile": attrdict({"wrapper": wrapper_hash, "hashbang": False}),
+        "*.cmake": attrdict({"wrapper": wrapper_hash, "hashbang": False}),
         "*.cpp": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
+        "*.hpp": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
         "*.dockfile": attrdict({"wrapper": wrapper_hash, "hashbang": False}),
         "*.h": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
         "*.inc": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
@@ -106,6 +108,11 @@ file_types = OrderedDict(
         "*.thrift": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
         "*.txt": attrdict({"wrapper": wrapper_hash, "hashbang": True}),
         "*.yml": attrdict({"wrapper": wrapper_hash, "hashbang": False}),
+        "*.cu": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
+        "*.cuh": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
+        "*.clcpp": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
+        "*.mm": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
+        "*.metal": attrdict({"wrapper": wrapper_chpp, "hashbang": False}),
     }
 )
 

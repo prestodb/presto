@@ -99,6 +99,12 @@ format_file_types = OrderedDict(
         "*.h": attrdict({"formatter": CppFormatter}),
         "*.inc": attrdict({"formatter": CppFormatter}),
         "*.prolog": attrdict({"formatter": CppFormatter}),
+        "*.hpp": attrdict({"formatter": CppFormatter}),
+        "*.cu": attrdict({"formatter": CppFormatter}),
+        "*.cuh": attrdict({"formatter": CppFormatter}),
+        "*.clcpp": attrdict({"formatter": CppFormatter}),
+        "*.mm": attrdict({"formatter": CppFormatter}),
+        "*.metal": attrdict({"formatter": CppFormatter}),
         "*.py": attrdict({"formatter": PythonFormatter}),
     }
 )
