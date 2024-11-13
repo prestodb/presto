@@ -63,9 +63,9 @@ import java.util.function.Consumer;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Locale.ENGLISH;
@@ -1126,8 +1126,8 @@ public class PrestoResultSet
         }
 
         ColumnInfo columnInfo = columnInfo(columnIndex);
-        String elementTypeName = getOnlyElement(columnInfo.getColumnTypeSignature().getParameters()).toString();
-        int elementType = getOnlyElement(columnInfo.getColumnParameterTypes());
+        String elementTypeName = columnInfo.getColumnTypeSignature().getParameters().stream().collect(onlyElement()).toString();
+        int elementType = columnInfo.getColumnParameterTypes().stream().collect(onlyElement());
         return new PrestoArray(elementTypeName, elementType, (List<?>) value);
     }
 

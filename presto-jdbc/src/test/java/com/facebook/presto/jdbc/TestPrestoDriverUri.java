@@ -18,7 +18,6 @@ import org.testng.annotations.Test;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -36,6 +35,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASS
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.VALIDATE_NEXTURI_SOURCE;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -266,7 +266,7 @@ public class TestPrestoDriverUri
             throws SQLException, UnsupportedEncodingException
     {
         String extraCredentials = "test.token.foo:bar;test.token.abc:xyz;test.scopes:read_only|read_write";
-        String encodedExtraCredentials = URLEncoder.encode(extraCredentials, StandardCharsets.UTF_8.toString());
+        String encodedExtraCredentials = URLEncoder.encode(extraCredentials, UTF_8);
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?extraCredentials=" + encodedExtraCredentials);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(EXTRA_CREDENTIALS.getKey()), extraCredentials);
@@ -277,7 +277,7 @@ public class TestPrestoDriverUri
             throws SQLException, UnsupportedEncodingException
     {
         String customHeaders = "testHeaderKey:testHeaderValue";
-        String encodedCustomHeaders = URLEncoder.encode(customHeaders, StandardCharsets.UTF_8.toString());
+        String encodedCustomHeaders = URLEncoder.encode(customHeaders, UTF_8);
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?customHeaders=" + encodedCustomHeaders);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(CUSTOM_HEADERS.getKey()), customHeaders);
