@@ -54,7 +54,6 @@ import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -155,7 +154,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.difference;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -234,11 +233,11 @@ public class ThriftHiveMetastore
                     .run("getPrimaryKey", stats.getGetPrimaryKey().wrap(() ->
                             getMetastoreClientThenCall(metastoreContext, client -> client.getPrimaryKey(dbName, tableName))));
 
-            if (!pkResponse.isPresent() || pkResponse.get().getPrimaryKeys().size() == 0) {
+            if (!pkResponse.isPresent() || pkResponse.orElseThrow().getPrimaryKeys().size() == 0) {
                 return Optional.empty();
             }
 
-            List<SQLPrimaryKey> pkCols = pkResponse.get().getPrimaryKeys();
+            List<SQLPrimaryKey> pkCols = pkResponse.orElseThrow().getPrimaryKeys();
             boolean isEnabled = pkCols.get(0).isEnable_cstr();
             boolean isRely = pkCols.get(0).isRely_cstr();
             boolean isEnforced = pkCols.get(0).isValidate_cstr();
@@ -263,11 +262,11 @@ public class ThriftHiveMetastore
                     .run("getUniqueConstraints", stats.getGetUniqueConstraints().wrap(() ->
                             getMetastoreClientThenCall(metastoreContext, client -> client.getUniqueConstraints("hive", dbName, tableName))));
 
-            if (!uniqueConstraintsResponse.isPresent() || uniqueConstraintsResponse.get().getUniqueConstraints().size() == 0) {
+            if (!uniqueConstraintsResponse.isPresent() || uniqueConstraintsResponse.orElseThrow().getUniqueConstraints().size() == 0) {
                 return ImmutableList.of();
             }
 
-            List<SQLUniqueConstraint> uniqueConstraints = uniqueConstraintsResponse.get().getUniqueConstraints();
+            List<SQLUniqueConstraint> uniqueConstraints = uniqueConstraintsResponse.orElseThrow().getUniqueConstraints();
             //bucket the unique constraint columns by constraint name
             Map<String, List<SQLUniqueConstraint>> bucketedConstraints = uniqueConstraints.stream().collect(Collectors.groupingBy(SQLUniqueConstraint::getUk_name));
 
@@ -300,11 +299,11 @@ public class ThriftHiveMetastore
                     .run("getNotNullConstraints", stats.getGetNotNullConstraints().wrap(() ->
                             getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints("hive", dbName, tableName))));
 
-            if (!notNullConstraintsResponse.isPresent() || notNullConstraintsResponse.get().getNotNullConstraints().size() == 0) {
+            if (!notNullConstraintsResponse.isPresent() || notNullConstraintsResponse.orElseThrow().getNotNullConstraints().size() == 0) {
                 return ImmutableList.of();
             }
 
-            ImmutableList<NotNullConstraint<String>> result = notNullConstraintsResponse.get().getNotNullConstraints().stream()
+            ImmutableList<NotNullConstraint<String>> result = notNullConstraintsResponse.orElseThrow().getNotNullConstraints().stream()
                     .map(constraint -> new NotNullConstraint<>(constraint.getColumn_name()))
                     .collect(toImmutableList());
 
@@ -596,7 +595,7 @@ public class ThriftHiveMetastore
         com.facebook.presto.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable, metastoreContext.getColumnConverter());
         OptionalLong rowCount = basicStatistics.getRowCount();
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
-                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), table.getColumn(entry.getKey()).get().getType(), entry.getValue(), rowCount))
+                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), table.getColumn(entry.getKey()).orElseThrow().getType(), entry.getValue(), rowCount))
                 .collect(toImmutableList());
         if (!metastoreColumnStatistics.isEmpty()) {
             setTableColumnStatistics(metastoreContext, databaseName, tableName, metastoreColumnStatistics);
@@ -663,7 +662,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, "Metastore returned multiple partitions for name: " + partitionName);
         }
 
-        Partition originalPartition = getOnlyElement(partitions);
+        Partition originalPartition = partitions.stream().collect(onlyElement());
         Partition modifiedPartition = originalPartition.deepCopy();
         HiveBasicStatistics basicStatistics = updatedStatistics.getBasicStatistics();
         modifiedPartition.setParameters(updateStatisticsParameters(modifiedPartition.getParameters(), basicStatistics));
@@ -1038,7 +1037,7 @@ public class ThriftHiveMetastore
                                     table.getCatName(),
                                     table.getDbName(),
                                     table.getTableName(),
-                                    constraint.getColumns().stream().findFirst().get(),
+                                    constraint.getColumns().stream().findFirst().orElseThrow(),
                                     constraint.getName().orElse(null),
                                     constraint.isEnabled(),
                                     constraint.isEnforced(),
@@ -1409,7 +1408,7 @@ public class ThriftHiveMetastore
     public List<Partition> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
     {
         requireNonNull(partitionNames, "partitionNames is null");
-        checkArgument(!Iterables.isEmpty(partitionNames), "partitionNames is empty");
+        checkArgument(partitionNames.stream().findAny().isPresent(), "partitionNames is empty");
 
         try {
             return retry()
@@ -1447,7 +1446,7 @@ public class ThriftHiveMetastore
                                 Set<PrivilegeGrantInfo> privilegesToGrant = new HashSet<>(requestedPrivileges);
                                 Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator();
                                 while (iterator.hasNext()) {
-                                    HivePrivilegeInfo requestedPrivilege = getOnlyElement(parsePrivilege(iterator.next(), Optional.empty()));
+                                    HivePrivilegeInfo requestedPrivilege = parsePrivilege(iterator.next(), Optional.empty()).stream().collect(onlyElement());
 
                                     for (HivePrivilegeInfo existingPrivilege : existingPrivileges) {
                                         if ((requestedPrivilege.isContainedIn(existingPrivilege))) {
@@ -1496,7 +1495,7 @@ public class ThriftHiveMetastore
                                         .collect(toSet());
 
                                 Set<PrivilegeGrantInfo> privilegesToRevoke = requestedPrivileges.stream()
-                                        .filter(privilegeGrantInfo -> existingHivePrivileges.contains(getOnlyElement(parsePrivilege(privilegeGrantInfo, Optional.empty())).getHivePrivilege()))
+                                        .filter(privilegeGrantInfo -> existingHivePrivileges.contains(parsePrivilege(privilegeGrantInfo, Optional.empty()).stream().collect(onlyElement()).getHivePrivilege()))
                                         .collect(toSet());
 
                                 if (privilegesToRevoke.isEmpty()) {
@@ -1593,7 +1592,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
 
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = source.orElseThrow();
         Set<String> constraintColumns = tableConstraint.getColumns();
         int keySequence = 1;
         List<SQLPrimaryKey> primaryKeyConstraint = new ArrayList<>();
@@ -1649,7 +1648,7 @@ public class ThriftHiveMetastore
                     new SQLNotNullConstraint(table.getCatName(),
                             table.getDbName(),
                             table.getTableName(),
-                            tableConstraint.getColumns().stream().findFirst().get(),
+                            tableConstraint.getColumns().stream().findFirst().orElseThrow(),
                             tableConstraint.getName().orElse(null),
                             true,
                             true,

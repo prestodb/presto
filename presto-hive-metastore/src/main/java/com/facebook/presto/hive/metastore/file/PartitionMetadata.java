@@ -38,8 +38,8 @@ import static com.facebook.presto.hive.HiveStorageFormat.getHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class PartitionMetadata
 {
@@ -78,7 +78,7 @@ public class PartitionMetadata
 
         this.storageFormat = storageFormat == null ? VIEW_STORAGE_FORMAT : storageFormat;
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
-        this.storageParameters = ImmutableMap.copyOf(firstNonNull(storageParameters, ImmutableMap.of()));
+        this.storageParameters = ImmutableMap.copyOf(requireNonNullElse(storageParameters, ImmutableMap.of()));
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
 
         this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");

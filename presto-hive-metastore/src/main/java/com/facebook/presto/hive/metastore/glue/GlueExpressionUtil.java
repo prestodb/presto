@@ -79,7 +79,7 @@ public final class GlueExpressionUtil
             if (domain != null && !domain.isAll()) {
                 Optional<String> columnExpression = buildGlueExpressionForSingleDomain(columnName, domain);
                 if (columnExpression.isPresent()) {
-                    int newExpressionLength = expressionLength + columnExpression.get().length();
+                    int newExpressionLength = expressionLength + columnExpression.orElseThrow().length();
                     if (expressionLength > 0) {
                         newExpressionLength += CONJUNCT_SEPARATOR.length();
                     }
@@ -88,7 +88,7 @@ public final class GlueExpressionUtil
                         continue;
                     }
 
-                    perColumnExpressions.add((columnExpression.get()));
+                    perColumnExpressions.add((columnExpression.orElseThrow()));
                     expressionLength = newExpressionLength;
                 }
             }

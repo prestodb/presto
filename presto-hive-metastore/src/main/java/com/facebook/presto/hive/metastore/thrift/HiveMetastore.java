@@ -161,7 +161,7 @@ public interface HiveMetastore
     {
         // a table can only be owned by a user
         Optional<Table> table = getTable(metastoreContext, databaseName, tableName);
-        return table.isPresent() && user.equals(table.get().getOwner());
+        return table.isPresent() && user.equals(table.orElseThrow().getOwner());
     }
 
     default Optional<List<FieldSchema>> getFields(MetastoreContext metastoreContext, String databaseName, String tableName)
@@ -171,11 +171,11 @@ public interface HiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
 
-        if (table.get().getSd() == null) {
+        if (table.orElseThrow().getSd() == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
 
-        return Optional.of(table.get().getSd().getCols());
+        return Optional.of(table.orElseThrow().getSd().getCols());
     }
 
     default Optional<PrimaryKeyConstraint<String>> getPrimaryKey(MetastoreContext metastoreContext, String databaseName, String tableName)
