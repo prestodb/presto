@@ -376,14 +376,6 @@ std::unique_ptr<std::vector<TypeParameter>> RowType::makeParameters() const {
       createTypeParameters(children_));
 }
 
-uint32_t RowType::size() const {
-  return children_.size();
-}
-
-const TypePtr& RowType::childAt(uint32_t idx) const {
-  return children_.at(idx);
-}
-
 namespace {
 template <typename T>
 std::string makeFieldNotFoundErrorMessage(

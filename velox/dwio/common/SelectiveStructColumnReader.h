@@ -146,6 +146,12 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   /// forward within the row group.
   void recordParentNullsInChildren(int64_t offset, const RowSet& rows);
 
+  void setOutputRowsForLazy(const RowSet& rows) {
+    if (useOutputRows() && rows.size() != outputRows_.size()) {
+      setOutputRows(rows);
+    }
+  }
+
   // Context information obtained from ExceptionContext. Stored here
   // so that LazyVector readers under this can add this to their
   // ExceptionContext. Allows contextualizing reader errors to split

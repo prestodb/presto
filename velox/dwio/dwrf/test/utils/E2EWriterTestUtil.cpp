@@ -57,8 +57,8 @@ namespace facebook::velox::dwrf {
   }
 
   writer->close();
-  LOG(INFO) << "writer root pool usage: "
-            << writer->getContext().testingGetWriterMemoryStats();
+  VLOG(1) << "writer root pool usage: "
+          << writer->getContext().testingGetWriterMemoryStats();
   return writer;
 }
 

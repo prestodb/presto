@@ -176,6 +176,20 @@ void setCompositeField(
   }
 }
 
+void setLazyField(
+    std::unique_ptr<VectorLoader> loader,
+    const TypePtr& type,
+    vector_size_t size,
+    memory::MemoryPool* pool,
+    VectorPtr& result) {
+  if (result && result->isLazy() && result.use_count() == 1) {
+    static_cast<LazyVector&>(*result).reset(std::move(loader), size);
+  } else {
+    result = std::make_shared<LazyVector>(
+        pool, type, size, std::move(loader), std::move(result));
+  }
+}
+
 } // namespace
 
 void SelectiveStructColumnReaderBase::filterRowGroups(
@@ -278,6 +292,10 @@ void SelectiveStructColumnReaderBase::next(
     if (childSpec->isConstant()) {
       childField =
           BaseVector::wrapInConstant(numValues, 0, childSpec->constantValue());
+      if (childSpec->deltaUpdate()) {
+        VELOX_CHECK(!childSpec->hasFilter());
+        childSpec->deltaUpdate()->update(rows, childField);
+      }
     } else if (
         childSpec->columnType() ==
         velox::common::ScanSpec::ColumnType::kRowIndex) {
@@ -345,6 +363,12 @@ void SelectiveStructColumnReaderBase::read(
   for (size_t i = 0; i < childSpecs.size(); ++i) {
     const auto& childSpec = childSpecs[i];
     VELOX_TRACE_HISTORY_PUSH("read %s", childSpec->fieldName().c_str());
+
+    if (childSpec->deltaUpdate()) {
+      // Will make LazyVector.
+      continue;
+    }
+
     if (isChildConstant(*childSpec)) {
       if (!testFilterOnConstant(*childSpec)) {
         activeRows = {};
@@ -461,7 +485,6 @@ void SelectiveStructColumnReaderBase::getValues(
   }
 
   setComplexNulls(rows, *result);
-  bool lazyPrepared = false;
   for (const auto& childSpec : scanSpec_->children()) {
     VELOX_TRACE_HISTORY_PUSH("getValues %s", childSpec->fieldName().c_str());
     if (!childSpec->projectOut()) {
@@ -469,7 +492,30 @@ void SelectiveStructColumnReaderBase::getValues(
     }
 
     const auto channel = childSpec->channel();
+    const auto index = childSpec->subscript();
     auto& childResult = resultRow->childAt(channel);
+
+    if (childSpec->deltaUpdate()) {
+      VELOX_CHECK(
+          childSpec->columnType() ==
+          velox::common::ScanSpec::ColumnType::kRegular);
+      VELOX_CHECK(!childSpec->hasFilter());
+      if (childSpec->isConstant()) {
+        setConstantField(childSpec->constantValue(), rows.size(), childResult);
+        childSpec->deltaUpdate()->update(rows, childResult);
+      } else {
+        setOutputRowsForLazy(rows);
+        setLazyField(
+            std::make_unique<DeltaUpdateColumnLoader>(
+                this, children_[index], numReads_),
+            resultRow->type()->childAt(channel),
+            rows.size(),
+            memoryPool_,
+            childResult);
+      }
+      continue;
+    }
+
     if (childSpec->isConstant()) {
       setConstantField(childSpec->constantValue(), rows.size(), childResult);
       continue;
@@ -489,7 +535,6 @@ void SelectiveStructColumnReaderBase::getValues(
       continue;
     }
 
-    const auto index = childSpec->subscript();
     // Set missing fields to be null constant, if we're in the top level struct
     // missing columns should already be a null constant from the check above.
     if (index == kConstantChildSpecSubscript) {
@@ -504,25 +549,13 @@ void SelectiveStructColumnReaderBase::getValues(
     }
 
     // LazyVector result.
-    if (!lazyPrepared) {
-      if (rows.size() != outputRows_.size()) {
-        setOutputRows(rows);
-      }
-      lazyPrepared = true;
-    }
-    auto lazyLoader =
-        std::make_unique<ColumnLoader>(this, children_[index], numReads_);
-    if (childResult && childResult->isLazy() && childResult.use_count() == 1) {
-      static_cast<LazyVector&>(*childResult)
-          .reset(std::move(lazyLoader), rows.size());
-    } else {
-      childResult = std::make_shared<LazyVector>(
-          memoryPool_,
-          resultRow->type()->childAt(channel),
-          rows.size(),
-          std::move(lazyLoader),
-          std::move(childResult));
-    }
+    setOutputRowsForLazy(rows);
+    setLazyField(
+        std::make_unique<ColumnLoader>(this, children_[index], numReads_),
+        resultRow->type()->childAt(channel),
+        rows.size(),
+        memoryPool_,
+        childResult);
   }
   resultRow->updateContainsLazyNotLoaded();
 }

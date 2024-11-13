@@ -206,6 +206,10 @@ class Reader {
    */
   virtual std::unique_ptr<RowReader> createRowReader(
       const RowReaderOptions& options = {}) const = 0;
+
+  static TypePtr updateColumnNames(
+      const TypePtr& fileType,
+      const TypePtr& tableType);
 };
 
 } // namespace facebook::velox::dwio::common

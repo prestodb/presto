@@ -448,9 +448,10 @@ class ReaderOptions : public io::ReaderOptions {
     return *this;
   }
 
-  /// Sets the schema of the file (a Type tree).  For "dwrf" format, a default
-  /// schema is derived from the file. For "rc" format, there is no default
-  /// schema.
+  /// Sets the current table schema of the file (a Type tree).  This could be
+  /// different from the actual schema in file if schema evolution happened.
+  /// For "dwrf" format, a default schema is derived from the file. For "rc"
+  /// format, there is no default schema.
   ReaderOptions& setFileSchema(const RowTypePtr& schema) {
     fileSchema_ = schema;
     return *this;

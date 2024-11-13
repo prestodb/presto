@@ -17,11 +17,13 @@
 #pragma once
 
 #include "velox/common/base/RandomUtil.h"
+#include "velox/vector/LazyVector.h"
 
 #include <cstdint>
 
 namespace facebook::velox::dwio::common {
 
+/// Top row level mutations.
 struct Mutation {
   /// Bit masks for row numbers to be deleted.
   const uint64_t* deletedRows = nullptr;
@@ -32,5 +34,16 @@ struct Mutation {
 inline bool hasDeletion(const Mutation* mutation) {
   return mutation && (mutation->deletedRows || mutation->randomSkip);
 }
+
+class DeltaColumnUpdater {
+ public:
+  virtual ~DeltaColumnUpdater() = default;
+
+  /// Update the values in `result' to reflect the delta updates on `baseRows'.
+  /// `baseRows' are the rows starting from the beginning of the current scan
+  /// (so that the delta readers can use this to choose which lines to read as
+  /// well), not based on the positions in `result'.
+  virtual void update(const RowSet& baseRows, VectorPtr& result) = 0;
+};
 
 } // namespace facebook::velox::dwio::common

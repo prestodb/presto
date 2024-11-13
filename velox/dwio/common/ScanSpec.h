@@ -18,6 +18,7 @@
 
 #include "velox/common/base/SelectivityInfo.h"
 #include "velox/dwio/common/MetadataFilter.h"
+#include "velox/dwio/common/Mutation.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
 #include "velox/vector/BaseVector.h"
@@ -57,7 +58,7 @@ class ScanSpec {
   // can only be isNull or isNotNull, other filtering is given by
   // 'children'.
   common::Filter* filter() const {
-    return filter_.get();
+    return filterDisabled_ ? nullptr : filter_.get();
   }
 
   // Sets 'filter_'. May be used at initialization or when adding a
@@ -83,7 +84,7 @@ class ScanSpec {
   }
 
   int numMetadataFilters() const {
-    return metadataFilters_.size();
+    return filterDisabled_ ? 0 : metadataFilters_.size();
   }
 
   const MetadataFilter::LeafNode* metadataFilterNodeAt(int i) const {
@@ -231,11 +232,11 @@ class ScanSpec {
   // apply to Nimble format leaf nodes, because nulls are mixed in the encoding
   // with actual values.
   bool readsNullsOnly() const {
-    if (filter_) {
-      if (filter_->kind() == FilterKind::kIsNull) {
+    if (auto* filter = this->filter()) {
+      if (filter->kind() == FilterKind::kIsNull) {
         return true;
       }
-      if (filter_->kind() == FilterKind::kIsNotNull && !projectOut_) {
+      if (filter->kind() == FilterKind::kIsNotNull && !projectOut_) {
         return true;
       }
     }
@@ -273,10 +274,6 @@ class ScanSpec {
     if (doReorder) {
       reorder();
     }
-  }
-
-  void setEnableFilterReorder(bool enableFilterReorder) {
-    enableFilterReorder_ = enableFilterReorder;
   }
 
   // Returns the child which produces values for 'channel'. Throws if not found.
@@ -336,6 +333,26 @@ class ScanSpec {
   template <typename F>
   void visit(const Type& type, F&& f);
 
+  dwio::common::DeltaColumnUpdater* deltaUpdate() const {
+    return deltaUpdate_;
+  }
+
+  void setDeltaUpdate(dwio::common::DeltaColumnUpdater* update) {
+    deltaUpdate_ = update;
+    enableFilterInSubTree(update == nullptr);
+  }
+
+  void resetDeltaUpdates() {
+    for (auto& child : children_) {
+      // Only top level columns can have delta updates.
+      if (child->deltaUpdate_) {
+        setDeltaUpdate(nullptr);
+      }
+    }
+  }
+
+  void applyFilter(const BaseVector& vector, uint64_t* result) const;
+
   bool isFlatMapAsStruct() const {
     return isFlatMapAsStruct_;
   }
@@ -346,6 +363,12 @@ class ScanSpec {
 
  private:
   void reorder();
+
+  void enableFilterInSubTree(bool value);
+
+  static bool compareTimeToDropValue(
+      const std::shared_ptr<ScanSpec>& x,
+      const std::shared_ptr<ScanSpec>& y);
 
   // Serializes stableChildren().
   std::mutex mutex_;
@@ -377,6 +400,8 @@ class ScanSpec {
   // returned as flat.
   bool makeFlat_ = false;
   std::unique_ptr<common::Filter> filter_;
+  bool filterDisabled_ = false;
+  dwio::common::DeltaColumnUpdater* deltaUpdate_ = nullptr;
 
   // Filters that will be only used for row group filtering based on metadata.
   // The conjunctions among these filters are tracked in MetadataFilter, with
@@ -387,8 +412,6 @@ class ScanSpec {
       metadataFilters_;
 
   SelectivityInfo selectivity_;
-  // Sort children by filtering efficiency.
-  bool enableFilterReorder_ = true;
 
   std::vector<std::shared_ptr<ScanSpec>> children_;
   // Read-only copy of children, not subject to reordering. Used when

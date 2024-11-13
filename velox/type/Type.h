@@ -993,9 +993,14 @@ class RowType : public TypeBase<TypeKind::ROW> {
 
   ~RowType() override;
 
-  uint32_t size() const override;
+  uint32_t size() const final {
+    return children_.size();
+  }
 
-  const std::shared_ptr<const Type>& childAt(uint32_t idx) const override;
+  const TypePtr& childAt(uint32_t idx) const final {
+    VELOX_CHECK_LT(idx, children_.size());
+    return children_[idx];
+  }
 
   const std::vector<std::shared_ptr<const Type>>& children() const {
     return children_;

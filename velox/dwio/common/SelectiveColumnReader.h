@@ -183,10 +183,7 @@ class SelectiveColumnReader {
   // read(). If 'this' has no filter, returns 'rows' passed to last
   // read().
   const RowSet outputRows() const {
-    if (scanSpec_->hasFilter() || hasDeletion()) {
-      return outputRows_;
-    }
-    return inputRows_;
+    return useOutputRows() ? outputRows_ : inputRows_;
   }
 
   // Advances to 'offset', so that the next item to be read is the
@@ -591,6 +588,10 @@ class SelectiveColumnReader {
     return !anyNulls_        ? kNullBuffer
         : returnReaderNulls_ ? nullsInReadRange_
                              : resultNulls_;
+  }
+
+  bool useOutputRows() const {
+    return scanSpec_->hasFilter() || hasDeletion();
   }
 
   memory::MemoryPool* const memoryPool_;

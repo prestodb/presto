@@ -800,102 +800,11 @@ DwrfReader::DwrfReader(
   }
 }
 
-namespace {
-void logTypeInequality(
-    const Type& fileType,
-    const Type& tableType,
-    const std::string& fileFieldName,
-    const std::string& tableFieldName) {
-  VLOG(1) << "Type of the File field '" << fileFieldName
-          << "' does not match the type of the Table field '" << tableFieldName
-          << "': [" << fileType.toString() << "] vs [" << tableType.toString()
-          << "]";
-}
-
-// Forward declaration for general type tree recursion function.
-TypePtr updateColumnNames(
-    const TypePtr& fileType,
-    const TypePtr& tableType,
-    const std::string& fileFieldName,
-    const std::string& tableFieldName);
-
-// Non-primitive type tree recursion function.
-template <typename T>
-TypePtr updateColumnNames(const TypePtr& fileType, const TypePtr& tableType) {
-  const auto fileRowType = std::dynamic_pointer_cast<const T>(fileType);
-  const auto tableRowType = std::dynamic_pointer_cast<const T>(tableType);
-
-  std::vector<std::string> newFileFieldNames;
-  newFileFieldNames.reserve(fileRowType->size());
-  std::vector<TypePtr> newFileFieldTypes;
-  newFileFieldTypes.reserve(fileRowType->size());
-
-  for (auto childIdx = 0; childIdx < tableRowType->size(); ++childIdx) {
-    if (childIdx >= fileRowType->size()) {
-      break;
-    }
-
-    newFileFieldTypes.push_back(updateColumnNames(
-        fileRowType->childAt(childIdx),
-        tableRowType->childAt(childIdx),
-        fileRowType->nameOf(childIdx),
-        tableRowType->nameOf(childIdx)));
-
-    newFileFieldNames.push_back(tableRowType->nameOf(childIdx));
-  }
-
-  for (auto childIdx = tableRowType->size(); childIdx < fileRowType->size();
-       ++childIdx) {
-    newFileFieldTypes.push_back(fileRowType->childAt(childIdx));
-    newFileFieldNames.push_back(fileRowType->nameOf(childIdx));
-  }
-
-  return std::make_shared<const T>(
-      std::move(newFileFieldNames), std::move(newFileFieldTypes));
-}
-
-// General type tree recursion function.
-TypePtr updateColumnNames(
-    const TypePtr& fileType,
-    const TypePtr& tableType,
-    const std::string& fileFieldName,
-    const std::string& tableFieldName) {
-  // Check type kind equality. If not equal, no point to continue down the
-  // tree.
-  if (fileType->kind() != tableType->kind()) {
-    logTypeInequality(*fileType, *tableType, fileFieldName, tableFieldName);
-    return fileType;
-  }
-
-  // For leaf types we return type as is.
-  if (fileType->isPrimitiveType()) {
-    return fileType;
-  }
-
-  if (fileType->isRow()) {
-    return updateColumnNames<RowType>(fileType, tableType);
-  }
-
-  if (fileType->isMap()) {
-    return updateColumnNames<MapType>(fileType, tableType);
-  }
-
-  if (fileType->isArray()) {
-    return updateColumnNames<ArrayType>(fileType, tableType);
-  }
-
-  // We should not be here.
-  VLOG(1) << "Unexpected table type during column names update for File field '"
-          << fileFieldName << "': [" << fileType->toString() << "]";
-  return fileType;
-}
-} // namespace
-
 void DwrfReader::updateColumnNamesFromTableSchema() {
   const auto& tableSchema = readerBase_->readerOptions().fileSchema();
   const auto& fileSchema = readerBase_->schema();
   readerBase_->setSchema(std::dynamic_pointer_cast<const RowType>(
-      updateColumnNames(fileSchema, tableSchema, "", "")));
+      updateColumnNames(fileSchema, tableSchema)));
 }
 
 std::unique_ptr<StripeInformation> DwrfReader::getStripe(

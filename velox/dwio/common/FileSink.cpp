@@ -128,8 +128,8 @@ void WriteFileSink::write(std::vector<DataBuffer<char>>& buffers) {
 }
 
 void WriteFileSink::doClose() {
-  LOG(INFO) << "closing file: " << name()
-            << ",  total size: " << succinctBytes(size_);
+  VLOG(1) << "closing file: " << name()
+          << ",  total size: " << succinctBytes(size_);
   if (writeFile_ != nullptr) {
     writeFile_->close();
   }
