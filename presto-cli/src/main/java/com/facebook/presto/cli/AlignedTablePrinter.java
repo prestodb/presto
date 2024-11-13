@@ -22,11 +22,12 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.Iterables.partition;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.max;
 import static java.lang.String.format;
@@ -154,7 +155,7 @@ public class AlignedTablePrinter
         Iterable<List<String>> hexLines = partition(hexPairs, bytesPerLine);
 
         // lines: ["61 62 63", ...]
-        Iterable<String> lines = transform(hexLines, HEX_BYTE_JOINER::join);
+        Iterable<String> lines = stream(hexLines).map(HEX_BYTE_JOINER::join).collect(Collectors.toList());
 
         // joined: "61 62 63\n..."
         return HEX_LINE_JOINER.join(lines);
