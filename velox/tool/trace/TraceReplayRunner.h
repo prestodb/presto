@@ -17,6 +17,8 @@
 #pragma once
 
 #include <utility>
+#include "velox/common/file/FileSystems.h"
+#include "velox/tool/trace/OperatorReplayerBase.h"
 
 #include <folly/executors/IOThreadPoolExecutor.h>
 
@@ -27,7 +29,6 @@ DECLARE_string(query_id);
 DECLARE_string(task_id);
 DECLARE_string(node_id);
 DECLARE_int32(driver_id);
-DECLARE_string(operator_type);
 DECLARE_string(table_writer_output_dir);
 DECLARE_double(hiveConnectorExecutorHwMultiplier);
 DECLARE_int32(shuffle_serialization_format);
@@ -49,7 +50,10 @@ class TraceReplayRunner {
   virtual void run();
 
  private:
+  std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() const;
+
   const std::unique_ptr<folly::IOThreadPoolExecutor> ioExecutor_;
+  std::shared_ptr<filesystems::FileSystem> fs_;
 };
 
 } // namespace facebook::velox::tool::trace

@@ -79,6 +79,13 @@ std::string getOpTraceSplitFilePath(const std::string& opTraceDir);
 /// Returns the file path for a given operator's traced input file.
 std::string getOpTraceSummaryFilePath(const std::string& opTraceDir);
 
+/// Extracts the trace node name from the trace metadata file.
+std::string getNodeName(
+    const std::string& nodeId,
+    const std::string& taskMetaFilePath,
+    const std::shared_ptr<filesystems::FileSystem>& fs,
+    memory::MemoryPool* pool);
+
 /// Extracts the input data type for the trace scan operator. The function first
 /// uses the traced node id to find traced operator's plan node from the traced
 /// plan fragment. Then it uses the specified source node index to find the

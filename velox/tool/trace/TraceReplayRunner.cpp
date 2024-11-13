@@ -71,7 +71,6 @@ DEFINE_string(
     "query task.");
 DEFINE_string(node_id, "", "Specify the target node id.");
 DEFINE_int32(driver_id, -1, "Specify the target driver id.");
-DEFINE_string(operator_type, "", "Specify the target operator type.");
 DEFINE_string(
     table_writer_output_dir,
     "",
@@ -100,62 +99,6 @@ VectorSerde::Kind getVectorSerdeKind() {
           "Unsupported shuffle serialization format: {}",
           static_cast<int>(FLAGS_shuffle_serialization_format));
   }
-}
-
-std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() {
-  std::unique_ptr<tool::trace::OperatorReplayerBase> replayer;
-  if (FLAGS_operator_type == "TableWriter") {
-    VELOX_USER_CHECK(
-        !FLAGS_table_writer_output_dir.empty(),
-        "--table_writer_output_dir is required");
-    replayer = std::make_unique<tool::trace::TableWriterReplayer>(
-        FLAGS_root_dir,
-        FLAGS_query_id,
-        FLAGS_task_id,
-        FLAGS_node_id,
-        FLAGS_operator_type,
-        FLAGS_table_writer_output_dir);
-  } else if (FLAGS_operator_type == "Aggregation") {
-    replayer = std::make_unique<tool::trace::AggregationReplayer>(
-        FLAGS_root_dir,
-        FLAGS_query_id,
-        FLAGS_task_id,
-        FLAGS_node_id,
-        FLAGS_operator_type);
-  } else if (FLAGS_operator_type == "PartitionedOutput") {
-    replayer = std::make_unique<tool::trace::PartitionedOutputReplayer>(
-        FLAGS_root_dir,
-        FLAGS_query_id,
-        FLAGS_task_id,
-        FLAGS_node_id,
-        getVectorSerdeKind(),
-        FLAGS_operator_type);
-  } else if (FLAGS_operator_type == "TableScan") {
-    replayer = std::make_unique<tool::trace::TableScanReplayer>(
-        FLAGS_root_dir,
-        FLAGS_query_id,
-        FLAGS_task_id,
-        FLAGS_node_id,
-        FLAGS_operator_type);
-  } else if (FLAGS_operator_type == "FilterProject") {
-    replayer = std::make_unique<tool::trace::FilterProjectReplayer>(
-        FLAGS_root_dir,
-        FLAGS_query_id,
-        FLAGS_task_id,
-        FLAGS_node_id,
-        FLAGS_operator_type);
-  } else if (FLAGS_operator_type == "HashJoin") {
-    replayer = std::make_unique<tool::trace::HashJoinReplayer>(
-        FLAGS_root_dir,
-        FLAGS_query_id,
-        FLAGS_task_id,
-        FLAGS_node_id,
-        FLAGS_operator_type);
-  } else {
-    VELOX_UNSUPPORTED("Unsupported operator type: {}", FLAGS_operator_type);
-  }
-  VELOX_USER_CHECK_NOT_NULL(replayer);
-  return replayer;
 }
 
 void printTaskMetadata(
@@ -276,6 +219,11 @@ TraceReplayRunner::TraceReplayRunner()
               "TraceReplayIoConnector"))) {}
 
 void TraceReplayRunner::init() {
+  VELOX_USER_CHECK(!FLAGS_root_dir.empty(), "--root_dir must be provided");
+  VELOX_USER_CHECK(!FLAGS_query_id.empty(), "--query_id must be provided");
+  VELOX_USER_CHECK(!FLAGS_node_id.empty(), "--node_id must be provided");
+  fs_ = filesystems::getFileSystem(FLAGS_root_dir, nullptr);
+
   memory::initializeMemoryManager({});
   filesystems::registerLocalFileSystem();
   filesystems::registerS3FileSystem();
@@ -329,11 +277,71 @@ void TraceReplayRunner::init() {
   connector::registerConnector(hiveConnector);
 }
 
-void TraceReplayRunner::run() {
-  VELOX_USER_CHECK(!FLAGS_root_dir.empty(), "--root_dir must be provided");
-  VELOX_USER_CHECK(!FLAGS_query_id.empty(), "--query_id must be provided");
-  VELOX_USER_CHECK(!FLAGS_node_id.empty(), "--node_id must be provided");
+std::unique_ptr<tool::trace::OperatorReplayerBase>
+TraceReplayRunner::createReplayer() const {
+  std::unique_ptr<tool::trace::OperatorReplayerBase> replayer;
+  const auto taskTraceDir = exec::trace::getTaskTraceDirectory(
+      FLAGS_root_dir, FLAGS_query_id, FLAGS_task_id);
+  const auto traceNodeName = exec::trace::getNodeName(
+      FLAGS_node_id,
+      exec::trace::getTaskTraceMetaFilePath(taskTraceDir),
+      fs_,
+      memory::MemoryManager::getInstance()->tracePool());
+  if (traceNodeName == "TableWriter") {
+    VELOX_USER_CHECK(
+        !FLAGS_table_writer_output_dir.empty(),
+        "--table_writer_output_dir is required");
+    replayer = std::make_unique<tool::trace::TableWriterReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        traceNodeName,
+        FLAGS_table_writer_output_dir);
+  } else if (traceNodeName == "Aggregation") {
+    replayer = std::make_unique<tool::trace::AggregationReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        traceNodeName);
+  } else if (traceNodeName == "PartitionedOutput") {
+    replayer = std::make_unique<tool::trace::PartitionedOutputReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        getVectorSerdeKind(),
+        traceNodeName);
+  } else if (traceNodeName == "TableScan") {
+    replayer = std::make_unique<tool::trace::TableScanReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        traceNodeName);
+  } else if (traceNodeName == "Filter" || traceNodeName == "Project") {
+    replayer = std::make_unique<tool::trace::FilterProjectReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        traceNodeName);
+  } else if (traceNodeName == "HashJoin") {
+    replayer = std::make_unique<tool::trace::HashJoinReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        traceNodeName);
+  } else {
+    VELOX_UNSUPPORTED("Unsupported operator type: {}", traceNodeName);
+  }
+  VELOX_USER_CHECK_NOT_NULL(replayer);
+  return replayer;
+}
 
+void TraceReplayRunner::run() {
   if (FLAGS_summary || FLAGS_short_summary) {
     auto pool = memory::memoryManager()->addLeafPool("replayer");
     printSummary(
@@ -344,10 +352,7 @@ void TraceReplayRunner::run() {
         pool.get());
     return;
   }
-
   VELOX_USER_CHECK(!FLAGS_task_id.empty(), "--task_id must be provided");
-  VELOX_USER_CHECK(
-      !FLAGS_operator_type.empty(), "--operator_type must be provided");
   createReplayer()->run();
 }
 } // namespace facebook::velox::tool::trace
