@@ -27,7 +27,7 @@ public class TableConstraintAlreadyExistsException
 
     public TableConstraintAlreadyExistsException(Optional<String> constraintName)
     {
-        this(constraintName, format("Constraint already exists: '%s'", constraintName.get()));
+        this(constraintName, format("Constraint already exists: '%s'", constraintName.orElseThrow()));
     }
 
     public TableConstraintAlreadyExistsException(Optional<String> constraintName, String message)

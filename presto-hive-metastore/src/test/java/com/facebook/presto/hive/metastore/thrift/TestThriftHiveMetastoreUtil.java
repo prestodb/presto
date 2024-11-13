@@ -398,6 +398,6 @@ public class TestThriftHiveMetastoreUtil
 
         partition.setParameters(ImmutableMap.of("rowIDPartitionComponent", "\u0000\u0001\u00FF"));
         byte[] expected = {0, 1, (byte) 255};
-        assertEquals(ThriftMetastoreUtil.getRowIDPartitionComponent(partition).get(), expected);
+        assertEquals(ThriftMetastoreUtil.getRowIDPartitionComponent(partition).orElseThrow(), expected);
     }
 }

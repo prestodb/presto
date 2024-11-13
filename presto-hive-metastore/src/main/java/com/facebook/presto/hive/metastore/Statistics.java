@@ -118,8 +118,8 @@ public final class Statistics
         // normally, either both or none is present
         if (first.isPresent() && second.isPresent()) {
             return Optional.of(new IntegerStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
+                    reduce(first.orElseThrow().getMin(), second.orElseThrow().getMin(), MIN, true),
+                    reduce(first.orElseThrow().getMax(), second.orElseThrow().getMax(), MAX, true)));
         }
         return Optional.empty();
     }
@@ -129,8 +129,8 @@ public final class Statistics
         // normally, either both or none is present
         if (first.isPresent() && second.isPresent()) {
             return Optional.of(new DoubleStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
+                    reduce(first.orElseThrow().getMin(), second.orElseThrow().getMin(), MIN, true),
+                    reduce(first.orElseThrow().getMax(), second.orElseThrow().getMax(), MAX, true)));
         }
         return Optional.empty();
     }
@@ -140,8 +140,8 @@ public final class Statistics
         // normally, either both or none is present
         if (first.isPresent() && second.isPresent()) {
             return Optional.of(new DecimalStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
+                    reduce(first.orElseThrow().getMin(), second.orElseThrow().getMin(), MIN, true),
+                    reduce(first.orElseThrow().getMax(), second.orElseThrow().getMax(), MAX, true)));
         }
         return Optional.empty();
     }
@@ -151,8 +151,8 @@ public final class Statistics
         // normally, either both or none is present
         if (first.isPresent() && second.isPresent()) {
             return Optional.of(new DateStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
+                    reduce(first.orElseThrow().getMin(), second.orElseThrow().getMin(), MIN, true),
+                    reduce(first.orElseThrow().getMax(), second.orElseThrow().getMax(), MAX, true)));
         }
         return Optional.empty();
     }
@@ -162,8 +162,8 @@ public final class Statistics
         // normally, either both or none is present
         if (first.isPresent() && second.isPresent()) {
             return Optional.of(new BooleanStatistics(
-                    reduce(first.get().getTrueCount(), second.get().getTrueCount(), ADD, false),
-                    reduce(first.get().getFalseCount(), second.get().getFalseCount(), ADD, false)));
+                    reduce(first.orElseThrow().getTrueCount(), second.orElseThrow().getTrueCount(), ADD, false),
+                    reduce(first.orElseThrow().getFalseCount(), second.orElseThrow().getFalseCount(), ADD, false)));
         }
         return Optional.empty();
     }
@@ -218,9 +218,9 @@ public final class Statistics
         if (first.isPresent() && second.isPresent()) {
             switch (operator) {
                 case MAX:
-                    return Optional.of(max(first.get(), second.get()));
+                    return Optional.of(max(first.orElseThrow(), second.orElseThrow()));
                 case MIN:
-                    return Optional.of(min(first.get(), second.get()));
+                    return Optional.of(min(first.orElseThrow(), second.orElseThrow()));
                 default:
                     throw new IllegalArgumentException("Unexpected operator: " + operator);
             }

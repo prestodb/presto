@@ -71,7 +71,7 @@ public final class Transport
                 // SSL will connect to the SOCKS address when present
                 HostAndPort sslConnectAddress = socksProxy.orElse(address);
 
-                socket = sslContext.get().getSocketFactory().createSocket(socket, sslConnectAddress.getHost(), sslConnectAddress.getPort(), true);
+                socket = sslContext.orElseThrow().getSocketFactory().createSocket(socket, sslConnectAddress.getHost(), sslConnectAddress.getPort(), true);
             }
             return new TSocket(socket);
         }
