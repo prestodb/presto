@@ -22,8 +22,9 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Target(METHOD)
 public @interface SqlSignature {
-    String argumentType();
+    String argumentType() default "";
     String returnType();
+    String[] argumentTypes() default {};
 
     Class<?> nativeContainerType() default Object.class;
 }
