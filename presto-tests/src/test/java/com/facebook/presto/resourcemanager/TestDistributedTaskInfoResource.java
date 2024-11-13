@@ -67,12 +67,12 @@ public class TestDistributedTaskInfoResource
         coordinator2 = runner.getCoordinator(1);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
         checkState(resourceManager.isPresent(), "resource manager not present");
-        this.resourceManager = resourceManager.get();
-        coordinator1.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-        coordinator1.getResourceGroupManager().get()
+        this.resourceManager = resourceManager.orElseThrow();
+        coordinator1.getResourceGroupManager().orElseThrow().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+        coordinator1.getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
-        coordinator2.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-        coordinator2.getResourceGroupManager().get()
+        coordinator2.getResourceGroupManager().orElseThrow().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+        coordinator2.getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
@@ -89,7 +89,7 @@ public class TestDistributedTaskInfoResource
         int globalRunningQueries = 0;
         do {
             MILLISECONDS.sleep(100);
-            resourceGroupRuntimeInfoSnapshot = coordinator2.getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
+            resourceGroupRuntimeInfoSnapshot = coordinator2.getResourceGroupManager().orElseThrow().getResourceGroupRuntimeInfosSnapshot();
             ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId("global"));
             if (resourceGroupRuntimeInfo != null) {
                 globalRunningQueries = resourceGroupRuntimeInfo.getDescendantRunningQueries();

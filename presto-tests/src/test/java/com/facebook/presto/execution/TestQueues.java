@@ -122,7 +122,7 @@ public class TestQueues
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
         // submit first "dashboard" query
         QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
@@ -159,7 +159,7 @@ public class TestQueues
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_soft_limits.json")));
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_soft_limits.json")));
 
         QueryId scheduled1 = createScheduledQuery(queryRunner);
         waitForQueryState(queryRunner, scheduled1, RUNNING);
@@ -221,7 +221,7 @@ public class TestQueues
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
         QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
         QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
@@ -236,7 +236,7 @@ public class TestQueues
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
         QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
         waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
@@ -260,7 +260,7 @@ public class TestQueues
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.getCoordinator().getResourceGroupManager().get()
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_client_tags_based_config.json")));
         assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a")), LONG_LASTING_QUERY, createResourceGroupId("global", "a", "default"));
         assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("b")), LONG_LASTING_QUERY, createResourceGroupId("global", "b"));
@@ -272,7 +272,7 @@ public class TestQueues
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.getCoordinator().getResourceGroupManager().get()
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_resource_estimate_based_config.json")));
 
         assertResourceGroup(
@@ -331,7 +331,7 @@ public class TestQueues
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.getCoordinator().getResourceGroupManager().get()
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));
         assertResourceGroup(queryRunner, newAdhocSession(), LONG_LASTING_QUERY, createResourceGroupId("global", "select"));
         assertResourceGroup(queryRunner, newAdhocSession(), "SHOW TABLES", createResourceGroupId("global", "describe"));
@@ -345,7 +345,7 @@ public class TestQueues
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
         // submit first "dashboard" query
         QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
@@ -390,7 +390,7 @@ public class TestQueues
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
         queryRunner.installPlugin(new TestingPlanCheckerProviderPlugin(triggerValidationFailure));
         queryRunner.getPlanCheckerProviderManager().loadPlanCheckerProviders();
-        queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_eager_plan_validation.json")));
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_eager_plan_validation.json")));
 
         Session.SessionBuilder builder = testSessionBuilder()
                 .setCatalog("tpch")
@@ -432,14 +432,14 @@ public class TestQueues
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
         Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
-        assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));
+        assertEquals(resourceGroupId.orElseThrow(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.orElseThrow()));
     }
 
     private void testRejection()
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
         QueryId queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, FAILED);

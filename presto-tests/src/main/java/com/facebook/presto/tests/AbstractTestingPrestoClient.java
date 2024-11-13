@@ -54,7 +54,6 @@ import static com.facebook.presto.spi.session.ResourceEstimates.EXECUTION_TIME;
 import static com.facebook.presto.spi.session.ResourceEstimates.PEAK_MEMORY;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toMap;
@@ -214,7 +213,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
     protected List<Type> getTypes(List<Column> columns)
     {
-        return ImmutableList.copyOf(transform(columns, columnTypeGetter()));
+        return ImmutableList.copyOf(columns.stream().map(columnTypeGetter()).iterator());
     }
 
     protected Function<Column, Type> columnTypeGetter()

@@ -81,8 +81,8 @@ import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH
 import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.StreamSupport.stream;
 
 public class TestingPrestoClient
         extends AbstractTestingPrestoClient<MaterializedResult>
@@ -141,7 +141,7 @@ public class TestingPrestoClient
 
             if (data.getData() != null) {
                 checkState(types.get() != null, "data received without types");
-                rows.addAll(transform(data.getData(), dataToRow(types.get())));
+                rows.addAll(stream(data.getData().spliterator(), false).map(dataToRow(types.get())).iterator());
             }
         }
 
@@ -267,7 +267,7 @@ public class TestingPrestoClient
             RowType rowType = (RowType) type;
 
             return rowType.getFields().stream()
-                    .map(field -> convertToRowValue(field.getType(), data.get(field.getName().get())))
+                    .map(field -> convertToRowValue(field.getType(), data.get(field.getName().orElseThrow())))
                     .collect(toList());
         }
         else if (type instanceof DecimalType) {

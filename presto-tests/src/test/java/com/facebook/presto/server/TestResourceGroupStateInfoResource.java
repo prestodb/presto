@@ -52,14 +52,14 @@ public class TestResourceGroupStateInfoResource
 
         DistributedQueryRunner runnerWithExpirationEnabled = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s", "cluster-resource-group-state-info-expiration-duration", "20s"));
         serverWithResourceGroupInfoExpirationEnabled = runnerWithExpirationEnabled.getCoordinator();
-        serverWithResourceGroupInfoExpirationEnabled.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-        serverWithResourceGroupInfoExpirationEnabled.getResourceGroupManager().get()
+        serverWithResourceGroupInfoExpirationEnabled.getResourceGroupManager().orElseThrow().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+        serverWithResourceGroupInfoExpirationEnabled.getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
 
         DistributedQueryRunner runnerWithExpirationDisabled = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"));
         serverWithResourceGroupInfoExpirationDisabled = runnerWithExpirationDisabled.getCoordinator();
-        serverWithResourceGroupInfoExpirationDisabled.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-        serverWithResourceGroupInfoExpirationDisabled.getResourceGroupManager().get()
+        serverWithResourceGroupInfoExpirationDisabled.getResourceGroupManager().orElseThrow().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+        serverWithResourceGroupInfoExpirationDisabled.getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 

@@ -60,7 +60,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
@@ -112,6 +111,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_TH
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.ColorType.COLOR;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
@@ -530,7 +530,7 @@ public class TestTupleDomainFilterUtils
     {
         Optional<Map<String, Domain>> domains = fromPredicate(expression, useNewNanDefitition).getTupleDomain().getDomains();
         assertTrue(domains.isPresent());
-        Domain domain = Iterables.getOnlyElement(domains.get().values());
+        Domain domain = domains.orElseThrow().values().stream().collect(onlyElement());
         return TupleDomainFilterUtils.toFilter(domain);
     }
 

@@ -26,7 +26,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
@@ -46,6 +45,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.StreamSupport.stream;
 
 public class TpchIndexedData
 {
@@ -191,14 +191,14 @@ public class TpchIndexedData
             // Since we only return a cached copy of IndexedTable, please make sure you reorder the input to same order of keyColumns
             checkArgument(recordSet.getColumnTypes().equals(keyTypes), "Input RecordSet keys do not match expected key type");
 
-            Iterable<RecordSet> outputRecordSets = Iterables.transform(tupleIterable(recordSet), key -> {
+            Iterable<RecordSet> outputRecordSets = stream(tupleIterable(recordSet).spliterator(), false).map(key -> {
                 for (Object value : key.getValues()) {
                     if (value == null) {
                         throw new IllegalArgumentException("TPCH index does not support null values");
                     }
                 }
                 return lookupKey(key);
-            });
+            }).toList();
 
             // We will return result same order as outputColumns
             return new ConcatRecordSet(outputRecordSets, outputTypes);
