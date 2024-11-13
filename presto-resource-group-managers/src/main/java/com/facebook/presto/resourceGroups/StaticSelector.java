@@ -93,52 +93,52 @@ public class StaticSelector
         Map<String, String> variables = new HashMap<>();
 
         if (userRegex.isPresent()) {
-            Matcher userMatcher = userRegex.get().matcher(criteria.getUser());
+            Matcher userMatcher = userRegex.orElseThrow().matcher(criteria.getUser());
             if (!userMatcher.matches()) {
                 return Optional.empty();
             }
 
-            addVariableValues(userRegex.get(), criteria.getUser(), variables);
+            addVariableValues(userRegex.orElseThrow(), criteria.getUser(), variables);
         }
 
         if (sourceRegex.isPresent()) {
             String source = criteria.getSource().orElse("");
-            if (!sourceRegex.get().matcher(source).matches()) {
+            if (!sourceRegex.orElseThrow().matcher(source).matches()) {
                 return Optional.empty();
             }
 
-            addVariableValues(sourceRegex.get(), source, variables);
+            addVariableValues(sourceRegex.orElseThrow(), source, variables);
         }
 
         if (principalRegex.isPresent()) {
             String principal = criteria.getPrincipal().orElse("");
-            if (!principalRegex.get().matcher(principal).matches()) {
+            if (!principalRegex.orElseThrow().matcher(principal).matches()) {
                 return Optional.empty();
             }
 
-            addVariableValues(principalRegex.get(), principal, variables);
+            addVariableValues(principalRegex.orElseThrow(), principal, variables);
         }
 
         if (!clientTags.isEmpty() && !criteria.getTags().containsAll(clientTags)) {
             return Optional.empty();
         }
 
-        if (clientInfoRegex.isPresent() && !clientInfoRegex.get().matcher(criteria.getClientInfo().orElse(EMPTY_CRITERIA_STRING)).matches()) {
+        if (clientInfoRegex.isPresent() && !clientInfoRegex.orElseThrow().matcher(criteria.getClientInfo().orElse(EMPTY_CRITERIA_STRING)).matches()) {
             return Optional.empty();
         }
-        if (selectorResourceEstimate.isPresent() && !selectorResourceEstimate.get().match(criteria.getResourceEstimates())) {
+        if (selectorResourceEstimate.isPresent() && !selectorResourceEstimate.orElseThrow().match(criteria.getResourceEstimates())) {
             return Optional.empty();
         }
 
         if (queryType.isPresent()) {
             String contextQueryType = criteria.getQueryType().orElse(EMPTY_CRITERIA_STRING);
-            if (!queryType.get().equalsIgnoreCase(contextQueryType)) {
+            if (!queryType.orElseThrow().equalsIgnoreCase(contextQueryType)) {
                 return Optional.empty();
             }
         }
 
         if (schema.isPresent() && criteria.getSchema().isPresent()) {
-            if (criteria.getSchema().get().compareToIgnoreCase(schema.get()) != 0) {
+            if (criteria.getSchema().orElseThrow().compareToIgnoreCase(schema.orElseThrow()) != 0) {
                 return Optional.empty();
             }
         }

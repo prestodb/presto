@@ -65,21 +65,21 @@ public final class SelectorResourceEstimate
     {
         if (executionTime.isPresent()) {
             Optional<Duration> executionTimeEstimate = resourceEstimates.getExecutionTime();
-            if (!executionTimeEstimate.isPresent() || !executionTime.get().contains(executionTimeEstimate.get())) {
+            if (!executionTimeEstimate.isPresent() || !executionTime.orElseThrow().contains(executionTimeEstimate.orElseThrow())) {
                 return false;
             }
         }
 
         if (cpuTime.isPresent()) {
             Optional<Duration> cpuTimeEstimate = resourceEstimates.getCpuTime();
-            if (!cpuTimeEstimate.isPresent() || !cpuTime.get().contains(cpuTimeEstimate.get())) {
+            if (!cpuTimeEstimate.isPresent() || !cpuTime.orElseThrow().contains(cpuTimeEstimate.orElseThrow())) {
                 return false;
             }
         }
 
         if (peakMemory.isPresent()) {
             Optional<DataSize> peakMemoryEstimate = resourceEstimates.getPeakMemory();
-            if (!peakMemoryEstimate.isPresent() || !peakMemory.get().contains(peakMemoryEstimate.get())) {
+            if (!peakMemoryEstimate.isPresent() || !peakMemory.orElseThrow().contains(peakMemoryEstimate.orElseThrow())) {
                 return false;
             }
         }
@@ -139,8 +139,8 @@ public final class SelectorResourceEstimate
 
         boolean contains(T value)
         {
-            return (!min.isPresent() || min.get().compareTo(value) <= 0) &&
-                    (!max.isPresent() || max.get().compareTo(value) >= 0);
+            return (!min.isPresent() || min.orElseThrow().compareTo(value) <= 0) &&
+                    (!max.isPresent() || max.orElseThrow().compareTo(value) >= 0);
         }
 
         @JsonProperty
