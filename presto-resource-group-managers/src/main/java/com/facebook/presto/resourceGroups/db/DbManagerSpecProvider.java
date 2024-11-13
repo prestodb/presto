@@ -72,7 +72,7 @@ public class DbManagerSpecProvider
             resourceGroupIdTemplateMap.computeIfAbsent(id, k -> {
                 ResourceGroupSpecBuilder builder = recordMap.get(k);
                 return ResourceGroupIdTemplate.forSubGroupNamed(
-                        resourceGroupIdTemplateMap.get(builder.getParentId().get()),
+                        resourceGroupIdTemplateMap.get(builder.getParentId().orElseThrow()),
                         builder.getNameTemplate().toString());
             });
             Set<Long> childrenToBuild = subGroupIdsToBuild.getOrDefault(id, ImmutableSet.of());
@@ -131,7 +131,7 @@ public class DbManagerSpecProvider
                 resourceGroupIdTemplateMap.put(record.getId(), new ResourceGroupIdTemplate(record.getNameTemplate().toString()));
             }
             else {
-                subGroupIdsToBuild.computeIfAbsent(record.getParentId().get(), k -> new HashSet<>()).add(record.getId());
+                subGroupIdsToBuild.computeIfAbsent(record.getParentId().orElseThrow(), k -> new HashSet<>()).add(record.getId());
             }
         }
     }

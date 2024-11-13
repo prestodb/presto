@@ -111,7 +111,7 @@ public class TestDbManagerSpecProvider
         for (int i = 0; i < numberOfUsers; i++) {
             Optional<Pattern> user = selectors.get(i).getUserRegex();
             assertTrue(user.isPresent());
-            assertEquals(user.get().pattern(), expectedUsers.get(i));
+            assertEquals(user.orElseThrow().pattern(), expectedUsers.get(i));
         }
     }
 
