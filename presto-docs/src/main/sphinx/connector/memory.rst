@@ -92,6 +92,15 @@ To delete an existing table:
 
 .. note:: After using ``DROP TABLE``, memory is not released immediately. It is released after the next write access to the memory connector.
 
+ALTER VIEW
+^^^^^^^^^^
+
+Alter view operations to alter the name of an existing view to a new name is supported in the Memory connector.
+
+.. code-block:: sql
+
+    ALTER VIEW memory.default.nation RENAME TO memory.default.new_nation;
+
 Memory Connector Limitations
 ----------------------------
 
