@@ -145,9 +145,16 @@ class TranslatorAnnotationParser
 
         for (SqlSignature signature : signatures) {
             ImmutableList.Builder<TypeSignature> argumentTypes = new ImmutableList.Builder<>();
-            TypeSignature argumentType = parseTypeSignature(signature.argumentType());
-            for (int i = 0; i < method.getParameterCount(); i++) {
-                argumentTypes.add(argumentType);
+            if (signature.argumentTypes().length == method.getParameterCount()) {
+                for (int i = 0; i < method.getParameterCount(); i++) {
+                    argumentTypes.add(parseTypeSignature(signature.argumentTypes()[i]));
+                }
+            }
+            else {
+                TypeSignature argumentType = parseTypeSignature(signature.argumentType());
+                for (int i = 0; i < method.getParameterCount(); i++) {
+                    argumentTypes.add(argumentType);
+                }
             }
             TypeSignature returnType = parseTypeSignature(signature.returnType());
             FunctionMetadata derivedMetadata;
