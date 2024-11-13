@@ -141,7 +141,7 @@ public class TestMetadataManager
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(queryId);
             if (queryInfo.getState().isDone()) {
                 assertEquals(queryInfo.getState(), FAILED);
-                throw dispatchManager.getDispatchInfo(queryId).get().getFailureInfo().get().toException();
+                throw dispatchManager.getDispatchInfo(queryId).orElseThrow().getFailureInfo().orElseThrow().toException();
             }
             if (queryInfo.getState() == RUNNING) {
                 break;

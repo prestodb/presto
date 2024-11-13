@@ -78,7 +78,7 @@ public class TestSortWithPartitionQueries
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
 
         localQueryRunner.createCatalog(
-                defaultSession.getCatalog().get(),
+                defaultSession.getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 

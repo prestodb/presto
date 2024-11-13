@@ -37,7 +37,7 @@ import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_RESU
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -62,7 +62,7 @@ public class TestVerboseOptimizerInfo
         // add the tpch catalog
         // local queries run directly against the generator
         localQueryRunner.createCatalog(
-                defaultSession.getCatalog().get(),
+                defaultSession.getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 
@@ -83,14 +83,14 @@ public class TestVerboseOptimizerInfo
                 .build();
         String query = "SELECT o.orderkey FROM part p, orders o, lineitem l WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND p.partkey <> o.orderkey AND p.name < l.comment";
         MaterializedResult materializedResult = computeActual(session, "explain " + query);
-        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        String explain = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
 
         checkOptimizerInfo(explain, "Triggered", ImmutableList.of("PruneCrossJoinColumns"));
         checkOptimizerInfo(explain, "Applicable", ImmutableList.of("AddNotNullFiltersToJoinNode"));
 
         String payloadJoinQuery = "SELECT l.* FROM (select *, map(ARRAY[1,3], ARRAY[2,4]) as m1 from lineitem) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)";
         materializedResult = computeActual(session, "explain " + payloadJoinQuery);
-        String explainPayloadJoinQuery = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        String explainPayloadJoinQuery = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
 
         checkOptimizerInfo(explainPayloadJoinQuery, "Applicable", ImmutableList.of("PayloadJoinOptimizer"));
 
@@ -98,7 +98,7 @@ public class TestVerboseOptimizerInfo
                 .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
                 .build();
         materializedResult = computeActual(sessionWithPayload, "explain " + payloadJoinQuery);
-        explainPayloadJoinQuery = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        explainPayloadJoinQuery = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
 
         checkOptimizerInfo(explainPayloadJoinQuery, "Triggered", ImmutableList.of("PayloadJoinOptimizer"));
     }
@@ -111,7 +111,7 @@ public class TestVerboseOptimizerInfo
                 .build();
         String query = "select lineitem.linenumber,count(*) from orders join lineitem on (lineitem.orderkey=orders.orderkey) group by linenumber";
         MaterializedResult materializedResult = computeActual(session, "explain " + query);
-        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        String explain = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
 
         checkOptimizerInfo(explain, "Triggered", ImmutableList.of("PushPartialAggregationThroughExchange", "ReorderJoins"));
         // PushPartialAggregationThroughExchange is not a cost based optimizer with this session
@@ -122,7 +122,7 @@ public class TestVerboseOptimizerInfo
                 .build();
 
         materializedResult = computeActual(sessionWithCostBasedPartialAgg, "explain " + query);
-        explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        explain = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
 
         checkOptimizerInfo(explain, "Triggered", ImmutableList.of("PushPartialAggregationThroughExchange", "ReorderJoins"));
         // PushPartialAggregationThroughExchange is now a cost based optimizer
@@ -139,7 +139,7 @@ public class TestVerboseOptimizerInfo
                 .build();
         String query = "SELECT l.* FROM (select *, map(ARRAY[1,3], ARRAY[2,4]) as m1 from lineitem) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)";
         MaterializedResult materializedResult = computeActual(sessionPrintAll, "explain " + query);
-        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        String explain = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
 
         checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections", "PruneUnreferencedOutputs"), ImmutableList.of());
 
@@ -147,7 +147,7 @@ public class TestVerboseOptimizerInfo
                 .setSystemProperty(VERBOSE_OPTIMIZER_RESULTS, "PayloadJoinOptimizer,RemoveRedundantIdentityProjections")
                 .build();
         materializedResult = computeActual(sessionPrintSome, "explain " + query);
-        explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        explain = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
 
         checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections"), ImmutableList.of("PruneUnreferencedOutputs"));
     }

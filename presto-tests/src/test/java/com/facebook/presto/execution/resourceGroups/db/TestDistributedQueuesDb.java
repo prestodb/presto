@@ -105,7 +105,7 @@ public class TestDistributedQueuesDb
         int globalRunningQueries = 0;
         do {
             MILLISECONDS.sleep(100);
-            resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(0).getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
+            resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(0).getResourceGroupManager().orElseThrow().getResourceGroupRuntimeInfosSnapshot();
             ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId("global"));
             if (resourceGroupRuntimeInfo != null) {
                 globalRunningQueries = resourceGroupRuntimeInfo.getDescendantRunningQueries();
@@ -138,7 +138,7 @@ public class TestDistributedQueuesDb
         int globalRunningQueries = 0;
         do {
             MILLISECONDS.sleep(100);
-            resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(0).getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
+            resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(0).getResourceGroupManager().orElseThrow().getResourceGroupRuntimeInfosSnapshot();
             ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId("global"));
             if (resourceGroupRuntimeInfo != null) {
                 globalRunningQueries = resourceGroupRuntimeInfo.getDescendantRunningQueries();
@@ -172,7 +172,7 @@ public class TestDistributedQueuesDb
             MILLISECONDS.sleep(100);
             globalRunningQueries = 0;
             for (int coordinator = 0; coordinator < 2; coordinator++) {
-                resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(coordinator).getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
+                resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(coordinator).getResourceGroupManager().orElseThrow().getResourceGroupRuntimeInfosSnapshot();
                 ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId("global"));
                 if (resourceGroupRuntimeInfo != null) {
                     globalRunningQueries += resourceGroupRuntimeInfo.getDescendantRunningQueries();
@@ -208,7 +208,7 @@ public class TestDistributedQueuesDb
             globalRunningQueries = 0;
             globalQueriedQueries = 0;
             for (int coordinator = 0; coordinator < 2; coordinator++) {
-                resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(coordinator).getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
+                resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(coordinator).getResourceGroupManager().orElseThrow().getResourceGroupRuntimeInfosSnapshot();
                 ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId("global"));
                 if (resourceGroupRuntimeInfo != null) {
                     globalRunningQueries += resourceGroupRuntimeInfo.getDescendantRunningQueries();

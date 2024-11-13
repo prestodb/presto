@@ -79,7 +79,7 @@ public class TpchIndexMetadata
 
         TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain;
         if (!tupleDomain.isNone()) {
-            filteredTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().get(), not(in(fixedValues.keySet()))));
+            filteredTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().orElseThrow(), not(in(fixedValues.keySet()))));
         }
         TpchIndexHandle indexHandle = new TpchIndexHandle(
                 tpchTableHandle.getTableName(),
