@@ -280,5 +280,36 @@ TEST_F(PrefixSortTest, fuzzMulti) {
     testPrefixSort({kDesc, kDesc}, data);
   }
 }
+
+TEST_F(PrefixSortTest, checkMaxNormalizedKeySizeForMultipleKeys) {
+  // Test the normalizedKeySize doesn't exceed the MaxNormalizedKeySize.
+  // The normalizedKeySize for BIGINT should be 8 + 1.
+  std::vector<TypePtr> keyTypes = {BIGINT(), BIGINT()};
+  std::vector<CompareFlags> compareFlags = {kAsc, kDesc};
+  auto sortLayout = PrefixSortLayout::makeSortLayout(keyTypes, compareFlags, 8);
+  ASSERT_FALSE(sortLayout.hasNormalizedKeys);
+
+  auto sortLayoutOneKey =
+      PrefixSortLayout::makeSortLayout(keyTypes, compareFlags, 9);
+  ASSERT_TRUE(sortLayoutOneKey.hasNormalizedKeys);
+  ASSERT_TRUE(sortLayoutOneKey.hasNonNormalizedKey);
+  ASSERT_EQ(sortLayoutOneKey.prefixOffsets.size(), 1);
+  ASSERT_EQ(sortLayoutOneKey.prefixOffsets[0], 0);
+
+  auto sortLayoutOneKey1 =
+      PrefixSortLayout::makeSortLayout(keyTypes, compareFlags, 17);
+  ASSERT_TRUE(sortLayoutOneKey1.hasNormalizedKeys);
+  ASSERT_TRUE(sortLayoutOneKey1.hasNonNormalizedKey);
+  ASSERT_EQ(sortLayoutOneKey1.prefixOffsets.size(), 1);
+  ASSERT_EQ(sortLayoutOneKey1.prefixOffsets[0], 0);
+
+  auto sortLayoutTwoKeys =
+      PrefixSortLayout::makeSortLayout(keyTypes, compareFlags, 18);
+  ASSERT_TRUE(sortLayoutTwoKeys.hasNormalizedKeys);
+  ASSERT_FALSE(sortLayoutTwoKeys.hasNonNormalizedKey);
+  ASSERT_EQ(sortLayoutTwoKeys.prefixOffsets.size(), 2);
+  ASSERT_EQ(sortLayoutTwoKeys.prefixOffsets[0], 0);
+  ASSERT_EQ(sortLayoutTwoKeys.prefixOffsets[1], 9);
+}
 } // namespace
 } // namespace facebook::velox::exec::prefixsort::test
