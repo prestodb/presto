@@ -19,7 +19,6 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
@@ -38,6 +37,7 @@ import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_P
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.BlackHoleQueryRunner.createQueryRunner;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -184,7 +184,7 @@ public class TestBlackHoleSmoke
 
         MaterializedResult rows = queryRunner.execute(session, "SELECT * FROM nation LIMIT 1");
         assertEquals(rows.getRowCount(), 1);
-        MaterializedRow row = Iterables.getOnlyElement(rows);
+        MaterializedRow row = rows.getMaterializedRows().stream().collect(onlyElement());
         assertEquals(row.getFieldCount(), 4);
         assertEquals(row.getField(0), 0L);
         assertEquals(row.getField(1), "****************");
@@ -214,7 +214,7 @@ public class TestBlackHoleSmoke
 
         MaterializedResult rows = queryRunner.execute(session, "SELECT * FROM nation");
         assertEquals(rows.getRowCount(), 1);
-        MaterializedRow row = Iterables.getOnlyElement(rows);
+        MaterializedRow row = rows.getMaterializedRows().stream().collect(onlyElement());
         assertEquals(row.getFieldCount(), 5);
         assertEquals(row.getField(0), 0L);
         assertEquals(row.getField(1), "********");
@@ -253,7 +253,7 @@ public class TestBlackHoleSmoke
         createBlackholeAllTypesTable();
         MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types");
         assertEquals(rows.getRowCount(), 1);
-        MaterializedRow row = Iterables.getOnlyElement(rows);
+        MaterializedRow row = rows.getMaterializedRows().stream().collect(onlyElement());
         assertEquals(row.getFieldCount(), 13);
         assertEquals(row.getField(0), "**********");
         assertEquals(row.getField(1), 0L);
@@ -360,11 +360,11 @@ public class TestBlackHoleSmoke
     private void assertThatQueryReturnsValue(String sql, Object expected, Session session)
     {
         MaterializedResult rows = session == null ? queryRunner.execute(sql) : queryRunner.execute(session, sql);
-        MaterializedRow materializedRow = Iterables.getOnlyElement(rows);
+        MaterializedRow materializedRow = rows.getMaterializedRows().stream().collect(onlyElement());
         int fieldCount = materializedRow.getFieldCount();
         assertEquals(fieldCount, 1, format("Expected only one column, but got '%d'", fieldCount));
         Object value = materializedRow.getField(0);
         assertEquals(value, expected);
-        assertEquals(Iterables.getOnlyElement(rows).getFieldCount(), 1);
+        assertEquals(rows.getMaterializedRows().stream().collect(onlyElement()).getFieldCount(), 1);
     }
 }

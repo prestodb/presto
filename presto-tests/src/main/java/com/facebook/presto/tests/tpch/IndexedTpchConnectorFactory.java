@@ -35,8 +35,8 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class IndexedTpchConnectorFactory
         implements ConnectorFactory
@@ -118,7 +118,7 @@ public class IndexedTpchConnectorFactory
     private int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return Integer.parseInt(requireNonNullElse(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");

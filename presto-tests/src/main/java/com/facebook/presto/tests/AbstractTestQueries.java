@@ -123,8 +123,7 @@ import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.facebook.presto.tests.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -897,7 +896,7 @@ public abstract class AbstractTestQueries
     public void testSpecialFloatingPointValues()
     {
         MaterializedResult actual = computeActual("SELECT nan(), infinity(), -infinity()");
-        MaterializedRow row = getOnlyElement(actual.getMaterializedRows());
+        MaterializedRow row = actual.getMaterializedRows().stream().collect(onlyElement());
         assertEquals(row.getField(0), Double.NaN);
         assertEquals(row.getField(1), Double.POSITIVE_INFINITY);
         assertEquals(row.getField(2), Double.NEGATIVE_INFINITY);
@@ -2552,7 +2551,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN ", query, LOGICAL));
     }
 
     @Test
@@ -2560,7 +2559,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (FORMAT GRAPHVIZ) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan("EXPLAIN (FORMAT GRAPHVIZ) ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getGraphvizExplainPlan("EXPLAIN (FORMAT GRAPHVIZ) ", query, LOGICAL));
     }
 
     @Test
@@ -2568,7 +2567,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE LOGICAL) ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN (TYPE LOGICAL) ", query, LOGICAL));
     }
 
     @Test
@@ -2576,7 +2575,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE IO) ", query, IO));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN (TYPE IO) ", query, IO));
     }
 
     @Test
@@ -2584,7 +2583,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) ", query, LOGICAL));
     }
 
     @Test
@@ -2592,7 +2591,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT GRAPHVIZ) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan("EXPLAIN (TYPE LOGICAL, FORMAT GRAPHVIZ) ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getGraphvizExplainPlan("EXPLAIN (TYPE LOGICAL, FORMAT GRAPHVIZ) ", query, LOGICAL));
     }
 
     @Test
@@ -2600,7 +2599,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT JSON) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getJsonExplainPlan("EXPLAIN (TYPE LOGICAL, FORMAT JSON) ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getJsonExplainPlan("EXPLAIN (TYPE LOGICAL, FORMAT JSON) ", query, LOGICAL));
     }
 
     @Test
@@ -2608,7 +2607,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE DISTRIBUTED) ", query, DISTRIBUTED));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN (TYPE DISTRIBUTED) ", query, DISTRIBUTED));
     }
 
     @Test
@@ -2616,7 +2615,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT TEXT) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE DISTRIBUTED, FORMAT TEXT) ", query, DISTRIBUTED));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN (TYPE DISTRIBUTED, FORMAT TEXT) ", query, DISTRIBUTED));
     }
 
     @Test
@@ -2624,7 +2623,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT GRAPHVIZ) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan("EXPLAIN (TYPE DISTRIBUTED, FORMAT GRAPHVIZ) ", query, DISTRIBUTED));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getGraphvizExplainPlan("EXPLAIN (TYPE DISTRIBUTED, FORMAT GRAPHVIZ) ", query, DISTRIBUTED));
     }
 
     @Test
@@ -2632,7 +2631,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getJsonExplainPlan("EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON) ", query, DISTRIBUTED));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getJsonExplainPlan("EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON) ", query, DISTRIBUTED));
     }
 
     @Test
@@ -2653,7 +2652,7 @@ public abstract class AbstractTestQueries
     {
         String query = "EXPLAIN SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN ", query, LOGICAL));
     }
 
     @Test
@@ -2661,7 +2660,7 @@ public abstract class AbstractTestQueries
     {
         String query = "EXPLAIN ANALYZE SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN ", query, LOGICAL));
     }
 
     @Test
@@ -2701,7 +2700,7 @@ public abstract class AbstractTestQueries
     private void assertExplainDdl(String query, String expected)
     {
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), expected);
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), expected);
     }
 
     @Test
@@ -2711,7 +2710,7 @@ public abstract class AbstractTestQueries
                 .addPreparedStatement("my_query", "SELECT * FROM orders")
                 .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query");
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("", "SELECT * FROM orders", LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("", "SELECT * FROM orders", LOGICAL));
     }
 
     @Test
@@ -2721,7 +2720,7 @@ public abstract class AbstractTestQueries
                 .addPreparedStatement("my_query", "SELECT * FROM orders WHERE orderkey < ?")
                 .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query USING 7");
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("", "SELECT * FROM orders WHERE orderkey < 7", LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("", "SELECT * FROM orders WHERE orderkey < 7", LOGICAL));
     }
 
     @Test
@@ -2731,21 +2730,21 @@ public abstract class AbstractTestQueries
                 .addPreparedStatement("my_query", "SET SESSION foo = ?")
                 .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query USING 7");
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), "SET SESSION foo = 7");
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), "SET SESSION foo = 7");
     }
 
     @Test
     public void testShowCatalogs()
     {
         MaterializedResult result = computeActual("SHOW CATALOGS");
-        assertTrue(result.getOnlyColumnAsSet().contains(getSession().getCatalog().get()));
+        assertTrue(result.getOnlyColumnAsSet().contains(getSession().getCatalog().orElseThrow()));
     }
 
     @Test
     public void testShowCatalogsLike()
     {
-        MaterializedResult result = computeActual(format("SHOW CATALOGS LIKE '%s'", getSession().getCatalog().get()));
-        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getCatalog().get()));
+        MaterializedResult result = computeActual(format("SHOW CATALOGS LIKE '%s'", getSession().getCatalog().orElseThrow()));
+        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getCatalog().orElseThrow()));
     }
 
     @Test
@@ -2778,21 +2777,21 @@ public abstract class AbstractTestQueries
     public void testShowSchemas()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
-        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
+        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().orElseThrow(), INFORMATION_SCHEMA)));
     }
 
     @Test
     public void testShowSchemasFrom()
     {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
-        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().orElseThrow()));
+        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().orElseThrow(), INFORMATION_SCHEMA)));
     }
 
     @Test
     public void testShowSchemasLike()
     {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
-        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getSchema().get()));
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().orElseThrow()));
+        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getSchema().orElseThrow()));
     }
 
     @Test
@@ -2812,7 +2811,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowTables()
     {
-        Set<String> expectedTables = ImmutableSet.copyOf(transform(TpchTable.getTables(), TpchTable::getTableName));
+        Set<String> expectedTables = ImmutableSet.copyOf(TpchTable.getTables().stream().map(TpchTable::getTableName).iterator());
 
         MaterializedResult result = computeActual("SHOW TABLES");
         assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
@@ -2821,10 +2820,10 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowTablesFrom()
     {
-        Set<String> expectedTables = ImmutableSet.copyOf(transform(TpchTable.getTables(), TpchTable::getTableName));
+        Set<String> expectedTables = ImmutableSet.copyOf(TpchTable.getTables().stream().map(TpchTable::getTableName).iterator());
 
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
 
         MaterializedResult result = computeActual("SHOW TABLES FROM " + schema);
         assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
@@ -4375,7 +4374,7 @@ public abstract class AbstractTestQueries
                 "  LIMIT 1000\n" +
                 ")\n" +
                 "WHERE rand() > 0.5");
-        MaterializedRow row = getOnlyElement(materializedResult.getMaterializedRows());
+        MaterializedRow row = materializedResult.getMaterializedRows().stream().collect(onlyElement());
         assertEquals(row.getFieldCount(), 1);
         long count = (Long) row.getField(0);
         // Technically non-deterministic unit test but has essentially a next to impossible chance of a false positive
@@ -4394,7 +4393,7 @@ public abstract class AbstractTestQueries
                 "  LIMIT 1000\n" +
                 ")\n" +
                 "WHERE rand() > 0.5");
-        MaterializedRow row = getOnlyElement(materializedResult.getMaterializedRows());
+        MaterializedRow row = materializedResult.getMaterializedRows().stream().collect(onlyElement());
         assertEquals(row.getFieldCount(), 1);
         long count = (Long) row.getField(0);
         // Technically non-deterministic unit test but has essentially a next to impossible chance of a false positive
@@ -5531,10 +5530,10 @@ public abstract class AbstractTestQueries
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
-                .row("nationkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
-                .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
-                .row("regionkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
-                .row("comment", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(152)", 0, false)
+                .row("nationkey", session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "nation", "bigint", 8, false)
+                .row("name", session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "nation", "varchar(25)", 0, false)
+                .row("regionkey", session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "nation", "bigint", 8, false)
+                .row("comment", session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "nation", "varchar(152)", 0, false)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -5549,8 +5548,8 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("_col0", "", "", "", "integer", 4, false)
-                .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
-                .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, true)
+                .row("name", session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "nation", "varchar(25)", 0, false)
+                .row("my_alias", session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "nation", "bigint", 8, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -5621,7 +5620,7 @@ public abstract class AbstractTestQueries
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
-                .row("Table", session.getCatalog().get(), "information_schema", "tables", "varchar", 0, true)
+                .row("Table", session.getCatalog().orElseThrow(), "information_schema", "tables", "varchar", 0, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
