@@ -180,17 +180,20 @@ class PrestoSerializerTest
     const auto status = serializer::presto::PrestoVectorSerde::lex(
         input, tokens, &paramOptions);
     EXPECT_TRUE(status.ok()) << status.message();
+
     size_t tokenLengthSum = 0;
-    for (auto const& token : tokens) {
-      tokenLengthSum += token.length;
-    }
-    for (auto const& token : tokens) {
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      const auto& token = tokens[i];
+
       // The lexer should not produce empty tokens
       EXPECT_NE(token.length, 0);
-    }
-    for (size_t i = 1; i < tokens.size(); ++i) {
-      // The lexer should merge consecutive tokens of the same type
-      EXPECT_NE(tokens[i].tokenType, tokens[i - 1].tokenType);
+      // Compute tokenLengthSum to validate with input.size().
+      tokenLengthSum += token.length;
+
+      if (i > 0) {
+        // The lexer should merge consecutive tokens of the same type
+        EXPECT_NE(token.tokenType, tokens[i - 1].tokenType);
+      }
     }
     EXPECT_EQ(tokenLengthSum, input.size());
   }
