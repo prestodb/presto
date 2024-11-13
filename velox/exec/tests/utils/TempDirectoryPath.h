@@ -37,10 +37,10 @@ class TempDirectoryPath {
   TempDirectoryPath(const TempDirectoryPath&) = delete;
   TempDirectoryPath& operator=(const TempDirectoryPath&) = delete;
 
-  /// If fault injection is enabled, the returned the file path has the faulty
+  /// If fault injection is enabled, the returned file path will have the faulty
   /// file system prefix scheme. The velox fs then opens the directory through
-  /// the faulty file system. The actual file operation might either fails or
-  /// delegate to the actual file.
+  /// the faulty file system. The file operation will then either fail or be
+  /// delegated to the actual file.
   const std::string& getPath() const {
     return path_;
   }

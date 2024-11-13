@@ -19,6 +19,7 @@
 
 #include "velox/common/file/FileSystems.h"
 
+#include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/exec/fuzzer/MemoryArbitrationFuzzer.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -31,6 +32,7 @@ class MemoryArbitrationFuzzerRunner {
   static int run(size_t seed) {
     serializer::presto::PrestoVectorSerde::registerVectorSerde();
     filesystems::registerLocalFileSystem();
+    tests::utils::registerFaultyFileSystem();
     functions::prestosql::registerAllScalarFunctions();
     aggregate::prestosql::registerAllAggregateFunctions();
     memoryArbitrationFuzzer(seed);
