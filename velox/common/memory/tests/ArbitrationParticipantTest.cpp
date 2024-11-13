@@ -1876,6 +1876,7 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperationState) {
       "unknown state: 10");
 }
 
+#ifndef TSAN_BUILD
 TEST_F(ArbitrationParticipantTest, arbitrationOperationTimedLock) {
   auto participantPool = manager_->addRootPool("arbitrationOperationTimedLock");
   auto config = ArbitrationParticipant::Config(0, 1024, 0, 0, 0, 0, 128, 512);
@@ -1956,5 +1957,6 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperationTimedLock) {
     }
   }
 }
+#endif
 } // namespace
 } // namespace facebook::velox::memory

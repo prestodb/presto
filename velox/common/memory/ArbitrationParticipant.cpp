@@ -402,12 +402,23 @@ std::string ArbitrationCandidate::toString() const {
       succinctBytes(reclaimableFreeCapacity));
 }
 
+#ifdef TSAN_BUILD
 ArbitrationOperationTimedLock::ArbitrationOperationTimedLock(
     std::timed_mutex& mutex)
     : mutex_(mutex) {
+  mutex_.lock();
+}
+
+ArbitrationOperationTimedLock::~ArbitrationOperationTimedLock() {
+  mutex_.unlock();
+}
+#else
+ArbitrationOperationTimedLock::ArbitrationOperationTimedLock(
+    std::timed_mutex& mutex) {
   auto arbitrationContext = memoryArbitrationContext();
   if (arbitrationContext == nullptr) {
-    mutex_.lock();
+    std::unique_lock<std::timed_mutex> l(mutex);
+    timedLock_ = std::move(l);
     return;
   }
   auto* operation = arbitrationContext->op;
@@ -416,14 +427,18 @@ ArbitrationOperationTimedLock::ArbitrationOperationTimedLock(
         MemoryArbitrationContext::typeName(arbitrationContext->type),
         MemoryArbitrationContext::typeName(
             MemoryArbitrationContext::Type::kGlobal));
-    mutex_.lock();
+    std::unique_lock<std::timed_mutex> l(mutex);
+    timedLock_ = std::move(l);
     return;
   }
   VELOX_CHECK_EQ(
       MemoryArbitrationContext::typeName(arbitrationContext->type),
       MemoryArbitrationContext::typeName(
           MemoryArbitrationContext::Type::kLocal));
-  if (!mutex_.try_lock_for(std::chrono::nanoseconds(operation->timeoutNs()))) {
+  std::unique_lock<std::timed_mutex> l(
+      mutex, std::chrono::nanoseconds(operation->timeoutNs()));
+  timedLock_ = std::move(l);
+  if (!timedLock_.owns_lock()) {
     VELOX_MEM_ARBITRATION_TIMEOUT(fmt::format(
         "Memory arbitration lock timed out on memory pool: {} after running {}",
         operation->participant()->name(),
@@ -432,6 +447,8 @@ ArbitrationOperationTimedLock::ArbitrationOperationTimedLock(
 }
 
 ArbitrationOperationTimedLock::~ArbitrationOperationTimedLock() {
-  mutex_.unlock();
+  VELOX_CHECK(timedLock_.owns_lock());
+  timedLock_.unlock();
 }
+#endif
 } // namespace facebook::velox::memory
