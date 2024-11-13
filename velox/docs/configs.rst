@@ -76,7 +76,7 @@ Generic Configuration
      - integer
      - 32MB
      - Used for backpressure to block local exchange producers when the local exchange buffer reaches or exceeds this size.
-  * - max_local_exchange_partition_count
+   * - max_local_exchange_partition_count
      - integer
      - 2^32
      - Limits the number of partitions created by a local exchange. Partitioning data too granularly can lead to poor performance.
@@ -583,7 +583,7 @@ Each query can override the config by setting corresponding query session proper
      - Default AWS secret key to use.
    * - hive.s3.endpoint
      - string
-     -
+     - us-east-1
      - The S3 storage endpoint server. This can be used to connect to an S3-compatible storage system instead of AWS.
    * - hive.s3.path-style-access
      - bool
@@ -635,6 +635,14 @@ Each query can override the config by setting corresponding query session proper
        Legacy mode only enables throttled retry for transient errors.
        Standard mode is built on top of legacy mode and has throttled retry enabled for throttling errors apart from transient errors.
        Adaptive retry mode dynamically limits the rate of AWS requests to maximize success rate.
+
+Bucket Level Configuration
+""""""""""""""""""""""""""
+All "hive.s3.*" config (except "hive.s3.log-level") can be set on a per-bucket basis. The bucket-specific option is set by
+replacing the "hive.s3." prefix on a config with "hive.s3.bucket.BUCKETNAME.", where BUCKETNAME is the name of the
+bucket. e.g. the endpoint for a bucket named "velox" can be specified by the config "hive.s3.bucket.velox.endpoint".
+When connecting to a bucket, all options explicitly set will override the base "hive.s3." values.
+These semantics are similar to the `Apache Hadoop-Aws module <https://hadoop.apache.org/docs/current/hadoop-aws/tools/hadoop-aws/index.html>`_.
 
 ``Google Cloud Storage Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -729,10 +737,10 @@ Spark-specific Configuration
    * - spark.legacy_date_formatter
      - bool
      - false
-     - If true, `Simple <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>` date formatter is used for time formatting and parsing. Joda date formatter is used by default.
-     - Joda date formatter performs strict checking of its input and uses different pattern string.
-     - For example, the 2015-07-22 10:00:00 timestamp cannot be parse if pattern is yyyy-MM-dd because the parser does not consume whole input.
-     - Another example is that the 'W' pattern, which means week in month, is not supported. For more differences, see :issue:`10354`.
+     - If true, `Simple Date Format <https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html>`_ is used for time formatting and parsing. Joda date formatter is used by default.
+       Joda date formatter performs strict checking of its input and uses different pattern string.
+       For example, the 2015-07-22 10:00:00 timestamp cannot be parsed if pattern is yyyy-MM-dd because the parser does not consume whole input.
+       Another example is that the 'W' pattern, which means week in month, is not supported. For more differences, see :issue:`10354`.
 
 Tracing
 --------
