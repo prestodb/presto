@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 
 import java.util.Optional;
 

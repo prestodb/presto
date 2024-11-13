@@ -18,7 +18,7 @@ import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 
 import java.util.Optional;
 

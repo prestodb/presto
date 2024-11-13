@@ -41,7 +41,7 @@ import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.facebook.presto.sql.planner.CanonicalPlan;
 import com.facebook.presto.sql.planner.PlanNodeCanonicalInfo;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;

@@ -28,7 +28,7 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 

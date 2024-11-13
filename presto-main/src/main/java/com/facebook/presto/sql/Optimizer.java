@@ -36,8 +36,8 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 
 import java.util.List;

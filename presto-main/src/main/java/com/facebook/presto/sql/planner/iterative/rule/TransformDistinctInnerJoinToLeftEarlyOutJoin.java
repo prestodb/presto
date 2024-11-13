@@ -25,8 +25,8 @@ import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 

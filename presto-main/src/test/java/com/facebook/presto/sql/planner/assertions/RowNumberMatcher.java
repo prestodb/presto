@@ -19,7 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.spi.plan.RowNumberNode;
 
 import java.util.List;
 import java.util.Optional;

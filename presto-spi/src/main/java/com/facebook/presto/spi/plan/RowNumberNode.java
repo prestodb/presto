@@ -11,28 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class RowNumberNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final List<VariableReferenceExpression> partitionBy;
@@ -77,7 +74,7 @@ public final class RowNumberNode
         checkState(!partial || maxRowCountPerPartition.isPresent(), "RowNumberNode cannot be partial when maxRowCountPerPartition is not present");
 
         this.source = source;
-        this.partitionBy = ImmutableList.copyOf(partitionBy);
+        this.partitionBy = Collections.unmodifiableList(new ArrayList<>(partitionBy));
         this.rowNumberVariable = rowNumberVariable;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.partial = partial;
@@ -87,18 +84,17 @@ public final class RowNumberNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return Collections.singletonList(source);
     }
 
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        ImmutableList.Builder<VariableReferenceExpression> output = ImmutableList.builder();
-        output.addAll(source.getOutputVariables());
+        List<VariableReferenceExpression> newList = new ArrayList<>(source.getOutputVariables());
         if (!partial) {
-            output.add(rowNumberVariable);
+            newList.add(rowNumberVariable);
         }
-        return output.build();
+        return Collections.unmodifiableList(newList);
     }
 
     @JsonProperty
@@ -138,7 +134,7 @@ public final class RowNumberNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitRowNumber(this, context);
     }
@@ -146,12 +142,20 @@ public final class RowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new RowNumberNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+        checkState(newChildren.size() == 1, "Expecting only one child for RowNumberNode");
+        return new RowNumberNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), partitionBy, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
         return new RowNumberNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, partitionBy, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+    }
+
+    private static void checkState(boolean condition, String message)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }
