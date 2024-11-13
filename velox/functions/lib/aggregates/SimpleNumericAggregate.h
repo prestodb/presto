@@ -100,7 +100,8 @@ class SimpleNumericAggregate : public exec::Aggregate {
     DecodedVector decoded(*arg, rows, !mayPushdown);
     auto encoding = decoded.base()->encoding();
     if constexpr (kMayPushdown<TData>) {
-      if (encoding == VectorEncoding::Simple::LAZY) {
+      if (encoding == VectorEncoding::Simple::LAZY &&
+          !arg->type()->isDecimal()) {
         velox::aggregate::SimpleCallableHook<TData, UpdateSingleValue> hook(
             exec::Aggregate::offset_,
             exec::Aggregate::nullByte_,

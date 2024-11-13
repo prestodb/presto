@@ -3757,6 +3757,33 @@ TEST_F(TableScanTest, aggregationPushdown) {
   EXPECT_EQ(0, loadedToValueHook(task));
 }
 
+TEST_F(TableScanTest, decimalDisableAggregationPushdown) {
+  vector_size_t size = 1'000;
+  auto rowVector = makeRowVector({
+      makeFlatVector<int64_t>(size, [](auto row) { return 1; }),
+      makeFlatVector<int64_t>(
+          size, [](auto row) { return row; }, nullptr, DECIMAL(18, 2)),
+  });
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), {rowVector});
+
+  createDuckDbTable({rowVector});
+
+  auto rowType = asRowType(rowVector->type());
+  auto op = PlanBuilder()
+                .tableScan(rowType)
+                .singleAggregation({"c0"}, {"min(c1)", "max(c1)", "sum(c1)"})
+                .planNode();
+
+  auto task = assertQuery(
+      op,
+      {filePath},
+      "SELECT c0, min(c1), max(c1), sum(c1) FROM tmp GROUP BY 1");
+  auto stats = task->taskStats().pipelineStats[0].operatorStats[1].runtimeStats;
+  EXPECT_EQ(stats.end(), stats.find("loadedToValueHook"));
+}
+
 TEST_F(TableScanTest, bitwiseAggregationPushdown) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
