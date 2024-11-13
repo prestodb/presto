@@ -158,7 +158,8 @@ public class TestRowExpressionTranslator
         return new Object[][] {
                 {BIGINT, BIGINT},
                 {INTEGER, INTEGER},
-                {decimalType, decimalType}
+                {decimalType, decimalType},
+                {BIGINT, INTEGER}
         };
     }
 
@@ -299,7 +300,8 @@ public class TestRowExpressionTranslator
         @SupportedSignatures({
                 @SqlSignature(argumentType = StandardTypes.INTEGER, returnType = StandardTypes.INTEGER),
                 @SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT),
-                @SqlSignature(argumentType = "decimal(38, 0)", returnType = "decimal(38, 0)")})
+                @SqlSignature(argumentType = "decimal(38, 0)", returnType = "decimal(38, 0)"),
+                @SqlSignature(argumentTypes = {StandardTypes.BIGINT, StandardTypes.INTEGER}, returnType = StandardTypes.BIGINT)})
         public static String plus(String left, String right)
         {
             return left + " -|- " + right;
