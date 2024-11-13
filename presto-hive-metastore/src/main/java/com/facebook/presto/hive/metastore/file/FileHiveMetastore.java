@@ -428,7 +428,7 @@ public class FileHiveMetastore
             return Optional.empty();
         }
 
-        List<String> views = tables.get().stream()
+        List<String> views = tables.orElseThrow().stream()
                 .map(tableName -> getTable(metastoreContext, databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -717,7 +717,7 @@ public class FileHiveMetastore
         if (!tableReference.isPresent()) {
             return;
         }
-        Table table = tableReference.get();
+        Table table = tableReference.orElseThrow();
 
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partitionValues);
         if (deleteData) {
@@ -895,7 +895,7 @@ public class FileHiveMetastore
         if (!tableReference.isPresent()) {
             return Optional.empty();
         }
-        Table table = tableReference.get();
+        Table table = tableReference.orElseThrow();
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
 
@@ -958,7 +958,7 @@ public class FileHiveMetastore
         if (!tableReference.isPresent()) {
             return Optional.empty();
         }
-        Table table = tableReference.get();
+        Table table = tableReference.orElseThrow();
 
         Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
         return readSchemaFile("partition", partitionDirectory, partitionCodec)
@@ -1058,11 +1058,11 @@ public class FileHiveMetastore
     public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
     {
         Set<TableConstraint> constraints = readConstraintsFile(databaseName, tableName);
-        if (constraints.stream().noneMatch(c -> c.getName().get().equals(constraintName))) {
+        if (constraints.stream().noneMatch(c -> c.getName().orElseThrow().equals(constraintName))) {
             throw new TableConstraintNotFoundException(Optional.of(constraintName));
         }
         Set<TableConstraint> updatedConstraints = constraints.stream()
-                .filter(constraint -> constraint.getName().isPresent() && !constraint.getName().get().equals(constraintName))
+                .filter(constraint -> constraint.getName().isPresent() && !constraint.getName().orElseThrow().equals(constraintName))
                 .collect(toSet());
         writeConstraintsFile(updatedConstraints, databaseName, tableName);
         return EMPTY_RESULT;
@@ -1077,7 +1077,7 @@ public class FileHiveMetastore
         }
         if (tableConstraint.getName().isPresent()) {
             final TableConstraint<String> finalTableConstraint = tableConstraint;
-            if (constraints.stream().anyMatch(constraint -> (finalTableConstraint.getName().get().equalsIgnoreCase(((String) constraint.getName().get()))))) {
+            if (constraints.stream().anyMatch(constraint -> (finalTableConstraint.getName().orElseThrow().equalsIgnoreCase(((String) constraint.getName().orElseThrow()))))) {
                 throw new TableConstraintAlreadyExistsException(tableConstraint.getName());
             }
         }
@@ -1122,7 +1122,7 @@ public class FileHiveMetastore
         constraints.addAll(rawConstraints.stream()
                 .map(constraint -> (TableConstraint<String>) constraint)
                 .filter(constraint -> (constraint instanceof UniqueConstraint) && !(constraint instanceof PrimaryKeyConstraint))
-                .sorted(Comparator.comparing(constraint -> constraint.getName().get()))
+                .sorted(Comparator.comparing(constraint -> constraint.getName().orElseThrow()))
                 .collect(toList()));
 
         constraints.addAll(rawConstraints.stream()
