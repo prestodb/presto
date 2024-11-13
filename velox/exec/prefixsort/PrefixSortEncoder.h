@@ -88,6 +88,9 @@ class PrefixSortEncoder {
       case ::facebook::velox::TypeKind::TIMESTAMP: {
         return 17;
       }
+      case ::facebook::velox::TypeKind::HUGEINT: {
+        return 17;
+      }
       default:
         return std::nullopt;
     }
@@ -166,6 +169,14 @@ FOLLY_ALWAYS_INLINE void PrefixSortEncoder::encodeNoNulls(
     int16_t value,
     char* dest) const {
   encodeNoNulls(static_cast<uint16_t>(value ^ (1u << 15)), dest);
+}
+
+template <>
+FOLLY_ALWAYS_INLINE void PrefixSortEncoder::encodeNoNulls(
+    int128_t value,
+    char* dest) const {
+  encodeNoNulls<int64_t>(HugeInt::upper(value), dest);
+  encodeNoNulls<uint64_t>(HugeInt::lower(value), dest + sizeof(int64_t));
 }
 
 namespace detail {

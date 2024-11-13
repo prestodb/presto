@@ -327,6 +327,15 @@ TEST_F(PrefixEncoderTest, encode) {
   }
 
   {
+    char ascExpected[16] = {
+        -128, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, -56};
+    char descExpected[16] = {
+        127, -1, -1, -1, -1, -1, -1, -11, -1, -1, -1, -1, -1, -1, -1, 55};
+    int128_t value = HugeInt::build(10, 200);
+    testEncode<int128_t>(value, (char*)ascExpected, (char*)descExpected);
+  }
+
+  {
     Timestamp value = Timestamp(0x000000011223344, 0x000000011223344);
     uint64_t ascExpected[2];
     uint64_t descExpected[2];
@@ -345,6 +354,7 @@ TEST_F(PrefixEncoderTest, compare) {
   testCompare<int64_t>();
   testCompare<int32_t>();
   testCompare<int16_t>();
+  testCompare<int128_t>();
   testCompare<float>();
   testCompare<double>();
   testCompare<Timestamp>();
@@ -360,6 +370,10 @@ TEST_F(PrefixEncoderTest, fuzzyInteger) {
 
 TEST_F(PrefixEncoderTest, fuzzyBigint) {
   testFuzz<TypeKind::BIGINT>();
+}
+
+TEST_F(PrefixEncoderTest, fuzzyHugeInt) {
+  testFuzz<TypeKind::HUGEINT>();
 }
 
 TEST_F(PrefixEncoderTest, fuzzyReal) {
