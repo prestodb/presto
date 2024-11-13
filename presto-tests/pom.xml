@@ -60,11 +60,6 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-blackhole</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers</artifactId>
             <exclusions>
                 <exclusion>
@@ -278,6 +273,12 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-blackhole</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- for benchmarks -->
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
@@ -328,6 +329,21 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:concurrent</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:node</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.ratis:ratis-client</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.drift:drift-codec</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.ratis:ratis-common</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>javax.ws.rs:javax.ws.rs-api</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>javax.servlet:javax.servlet-api</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
