@@ -1158,21 +1158,42 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     }
 
     if (unit == DateTimeUnit::kSecond) {
-      auto utcTimestamp = unpackTimestampUtc(*timestampWithTimezone);
+      const auto utcTimestamp = unpackTimestampUtc(*timestampWithTimezone);
       result = pack(
           utcTimestamp.getSeconds() * 1000,
           unpackZoneKeyId(*timestampWithTimezone));
       return;
     }
 
-    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    const auto timestamp = this->toTimestamp(timestampWithTimezone);
     auto dateTime = getDateTime(timestamp, nullptr);
     adjustDateTime(dateTime, unit);
-    timestamp =
-        Timestamp::fromMillis(Timestamp::calendarUtcToEpoch(dateTime) * 1000);
-    timestamp.toGMT(*tz::locateZone(unpackZoneKeyId(*timestampWithTimezone)));
 
-    result = pack(timestamp, unpackZoneKeyId(*timestampWithTimezone));
+    uint64_t resultMillis;
+
+    if (unit < DateTimeUnit::kDay) {
+      // If the unit is less than a day, we compute the difference in
+      // milliseconds between the local timestamp and the truncated local
+      // timestamp. We then subtract this difference from the UTC timestamp,
+      // this handles things like ambiguous timestamps in the local time zone.
+      const auto millisDifference =
+          timestamp.toMillis() - Timestamp::calendarUtcToEpoch(dateTime) * 1000;
+
+      resultMillis = unpackMillisUtc(*timestampWithTimezone) - millisDifference;
+    } else {
+      // If the unit is at least a day, we do the truncation on the local
+      // timestamp and then convert it to a system time directly. This handles
+      // cases like when a time zone has daylight savings time, a "day" can be
+      // 25 or 23 hours at the transition points.
+      auto updatedTimestamp =
+          Timestamp::fromMillis(Timestamp::calendarUtcToEpoch(dateTime) * 1000);
+      updatedTimestamp.toGMT(
+          *tz::locateZone(unpackZoneKeyId(*timestampWithTimezone)));
+
+      resultMillis = updatedTimestamp.toMillis();
+    }
+
+    result = pack(resultMillis, unpackZoneKeyId(*timestampWithTimezone));
   }
 
  private:
