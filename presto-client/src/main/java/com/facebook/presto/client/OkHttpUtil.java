@@ -24,6 +24,7 @@ import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
 
+import javax.crypto.SecretKey;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -51,6 +52,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.AESEncryption.decrypt;
+import static com.facebook.presto.common.AESEncryption.encrypt;
+import static com.facebook.presto.common.AESEncryption.generateSecretKey;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -191,17 +195,24 @@ public final class OkHttpUtil
             // load KeyStore if configured and get KeyManagers
             KeyStore keyStore = null;
             KeyManager[] keyManagers = null;
+            SecretKey keyStoreSecretKey = generateSecretKey();
+            SecretKey trustStoreSecretKey = generateSecretKey();
+            //Encrypt keyStorePassword
+            Optional<String> encryptedKeyStorePassword = Optional.ofNullable(encrypt(keyStorePassword, keyStoreSecretKey));
+            //Decrypt keyStorePassword
+            Optional<String> decryptedKeyStorePassword = encryptedKeyStorePassword
+                    .map(password -> decrypt(Optional.of(password), keyStoreSecretKey));
             if (keyStorePath.isPresent()) {
                 checkArgument(keystoreType.isPresent(), "keystore type is not present");
                 char[] keyManagerPassword;
                 try {
                     // attempt to read the key store as a PEM file
-                    keyStore = PemReader.loadKeyStore(new File(keyStorePath.get()), new File(keyStorePath.get()), keyStorePassword);
+                    keyStore = PemReader.loadKeyStore(new File(keyStorePath.get()), new File(keyStorePath.get()), decryptedKeyStorePassword);
                     // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
                     keyManagerPassword = new char[0];
                 }
                 catch (IOException | GeneralSecurityException ignored) {
-                    keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
+                    keyManagerPassword = decryptedKeyStorePassword.map(String::toCharArray).orElse(null);
 
                     keyStore = KeyStore.getInstance(keystoreType.get());
                     try (InputStream in = new FileInputStream(keyStorePath.get())) {
@@ -216,9 +227,10 @@ public final class OkHttpUtil
 
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
+            Optional<String> encryptedTrustStorePassword = Optional.ofNullable(encrypt(trustStorePassword, trustStoreSecretKey));
             if (trustStorePath.isPresent()) {
                 checkArgument(trustStoreType.isPresent(), "truststore type is not present");
-                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType.get());
+                trustStore = loadTrustStore(new File(trustStorePath.get()), encryptedTrustStorePassword, trustStoreType.get(), trustStoreSecretKey);
             }
 
             // create TrustManagerFactory
@@ -267,7 +279,7 @@ public final class OkHttpUtil
         }
     }
 
-    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword, String trustStoreType)
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword, String trustStoreType, SecretKey secretKey)
             throws IOException, GeneralSecurityException
     {
         KeyStore trustStore = KeyStore.getInstance(trustStoreType);
@@ -285,9 +297,11 @@ public final class OkHttpUtil
         }
         catch (IOException | GeneralSecurityException ignored) {
         }
-
+        String decryptedPassword = trustStorePassword
+                .map(password -> decrypt(Optional.of(password), secretKey))
+                .orElse(null);
         try (InputStream in = new FileInputStream(trustStorePath)) {
-            trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
+            trustStore.load(in, decryptedPassword != null ? decryptedPassword.toCharArray() : null);
         }
         return trustStore;
     }

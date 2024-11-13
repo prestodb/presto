@@ -15,6 +15,7 @@ package com.facebook.presto.cassandra.util;
 
 import com.facebook.presto.spi.PrestoException;
 
+import javax.crypto.SecretKey;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -40,6 +41,9 @@ import java.util.Optional;
 import static com.facebook.airlift.security.pem.PemReader.loadKeyStore;
 import static com.facebook.airlift.security.pem.PemReader.readCertificateChain;
 import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIALIZATION_FAILURE;
+import static com.facebook.presto.common.AESEncryption.decrypt;
+import static com.facebook.presto.common.AESEncryption.encrypt;
+import static com.facebook.presto.common.AESEncryption.generateSecretKey;
 import static java.util.Collections.list;
 
 public class SslContextProvider
@@ -70,17 +74,24 @@ public class SslContextProvider
             // load KeyStore if configured and get KeyManagers
             KeyStore keystore = null;
             KeyManager[] keyManagers = null;
+            SecretKey keyStoreSecretKey = generateSecretKey();
+            SecretKey trustStoreSecretKey = generateSecretKey();
+            //Encrypt keyStorePassword
+            Optional<String> encryptedKeyStorePassword = Optional.ofNullable(encrypt(keystorePassword, keyStoreSecretKey));
+            //Decrypt keyStorePassword
+            Optional<String> decryptedKeyStorePassword = encryptedKeyStorePassword
+                    .map(password -> decrypt(Optional.of(password), keyStoreSecretKey));
             if (keystorePath.isPresent()) {
                 char[] keyManagerPassword;
                 try {
                     // attempt to read the key store as a PEM file
-                    keystore = loadKeyStore(keystorePath.get(), keystorePath.get(), keystorePassword);
+                    keystore = loadKeyStore(keystorePath.get(), keystorePath.get(), decryptedKeyStorePassword);
                     // for PEM encoded keys, the password is used to decrypt the specific key (and does not
                     // protect the keystore itself)
                     keyManagerPassword = new char[0];
                 }
                 catch (IOException | GeneralSecurityException ignored) {
-                    keyManagerPassword = keystorePassword.map(String::toCharArray).orElse(null);
+                    keyManagerPassword = decryptedKeyStorePassword.map(String::toCharArray).orElse(null);
                     keystore = KeyStore.getInstance(KeyStore.getDefaultType());
                     try (InputStream in = new FileInputStream(keystorePath.get())) {
                         keystore.load(in, keyManagerPassword);
@@ -94,8 +105,9 @@ public class SslContextProvider
             }
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore truststore = keystore;
+            Optional<String> encryptedTrustStorePassword = Optional.ofNullable(encrypt(truststorePassword, trustStoreSecretKey));
             if (truststorePath.isPresent()) {
-                truststore = loadTrustStore(truststorePath.get(), truststorePassword);
+                truststore = loadTrustStore(truststorePath.get(), encryptedTrustStorePassword, trustStoreSecretKey);
             }
 
             // create TrustManagerFactory
@@ -120,7 +132,7 @@ public class SslContextProvider
         }
     }
 
-    public KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
+    public KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword, SecretKey secretKey)
             throws IOException, GeneralSecurityException
     {
         KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -138,8 +150,11 @@ public class SslContextProvider
         }
         catch (IOException | GeneralSecurityException ignored) {
         }
+        String decryptedPassword = trustStorePassword
+                .map(password -> decrypt(Optional.of(password), secretKey))
+                .orElse(null);
         try (InputStream inputStream = new FileInputStream(trustStorePath)) {
-            trustStore.load(inputStream, trustStorePassword.map(String::toCharArray).orElse(null));
+            trustStore.load(inputStream, decryptedPassword != null ? decryptedPassword.toCharArray() : null);
         }
         return trustStore;
     }

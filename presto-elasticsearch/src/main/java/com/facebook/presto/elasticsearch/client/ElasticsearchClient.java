@@ -64,6 +64,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.crypto.SecretKey;
 import javax.inject.Inject;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -100,6 +101,9 @@ import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.common.AESEncryption.decrypt;
+import static com.facebook.presto.common.AESEncryption.encrypt;
+import static com.facebook.presto.common.AESEncryption.generateSecretKey;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
@@ -270,16 +274,23 @@ public class ElasticsearchClient
             // load KeyStore if configured and get KeyManagers
             KeyStore keyStore = null;
             KeyManager[] keyManagers = null;
+            SecretKey keyStoreSecretKey = generateSecretKey();
+            SecretKey trustStoreSecretKey = generateSecretKey();
+            //Encrypt keyStorePassword
+            Optional<String> encryptedKeyStorePassword = Optional.ofNullable(encrypt(keyStorePassword, keyStoreSecretKey));
+            //Decrypt keyStorePassword
+            Optional<String> decryptedKeyStorePassword = encryptedKeyStorePassword
+                    .map(password -> decrypt(Optional.of(password), keyStoreSecretKey));
             if (keyStorePath.isPresent()) {
                 char[] keyManagerPassword;
                 try {
                     // attempt to read the key store as a PEM file
-                    keyStore = PemReader.loadKeyStore(keyStorePath.get(), keyStorePath.get(), keyStorePassword);
+                    keyStore = PemReader.loadKeyStore(keyStorePath.get(), keyStorePath.get(), decryptedKeyStorePassword);
                     // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
                     keyManagerPassword = new char[0];
                 }
                 catch (IOException | GeneralSecurityException ignored) {
-                    keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
+                    keyManagerPassword = decryptedKeyStorePassword.map(String::toCharArray).orElse(null);
 
                     keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
                     try (InputStream in = new FileInputStream(keyStorePath.get())) {
@@ -295,8 +306,9 @@ public class ElasticsearchClient
 
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
+            Optional<String> encryptedTrustStorePassword = Optional.ofNullable(encrypt(trustStorePassword, trustStoreSecretKey));
             if (trustStorePath.isPresent()) {
-                trustStore = loadTrustStore(trustStorePath.get(), trustStorePassword);
+                trustStore = loadTrustStore(trustStorePath.get(), trustStorePassword, trustStoreSecretKey);
             }
 
             // create TrustManagerFactory
@@ -320,7 +332,7 @@ public class ElasticsearchClient
         }
     }
 
-    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword, SecretKey trustStoreSecretKey)
             throws IOException, GeneralSecurityException
     {
         KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -339,8 +351,11 @@ public class ElasticsearchClient
         catch (IOException | GeneralSecurityException ignored) {
         }
 
+        String decryptedPassword = trustStorePassword
+                .map(password -> decrypt(Optional.of(password), trustStoreSecretKey))
+                .orElse(null);
         try (InputStream in = new FileInputStream(trustStorePath)) {
-            trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
+            trustStore.load(in, decryptedPassword != null ? decryptedPassword.toCharArray() : null);
         }
         return trustStore;
     }
