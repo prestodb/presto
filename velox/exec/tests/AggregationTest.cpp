@@ -1543,6 +1543,41 @@ TEST_F(AggregationTest, groupingSetsEmptyInput) {
       }));
 }
 
+TEST_F(AggregationTest, disableNonBooleanMasks) {
+  auto data = makeRowVector(
+      {"c0", "c1"},
+      {makeFlatVector<int64_t>({1, -1, 0, -2, 10}),
+       makeFlatVector<std::string>({"a", "a", "b", "c", "a"})});
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .aggregation(
+                      {"c1"},
+                      {"count(c0) FILTER(WHERE c0)"},
+                      {},
+                      core::AggregationNode::Step::kPartial,
+                      false)
+                  .planNode();
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "FILTER(WHERE..) clause must use masks that are BOOLEAN");
+
+  // Planbuilder doesnt allow expressions in FILTER clauses
+  plan = PlanBuilder()
+             .values({data})
+             .project({"c0", "c1", "c0 > 0 as mask"})
+             .aggregation(
+                 {"c1"},
+                 {"count(c0) FILTER(WHERE mask)"},
+                 {},
+                 core::AggregationNode::Step::kPartial,
+                 true)
+             .planNode();
+
+  AssertQueryBuilder(plan).copyResults(pool());
+}
+
 TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
   const int numVectors = 5;
   const int vectorSize = 20;
