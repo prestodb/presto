@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.spi.plan;
 
+import java.util.Map;
+
 public interface PlanCheckerProviderFactory
 {
     String getName();
 
-    PlanCheckerProvider create(SimplePlanFragmentSerde simplePlanFragmentSerde);
+    PlanCheckerProvider create(Map<String, String> properties, PlanCheckerProviderContext planCheckerProviderContext);
 }

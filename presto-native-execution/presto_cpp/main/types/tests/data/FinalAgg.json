@@ -47,7 +47,8 @@
           "name":"$hashvalue",
           "type":"bigint"
         },
-        "replicateNullsAndAny":false
+        "replicateNullsAndAny":false,
+        "encoding":"COLUMNAR"
       },
       "sources":[
         {
@@ -74,7 +75,8 @@
             }
           ],
           "ensureSourceOrdering":false,
-          "exchangeType":"REPARTITION"
+          "exchangeType":"REPARTITION",
+          "encoding":"COLUMNAR"
         }
       ],
       "inputs":[
@@ -239,6 +241,7 @@
       }
     ],
     "replicateNullsAndAny":false,
+    "encoding":"COLUMNAR",
     "bucketToPartition":[
       0
     ]

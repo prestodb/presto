@@ -211,6 +211,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManagerConfig;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -801,6 +802,7 @@ public class ServerMainModule
         binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
 
         binder.bind(PlanCheckerProviderManager.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
 
         // Worker session property providers
         MapBinder<String, WorkerSessionPropertyProvider> mapBinder =

@@ -24,6 +24,7 @@ import com.facebook.presto.hive.HiveDwrfEncryptionProvider.ForUnknown;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreCacheStats;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
@@ -377,7 +378,9 @@ public class HiveClientModule
 
     @Singleton
     @Provides
-    public QuickStatsProvider createQuickStatsProvider(HdfsEnvironment hdfsEnvironment,
+    public QuickStatsProvider createQuickStatsProvider(
+            ExtendedHiveMetastore metastore,
+            HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
             HiveClientConfig hiveClientConfig,
             NamenodeStats nameNodeStats,
@@ -385,7 +388,8 @@ public class HiveClientModule
             MBeanExporter exporter)
     {
         ParquetQuickStatsBuilder parquetQuickStatsBuilder = new ParquetQuickStatsBuilder(fileFormatDataSourceStats, hdfsEnvironment, hiveClientConfig);
-        QuickStatsProvider quickStatsProvider = new QuickStatsProvider(hdfsEnvironment,
+        QuickStatsProvider quickStatsProvider = new QuickStatsProvider(metastore,
+                hdfsEnvironment,
                 directoryLister,
                 hiveClientConfig,
                 nameNodeStats,

@@ -27,9 +27,9 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.PartitionNameWithVersion;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.parquet.ParquetDataSource;
@@ -283,7 +283,7 @@ public class ParquetQuickStatsBuilder
     }
 
     @Override
-    public PartitionQuickStats buildQuickStats(ConnectorSession session, SemiTransactionalHiveMetastore metastore,
+    public PartitionQuickStats buildQuickStats(ConnectorSession session, ExtendedHiveMetastore metastore,
             SchemaTableName table, MetastoreContext metastoreContext, String partitionId, Iterator<HiveFileInfo> files)
     {
         requireNonNull(session);

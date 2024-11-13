@@ -426,6 +426,7 @@ public class PlanPrinter
                     Joiner.on(", ").join(partitioningScheme.getPartitioning().getArguments()),
                     formatHash(partitioningScheme.getHashColumn())));
         }
+        builder.append(indentString(1)).append(format("Output encoding: %s%n", fragment.getPartitioningScheme().getEncoding()));
         builder.append(indentString(1)).append(format("Stage Execution Strategy: %s%n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
         TypeProvider typeProvider = TypeProvider.fromVariables(fragment.getVariables());
@@ -1220,8 +1221,9 @@ public class PlanPrinter
             else {
                 addNode(node,
                         format("%sExchange", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
-                        format("[%s%s]%s",
+                        format("[%s - %s%s]%s",
                                 node.getType(),
+                                node.getPartitioningScheme().getEncoding(),
                                 node.getPartitioningScheme().isReplicateNullsAndAny() ? " - REPLICATE NULLS AND ANY" : "",
                                 formatHash(node.getPartitioningScheme().getHashColumn())));
             }

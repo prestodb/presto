@@ -72,6 +72,11 @@ public final class Partitioning
         return arguments;
     }
 
+    public boolean isSingleOrBroadcastOrArbitrary()
+    {
+        return handle.isSingleOrBroadcastOrArbitrary();
+    }
+
     public Set<VariableReferenceExpression> getVariableReferences()
     {
         return arguments.stream()

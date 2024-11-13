@@ -121,6 +121,17 @@ void registerPrestoMetrics() {
       99,
       100);
 
+  // NOTE: Metrics type exporting for thread pool executor counters are in
+  // PeriodicTaskManager because they have dynamic names and report configs. The
+  // following counters have their type exported there:
+  // [
+  //  kCounterThreadPoolNumThreadsFormat,
+  //  kCounterThreadPoolNumActiveThreadsFormat,
+  //  kCounterThreadPoolNumPendingTasksFormat,
+  //  kCounterThreadPoolNumTotalTasksFormat,
+  //  kCounterThreadPoolMaxIdleTimeNsFormat
+  // ]
+
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters
   // have their type exported there:

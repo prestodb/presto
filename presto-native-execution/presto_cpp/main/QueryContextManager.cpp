@@ -98,8 +98,6 @@ void updateVeloxConnectorConfigs(
     std::unordered_map<
         std::string,
         std::unordered_map<std::string, std::string>>& connectorConfigStrings) {
-  const auto& systemConfig = SystemConfig::instance();
-
   for (auto& entry : connectorConfigStrings) {
     auto& connectorConfig = entry.second;
 

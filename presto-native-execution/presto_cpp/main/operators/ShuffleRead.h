@@ -54,7 +54,7 @@ class ShuffleReadNode : public velox::core::PlanNode {
     // Nothing to add
   }
 
-  velox::RowTypePtr outputType_;
+  const velox::RowTypePtr outputType_;
 };
 
 class ShuffleReadTranslator : public velox::exec::Operator::PlanNodeTranslator {

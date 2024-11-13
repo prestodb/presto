@@ -107,7 +107,7 @@ public class WeightedDoubleReservoirSample
     }
 
     @Override
-    public WeightedDoubleReservoirSample clone()
+    public final WeightedDoubleReservoirSample clone()
     {
         return new WeightedDoubleReservoirSample(this);
     }

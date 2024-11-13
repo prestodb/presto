@@ -34,7 +34,8 @@
 	              "type": "varchar(1)"
 	            }
 	          ],
-	          "replicateNullsAndAny": false
+	          "replicateNullsAndAny": false,
+              "encoding":"COLUMNAR"
 	        },
 	        "sources": [
 	          {
@@ -202,6 +203,7 @@
 	      }
 	    ],
 	    "replicateNullsAndAny": false,
+		"encoding":"COLUMNAR",
 	    "bucketToPartition": [
 	      0
 	    ]

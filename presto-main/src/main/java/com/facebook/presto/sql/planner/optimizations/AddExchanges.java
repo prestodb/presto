@@ -120,6 +120,7 @@ import static com.facebook.presto.SystemSessionProperties.preferStreamingOperato
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumberOfTableScans;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleTableScans;
@@ -1034,6 +1035,7 @@ public class AddExchanges
                                         filteringSource.getNode().getOutputVariables(),
                                         Optional.empty(),
                                         true,
+                                        COLUMNAR,
                                         Optional.empty())),
                                 filteringSource.getProperties());
                     }
@@ -1075,6 +1077,7 @@ public class AddExchanges
                                     filteringSource.getNode().getOutputVariables(),
                                     Optional.empty(),
                                     true,
+                                    COLUMNAR,
                                     Optional.empty())),
                             filteringSource.getProperties());
                 }
@@ -1250,6 +1253,7 @@ public class AddExchanges
                                                 source.getNode().getOutputVariables(),
                                                 Optional.empty(),
                                                 nullsAndAnyReplicated,
+                                                COLUMNAR,
                                                 Optional.empty())),
                                 source.getProperties());
                     }
