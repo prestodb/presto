@@ -2302,12 +2302,6 @@
                 <artifactId>cassandra-driver-core</artifactId>
                 <version>3.11.5</version>
             </dependency>
-
-            <dependency>
-                <groupId>org.yaml</groupId>
-                <artifactId>snakeyaml</artifactId>
-                <version>2.0</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
