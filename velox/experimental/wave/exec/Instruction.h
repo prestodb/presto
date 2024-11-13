@@ -229,7 +229,6 @@ struct AbstractWrap : public AbstractInstruction {
   int32_t literalOffset{-1};
 
   void addWrap(AbstractOperand* sourceOp, AbstractOperand* targetOp = nullptr) {
-    int newWrap = AbstractOperand::kNoWrap;
     if (targetOp) {
       targetOp->wrappedAt = id;
     } else if (sourceOp->wrappedAt == AbstractOperand::kNoWrap) {

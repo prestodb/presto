@@ -32,7 +32,6 @@ class DeltaLengthByteArrayDecoder {
   }
 
   std::string_view readString() {
-    int32_t dataSize = 0;
     const int64_t length = bufferedLength_[lengthIdx_++];
     VELOX_CHECK_GE(length, 0, "negative string delta length");
     bufferStart_ += length;
