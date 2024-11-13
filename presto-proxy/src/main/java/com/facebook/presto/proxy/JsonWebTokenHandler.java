@@ -64,7 +64,7 @@ public class JsonWebTokenHandler
                 .setSubject(subject)
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
 
-        jwtSigner.get().accept(jwt);
+        jwtSigner.orElseThrow().accept(jwt);
         jwtKeyId.ifPresent(keyId -> jwt.setHeaderParam(KEY_ID, keyId));
         jwtIssuer.ifPresent(jwt::setIssuer);
         jwtAudience.ifPresent(jwt::setAudience);
