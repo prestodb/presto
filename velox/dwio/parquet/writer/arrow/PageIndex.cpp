@@ -106,7 +106,7 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
   TypedColumnIndexImpl(
       const ColumnDescriptor& descr,
-      format::ColumnIndex column_index)
+      facebook::velox::parquet::thrift::ColumnIndex column_index)
       : column_index_(std::move(column_index)) {
     // Make sure the number of pages is valid and it does not overflow to
     // int32_t.
@@ -187,7 +187,7 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
  private:
   /// Wrapped thrift column index.
-  const format::ColumnIndex column_index_;
+  const facebook::velox::parquet::thrift::ColumnIndex column_index_;
   /// Decoded typed min/max values. Undefined for null pages.
   std::vector<T> min_values_;
   std::vector<T> max_values_;
@@ -197,7 +197,8 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
 class OffsetIndexImpl : public OffsetIndex {
  public:
-  explicit OffsetIndexImpl(const format::OffsetIndex& offset_index) {
+  explicit OffsetIndexImpl(
+      const facebook::velox::parquet::thrift::OffsetIndex& offset_index) {
     page_locations_.reserve(offset_index.page_locations.size());
     for (const auto& page_location : offset_index.page_locations) {
       page_locations_.emplace_back(PageLocation{
@@ -513,7 +514,8 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     /// from any page will invalidate the null_counts vector of the column
     /// index.
     column_index_.__isset.null_counts = true;
-    column_index_.boundary_order = format::BoundaryOrder::UNORDERED;
+    column_index_.boundary_order =
+        facebook::velox::parquet::thrift::BoundaryOrder::UNORDERED;
   }
 
   void AddPage(const EncodedStatistics& stats) override {
@@ -655,7 +657,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
   }
 
   const ColumnDescriptor* descr_;
-  format::ColumnIndex column_index_;
+  facebook::velox::parquet::thrift::ColumnIndex column_index_;
   std::vector<size_t> non_null_page_indices_;
   BuilderState state_ = BuilderState::kCreated;
 };
@@ -677,7 +679,7 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
 
     state_ = BuilderState::kStarted;
 
-    format::PageLocation page_location;
+    facebook::velox::parquet::thrift::PageLocation page_location;
     page_location.__set_offset(offset);
     page_location.__set_compressed_page_size(compressed_page_size);
     page_location.__set_first_row_index(first_row_index);
@@ -721,7 +723,7 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
   }
 
  private:
-  format::OffsetIndex offset_index_;
+  facebook::velox::parquet::thrift::OffsetIndex offset_index_;
   BuilderState state_ = BuilderState::kCreated;
 };
 
@@ -931,7 +933,7 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(
     const void* serialized_index,
     uint32_t index_len,
     const ReaderProperties& properties) {
-  format::ColumnIndex column_index;
+  facebook::velox::parquet::thrift::ColumnIndex column_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(
       reinterpret_cast<const uint8_t*>(serialized_index),
@@ -973,7 +975,7 @@ std::unique_ptr<OffsetIndex> OffsetIndex::Make(
     const void* serialized_index,
     uint32_t index_len,
     const ReaderProperties& properties) {
-  format::OffsetIndex offset_index;
+  facebook::velox::parquet::thrift::OffsetIndex offset_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(
       reinterpret_cast<const uint8_t*>(serialized_index),

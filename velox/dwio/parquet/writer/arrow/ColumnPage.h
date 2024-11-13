@@ -38,8 +38,8 @@ namespace facebook::velox::parquet::arrow {
 // page)
 //
 // TODO(wesm): In the future Parquet implementations may store the crc code
-// in format::PageHeader. parquet-mr currently does not, so we also skip it
-// here, both on the read and write path
+// in facebook::velox::parquet::thrift::PageHeader. parquet-mr currently does
+// not, so we also skip it here, both on the read and write path
 class Page {
  public:
   Page(const std::shared_ptr<::arrow::Buffer>& buffer, PageType::type type)

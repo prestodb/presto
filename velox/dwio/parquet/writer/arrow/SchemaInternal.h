@@ -40,11 +40,11 @@ namespace schema {
 
 PARQUET_EXPORT
 std::shared_ptr<SchemaDescriptor> FromParquet(
-    const std::vector<format::SchemaElement>& schema);
+    const std::vector<facebook::velox::parquet::thrift::SchemaElement>& schema);
 
 PARQUET_EXPORT
 std::unique_ptr<Node> Unflatten(
-    const format::SchemaElement* elements,
+    const facebook::velox::parquet::thrift::SchemaElement* elements,
     int length);
 
 // ----------------------------------------------------------------------
@@ -53,7 +53,7 @@ std::unique_ptr<Node> Unflatten(
 PARQUET_EXPORT
 void ToParquet(
     const GroupNode* schema,
-    std::vector<format::SchemaElement>* out);
+    std::vector<facebook::velox::parquet::thrift::SchemaElement>* out);
 
 } // namespace schema
 } // namespace facebook::velox::parquet::arrow

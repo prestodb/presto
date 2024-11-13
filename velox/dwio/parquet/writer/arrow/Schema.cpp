@@ -30,7 +30,7 @@
 #include "arrow/util/logging.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
 
-using facebook::velox::parquet::arrow::format::SchemaElement;
+using facebook::velox::parquet::thrift::SchemaElement;
 
 namespace facebook::velox::parquet::arrow {
 namespace {
@@ -455,8 +455,9 @@ void GroupNode::VisitConst(Node::ConstVisitor* visitor) const {
 std::unique_ptr<Node> GroupNode::FromParquet(
     const void* opaque_element,
     NodeVector fields) {
-  const format::SchemaElement* element =
-      static_cast<const format::SchemaElement*>(opaque_element);
+  const facebook::velox::parquet::thrift::SchemaElement* element =
+      static_cast<const facebook::velox::parquet::thrift::SchemaElement*>(
+          opaque_element);
 
   int field_id = -1;
   if (element->__isset.field_id) {
@@ -487,8 +488,9 @@ std::unique_ptr<Node> GroupNode::FromParquet(
 }
 
 std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element) {
-  const format::SchemaElement* element =
-      static_cast<const format::SchemaElement*>(opaque_element);
+  const facebook::velox::parquet::thrift::SchemaElement* element =
+      static_cast<const facebook::velox::parquet::thrift::SchemaElement*>(
+          opaque_element);
 
   int field_id = -1;
   if (element->__isset.field_id) {
@@ -546,8 +548,9 @@ bool GroupNode::HasRepeatedFields() const {
 }
 
 void GroupNode::ToParquet(void* opaque_element) const {
-  format::SchemaElement* element =
-      static_cast<format::SchemaElement*>(opaque_element);
+  facebook::velox::parquet::thrift::SchemaElement* element =
+      static_cast<facebook::velox::parquet::thrift::SchemaElement*>(
+          opaque_element);
   element->__set_name(name_);
   element->__set_num_children(field_count());
   element->__set_repetition_type(ToThrift(repetition_));
@@ -564,8 +567,9 @@ void GroupNode::ToParquet(void* opaque_element) const {
 }
 
 void PrimitiveNode::ToParquet(void* opaque_element) const {
-  format::SchemaElement* element =
-      static_cast<format::SchemaElement*>(opaque_element);
+  facebook::velox::parquet::thrift::SchemaElement* element =
+      static_cast<facebook::velox::parquet::thrift::SchemaElement*>(
+          opaque_element);
   element->__set_name(name_);
   element->__set_repetition_type(ToThrift(repetition_));
   if (converted_type_ != ConvertedType::NONE) {
@@ -604,7 +608,7 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
 // Schema converters
 
 std::unique_ptr<Node> Unflatten(
-    const format::SchemaElement* elements,
+    const facebook::velox::parquet::thrift::SchemaElement* elements,
     int length) {
   if (elements[0].num_children == 0) {
     if (length == 1) {
@@ -660,11 +664,12 @@ std::shared_ptr<SchemaDescriptor> FromParquet(
 
 class SchemaVisitor : public Node::ConstVisitor {
  public:
-  explicit SchemaVisitor(std::vector<format::SchemaElement>* elements)
+  explicit SchemaVisitor(
+      std::vector<facebook::velox::parquet::thrift::SchemaElement>* elements)
       : elements_(elements) {}
 
   void Visit(const Node* node) override {
-    format::SchemaElement element;
+    facebook::velox::parquet::thrift::SchemaElement element;
     node->ToParquet(&element);
     elements_->push_back(element);
 
@@ -677,12 +682,12 @@ class SchemaVisitor : public Node::ConstVisitor {
   }
 
  private:
-  std::vector<format::SchemaElement>* elements_;
+  std::vector<facebook::velox::parquet::thrift::SchemaElement>* elements_;
 };
 
 void ToParquet(
     const GroupNode* schema,
-    std::vector<format::SchemaElement>* out) {
+    std::vector<facebook::velox::parquet::thrift::SchemaElement>* out) {
   SchemaVisitor visitor(out);
   schema->VisitConst(&visitor);
 }

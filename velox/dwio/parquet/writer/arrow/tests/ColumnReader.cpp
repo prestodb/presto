@@ -214,7 +214,7 @@ EncodedStatistics ExtractStatsFromHeader(const H& header) {
   if (!header.__isset.statistics) {
     return page_statistics;
   }
-  const format::Statistics& stats = header.statistics;
+  const facebook::velox::parquet::thrift::Statistics& stats = header.statistics;
   // Use the new V2 min-max statistics over the former one if it is filled
   if (stats.__isset.max_value || stats.__isset.min_value) {
     // TODO: check if the column_order is TYPE_DEFINED_ORDER.
@@ -254,8 +254,8 @@ void CheckNumValuesInHeader(int num_values) {
 // assembled in a serialized stream for storing in a Parquet files
 
 // This subclass delimits pages appearing in a serialized stream, each preceded
-// by a serialized Thrift format::PageHeader indicating the type of each page
-// and the page metadata.
+// by a serialized Thrift facebook::velox::parquet::thrift::PageHeader
+// indicating the type of each page and the page metadata.
 class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(
@@ -315,7 +315,7 @@ class SerializedPageReader : public PageReader {
   const ReaderProperties properties_;
   std::shared_ptr<ArrowInputStream> stream_;
 
-  format::PageHeader current_page_header_;
+  facebook::velox::parquet::thrift::PageHeader current_page_header_;
   std::shared_ptr<Page> current_page_;
 
   // Compression codec to use.
@@ -400,7 +400,7 @@ bool SerializedPageReader::ShouldSkipPage(
     EncodedStatistics* data_page_statistics) {
   const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
   if (page_type == PageType::DATA_PAGE) {
-    const format::DataPageHeader& header =
+    const facebook::velox::parquet::thrift::DataPageHeader& header =
         current_page_header_.data_page_header;
     CheckNumValuesInHeader(header.num_values);
     *data_page_statistics = ExtractStatsFromHeader(header);
@@ -417,7 +417,7 @@ bool SerializedPageReader::ShouldSkipPage(
       }
     }
   } else if (page_type == PageType::DATA_PAGE_V2) {
-    const format::DataPageHeaderV2& header =
+    const facebook::velox::parquet::thrift::DataPageHeaderV2& header =
         current_page_header_.data_page_header_v2;
     CheckNumValuesInHeader(header.num_values);
     if (header.num_rows < 0) {
@@ -440,7 +440,7 @@ bool SerializedPageReader::ShouldSkipPage(
       }
     }
   } else if (page_type == PageType::DICTIONARY_PAGE) {
-    const format::DictionaryPageHeader& dict_header =
+    const facebook::velox::parquet::thrift::DictionaryPageHeader& dict_header =
         current_page_header_.dictionary_page_header;
     CheckNumValuesInHeader(dict_header.num_values);
   } else {
@@ -479,7 +479,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
               &data_page_header_aad_);
         }
         // Reset current page header to avoid unclearing the __isset flag.
-        current_page_header_ = format::PageHeader();
+        current_page_header_ = facebook::velox::parquet::thrift::PageHeader();
         deserializer.DeserializeMessage(
             reinterpret_cast<const uint8_t*>(view.data()),
             &header_size,
@@ -559,8 +559,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     if (page_type == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
-      const format::DictionaryPageHeader& dict_header =
-          current_page_header_.dictionary_page_header;
+      const facebook::velox::parquet::thrift::DictionaryPageHeader&
+          dict_header = current_page_header_.dictionary_page_header;
       bool is_sorted =
           dict_header.__isset.is_sorted ? dict_header.is_sorted : false;
 
@@ -574,7 +574,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           is_sorted);
     } else if (page_type == PageType::DATA_PAGE) {
       ++page_ordinal_;
-      const format::DataPageHeader& header =
+      const facebook::velox::parquet::thrift::DataPageHeader& header =
           current_page_header_.data_page_header;
       page_buffer = DecompressIfNeeded(
           std::move(page_buffer), compressed_len, uncompressed_len);
@@ -589,7 +589,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           data_page_statistics);
     } else if (page_type == PageType::DATA_PAGE_V2) {
       ++page_ordinal_;
-      const format::DataPageHeaderV2& header =
+      const facebook::velox::parquet::thrift::DataPageHeaderV2& header =
           current_page_header_.data_page_header_v2;
 
       // Arrow prior to 3.0.0 set is_compressed to false but still compressed.

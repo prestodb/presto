@@ -306,9 +306,9 @@ using RowGroupRanges = std::vector<PageIndexRanges>;
 /// input value is -1.
 std::shared_ptr<FileMetaData> ConstructFakeMetaData(
     const RowGroupRanges& row_group_ranges) {
-  format::RowGroup row_group;
+  facebook::velox::parquet::thrift::RowGroup row_group;
   for (auto& page_index_ranges : row_group_ranges) {
-    format::ColumnChunk col_chunk;
+    facebook::velox::parquet::thrift::ColumnChunk col_chunk;
     if (page_index_ranges.column_index_offset != -1) {
       col_chunk.__set_column_index_offset(
           page_index_ranges.column_index_offset);
@@ -328,7 +328,7 @@ std::shared_ptr<FileMetaData> ConstructFakeMetaData(
     row_group.columns.push_back(col_chunk);
   }
 
-  format::FileMetaData metadata;
+  facebook::velox::parquet::thrift::FileMetaData metadata;
   metadata.row_groups.push_back(row_group);
 
   metadata.schema.emplace_back();

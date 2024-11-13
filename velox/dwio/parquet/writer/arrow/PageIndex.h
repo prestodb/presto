@@ -36,7 +36,8 @@ class RowGroupMetaData;
 class RowGroupPageIndexReader;
 class SchemaDescriptor;
 
-/// \brief ColumnIndex is a proxy around format::ColumnIndex.
+/// \brief ColumnIndex is a proxy around
+/// facebook::velox::parquet::thrift::ColumnIndex.
 class PARQUET_EXPORT ColumnIndex {
  public:
   /// \brief Create a ColumnIndex from a serialized thrift message.
@@ -116,7 +117,8 @@ using DoubleColumnIndex = TypedColumnIndex<DoubleType>;
 using ByteArrayColumnIndex = TypedColumnIndex<ByteArrayType>;
 using FLBAColumnIndex = TypedColumnIndex<FLBAType>;
 
-/// \brief PageLocation is a proxy around format::PageLocation.
+/// \brief PageLocation is a proxy around
+/// facebook::velox::parquet::thrift::PageLocation.
 struct PARQUET_EXPORT PageLocation {
   /// File offset of the data page.
   int64_t offset;
@@ -126,7 +128,8 @@ struct PARQUET_EXPORT PageLocation {
   int64_t first_row_index;
 };
 
-/// \brief OffsetIndex is a proxy around format::OffsetIndex.
+/// \brief OffsetIndex is a proxy around
+/// facebook::velox::parquet::thrift::OffsetIndex.
 class PARQUET_EXPORT OffsetIndex {
  public:
   /// \brief Create a OffsetIndex from a serialized thrift message.

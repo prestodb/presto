@@ -275,8 +275,8 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
 // PageWriter implementation
 
 // This subclass delimits pages appearing in a serialized stream, each preceded
-// by a serialized Thrift format::PageHeader indicating the type of each page
-// and the page metadata.
+// by a serialized Thrift facebook::velox::parquet::thrift::PageHeader
+// indicating the type of each page and the page metadata.
 class SerializedPageWriter : public PageWriter {
  public:
   SerializedPageWriter(
@@ -328,7 +328,7 @@ class SerializedPageWriter : public PageWriter {
       compressed_data = page.buffer();
     }
 
-    format::DictionaryPageHeader dict_page_header;
+    facebook::velox::parquet::thrift::DictionaryPageHeader dict_page_header;
     dict_page_header.__set_num_values(page.num_values());
     dict_page_header.__set_encoding(ToThrift(page.encoding()));
     dict_page_header.__set_is_sorted(page.is_sorted());
@@ -347,8 +347,9 @@ class SerializedPageWriter : public PageWriter {
       output_data_buffer = encryption_buffer_->data();
     }
 
-    format::PageHeader page_header;
-    page_header.__set_type(format::PageType::DICTIONARY_PAGE);
+    facebook::velox::parquet::thrift::PageHeader page_header;
+    page_header.__set_type(
+        facebook::velox::parquet::thrift::PageType::DICTIONARY_PAGE);
     page_header.__set_uncompressed_page_size(
         static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(
@@ -447,7 +448,7 @@ class SerializedPageWriter : public PageWriter {
       output_data_buffer = encryption_buffer_->data();
     }
 
-    format::PageHeader page_header;
+    facebook::velox::parquet::thrift::PageHeader page_header;
     page_header.__set_uncompressed_page_size(
         static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(
@@ -511,9 +512,9 @@ class SerializedPageWriter : public PageWriter {
   }
 
   void SetDataPageHeader(
-      format::PageHeader& page_header,
+      facebook::velox::parquet::thrift::PageHeader& page_header,
       const DataPageV1& page) {
-    format::DataPageHeader data_page_header;
+    facebook::velox::parquet::thrift::DataPageHeader data_page_header;
     data_page_header.__set_num_values(page.num_values());
     data_page_header.__set_encoding(ToThrift(page.encoding()));
     data_page_header.__set_definition_level_encoding(
@@ -526,14 +527,15 @@ class SerializedPageWriter : public PageWriter {
       data_page_header.__set_statistics(ToThrift(page.statistics()));
     }
 
-    page_header.__set_type(format::PageType::DATA_PAGE);
+    page_header.__set_type(
+        facebook::velox::parquet::thrift::PageType::DATA_PAGE);
     page_header.__set_data_page_header(data_page_header);
   }
 
   void SetDataPageV2Header(
-      format::PageHeader& page_header,
+      facebook::velox::parquet::thrift::PageHeader& page_header,
       const DataPageV2& page) {
-    format::DataPageHeaderV2 data_page_header;
+    facebook::velox::parquet::thrift::DataPageHeaderV2 data_page_header;
     data_page_header.__set_num_values(page.num_values());
     data_page_header.__set_num_nulls(page.num_nulls());
     data_page_header.__set_num_rows(page.num_rows());
@@ -551,7 +553,8 @@ class SerializedPageWriter : public PageWriter {
       data_page_header.__set_statistics(ToThrift(page.statistics()));
     }
 
-    page_header.__set_type(format::PageType::DATA_PAGE_V2);
+    page_header.__set_type(
+        facebook::velox::parquet::thrift::PageType::DATA_PAGE_V2);
     page_header.__set_data_page_header_v2(data_page_header);
   }
 
@@ -1211,7 +1214,8 @@ void ColumnWriterImpl::BuildDataPageV1(
         uncompressed_size,
         page_stats,
         first_row_index);
-    total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
+    total_compressed_bytes_ +=
+        page_ptr->size() + sizeof(facebook::velox::parquet::thrift::PageHeader);
 
     data_pages_.push_back(std::move(page_ptr));
   } else { // Eagerly write pages
@@ -1292,7 +1296,8 @@ void ColumnWriterImpl::BuildDataPageV2(
         pager_->has_compressor(),
         page_stats,
         first_row_index);
-    total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
+    total_compressed_bytes_ +=
+        page_ptr->size() + sizeof(facebook::velox::parquet::thrift::PageHeader);
     data_pages_.push_back(std::move(page_ptr));
   } else {
     DataPageV2 page(

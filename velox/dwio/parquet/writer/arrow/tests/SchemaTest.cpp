@@ -37,8 +37,8 @@ using ::arrow::internal::checked_cast;
 
 namespace facebook::velox::parquet::arrow {
 
-using format::FieldRepetitionType;
-using format::SchemaElement;
+using facebook::velox::parquet::thrift::FieldRepetitionType;
+using facebook::velox::parquet::thrift::SchemaElement;
 
 namespace schema {
 
@@ -50,7 +50,8 @@ static inline SchemaElement NewPrimitive(
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);
-  result.__set_type(static_cast<format::Type::type>(type));
+  result.__set_type(
+      static_cast<facebook::velox::parquet::thrift::Type::type>(type));
   if (field_id >= 0) {
     result.__set_field_id(field_id);
   }
@@ -76,7 +77,7 @@ static inline SchemaElement NewGroup(
 
 template <typename NodeType>
 static void CheckNodeRoundtrip(const Node& node) {
-  format::SchemaElement serialized;
+  facebook::velox::parquet::thrift::SchemaElement serialized;
   node.ToParquet(&serialized);
   std::unique_ptr<Node> recovered = NodeType::FromParquet(&serialized);
   ASSERT_TRUE(node.Equals(recovered.get()))
@@ -135,7 +136,7 @@ class TestPrimitiveNode : public ::testing::Test {
     field_id_ = 5;
   }
 
-  void Convert(const format::SchemaElement* element) {
+  void Convert(const facebook::velox::parquet::thrift::SchemaElement* element) {
     node_ = PrimitiveNode::FromParquet(element);
     ASSERT_TRUE(node_->is_primitive());
     prim_node_ = static_cast<const PrimitiveNode*>(node_.get());
@@ -199,7 +200,8 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   // Test a logical type
   elt = NewPrimitive(
       name_, FieldRepetitionType::REQUIRED, Type::BYTE_ARRAY, field_id_);
-  elt.__set_converted_type(format::ConvertedType::UTF8);
+  elt.__set_converted_type(
+      facebook::velox::parquet::thrift::ConvertedType::UTF8);
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(Repetition::REQUIRED, prim_node_->repetition());
@@ -221,13 +223,14 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, prim_node_->physical_type());
   ASSERT_EQ(16, prim_node_->type_length());
 
-  // format::ConvertedType::Decimal
+  // facebook::velox::parquet::thrift::ConvertedType::Decimal
   elt = NewPrimitive(
       name_,
       FieldRepetitionType::OPTIONAL,
       Type::FIXED_LEN_BYTE_ARRAY,
       field_id_);
-  elt.__set_converted_type(format::ConvertedType::DECIMAL);
+  elt.__set_converted_type(
+      facebook::velox::parquet::thrift::ConvertedType::DECIMAL);
   elt.__set_type_length(6);
   elt.__set_scale(2);
   elt.__set_precision(12);
@@ -535,7 +538,9 @@ class TestSchemaConverter : public ::testing::Test {
     name_ = "parquet_schema";
   }
 
-  void Convert(const format::SchemaElement* elements, int length) {
+  void Convert(
+      const facebook::velox::parquet::thrift::SchemaElement* elements,
+      int length) {
     node_ = Unflatten(elements, length);
     ASSERT_TRUE(node_->is_group());
     group_ = static_cast<const GroupNode*>(node_.get());
@@ -582,7 +587,8 @@ TEST_F(TestSchemaConverter, NestedExample) {
 
   // 3-level list encoding, by hand
   elt = NewGroup("b", FieldRepetitionType::REPEATED, 1, 3);
-  elt.__set_converted_type(format::ConvertedType::LIST);
+  elt.__set_converted_type(
+      facebook::velox::parquet::thrift::ConvertedType::LIST);
   elements.push_back(elt);
   elements.push_back(
       NewPrimitive("item", FieldRepetitionType::OPTIONAL, Type::INT64, 4));
@@ -670,7 +676,7 @@ class TestSchemaFlatten : public ::testing::Test {
 
  protected:
   std::string name_;
-  std::vector<format::SchemaElement> elements_;
+  std::vector<facebook::velox::parquet::thrift::SchemaElement> elements_;
 };
 
 TEST_F(TestSchemaFlatten, DecimalMetadata) {
@@ -729,9 +735,10 @@ TEST_F(TestSchemaFlatten, NestedExample) {
 
   // 3-level list encoding, by hand
   elt = NewGroup("b", FieldRepetitionType::REPEATED, 1, 3);
-  elt.__set_converted_type(format::ConvertedType::LIST);
-  format::ListType ls;
-  format::LogicalType lt;
+  elt.__set_converted_type(
+      facebook::velox::parquet::thrift::ConvertedType::LIST);
+  facebook::velox::parquet::thrift::ListType ls;
+  facebook::velox::parquet::thrift::LogicalType lt;
   lt.__set_LIST(ls);
   elt.__set_logicalType(lt);
   elements.push_back(elt);
@@ -2155,7 +2162,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_EQ(node->logical_type()->type(), LogicalType::Type::STRING);
   ASSERT_TRUE(node->logical_type()->is_valid());
   ASSERT_TRUE(node->logical_type()->is_serialized());
-  format::SchemaElement string_intermediary;
+  facebook::velox::parquet::thrift::SchemaElement string_intermediary;
   node->ToParquet(&string_intermediary);
   // ... corrupt the Thrift intermediary ....
   string_intermediary.logicalType.__isset.STRING = false;
@@ -2167,7 +2174,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
       Repetition::REQUIRED,
       TimeLogicalType::Make(true, LogicalType::TimeUnit::NANOS),
       Type::INT64);
-  format::SchemaElement time_intermediary;
+  facebook::velox::parquet::thrift::SchemaElement time_intermediary;
   node->ToParquet(&time_intermediary);
   // ... corrupt the Thrift intermediary ....
   time_intermediary.logicalType.TIME.unit.__isset.NANOS = false;
@@ -2179,7 +2186,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
       Repetition::REQUIRED,
       TimestampLogicalType::Make(true, LogicalType::TimeUnit::NANOS),
       Type::INT64);
-  format::SchemaElement timestamp_intermediary;
+  facebook::velox::parquet::thrift::SchemaElement timestamp_intermediary;
   node->ToParquet(&timestamp_intermediary);
   // ... corrupt the Thrift intermediary ....
   timestamp_intermediary.logicalType.TIMESTAMP.unit.__isset.NANOS = false;
@@ -2218,7 +2225,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
         c.logical_type,
         c.physical_type,
         c.physical_length);
-    element_.reset(new format::SchemaElement);
+    element_.reset(new facebook::velox::parquet::thrift::SchemaElement);
     node_->ToParquet(element_.get());
 
     // ... then set aside some values for later inspection.
@@ -2239,7 +2246,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
         c.physical_type,
         c.converted_type,
         c.physical_length);
-    element_.reset(new format::SchemaElement);
+    element_.reset(new facebook::velox::parquet::thrift::SchemaElement);
     node_->ToParquet(element_.get());
 
     // ... then set aside some values for later inspection.
@@ -2290,7 +2297,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
 
  protected:
   NodePtr node_;
-  std::unique_ptr<format::SchemaElement> element_;
+  std::unique_ptr<facebook::velox::parquet::thrift::SchemaElement> element_;
   std::string name_;
   bool expect_converted_type_;
   ConvertedType::type
@@ -2304,8 +2311,8 @@ class TestSchemaElementConstruction : public ::testing::Test {
 /*
  * The Test*SchemaElementConstruction suites confirm that the logical type
  * and converted type members of the Thrift intermediate message object
- * (format::SchemaElement) that is created upon serialization of an annotated
- * schema node are correctly populated.
+ * (facebook::velox::parquet::thrift::SchemaElement) that is created upon
+ * serialization of an annotated schema node are correctly populated.
  */
 
 TEST_F(TestSchemaElementConstruction, SimpleCases) {
@@ -2550,7 +2557,8 @@ class TestTemporalSchemaElementConstruction
 };
 
 template <>
-void TestTemporalSchemaElementConstruction::Inspect<format::TimeType>() {
+void TestTemporalSchemaElementConstruction::Inspect<
+    facebook::velox::parquet::thrift::TimeType>() {
   TestSchemaElementConstruction::Inspect();
   ASSERT_EQ(element_->logicalType.TIME.isAdjustedToUTC, adjusted_);
   switch (unit_) {
@@ -2571,7 +2579,8 @@ void TestTemporalSchemaElementConstruction::Inspect<format::TimeType>() {
 }
 
 template <>
-void TestTemporalSchemaElementConstruction::Inspect<format::TimestampType>() {
+void TestTemporalSchemaElementConstruction::Inspect<
+    facebook::velox::parquet::thrift::TimestampType>() {
   TestSchemaElementConstruction::Inspect();
   ASSERT_EQ(element_->logicalType.TIMESTAMP.isAdjustedToUTC, adjusted_);
   switch (unit_) {
@@ -2646,7 +2655,8 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
   };
 
   for (const SchemaElementConstructionArguments& c : time_cases) {
-    this->Reconstruct<TimeLogicalType>(c)->Inspect<format::TimeType>();
+    this->Reconstruct<TimeLogicalType>(c)
+        ->Inspect<facebook::velox::parquet::thrift::TimeType>();
   }
 
   auto check_TIMESTAMP = [this]() {
@@ -2730,7 +2740,7 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
 
   for (const SchemaElementConstructionArguments& c : timestamp_cases) {
     this->Reconstruct<TimestampLogicalType>(c)
-        ->Inspect<format::TimestampType>();
+        ->Inspect<facebook::velox::parquet::thrift::TimestampType>();
   }
 }
 
@@ -2882,7 +2892,7 @@ TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
        int_node,
        decimal_node},
       ListLogicalType::Make());
-  std::vector<format::SchemaElement> list_elements;
+  std::vector<facebook::velox::parquet::thrift::SchemaElement> list_elements;
   ToParquet(reinterpret_cast<GroupNode*>(list_node.get()), &list_elements);
   ASSERT_EQ(list_elements[0].name, "list");
   ASSERT_TRUE(list_elements[0].__isset.converted_type);
@@ -2899,7 +2909,7 @@ TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
 
   NodePtr map_node =
       GroupNode::Make("map", Repetition::REQUIRED, {}, MapLogicalType::Make());
-  std::vector<format::SchemaElement> map_elements;
+  std::vector<facebook::velox::parquet::thrift::SchemaElement> map_elements;
   ToParquet(reinterpret_cast<GroupNode*>(map_node.get()), &map_elements);
   ASSERT_EQ(map_elements[0].name, "map");
   ASSERT_TRUE(map_elements[0].__isset.converted_type);

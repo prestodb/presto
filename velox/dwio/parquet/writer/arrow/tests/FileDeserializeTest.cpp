@@ -104,9 +104,12 @@ static std::vector<Compression::type> GetSupportedCodecTypes() {
 class TestPageSerde : public ::testing::Test {
  public:
   void SetUp() {
-    data_page_header_.encoding = format::Encoding::PLAIN;
-    data_page_header_.definition_level_encoding = format::Encoding::RLE;
-    data_page_header_.repetition_level_encoding = format::Encoding::RLE;
+    data_page_header_.encoding =
+        facebook::velox::parquet::thrift::Encoding::PLAIN;
+    data_page_header_.definition_level_encoding =
+        facebook::velox::parquet::thrift::Encoding::RLE;
+    data_page_header_.repetition_level_encoding =
+        facebook::velox::parquet::thrift::Encoding::RLE;
 
     ResetStream();
   }
@@ -133,7 +136,7 @@ class TestPageSerde : public ::testing::Test {
     page_header_.__set_data_page_header(data_page_header_);
     page_header_.uncompressed_page_size = uncompressed_size;
     page_header_.compressed_page_size = compressed_size;
-    page_header_.type = format::PageType::DATA_PAGE;
+    page_header_.type = facebook::velox::parquet::thrift::PageType::DATA_PAGE;
     if (checksum.has_value()) {
       page_header_.__set_crc(checksum.value());
     }
@@ -154,7 +157,8 @@ class TestPageSerde : public ::testing::Test {
     page_header_.__set_data_page_header_v2(data_page_header_v2_);
     page_header_.uncompressed_page_size = uncompressed_size;
     page_header_.compressed_page_size = compressed_size;
-    page_header_.type = format::PageType::DATA_PAGE_V2;
+    page_header_.type =
+        facebook::velox::parquet::thrift::PageType::DATA_PAGE_V2;
     if (checksum.has_value()) {
       page_header_.__set_crc(checksum.value());
     }
@@ -170,7 +174,8 @@ class TestPageSerde : public ::testing::Test {
     page_header_.__set_dictionary_page_header(dictionary_page_header_);
     page_header_.uncompressed_page_size = uncompressed_size;
     page_header_.compressed_page_size = compressed_size;
-    page_header_.type = format::PageType::DICTIONARY_PAGE;
+    page_header_.type =
+        facebook::velox::parquet::thrift::PageType::DICTIONARY_PAGE;
     if (checksum.has_value()) {
       page_header_.__set_crc(checksum.value());
     }
@@ -185,7 +190,7 @@ class TestPageSerde : public ::testing::Test {
     page_header_.__set_index_page_header(index_page_header_);
     page_header_.uncompressed_page_size = uncompressed_size;
     page_header_.compressed_page_size = compressed_size;
-    page_header_.type = format::PageType::INDEX_PAGE;
+    page_header_.type = facebook::velox::parquet::thrift::PageType::INDEX_PAGE;
 
     ThriftSerializer serializer;
     ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
@@ -213,11 +218,12 @@ class TestPageSerde : public ::testing::Test {
   std::shared_ptr<Buffer> out_buffer_;
 
   std::unique_ptr<PageReader> page_reader_;
-  format::PageHeader page_header_;
-  format::DataPageHeader data_page_header_;
-  format::DataPageHeaderV2 data_page_header_v2_;
-  format::IndexPageHeader index_page_header_;
-  format::DictionaryPageHeader dictionary_page_header_;
+  facebook::velox::parquet::thrift::PageHeader page_header_;
+  facebook::velox::parquet::thrift::DataPageHeader data_page_header_;
+  facebook::velox::parquet::thrift::DataPageHeaderV2 data_page_header_v2_;
+  facebook::velox::parquet::thrift::IndexPageHeader index_page_header_;
+  facebook::velox::parquet::thrift::DictionaryPageHeader
+      dictionary_page_header_;
 };
 
 void TestPageSerde::TestPageSerdeCrc(
@@ -336,7 +342,7 @@ void TestPageSerde::TestPageSerdeCrc(
 }
 
 void CheckDataPageHeader(
-    const format::DataPageHeader& expected,
+    const facebook::velox::parquet::thrift::DataPageHeader& expected,
     const Page* page) {
   ASSERT_EQ(PageType::DATA_PAGE, page->type());
 
@@ -354,7 +360,7 @@ void CheckDataPageHeader(
 
 // Overload for DataPageV2 tests.
 void CheckDataPageHeader(
-    const format::DataPageHeaderV2& expected,
+    const facebook::velox::parquet::thrift::DataPageHeaderV2& expected,
     const Page* page) {
   ASSERT_EQ(PageType::DATA_PAGE_V2, page->type());
 
@@ -386,8 +392,9 @@ TEST_F(TestPageSerde, DataPageV1) {
       CheckDataPageHeader(data_page_header_, current_page.get()));
 }
 
-// Templated test class to test page filtering for both format::DataPageHeader
-// and format::DataPageHeaderV2.
+// Templated test class to test page filtering for both
+// facebook::velox::parquet::thrift::DataPageHeader and
+// facebook::velox::parquet::thrift::DataPageHeaderV2.
 template <typename T>
 class PageFilterTest : public TestPageSerde {
  public:
@@ -402,7 +409,8 @@ class PageFilterTest : public TestPageSerde {
 };
 
 template <>
-void PageFilterTest<format::DataPageHeader>::WriteStream() {
+void PageFilterTest<
+    facebook::velox::parquet::thrift::DataPageHeader>::WriteStream() {
   for (int i = 0; i < kNumPages; ++i) {
     // Vary the number of rows to produce different headers.
     int32_t num_rows = i + 100;
@@ -425,7 +433,8 @@ void PageFilterTest<format::DataPageHeader>::WriteStream() {
 }
 
 template <>
-void PageFilterTest<format::DataPageHeaderV2>::WriteStream() {
+void PageFilterTest<
+    facebook::velox::parquet::thrift::DataPageHeaderV2>::WriteStream() {
   for (int i = 0; i < kNumPages; ++i) {
     // Vary the number of rows to produce different headers.
     int32_t num_rows = i + 100;
@@ -451,7 +460,8 @@ void PageFilterTest<format::DataPageHeaderV2>::WriteStream() {
 }
 
 template <>
-void PageFilterTest<format::DataPageHeader>::WritePageWithoutStats() {
+void PageFilterTest<
+    facebook::velox::parquet::thrift::DataPageHeader>::WritePageWithoutStats() {
   int32_t num_rows = 100;
   total_rows_ += num_rows;
   int data_size = 1024;
@@ -465,7 +475,8 @@ void PageFilterTest<format::DataPageHeader>::WritePageWithoutStats() {
 }
 
 template <>
-void PageFilterTest<format::DataPageHeaderV2>::WritePageWithoutStats() {
+void PageFilterTest<facebook::velox::parquet::thrift::DataPageHeaderV2>::
+    WritePageWithoutStats() {
   int32_t num_rows = 100;
   total_rows_ += num_rows;
   int data_size = 1024;
@@ -480,21 +491,24 @@ void PageFilterTest<format::DataPageHeaderV2>::WritePageWithoutStats() {
 }
 
 template <>
-void PageFilterTest<format::DataPageHeader>::CheckNumRows(
-    std::optional<int32_t> num_rows,
-    const format::DataPageHeader& header) {
+void PageFilterTest<facebook::velox::parquet::thrift::DataPageHeader>::
+    CheckNumRows(
+        std::optional<int32_t> num_rows,
+        const facebook::velox::parquet::thrift::DataPageHeader& header) {
   ASSERT_EQ(num_rows, std::nullopt);
 }
 
 template <>
-void PageFilterTest<format::DataPageHeaderV2>::CheckNumRows(
-    std::optional<int32_t> num_rows,
-    const format::DataPageHeaderV2& header) {
+void PageFilterTest<facebook::velox::parquet::thrift::DataPageHeaderV2>::
+    CheckNumRows(
+        std::optional<int32_t> num_rows,
+        const facebook::velox::parquet::thrift::DataPageHeaderV2& header) {
   ASSERT_EQ(*num_rows, header.num_rows);
 }
 
-using DataPageHeaderTypes =
-    ::testing::Types<format::DataPageHeader, format::DataPageHeaderV2>;
+using DataPageHeaderTypes = ::testing::Types<
+    facebook::velox::parquet::thrift::DataPageHeader,
+    facebook::velox::parquet::thrift::DataPageHeaderV2>;
 TYPED_TEST_SUITE(PageFilterTest, DataPageHeaderTypes);
 
 // Test that the returned encoded_statistics is nullptr when there are no

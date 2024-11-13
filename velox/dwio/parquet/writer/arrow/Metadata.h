@@ -130,7 +130,8 @@ struct IndexLocation {
   int32_t length;
 };
 
-/// \brief ColumnChunkMetaData is a proxy around format::ColumnChunkMetaData.
+/// \brief ColumnChunkMetaData is a proxy around
+/// facebook::velox::parquet::thrift::ColumnChunkMetaData.
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
   // API convenience to get a MetaData accessor
@@ -204,7 +205,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
 };
 
-/// \brief RowGroupMetaData is a proxy around format::RowGroupMetaData.
+/// \brief RowGroupMetaData is a proxy around
+/// facebook::velox::parquet::thrift::RowGroupMetaData.
 class PARQUET_EXPORT RowGroupMetaData {
  public:
   ARROW_DEPRECATED("Use the ReaderProperties-taking overload")
@@ -281,7 +283,8 @@ class PARQUET_EXPORT RowGroupMetaData {
 
 class FileMetaDataBuilder;
 
-/// \brief FileMetaData is a proxy around format::FileMetaData.
+/// \brief FileMetaData is a proxy around
+/// facebook::velox::parquet::thrift::FileMetaData.
 class PARQUET_EXPORT FileMetaData {
  public:
   ARROW_DEPRECATED("Use the ReaderProperties-taking overload")

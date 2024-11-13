@@ -89,7 +89,7 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
-    const format::ColumnMetaData& metadata,
+    const facebook::velox::parquet::thrift::ColumnMetaData& metadata,
     const ColumnDescriptor* descr) {
   // If ColumnOrder is defined, return max_value and min_value
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
@@ -119,7 +119,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(
-    const format::ColumnMetaData& meta_data,
+    const facebook::velox::parquet::thrift::ColumnMetaData& meta_data,
     const ColumnDescriptor* descr) {
   switch (static_cast<Type::type>(meta_data.type)) {
     case Type::BOOLEAN:
@@ -151,7 +151,8 @@ std::shared_ptr<Statistics> MakeColumnStats(
 class ColumnCryptoMetaData::ColumnCryptoMetaDataImpl {
  public:
   explicit ColumnCryptoMetaDataImpl(
-      const format::ColumnCryptoMetaData* crypto_metadata)
+      const facebook::velox::parquet::thrift::ColumnCryptoMetaData*
+          crypto_metadata)
       : crypto_metadata_(crypto_metadata) {}
 
   bool encrypted_with_footer_key() const {
@@ -169,7 +170,8 @@ class ColumnCryptoMetaData::ColumnCryptoMetaDataImpl {
   }
 
  private:
-  const format::ColumnCryptoMetaData* crypto_metadata_;
+  const facebook::velox::parquet::thrift::ColumnCryptoMetaData*
+      crypto_metadata_;
 };
 
 std::unique_ptr<ColumnCryptoMetaData> ColumnCryptoMetaData::Make(
@@ -180,7 +182,9 @@ std::unique_ptr<ColumnCryptoMetaData> ColumnCryptoMetaData::Make(
 
 ColumnCryptoMetaData::ColumnCryptoMetaData(const uint8_t* metadata)
     : impl_(std::make_unique<ColumnCryptoMetaDataImpl>(
-          reinterpret_cast<const format::ColumnCryptoMetaData*>(metadata))) {}
+          reinterpret_cast<
+              const facebook::velox::parquet::thrift::ColumnCryptoMetaData*>(
+              metadata))) {}
 
 ColumnCryptoMetaData::~ColumnCryptoMetaData() = default;
 
@@ -199,7 +203,7 @@ const std::string& ColumnCryptoMetaData::key_metadata() const {
 class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
  public:
   explicit ColumnChunkMetaDataImpl(
-      const format::ColumnChunk* column,
+      const facebook::velox::parquet::thrift::ColumnChunk* column,
       const ColumnDescriptor* descr,
       int16_t row_group_ordinal,
       int16_t column_ordinal,
@@ -212,7 +216,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
         writer_version_(writer_version) {
     column_metadata_ = &column->meta_data;
     if (column->__isset.crypto_metadata) { // column metadata is encrypted
-      format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
+      facebook::velox::parquet::thrift::ColumnCryptoMetaData ccmd =
+          column->crypto_metadata;
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
         if (file_decryptor != nullptr &&
@@ -387,9 +392,9 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
   std::vector<PageEncodingStats> encoding_stats_;
-  const format::ColumnChunk* column_;
-  const format::ColumnMetaData* column_metadata_;
-  format::ColumnMetaData decrypted_metadata_;
+  const facebook::velox::parquet::thrift::ColumnChunk* column_;
+  const facebook::velox::parquet::thrift::ColumnMetaData* column_metadata_;
+  facebook::velox::parquet::thrift::ColumnMetaData decrypted_metadata_;
   const ColumnDescriptor* descr_;
   const ReaderProperties properties_;
   const ApplicationVersion* writer_version_;
@@ -439,7 +444,8 @@ ColumnChunkMetaData::ColumnChunkMetaData(
     const ApplicationVersion* writer_version,
     std::shared_ptr<InternalFileDecryptor> file_decryptor)
     : impl_{new ColumnChunkMetaDataImpl(
-          reinterpret_cast<const format::ColumnChunk*>(metadata),
+          reinterpret_cast<
+              const facebook::velox::parquet::thrift::ColumnChunk*>(metadata),
           descr,
           row_group_ordinal,
           column_ordinal,
@@ -551,7 +557,7 @@ bool ColumnChunkMetaData::Equals(const ColumnChunkMetaData& other) const {
 class RowGroupMetaData::RowGroupMetaDataImpl {
  public:
   explicit RowGroupMetaDataImpl(
-      const format::RowGroup* row_group,
+      const facebook::velox::parquet::thrift::RowGroup* row_group,
       const SchemaDescriptor* schema,
       const ReaderProperties& properties,
       const ApplicationVersion* writer_version,
@@ -628,7 +634,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
   }
 
  private:
-  const format::RowGroup* row_group_;
+  const facebook::velox::parquet::thrift::RowGroup* row_group_;
   const SchemaDescriptor* schema_;
   const ReaderProperties properties_;
   const ApplicationVersion* writer_version_;
@@ -665,7 +671,8 @@ RowGroupMetaData::RowGroupMetaData(
     const ApplicationVersion* writer_version,
     std::shared_ptr<InternalFileDecryptor> file_decryptor)
     : impl_{new RowGroupMetaDataImpl(
-          reinterpret_cast<const format::RowGroup*>(metadata),
+          reinterpret_cast<const facebook::velox::parquet::thrift::RowGroup*>(
+              metadata),
           schema,
           properties,
           writer_version,
@@ -732,7 +739,8 @@ class FileMetaData::FileMetaDataImpl {
       std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : properties_(std::move(properties)),
         file_decryptor_(std::move(file_decryptor)) {
-    metadata_ = std::make_unique<format::FileMetaData>();
+    metadata_ =
+        std::make_unique<facebook::velox::parquet::thrift::FileMetaData>();
 
     auto footer_decryptor = file_decryptor_ != nullptr
         ? file_decryptor_->GetFooterDecryptor()
@@ -907,14 +915,16 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void set_file_path(const std::string& path) {
-    for (format::RowGroup& row_group : metadata_->row_groups) {
-      for (format::ColumnChunk& chunk : row_group.columns) {
+    for (facebook::velox::parquet::thrift::RowGroup& row_group :
+         metadata_->row_groups) {
+      for (facebook::velox::parquet::thrift::ColumnChunk& chunk :
+           row_group.columns) {
         chunk.__set_file_path(path);
       }
     }
   }
 
-  format::RowGroup& row_group(int i) {
+  facebook::velox::parquet::thrift::RowGroup& row_group(int i) {
     if (!(i >= 0 && i < num_row_groups())) {
       std::stringstream ss;
       ss << "The file only has " << num_row_groups()
@@ -961,7 +971,8 @@ class FileMetaData::FileMetaDataImpl {
 
     std::shared_ptr<FileMetaData> out(new FileMetaData());
     out->impl_ = std::make_unique<FileMetaDataImpl>();
-    out->impl_->metadata_ = std::make_unique<format::FileMetaData>();
+    out->impl_->metadata_ =
+        std::make_unique<facebook::velox::parquet::thrift::FileMetaData>();
 
     auto metadata = out->impl_->metadata_.get();
     metadata->version = metadata_->version;
@@ -998,7 +1009,7 @@ class FileMetaData::FileMetaDataImpl {
  private:
   friend FileMetaDataBuilder;
   uint32_t metadata_len_ = 0;
-  std::unique_ptr<format::FileMetaData> metadata_;
+  std::unique_ptr<facebook::velox::parquet::thrift::FileMetaData> metadata_;
   SchemaDescriptor schema_;
   ApplicationVersion writer_version_;
   std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
@@ -1213,7 +1224,7 @@ class FileCryptoMetaData::FileCryptoMetaDataImpl {
 
  private:
   friend FileMetaDataBuilder;
-  format::FileCryptoMetaData metadata_;
+  facebook::velox::parquet::thrift::FileCryptoMetaData metadata_;
   uint32_t metadata_len_;
 };
 
@@ -1668,7 +1679,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   explicit ColumnChunkMetaDataBuilderImpl(
       std::shared_ptr<WriterProperties> props,
       const ColumnDescriptor* column)
-      : owned_column_chunk_(new format::ColumnChunk),
+      : owned_column_chunk_(new facebook::velox::parquet::thrift::ColumnChunk),
         properties_(std::move(props)),
         column_(column) {
     Init(owned_column_chunk_.get());
@@ -1677,7 +1688,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   explicit ColumnChunkMetaDataBuilderImpl(
       std::shared_ptr<WriterProperties> props,
       const ColumnDescriptor* column,
-      format::ColumnChunk* column_chunk)
+      facebook::velox::parquet::thrift::ColumnChunk* column_chunk)
       : properties_(std::move(props)), column_(column) {
     Init(column_chunk);
   }
@@ -1725,23 +1736,29 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_total_uncompressed_size(uncompressed_size);
     column_chunk_->meta_data.__set_total_compressed_size(compressed_size);
 
-    std::vector<format::Encoding::type> thrift_encodings;
-    std::vector<format::PageEncodingStats> thrift_encoding_stats;
-    auto add_encoding = [&thrift_encodings](format::Encoding::type value) {
-      auto it =
-          std::find(thrift_encodings.begin(), thrift_encodings.end(), value);
-      if (it == thrift_encodings.end()) {
-        thrift_encodings.push_back(value);
-      }
-    };
+    std::vector<facebook::velox::parquet::thrift::Encoding::type>
+        thrift_encodings;
+    std::vector<facebook::velox::parquet::thrift::PageEncodingStats>
+        thrift_encoding_stats;
+    auto add_encoding =
+        [&thrift_encodings](
+            facebook::velox::parquet::thrift::Encoding::type value) {
+          auto it = std::find(
+              thrift_encodings.begin(), thrift_encodings.end(), value);
+          if (it == thrift_encodings.end()) {
+            thrift_encodings.push_back(value);
+          }
+        };
     // Add dictionary page encoding stats
     if (has_dictionary) {
       for (const auto& entry : dict_encoding_stats) {
-        format::PageEncodingStats dict_enc_stat;
-        dict_enc_stat.__set_page_type(format::PageType::DICTIONARY_PAGE);
+        facebook::velox::parquet::thrift::PageEncodingStats dict_enc_stat;
+        dict_enc_stat.__set_page_type(
+            facebook::velox::parquet::thrift::PageType::DICTIONARY_PAGE);
         // Dictionary Encoding would be PLAIN_DICTIONARY in v1 and
         // PLAIN in v2.
-        format::Encoding::type dict_encoding = ToThrift(entry.first);
+        facebook::velox::parquet::thrift::Encoding::type dict_encoding =
+            ToThrift(entry.first);
         dict_enc_stat.__set_encoding(dict_encoding);
         dict_enc_stat.__set_count(entry.second);
         thrift_encoding_stats.push_back(dict_enc_stat);
@@ -1753,12 +1770,14 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     // in benchmark and testing.
     // And for now, we always add RLE even if there are no levels at all,
     // while parquet-mr is more fine-grained.
-    add_encoding(format::Encoding::RLE);
+    add_encoding(facebook::velox::parquet::thrift::Encoding::RLE);
     // Add data page encoding stats
     for (const auto& entry : data_encoding_stats) {
-      format::PageEncodingStats data_enc_stat;
-      data_enc_stat.__set_page_type(format::PageType::DATA_PAGE);
-      format::Encoding::type data_encoding = ToThrift(entry.first);
+      facebook::velox::parquet::thrift::PageEncodingStats data_enc_stat;
+      data_enc_stat.__set_page_type(
+          facebook::velox::parquet::thrift::PageType::DATA_PAGE);
+      facebook::velox::parquet::thrift::Encoding::type data_encoding =
+          ToThrift(entry.first);
       data_enc_stat.__set_encoding(data_encoding);
       data_enc_stat.__set_count(entry.second);
       thrift_encoding_stats.push_back(data_enc_stat);
@@ -1772,14 +1791,14 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     // column is encrypted
     if (encrypt_md != nullptr && encrypt_md->is_encrypted()) {
       column_chunk_->__isset.crypto_metadata = true;
-      format::ColumnCryptoMetaData ccmd;
+      facebook::velox::parquet::thrift::ColumnCryptoMetaData ccmd;
       if (encrypt_md->is_encrypted_with_footer_key()) {
         // encrypted with footer key
         ccmd.__isset.ENCRYPTION_WITH_FOOTER_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_FOOTER_KEY(
-            format::EncryptionWithFooterKey());
+            facebook::velox::parquet::thrift::EncryptionWithFooterKey());
       } else { // encrypted with column key
-        format::EncryptionWithColumnKey eck;
+        facebook::velox::parquet::thrift::EncryptionWithColumnKey eck;
         eck.__set_key_metadata(encrypt_md->key_metadata());
         eck.__set_path_in_schema(column_->path()->ToDotVector());
         ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
@@ -1839,7 +1858,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   }
 
  private:
-  void Init(format::ColumnChunk* column_chunk) {
+  void Init(facebook::velox::parquet::thrift::ColumnChunk* column_chunk) {
     column_chunk_ = column_chunk;
 
     column_chunk_->meta_data.__set_type(ToThrift(column_->physical_type()));
@@ -1849,8 +1868,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         ToThrift(properties_->compression(column_->path())));
   }
 
-  format::ColumnChunk* column_chunk_;
-  std::unique_ptr<format::ColumnChunk> owned_column_chunk_;
+  facebook::velox::parquet::thrift::ColumnChunk* column_chunk_;
+  std::unique_ptr<facebook::velox::parquet::thrift::ColumnChunk>
+      owned_column_chunk_;
   const std::shared_ptr<WriterProperties> properties_;
   const ColumnDescriptor* column_;
 };
@@ -1884,7 +1904,8 @@ ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
           new ColumnChunkMetaDataBuilderImpl(
               std::move(props),
               column,
-              reinterpret_cast<format::ColumnChunk*>(contents)))} {}
+              reinterpret_cast<facebook::velox::parquet::thrift::ColumnChunk*>(
+                  contents)))} {}
 
 ColumnChunkMetaDataBuilder::~ColumnChunkMetaDataBuilder() = default;
 
@@ -1946,7 +1967,8 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
       const SchemaDescriptor* schema,
       void* contents)
       : properties_(std::move(props)), schema_(schema), next_column_(0) {
-    row_group_ = reinterpret_cast<format::RowGroup*>(contents);
+    row_group_ =
+        reinterpret_cast<facebook::velox::parquet::thrift::RowGroup*>(contents);
     InitializeColumns(schema->num_columns());
   }
 
@@ -1986,7 +2008,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
         throw ParquetException(ss.str());
       }
       if (i == 0) {
-        const format::ColumnMetaData& first_col =
+        const facebook::velox::parquet::thrift::ColumnMetaData& first_col =
             row_group_->columns[0].meta_data;
         // As per spec, file_offset for the row group points to the first
         // dictionary or data page of the column.
@@ -2004,8 +2026,8 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
 
     const auto& sorting_columns = properties_->sorting_columns();
     if (!sorting_columns.empty()) {
-      std::vector<format::SortingColumn> thrift_sorting_columns(
-          sorting_columns.size());
+      std::vector<facebook::velox::parquet::thrift::SortingColumn>
+          thrift_sorting_columns(sorting_columns.size());
       for (size_t i = 0; i < sorting_columns.size(); ++i) {
         thrift_sorting_columns[i] = ToThrift(sorting_columns[i]);
       }
@@ -2035,7 +2057,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     row_group_->columns.resize(ncols);
   }
 
-  format::RowGroup* row_group_;
+  facebook::velox::parquet::thrift::RowGroup* row_group_;
   const std::shared_ptr<WriterProperties> properties_;
   const SchemaDescriptor* schema_;
   std::vector<std::unique_ptr<ColumnChunkMetaDataBuilder>> column_builders_;
@@ -2094,13 +2116,14 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       const SchemaDescriptor* schema,
       std::shared_ptr<WriterProperties> props,
       std::shared_ptr<const KeyValueMetadata> key_value_metadata)
-      : metadata_(new format::FileMetaData()),
+      : metadata_(new facebook::velox::parquet::thrift::FileMetaData()),
         properties_(std::move(props)),
         schema_(schema),
         key_value_metadata_(std::move(key_value_metadata)) {
     if (properties_->file_encryption_properties() != nullptr &&
         properties_->file_encryption_properties()->encrypted_footer()) {
-      crypto_metadata_.reset(new format::FileCryptoMetaData());
+      crypto_metadata_.reset(
+          new facebook::velox::parquet::thrift::FileCryptoMetaData());
     }
   }
 
@@ -2165,7 +2188,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       metadata_->key_value_metadata.clear();
       metadata_->key_value_metadata.reserve(key_value_metadata_->size());
       for (int64_t i = 0; i < key_value_metadata_->size(); ++i) {
-        format::KeyValue kv_pair;
+        facebook::velox::parquet::thrift::KeyValue kv_pair;
         kv_pair.__set_key(key_value_metadata_->key(i));
         kv_pair.__set_value(key_value_metadata_->value(i));
         metadata_->key_value_metadata.push_back(kv_pair);
@@ -2190,8 +2213,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     // expose it in the API once we have user defined sort orders in the Parquet
     // format. TypeDefinedOrder implies choose SortOrder based on
     // ConvertedType/PhysicalType
-    format::TypeDefinedOrder type_defined_order;
-    format::ColumnOrder column_order;
+    facebook::velox::parquet::thrift::TypeDefinedOrder type_defined_order;
+    facebook::velox::parquet::thrift::ColumnOrder column_order;
     column_order.__set_TYPE_ORDER(type_defined_order);
     column_order.__isset.TYPE_ORDER = true;
     metadata_->column_orders.resize(schema_->num_columns(), column_order);
@@ -2252,12 +2275,13 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   }
 
  protected:
-  std::unique_ptr<format::FileMetaData> metadata_;
-  std::unique_ptr<format::FileCryptoMetaData> crypto_metadata_;
+  std::unique_ptr<facebook::velox::parquet::thrift::FileMetaData> metadata_;
+  std::unique_ptr<facebook::velox::parquet::thrift::FileCryptoMetaData>
+      crypto_metadata_;
 
  private:
   const std::shared_ptr<WriterProperties> properties_;
-  std::vector<format::RowGroup> row_groups_;
+  std::vector<facebook::velox::parquet::thrift::RowGroup> row_groups_;
 
   std::unique_ptr<RowGroupMetaDataBuilder> current_row_group_builder_;
   const SchemaDescriptor* schema_;

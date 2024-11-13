@@ -27,6 +27,7 @@
 #include <string>
 #include <string_view>
 
+#include "velox/dwio/parquet/thrift/ParquetThriftTypes.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/util/Compression.h"
 
@@ -188,7 +189,7 @@ class PARQUET_EXPORT LogicalType {
   /// \brief Return the logical type represented by the Thrift intermediary
   /// object.
   static std::shared_ptr<const LogicalType> FromThrift(
-      const format::LogicalType& thrift_logical_type);
+      const facebook::velox::parquet::thrift::LogicalType& thrift_logical_type);
 
   /// \brief Return the explicitly requested logical type.
   static std::shared_ptr<const LogicalType> String();
@@ -258,7 +259,7 @@ class PARQUET_EXPORT LogicalType {
   std::string ToJSON() const;
 
   /// \brief Return a serializable Thrift object for this logical type.
-  format::LogicalType ToThrift() const;
+  facebook::velox::parquet::thrift::LogicalType ToThrift() const;
 
   /// \brief Return true if the given logical type is equivalent to this logical
   /// type.
@@ -570,7 +571,8 @@ class ColumnOrder {
   ColumnOrder::type column_order_;
 };
 
-/// \brief BoundaryOrder is a proxy around format::BoundaryOrder.
+/// \brief BoundaryOrder is a proxy around
+/// facebook::velox::parquet::thrift::BoundaryOrder.
 struct BoundaryOrder {
   enum type {
     Unordered = 0,
@@ -581,7 +583,8 @@ struct BoundaryOrder {
   };
 };
 
-/// \brief SortingColumn is a proxy around format::SortingColumn.
+/// \brief SortingColumn is a proxy around
+/// facebook::velox::parquet::thrift::SortingColumn.
 struct PARQUET_EXPORT SortingColumn {
   // The column index (in this row group)
   int32_t column_idx;
