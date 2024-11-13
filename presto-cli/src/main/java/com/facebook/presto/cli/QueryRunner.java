@@ -100,7 +100,7 @@ public class QueryRunner
                     "Authentication using Kerberos requires HTTPS to be enabled");
             setupKerberos(
                     builder,
-                    kerberosRemoteServiceName.get(),
+                    kerberosRemoteServiceName.orElseThrow(),
                     kerberosUseCanonicalHostname,
                     kerberosPrincipal,
                     kerberosConfigPath.map(File::new),
@@ -165,7 +165,7 @@ public class QueryRunner
         if (user.isPresent() && password.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
                     "Authentication using username/password requires HTTPS to be enabled");
-            clientBuilder.addInterceptor(basicAuth(user.get(), password.get()));
+            clientBuilder.addInterceptor(basicAuth(user.orElseThrow(), password.orElseThrow()));
         }
     }
 
@@ -177,7 +177,7 @@ public class QueryRunner
         if (accessToken.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
                     "Authentication using an access token requires HTTPS to be enabled");
-            clientBuilder.addInterceptor(tokenAuth(accessToken.get()));
+            clientBuilder.addInterceptor(tokenAuth(accessToken.orElseThrow()));
         }
     }
 }
