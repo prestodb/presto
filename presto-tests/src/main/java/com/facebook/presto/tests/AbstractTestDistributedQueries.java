@@ -71,7 +71,7 @@ import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -104,35 +104,35 @@ public abstract class AbstractTestDistributedQueries
     public void testSetSession()
     {
         MaterializedResult result = computeActual("SET SESSION test_string = 'bar'");
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of("test_string", "bar"));
 
         result = computeActual(format("SET SESSION %s.connector_long = 999", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "999"));
 
         result = computeActual(format("SET SESSION %s.connector_string = 'baz'", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "baz"));
 
         result = computeActual(format("SET SESSION %s.connector_string = 'ban' || 'ana'", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "banana"));
 
         result = computeActual(format("SET SESSION %s.connector_long = 444", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "444"));
 
         result = computeActual(format("SET SESSION %s.connector_long = 111 + 111", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "222"));
 
         result = computeActual(format("SET SESSION %s.connector_boolean = 111 < 3", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_boolean", "false"));
 
         result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
     }
 
@@ -140,11 +140,11 @@ public abstract class AbstractTestDistributedQueries
     public void testResetSession()
     {
         MaterializedResult result = computeActual(getSession(), "RESET SESSION test_string");
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of("test_string"));
 
         result = computeActual(getSession(), format("RESET SESSION %s.connector_string", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertTrue((Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0));
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of(TESTING_CATALOG + ".connector_string"));
     }
 
@@ -451,7 +451,7 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnless(supportsNotNullColumns());
 
-        String catalog = getSession().getCatalog().get();
+        String catalog = getSession().getCatalog().orElseThrow();
         String createTableStatement = "CREATE TABLE " + catalog + ".tpch.test_not_null_with_insert (\n" +
                 "   \"column_a\" date,\n" +
                 "   \"column_b\" date NOT NULL\n" +
@@ -494,20 +494,20 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
         MaterializedResult materializedRows = computeActual("SELECT x FROM test_rename_new");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertEquals(materializedRows.getMaterializedRows().stream().collect(onlyElement()).getField(0), 123);
 
         assertUpdate("ALTER TABLE IF EXISTS test_rename_new RENAME TO test_rename");
         materializedRows = computeActual("SELECT x FROM test_rename");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertEquals(materializedRows.getMaterializedRows().stream().collect(onlyElement()).getField(0), 123);
 
         assertUpdate("ALTER TABLE IF EXISTS test_rename RENAME TO test_rename_new");
         materializedRows = computeActual("SELECT x FROM test_rename_new");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertEquals(materializedRows.getMaterializedRows().stream().collect(onlyElement()).getField(0), 123);
 
         // provide new table name in uppercase
         assertUpdate("ALTER TABLE test_rename_new RENAME TO TEST_RENAME");
         materializedRows = computeActual("SELECT x FROM test_rename");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertEquals(materializedRows.getMaterializedRows().stream().collect(onlyElement()).getField(0), 123);
 
         assertUpdate("DROP TABLE test_rename");
 
@@ -526,21 +526,21 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN x TO before_y");
         MaterializedResult materializedRows = computeActual("SELECT before_y FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertEquals(materializedRows.getMaterializedRows().stream().collect(onlyElement()).getField(0), 123);
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN IF EXISTS before_y TO y");
         materializedRows = computeActual("SELECT y FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertEquals(materializedRows.getMaterializedRows().stream().collect(onlyElement()).getField(0), 123);
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN IF EXISTS columnNotExists TO y");
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN y TO Z");
         materializedRows = computeActual("SELECT z FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertEquals(materializedRows.getMaterializedRows().stream().collect(onlyElement()).getField(0), 123);
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN IF EXISTS z TO a");
         materializedRows = computeActual("SELECT a FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+        assertEquals(materializedRows.getMaterializedRows().stream().collect(onlyElement()).getField(0), 123);
 
         assertUpdate("DROP TABLE test_rename_column");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_column"));
@@ -849,7 +849,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertQuery("WITH orders AS (SELECT * FROM orders LIMIT 0) SELECT * FROM test_view", query);
 
-        String name = format("%s.%s.test_view", getSession().getCatalog().get(), getSession().getSchema().get());
+        String name = format("%s.%s.test_view", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow());
         assertQuery("SELECT * FROM " + name, query);
 
         assertUpdate("DROP VIEW test_view");
@@ -917,7 +917,7 @@ public abstract class AbstractTestDistributedQueries
         // test INFORMATION_SCHEMA.TABLES
         MaterializedResult actual = computeActual(format(
                 "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '%s'",
-                getSession().getSchema().get()));
+                getSession().getSchema().orElseThrow()));
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("customer", "BASE TABLE")
@@ -948,7 +948,7 @@ public abstract class AbstractTestDistributedQueries
         String user = getSession().getUser();
         actual = computeActual(format(
                 "SELECT table_name, view_owner, view_definition FROM information_schema.views WHERE table_schema = '%s'",
-                getSession().getSchema().get()));
+                getSession().getSchema().orElseThrow()));
 
         expected = resultBuilder(getSession(), actual.getTypes())
                 .row("meta_test_view", user, formatSqlText(query))
@@ -969,14 +969,14 @@ public abstract class AbstractTestDistributedQueries
         // test SHOW CREATE VIEW
         String expectedSql = formatSqlText(format(
                 "CREATE VIEW %s.%s.%s AS %s",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "meta_test_view",
                 query)).trim();
 
         actual = computeActual("SHOW CREATE VIEW meta_test_view");
 
-        assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
+        assertEquals(actual.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedSql);
 
         assertUpdate("DROP VIEW meta_test_view");
     }
@@ -1124,8 +1124,8 @@ public abstract class AbstractTestDistributedQueries
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog().orElseThrow())
+                .setSchema(getSession().getSchema().orElseThrow())
                 .setSystemProperty("default_view_security_mode", INVOKER.name())
                 .build();
 
@@ -1166,8 +1166,8 @@ public abstract class AbstractTestDistributedQueries
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog().orElseThrow())
+                .setSchema(getSession().getSchema().orElseThrow())
                 .build();
 
         // TEST COLUMN-LEVEL PRIVILEGES
@@ -1199,8 +1199,8 @@ public abstract class AbstractTestDistributedQueries
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(new Identity("test_nested_view_access_owner", Optional.empty()))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog().orElseThrow())
+                .setSchema(getSession().getSchema().orElseThrow())
                 .build();
 
         // view creation permissions are only checked at query time, not at creation
@@ -1297,8 +1297,8 @@ public abstract class AbstractTestDistributedQueries
         for (String query : queries) {
             MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
             MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
-            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
-            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            String explainNoOpt = sanitizePlan((String) resultExplainQueryNoOpt.getOnlyColumnAsSet().stream().collect(onlyElement()));
+            String explainWithOpt = sanitizePlan((String) resultExplainQuery.getOnlyColumnAsSet().stream().collect(onlyElement()));
             assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
 
             MaterializedResult materializedRows = computeActual(session, query);
@@ -1327,8 +1327,8 @@ public abstract class AbstractTestDistributedQueries
         for (String query : nonOptimizableQueries) {
             MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
             MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
-            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
-            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            String explainNoOpt = sanitizePlan((String) resultExplainQueryNoOpt.getOnlyColumnAsSet().stream().collect(onlyElement()));
+            String explainWithOpt = sanitizePlan((String) resultExplainQuery.getOnlyColumnAsSet().stream().collect(onlyElement()));
             assertEquals(explainWithOpt, explainNoOpt, "Query was optimized: " + query);
         }
 
@@ -1356,8 +1356,8 @@ public abstract class AbstractTestDistributedQueries
         for (String query : queries) {
             MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
             MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
-            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
-            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            String explainNoOpt = sanitizePlan((String) resultExplainQueryNoOpt.getOnlyColumnAsSet().stream().collect(onlyElement()));
+            String explainWithOpt = sanitizePlan((String) resultExplainQuery.getOnlyColumnAsSet().stream().collect(onlyElement()));
             assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
             assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
         }
@@ -1441,7 +1441,7 @@ public abstract class AbstractTestDistributedQueries
 
         String query = "with tbl as (select * from lineitem), tbl2 as (select * from tbl) select * from tbl, tbl2";
         MaterializedResult materializedResult = computeActual(session, "explain " + query);
-        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        String explain = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
 
         checkCTEInfo(explain, "tbl", 2, false, false);
         checkCTEInfo(explain, "tbl2", 1, false, false);
@@ -1465,7 +1465,7 @@ public abstract class AbstractTestDistributedQueries
         // view "catalog.schema.v" is referenced once, and the cte "v" twice in the above query
         checkCTEInfo(explainString, "v", 2, false, false);
 
-        String viewName = format("%s.%s.v", getSession().getCatalog().get(), getSession().getSchema().get());
+        String viewName = format("%s.%s.v", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow());
         checkCTEInfo(explainString, viewName, 1, true, false);
     }
 
@@ -1475,8 +1475,8 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsViews());
 
         Session session = getSession();
-        String catalog = session.getCatalog().get();
-        String schema = session.getSchema().get();
+        String catalog = session.getCatalog().orElseThrow();
+        String schema = session.getSchema().orElseThrow();
 
         Session sessionNoCatalog = Session.builder(getSession())
                 .setCatalog(null)

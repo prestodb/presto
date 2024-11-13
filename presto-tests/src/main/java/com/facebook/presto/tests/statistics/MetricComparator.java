@@ -29,7 +29,7 @@ import java.util.OptionalDouble;
 
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -85,7 +85,7 @@ final class MetricComparator
                 + metrics.stream().map(Metric::getComputingAggregationSql).collect(joining(","))
                 + " FROM (" + query + ")";
         try {
-            MaterializedRow actualValuesRow = getOnlyElement(runner.execute(statsQuery).getMaterializedRows());
+            MaterializedRow actualValuesRow = runner.execute(statsQuery).getMaterializedRows().stream().collect(onlyElement());
 
             ImmutableList.Builder<OptionalDouble> actualValues = ImmutableList.builder();
             for (int i = 0; i < metrics.size(); ++i) {

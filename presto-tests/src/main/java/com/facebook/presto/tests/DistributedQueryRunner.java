@@ -91,7 +91,7 @@ import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTI
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
@@ -206,7 +206,7 @@ public class DistributedQueryRunner
             if (externalWorkerLauncher.isPresent()) {
                 ImmutableList.Builder<Process> externalWorkersBuilder = ImmutableList.builder();
                 for (int i = 0; i < nodeCount; i++) {
-                    externalWorkersBuilder.add(externalWorkerLauncher.get().apply(i, discoveryUrl));
+                    externalWorkersBuilder.add(externalWorkerLauncher.orElseThrow().apply(i, discoveryUrl));
                 }
                 externalWorkers = externalWorkersBuilder.build();
                 closer.register(() -> {
@@ -292,7 +292,7 @@ public class DistributedQueryRunner
                         environment,
                         dataDirectory,
                         extraModules)));
-                servers.add(catalogServer.get());
+                servers.add(catalogServer.orElseThrow());
             }
 
             if (coordinatorSidecarEnabled) {
@@ -311,7 +311,7 @@ public class DistributedQueryRunner
                         environment,
                         dataDirectory,
                         extraModules)));
-                servers.add(coordinatorSidecar.get());
+                servers.add(coordinatorSidecar.orElseThrow());
             }
 
             for (int i = 0; i < coordinatorCount; i++) {
@@ -396,7 +396,7 @@ public class DistributedQueryRunner
         if (getResourceManager().isPresent()) {
             while (availableCoordinators != coordinators.size()) {
                 MILLISECONDS.sleep(10);
-                availableCoordinators = getResourceManager().get().getNodeManager().getCoordinators().size();
+                availableCoordinators = getResourceManager().orElseThrow().getNodeManager().getCoordinators().size();
             }
         }
     }
@@ -608,7 +608,7 @@ public class DistributedQueryRunner
 
     public Optional<TestingPrestoServer> getResourceManager()
     {
-        return resourceManagers.isPresent() && !resourceManagers.get().isEmpty() ? Optional.of(resourceManagers.get().get(0)) : Optional.empty();
+        return resourceManagers.isPresent() && !resourceManagers.orElseThrow().isEmpty() ? Optional.of(resourceManagers.orElseThrow().get(0)) : Optional.empty();
     }
 
     public Optional<TestingPrestoServer> getCatalogServer()
@@ -623,13 +623,13 @@ public class DistributedQueryRunner
 
     public TestingPrestoServer getResourceManager(int resourceManager)
     {
-        checkState(resourceManager < resourceManagers.get().size(), format("Expected resource manager index %d < %d", resourceManager, resourceManagerCount));
-        return resourceManagers.get().get(resourceManager);
+        checkState(resourceManager < resourceManagers.orElseThrow().size(), format("Expected resource manager index %d < %d", resourceManager, resourceManagerCount));
+        return resourceManagers.orElseThrow().get(resourceManager);
     }
 
     public List<TestingPrestoServer> getResourceManagers()
     {
-        return resourceManagers.get();
+        return resourceManagers.orElseThrow();
     }
 
     public List<TestingPrestoServer> getCoordinatorWorkers()
@@ -667,7 +667,7 @@ public class DistributedQueryRunner
         for (TestingPrestoServer server : servers) {
             connectorIds.add(server.createCatalog(catalogName, connectorName, properties));
         }
-        ConnectorId connectorId = getOnlyElement(connectorIds);
+        ConnectorId connectorId = connectorIds.stream().collect(onlyElement());
         log.info("Created catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
 
         // wait for all nodes to announce the new catalog

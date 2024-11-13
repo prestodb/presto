@@ -108,14 +108,14 @@ public class TestDistinctType
         DistinctType intAlt = getDistinctType("test.dt.int_alt");
         DistinctType varcharAlt = getDistinctType("test.dt.varchar_alt");
 
-        assertEquals(getLowestCommonSuperType(int00, int00).get(), int00);
-        assertEquals(getLowestCommonSuperType(int20, int21).get(), int10);
-        assertEquals(getLowestCommonSuperType(int21, int20).get(), int10);
-        assertEquals(getLowestCommonSuperType(int11, int20).get(), int00);
-        assertEquals(getLowestCommonSuperType(int00, int20).get(), int00);
-        assertEquals(getLowestCommonSuperType(int20, int30).get(), int20);
-        assertEquals(getLowestCommonSuperType(int30, int20).get(), int20);
-        assertEquals(getLowestCommonSuperType(int21, int30).get(), int10);
+        assertEquals(getLowestCommonSuperType(int00, int00).orElseThrow(), int00);
+        assertEquals(getLowestCommonSuperType(int20, int21).orElseThrow(), int10);
+        assertEquals(getLowestCommonSuperType(int21, int20).orElseThrow(), int10);
+        assertEquals(getLowestCommonSuperType(int11, int20).orElseThrow(), int00);
+        assertEquals(getLowestCommonSuperType(int00, int20).orElseThrow(), int00);
+        assertEquals(getLowestCommonSuperType(int20, int30).orElseThrow(), int20);
+        assertEquals(getLowestCommonSuperType(int30, int20).orElseThrow(), int20);
+        assertEquals(getLowestCommonSuperType(int21, int30).orElseThrow(), int10);
 
         assertEquals(getLowestCommonSuperType(int00, intAlt), Optional.empty());
         assertEquals(getLowestCommonSuperType(int00, varcharAlt), Optional.empty());
@@ -167,13 +167,13 @@ public class TestDistinctType
         assertEquals(getDistinctType(parseTypeSignature(int00Signature)), int00);
         assertEquals(getDistinctType(parseTypeSignature(int20Signature)), int20);
 
-        assertEquals(getLowestCommonSuperType(int20, int21).get(), int10);
+        assertEquals(getLowestCommonSuperType(int20, int21).orElseThrow(), int10);
         assertEquals(int20.getTypeSignature().toString(), "test.dt.int20:DistinctType(test.dt.int20{integer, true, test.dt.int00, [test.dt.int10]})");
 
-        assertEquals(getLowestCommonSuperType(int30, int21).get(), int10);
+        assertEquals(getLowestCommonSuperType(int30, int21).orElseThrow(), int10);
         assertEquals(int30.getTypeSignature().toString(), "test.dt.int30:DistinctType(test.dt.int30{integer, true, test.dt.int10, [test.dt.int20]})");
 
-        assertEquals(getLowestCommonSuperType(int30, int11).get(), int00);
+        assertEquals(getLowestCommonSuperType(int30, int11).orElseThrow(), int00);
         assertEquals(int30.getTypeSignature().toString(), "test.dt.int30:DistinctType(test.dt.int30{integer, true, test.dt.int00, [test.dt.int20, test.dt.int10]})");
 
         assertEquals(getLowestCommonSuperType(int30, intAlt), Optional.empty());
