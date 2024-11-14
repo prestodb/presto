@@ -46,13 +46,13 @@ public class AWSSecurityMappings
             throw new AccessDeniedException("No matching AWS Lake Formation Security Mapping");
         }
 
-        verify(!awsSecurityMapping.get().getCredentials().isPresent(),
+        verify(!awsSecurityMapping.orElseThrow().getCredentials().isPresent(),
                 "Basic AWS Credentials are not supported for AWS Lake Formation Security Mapping");
 
-        verify(awsSecurityMapping.get().getIamRole().isPresent(),
+        verify(awsSecurityMapping.orElseThrow().getIamRole().isPresent(),
                 "iamRole is mandatory for AWS Lake Formation Security Mapping");
 
-        return awsSecurityMapping.get();
+        return awsSecurityMapping.orElseThrow();
     }
 
     public AWSSecurityMapping getAWSS3SecurityMapping(String user)

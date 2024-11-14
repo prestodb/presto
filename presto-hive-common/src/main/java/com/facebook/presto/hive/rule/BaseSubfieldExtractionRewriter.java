@@ -207,7 +207,7 @@ public abstract class BaseSubfieldExtractionRewriter
         checkArgument(!FALSE_CONSTANT.equals(filter), "Cannot pushdown filter that is always false");
 
         if (TRUE_CONSTANT.equals(filter) && currentLayoutHandle.isPresent()) {
-            return new ConnectorPushdownFilterResult(metadata.getTableLayout(session, currentLayoutHandle.get()), TRUE_CONSTANT);
+            return new ConnectorPushdownFilterResult(metadata.getTableLayout(session, currentLayoutHandle.orElseThrow()), TRUE_CONSTANT);
         }
 
         // Split the filter into 3 groups of conjuncts:
@@ -221,7 +221,7 @@ public abstract class BaseSubfieldExtractionRewriter
                         session).toColumnExtractor());
 
         if (currentLayoutHandle.isPresent()) {
-            BaseHiveTableLayoutHandle currentHiveLayout = (BaseHiveTableLayoutHandle) currentLayoutHandle.get();
+            BaseHiveTableLayoutHandle currentHiveLayout = (BaseHiveTableLayoutHandle) currentLayoutHandle.orElseThrow();
             decomposedFilter = intersectExtractionResult(
                     new ExtractionResult(currentHiveLayout.getDomainPredicate(), currentHiveLayout.getRemainingPredicate()),
                     decomposedFilter);
@@ -246,7 +246,7 @@ public abstract class BaseSubfieldExtractionRewriter
                 .transform(columnHandles::get);
 
         if (currentLayoutHandle.isPresent()) {
-            entireColumnDomain = entireColumnDomain.intersect(((BaseHiveTableLayoutHandle) currentLayoutHandle.get()).getPartitionColumnPredicate());
+            entireColumnDomain = entireColumnDomain.intersect(((BaseHiveTableLayoutHandle) currentLayoutHandle.orElseThrow()).getPartitionColumnPredicate());
         }
 
         Constraint<ColumnHandle> constraint = new Constraint<>(entireColumnDomain);
