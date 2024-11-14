@@ -365,32 +365,32 @@ SessionProperties::SessionProperties() {
       std::to_string(c.maxLocalExchangePartitionCount()));
 
   addSessionProperty(
-      kSpillEnablePrefixSort,
-      "Enable the prefix sort or fallback to timsort in spill. The prefix sort is "
-      "faster than timsort but requires the memory to build prefix data, which "
-      "may cause out of memory.",
+      kSpillPrefixSortEnabled,
+      "Enable the prefix sort or fallback to std::sort in spill. The prefix sort is "
+      "faster than std::sort but requires the memory to build normalized prefix "
+      "keys, which might have potential risk of running out of server memory.",
       BOOLEAN(),
       false,
-      QueryConfig::kSpillEnablePrefixSort,
-      std::to_string(c.spillEnablePrefixSort()));
+      QueryConfig::kSpillPrefixSortEnabled,
+      std::to_string(c.spillPrefixSortEnabled()));
 
   addSessionProperty(
-    kPrefixSortNormalizedKeyMaxBytes,
-    "Maximum number of bytes to use for the normalized key in prefix-sort. "
-    "Use 0 to disable prefix-sort.",
-    INTEGER(),
-    false,
-    QueryConfig::kPrefixSortNormalizedKeyMaxBytes,
-    std::to_string(c.prefixSortNormalizedKeyMaxBytes()));
+      kPrefixSortNormalizedKeyMaxBytes,
+      "Maximum number of bytes to use for the normalized key in prefix-sort. "
+      "Use 0 to disable prefix-sort.",
+      INTEGER(),
+      false,
+      QueryConfig::kPrefixSortNormalizedKeyMaxBytes,
+      std::to_string(c.prefixSortNormalizedKeyMaxBytes()));
 
   addSessionProperty(
-  kPrefixSortMinRows,
-  "Minimum number of rows to use prefix-sort. The default value (130) has been "
-  "derived using micro-benchmarking.",
-  INTEGER(),
-  false,
-  QueryConfig::kPrefixSortMinRows,
-  std::to_string(c.prefixSortMinRows()));
+      kPrefixSortMinRows,
+      "Minimum number of rows to use prefix-sort. The default value (130) has been "
+      "derived using micro-benchmarking.",
+      INTEGER(),
+      false,
+      QueryConfig::kPrefixSortMinRows,
+      std::to_string(c.prefixSortMinRows()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
