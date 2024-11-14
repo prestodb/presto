@@ -146,8 +146,6 @@ class PrestoServer {
 
   virtual void unregisterFileReadersAndWriters();
 
-  virtual void registerConnectorFactories();
-
   /// Invoked by presto shutdown procedure to unregister connectors.
   virtual void unregisterConnectors();
 
