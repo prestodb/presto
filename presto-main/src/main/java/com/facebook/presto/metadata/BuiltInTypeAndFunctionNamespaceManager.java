@@ -299,6 +299,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -554,6 +555,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private volatile FunctionMap functions = new FunctionMap();
 
+    @Inject
     public BuiltInTypeAndFunctionNamespaceManager(
             BlockEncodingSerde blockEncodingSerde,
             FunctionsConfig functionsConfig,
