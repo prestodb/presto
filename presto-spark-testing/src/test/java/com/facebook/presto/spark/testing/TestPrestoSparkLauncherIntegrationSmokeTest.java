@@ -57,7 +57,7 @@ import static com.facebook.presto.spark.testing.Processes.destroyProcess;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.Files.asByteSource;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -71,6 +71,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.StreamSupport.stream;
 import static org.apache.hadoop.net.NetUtils.addStaticResolution;
 import static org.testng.Assert.assertEquals;
 
@@ -133,7 +134,8 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 .build();
         localQueryRunner = new LocalQueryRunner(session);
         HiveHadoop2Plugin plugin = new HiveHadoop2Plugin();
-        ConnectorFactory hiveConnectorFactory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory hiveConnectorFactory = stream(plugin.getConnectorFactories().spliterator(), false)
+                .collect(onlyElement());
         addStaticResolution("hadoop-master", "127.0.0.1");
         String hadoopMasterAddress = dockerCompose.getContainerAddress("hadoop-master");
         // datanode is accessed via the internal docker IP address that is not accessible from the host
@@ -360,7 +362,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         if (result.size() > 1) {
             throw new FileNotFoundException(format("directory %s contains multiple files that match the given pattern: %s", directory, pattern));
         }
-        return getOnlyElement(result);
+        return result.stream().collect(onlyElement());
     }
 
     private static void logPackageInfo(File file)
@@ -529,7 +531,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         // LocalQueryRunner doesn't support DROP TABLE
         localQueryRunner.inTransaction(localQueryRunner.getDefaultSession(), transactionSession -> {
             Metadata metadata = localQueryRunner.getMetadata();
-            TableHandle tableHandle = metadata.getMetadataResolver(transactionSession).getTableHandle(new QualifiedObjectName("hive", "default", table)).get();
+            TableHandle tableHandle = metadata.getMetadataResolver(transactionSession).getTableHandle(new QualifiedObjectName("hive", "default", table)).orElseThrow();
             metadata.dropTable(transactionSession, tableHandle);
             return null;
         });
