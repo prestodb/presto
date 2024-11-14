@@ -12,12 +12,11 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "PrestoToVeloxConnector.h"
 #include "presto_cpp/presto_protocol/connector/hive/HiveConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/tpch/TpchConnectorProtocol.h"
 
-#include <velox/type/fbhive/HiveTypeParser.h>
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveDataSink.h"
@@ -27,6 +26,7 @@
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
 #include "velox/type/Filter.h"
+#include "velox/velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
 

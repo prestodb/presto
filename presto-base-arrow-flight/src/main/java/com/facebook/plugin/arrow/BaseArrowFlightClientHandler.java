@@ -53,11 +53,11 @@ public abstract class BaseArrowFlightClientHandler
     protected FlightClient createFlightClient()
     {
         Location location;
-        if (config.getArrowFlightServerSslEnabled() != null && !config.getArrowFlightServerSslEnabled()) {
-            location = Location.forGrpcInsecure(config.getFlightServerName(), config.getArrowFlightPort());
+        if (config.getArrowFlightServerSslEnabled()) {
+            location = Location.forGrpcTls(config.getFlightServerName(), config.getArrowFlightPort());
         }
         else {
-            location = Location.forGrpcTls(config.getFlightServerName(), config.getArrowFlightPort());
+            location = Location.forGrpcInsecure(config.getFlightServerName(), config.getArrowFlightPort());
         }
         return createFlightClient(location);
     }
@@ -67,10 +67,8 @@ public abstract class BaseArrowFlightClientHandler
         try {
             Optional<InputStream> trustedCertificate = Optional.empty();
             FlightClient.Builder flightClientBuilder = FlightClient.builder(allocator, location);
-            if (config.getVerifyServer() != null && !config.getVerifyServer()) {
-                flightClientBuilder.verifyServer(false);
-            }
-            else if (config.getFlightServerSSLCertificate() != null) {
+            flightClientBuilder.verifyServer(config.getVerifyServer());
+            if (config.getFlightServerSSLCertificate() != null) {
                 trustedCertificate = Optional.of(newInputStream(Paths.get(config.getFlightServerSSLCertificate())));
                 flightClientBuilder.trustedCertificates(trustedCertificate.get()).useTls();
             }
