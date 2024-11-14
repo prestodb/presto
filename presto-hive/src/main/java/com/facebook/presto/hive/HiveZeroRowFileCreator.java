@@ -34,6 +34,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Paths;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -107,10 +108,12 @@ public class HiveZeroRowFileCreator
     {
         String tmpDirectoryPath = System.getProperty("java.io.tmpdir");
         String tmpFileName = format("presto-hive-zero-row-file-creator-%s-%s", session.getQueryId(), randomUUID().toString());
-        java.nio.file.Path tmpFilePath = Paths.get(tmpDirectoryPath, tmpFileName);
+        String normalizedDirPath = Normalizer.normalize(tmpDirectoryPath, Normalizer.Form.NFKC);
+        String normalizedFileName = Normalizer.normalize(tmpFileName, Normalizer.Form.NFKC);
+        java.nio.file.Path tmpFilePath = Paths.get(normalizedDirPath, normalizedFileName);
 
         try {
-            Path target = new Path(format("file://%s/%s", tmpDirectoryPath, tmpFileName));
+            Path target = new Path(format("file://%s/%s", normalizedDirPath, normalizedFileName));
 
             //https://github.com/prestodb/presto/issues/14401 JSON Format reader does not fetch compression from source system
             JobConf conf = configureCompression(

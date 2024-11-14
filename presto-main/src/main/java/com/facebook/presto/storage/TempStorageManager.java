@@ -32,7 +32,9 @@ import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.Normalizer;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -96,12 +98,14 @@ public class TempStorageManager
         ImmutableMap.Builder<String, Map<String, String>> storageProperties = ImmutableMap.builder();
         // Always load local temp storage
         addTempStorageFactory(new LocalTempStorage.Factory());
+        Path tempStoragePath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage").toAbsolutePath();
+        String normalizedTempStoragePath = Normalizer.normalize(tempStoragePath.toString(), Normalizer.Form.NFKC);
         storageProperties.put(
                 LocalTempStorage.NAME,
                 // TODO: Local temp storage should be configurable
                 ImmutableMap.of(
                         TEMP_STORAGE_PATH,
-                        Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage").toAbsolutePath().toString(),
+                        normalizedTempStoragePath,
                         TEMP_STORAGE_FACTORY_NAME,
                         "local"));
 
