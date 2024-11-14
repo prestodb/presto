@@ -234,8 +234,8 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
-    private boolean disableTimeStampWithTimeZoneForNative = true;
-    private boolean disableIPAddressForNative = true;
+    private boolean disableTimeStampWithTimeZoneForNative;
+    private boolean disableIPAddressForNative;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
