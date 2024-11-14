@@ -22,17 +22,29 @@ namespace facebook::velox::functions::sparksql::fuzzer {
 
 class AddSubtractArgGenerator : public velox::fuzzer::DecimalArgGeneratorBase {
  public:
-  AddSubtractArgGenerator() {
+  AddSubtractArgGenerator(bool allowPrecisionLoss)
+      : allowPrecisionLoss_{allowPrecisionLoss} {
     initialize(2);
   }
 
  protected:
   std::optional<std::pair<int, int>>
   toReturnType(int p1, int s1, int p2, int s2) override {
-    const auto precision = std::max(p1 - s1, p2 - s2) + std::max(s1, s2) + 1;
-    const auto scale = std::max(s1, s2);
-    return DecimalUtil::adjustPrecisionScale(precision, scale);
+    auto precision = std::max(p1 - s1, p2 - s2) + std::max(s1, s2) + 1;
+    auto scale = std::max(s1, s2);
+    if (allowPrecisionLoss_) {
+      return DecimalUtil::adjustPrecisionScale(precision, scale);
+    }
+
+    if (precision > 38) {
+      precision = 38;
+      scale = std::min(38, scale);
+    }
+    return {{precision, scale}};
   }
+
+ private:
+  const bool allowPrecisionLoss_;
 };
 
 } // namespace facebook::velox::functions::sparksql::fuzzer

@@ -22,17 +22,33 @@ namespace facebook::velox::functions::sparksql::fuzzer {
 
 class DivideArgGenerator : public velox::fuzzer::DecimalArgGeneratorBase {
  public:
-  DivideArgGenerator() {
+  DivideArgGenerator(bool allowPrecisionLoss)
+      : allowPrecisionLoss_{allowPrecisionLoss} {
     initialize(2);
   }
 
  protected:
   std::optional<std::pair<int, int>>
   toReturnType(int p1, int s1, int p2, int s2) override {
-    const auto scale = std::max(6, s1 + p2 + 1);
-    const auto precision = p1 - s1 + s2 + scale;
-    return DecimalUtil::adjustPrecisionScale(precision, scale);
+    if (allowPrecisionLoss_) {
+      const auto scale = std::max(6, s1 + p2 + 1);
+      const auto precision = p1 - s1 + s2 + scale;
+      return DecimalUtil::adjustPrecisionScale(precision, scale);
+    }
+
+    const auto wholeDigits = std::min(38, p1 - s1 + s2);
+    const auto fractionalDigits = std::min(38, std::max(6, s1 + p2 + 1));
+    auto precision = wholeDigits + fractionalDigits;
+    auto scale = fractionalDigits;
+    if (precision > 38) {
+      precision = 38;
+      scale = fractionalDigits - (wholeDigits + fractionalDigits - 38) / 2 - 1;
+    }
+    return {{precision, scale}};
   }
+
+ private:
+  const bool allowPrecisionLoss_;
 };
 
 } // namespace facebook::velox::functions::sparksql::fuzzer

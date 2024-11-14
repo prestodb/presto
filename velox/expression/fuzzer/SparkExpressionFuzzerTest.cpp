@@ -80,10 +80,18 @@ int main(int argc, char** argv) {
        "America/Los_Angeles"}};
 
   std::unordered_map<std::string, std::shared_ptr<ArgGenerator>> argGenerators =
-      {{"add", std::make_shared<AddSubtractArgGenerator>()},
-       {"subtract", std::make_shared<AddSubtractArgGenerator>()},
-       {"multiply", std::make_shared<MultiplyArgGenerator>()},
-       {"divide", std::make_shared<DivideArgGenerator>()},
+      {{"add", std::make_shared<AddSubtractArgGenerator>(true)},
+       {"add_deny_precision_loss",
+        std::make_shared<AddSubtractArgGenerator>(false)},
+       {"subtract", std::make_shared<AddSubtractArgGenerator>(true)},
+       {"subtract_deny_precision_loss",
+        std::make_shared<AddSubtractArgGenerator>(false)},
+       {"multiply", std::make_shared<MultiplyArgGenerator>(true)},
+       {"multiply_deny_precision_loss",
+        std::make_shared<MultiplyArgGenerator>(false)},
+       {"divide", std::make_shared<DivideArgGenerator>(true)},
+       {"divide_deny_precision_loss",
+        std::make_shared<DivideArgGenerator>(false)},
        {"unscaled_value", std::make_shared<UnscaledValueArgGenerator>()},
        {"make_timestamp", std::make_shared<MakeTimestampArgGenerator>()}};
 

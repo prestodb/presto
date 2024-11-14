@@ -54,7 +54,8 @@ class ArgGeneratorTest : public SparkFunctionBaseTest {
 
 TEST_F(ArgGeneratorTest, add) {
   const auto& signature = getOnlySignature("add");
-  const auto generator = std::make_shared<fuzzer::AddSubtractArgGenerator>();
+  const auto generator =
+      std::make_shared<fuzzer::AddSubtractArgGenerator>(true);
 
   assertReturnType(generator, signature, DECIMAL(10, 2));
   assertReturnType(generator, signature, DECIMAL(32, 6));
@@ -62,11 +63,25 @@ TEST_F(ArgGeneratorTest, add) {
   assertReturnType(generator, signature, DECIMAL(38, 0));
   assertEmptyArgs(generator, signature, DECIMAL(18, 18));
   assertEmptyArgs(generator, signature, DECIMAL(38, 38));
+}
+
+TEST_F(ArgGeneratorTest, addDenyPrecisionLoss) {
+  const auto& signature = getOnlySignature("add_deny_precision_loss");
+  const auto generator =
+      std::make_shared<fuzzer::AddSubtractArgGenerator>(false);
+
+  assertReturnType(generator, signature, DECIMAL(10, 2));
+  assertReturnType(generator, signature, DECIMAL(32, 6));
+  assertReturnType(generator, signature, DECIMAL(38, 20));
+  assertReturnType(generator, signature, DECIMAL(38, 0));
+  assertEmptyArgs(generator, signature, DECIMAL(18, 18));
+  assertReturnType(generator, signature, DECIMAL(38, 38));
 }
 
 TEST_F(ArgGeneratorTest, subtract) {
   const auto& signature = getOnlySignature("subtract");
-  const auto generator = std::make_shared<fuzzer::AddSubtractArgGenerator>();
+  const auto generator =
+      std::make_shared<fuzzer::AddSubtractArgGenerator>(true);
 
   assertReturnType(generator, signature, DECIMAL(10, 2));
   assertReturnType(generator, signature, DECIMAL(32, 6));
@@ -74,11 +89,24 @@ TEST_F(ArgGeneratorTest, subtract) {
   assertReturnType(generator, signature, DECIMAL(38, 0));
   assertEmptyArgs(generator, signature, DECIMAL(18, 18));
   assertEmptyArgs(generator, signature, DECIMAL(38, 38));
+}
+
+TEST_F(ArgGeneratorTest, subtractDenyPrecisionLoss) {
+  const auto& signature = getOnlySignature("subtract_deny_precision_loss");
+  const auto generator =
+      std::make_shared<fuzzer::AddSubtractArgGenerator>(false);
+
+  assertReturnType(generator, signature, DECIMAL(10, 2));
+  assertReturnType(generator, signature, DECIMAL(32, 6));
+  assertReturnType(generator, signature, DECIMAL(38, 20));
+  assertReturnType(generator, signature, DECIMAL(38, 0));
+  assertEmptyArgs(generator, signature, DECIMAL(18, 18));
+  assertReturnType(generator, signature, DECIMAL(38, 38));
 }
 
 TEST_F(ArgGeneratorTest, multiply) {
   const auto& signature = getOnlySignature("multiply");
-  const auto generator = std::make_shared<fuzzer::MultiplyArgGenerator>();
+  const auto generator = std::make_shared<fuzzer::MultiplyArgGenerator>(true);
 
   assertReturnType(generator, signature, DECIMAL(10, 2));
   assertReturnType(generator, signature, DECIMAL(32, 6));
@@ -88,9 +116,33 @@ TEST_F(ArgGeneratorTest, multiply) {
   assertEmptyArgs(generator, signature, DECIMAL(38, 38));
 }
 
+TEST_F(ArgGeneratorTest, multiplyDenyPrecisionLoss) {
+  const auto& signature = getOnlySignature("multiply_deny_precision_loss");
+  const auto generator = std::make_shared<fuzzer::MultiplyArgGenerator>(false);
+
+  assertReturnType(generator, signature, DECIMAL(10, 2));
+  assertReturnType(generator, signature, DECIMAL(32, 6));
+  assertReturnType(generator, signature, DECIMAL(38, 20));
+  assertReturnType(generator, signature, DECIMAL(38, 0));
+  assertEmptyArgs(generator, signature, DECIMAL(18, 18));
+  assertReturnType(generator, signature, DECIMAL(38, 38));
+}
+
 TEST_F(ArgGeneratorTest, divide) {
   const auto& signature = getOnlySignature("divide");
-  const auto generator = std::make_shared<fuzzer::DivideArgGenerator>();
+  const auto generator = std::make_shared<fuzzer::DivideArgGenerator>(true);
+
+  assertReturnType(generator, signature, DECIMAL(32, 6));
+  assertReturnType(generator, signature, DECIMAL(38, 20));
+  assertReturnType(generator, signature, DECIMAL(18, 18));
+  assertReturnType(generator, signature, DECIMAL(38, 38));
+  assertEmptyArgs(generator, signature, DECIMAL(38, 0));
+  assertEmptyArgs(generator, signature, DECIMAL(10, 2));
+}
+
+TEST_F(ArgGeneratorTest, divideDenyPrecisionLoss) {
+  const auto& signature = getOnlySignature("divide_deny_precision_loss");
+  const auto generator = std::make_shared<fuzzer::DivideArgGenerator>(false);
 
   assertReturnType(generator, signature, DECIMAL(32, 6));
   assertReturnType(generator, signature, DECIMAL(38, 20));
