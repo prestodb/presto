@@ -148,7 +148,7 @@ public class LdapAuthenticator
         }
 
         String userBase = userBaseDistinguishedName.orElseThrow(VerifyException::new);
-        String searchFilter = replaceUser(groupAuthorizationSearchPattern.get(), user);
+        String searchFilter = replaceUser(groupAuthorizationSearchPattern.orElseThrow(), user);
         SearchControls searchControls = new SearchControls();
         searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
 
