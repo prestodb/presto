@@ -381,10 +381,10 @@ class OutputBuffer {
 
   const std::shared_ptr<Task> task_;
   const core::PartitionedOutputNode::Kind kind_;
-  /// If 'totalSize_' > 'maxSize_', each producer is blocked after adding
+  /// If 'bufferedBytes_' > 'maxSize_', each producer is blocked after adding
   /// data.
   const uint64_t maxSize_;
-  // When 'totalSize_' goes below 'continueSize_', blocked producers are
+  // When 'bufferedBytes_' goes below 'continueSize_', blocked producers are
   // resumed.
   const uint64_t continueSize_;
   const std::unique_ptr<ArbitraryBuffer> arbitraryBuffer_;
