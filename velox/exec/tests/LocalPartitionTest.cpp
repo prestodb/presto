@@ -613,8 +613,12 @@ TEST_F(LocalPartitionTest, unionAllLocalExchange) {
   auto data1 = makeRowVector({"d0"}, {makeFlatVector<StringView>({"x"})});
   auto data2 = makeRowVector({"e0"}, {makeFlatVector<StringView>({"y"})});
 
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  auto plan = PlanBuilder(planNodeIdGenerator)
+  for (bool serialExecutionMode : {false, true}) {
+    SCOPED_TRACE(fmt::format("serialExecutionMode {}", serialExecutionMode));
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    AssertQueryBuilder(duckDbQueryRunner_)
+        .serialExecution(serialExecutionMode)
+        .plan(PlanBuilder(planNodeIdGenerator)
                   .localPartitionRoundRobin(
                       {PlanBuilder(planNodeIdGenerator)
                            .values({data1})
@@ -625,12 +629,11 @@ TEST_F(LocalPartitionTest, unionAllLocalExchange) {
                            .project({"e0 as c0"})
                            .planNode()})
                   .project({"length(c0)"})
-                  .planNode();
-
-  assertQuery(
-      plan,
-      "SELECT length(c0) FROM ("
-      "   SELECT * FROM (VALUES ('x')) as t1(c0) UNION ALL "
-      "   SELECT * FROM (VALUES ('y')) as t2(c0)"
-      ")");
+                  .planNode())
+        .assertResults(
+            "SELECT length(c0) FROM ("
+            "   SELECT * FROM (VALUES ('x')) as t1(c0) UNION ALL "
+            "   SELECT * FROM (VALUES ('y')) as t2(c0)"
+            ")");
+  }
 }

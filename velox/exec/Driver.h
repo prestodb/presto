@@ -656,8 +656,7 @@ struct DriverFactory {
   static void registerAdapter(DriverAdapter adapter);
 
   bool supportsSerialExecution() const {
-    return !needsPartitionedOutput() && !needsExchangeClient() &&
-        !needsLocalExchange();
+    return !needsPartitionedOutput() && !needsExchangeClient();
   }
 
   const core::PlanNodeId& leafNodeId() const {
