@@ -55,3 +55,19 @@ corresponds to scale factor ``300``. The TPCH connector provides an
 infinite number of schemas for any scale factor, not just the few common
 ones listed by ``SHOW SCHEMAS``. The ``tiny`` schema is an alias for scale
 factor ``0.01``, which is a very small data set useful for testing.
+
+General Configuration Properties
+---------------------------------
+
+================================================== ========================================================================= ==============================
+Property Name                                      Description                                                               Default
+================================================== ========================================================================= ==============================
+``tpch.splits-per-node``                           Number of data splits generated per Presto worker node when querying      Number of available processors
+                                                   data from the TPCH connector.
+
+``tpch.column-naming``                             This property defines the format for generating column names in TPCH
+                                                   tables. According to the TPC-H specification, each column is given a
+                                                   prefix based on its table, such as ``l_`` for the ``lineitem`` table.
+                                                   By default, the TPCH connector simplifies column names by excluding
+                                                   these prefixes.The available values are ``SIMPLIFIED`` and ``STANDARD``.  ``SIMPLIFIED``
+================================================== ========================================================================= ==============================
