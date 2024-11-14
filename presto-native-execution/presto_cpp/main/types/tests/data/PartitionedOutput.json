@@ -463,7 +463,8 @@
       1,
       2,
       3
-    ]
+    ],
+    "encoding":"ROW_WISE"
   },
   "stageExecutionDescriptor":{
     "stageExecutionStrategy":"UNGROUPED_EXECUTION",

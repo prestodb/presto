@@ -57,6 +57,7 @@ public class HashBuilderOperator
         implements Operator
 {
     private static final Logger log = Logger.get(HashBuilderOperator.class);
+    public static final String OPERATOR_TYPE = "HashBuilderOperator";
 
     public static class HashBuilderOperatorFactory
             implements OperatorFactory

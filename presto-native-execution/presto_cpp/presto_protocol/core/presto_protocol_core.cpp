@@ -641,7 +641,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<FilterNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.JoinNode") {
+  if (type == ".JoinNode") {
     j = *std::static_pointer_cast<JoinNode>(p);
     return;
   }
@@ -677,7 +677,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<SampleNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.SemiJoinNode") {
+  if (type == ".SemiJoinNode") {
     j = *std::static_pointer_cast<SemiJoinNode>(p);
     return;
   }
@@ -713,11 +713,11 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<AssignUniqueId>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.MergeJoinNode") {
+  if (type == ".MergeJoinNode") {
     j = *std::static_pointer_cast<MergeJoinNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.WindowNode") {
+  if (type == ".WindowNode") {
     j = *std::static_pointer_cast<WindowNode>(p);
     return;
   }
@@ -771,7 +771,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.JoinNode") {
+  if (type == ".JoinNode") {
     std::shared_ptr<JoinNode> k = std::make_shared<JoinNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
@@ -825,7 +825,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.SemiJoinNode") {
+  if (type == ".SemiJoinNode") {
     std::shared_ptr<SemiJoinNode> k = std::make_shared<SemiJoinNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
@@ -881,13 +881,13 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.MergeJoinNode") {
+  if (type == ".MergeJoinNode") {
     std::shared_ptr<MergeJoinNode> k = std::make_shared<MergeJoinNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.WindowNode") {
+  if (type == ".WindowNode") {
     std::shared_ptr<WindowNode> k = std::make_shared<WindowNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
@@ -4635,6 +4635,45 @@ void from_json(const json& j, ExchangeNodeType& e) {
           ->first;
 }
 } // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<ExchangeEncoding, json> ExchangeEncoding_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {ExchangeEncoding::COLUMNAR, "COLUMNAR"},
+        {ExchangeEncoding::ROW_WISE, "ROW_WISE"}};
+void to_json(json& j, const ExchangeEncoding& e) {
+  static_assert(
+      std::is_enum<ExchangeEncoding>::value,
+      "ExchangeEncoding must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExchangeEncoding_enum_table),
+      std::end(ExchangeEncoding_enum_table),
+      [e](const std::pair<ExchangeEncoding, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(ExchangeEncoding_enum_table))
+           ? it
+           : std::begin(ExchangeEncoding_enum_table))
+          ->second;
+}
+void from_json(const json& j, ExchangeEncoding& e) {
+  static_assert(
+      std::is_enum<ExchangeEncoding>::value,
+      "ExchangeEncoding must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExchangeEncoding_enum_table),
+      std::end(ExchangeEncoding_enum_table),
+      [&j](const std::pair<ExchangeEncoding, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(ExchangeEncoding_enum_table))
+           ? it
+           : std::begin(ExchangeEncoding_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -4791,6 +4830,13 @@ void to_json(json& j, const PartitioningScheme& p) {
       "replicateNullsAndAny");
   to_json_key(
       j,
+      "encoding",
+      p.encoding,
+      "PartitioningScheme",
+      "ExchangeEncoding",
+      "encoding");
+  to_json_key(
+      j,
       "bucketToPartition",
       p.bucketToPartition,
       "PartitioningScheme",
@@ -4827,6 +4873,13 @@ void from_json(const json& j, PartitioningScheme& p) {
       "PartitioningScheme",
       "bool",
       "replicateNullsAndAny");
+  from_json_key(
+      j,
+      "encoding",
+      p.encoding,
+      "PartitioningScheme",
+      "ExchangeEncoding",
+      "encoding");
   from_json_key(
       j,
       "bucketToPartition",
@@ -5560,12 +5613,12 @@ void from_json(const json& j, JoinType& e) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 JoinNode::JoinNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.JoinNode";
+  _type = ".JoinNode";
 }
 
 void to_json(json& j, const JoinNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.JoinNode";
+  j["@type"] = ".JoinNode";
   to_json_key(j, "id", p.id, "JoinNode", "PlanNodeId", "id");
   to_json_key(j, "type", p.type, "JoinNode", "JoinType", "type");
   to_json_key(j, "left", p.left, "JoinNode", "PlanNode", "left");
@@ -6263,12 +6316,12 @@ void from_json(const json& j, MemoryInfo& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 MergeJoinNode::MergeJoinNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.MergeJoinNode";
+  _type = ".MergeJoinNode";
 }
 
 void to_json(json& j, const MergeJoinNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.MergeJoinNode";
+  j["@type"] = ".MergeJoinNode";
   to_json_key(j, "id", p.id, "MergeJoinNode", "PlanNodeId", "id");
   to_json_key(j, "type", p.type, "MergeJoinNode", "JoinType", "type");
   to_json_key(j, "left", p.left, "MergeJoinNode", "PlanNode", "left");
@@ -7997,6 +8050,13 @@ void to_json(json& j, const RemoteSourceNode& p) {
       "RemoteSourceNode",
       "ExchangeNodeType",
       "exchangeType");
+  to_json_key(
+      j,
+      "encoding",
+      p.encoding,
+      "RemoteSourceNode",
+      "ExchangeEncoding",
+      "encoding");
 }
 
 void from_json(const json& j, RemoteSourceNode& p) {
@@ -8037,6 +8097,13 @@ void from_json(const json& j, RemoteSourceNode& p) {
       "RemoteSourceNode",
       "ExchangeNodeType",
       "exchangeType");
+  from_json_key(
+      j,
+      "encoding",
+      p.encoding,
+      "RemoteSourceNode",
+      "ExchangeEncoding",
+      "encoding");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -8337,12 +8404,12 @@ void from_json(const json& j, DistributionType& e) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 SemiJoinNode::SemiJoinNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.SemiJoinNode";
+  _type = ".SemiJoinNode";
 }
 
 void to_json(json& j, const SemiJoinNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.SemiJoinNode";
+  j["@type"] = ".SemiJoinNode";
   to_json_key(j, "id", p.id, "SemiJoinNode", "PlanNodeId", "id");
   to_json_key(j, "source", p.source, "SemiJoinNode", "PlanNode", "source");
   to_json_key(
@@ -10659,12 +10726,12 @@ void from_json(const json& j, ValuesNode& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 WindowNode::WindowNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.WindowNode";
+  _type = ".WindowNode";
 }
 
 void to_json(json& j, const WindowNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.WindowNode";
+  j["@type"] = ".WindowNode";
   to_json_key(
       j,
       "sourceLocation",

@@ -30,12 +30,14 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -137,6 +139,7 @@ public class ExchangeNode
 
         checkArgument(!scope.isLocal() || partitioningScheme.getPartitioning().getArguments().stream().allMatch(VariableReferenceExpression.class::isInstance),
                 "local exchanges do not support constant partition function arguments");
+        checkArgument(scope == REMOTE_STREAMING || partitioningScheme.getEncoding() == COLUMNAR, "Only REMOTE_STREAMING can be ROW_WISE: %s", partitioningScheme.getEncoding());
 
         checkArgument(!scope.isRemote() || type == REPARTITION || !partitioningScheme.isReplicateNullsAndAny(), "Only REPARTITION can replicate remotely");
         checkArgument(scope != REMOTE_MATERIALIZED || type == REPARTITION, "Only REPARTITION can be REMOTE_MATERIALIZED: %s", type);
@@ -189,6 +192,7 @@ public class ExchangeNode
                         child.getOutputVariables(),
                         hashColumn,
                         replicateNullsAndAny,
+                        COLUMNAR,
                         Optional.empty()));
     }
 
@@ -336,5 +340,20 @@ public class ExchangeNode
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
         return new ExchangeNode(getSourceLocation(), getId(), statsEquivalentPlanNode, type, scope, partitioningScheme, sources, inputs, ensureSourceOrdering, orderingScheme);
+    }
+
+    public ExchangeNode withRowWiseEncoding()
+    {
+        return new ExchangeNode(
+                getSourceLocation(),
+                getId(),
+                getStatsEquivalentPlanNode(),
+                type,
+                scope,
+                partitioningScheme.withRowWiseEncoding(),
+                sources,
+                inputs,
+                ensureSourceOrdering,
+                orderingScheme);
     }
 }

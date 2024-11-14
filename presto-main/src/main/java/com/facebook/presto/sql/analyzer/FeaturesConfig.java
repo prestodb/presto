@@ -288,6 +288,8 @@ public class FeaturesConfig
     private boolean eagerPlanValidationEnabled;
     private int eagerPlanValidationThreadPoolSize = 20;
 
+    private boolean prestoSparkExecutionEnvironment;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2845,5 +2847,17 @@ public class FeaturesConfig
     public int getEagerPlanValidationThreadPoolSize()
     {
         return this.eagerPlanValidationThreadPoolSize;
+    }
+
+    public boolean isPrestoSparkExecutionEnvironment()
+    {
+        return prestoSparkExecutionEnvironment;
+    }
+
+    @Config("presto-spark-execution-environment")
+    public FeaturesConfig setPrestoSparkExecutionEnvironment(boolean prestoSparkExecutionEnvironment)
+    {
+        this.prestoSparkExecutionEnvironment = prestoSparkExecutionEnvironment;
+        return this;
     }
 }
