@@ -32,7 +32,7 @@
 #include <CL/sycl.hpp>
 #pragma GCC diagnostic pop
 
-#include "utils/types.h"
+#include "breeze/utils/types.h"
 
 template <int SYCL_BLOCK_THREADS, int SYCL_WARP_THREADS>
 struct SyCLPlatform {

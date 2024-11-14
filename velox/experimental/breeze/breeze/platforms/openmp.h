@@ -235,7 +235,7 @@ struct OpenMPPlatform {
   inline unsigned lower_rank_lanemask() {
     static_assert(WARP_THREADS <= sizeof(unsigned) * 8,
                   "WARP_THREADS must be less or equal to unsigned bits");
-    return (1 << lane_idx()) - 1;
+    return (1u << lane_idx()) - 1;
   }
   inline unsigned higher_rank_lanemask() {
     static_assert(WARP_THREADS <= sizeof(unsigned) * 8,

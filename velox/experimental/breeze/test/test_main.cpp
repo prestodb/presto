@@ -24,7 +24,7 @@
 
 #include <string>
 
-#include "utils/trace.h"
+#include "breeze/utils/trace.h"
 
 TRACE_TRACK_EVENT_STATIC_STORAGE();
 

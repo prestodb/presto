@@ -22,12 +22,12 @@
 
 #pragma once
 
-#include "functions/load.h"
-#include "functions/scan.h"
-#include "functions/store.h"
-#include "platforms/platform.h"
-#include "utils/block_details.h"
-#include "utils/types.h"
+#include "breeze/functions/load.h"
+#include "breeze/functions/scan.h"
+#include "breeze/functions/store.h"
+#include "breeze/platforms/platform.h"
+#include "breeze/utils/block_details.h"
+#include "breeze/utils/types.h"
 
 namespace breeze {
 namespace algorithms {

@@ -21,17 +21,17 @@
  */
 
 #if defined(PLATFORM_CUDA)
-#include "generated/functions/function_test-cuda.cuh"
+#include "test/generated/functions/function_test-cuda.cuh"
 #elif defined(PLATFORM_HIP)
-#include "generated/functions/function_test-hip.hpp"
+#include "test/generated/functions/function_test-hip.hpp"
 #elif defined(PLATFORM_SYCL)
-#include "generated/functions/function_test-sycl.hpp"
+#include "test/generated/functions/function_test-sycl.hpp"
 #elif defined(PLATFORM_OPENCL)
-#include "generated/functions/function_test-opencl.h"
+#include "test/generated/functions/function_test-opencl.h"
 #elif defined(PLATFORM_OPENMP)
-#include "generated/functions/function_test-openmp.h"
+#include "test/generated/functions/function_test-openmp.h"
 #elif defined(PLATFORM_METAL)
-#include "generated/functions/function_test-metal.h"
+#include "test/generated/functions/function_test-metal.h"
 #else
 #error unsupported platform
 #endif

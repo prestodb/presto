@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# @nolint
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -153,8 +154,8 @@ class HipTestFixture(TestFixtureGen):
         test_type = fixture_name.replace("Test", "").lower()
         return f"""
             #include <hip/hip_runtime.h>
-            #include "generated/{test_type}s/kernels-hip.hpp"
-            #include "platforms/hip_test.hpp"
+            #include "test/generated/{test_type}s/kernels-hip.hpp"
+            #include "test/platforms/hip_test.hpp"
         """
 
     def needs_shared_mem(self):
@@ -265,9 +266,9 @@ class CudaTestFixture(HipTestFixture):
     def includes(self, fixture_name):
         test_type = fixture_name.replace("Test", "").lower()
         return f"""
-            #include "generated/{test_type}s/kernels.cuh"
-            #include "platforms/cuda.cuh"
-            #include "platforms/cuda_test.cuh"
+            #include "test/generated/{test_type}s/kernels.cuh"
+            #include "breeze/platforms/cuda.cuh"
+            #include "test/platforms/cuda_test.cuh"
         """
 
 
@@ -282,9 +283,9 @@ class OpenmpTestFixture(HipTestFixture):
             #include <omp.h>
             #include <cassert>
 
-            #include "generated/{test_type}s/kernels-openmp.h"
-            #include "platforms/openmp.h"
-            #include "platforms/openmp_test.h"
+            #include "test/generated/{test_type}s/kernels-openmp.h"
+            #include "breeze/platforms/openmp.h"
+            #include "test/platforms/openmp_test.h"
         """
 
     def needs_shared_mem(self):
@@ -317,8 +318,8 @@ class SyclTestFixture(HipTestFixture):
             #include <CL/sycl.hpp>
             #pragma GCC diagnostic pop
 
-            #include "generated/{test_type}s/kernels-sycl.hpp"
-            #include "platforms/sycl_test.hpp"
+            #include "test/generated/{test_type}s/kernels-sycl.hpp"
+            #include "test/platforms/sycl_test.hpp"
 
             using kernels::WARP_THREADS;
         """
@@ -423,8 +424,8 @@ class OpenclTestFixture(TestFixtureGen):
         return f"""
             #include <memory>
 
-            #include "platforms/opencl_test.h"
-            #include "type_helpers.h"
+            #include "test/platforms/opencl_test.h"
+            #include "test/type_helpers.h"
         """
 
     def class_preamble(self, fixture_name):
@@ -534,8 +535,8 @@ class MetalTestFixture(OpenclTestFixture):
         return f"""
             #include <memory>
 
-            #include "platforms/metal_test.h"
-            #include "type_helpers.h"
+            #include "test/platforms/metal_test.h"
+            #include "test/type_helpers.h"
         """
 
     def class_preamble(self, fixture_name):

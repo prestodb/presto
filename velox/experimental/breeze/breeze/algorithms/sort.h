@@ -22,10 +22,10 @@
 
 #pragma once
 
-#include "functions/sort.h"
-#include "platforms/platform.h"
-#include "utils/block_details.h"
-#include "utils/types.h"
+#include "breeze/functions/sort.h"
+#include "breeze/platforms/platform.h"
+#include "breeze/utils/block_details.h"
+#include "breeze/utils/types.h"
 
 namespace breeze {
 namespace algorithms {

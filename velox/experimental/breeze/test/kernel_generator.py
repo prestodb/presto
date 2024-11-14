@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# @nolint
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -154,7 +155,7 @@ class KernelCodeGen(ABC):
 class OpenclBackend(KernelCodeGen):
     @property
     def includes(self):
-        return '#include "platforms/opencl.h"\n'
+        return '#include "breeze/platforms/opencl.h"\n'
 
     @property
     def platform_type(self):
@@ -213,7 +214,7 @@ class OpenclBackend(KernelCodeGen):
 class MetalBackend(KernelCodeGen):
     @property
     def includes(self):
-        return '#include <metal_stdlib>\n#include "platforms/metal.h"\n'
+        return '#include <metal_stdlib>\n#include "breeze/platforms/metal.h"\n'
 
     @property
     def platform_type(self):
@@ -277,7 +278,7 @@ class MetalBackend(KernelCodeGen):
 class OpenmpBackend(KernelCodeGen):
     @property
     def includes(self):
-        return '#include "platforms/openmp.h"\n'
+        return '#include "breeze/platforms/openmp.h"\n'
 
     @property
     def platform_type(self):
@@ -312,7 +313,7 @@ class OpenmpBackend(KernelCodeGen):
 class SyclBackend(KernelCodeGen):
     @property
     def includes(self):
-        return '#include "platforms/sycl.hpp"\n'
+        return '#include "breeze/platforms/sycl.hpp"\n'
 
     @property
     def platform_type(self):
@@ -361,7 +362,7 @@ class SyclBackend(KernelCodeGen):
 class CudaBackend(KernelCodeGen):
     @property
     def includes(self):
-        return '#include "platforms/cuda.cuh"\n'
+        return '#include "breeze/platforms/cuda.cuh"\n'
 
     @property
     def platform_type(self):
@@ -390,7 +391,7 @@ class CudaBackend(KernelCodeGen):
 class HipBackend(CudaBackend):
     @property
     def includes(self):
-        return '#include "platforms/hip.hpp"\n'
+        return '#include "breeze/platforms/hip.hpp"\n'
 
     @property
     def platform_type(self):

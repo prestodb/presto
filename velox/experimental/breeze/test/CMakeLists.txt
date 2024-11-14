@@ -16,8 +16,6 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-include_directories(${CMAKE_SOURCE_DIR}/test ${CMAKE_SOURCE_DIR})
-
 cxx_library(test_main "${cxx_strict}" test_main.cpp)
 target_link_libraries(
   test_main

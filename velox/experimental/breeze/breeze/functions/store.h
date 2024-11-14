@@ -22,8 +22,8 @@
 
 #pragma once
 
-#include "platforms/platform.h"
-#include "utils/types.h"
+#include "breeze/platforms/platform.h"
+#include "breeze/utils/types.h"
 
 namespace breeze {
 namespace functions {

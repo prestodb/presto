@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "platforms/platform.h"
+#include "breeze/platforms/platform.h"
 
 #ifdef __EXCEPTIONS
 #include <exception>
@@ -166,7 +166,7 @@ class BadDeviceAlloc : public std::exception {
                  ",free=" + std::to_string(free) +
                  ",total=" + std::to_string(total) + ")") {}
 
-  virtual const char *what() const throw() { return message_.c_str(); }
+  virtual const char *what() const noexcept { return message_.c_str(); }
 
  private:
   std::string message_;

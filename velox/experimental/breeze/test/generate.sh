@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,25 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(
-  velox_wave_common_test
-  GpuArenaTest.cpp
-  CudaTest.cpp
-  CudaTest.cu
-  BreezeCudaTest.cu
-  CompileTest.cu
-  BlockTest.cpp
-  BlockTest.cu
-  HashTableTest.cpp
-  HashTestUtil.cpp)
+set -efx -o pipefail
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
+cd "$SCRIPTDIR"
 
-add_test(velox_wave_common_test velox_wave_common_test)
-set_tests_properties(velox_wave_common_test PROPERTIES LABELS cuda_driver)
+function generate {
+    BACKEND=$1
+    TYPE=$2
+    EXT=$3
+    DIR="$TYPE"s
+    mkdir -p generated/"$DIR"
+    ./kernel_generator.py --backend="$BACKEND" --template="$DIR"/"$TYPE"-kernels.template.h --out=generated/"$DIR"/kernels-"$BACKEND"."$EXT"
+    ./test_fixture_generator.py --backend="$BACKEND" --template="$DIR"/"$TYPE"_test.template.h --out=generated/"$DIR"/"$TYPE"_test-"$BACKEND"."$EXT"
+}
 
-target_include_directories(velox_wave_common_test PRIVATE ../../../breeze)
-target_link_libraries(
-  velox_wave_common_test
-  velox_wave_common
-  GTest::gtest
-  GTest::gtest_main
-  CUDA::cudart)
+generate openmp "algorithm" h
+generate openmp "function" h

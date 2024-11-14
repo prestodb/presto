@@ -24,7 +24,7 @@
 
 #include <metal_stdlib>
 
-#include "utils/types.h"
+#include "breeze/utils/types.h"
 
 struct MetalSpecialization {
   template <typename SliceT, typename T = typename SliceT::data_type>

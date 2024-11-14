@@ -24,7 +24,7 @@
 
 #include <cuda.h>
 
-#include "utils/types.h"
+#include "breeze/utils/types.h"
 
 struct CudaSpecialization {
   template <int WARP_THREADS>

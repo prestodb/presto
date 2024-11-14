@@ -28,7 +28,7 @@
 #include <new>
 
 #ifdef __EXCEPTIONS
-#include "utils/types.h"
+#include "breeze/utils/types.h"
 #else
 #include <iostream>
 #endif

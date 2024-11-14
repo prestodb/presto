@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "platforms/platform.h"
+#include "breeze/platforms/platform.h"
 
 namespace breeze {
 namespace utils {

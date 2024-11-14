@@ -24,7 +24,7 @@
 
 #include <cuda.h>
 
-#include "utils/device_allocator.h"
+#include "breeze/utils/device_allocator.h"
 
 namespace breeze {
 namespace utils {

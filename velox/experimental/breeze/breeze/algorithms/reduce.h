@@ -22,11 +22,11 @@
 
 #pragma once
 
-#include "functions/load.h"
-#include "functions/reduce.h"
-#include "platforms/platform.h"
-#include "utils/block_details.h"
-#include "utils/types.h"
+#include "breeze/functions/load.h"
+#include "breeze/functions/reduce.h"
+#include "breeze/platforms/platform.h"
+#include "breeze/utils/block_details.h"
+#include "breeze/utils/types.h"
 
 namespace breeze {
 namespace algorithms {
