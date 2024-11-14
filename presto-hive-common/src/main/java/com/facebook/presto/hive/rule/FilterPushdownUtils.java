@@ -56,7 +56,7 @@ public final class FilterPushdownUtils
             TupleDomain<Subfield> domainPredicate)
     {
         Set<String> predicateColumnNames = new HashSet<>();
-        domainPredicate.getDomains().get().keySet().stream()
+        domainPredicate.getDomains().orElseThrow().keySet().stream()
                 .map(Subfield::getRootName)
                 .forEach(predicateColumnNames::add);
         // Include only columns referenced in the optimized expression. Although the expression is sent to the worker node
