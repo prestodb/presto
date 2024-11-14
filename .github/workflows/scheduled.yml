@@ -992,3 +992,10 @@ jobs:
             /tmp/writer_fuzzer_repro
             /tmp/server.log
             /var/log
+
+  linux-clang:
+    if: ${{ github.event_name == 'schedule' }}
+    name: Build with Clang
+    uses: ./.github/workflows/linux-build-base.yml
+    with:
+      use-clang: true

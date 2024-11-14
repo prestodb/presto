@@ -231,11 +231,6 @@ if(${VELOX_FORCE_COLORED_OUTPUT})
   endif()
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
-   AND "${CMAKE_CXX_COMPILER_VERSION}" VERSION_GREATER_EQUAL 15)
-  set(CMAKE_EXE_LINKER_FLAGS "-latomic")
-endif()
-
 # At the moment we prefer static linking but by default cmake looks for shared
 # libs first. This will still fallback to shared libs when static ones are not
 # found
@@ -382,6 +377,13 @@ if(${VELOX_ENABLE_GPU})
   endif()
   include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
   find_package(CUDAToolkit REQUIRED)
+endif()
+
+# Set after the test of the CUDA compiler. Otherwise, the test fails with
+# -latomic not found because it is added right after the compiler exe.
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
+   AND "${CMAKE_CXX_COMPILER_VERSION}" VERSION_GREATER_EQUAL 15)
+  set(CMAKE_EXE_LINKER_FLAGS "-latomic")
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

@@ -56,7 +56,7 @@ function install_clang15 {
   fi
   CLANG_PACKAGE_LIST=clang-15
   if [[ ${VERSION} =~ "22.04" ]]; then
-    CLANG_PACKAGE_LIST=${CLANG_PACKAGE_LIST} gcc-12 g++-12 libc++-12-dev
+    CLANG_PACKAGE_LIST="${CLANG_PACKAGE_LIST} gcc-12 g++-12 libc++-12-dev"
   fi
   ${SUDO} apt install ${CLANG_PACKAGE_LIST} -y
 }
