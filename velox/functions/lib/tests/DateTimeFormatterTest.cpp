@@ -2441,4 +2441,13 @@ TEST_F(SimpleDateTimeFormatterTest, formatWeekOfMonth) {
   }
 }
 
+TEST_F(SimpleDateTimeFormatterTest, parseUsingPartialInput) {
+  EXPECT_EQ(
+      fromTimestampString("2024-08-01"),
+      parseSimple("2024 08 01 5", "yyyy MM", true).timestamp);
+  EXPECT_EQ(
+      fromTimestampString("2024-08-01"),
+      parseSimple("2024 08 01 5", "yyyy MM", false).timestamp);
+}
+
 } // namespace facebook::velox::functions
