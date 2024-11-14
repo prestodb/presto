@@ -34,7 +34,6 @@
 #endif
 
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/exec/tests/utils/PrefixSortUtils.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -126,7 +125,7 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
         connectorPool_.get(),
         connectorSessionProperties_.get(),
         nullptr,
-        exec::test::defaultPrefixSortConfig(),
+        common::PrefixSortConfig(),
         nullptr,
         nullptr,
         "query.HiveDataSinkTest",
@@ -736,7 +735,7 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, memoryReclaim) {
           connectorPool_.get(),
           connectorSessionProperties_.get(),
           spillConfig.get(),
-          exec::test::defaultPrefixSortConfig(),
+          common::PrefixSortConfig(),
           nullptr,
           nullptr,
           "query.HiveDataSinkTest",
@@ -751,7 +750,7 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, memoryReclaim) {
           connectorPool_.get(),
           connectorSessionProperties_.get(),
           nullptr,
-          exec::test::defaultPrefixSortConfig(),
+          common::PrefixSortConfig(),
           nullptr,
           nullptr,
           "query.HiveDataSinkTest",
@@ -877,7 +876,7 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
           connectorPool_.get(),
           connectorSessionProperties_.get(),
           spillConfig.get(),
-          exec::test::defaultPrefixSortConfig(),
+          common::PrefixSortConfig(),
           nullptr,
           nullptr,
           "query.HiveDataSinkTest",
@@ -892,7 +891,7 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
           connectorPool_.get(),
           connectorSessionProperties_.get(),
           nullptr,
-          exec::test::defaultPrefixSortConfig(),
+          common::PrefixSortConfig(),
           nullptr,
           nullptr,
           "query.HiveDataSinkTest",
@@ -1019,7 +1018,7 @@ TEST_F(HiveDataSinkTest, sortWriterMemoryReclaimDuringFinish) {
       connectorPool_.get(),
       connectorSessionProperties_.get(),
       spillConfig.get(),
-      exec::test::defaultPrefixSortConfig(),
+      common::PrefixSortConfig(),
       nullptr,
       nullptr,
       "query.HiveDataSinkTest",
@@ -1084,7 +1083,7 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, sortWriterFailureTest) {
       connectorPool_.get(),
       connectorSessionProperties_.get(),
       spillConfig.get(),
-      exec::test::defaultPrefixSortConfig(),
+      common::PrefixSortConfig(),
       nullptr,
       nullptr,
       "query.HiveDataSinkTest",

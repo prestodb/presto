@@ -16,7 +16,6 @@
 
 #include "velox/connectors/hive/iceberg/tests/IcebergSplitReaderBenchmark.h"
 #include <filesystem>
-#include "velox/exec/tests/utils/PrefixSortUtils.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::dwio;
@@ -312,7 +311,7 @@ void IcebergSplitReaderBenchmark::readSingleColumn(
           connectorPool.get(),
           connectorSessionProperties_.get(),
           nullptr,
-          exec::test::defaultPrefixSortConfig(),
+          common::PrefixSortConfig(),
           nullptr,
           nullptr,
           "query.IcebergSplitReader",

@@ -20,7 +20,6 @@
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
-#include "velox/exec/tests/utils/PrefixSortUtils.h"
 
 #include "velox/dwio/dwrf/writer/Writer.h"
 
@@ -53,7 +52,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
       pool_.get(),
       &sessionProperties,
       nullptr,
-      exec::test::defaultPrefixSortConfig(),
+      common::PrefixSortConfig(),
       nullptr,
       nullptr,
       "query.HiveConnectorUtilTest",
