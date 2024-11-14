@@ -17,3 +17,9 @@ target_link_libraries(
   velox_common_base_benchmarks
   PUBLIC ${FOLLY_BENCHMARK}
   PRIVATE velox_common_base Folly::folly)
+
+add_executable(velox_common_stringsearch_benchmarks StringSearchBenchmark.cpp)
+target_link_libraries(
+  velox_common_stringsearch_benchmarks
+  PUBLIC ${FOLLY_BENCHMARK}
+  PRIVATE velox_common_base Folly::folly)

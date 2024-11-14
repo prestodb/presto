@@ -1436,4 +1436,170 @@ inline bool memEqualUnsafe(const void* x, const void* y, int32_t size) {
   return true;
 }
 
+namespace detail {
+
+/// NOTE: SSE_4_2`s the performance of simdStrStr is a little slower than
+/// std::find in first-char-unmatch(read only one char per match.) Use AVX2 the
+/// performance will be better than std::find in that case.
+#if XSIMD_WITH_AVX2
+using CharVector = xsimd::batch<uint8_t, xsimd::avx2>;
+#define VELOX_SIMD_STRSTR 1
+#elif XSIMD_WITH_NEON
+using CharVector = xsimd::batch<uint8_t, xsimd::neon>;
+#define VELOX_SIMD_STRSTR 1
+#else
+#define VELOX_SIMD_STRSTR 0
+#endif
+
+extern const int kPageSize;
+
+FOLLY_ALWAYS_INLINE bool pageSafe(const void* const ptr) {
+  return ((kPageSize - 1) & reinterpret_cast<std::uintptr_t>(ptr)) <=
+      kPageSize - CharVector::size;
+}
+
+template <bool compiled, size_t kNeedleSize>
+size_t FOLLY_ALWAYS_INLINE smidStrstrMemcmp(
+    const char* s,
+    size_t n,
+    const char* needle,
+    size_t needleSize) {
+  static_assert(kNeedleSize >= 2);
+  VELOX_DCHECK_GT(needleSize, 1);
+  VELOX_DCHECK_GT(n, 0);
+  auto first = CharVector::broadcast(needle[0]);
+  auto last = CharVector::broadcast(needle[needleSize - 1]);
+  size_t i = 0;
+
+  for (; i <= n - needleSize; i += CharVector::size) {
+    // Assume that the input string is allocated on virtual pages : VP1, VP2,
+    // VP3 and VP4 has not been allocated yet, we need to check the end of input
+    // string is page-safe to over-read CharVector.
+    const auto lastPos = i + needleSize - 1;
+
+    if (lastPos + CharVector::size > n && !pageSafe(s + lastPos)) {
+      break;
+    }
+    auto blockFirst = CharVector::load_unaligned(s + i);
+    const auto eqFirst = (first == blockFirst);
+    /// std:find handle the fast-path for first-char-unmatch, so we also need
+    /// to handle eqFirst.
+    if (eqFirst.mask() == 0) {
+      continue;
+    }
+    auto blockLast = CharVector::load_unaligned(s + lastPos);
+    const auto eqLast = (last == blockLast);
+    auto mask = (eqFirst && eqLast).mask();
+    while (mask != 0) {
+      const auto bitpos = __builtin_ctz(mask);
+      if constexpr (compiled) {
+        if constexpr (kNeedleSize == 2) {
+          return i + bitpos;
+        }
+        if (memcmp(s + i + bitpos + 1, needle + 1, kNeedleSize - 2) == 0) {
+          return i + bitpos;
+        }
+      } else {
+        if (memcmp(s + i + bitpos + 1, needle + 1, needleSize - 2) == 0) {
+          return i + bitpos;
+        }
+      }
+      mask = mask & (mask - 1);
+    }
+  }
+  // Fallback path for generic path.
+  for (; i <= n - needleSize; ++i) {
+    if constexpr (compiled) {
+      if (memcmp(s + i, needle, kNeedleSize) == 0) {
+        return i;
+      }
+    } else {
+      if (memcmp(s + i, needle, needleSize) == 0) {
+        return i;
+      }
+    }
+  }
+
+  return std::string::npos;
+};
+
+} // namespace detail
+
+/// A faster implementation for std::find, about 2x faster than string_view`s
+/// find() in almost cases, proved by StringSearchBenchmark.cpp. Use xsmid-batch
+/// to compare first&&last char first, use fixed-memcmp to compare left chars.
+/// Inline in header file will be 30% faster.
+FOLLY_ALWAYS_INLINE size_t
+simdStrstr(const char* s, size_t n, const char* needle, size_t k) {
+#if VELOX_SIMD_STRSTR
+  size_t result = std::string::npos;
+
+  if (n < k) {
+    return result;
+  }
+
+  switch (k) {
+    case 0:
+      return 0;
+
+    case 1: {
+      const char* res = strchr(s, needle[0]);
+
+      return (res != nullptr) ? res - s : std::string::npos;
+    }
+#define VELOX_SIMD_STRSTR_CASE(size)                                   \
+  case size:                                                           \
+    result = detail::smidStrstrMemcmp<true, size>(s, n, needle, size); \
+    break;
+      VELOX_SIMD_STRSTR_CASE(2)
+      VELOX_SIMD_STRSTR_CASE(3)
+      VELOX_SIMD_STRSTR_CASE(4)
+      VELOX_SIMD_STRSTR_CASE(5)
+      VELOX_SIMD_STRSTR_CASE(6)
+      VELOX_SIMD_STRSTR_CASE(7)
+      VELOX_SIMD_STRSTR_CASE(8)
+      VELOX_SIMD_STRSTR_CASE(9)
+      VELOX_SIMD_STRSTR_CASE(10)
+      VELOX_SIMD_STRSTR_CASE(11)
+      VELOX_SIMD_STRSTR_CASE(12)
+      VELOX_SIMD_STRSTR_CASE(13)
+      VELOX_SIMD_STRSTR_CASE(14)
+      VELOX_SIMD_STRSTR_CASE(15)
+      VELOX_SIMD_STRSTR_CASE(16)
+      VELOX_SIMD_STRSTR_CASE(17)
+      VELOX_SIMD_STRSTR_CASE(18)
+#if XSIMD_WITH_AVX2
+      VELOX_SIMD_STRSTR_CASE(19)
+      VELOX_SIMD_STRSTR_CASE(20)
+      VELOX_SIMD_STRSTR_CASE(21)
+      VELOX_SIMD_STRSTR_CASE(22)
+      VELOX_SIMD_STRSTR_CASE(23)
+      VELOX_SIMD_STRSTR_CASE(24)
+      VELOX_SIMD_STRSTR_CASE(25)
+      VELOX_SIMD_STRSTR_CASE(26)
+      VELOX_SIMD_STRSTR_CASE(27)
+      VELOX_SIMD_STRSTR_CASE(28)
+      VELOX_SIMD_STRSTR_CASE(29)
+      VELOX_SIMD_STRSTR_CASE(30)
+      VELOX_SIMD_STRSTR_CASE(31)
+      VELOX_SIMD_STRSTR_CASE(32)
+      VELOX_SIMD_STRSTR_CASE(33)
+      VELOX_SIMD_STRSTR_CASE(34)
+#endif
+    default:
+      result = detail::smidStrstrMemcmp<false, 2>(s, n, needle, k);
+      break;
+  }
+#undef VELOX_SIMD_STRSTR_CASE
+  // load_unaligned is used for better performance, so result maybe bigger than
+  // n-k.
+  if (result <= n - k) {
+    return result;
+  } else {
+    return std::string::npos;
+  }
+#endif
+  return std::string_view(s, n).find(std::string_view(needle, k));
+}
+
 } // namespace facebook::velox::simd

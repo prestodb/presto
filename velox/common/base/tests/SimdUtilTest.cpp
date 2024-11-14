@@ -109,6 +109,20 @@ class SimdUtilTest : public testing::Test {
     EXPECT_EQ(reference, target);
   }
 
+  template <class Integral1, class Integral2>
+  Integral2 random(Integral1 low, Integral2 up) {
+    std::uniform_int_distribution<> range(low, up);
+    return range(rng_);
+  }
+
+  void randomString(std::string* toFill, unsigned int maxSize = 1000) {
+    assert(toFill);
+    toFill->resize(random(0, maxSize));
+    for (int i = 0; i < toFill->size(); i++) {
+      (*toFill)[i] = random('a', 'z');
+    }
+  }
+
   folly::Random::DefaultGenerator rng_;
 };
 
@@ -489,6 +503,156 @@ TEST_F(SimdUtilTest, memcpyTime) {
     }
   }
   LOG(INFO) << "simd=" << simd << " sys=" << sys;
+}
+
+/// Copy from std::boyer_moore_searcher proposal:
+/// https://github.com/mclow/search-library/blob/master/basic_tests.cpp
+/// Basic sanity checking. It makes sure that all the algorithms work.
+TEST_F(SimdUtilTest, basicSimdStrStr) {
+  auto checkOne = [](const std::string& text, const std::string& needle) {
+    auto size = text.size();
+    auto k = needle.size();
+    ASSERT_EQ(
+        simd::simdStrstr(text.data(), size, needle.data(), k),
+        text.find(needle));
+  };
+  std::string haystack1("NOW AN FOWE\220ER ANNMAN THE ANPANMANEND");
+  std::string needle1("ANPANMAN");
+  std::string needle2("MAN THE");
+  std::string needle3("WE\220ER");
+  // At the beginning
+  std::string needle4("NOW ");
+  // At the end
+  std::string needle5("NEND");
+  // Nowhere
+  std::string needle6("NOT FOUND");
+  // Nowhere
+  std::string needle7("NOT FO\340ND");
+
+  std::string haystack2("ABC ABCDAB ABCDABCDABDE");
+  std::string needle11("ABCDABD");
+
+  std::string haystack3("abra abracad abracadabra");
+  std::string needle12("abracadabra");
+
+  std::string needle13("");
+  std::string haystack4("");
+
+  checkOne(haystack1, needle1);
+  checkOne(haystack1, needle2);
+  checkOne(haystack1, needle3);
+  checkOne(haystack1, needle4);
+  checkOne(haystack1, needle5);
+  checkOne(haystack1, needle6);
+  checkOne(haystack1, needle7);
+
+  // Cant find long pattern in short corpus
+  checkOne(needle1, haystack1);
+  // Find something in itself
+  checkOne(haystack1, haystack1);
+  // Find something in itself
+  checkOne(haystack2, haystack2);
+
+  checkOne(haystack2, needle11);
+  checkOne(haystack3, needle12);
+  // Find the empty string
+  checkOne(haystack1, needle13);
+  // Can't find in an empty haystack
+  checkOne(haystack4, needle1);
+
+  // Comment copy from the origin code.
+  // Mikhail Levin <svarneticist@gmail.com> found a problem, and this was the
+  // test that triggered it.
+  const std::string mikhailPattern =
+      "GATACACCTACCTTCACCAGTTACTCTATGCACTAGGTGCGCCAGGCCCATGCACAAGGGCTTGAGTGGATGGGAAGGA"
+      "TGTGCCCTAGTGATGGCAGCATAAGCTACGCAGAGAAGTTCCAGGGCAGAGTCACCATGACCAGGGACACATCCACGAG"
+      "CACAGCCTACATGGAGCTGAGCAGCCTGAGATCTGAAGACACGGCCATGTATTACTGTGGGAGAGATGTCTGGAGTGGT"
+      "TATTATTGCCCCGGTAATATTACTACTACTACTACTACATGGACGTCTGGGGCAAAGGGACCACG";
+  const std::string mikhailCorpus = std::string(8, 'a') + mikhailPattern;
+
+  checkOne(mikhailCorpus, mikhailPattern);
+}
+
+TEST_F(SimdUtilTest, variableNeedleSize) {
+  std::string s1 = "aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz";
+  std::string s2 = "aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz";
+  std::string s3 = "01234567890123456789";
+  auto test = [](char* text, size_t size, char* needle, size_t k) {
+    if (simd::simdStrstr(text, size, needle, k) !=
+        std::string_view(text, size).find(std::string_view(needle, k))) {
+      LOG(ERROR) << "text: " << std::string(text, size)
+                 << " needle :" << std::string(needle, k);
+    }
+    ASSERT_EQ(
+        simd::simdStrstr(text, size, needle, k),
+        std::string_view(text, size).find(std::string_view(needle, k)));
+  };
+  // Match cases (prefix/middle/suffix): substrings in s2 should be a substring
+  // in s1. Choose different needle-size left from s2, testing prefix-match in
+  // s1.
+  for (int k = 0; k < s2.size(); k++) {
+    test(s1.data(), s1.size(), s2.data(), k);
+  }
+  // Choose different needle-size left from s2, testing middle-match in s1.
+  for (int i = 0; i < 20; i++) {
+    for (int k = 0; k < 28; k++) {
+      char* data = s2.data() + i;
+      test(s1.data(), s1.size(), data, k);
+    }
+  }
+  // Choose different needle-size right from s2, testing suffix-match in s1.
+  for (int k = 0; k < s2.size(); k++) {
+    char* data = s2.data() + s2.size() - k;
+    test(s1.data(), s1.size(), data, k);
+  }
+  // Not match case : substring in s3 not in s1.
+  for (auto k = 0; k < s3.size(); k++) {
+    test(s1.data(), s1.size(), s3.data(), k);
+  }
+
+  // FirstBlock match
+  for (auto k = 0; k < s3.size(); k++) {
+    std::string somePrefix = "xxxxxx";
+    std::string matchString = "a" + std::string(k, 'x');
+    std::string someSuffix = "yyyyyyyy";
+    std::string text = somePrefix + matchString + someSuffix;
+    auto s = "a" + std::string(k, '9');
+    test(text.data(), text.size(), s.data(), s.size());
+  }
+  // FirstBlock and LastBlock match
+  for (auto k = 0; k < s3.size(); k++) {
+    std::string somePrefix = "xxxxxx";
+    std::string matchString = "a" + std::string(k, 'x') + "b";
+    std::string someSuffix = "yyyyyyyy";
+    std::string text = somePrefix + matchString + someSuffix;
+    auto s = "a" + std::string(k, '9') + "b";
+    test(text.data(), text.size(), s.data(), s.size());
+  }
+}
+
+/// Copy from
+/// https://github.com/facebook/folly/blob/ce5edfb9b08ead9e78cb46879e7b9499861f7cd2/folly/test/FBStringTest.cpp#L1277
+/// clause11_21_4_7_2_a1
+TEST_F(SimdUtilTest, randomStringStrStr) {
+  std::string test;
+  const int kTestLoop = 1;
+  auto checkOne =
+      [](const std::string& text, const std::string& needle, size_t pos) {
+        auto size = text.length() - pos;
+        auto textPtr = text.data() + pos;
+        auto k = needle.size();
+        ASSERT_EQ(
+            simd::simdStrstr(textPtr, size, needle.data(), k),
+            text.substr(pos).find(needle));
+      };
+  for (int i = 0; i < kTestLoop; i++) {
+    // clause11_21_4_7_2_a1
+    randomString(&test);
+    auto from = random(0, test.size());
+    auto length = random(0, test.size() - from);
+    std::string str = test.substr(from, length);
+    checkOne(test, str, random(0, test.size()));
+  }
 }
 
 } // namespace
