@@ -70,6 +70,10 @@
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #endif
 
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+#include "presto_cpp/main/connectors/arrow_flight/ArrowFlightConnector.h"
+#endif
+
 #ifdef __linux__
 // Required by BatchThreadFactory
 #include <pthread.h>
@@ -252,8 +256,9 @@ void PrestoServer::run() {
 
   // Register Velox connector factory for iceberg.
   // The iceberg catalog is handled by the hive connector factory.
-  connector::registerConnectorFactory(
-      std::make_shared<connector::hive::HiveConnectorFactory>("iceberg"));
+  velox::connector::registerConnectorFactory(
+      std::make_shared<velox::connector::hive::HiveConnectorFactory>(
+          "iceberg"));
 
   registerPrestoToVeloxConnector(
       std::make_unique<HivePrestoToVeloxConnector>("hive"));
@@ -263,6 +268,10 @@ void PrestoServer::run() {
       std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
   registerPrestoToVeloxConnector(
       std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+  registerPrestoToVeloxConnector(
+      std::make_unique<ArrowPrestoToVeloxConnector>("arrow-flight"));
+#endif
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
   // Depending on where the operator or column is used, different prefixes can
@@ -1108,19 +1117,28 @@ PrestoServer::getAdditionalHttpServerFilters() {
 void PrestoServer::registerConnectorFactories() {
   // These checks for connector factories can be removed after we remove the
   // registrations from the Velox library.
-  if (!connector::hasConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>(
+  if (!velox::connector::hasConnectorFactory(
+          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::hive::HiveConnectorFactory>());
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::hive::HiveConnectorFactory>(
             kHiveHadoop2ConnectorName));
   }
-  if (!connector::hasConnectorFactory(
-          connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
-    connector::registerConnectorFactory(
-        std::make_shared<connector::tpch::TpchConnectorFactory>());
+  if (!velox::connector::hasConnectorFactory(
+          velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
   }
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+  if (!velox::connector::hasConnectorFactory(
+          presto::connector::arrow_flight::ArrowFlightConnectorFactory::
+              kArrowFlightConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<
+            presto::connector::arrow_flight::ArrowFlightConnectorFactory>());
+  }
+#endif
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(

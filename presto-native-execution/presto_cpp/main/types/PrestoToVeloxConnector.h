@@ -210,4 +210,32 @@ class TpchPrestoToVeloxConnector final : public PrestoToVeloxConnector {
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
 };
+
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+class ArrowPrestoToVeloxConnector final : public PrestoToVeloxConnector {
+ public:
+  explicit ArrowPrestoToVeloxConnector(std::string connectorName)
+      : PrestoToVeloxConnector(std::move(connectorName)) {}
+
+  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
+      const protocol::ConnectorId& catalogId,
+      const protocol::ConnectorSplit* connectorSplit) const final;
+
+  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
+      const protocol::ColumnHandle* column,
+      const TypeParser& typeParser) const final;
+
+  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
+      const protocol::TableHandle& tableHandle,
+      const VeloxExprConverter& exprConverter,
+      const TypeParser& typeParser,
+      std::unordered_map<
+          std::string,
+          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
+      const final;
+
+  std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
+      const final;
+};
+#endif
 } // namespace facebook::presto

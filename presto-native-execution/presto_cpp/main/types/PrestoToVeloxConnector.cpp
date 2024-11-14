@@ -27,6 +27,12 @@
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
 
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+#include "folly/base64.h"
+#include "presto_cpp/main/connectors/arrow_flight/ArrowFlightConnector.h"
+#include "presto_cpp/presto_protocol/connector/arrow_flight/ArrowFlightConnectorProtocol.h"
+#endif
+
 namespace facebook::presto {
 
 namespace {
@@ -117,15 +123,16 @@ TypePtr stringToType(
   return typeParser.parse(typeString);
 }
 
-connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
+velox::connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
     protocol::hive::ColumnType type) {
   switch (type) {
     case protocol::hive::ColumnType::PARTITION_KEY:
-      return connector::hive::HiveColumnHandle::ColumnType::kPartitionKey;
+      return velox::connector::hive::HiveColumnHandle::ColumnType::
+          kPartitionKey;
     case protocol::hive::ColumnType::REGULAR:
-      return connector::hive::HiveColumnHandle::ColumnType::kRegular;
+      return velox::connector::hive::HiveColumnHandle::ColumnType::kRegular;
     case protocol::hive::ColumnType::SYNTHESIZED:
-      return connector::hive::HiveColumnHandle::ColumnType::kSynthesized;
+      return velox::connector::hive::HiveColumnHandle::ColumnType::kSynthesized;
     default:
       VELOX_UNSUPPORTED(
           "Unsupported Hive column type: {}.", toJsonString(type));
@@ -794,7 +801,7 @@ std::unique_ptr<common::Filter> toFilter(
   VELOX_UNSUPPORTED("Unsupported filter found.");
 }
 
-std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
+std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
     bool isPushdownFilterEnabled,
@@ -804,7 +811,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::Map<protocol::String, protocol::String>& tableParameters,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) {
-  connector::hive::SubfieldFilters subfieldFilters;
+  velox::connector::hive::SubfieldFilters subfieldFilters;
   auto domains = domainPredicate.domains;
   for (const auto& domain : *domains) {
     auto filter = domain.second;
@@ -844,7 +851,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
   }
 
   if (tableParameters.empty()) {
-    return std::make_unique<connector::hive::HiveTableHandle>(
+    return std::make_unique<velox::connector::hive::HiveTableHandle>(
         tableHandle.connectorId,
         tableName,
         isPushdownFilterEnabled,
@@ -859,7 +866,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
     finalTableParameters[key] = value;
   }
 
-  return std::make_unique<connector::hive::HiveTableHandle>(
+  return std::make_unique<velox::connector::hive::HiveTableHandle>(
       tableHandle.connectorId,
       tableName,
       isPushdownFilterEnabled,
@@ -869,7 +876,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
       finalTableParameters);
 }
 
-connector::hive::LocationHandle::TableType toTableType(
+velox::connector::hive::LocationHandle::TableType toTableType(
     protocol::hive::TableType tableType) {
   switch (tableType) {
     case protocol::hive::TableType::NEW:
@@ -877,17 +884,17 @@ connector::hive::LocationHandle::TableType toTableType(
     // So they can be treated as New. They do not require Append or Overwrite
     // semantics as applicable for regular tables.
     case protocol::hive::TableType::TEMPORARY:
-      return connector::hive::LocationHandle::TableType::kNew;
+      return velox::connector::hive::LocationHandle::TableType::kNew;
     case protocol::hive::TableType::EXISTING:
-      return connector::hive::LocationHandle::TableType::kExisting;
+      return velox::connector::hive::LocationHandle::TableType::kExisting;
     default:
       VELOX_UNSUPPORTED("Unsupported table type: {}.", toJsonString(tableType));
   }
 }
 
-std::shared_ptr<connector::hive::LocationHandle> toLocationHandle(
+std::shared_ptr<velox::connector::hive::LocationHandle> toLocationHandle(
     const protocol::hive::LocationHandle& locationHandle) {
-  return std::make_shared<connector::hive::LocationHandle>(
+  return std::make_shared<velox::connector::hive::LocationHandle>(
       locationHandle.targetPath,
       locationHandle.writePath,
       toTableType(locationHandle.tableType));
@@ -987,8 +994,8 @@ toHiveSortingColumns(
 
 std::shared_ptr<velox::connector::hive::HiveBucketProperty>
 toHiveBucketProperty(
-    const std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>&
-        inputColumns,
+    const std::vector<std::shared_ptr<
+        const velox::connector::hive::HiveColumnHandle>>& inputColumns,
     const std::shared_ptr<protocol::hive::HiveBucketProperty>& bucketProperty,
     const TypeParser& typeParser) {
   if (bucketProperty == nullptr) {
@@ -1264,7 +1271,7 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
 
   const auto table = hiveInsertTableHandle->pageSinkMetadata.table;
   VELOX_USER_CHECK_NOT_NULL(table, "Table must not be null for insert query");
-  return std::make_unique<connector::hive::HiveInsertTableHandle>(
+  return std::make_unique<velox::connector::hive::HiveInsertTableHandle>(
       inputColumns,
       toLocationHandle(hiveInsertTableHandle->locationHandle),
       toFileFormat(hiveInsertTableHandle->tableStorageFormat, "TableWrite"),
@@ -1277,20 +1284,20 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
           table->storage.serdeParameters.end()));
 }
 
-std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
+std::vector<std::shared_ptr<const velox::connector::hive::HiveColumnHandle>>
 HivePrestoToVeloxConnector::toHiveColumns(
     const protocol::List<protocol::hive::HiveColumnHandle>& inputColumns,
     const TypeParser& typeParser,
     bool& hasPartitionColumn) const {
   hasPartitionColumn = false;
-  std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
+  std::vector<std::shared_ptr<const velox::connector::hive::HiveColumnHandle>>
       hiveColumns;
   hiveColumns.reserve(inputColumns.size());
   for (const auto& columnHandle : inputColumns) {
     hasPartitionColumn |=
         columnHandle.columnType == protocol::hive::ColumnType::PARTITION_KEY;
     hiveColumns.emplace_back(
-        std::dynamic_pointer_cast<connector::hive::HiveColumnHandle>(
+        std::dynamic_pointer_cast<velox::connector::hive::HiveColumnHandle>(
             std::shared_ptr(toVeloxColumnHandle(&columnHandle, typeParser))));
   }
   return hiveColumns;
@@ -1316,7 +1323,7 @@ HivePrestoToVeloxConnector::createVeloxPartitionFunctionSpec(
       "Unsupported Hive bucket function type: {}",
       toJsonString(hivePartitioningHandle->bucketFunctionType));
   effectivelyGather = hivePartitioningHandle->bucketCount == 1;
-  return std::make_unique<connector::hive::HivePartitionFunctionSpec>(
+  return std::make_unique<velox::connector::hive::HivePartitionFunctionSpec>(
       hivePartitioningHandle->bucketCount,
       bucketToPartition,
       channels,
@@ -1376,7 +1383,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
        std::to_string(icebergSplit->dataSequenceNumber)},
       {"$path", icebergSplit->path}};
 
-  return std::make_unique<connector::hive::iceberg::HiveIcebergSplit>(
+  return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
       icebergSplit->path,
       toVeloxFileFormat(icebergSplit->fileFormat),
@@ -1401,7 +1408,7 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
   // TODO(imjalpreet): Modify 'hiveType' argument of the 'HiveColumnHandle'
   //  constructor similar to how Hive Connector is handling for bucketing
   velox::type::fbhive::HiveTypeParser hiveTypeParser;
-  return std::make_unique<connector::hive::HiveColumnHandle>(
+  return std::make_unique<velox::connector::hive::HiveColumnHandle>(
       icebergColumn->columnIdentity.name,
       toHiveColumnType(icebergColumn->columnType),
       stringToType(icebergColumn->type, typeParser),
@@ -1487,7 +1494,7 @@ TpchPrestoToVeloxConnector::toVeloxSplit(
       dynamic_cast<const protocol::tpch::TpchSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
       tpchSplit, "Unexpected split type {}", connectorSplit->_type);
-  return std::make_unique<connector::tpch::TpchConnectorSplit>(
+  return std::make_unique<velox::connector::tpch::TpchConnectorSplit>(
       catalogId, tpchSplit->totalParts, tpchSplit->partNumber);
 }
 
@@ -1499,7 +1506,7 @@ TpchPrestoToVeloxConnector::toVeloxColumnHandle(
       dynamic_cast<const protocol::tpch::TpchColumnHandle*>(column);
   VELOX_CHECK_NOT_NULL(
       tpchColumn, "Unexpected column handle type {}", column->_type);
-  return std::make_unique<connector::tpch::TpchColumnHandle>(
+  return std::make_unique<velox::connector::tpch::TpchColumnHandle>(
       tpchColumn->columnName);
 }
 
@@ -1518,7 +1525,7 @@ TpchPrestoToVeloxConnector::toVeloxTableHandle(
       tpchLayout,
       "Unexpected layout type {}",
       tableHandle.connectorTableLayout->_type);
-  return std::make_unique<connector::tpch::TpchTableHandle>(
+  return std::make_unique<velox::connector::tpch::TpchTableHandle>(
       tableHandle.connectorId,
       tpch::fromTableName(tpchLayout->table.tableName),
       tpchLayout->table.scaleFactor);
@@ -1528,4 +1535,49 @@ std::unique_ptr<protocol::ConnectorProtocol>
 TpchPrestoToVeloxConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::tpch::TpchConnectorProtocol>();
 }
+
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+std::unique_ptr<velox::connector::ConnectorSplit>
+ArrowPrestoToVeloxConnector::toVeloxSplit(
+    const protocol::ConnectorId& catalogId,
+    const protocol::ConnectorSplit* const connectorSplit) const {
+  auto arrowSplit =
+      dynamic_cast<const protocol::arrow_flight::ArrowSplit*>(connectorSplit);
+  VELOX_CHECK_NOT_NULL(
+      arrowSplit, "Unexpected split type {}", connectorSplit->_type);
+  return std::make_unique<presto::connector::arrow_flight::FlightSplit>(
+      catalogId,
+      folly::base64Decode(arrowSplit->ticket),
+      arrowSplit->locationUrls);
+}
+
+std::unique_ptr<velox::connector::ColumnHandle>
+ArrowPrestoToVeloxConnector::toVeloxColumnHandle(
+    const protocol::ColumnHandle* column,
+    const TypeParser& typeParser) const {
+  auto arrowColumn =
+      dynamic_cast<const protocol::arrow_flight::ArrowColumnHandle*>(column);
+  VELOX_CHECK_NOT_NULL(
+      arrowColumn, "Unexpected column handle type {}", column->_type);
+  return std::make_unique<presto::connector::arrow_flight::FlightColumnHandle>(
+      arrowColumn->columnName);
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle>
+ArrowPrestoToVeloxConnector::toVeloxTableHandle(
+    const protocol::TableHandle& tableHandle,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser,
+    std::unordered_map<
+        std::string,
+        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+  return std::make_unique<presto::connector::arrow_flight::FlightTableHandle>(
+      tableHandle.connectorId);
+}
+
+std::unique_ptr<protocol::ConnectorProtocol>
+ArrowPrestoToVeloxConnector::createConnectorProtocol() const {
+  return std::make_unique<protocol::arrow_flight::ArrowConnectorProtocol>();
+}
+#endif
 } // namespace facebook::presto

@@ -14,6 +14,7 @@ add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
+add_subdirectory(connectors)
 
 add_library(
   presto_server_lib
@@ -86,6 +87,10 @@ target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra
 
 set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
                                                presto_link_job_pool)
+
+if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
+  target_link_libraries(presto_server_lib presto_flight_connector)
+endif()
 
 add_executable(presto_server PrestoMain.cpp)
 

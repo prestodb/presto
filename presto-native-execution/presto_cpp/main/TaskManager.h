@@ -179,6 +179,7 @@ class TaskManager {
       const velox::core::PlanFragment& planFragment,
       const std::vector<protocol::TaskSource>& sources,
       const protocol::OutputBuffers& outputBuffers,
+      const std::map<std::string, std::string>& extraCredentials,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 

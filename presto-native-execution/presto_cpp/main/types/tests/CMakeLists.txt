@@ -93,6 +93,10 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main)
 
+if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
+  target_link_libraries(presto_to_velox_connector_test presto_flight_connector)
+endif()
+
 add_executable(presto_function_metadata_test FunctionMetadataTest.cpp)
 
 add_test(

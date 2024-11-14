@@ -24,6 +24,11 @@ add_dependencies(presto_types presto_operators presto_type_converter velox_type
 target_link_libraries(presto_types presto_type_converter velox_type_fbhive
                       velox_hive_partition_function velox_tpch_gen)
 
+if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
+  target_compile_definitions(presto_types
+                             PUBLIC PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
+endif()
+
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)

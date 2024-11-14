@@ -53,6 +53,7 @@ AbstractClasses:
         - { name: IcebergColumnHandle,      key: hive-iceberg }
         - { name: TpchColumnHandle,         key: tpch }
         - { name: SystemColumnHandle,       key: $system@system }
+        - { name: ArrowColumnHandle,        key: arrow-flight }
 
     ConnectorPartitioningHandle:
       super: JsonEncodedSubclass
@@ -68,6 +69,7 @@ AbstractClasses:
         - { name: IcebergTableHandle,       key: hive-iceberg }
         - { name: TpchTableHandle,          key: tpch }
         - { name: SystemTableHandle,        key: $system@system }
+        - { name: ArrowTableHandle,         key: arrow-flight }
 
     ConnectorOutputTableHandle:
       super: JsonEncodedSubclass
@@ -95,6 +97,7 @@ AbstractClasses:
         - { name: IcebergTableLayoutHandle, key: hive-iceberg }
         - { name: TpchTableLayoutHandle,    key: tpch }
         - { name: SystemTableLayoutHandle,  key: $system@system }
+        - { name: ArrowTableLayoutHandle,   key: arrow-flight }
 
     ConnectorMetadataUpdateHandle:
       super: JsonEncodedSubclass
@@ -110,6 +113,7 @@ AbstractClasses:
         - { name: RemoteSplit,          key: $remote }
         - { name: EmptySplit,           key: $empty }
         - { name: SystemSplit,          key: $system@system }
+        - { name: ArrowSplit,           key: arrow-flight }
 
     ConnectorHistogram:
       super: JsonEncodedSubclass
@@ -365,3 +369,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTransactionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/AggregationFunctionMetadata.java
   - presto-function-namespace-managers/src/main/java/com/facebook/presto/functionNamespace/json/JsonBasedUdfFunctionMetadata.java
+  - presto-base-arrow-flight/src/main/java/com/facebook/plugin/arrow/ArrowColumnHandle.java
+  - presto-base-arrow-flight/src/main/java/com/facebook/plugin/arrow/ArrowTableHandle.java
+  - presto-base-arrow-flight/src/main/java/com/facebook/plugin/arrow/ArrowTableLayoutHandle.java
+  - presto-base-arrow-flight/src/main/java/com/facebook/plugin/arrow/ArrowSplit.java

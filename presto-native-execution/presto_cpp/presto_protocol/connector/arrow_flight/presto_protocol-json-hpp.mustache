@@ -1,0 +1,76 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#pragma once
+
+{{#.}}
+{{#comment}}
+{{comment}}
+{{/comment}}
+{{/.}}
+
+#include <map>
+#include <regex>
+#include <cstdint>
+#include <string>
+
+#include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+
+// ArrowTransactionHandle is special since
+// the corresponding class in Java is an enum.
+
+namespace facebook::presto::protocol::arrow_flight {
+
+struct ArrowTransactionHandle : public ConnectorTransactionHandle {
+  String instance = {};
+};
+
+void to_json(json& j, const ArrowTransactionHandle& p);
+
+void from_json(const json& j, ArrowTransactionHandle& p);
+
+} // namespace facebook::presto::protocol::arrow_flight
+{{#.}}
+{{#hinc}}
+{{&hinc}}
+{{/hinc}}
+{{^hinc}}
+{{#struct}}
+namespace facebook::presto::protocol::arrow_flight {
+    struct {{class_name}} {{#super_class}}: public {{super_class}}{{/super_class}}{
+        {{#fields}}
+        {{#field_local}}{{#optional}}std::shared_ptr<{{/optional}}{{&field_text}}{{#optional}}>{{/optional}} {{&field_name}} = {};{{/field_local}}
+        {{/fields}}
+
+        {{#super_class}}
+        {{class_name}}() noexcept;
+        {{/super_class}}
+    };
+    void to_json(json& j, const {{class_name}}& p);
+    void from_json(const json& j, {{class_name}}& p);
+}
+{{/struct}}
+{{#enum}}
+namespace facebook::presto::protocol::arrow_flight {
+    enum class {{class_name}} {
+        {{#elements}}
+        {{&element}}{{^_last}},{{/_last}}
+        {{/elements}}
+    };
+    extern void to_json(json& j, const {{class_name}}& e);
+    extern void from_json(const json& j, {{class_name}}& e);
+}
+{{/enum}}
+{{/hinc}}
+{{/.}}

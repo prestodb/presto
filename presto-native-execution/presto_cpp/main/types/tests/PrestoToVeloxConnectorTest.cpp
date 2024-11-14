@@ -34,6 +34,12 @@ TEST_F(PrestoToVeloxConnectorTest, registerVariousConnectors) {
   connectorList.emplace_back(
       std::pair("tpch", std::make_unique<HivePrestoToVeloxConnector>("tpch")));
 
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+  connectorList.emplace_back(std::pair(
+      "arrow-flight",
+      std::make_unique<ArrowPrestoToVeloxConnector>("arrow-flight")));
+#endif
+
   for (auto& [connectorName, connector] : connectorList) {
     registerPrestoToVeloxConnector(std::move(connector));
     EXPECT_EQ(
