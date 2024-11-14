@@ -56,7 +56,6 @@ import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
@@ -64,6 +63,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
@@ -137,7 +137,7 @@ public abstract class AbstractOperatorBenchmark
 
         // look up the table
         Metadata metadata = localQueryRunner.getMetadata();
-        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
+        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), tableName);
         TableHandle tableHandle = metadata.getMetadataResolver(session).getTableHandle(qualifiedTableName)
                 .orElseThrow(() -> new IllegalArgumentException(format("Table %s does not exist", qualifiedTableName)));
 
@@ -155,7 +155,7 @@ public abstract class AbstractOperatorBenchmark
 
         // look up the table
         Metadata metadata = localQueryRunner.getMetadata();
-        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
+        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), tableName);
         TableHandle tableHandle = metadata.getMetadataResolver(session).getTableHandle(qualifiedTableName).orElse(null);
         checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
 
@@ -224,7 +224,7 @@ public abstract class AbstractOperatorBenchmark
 
         Optional<RowExpression> hashExpression = getHashExpression(localQueryRunner.getMetadata().getFunctionAndTypeManager(), variables.build());
         verify(hashExpression.isPresent());
-        RowExpression translatedHashExpression = translate(hashExpression.get(), variableToInputMapping.build());
+        RowExpression translatedHashExpression = translate(hashExpression.orElseThrow(), variableToInputMapping.build());
 
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
         projections.add(new PageProjectionWithOutputs(functionCompiler.compileProjection(session.getSqlFunctionProperties(), translatedHashExpression, Optional.empty()).get(), new int[] {types.size()}));
@@ -233,7 +233,7 @@ public abstract class AbstractOperatorBenchmark
                 operatorId,
                 planNodeId,
                 () -> new PageProcessor(Optional.empty(), projections.build()),
-                ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT))),
+                Stream.concat(types.stream(), ImmutableList.of(BIGINT).stream()).toList(),
                 getFilterAndProjectMinOutputPageSize(session),
                 getFilterAndProjectMinOutputPageRowCount(session));
     }
