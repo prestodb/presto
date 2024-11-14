@@ -341,18 +341,7 @@ public abstract class AbstractTestNativeGeneralQueries
                     "(VARCHAR '255.255.255.255', BIGINT '8', VARCHAR '255.0.0.0/8'), " +
                     "(VARCHAR '2001:0db8:85a3:0001:0001:8a2e:0370:7334', BIGINT '48', VARCHAR '2001:db8:85a3::/48')", tmpTableName));
 
-            assertQueryFails(String.format("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), NULL) IS NULL", tmpTableName),
-                    ".*IPAddress type is not supported in Prestissimo.*");
-            assertQueryFails(String.format("SELECT CAST(NULL AS IPADDRESS) IS NULL", tmpTableName),
-                    ".*IPAddress type is not supported in Prestissimo.*");
-
-            assertQueryFails("SELECT * FROM (VALUES (IPADDRESS '192.1.1.10'), (IPADDRESS '192.1.1.1'), (IPADDRESS '192.1.1.11')) as t (ip) ORDER BY ip LIMIT 1",
-                    ".*IPAddress type is not supported in Prestissimo.*");
-
-            assertQueryFails("SELECT CAST('192.168.255.256' AS IPADDRESS)",
-                    ".*IPAddress type is not supported in Prestissimo.*");
-            assertQueryFails("SELECT ip_prefix(CAST('192.168.255.255' AS IPADDRESS), 99)",
-                    ".*IPAddress type is not supported in Prestissimo.*");
+            assertQuery("SELECT * FROM (VALUES (IPADDRESS '192.1.1.10'), (IPADDRESS '192.1.1.1'), (IPADDRESS '192.1.1.11')) as t (ip) ORDER BY ip LIMIT 1");
         }
         finally {
             dropTableIfExists(tmpTableName);
@@ -573,13 +562,13 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT cast(row(orderkey, comment) as row(\"123\" varchar, \"456\" varchar)) FROM orders");
 
         // Cast timestamp with time zone
-        assertQueryFails("SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
-        assertQueryFails(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQuery("SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders");
+        assertQuery(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders");
         // Cast timestamp with time zone to timestamp
-        assertQueryFails("SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
-                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
-        assertQueryFails(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
-                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQuery("SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
+                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
+        assertQuery(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
+                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
     }
 
     @Test
@@ -1306,27 +1295,27 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test
     public void testTimestampWithTimeZone()
     {
-        assertQueryFails("SELECT from_unixtime(orderkey, '+01:00'), from_unixtime(orderkey, '-05:00'), from_unixtime(orderkey, 'Europe/Moscow') FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
-        assertQueryFails("SELECT from_unixtime(orderkey, '+01:00'), count(1) FROM orders GROUP BY 1", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQuery("SELECT from_unixtime(orderkey, '+01:00'), from_unixtime(orderkey, '-05:00'), from_unixtime(orderkey, 'Europe/Moscow') FROM orders");
+        assertQuery("SELECT from_unixtime(orderkey, '+01:00'), count(1) FROM orders GROUP BY 1");
 
-        assertQueryFails("SELECT parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar), 'YYYY-MM-dd+HH:mm'), parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar) || '+14:00', 'YYYY-MM-dd+HH:mmZZ') FROM nation", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQuery("SELECT parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar), 'YYYY-MM-dd+HH:mm'), parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar) || '+14:00', 'YYYY-MM-dd+HH:mmZZ') FROM nation");
 
-        assertQueryFails("SELECT to_unixtime(from_unixtime(orderkey, '+01:00')), to_unixtime(from_unixtime(orderkey, '-05:00')), to_unixtime(from_unixtime(orderkey, 'Europe/Moscow')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
-        assertQueryFails("SELECT to_unixtime(from_unixtime(orderkey, '+01:00')), count(1) FROM orders GROUP BY 1", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
-        assertQueryFails("SELECT to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar), 'YYYY-MM-dd+HH:mm')), to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar) || '+14:00', 'YYYY-MM-dd+HH:mmZZ')) FROM nation", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
-        assertQueryFails("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
-        assertQueryFails("SELECT ARRAY[timestamp '2018-02-06 23:00:00.000 Australia/Melbourne', null, timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles']", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQuery("SELECT to_unixtime(from_unixtime(orderkey, '+01:00')), to_unixtime(from_unixtime(orderkey, '-05:00')), to_unixtime(from_unixtime(orderkey, 'Europe/Moscow')) FROM orders");
+        assertQuery("SELECT to_unixtime(from_unixtime(orderkey, '+01:00')), count(1) FROM orders GROUP BY 1");
+        assertQuery("SELECT to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar), 'YYYY-MM-dd+HH:mm')), to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar) || '+14:00', 'YYYY-MM-dd+HH:mmZZ')) FROM nation");
+        assertQuery("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'");
+        assertQuery("SELECT ARRAY[timestamp '2018-02-06 23:00:00.000 Australia/Melbourne', null, timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles']");
 
-        assertQueryFails("SELECT orderkey, year(from_unixtime(orderkey, '+01:00')), quarter(from_unixtime(orderkey, '-07:00')), month(from_unixtime(orderkey, '+00:00')), day(from_unixtime(orderkey, '-13:00')), day_of_week(from_unixtime(orderkey, '+03:00')), day_of_year(from_unixtime(orderkey, '-13:00')), year_of_week(from_unixtime(orderkey, '+14:00')), hour(from_unixtime(orderkey, '+01:00')), minute(from_unixtime(orderkey, '+01:00')), second(from_unixtime(orderkey, '-07:00')), millisecond(from_unixtime(orderkey, '+03:00')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
-        assertQueryFails("SELECT orderkey, date_trunc('year', from_unixtime(orderkey, '-03:00')), date_trunc('quarter', from_unixtime(orderkey, '+14:00')), date_trunc('month', from_unixtime(orderkey, '+03:00')), date_trunc('day', from_unixtime(orderkey, '-07:00')), date_trunc('hour', from_unixtime(orderkey, '-09:30')), date_trunc('minute', from_unixtime(orderkey, '+05:30')), date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQuery("SELECT orderkey, year(from_unixtime(orderkey, '+01:00')), quarter(from_unixtime(orderkey, '-07:00')), month(from_unixtime(orderkey, '+00:00')), day(from_unixtime(orderkey, '-13:00')), day_of_week(from_unixtime(orderkey, '+03:00')), day_of_year(from_unixtime(orderkey, '-13:00')), year_of_week(from_unixtime(orderkey, '+14:00')), hour(from_unixtime(orderkey, '+01:00')), minute(from_unixtime(orderkey, '+01:00')), second(from_unixtime(orderkey, '-07:00')), millisecond(from_unixtime(orderkey, '+03:00')) FROM orders");
+        assertQuery("SELECT orderkey, date_trunc('year', from_unixtime(orderkey, '-03:00')), date_trunc('quarter', from_unixtime(orderkey, '+14:00')), date_trunc('month', from_unixtime(orderkey, '+03:00')), date_trunc('day', from_unixtime(orderkey, '-07:00')), date_trunc('hour', from_unixtime(orderkey, '-09:30')), date_trunc('minute', from_unixtime(orderkey, '+05:30')), date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders");
 
-        assertQueryFails("SELECT timezone_hour(from_unixtime(orderkey, 'Asia/Oral')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
-        assertQueryFails("SELECT timezone_minute(from_unixtime(orderkey, 'Asia/Kolkata')) FROM orders", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQuery("SELECT timezone_hour(from_unixtime(orderkey, 'Asia/Oral')) FROM orders");
+        assertQuery("SELECT timezone_minute(from_unixtime(orderkey, 'Asia/Kolkata')) FROM orders");
 
         Session filterPushdown = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
                 .build();
-        assertQueryFails(filterPushdown, "select distinct custkey from orders where date_diff('day', from_unixtime(orderkey), TIMESTAMP '2023-01-01 00:00:00 UTC') = 150", ".*Timestamp with Timezone type is not supported in Prestissimo.*");
+        assertQuery(filterPushdown, "select distinct custkey from orders where date_diff('day', from_unixtime(orderkey), TIMESTAMP '2023-01-01 00:00:00 UTC') = 150");
     }
 
     @Test

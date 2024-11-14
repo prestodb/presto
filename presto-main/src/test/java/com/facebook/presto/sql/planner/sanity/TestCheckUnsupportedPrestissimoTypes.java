@@ -53,6 +53,8 @@ public class TestCheckUnsupportedPrestissimoTypes
                 .setSchema("tiny");
         testSession = sessionBuilder.build();
         metadata = getQueryRunner().getMetadata();
+        featuresConfig.setDisableTimeStampWithTimeZoneForNative(true);
+        featuresConfig.setDisableIPAddressForNative(true);
     }
 
     @AfterClass(alwaysRun = true)
