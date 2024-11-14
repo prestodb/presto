@@ -112,9 +112,11 @@ std::vector<std::string> FaultyFileSystem::list(std::string_view path) {
   return files;
 }
 
-void FaultyFileSystem::mkdir(std::string_view path) {
+void FaultyFileSystem::mkdir(
+    std::string_view path,
+    const DirectoryOptions& options) {
   const auto delegatedDirPath = extractPath(path);
-  getFileSystem(delegatedDirPath, config_)->mkdir(delegatedDirPath);
+  getFileSystem(delegatedDirPath, config_)->mkdir(delegatedDirPath, options);
 }
 
 void FaultyFileSystem::rmdir(std::string_view path) {

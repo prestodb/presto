@@ -71,7 +71,7 @@ class FaultyFileSystem : public FileSystem {
 
   std::vector<std::string> list(std::string_view path) override;
 
-  void mkdir(std::string_view path) override;
+  void mkdir(std::string_view path, const DirectoryOptions& options) override;
 
   void rmdir(std::string_view path) override;
 

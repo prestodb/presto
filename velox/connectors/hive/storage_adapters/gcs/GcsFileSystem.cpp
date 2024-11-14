@@ -433,7 +433,9 @@ void GcsFileSystem::rename(std::string_view, std::string_view, bool) {
   VELOX_UNSUPPORTED("rename for GCS not implemented");
 }
 
-void GcsFileSystem::mkdir(std::string_view path) {
+void GcsFileSystem::mkdir(
+    std::string_view path,
+    const DirectoryOptions& options) {
   VELOX_UNSUPPORTED("mkdir for GCS not implemented");
 }
 

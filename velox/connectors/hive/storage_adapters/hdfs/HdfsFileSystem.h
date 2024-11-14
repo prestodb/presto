@@ -78,7 +78,8 @@ class HdfsFileSystem : public FileSystem {
     VELOX_UNSUPPORTED("list for HDFS not implemented");
   }
 
-  void mkdir(std::string_view path) override {
+  void mkdir(std::string_view path, const DirectoryOptions& options = {})
+      override {
     VELOX_UNSUPPORTED("mkdir for HDFS not implemented");
   }
 

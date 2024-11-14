@@ -62,7 +62,8 @@ class S3FileSystem : public FileSystem {
     VELOX_UNSUPPORTED("list for S3 not implemented");
   }
 
-  void mkdir(std::string_view path) override {
+  void mkdir(std::string_view path, const DirectoryOptions& options = {})
+      override {
     VELOX_UNSUPPORTED("mkdir for S3 not implemented");
   }
 

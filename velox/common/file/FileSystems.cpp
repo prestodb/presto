@@ -163,7 +163,8 @@ class LocalFileSystem : public FileSystem {
     return filePaths;
   }
 
-  void mkdir(std::string_view path) override {
+  void mkdir(std::string_view path, const DirectoryOptions& /*options*/)
+      override {
     std::error_code ec;
     std::filesystem::create_directories(path, ec);
     VELOX_CHECK_EQ(

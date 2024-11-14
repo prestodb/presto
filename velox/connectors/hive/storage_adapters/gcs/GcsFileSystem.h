@@ -81,7 +81,8 @@ class GcsFileSystem : public FileSystem {
   void rename(std::string_view, std::string_view, bool) override;
 
   /// Unsupported
-  void mkdir(std::string_view path) override;
+  void mkdir(std::string_view path, const DirectoryOptions& options = {})
+      override;
 
   /// Unsupported
   void rmdir(std::string_view path) override;
