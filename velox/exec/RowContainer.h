@@ -769,8 +769,19 @@ class RowContainer {
     return (row[nullByte] & nullMask) != 0;
   }
 
-  static inline bool isNullAt(const char* row, RowColumn rowColumn) {
+  static inline bool isNullAt(const char* row, const RowColumn& rowColumn) {
     return (row[rowColumn.nullByte()] & rowColumn.nullMask()) != 0;
+  }
+
+  /// Returns true if the value at rowColumn in row is NaN.
+  template <
+      typename T,
+      std::enable_if_t<std::is_floating_point_v<T>, int32_t> = 0>
+  static inline bool isNanAt(const char* row, const RowColumn& rowColumn) {
+    if (isNullAt(row, rowColumn.nullByte(), rowColumn.nullMask())) {
+      return false;
+    }
+    return std::isnan(valueAt<T>(row, rowColumn.offset()));
   }
 
   /// Creates a container to store a partition number for each row in this row

@@ -2290,3 +2290,53 @@ TEST_F(RowContainerTest, customComparisonRow) {
             expectedOrder, BIGINT_TYPE_WITH_CUSTOM_COMPARISON())});
       });
 }
+
+TEST_F(RowContainerTest, isNanAt) {
+  const auto kNan = std::numeric_limits<double>::quiet_NaN();
+  const auto kNanF = std::numeric_limits<float>::quiet_NaN();
+  auto rowVector = makeRowVector({
+      makeFlatVector<float>({kNanF, 0.2, 0.3, 0.4}),
+      makeFlatVector<double>({0.1, kNan, 0.3, 0.4}),
+      makeFlatVector<float>({0.1, 0.2, kNanF, 0.4}),
+      makeFlatVector<double>({0.1, 0.2, 0.3, kNan}),
+  });
+  const auto kNumRows = rowVector->size();
+
+  auto rowContainer =
+      makeRowContainer({REAL(), DOUBLE()}, {REAL(), DOUBLE()}, false);
+  std::vector<char*> rows;
+  rows.reserve(kNumRows);
+
+  SelectivityVector allRows(kNumRows);
+  for (size_t i = 0; i < kNumRows; i++) {
+    auto row = rowContainer->newRow();
+    rows.push_back(row);
+  }
+  for (int j = 0; j < rowContainer->columnTypes().size(); ++j) {
+    DecodedVector decoded(*rowVector->childAt(j), allRows);
+    rowContainer->store(decoded, folly::Range(rows.data(), kNumRows), j);
+  }
+
+  for (int i = 0; i < kNumRows; ++i) {
+    const auto* row = rows[i];
+    for (int j = 0; j < 4; ++j) {
+      if (i % 2 == 0) {
+        if (i == j) {
+          EXPECT_TRUE(
+              rowContainer->isNanAt<float>(row, rowContainer->columnAt(j)));
+        } else {
+          EXPECT_FALSE(
+              rowContainer->isNanAt<float>(row, rowContainer->columnAt(j)));
+        }
+      } else {
+        if (i == j) {
+          EXPECT_TRUE(
+              rowContainer->isNanAt<double>(row, rowContainer->columnAt(j)));
+        } else {
+          EXPECT_FALSE(
+              rowContainer->isNanAt<double>(row, rowContainer->columnAt(j)));
+        }
+      }
+    }
+  }
+}

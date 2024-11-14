@@ -409,7 +409,8 @@ void Window::updateFrameBounds(
     const vector_size_t numRows,
     const vector_size_t* rawPeerStarts,
     const vector_size_t* rawPeerEnds,
-    vector_size_t* rawFrameBounds) {
+    vector_size_t* rawFrameBounds,
+    SelectivityVector& validFrames) {
   const auto windowType = windowFrame.type;
   const auto boundType =
       isStartBound ? windowFrame.startType : windowFrame.endType;
@@ -447,7 +448,8 @@ void Window::updateFrameBounds(
             startRow,
             numRows,
             rawPeerBuffer,
-            rawFrameBounds);
+            rawFrameBounds,
+            validFrames);
       }
       break;
     }
@@ -463,7 +465,8 @@ void Window::updateFrameBounds(
             startRow,
             numRows,
             rawPeerBuffer,
-            rawFrameBounds);
+            rawFrameBounds,
+            validFrames);
       }
       break;
     }
@@ -486,6 +489,9 @@ void computeValidFrames(
     vector_size_t* rawFrameEnds,
     SelectivityVector& validFrames) {
   for (auto i = 0; i < numRows; ++i) {
+    if (!validFrames.isValid(i)) {
+      continue;
+    }
     const vector_size_t frameStart = rawFrameStarts[i];
     const vector_size_t frameEnd = rawFrameEnds[i];
     // All valid frames require frameStart <= frameEnd to define the frame rows.
@@ -545,7 +551,8 @@ void Window::computePeerAndFrameBuffers(
         numRows,
         rawPeerStarts,
         rawPeerEnds,
-        rawFrameStarts[i]);
+        rawFrameStarts[i],
+        validFrames_[i]);
     updateFrameBounds(
         windowFrame,
         false,
@@ -553,7 +560,8 @@ void Window::computePeerAndFrameBuffers(
         numRows,
         rawPeerStarts,
         rawPeerEnds,
-        rawFrameEnds[i]);
+        rawFrameEnds[i],
+        validFrames_[i]);
     if (windowFrames_[i].start || windowFrames_[i].end) {
       // k preceding and k following bounds can be problematic. They can go over
       // the partition limits or result in empty frames. Fix the frame

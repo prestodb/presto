@@ -349,6 +349,7 @@ vector_size_t WindowPartition::linearSearchFrameValue(
   return end == numRows() ? numRows() + 1 : -1;
 }
 
+template <typename T>
 void WindowPartition::updateKRangeFrameBounds(
     bool firstMatch,
     bool isPreceding,
@@ -357,20 +358,33 @@ void WindowPartition::updateKRangeFrameBounds(
     vector_size_t numRows,
     column_index_t frameColumn,
     const vector_size_t* rawPeerBounds,
-    vector_size_t* rawFrameBounds) const {
+    vector_size_t* rawFrameBounds,
+    SelectivityVector& validFrames) const {
   column_index_t orderByColumn = sortKeyInfo_[0].first;
   column_index_t mappedFrameColumn = inputMapping_[frameColumn];
 
   vector_size_t start = 0;
   vector_size_t end;
   // frameColumn is a column index into the original input rows, while
-  // orderByColumn is a column index into rows in data_ after the columns are
-  // reordered as per inputMapping_.
+  // orderByColumn and mappedFrameColumn are column indices into rows in data_
+  // after the columns are reordered as per inputMapping_.
   VELOX_DEBUG_ONLY RowColumn frameRowColumn = columns_[frameColumn];
   RowColumn orderByRowColumn = data_->columnAt(orderByColumn);
+  RowColumn mappedFrameRowColumn = data_->columnAt(mappedFrameColumn);
   for (auto i = 0; i < numRows; i++) {
     auto currentRow = startRow + i;
     auto* partitionRow = partition_[currentRow];
+
+    // Mark the frame invalid if the frame bound is NaN, except if NaN in the
+    // frame column is derived from NaN in the order-by column.
+    // https://github.com/facebookincubator/velox/pull/11293#issuecomment-2475391888
+    if constexpr (std::is_floating_point_v<T>) {
+      if (data_->isNanAt<T>(partitionRow, mappedFrameRowColumn) &&
+          !data_->isNanAt<T>(partitionRow, orderByRowColumn)) {
+        validFrames.setValid(currentRow, false);
+        continue;
+      }
+    }
 
     // The user is expected to set the frame column equal to NULL when the
     // ORDER BY value is NULL and not in any other case. Validate this
@@ -423,20 +437,48 @@ void WindowPartition::computeKRangeFrameBounds(
     vector_size_t startRow,
     vector_size_t numRows,
     const vector_size_t* rawPeerBuffer,
-    vector_size_t* rawFrameBounds) const {
+    vector_size_t* rawFrameBounds,
+    SelectivityVector& validFrames) const {
   CompareFlags flags;
   flags.ascending = sortKeyInfo_[0].second.isAscending();
   flags.nullsFirst = sortKeyInfo_[0].second.isNullsFirst();
+
   // Start bounds require first match. End bounds require last match.
-  updateKRangeFrameBounds(
-      isStartBound,
-      isPreceding,
-      flags,
-      startRow,
-      numRows,
-      frameColumn,
-      rawPeerBuffer,
-      rawFrameBounds);
+  const auto frameType = data_->columnTypes()[inputMapping_[frameColumn]];
+  if (frameType->isReal()) {
+    updateKRangeFrameBounds<float>(
+        isStartBound,
+        isPreceding,
+        flags,
+        startRow,
+        numRows,
+        frameColumn,
+        rawPeerBuffer,
+        rawFrameBounds,
+        validFrames);
+  } else if (frameType->isDouble()) {
+    updateKRangeFrameBounds<double>(
+        isStartBound,
+        isPreceding,
+        flags,
+        startRow,
+        numRows,
+        frameColumn,
+        rawPeerBuffer,
+        rawFrameBounds,
+        validFrames);
+  } else {
+    updateKRangeFrameBounds<void>(
+        isStartBound,
+        isPreceding,
+        flags,
+        startRow,
+        numRows,
+        frameColumn,
+        rawPeerBuffer,
+        rawFrameBounds,
+        validFrames);
+  }
 }
 
 } // namespace facebook::velox::exec

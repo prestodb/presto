@@ -149,6 +149,9 @@ class Window : public Operator {
       vector_size_t numRows,
       vector_size_t* rawFrameBounds);
 
+  // Populate frame bounds in the current partition into rawFrameBounds.
+  // Unselect rows from validFrames where the frame bounds are NaN that are
+  // invalid.
   void updateFrameBounds(
       const WindowFrame& windowFrame,
       const bool isStartBound,
@@ -156,7 +159,8 @@ class Window : public Operator {
       const vector_size_t numRows,
       const vector_size_t* rawPeerStarts,
       const vector_size_t* rawPeerEnds,
-      vector_size_t* rawFrameBounds);
+      vector_size_t* rawFrameBounds,
+      SelectivityVector& validFrames);
 
   const vector_size_t numInputColumns_;
 
