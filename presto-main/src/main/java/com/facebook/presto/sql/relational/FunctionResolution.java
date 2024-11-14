@@ -42,6 +42,7 @@ import static com.facebook.presto.common.function.OperatorType.NEGATION;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
@@ -370,5 +371,17 @@ public final class FunctionResolution
     public boolean isWindowValueFunction(FunctionHandle functionHandle)
     {
         return windowValueFunctions.contains(functionAndTypeResolver.getFunctionMetadata(functionHandle).getName());
+    }
+
+    @Override
+    public FunctionHandle murmur32HashFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("murmur3_hash", fromTypes(VARCHAR, BIGINT, BIGINT));
+    }
+
+    @Override
+    public FunctionHandle lookUpFunction(String functionName, List<Type> inputTypes)
+    {
+        return functionAndTypeResolver.lookupFunction(functionName, fromTypes(inputTypes));
     }
 }

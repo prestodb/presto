@@ -294,7 +294,7 @@ class QueryPlanner
                 variableAllocator.newVariable("partialrows", BIGINT),
                 variableAllocator.newVariable("fragment", VARBINARY));
 
-        return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), builder.getRoot(), rowId, deleteNodeOutputVariables);
+        return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), builder.getRoot(), rowId, deleteNodeOutputVariables, Optional.empty());
     }
 
     public UpdateNode plan(Update node)
@@ -1260,7 +1260,7 @@ class QueryPlanner
         OrderingScheme orderingScheme = toOrderingScheme(
                 orderByExpressions.stream().map(subPlan::translate).collect(toImmutableList()),
                 orderBy.get().getSortItems().stream().map(PlannerUtils::toSortOrder).collect(toImmutableList()));
-        planNode = new SortNode(getSourceLocation(orderBy.get()), idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
+        planNode = new SortNode(getSourceLocation(orderBy.get()), idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false, ImmutableList.of());
 
         return subPlan.withNewRoot(planNode);
     }

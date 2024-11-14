@@ -34,6 +34,7 @@ public class DeleteNode
     private final PlanNode source;
     private final VariableReferenceExpression rowId;
     private final List<VariableReferenceExpression> outputVariables;
+    private final Optional<DataPartition> dataPartition;
 
     @JsonCreator
     public DeleteNode(
@@ -41,9 +42,10 @@ public class DeleteNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("rowId") VariableReferenceExpression rowId,
-            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("dataPartition") Optional<DataPartition> dataPartition)
     {
-        this(sourceLocation, id, Optional.empty(), source, rowId, outputVariables);
+        this(sourceLocation, id, Optional.empty(), source, rowId, outputVariables, dataPartition);
     }
 
     public DeleteNode(
@@ -52,13 +54,15 @@ public class DeleteNode
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
             VariableReferenceExpression rowId,
-            List<VariableReferenceExpression> outputVariables)
+            List<VariableReferenceExpression> outputVariables,
+            Optional<DataPartition> dataPartition)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
         this.source = requireNonNull(source, "source is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.outputVariables = Collections.unmodifiableList(new ArrayList<>(requireNonNull(outputVariables, "outputVariables is null")));
+        this.dataPartition = dataPartition;
     }
 
     @JsonProperty
@@ -80,6 +84,12 @@ public class DeleteNode
         return outputVariables;
     }
 
+    @JsonProperty
+    public Optional<DataPartition> getDataPartition()
+    {
+        return dataPartition;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -95,12 +105,27 @@ public class DeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DeleteNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), rowId, outputVariables);
+        return new DeleteNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), rowId, outputVariables,dataPartition);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new DeleteNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, rowId, outputVariables);
+        return new DeleteNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, rowId, outputVariables, dataPartition);
+    }
+
+    public static interface DataPartition
+    {
+        default public List<VariableReferenceExpression> getPartitionBy()
+        {
+            return Collections.emptyList();
+        }
+        default public Optional<OrderingScheme> getOrderingScheme() {
+            return Optional.empty();
+        }
+        default public List<VariableReferenceExpression> getInputVariables()
+        {
+            return Collections.emptyList();
+        }
     }
 }

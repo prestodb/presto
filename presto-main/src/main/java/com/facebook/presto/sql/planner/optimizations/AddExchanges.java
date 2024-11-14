@@ -28,6 +28,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -397,6 +398,43 @@ public class AddExchanges
         }
 
         @Override
+        public PlanWithProperties visitDelete(DeleteNode node, PreferredProperties preferredProperties)
+        {
+            if (!node.getDataPartition().isPresent()) {
+                return visitPlan(node, preferredProperties);
+            }
+            DeleteNode.DataPartition dataPartition = node.getDataPartition().get();
+            List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
+            if (!dataPartition.getPartitionBy().isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(dataPartition.getPartitionBy()));
+            }
+            dataPartition.getOrderingScheme().ifPresent(orderingScheme ->
+                    orderingScheme.getOrderByVariables().stream()
+                            .map(variable -> new SortingProperty<>(variable, orderingScheme.getOrdering(variable)))
+                            .forEach(desiredProperties::add));
+
+            PlanWithProperties child = planChild(
+                    node,
+                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(dataPartition.getPartitionBy()), desiredProperties)
+                            .mergeWithParent(preferredProperties, !isExactPartitioningPreferred(session)));
+
+            if (!isStreamPartitionedOn(child.getProperties(), dataPartition.getPartitionBy()) &&
+                    !isNodePartitionedOn(child.getProperties(), dataPartition.getPartitionBy())) {
+                checkState(!dataPartition.getPartitionBy().isEmpty());
+                child = withDerivedProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                selectExchangeScopeForPartitionedRemoteExchange(child.getNode(), false),
+                                child.getNode(),
+                                createPartitioning(dataPartition.getPartitionBy()),
+                                Optional.empty()),
+                        child.getProperties());
+            }
+
+            return rebaseAndDeriveProperties(node, child);
+        }
+
+        @Override
         public PlanWithProperties visitRowNumber(RowNumberNode node, PreferredProperties preferredProperties)
         {
             checkArgument(!node.isPartial(), "RowNumberNode should not be partial before adding exchange");
@@ -530,6 +568,45 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, PreferredProperties preferredProperties)
         {
+            if (!node.getPartitionBy().isEmpty()) {
+                return planSortWithPartition(node, preferredProperties);
+            }
+            return planSortWithoutPartition(node, preferredProperties);
+        }
+
+        private PlanWithProperties planSortWithPartition(SortNode node, PreferredProperties preferredProperties)
+        {
+            List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
+            checkArgument(!node.getPartitionBy().isEmpty());
+            desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+
+            node.getOrderingScheme().getOrderByVariables().stream()
+                    .map(variable -> new SortingProperty<>(variable, node.getOrderingScheme().getOrdering(variable)))
+                    .forEach(desiredProperties::add);
+
+            PlanWithProperties child = planChild(
+                    node,
+                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)
+                            .mergeWithParent(preferredProperties, !isExactPartitioningPreferred(session)));
+
+            if (!isStreamPartitionedOn(child.getProperties(), node.getPartitionBy()) &&
+                    !isNodePartitionedOn(child.getProperties(), node.getPartitionBy())) {
+
+                child = withDerivedProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                selectExchangeScopeForPartitionedRemoteExchange(child.getNode(), false),
+                                child.getNode(),
+                                createPartitioning(node.getPartitionBy()),
+                                Optional.empty()),
+                        child.getProperties());
+            }
+
+            return rebaseAndDeriveProperties(node, child);
+        }
+
+        private PlanWithProperties planSortWithoutPartition(SortNode node, PreferredProperties preferredProperties)
+        {
             PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
             if (child.getProperties().isSingleNode()) {
@@ -560,7 +637,8 @@ public class AddExchanges
                                         idAllocator.getNextId(),
                                         source,
                                         node.getOrderingScheme(),
-                                        true),
+                                        true,
+                                        node.getPartitionBy()),
                                 node.getOrderingScheme()),
                         child.getProperties());
             }

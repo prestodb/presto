@@ -89,6 +89,7 @@ import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
+import static com.google.common.collect.ImmutableList.builder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -713,7 +714,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
-            return new SortNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getOrderingScheme(), node.isPartial());
+            return new SortNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getOrderingScheme(), node.isPartial(), node.getPartitionBy());
         }
 
         @Override
@@ -806,8 +807,13 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.of(node.getRowId()));
-            return new DeleteNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getRowId(), node.getOutputVariables());
+            ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+            builder.add(node.getRowId());
+            if (node.getDataPartition().isPresent()) {
+                builder.addAll(node.getDataPartition().get().getInputVariables());
+            }
+            PlanNode source = context.rewrite(node.getSource(), builder.build());
+            return new DeleteNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getRowId(), node.getOutputVariables(), node.getDataPartition());
         }
 
         @Override

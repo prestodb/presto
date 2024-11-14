@@ -1249,6 +1249,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitSort(SortNode node, LocalExecutionPlanContext context)
         {
+            checkArgument(node.getPartitionBy().isEmpty(), "SortNode expects to have empty partition by list");
             PhysicalOperation source = node.getSource().accept(this, context);
 
             List<VariableReferenceExpression> orderByVariables = node.getOrderingScheme().getOrderByVariables();

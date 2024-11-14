@@ -85,4 +85,8 @@ public interface StandardFunctionResolution
     boolean isApproximateSetFunction(FunctionHandle functionHandle);
 
     FunctionHandle approximateSetFunction(Type valueType);
+
+    FunctionHandle murmur32HashFunction();
+
+    FunctionHandle lookUpFunction(String functionName, List<Type> inputTypes);
 }
