@@ -81,6 +81,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     /// the memory arbitration from getting stuck when the memory reclaim waits
     /// for a hanging query task to pause. If it is zero, then there is no
     /// timeout.
+    static constexpr std::string_view kMaxMemoryArbitrationTime{
+        "max-memory-arbitration-time"};
+    static constexpr std::string_view kDefaultMaxMemoryArbitrationTime{"5m"};
+    static uint64_t maxMemoryArbitrationTimeNs(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    // TODO: Remove after name change complete
     static constexpr std::string_view kMemoryReclaimMaxWaitTime{
         "memory-reclaim-max-wait-time"};
     static constexpr std::string_view kDefaultMemoryReclaimMaxWaitTime{"5m"};
