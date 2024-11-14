@@ -35,11 +35,11 @@ public class TestAWSSecurityMappings
         AWSSecurityMappings mappings = parseJson(new File(lakeFormationSecurityMappingConfigPath).toPath(), AWSSecurityMappings.class);
 
         assertEquals(MappingResult.role("arn:aws:iam::123456789101:role/admin_role").getIamRole(),
-                mappings.getAWSLakeFormationSecurityMapping(MappingSelector.empty().withUser("admin").getUser()).getIamRole().get());
+                mappings.getAWSLakeFormationSecurityMapping(MappingSelector.empty().withUser("admin").getUser()).getIamRole().orElseThrow());
         assertEquals(MappingResult.role("arn:aws:iam::123456789101:role/analyst_role").getIamRole(),
-                mappings.getAWSLakeFormationSecurityMapping(MappingSelector.empty().withUser("analyst").getUser()).getIamRole().get());
+                mappings.getAWSLakeFormationSecurityMapping(MappingSelector.empty().withUser("analyst").getUser()).getIamRole().orElseThrow());
         assertEquals(MappingResult.role("arn:aws:iam::123456789101:role/default_role").getIamRole(),
-                mappings.getAWSLakeFormationSecurityMapping(MappingSelector.empty().getUser()).getIamRole().get());
+                mappings.getAWSLakeFormationSecurityMapping(MappingSelector.empty().getUser()).getIamRole().orElseThrow());
     }
 
     @Test(

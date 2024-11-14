@@ -45,9 +45,9 @@ public class AWSSecurityMappingsSupplier
             return null;
         }
 
-        checkArgument(configFile.get().exists() && configFile.get().isFile(), "AWS Security Mapping config file does not exist: %s", configFile.get());
+        checkArgument(configFile.orElseThrow().exists() && configFile.orElseThrow().isFile(), "AWS Security Mapping config file does not exist: %s", configFile.orElseThrow());
 
-        Supplier<AWSSecurityMappings> supplier = () -> parseJson(configFile.get().toPath(), AWSSecurityMappings.class);
+        Supplier<AWSSecurityMappings> supplier = () -> parseJson(configFile.orElseThrow().toPath(), AWSSecurityMappings.class);
 
         return Suppliers.memoizeWithExpiration(
                 () -> {

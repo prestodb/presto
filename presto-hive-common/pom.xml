@@ -61,8 +61,14 @@
         </dependency>
 
         <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -98,6 +104,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hdfs-core</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- for testing -->

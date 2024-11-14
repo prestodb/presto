@@ -93,7 +93,7 @@ public final class SubfieldExtractor
 
     private static boolean hasSubscripts(Optional<Subfield> subfield)
     {
-        return subfield.isPresent() && subfield.get().getPath().stream().anyMatch(Subfield.PathElement::isSubscript);
+        return subfield.isPresent() && subfield.orElseThrow().getPath().stream().anyMatch(Subfield.PathElement::isSubscript);
     }
 
     public Optional<Subfield> extract(RowExpression expression)
@@ -129,7 +129,7 @@ public final class SubfieldExtractor
                     if (index instanceof Number) {
                         Optional<String> fieldName = baseType.getFields().get(((Number) index).intValue()).getName();
                         if (fieldName.isPresent()) {
-                            elements.add(new Subfield.NestedField(fieldName.get()));
+                            elements.add(new Subfield.NestedField(fieldName.orElseThrow()));
                             expression = base;
                             continue;
                         }
@@ -230,7 +230,7 @@ public final class SubfieldExtractor
     {
         for (RowType.Field field : rowType.getFields()) {
             verify(field.getName().isPresent());
-            if (field.getName().get().equals(fieldName)) {
+            if (field.getName().orElseThrow().equals(fieldName)) {
                 return field.getType();
             }
         }
@@ -244,7 +244,7 @@ public final class SubfieldExtractor
         for (int i = 0; i < fields.size(); i++) {
             RowType.Field field = fields.get(i);
             verify(field.getName().isPresent());
-            if (field.getName().get().equals(fieldName)) {
+            if (field.getName().orElseThrow().equals(fieldName)) {
                 return i;
             }
         }
