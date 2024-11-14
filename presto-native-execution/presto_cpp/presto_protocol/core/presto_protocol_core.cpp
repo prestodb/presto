@@ -1080,6 +1080,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
  */
 
 // dependency TpchTransactionHandle
+// dependency ArrowTransactionHandle
 
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
