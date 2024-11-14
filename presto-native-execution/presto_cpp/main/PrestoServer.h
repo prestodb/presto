@@ -135,7 +135,7 @@ class PrestoServer {
   virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getAdditionalHttpServerFilters();
 
-  virtual std::vector<std::string> registerConnectors(
+  virtual std::vector<std::string> registerVeloxConnectors(
       const fs::path& configDirectoryPath);
 
   /// Invoked to register the required dwio data sinks which are used by
@@ -145,8 +145,6 @@ class PrestoServer {
   virtual void registerFileReadersAndWriters();
 
   virtual void unregisterFileReadersAndWriters();
-
-  virtual void registerConnectorFactories();
 
   /// Invoked by presto shutdown procedure to unregister connectors.
   virtual void unregisterConnectors();
