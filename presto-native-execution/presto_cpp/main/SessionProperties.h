@@ -225,9 +225,10 @@ class SessionProperties {
   static constexpr const char* kMaxLocalExchangePartitionCount =
       "native_max_local_exchange_partition_count";
 
-  /// Enable the prefix sort or fallback to std::sort in spill. The prefix sort is
-  /// faster than std::sort but requires the memory to build normalized prefix
-  /// keys, which might have potential risk of running out of server memory.
+  /// Enable the prefix sort or fallback to std::sort in spill. The prefix sort
+  /// is faster than std::sort but requires the memory to build normalized
+  /// prefix keys, which might have potential risk of running out of server
+  /// memory.
   static constexpr const char* kSpillPrefixSortEnabled =
       "spill_prefixsort_enabled";
 
