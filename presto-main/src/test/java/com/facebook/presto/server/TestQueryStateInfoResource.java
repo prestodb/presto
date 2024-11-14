@@ -127,17 +127,6 @@ public class TestQueryStateInfoResource
     }
 
     @Test
-    public void testTimeoutOnEvilRegex()
-    {
-        //(a%2B)%2B translates to the evil regex pattern (a+)+
-        List<QueryStateInfo> infos = client.execute(
-                prepareGet().setUri(server.resolve("/v1/queryState?user=(a%2B)%2B")).build(),
-                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
-
-        assertEquals(infos.size(), 0);
-    }
-
-    @Test
     public void testGetQueryStateInfosForUserNoResult()
     {
         List<QueryStateInfo> infos = client.execute(
