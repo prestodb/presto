@@ -225,6 +225,21 @@ class SessionProperties {
   static constexpr const char* kMaxLocalExchangePartitionCount =
       "native_max_local_exchange_partition_count";
 
+  /// Enable the prefix sort or fallback to timsort in spill. The prefix sort is
+  /// faster than timsort but requires the memory to build prefix data, which
+  /// may cause out of memory.
+  static constexpr const char* kSpillEnablePrefixSort =
+       "native_spill_enable_prefix_sort";
+
+  /// Maximum number of bytes to use for the normalized key in prefix-sort. Use
+  /// 0 to disable prefix-sort.
+  static constexpr const char* kPrefixSortNormalizedKeyMaxBytes =
+      "native_prefixsort_normalized_key_max_bytes";
+
+  /// Minimum number of rows to use prefix-sort. The default value (130) has been
+  /// derived using micro-benchmarking.
+  static constexpr const char* kPrefixSortMinRows = "native_prefixsort_min_rows";
+
   SessionProperties();
 
   const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
