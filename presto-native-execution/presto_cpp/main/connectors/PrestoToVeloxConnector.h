@@ -13,8 +13,6 @@
  */
 #pragma once
 
-#include "PrestoToVeloxExpr.h"
-#include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 #include "velox/connectors/Connector.h"
@@ -25,6 +23,8 @@
 namespace facebook::presto {
 
 class PrestoToVeloxConnector;
+class TypeParser;
+class VeloxExprConverter;
 
 void registerPrestoToVeloxConnector(
     std::unique_ptr<const PrestoToVeloxConnector> connector);

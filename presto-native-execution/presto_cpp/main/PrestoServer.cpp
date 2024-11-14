@@ -21,11 +21,12 @@
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/SignalHandler.h"
-#include "presto_cpp/main/SystemConnector.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/connectors/Registration.h"
+#include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -48,13 +49,11 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
-#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
-#include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
 #include "velox/dwio/orc/reader/OrcReader.h"
@@ -88,7 +87,6 @@ constexpr char const* kHttps = "https";
 constexpr char const* kTaskUriFormat =
     "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
-constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -255,38 +253,14 @@ void PrestoServer::run() {
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
-  registerConnectorFactories();
 
-  // Register Velox connector factory for iceberg.
-  // The iceberg catalog is handled by the hive connector factory.
-  velox::connector::registerConnectorFactory(
-      std::make_shared<velox::connector::hive::HiveConnectorFactory>(
-          "iceberg"));
-
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>("hive"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
-  // Presto server uses system catalog or system schema in other catalogs
-  // in different places in the code. All these resolve to the SystemConnector.
-  // Depending on where the operator or column is used, different prefixes can
-  // be used in the naming. So the protocol class is mapped
-  // to all the different prefixes for System tables/columns.
-  registerPrestoToVeloxConnector(
-      std::make_unique<SystemPrestoToVeloxConnector>("$system"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<SystemPrestoToVeloxConnector>("system"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
+  // Register Presto connector factories and connectors
+  registerConnectors();
 
   initializeVeloxMemory();
   initializeThreadPools();
 
-  auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
+  auto catalogNames = registerVeloxConnectors(fs::path(configDirectoryPath_));
 
   const bool bindToNodeInternalAddressOnly =
       systemConfig->httpServerBindToNodeInternalAddressOnlyEnabled();
@@ -1179,25 +1153,7 @@ PrestoServer::getAdditionalHttpServerFilters() {
   return filters;
 }
 
-void PrestoServer::registerConnectorFactories() {
-  // These checks for connector factories can be removed after we remove the
-  // registrations from the Velox library.
-  if (!velox::connector::hasConnectorFactory(
-          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>());
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>(
-            kHiveHadoop2ConnectorName));
-  }
-  if (!velox::connector::hasConnectorFactory(
-          velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
-  }
-}
-
-std::vector<std::string> PrestoServer::registerConnectors(
+std::vector<std::string> PrestoServer::registerVeloxConnectors(
     const fs::path& configDirectoryPath) {
   static const std::string kPropertiesExtension = ".properties";
 
