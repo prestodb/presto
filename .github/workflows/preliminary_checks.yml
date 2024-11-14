@@ -15,6 +15,11 @@ name: Run Checks
 
 on:
   pull_request:
+    types:
+      - opened
+      - reopened
+      - edited
+      - synchronize
 
 permissions:
   contents: read
@@ -70,3 +75,23 @@ jobs:
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
+
+  title-check:
+    name: PR Title Format
+    runs-on: ubuntu-latest
+    steps:
+      - shell: python
+        env:
+          title: "${{ github.event.pull_request.title }}"
+        run: |
+          import re
+          import os
+          title = os.environ["title"]
+          title_re = r"^(feat|fix|build|test|docs|refactor|misc)(\(.+\))?!?: ([A-Z].+)[^.]$"
+          match = re.search(title_re, title)
+
+          if match is None:
+            print("::error::Please follow conventional commit guidelines in commit titles as described in CONTRIBUTING.md: https://github.com/facebookincubator/velox/blob/main/CONTRIBUTING.md#commit-messages")
+            exit(1)
+          else:
+            exit(0)
