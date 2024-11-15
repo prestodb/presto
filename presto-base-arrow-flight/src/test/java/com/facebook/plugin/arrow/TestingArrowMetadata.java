@@ -116,7 +116,7 @@ public class TestingArrowMetadata
     }
 
     @Override
-    protected Type overrideFieldType(Field field, Type type)
+    protected Type getPrestoTypeFromArrowField(Field field)
     {
         String columnLength = field.getMetadata().get("columnLength");
         int length = columnLength != null ? Integer.parseInt(columnLength) : 0;
@@ -133,7 +133,7 @@ public class TestingArrowMetadata
             return TimeType.TIME;
         }
         else {
-            return type;
+            return super.getPrestoTypeFromArrowField(field);
         }
     }
 

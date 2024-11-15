@@ -70,71 +70,64 @@ public abstract class AbstractArrowMetadata
         this.clientHandler = requireNonNull(clientHandler);
     }
 
-    private ArrowColumnHandle createArrowColumnHandleForFloatingPointType(String columnName, ArrowType.FloatingPoint floatingPoint)
+    private Type getPrestoTypeForArrowFloatingPointType(ArrowType.FloatingPoint floatingPoint)
     {
         switch (floatingPoint.getPrecision()) {
             case SINGLE:
-                return new ArrowColumnHandle(columnName, RealType.REAL);
+                return RealType.REAL;
             case DOUBLE:
-                return new ArrowColumnHandle(columnName, DoubleType.DOUBLE);
+                return DoubleType.DOUBLE;
             default:
                 throw new ArrowException(ARROW_FLIGHT_ERROR, "Invalid floating point precision " + floatingPoint.getPrecision());
         }
     }
 
-    private ArrowColumnHandle createArrowColumnHandleForIntType(String columnName, ArrowType.Int intType)
+    private Type getPrestoTypeForArrowIntType(ArrowType.Int intType)
     {
         switch (intType.getBitWidth()) {
             case 64:
-                return new ArrowColumnHandle(columnName, BigintType.BIGINT);
+                return BigintType.BIGINT;
             case 32:
-                return new ArrowColumnHandle(columnName, IntegerType.INTEGER);
+                return IntegerType.INTEGER;
             case 16:
-                return new ArrowColumnHandle(columnName, SmallintType.SMALLINT);
+                return SmallintType.SMALLINT;
             case 8:
-                return new ArrowColumnHandle(columnName, TinyintType.TINYINT);
+                return TinyintType.TINYINT;
             default:
                 throw new ArrowException(ARROW_FLIGHT_ERROR, "Invalid bit width " + intType.getBitWidth());
         }
     }
 
-    private ColumnMetadata createIntColumnMetadata(String columnName, ArrowType.Int intType)
+    protected Type getPrestoTypeFromArrowField(Field field)
     {
-        switch (intType.getBitWidth()) {
-            case 64:
-                return new ColumnMetadata(columnName, BigintType.BIGINT);
-            case 32:
-                return new ColumnMetadata(columnName, IntegerType.INTEGER);
-            case 16:
-                return new ColumnMetadata(columnName, SmallintType.SMALLINT);
-            case 8:
-                return new ColumnMetadata(columnName, TinyintType.TINYINT);
+        switch (field.getType().getTypeID()) {
+            case Int:
+                ArrowType.Int intType = (ArrowType.Int) field.getType();
+                return getPrestoTypeForArrowIntType(intType);
+            case Binary:
+            case LargeBinary:
+            case FixedSizeBinary:
+                return VarbinaryType.VARBINARY;
+            case Date:
+                return DateType.DATE;
+            case Timestamp:
+                return TimestampType.TIMESTAMP;
+            case Utf8:
+            case LargeUtf8:
+                return VarcharType.VARCHAR;
+            case FloatingPoint:
+                ArrowType.FloatingPoint floatingPoint = (ArrowType.FloatingPoint) field.getType();
+                return getPrestoTypeForArrowFloatingPointType(floatingPoint);
+            case Decimal:
+                ArrowType.Decimal decimalType = (ArrowType.Decimal) field.getType();
+                return DecimalType.createDecimalType(decimalType.getPrecision(), decimalType.getScale());
+            case Bool:
+                return BooleanType.BOOLEAN;
+            case Time:
+                return TimeType.TIME;
             default:
-                throw new ArrowException(ARROW_FLIGHT_ERROR, "Invalid bit width " + intType.getBitWidth());
+                throw new UnsupportedOperationException("The data type " + field.getType().getTypeID() + " is not supported.");
         }
-    }
-
-    private ColumnMetadata createFloatingPointColumnMetadata(String columnName, ArrowType.FloatingPoint floatingPointType)
-    {
-        switch (floatingPointType.getPrecision()) {
-            case SINGLE:
-                return new ColumnMetadata(columnName, RealType.REAL);
-            case DOUBLE:
-                return new ColumnMetadata(columnName, DoubleType.DOUBLE);
-            default:
-                throw new ArrowException(ARROW_FLIGHT_ERROR, "Invalid floating point precision " + floatingPointType.getPrecision());
-        }
-    }
-
-    /**
-     * Provides the field type, which can be overridden by concrete implementations
-     * with their own custom type.
-     *
-     * @return the field type
-     */
-    protected Type overrideFieldType(Field field, Type type)
-    {
-        return type;
     }
 
     protected abstract ArrowFlightRequest getArrowFlightRequest(ArrowFlightConfig config, Optional<String> query, String schema, String table);
@@ -178,7 +171,7 @@ public abstract class AbstractArrowMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        Map<String, ColumnHandle> column = new HashMap<>();
+        Map<String, ColumnHandle> columns = new HashMap<>();
 
         String schemaValue = ((ArrowTableHandle) tableHandle).getSchema();
         String tableValue = ((ArrowTableHandle) tableHandle).getTable();
@@ -190,51 +183,10 @@ public abstract class AbstractArrowMetadata
             String columnName = field.getName();
             logger.debug("The value of the flight columnName is:- %s", columnName);
 
-            ArrowColumnHandle handle;
-            switch (field.getType().getTypeID()) {
-                case Int:
-                    ArrowType.Int intType = (ArrowType.Int) field.getType();
-                    handle = createArrowColumnHandleForIntType(columnName, intType);
-                    break;
-                case Binary:
-                case LargeBinary:
-                case FixedSizeBinary:
-                    handle = new ArrowColumnHandle(columnName, VarbinaryType.VARBINARY);
-                    break;
-                case Date:
-                    handle = new ArrowColumnHandle(columnName, DateType.DATE);
-                    break;
-                case Timestamp:
-                    handle = new ArrowColumnHandle(columnName, TimestampType.TIMESTAMP);
-                    break;
-                case Utf8:
-                case LargeUtf8:
-                    handle = new ArrowColumnHandle(columnName, VarcharType.VARCHAR);
-                    break;
-                case FloatingPoint:
-                    ArrowType.FloatingPoint floatingPoint = (ArrowType.FloatingPoint) field.getType();
-                    handle = createArrowColumnHandleForFloatingPointType(columnName, floatingPoint);
-                    break;
-                case Decimal:
-                    ArrowType.Decimal decimalType = (ArrowType.Decimal) field.getType();
-                    handle = new ArrowColumnHandle(columnName, DecimalType.createDecimalType(decimalType.getPrecision(), decimalType.getScale()));
-                    break;
-                case Bool:
-                    handle = new ArrowColumnHandle(columnName, BooleanType.BOOLEAN);
-                    break;
-                case Time:
-                    handle = new ArrowColumnHandle(columnName, TimeType.TIME);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("The data type " + field.getType().getTypeID() + " is not supported.");
-            }
-            Type type = overrideFieldType(field, handle.getColumnType());
-            if (!type.equals(handle.getColumnType())) {
-                handle = new ArrowColumnHandle(columnName, type);
-            }
-            column.put(columnName, handle);
+            Type type = getPrestoTypeFromArrowField(field);
+            columns.put(columnName, new ArrowColumnHandle(columnName, type));
         }
-        return column;
+        return columns;
     }
 
     @Override
@@ -266,53 +218,8 @@ public abstract class AbstractArrowMetadata
 
         for (Field field : columnList) {
             String columnName = field.getName();
-            ArrowType type = field.getType();
-
-            ColumnMetadata columnMetadata;
-
-            switch (type.getTypeID()) {
-                case Int:
-                    ArrowType.Int intType = (ArrowType.Int) type;
-                    columnMetadata = createIntColumnMetadata(columnName, intType);
-                    break;
-                case Binary:
-                case LargeBinary:
-                case FixedSizeBinary:
-                    columnMetadata = new ColumnMetadata(columnName, VarbinaryType.VARBINARY);
-                    break;
-                case Date:
-                    columnMetadata = new ColumnMetadata(columnName, DateType.DATE);
-                    break;
-                case Timestamp:
-                    columnMetadata = new ColumnMetadata(columnName, TimestampType.TIMESTAMP);
-                    break;
-                case Utf8:
-                case LargeUtf8:
-                    columnMetadata = new ColumnMetadata(columnName, VarcharType.VARCHAR);
-                    break;
-                case FloatingPoint:
-                    ArrowType.FloatingPoint floatingPointType = (ArrowType.FloatingPoint) type;
-                    columnMetadata = createFloatingPointColumnMetadata(columnName, floatingPointType);
-                    break;
-                case Decimal:
-                    ArrowType.Decimal decimalType = (ArrowType.Decimal) type;
-                    columnMetadata = new ColumnMetadata(columnName, DecimalType.createDecimalType(decimalType.getPrecision(), decimalType.getScale()));
-                    break;
-                case Time:
-                    columnMetadata = new ColumnMetadata(columnName, TimeType.TIME);
-                    break;
-                case Bool:
-                    columnMetadata = new ColumnMetadata(columnName, BooleanType.BOOLEAN);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("The data type " + type.getTypeID() + " is not supported.");
-            }
-
-            Type fieldType = overrideFieldType(field, columnMetadata.getType());
-            if (!fieldType.equals(columnMetadata.getType())) {
-                columnMetadata = new ColumnMetadata(columnName, fieldType);
-            }
-            meta.add(columnMetadata);
+            Type fieldType = getPrestoTypeFromArrowField(field);
+            meta.add(new ColumnMetadata(columnName, fieldType));
         }
         return new ConnectorTableMetadata(new SchemaTableName(((ArrowTableHandle) table).getSchema(), ((ArrowTableHandle) table).getTable()), meta);
     }
