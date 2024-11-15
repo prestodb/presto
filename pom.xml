@@ -94,7 +94,7 @@
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>4g</air.test.jvmsize>
-        <grpc.version>1.64.0</grpc.version>
+        <grpc.version>1.68.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
