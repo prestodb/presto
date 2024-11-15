@@ -57,7 +57,6 @@ import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
@@ -149,7 +148,7 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -212,7 +211,7 @@ public class TestHiveIntegrationSmokeTest
 
     private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
     {
-        return tableLayoutHandle.getPartitions().get();
+        return tableLayoutHandle.getPartitions().orElseThrow();
     }
 
     @Test
@@ -316,7 +315,7 @@ public class TestHiveIntegrationSmokeTest
                                         new FormattedMarker(Optional.of("false"), EXACTLY))))));
 
         assertEquals(
-                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                jsonCodec(IOPlan.class).fromJson((String) result.getOnlyColumnAsSet().stream().collect(onlyElement())),
                 new IOPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
@@ -341,7 +340,7 @@ public class TestHiveIntegrationSmokeTest
 
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders where custkey <= 10");
         assertEquals(
-                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                jsonCodec(IOPlan.class).fromJson((String) result.getOnlyColumnAsSet().stream().collect(onlyElement())),
                 new IOPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
@@ -2079,7 +2078,7 @@ public class TestHiveIntegrationSmokeTest
                 .execute(session, transactionSession -> {
                     Optional<TableHandle> tableHandle = metadata.getMetadataResolver(transactionSession).getTableHandle(new QualifiedObjectName(catalog, schema, tableName));
                     assertTrue(tableHandle.isPresent());
-                    return metadata.getTableMetadata(transactionSession, tableHandle.get());
+                    return metadata.getTableMetadata(transactionSession, tableHandle.orElseThrow());
                 });
     }
 
@@ -2094,9 +2093,9 @@ public class TestHiveIntegrationSmokeTest
                     Optional<TableHandle> tableHandle = metadata.getMetadataResolver(transactionSession).getTableHandle(new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
                     assertTrue(tableHandle.isPresent());
 
-                    TableLayout layout = metadata.getLayout(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty())
+                    TableLayout layout = metadata.getLayout(transactionSession, tableHandle.orElseThrow(), Constraint.alwaysTrue(), Optional.empty())
                             .getLayout();
-                    return propertyGetter.apply((HiveTableLayoutHandle) layout.getNewTableHandle().getLayout().get());
+                    return propertyGetter.apply((HiveTableLayoutHandle) layout.getNewTableHandle().getLayout().orElseThrow());
                 });
     }
 
@@ -2107,7 +2106,7 @@ public class TestHiveIntegrationSmokeTest
 
     private int getBucketCount(String tableName)
     {
-        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getTableBucketCount());
+        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().orElseThrow().getTableBucketCount());
     }
 
     @Test
@@ -2259,8 +2258,8 @@ public class TestHiveIntegrationSmokeTest
 
     private void testBucketedCatalog(Session session)
     {
-        String bucketedCatalog = session.getCatalog().get();
-        String bucketedSchema = session.getSchema().get();
+        String bucketedCatalog = session.getCatalog().orElseThrow();
+        String bucketedSchema = session.getSchema().orElseThrow();
 
         TableMetadata ordersTableMetadata = getTableMetadata(bucketedCatalog, bucketedSchema, "orders");
         assertEquals(ordersTableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
@@ -2734,23 +2733,23 @@ public class TestHiveIntegrationSmokeTest
                 ")";
         String createTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "test_show_create_table",
                 "c1",
                 "c2",
                 "c5");
         String expectedShowCreateTable = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "test_show_create_table",
                 "\"c1\"",
                 "\"c2\"",
                 "\"c5\"");
         assertUpdate(createTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_show_create_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTable);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedShowCreateTable);
 
         createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
                 "   %s bigint,\n" +
@@ -2770,15 +2769,15 @@ public class TestHiveIntegrationSmokeTest
                 ")";
         createTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "\"test_show_create_table'2\"",
                 "\"c1\"",
                 "\"c2\"",
                 "\"c5\"");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), createTableSql);
     }
 
     @Test
@@ -2793,8 +2792,8 @@ public class TestHiveIntegrationSmokeTest
                             "   format = 'TEXTFILE'\n" +
                             ")\n" +
                             "AS SELECT TIMESTAMP '2022-10-30 01:16:13.000' ts, ARRAY[TIMESTAMP '2022-10-30 01:16:13.000'] array_ts",
-                    getSession().getCatalog().get(),
-                    getSession().getSchema().get());
+                    getSession().getCatalog().orElseThrow(),
+                    getSession().getSchema().orElseThrow());
             assertUpdate(timezoneSession, createTableSql, 1);
             // 2022-10-30 01:16:13.00 is an ambiguous timestamp in America/Bahia_Banderas because
             // it occurs during a fall DST transition where the hour from 1-2am repeats
@@ -2812,7 +2811,7 @@ public class TestHiveIntegrationSmokeTest
     {
         File tempDir = createTempDir();
         File dataFile = new File(tempDir, "test.txt");
-        Files.write("hello\nworld\n", dataFile, UTF_8);
+        java.nio.file.Files.writeString(dataFile.toPath(), "hello\nworld\n");
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.test_create_external (\n" +
@@ -2822,8 +2821,8 @@ public class TestHiveIntegrationSmokeTest
                         "   external_location = '%s',\n" +
                         "   format = 'TEXTFILE'\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 new Path(tempDir.toURI().toASCIIString()).toString());
 
         assertUpdate(createTableSql);
@@ -4393,7 +4392,7 @@ public class TestHiveIntegrationSmokeTest
 
     private void testRcTextCharDecoding(boolean rcFileOptimizedWriterEnabled)
     {
-        String catalog = getSession().getCatalog().get();
+        String catalog = getSession().getCatalog().orElseThrow();
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(catalog, RCFILE_OPTIMIZED_WRITER_ENABLED, Boolean.toString(rcFileOptimizedWriterEnabled))
                 .build();
@@ -4430,7 +4429,7 @@ public class TestHiveIntegrationSmokeTest
         checkState(getSession().getSchema().isPresent(), "schema is not set");
         String testAccountsUnqualifiedName = "test_accounts";
         String testAccountsViewUnqualifiedName = "test_accounts_view";
-        String testAccountsViewFullyQualifiedName = format("%s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), testAccountsViewUnqualifiedName);
+        String testAccountsViewFullyQualifiedName = format("%s.%s.%s", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), testAccountsViewUnqualifiedName);
         assertUpdate(format("CREATE TABLE %s AS SELECT user_name, account_name" +
                 "  FROM (VALUES ('user1', 'account1'), ('user2', 'account2'))" +
                 "  t (user_name, account_name)", testAccountsUnqualifiedName), 2);
@@ -4439,14 +4438,14 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(format("GRANT SELECT ON %s TO user2", testAccountsViewFullyQualifiedName));
 
         Session user1 = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog().orElseThrow())
+                .setSchema(getSession().getSchema().orElseThrow())
                 .setIdentity(new Identity("user1", getSession().getIdentity().getPrincipal()))
                 .build();
 
         Session user2 = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog().orElseThrow())
+                .setSchema(getSession().getSchema().orElseThrow())
                 .setIdentity(new Identity("user2", getSession().getIdentity().getPrincipal()))
                 .build();
 
@@ -4913,7 +4912,7 @@ public class TestHiveIntegrationSmokeTest
 
         // Disable column statistics collection when creating the table
         Session disableColumnStatsSession = Session.builder(defaultSession)
-                .setCatalogSessionProperty(defaultSession.getCatalog().get(), "collect_column_statistics_on_write", "false")
+                .setCatalogSessionProperty(defaultSession.getCatalog().orElseThrow(), "collect_column_statistics_on_write", "false")
                 .build();
 
         assertUpdate(
@@ -5063,8 +5062,8 @@ public class TestHiveIntegrationSmokeTest
                         "   avro_schema_url = '%s',%n" +
                         "   format = 'AVRO'%n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 schemaFile);
     }
@@ -5096,8 +5095,8 @@ public class TestHiveIntegrationSmokeTest
                         "   avro_schema_url = 'dummy.avsc',\n" +
                         "   format = 'ORC'\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow());
 
         assertQueryFails(createTableSql, "Cannot specify avro_schema_url table property for storage format: ORC");
     }
@@ -5225,7 +5224,7 @@ public class TestHiveIntegrationSmokeTest
         String query = "SELECT count(*) FROM orders WHERE \"$bucket\" = 1";
         assertQuery(bucketedSession, query, "SELECT 1350");
         Session ignoreBucketingSession = Session.builder(bucketedSession)
-                .setCatalogSessionProperty(bucketedSession.getCatalog().get(), "ignore_table_bucketing", "true")
+                .setCatalogSessionProperty(bucketedSession.getCatalog().orElseThrow(), "ignore_table_bucketing", "true")
                 .build();
         assertQueryFails(ignoreBucketingSession, query, "Table bucketing is ignored\\. The virtual \"\\$bucket\" column cannot be referenced\\.");
     }
@@ -5792,7 +5791,7 @@ public class TestHiveIntegrationSmokeTest
                 .execute(session, transactionSession -> {
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     Optional<TableHandle> handle = metadata.getMetadataResolver(transactionSession).getTableHandle(objectName);
-                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get());
+                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.orElseThrow());
                     HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();
 
                     metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());
@@ -5829,8 +5828,8 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE MATERIALIZED VIEW test_customer_view AS SELECT name FROM test_customer_base",
                 format(
                         ".* Materialized view '%s.%s.test_customer_view' already exists",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
         assertQuerySucceeds("CREATE MATERIALIZED VIEW IF NOT EXISTS test_customer_view AS SELECT name FROM test_customer_base");
 
         // Test partition mapping
@@ -5841,14 +5840,14 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE MATERIALIZED VIEW test_customer_view_no_direct_partition_mapped WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
                         "AS SELECT name, CAST(nationkey AS BIGINT) AS nationkey FROM test_customer_base",
                 format(".*Materialized view %s.test_customer_view_no_direct_partition_mapped must have at least one partition column that exists in.*",
-                        getSession().getSchema().get()));
+                        getSession().getSchema().orElseThrow()));
 
         // Test nested
         assertQueryFails(
                 "CREATE MATERIALIZED VIEW test_customer_nested_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
                         "AS SELECT name, nationkey FROM test_customer_view",
                 format(".*CreateMaterializedView on a materialized view %s.%s.test_customer_view is not supported.",
-                        getSession().getCatalog().get(), getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
 
         // Test query shape
         assertUpdate("CREATE MATERIALIZED VIEW test_customer_agg_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
@@ -5863,12 +5862,12 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE MATERIALIZED VIEW test_customer_order_join_view_no_base_partition_mapped WITH (partitioned_by = ARRAY['custkey']" + retentionDays(30) + ") " +
                         "AS SELECT orders.totalprice, customer.nationkey, customer.custkey FROM test_customer_base customer JOIN " +
                         "test_orders_base orders ON orders.custkey = customer.custkey",
-                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least one partition column that exists in.*", getSession().getSchema().get()));
+                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least one partition column that exists in.*", getSession().getSchema().orElseThrow()));
         assertQueryFails(
                 "CREATE MATERIALIZED VIEW test_customer_order_join_view_no_base_partition_mapped WITH (partitioned_by = ARRAY['nation_order']" + retentionDays(30) + ") " +
                         "AS SELECT orders.totalprice, CONCAT(CAST(customer.nationkey AS VARCHAR), orders.orderstatus) AS nation_order " +
                         "FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey",
-                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least one partition column that exists in.*", getSession().getSchema().get()));
+                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least one partition column that exists in.*", getSession().getSchema().orElseThrow()));
 
         // Clean up
         computeActual("DROP TABLE IF EXISTS test_customer_base");
@@ -5888,33 +5887,33 @@ public class TestHiveIntegrationSmokeTest
                         ", nationkey%n" +
                         "FROM\n" +
                         "  test_customer_base_1",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get()));
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow()));
 
         computeActual("CREATE TABLE test_customer_base_1 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
         computeActual(createMaterializedViewSql);
 
         MaterializedResult actualResult = computeActual("SHOW CREATE MATERIALIZED VIEW test_customer_view_1");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createMaterializedViewSql.trim());
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), createMaterializedViewSql.trim());
 
         assertQueryFails(
                 "SHOW CREATE MATERIALIZED VIEW test_customer_base_1",
                 format(
                         ".*Relation '%s.%s.test_customer_base_1' is a table, not a materialized view",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
         assertQueryFails(
                 "SHOW CREATE VIEW test_customer_view_1",
                 format(
                         ".*Relation '%s.%s.test_customer_view_1' is a materialized view, not a view",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
         assertQueryFails(
                 "SHOW CREATE TABLE test_customer_view_1",
                 format(
                         ".*Relation '%s.%s.test_customer_view_1' is a materialized view, not a table",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
 
         // Clean up
         computeActual("DROP TABLE IF EXISTS test_customer_base_1");
@@ -5931,24 +5930,24 @@ public class TestHiveIntegrationSmokeTest
                 "ALTER TABLE test_customer_view_2 RENAME TO test_customer_view_new",
                 format(
                         ".*'%s.%s.test_customer_view_2' is a materialized view, and rename is not supported",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
         assertQueryFails(
                 "ALTER TABLE test_customer_view_2 ADD COLUMN timezone VARCHAR",
                 format(
                         ".*'%s.%s.test_customer_view_2' is a materialized view, and add column is not supported",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
         assertQueryFails(
                 "ALTER TABLE test_customer_view_2 DROP COLUMN address",
                 format(".*'%s.%s.test_customer_view_2' is a materialized view, and drop column is not supported",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
         assertQueryFails(
                 "ALTER TABLE test_customer_view_2 RENAME COLUMN name TO custname",
                 format(".*'%s.%s.test_customer_view_2' is a materialized view, and rename column is not supported",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
 
         // Clean up
         computeActual("DROP TABLE IF EXISTS test_customer_base_2");
@@ -5983,14 +5982,14 @@ public class TestHiveIntegrationSmokeTest
                 "DROP TABLE test_customer_view_4",
                 format(
                         ".*'%s.%s.test_customer_view_4' is a materialized view, not a table. Use DROP MATERIALIZED VIEW to drop.",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
         assertQueryFails(
                 "DROP VIEW test_customer_view_4",
                 format(
                         ".*View '%s.%s.test_customer_view_4' does not exist",
-                        getSession().getCatalog().get(),
-                        getSession().getSchema().get()));
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
 
         assertUpdate("DROP MATERIALIZED VIEW test_customer_view_4");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_customer_view_4"));
@@ -6029,7 +6028,7 @@ public class TestHiveIntegrationSmokeTest
 
         ResultWithQueryId<MaterializedResult> resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(session, refreshSql);
         QueryInfo queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
-        assertEquals(queryInfo.getExpandedQuery().get(),
+        assertEquals(queryInfo.getExpandedQuery().orElseThrow(),
                 "-- Expanded Query: REFRESH MATERIALIZED VIEW test_orders_view WHERE (ds = '2020-01-01')\n" +
                         "INSERT INTO test_orders_view SELECT\n" +
                         "  orderkey\n" +
@@ -6237,16 +6236,16 @@ public class TestHiveIntegrationSmokeTest
                 ")";
         String originalCreateTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "c2",
                 "c3");
         String expectedOriginalShowCreateTable = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
@@ -6262,15 +6261,15 @@ public class TestHiveIntegrationSmokeTest
                 ")";
         assertUpdate(getSession(), originalCreateTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedOriginalShowCreateTable);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedOriginalShowCreateTable);
 
         @Language("SQL") String addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT cons1 " + uniqueConstraint + " (c1, c3)";
         assertUpdate(getSession(), addUniqueConstraintStmt);
 
         String expectedShowCreateTableWithOneConstraint = format(
                 createTableWithOneConstraintFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
@@ -6278,7 +6277,7 @@ public class TestHiveIntegrationSmokeTest
                 format("CONSTRAINT cons1 %s (c1, c3)", uniqueConstraint));
 
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableWithOneConstraint);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedShowCreateTableWithOneConstraint);
 
         addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT cons2 " + uniqueConstraint + " (c2)";
         assertUpdate(getSession(), addUniqueConstraintStmt);
@@ -6295,8 +6294,8 @@ public class TestHiveIntegrationSmokeTest
                 ")";
         String expectedShowCreateTableWithTwoConstraints = format(
                 createTableWithTwoConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
@@ -6305,40 +6304,40 @@ public class TestHiveIntegrationSmokeTest
                 format("CONSTRAINT cons2 %s (c2)", uniqueConstraint));
 
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableWithTwoConstraints);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedShowCreateTableWithTwoConstraints);
 
-        String dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT cons2", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        String dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT cons2", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableWithOneConstraint);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedShowCreateTableWithOneConstraint);
 
-        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT cons1", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT cons1", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedOriginalShowCreateTable);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedOriginalShowCreateTable);
 
         @Language("SQL") String addPrimaryKeyStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT pk " + primaryKey + " (c2, c3) DISABLED";
         assertUpdate(getSession(), addPrimaryKeyStmt);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
         String expectedShowCreateTableWithPK = format(
                 createTableWithOneConstraintFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
                 "\"c3\"",
                 format("CONSTRAINT pk %s (c2, c3) DISABLED", primaryKey));
 
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableWithPK);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedShowCreateTableWithPK);
 
         addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT cons2 " + uniqueConstraint + " (c2) NOT RELY";
         assertUpdate(getSession(), addUniqueConstraintStmt);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
         String expectedShowCreateTableWithPKAndUnique = format(
                 createTableWithTwoConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
@@ -6346,14 +6345,14 @@ public class TestHiveIntegrationSmokeTest
                 format("CONSTRAINT pk %s (c2, c3) DISABLED", primaryKey),
                 format("CONSTRAINT cons2 %s (c2) NOT RELY", uniqueConstraint));
 
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableWithPKAndUnique);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedShowCreateTableWithPKAndUnique);
 
-        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT pk", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT pk", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
-        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT cons2", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT cons2", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedOriginalShowCreateTable);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedOriginalShowCreateTable);
 
         // Combinations of constraint qualifiers
         addPrimaryKeyStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT pk " + primaryKey + " (c2, c3) DISABLED NOT RELY ENFORCED";
@@ -6379,8 +6378,8 @@ public class TestHiveIntegrationSmokeTest
                 ")";
         expectedShowCreateTableWithPKAndUnique = format(
                 createTableWithFourConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
@@ -6391,32 +6390,32 @@ public class TestHiveIntegrationSmokeTest
                 format("CONSTRAINT uq3 %s (c1) DISABLED NOT RELY NOT ENFORCED", uniqueConstraint));
 
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableWithPKAndUnique);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedShowCreateTableWithPKAndUnique);
 
         // Negative tests
-        assertQueryFails(addPrimaryKeyStmt, format("Primary key already exists for: %s.%s", getSession().getSchema().get(), tableName));
+        assertQueryFails(addPrimaryKeyStmt, format("Primary key already exists for: %s.%s", getSession().getSchema().orElseThrow(), tableName));
         assertQueryFails(addUniqueConstraintStmt, "Constraint already exists: 'uq3'");
-        String dropNonExistentConstraint = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT missingconstraint", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        String dropNonExistentConstraint = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT missingconstraint", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertQueryFails(dropNonExistentConstraint, "Constraint 'missingconstraint' not found");
 
         // Add unnamed constraints
-        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT pk", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT pk", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
-        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT uq1", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT uq1", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
-        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT uq2", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT uq2", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
-        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT uq3", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT uq3", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedOriginalShowCreateTable);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedOriginalShowCreateTable);
 
         addPrimaryKeyStmt = "ALTER TABLE " + tableName + " ADD " + primaryKey + " (c2, c3) DISABLED NOT RELY ENFORCED";
         assertUpdate(getSession(), addPrimaryKeyStmt);
         addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD " + uniqueConstraint + " (c3) ENABLED RELY NOT ENFORCED";
         assertUpdate(getSession(), addUniqueConstraintStmt);
 
-        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropTableStmt);
     }
 
@@ -6448,8 +6447,8 @@ public class TestHiveIntegrationSmokeTest
                 ")";
         String originalCreateTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "c2",
@@ -6457,8 +6456,8 @@ public class TestHiveIntegrationSmokeTest
                 "c4");
         String expectedOriginalShowCreateTable = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
@@ -6467,15 +6466,15 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(getSession(), originalCreateTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedOriginalShowCreateTable);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedOriginalShowCreateTable);
 
-        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropTableStmt);
 
         String createTableWithOneConstraintSql = format(
                 createTableWithOneConstraintFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "c2",
@@ -6485,8 +6484,8 @@ public class TestHiveIntegrationSmokeTest
 
         String expectedcreateTableWithOneConstraint = format(
                 createTableWithOneConstraintFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
@@ -6496,7 +6495,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(getSession(), createTableWithOneConstraintSql);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedcreateTableWithOneConstraint);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedcreateTableWithOneConstraint);
         assertUpdate(getSession(), dropTableStmt);
 
         String createTableWithTwoConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
@@ -6513,8 +6512,8 @@ public class TestHiveIntegrationSmokeTest
 
         String createTableWithTwoConstraintsSql = format(
                 createTableWithTwoConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "c2",
@@ -6525,8 +6524,8 @@ public class TestHiveIntegrationSmokeTest
 
         String expectedcreateTableWithTwoConstraints = format(
                 createTableWithTwoConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
@@ -6537,14 +6536,14 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(getSession(), createTableWithTwoConstraintsSql);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedcreateTableWithTwoConstraints);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedcreateTableWithTwoConstraints);
         assertUpdate(getSession(), dropTableStmt);
 
         //Negative tests
         createTableWithTwoConstraintsSql = format(
                 createTableWithTwoConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "c2",
@@ -6556,8 +6555,8 @@ public class TestHiveIntegrationSmokeTest
 
         createTableWithTwoConstraintsSql = format(
                 createTableWithTwoConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "c2",
@@ -6569,8 +6568,8 @@ public class TestHiveIntegrationSmokeTest
 
         createTableWithTwoConstraintsSql = format(
                 createTableWithTwoConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "c2",
@@ -6582,8 +6581,8 @@ public class TestHiveIntegrationSmokeTest
 
         createTableWithTwoConstraintsSql = format(
                 createTableWithTwoConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "c2",
@@ -6595,7 +6594,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(getSession(), createTableWithOneConstraintSql);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedcreateTableWithOneConstraint);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedcreateTableWithOneConstraint);
         // Since PRIMARY is a non-reserved keyword, it gets parsed and then fails at column resolution
         assertQueryFails("SELECT PRIMARY FROM " + tableName, ".*cannot be resolved.*");
         assertQueryFails("SELECT PRIMARY KEY FROM " + tableName, ".*cannot be resolved.*");
@@ -6613,8 +6612,8 @@ public class TestHiveIntegrationSmokeTest
 
         String createTableWithNotNullConstraintsSql = format(
                 createTableWithInlineConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "",
@@ -6627,8 +6626,8 @@ public class TestHiveIntegrationSmokeTest
 
         String expectedCreateTableWithNotNullConstraintsSql = format(
                 createTableWithInlineConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "",
@@ -6641,7 +6640,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(getSession(), createTableWithNotNullConstraintsSql);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableWithNotNullConstraintsSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedCreateTableWithNotNullConstraintsSql);
         assertUpdate(getSession(), dropTableStmt);
     }
 
@@ -6663,8 +6662,8 @@ public class TestHiveIntegrationSmokeTest
 
         String createTableWithOneConstraintSql = format(
                 createTableWithOneConstraintFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "c2",
@@ -6674,8 +6673,8 @@ public class TestHiveIntegrationSmokeTest
 
         String expectedcreateTableWithOneConstraint = format(
                 createTableWithOneConstraintFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "\"c2\"",
@@ -6685,12 +6684,12 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(getSession(), createTableWithOneConstraintSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedcreateTableWithOneConstraint);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedcreateTableWithOneConstraint);
 
         String insertStmt = format("INSERT INTO %s VALUES (1, 2.3, 'abc', 4)", tableName);
-        assertQueryFails(insertStmt, format("Cannot write to table %s.%s since it has table constraints that are enforced", getSession().getSchema().get(), tableName));
+        assertQueryFails(insertStmt, format("Cannot write to table %s.%s since it has table constraints that are enforced", getSession().getSchema().orElseThrow(), tableName));
 
-        String dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT pk", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        String dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT pk", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
 
         String addPrimaryKeyStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT pk PRIMARY KEY (c2, c3) NOT ENFORCED";
@@ -6699,17 +6698,17 @@ public class TestHiveIntegrationSmokeTest
 
         String addUniqueEnforced = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq1 UNIQUE (c1) ENFORCED";
         assertUpdate(getSession(), addUniqueEnforced);
-        assertQueryFails(insertStmt, format("Cannot write to table %s.%s since it has table constraints that are enforced", getSession().getSchema().get(), tableName));
+        assertQueryFails(insertStmt, format("Cannot write to table %s.%s since it has table constraints that are enforced", getSession().getSchema().orElseThrow(), tableName));
 
         String addSecondUniqueNotEnforced = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq2 UNIQUE (c4) NOT ENFORCED";
         assertUpdate(getSession(), addSecondUniqueNotEnforced);
-        assertQueryFails(insertStmt, format("Cannot write to table %s.%s since it has table constraints that are enforced", getSession().getSchema().get(), tableName));
+        assertQueryFails(insertStmt, format("Cannot write to table %s.%s since it has table constraints that are enforced", getSession().getSchema().orElseThrow(), tableName));
 
-        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT uq1", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        dropConstraintStmt = format("ALTER TABLE %s.%s.%s DROP CONSTRAINT uq1", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropConstraintStmt);
         assertUpdate(getSession(), insertStmt, 1);
 
-        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropTableStmt);
 
         String createTableWithInlineConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
@@ -6724,8 +6723,8 @@ public class TestHiveIntegrationSmokeTest
 
         String createTableWithNotNullConstraintsSql = format(
                 createTableWithInlineConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "",
@@ -6765,8 +6764,8 @@ public class TestHiveIntegrationSmokeTest
 
         String createTableSql = format(
                 createTableWithInlineConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "c1",
                 "",
@@ -6779,8 +6778,8 @@ public class TestHiveIntegrationSmokeTest
 
         String expectedCreateTableSql = format(
                 createTableWithInlineConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "",
@@ -6793,15 +6792,15 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(getSession(), createTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedCreateTableSql);
 
         @Language("SQL") String addNotNullStmt = "ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL";
         assertUpdate(getSession(), addNotNullStmt);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
         expectedCreateTableSql = format(
                 createTableWithInlineConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "",
@@ -6811,15 +6810,15 @@ public class TestHiveIntegrationSmokeTest
                 "",
                 "\"c4\"",
                 "");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedCreateTableSql);
 
         addNotNullStmt = "ALTER TABLE " + tableName + " ALTER COLUMN c4 SET NOT NULL";
         assertUpdate(getSession(), addNotNullStmt);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
         expectedCreateTableSql = format(
                 createTableWithInlineConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "",
@@ -6829,15 +6828,15 @@ public class TestHiveIntegrationSmokeTest
                 "",
                 "\"c4\"",
                 " NOT NULL");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedCreateTableSql);
 
         @Language("SQL") String dropNotNullStmt = "ALTER TABLE " + tableName + " ALTER COLUMN c2 DROP NOT NULL";
         assertUpdate(getSession(), dropNotNullStmt);
         actualResult = computeActual("SHOW CREATE TABLE " + tableName);
         expectedCreateTableSql = format(
                 createTableWithInlineConstraintsFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 tableName,
                 "\"c1\"",
                 "",
@@ -6847,12 +6846,12 @@ public class TestHiveIntegrationSmokeTest
                 "",
                 "\"c4\"",
                 " NOT NULL");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), expectedCreateTableSql);
 
         @Language("SQL") String addColumnStmt = "ALTER TABLE " + tableName + " ADD COLUMN c5 int NOT NULL";
         assertQueryFails(addColumnStmt, "This connector does not support ADD COLUMN with NOT NULL");
 
-        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
         assertUpdate(getSession(), dropTableStmt);
     }
 
@@ -6942,7 +6941,7 @@ public class TestHiveIntegrationSmokeTest
 
     private static ConnectorSession getConnectorSession(Session session)
     {
-        return session.toConnectorSession(new ConnectorId(session.getCatalog().get()));
+        return session.toConnectorSession(new ConnectorId(session.getCatalog().orElseThrow()));
     }
 
     private void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)

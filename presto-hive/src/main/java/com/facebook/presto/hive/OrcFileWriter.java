@@ -259,7 +259,7 @@ public class OrcFileWriter
 
         if (validationInputFactory.isPresent()) {
             try {
-                try (OrcDataSource input = validationInputFactory.get().get()) {
+                try (OrcDataSource input = validationInputFactory.orElseThrow().get()) {
                     long startThreadCpuTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
                     orcWriter.validate(input);
                     validationCpuNanos += THREAD_MX_BEAN.getCurrentThreadCpuTime() - startThreadCpuTime;

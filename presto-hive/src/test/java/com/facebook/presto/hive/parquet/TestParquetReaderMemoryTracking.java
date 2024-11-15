@@ -109,7 +109,7 @@ public class TestParquetReaderMemoryTracking
         MessageType schema = parquetMetadata.getFileMetaData().getSchema();
         MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
 
-        this.field = ColumnIOConverter.constructField(INTEGER, messageColumnIO.getChild(0)).get();
+        this.field = ColumnIOConverter.constructField(INTEGER, messageColumnIO.getChild(0)).orElseThrow();
 
         return new ParquetReader(
                 messageColumnIO,

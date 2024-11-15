@@ -269,7 +269,7 @@ public class OrcFileWriterFactory
 
             // add the writer's hostname to the file footer, it is useful for troubleshooting file corruption issues
             if (orcFileWriterConfig.isAddHostnameToFileMetadataEnabled() && HOSTNAME.get().isPresent()) {
-                metadata.put(HOSTNAME_METADATA_KEY, HOSTNAME.get().get());
+                metadata.put(HOSTNAME_METADATA_KEY, HOSTNAME.get().orElseThrow());
             }
 
             OrcWriterOptions orcWriterOptions = buildOrcWriterOptions(session, schema);
@@ -331,11 +331,11 @@ public class OrcFileWriterFactory
             return Optional.empty();
         }
 
-        if (!encryptionInformation.get().getDwrfEncryptionMetadata().isPresent()) {
+        if (!encryptionInformation.orElseThrow().getDwrfEncryptionMetadata().isPresent()) {
             return Optional.empty();
         }
 
-        DwrfEncryptionMetadata dwrfEncryptionMetadata = encryptionInformation.get().getDwrfEncryptionMetadata().get();
+        DwrfEncryptionMetadata dwrfEncryptionMetadata = encryptionInformation.orElseThrow().getDwrfEncryptionMetadata().orElseThrow();
 
         List<OrcType> orcTypes = OrcType.createOrcRowType(0, fileColumnNames, types);
         Map<String, Integer> columnNamesMap = IntStream.range(0, fileColumnNames.size())

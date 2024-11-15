@@ -2594,8 +2594,8 @@ public class TestHiveMaterializedViewLogicalPlanner
         QueryRunner queryRunner = getQueryRunner();
         Session invokerSession = Session.builder(getSession())
                 .setIdentity(new Identity("test_view_invoker", Optional.empty()))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog().orElseThrow())
+                .setSchema(getSession().getSchema().orElseThrow())
                 .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
                 .build();
         Session ownerSession = getSession();
@@ -2655,8 +2655,8 @@ public class TestHiveMaterializedViewLogicalPlanner
         QueryRunner queryRunner = getQueryRunner();
         Session invokerSession = Session.builder(getSession())
                 .setIdentity(new Identity("test_view_invoker", Optional.empty()))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog().orElseThrow())
+                .setSchema(getSession().getSchema().orElseThrow())
                 .build();
         Session ownerSession = getSession();
 
@@ -2736,9 +2736,9 @@ public class TestHiveMaterializedViewLogicalPlanner
     private void appendTableParameter(ExtendedHiveMetastore metastore, String tableName, String parameterKey, String parameterValue)
     {
         MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector(), getSession().getRuntimeStats());
-        Optional<Table> table = metastore.getTable(metastoreContext, getSession().getSchema().get(), tableName);
+        Optional<Table> table = metastore.getTable(metastoreContext, getSession().getSchema().orElseThrow(), tableName);
         if (table.isPresent()) {
-            Table originalTable = table.get();
+            Table originalTable = table.orElseThrow();
             Table alteredTable = Table.builder(originalTable).setParameter(parameterKey, parameterValue).build();
             metastore.dropTable(metastoreContext, originalTable.getDatabaseName(), originalTable.getTableName(), false);
             metastore.createTable(metastoreContext, alteredTable, new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()), emptyList());

@@ -117,7 +117,7 @@ public class LegacyAccessControl
             denyDropTable(tableName.toString(), "Table not found");
         }
 
-        if (!identity.getUser().equals(target.get().getOwner())) {
+        if (!identity.getUser().equals(target.orElseThrow().getOwner())) {
             denyDropTable(tableName.toString(), "Owner of the table is different from session user");
         }
     }

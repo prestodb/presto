@@ -119,7 +119,7 @@ import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.Locale.ENGLISH;
@@ -468,10 +468,10 @@ public abstract class AbstractTestHiveFileSystem
 
             // verify the data
             List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, hiveTableHandle, Constraint.alwaysTrue(), Optional.empty());
-            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
-            assertEquals(layoutHandle.getPartitions().get().size(), 1);
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutResults.stream().collect(onlyElement()).getTableLayout().getHandle();
+            assertEquals(layoutHandle.getPartitions().orElseThrow().size(), 1);
             ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, SPLIT_SCHEDULING_CONTEXT);
-            ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
+            ConnectorSplit split = getAllSplits(splitSource).stream().collect(onlyElement());
 
             TableHandle tableHandle = new TableHandle(new ConnectorId("hive"), hiveTableHandle, transaction.getTransactionHandle(), Optional.of(layoutHandle));
 
@@ -479,7 +479,7 @@ public abstract class AbstractTestHiveFileSystem
                     transaction.getTransactionHandle(),
                     session,
                     split,
-                    tableHandle.getLayout().get(),
+                    tableHandle.getLayout().orElseThrow(),
                     columnHandles,
                     NON_CACHEABLE,
                     new RuntimeStats())) {
@@ -541,7 +541,7 @@ public abstract class AbstractTestHiveFileSystem
                 // hack to work around the metastore not being configured for S3 or other FS
                 List<String> locations = listAllDataPaths(metastoreContext, databaseName, tableName);
 
-                Table.Builder tableBuilder = Table.builder(table.get());
+                Table.Builder tableBuilder = Table.builder(table.orElseThrow());
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
@@ -571,7 +571,7 @@ public abstract class AbstractTestHiveFileSystem
                 throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
             }
 
-            Table.Builder tableBuilder = Table.builder(table.get());
+            Table.Builder tableBuilder = Table.builder(table.orElseThrow());
             tableBuilder.getStorageBuilder().setLocation(location);
 
             // NOTE: this clears the permissions
@@ -581,7 +581,7 @@ public abstract class AbstractTestHiveFileSystem
         private List<String> listAllDataPaths(MetastoreContext metastoreContext, String schemaName, String tableName)
         {
             ImmutableList.Builder<String> locations = ImmutableList.builder();
-            Table table = getTable(metastoreContext, schemaName, tableName).get();
+            Table table = getTable(metastoreContext, schemaName, tableName).orElseThrow();
             if (table.getStorage().getLocation() != null) {
                 // For partitioned table, there should be nothing directly under this directory.
                 // But including this location in the set makes the directory content assert more
@@ -591,7 +591,7 @@ public abstract class AbstractTestHiveFileSystem
 
             Optional<List<PartitionNameWithVersion>> partitionNames = getPartitionNames(metastoreContext, schemaName, tableName);
             if (partitionNames.isPresent()) {
-                getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.get()).values().stream()
+                getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.orElseThrow()).values().stream()
                         .map(Optional::get)
                         .map(partition -> partition.getStorage().getLocation())
                         .filter(location -> !location.startsWith(table.getStorage().getLocation()))

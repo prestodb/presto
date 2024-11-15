@@ -28,9 +28,9 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Objects.requireNonNullElse;
 
 public class HiveAnalyzeProperties
 {
@@ -75,7 +75,7 @@ public class HiveAnalyzeProperties
         return ImmutableList.copyOf(((Collection<?>) object).stream()
                 .peek(HiveAnalyzeProperties::throwIfNull)
                 .map(partition -> ((Collection<?>) partition).stream()
-                        .map(name -> firstNonNull((String) name, HIVE_DEFAULT_DYNAMIC_PARTITION))
+                        .map(name -> requireNonNullElse((String) name, HIVE_DEFAULT_DYNAMIC_PARTITION))
                         .collect(toImmutableList()))
                 .collect(toImmutableSet()));
     }

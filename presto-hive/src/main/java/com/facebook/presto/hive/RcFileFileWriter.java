@@ -147,7 +147,7 @@ public class RcFileFileWriter
 
         if (validationInputFactory.isPresent()) {
             try {
-                try (RcFileDataSource input = validationInputFactory.get().get()) {
+                try (RcFileDataSource input = validationInputFactory.orElseThrow().get()) {
                     long startThreadCpuTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
                     rcFileWriter.validate(input);
                     validationCpuNanos += THREAD_MX_BEAN.getCurrentThreadCpuTime() - startThreadCpuTime;

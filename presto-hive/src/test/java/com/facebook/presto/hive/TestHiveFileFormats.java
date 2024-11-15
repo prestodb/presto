@@ -111,7 +111,6 @@ import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.filter;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.io.File.createTempFile;
 import static java.util.Objects.requireNonNull;
@@ -235,12 +234,12 @@ public class TestHiveFileFormats
     public void testRCText(int rowCount)
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
+        List<TestColumn> testColumns = TEST_COLUMNS.stream().filter(testColumn -> {
             // TODO: This is a bug in the RC text reader
             // RC file does not support complex type as key of a map
             return !testColumn.getName().equals("t_struct_null")
                     && !testColumn.getName().equals("t_map_null_key_complex_key_value");
-        }));
+        }).toList();
         assertThatFileFormat(RCTEXT)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
@@ -1028,7 +1027,7 @@ public class TestHiveFileFormats
                 Optional.empty(),
                 Optional.empty());
 
-        RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
+        RecordCursor cursor = ((RecordPageSource) pageSource.orElseThrow()).getCursor();
 
         checkCursor(cursor, testColumns, rowCount);
     }
@@ -1101,7 +1100,7 @@ public class TestHiveFileFormats
 
         assertTrue(pageSource.isPresent());
 
-        checkPageSource(pageSource.get(), testColumns, getTypes(columnHandles), rowCount);
+        checkPageSource(pageSource.orElseThrow(), testColumns, getTypes(columnHandles), rowCount);
     }
 
     public static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
@@ -1296,10 +1295,10 @@ public class TestHiveFileFormats
                     split = createTestFile(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
                 }
                 if (pageSourceFactory.isPresent()) {
-                    testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, rowsCount);
+                    testPageSourceFactory(pageSourceFactory.orElseThrow(), split, storageFormat, readColumns, session, rowsCount);
                 }
                 if (cursorProvider.isPresent()) {
-                    testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, session, rowsCount);
+                    testCursorProvider(cursorProvider.orElseThrow(), split, storageFormat, readColumns, session, rowsCount);
                 }
             }
             finally {

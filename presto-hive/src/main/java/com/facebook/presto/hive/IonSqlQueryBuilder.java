@@ -41,7 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.Builder;
 import static com.google.common.collect.ImmutableList.builder;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -113,7 +113,7 @@ public class IonSqlQueryBuilder
         for (HiveColumnHandle column : columns) {
             Type type = column.getHiveType().getType(typeManager);
             if (tupleDomain.getDomains().isPresent() && isSupported(type)) {
-                Domain domain = tupleDomain.getDomains().get().get(column);
+                Domain domain = tupleDomain.getDomains().orElseThrow().get(column);
                 if (domain != null) {
                     builder.add(toPredicate(domain, type, column));
                 }
@@ -175,7 +175,7 @@ public class IonSqlQueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate("=", getOnlyElement(singleValues), type, column));
+            disjuncts.add(toPredicate("=", singleValues.stream().collect(onlyElement()), type, column));
         }
         else if (singleValues.size() > 1) {
             List<String> values = new ArrayList<>();

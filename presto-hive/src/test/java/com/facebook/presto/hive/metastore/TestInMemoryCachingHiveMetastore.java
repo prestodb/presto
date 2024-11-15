@@ -30,7 +30,6 @@ import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
@@ -62,6 +61,7 @@ import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_ROLES;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE_WITH_CONSTRAINTS;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.function.UnaryOperator.identity;
@@ -122,14 +122,14 @@ public class TestInMemoryCachingHiveMetastore
     public void testGetAllTable()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).orElseThrow(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).orElseThrow(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 1);
 
         metastore.invalidateAll();
 
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).orElseThrow(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
@@ -167,21 +167,21 @@ public class TestInMemoryCachingHiveMetastore
     {
         ImmutableList<PartitionNameWithVersion> expectedPartitions = ImmutableList.of(TEST_PARTITION_NAME_WITHOUT_VERSION1, TEST_PARTITION_NAME_WITHOUT_VERSION2);
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).orElseThrow(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).orElseThrow(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
 
         metastore.invalidateAll();
 
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).orElseThrow(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
     @Test
     public void testInvalidGetPartitionNames()
     {
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE).get(), ImmutableList.of());
+        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE).orElseThrow(), ImmutableList.of());
     }
 
     @Test
@@ -435,7 +435,7 @@ public class TestInMemoryCachingHiveMetastore
     {
         Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1));
         assertEquals(partitionsByNames.size(), 1);
-        Optional<Partition> onlyElement = Iterables.getOnlyElement(partitionsByNames.values());
+        Optional<Partition> onlyElement = partitionsByNames.values().stream().collect(onlyElement());
         assertFalse(onlyElement.isPresent());
     }
 

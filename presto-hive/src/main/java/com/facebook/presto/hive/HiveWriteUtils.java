@@ -286,7 +286,7 @@ public final class HiveWriteUtils
         else if (isRowType(type)) {
             return ObjectInspectorFactory.getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
-                            .map(parameter -> parameter.getNamedTypeSignature().getName().get())
+                            .map(parameter -> parameter.getNamedTypeSignature().getName().orElseThrow())
                             .collect(toList()),
                     type.getTypeParameters().stream()
                             .map(HiveWriteUtils::getJavaObjectInspector)
@@ -314,7 +314,7 @@ public final class HiveWriteUtils
     {
         String tablePartitionDescription = "Table '" + tableName + "'";
         if (partitionName.isPresent()) {
-            tablePartitionDescription += " partition '" + partitionName.get() + "'";
+            tablePartitionDescription += " partition '" + partitionName.orElseThrow() + "'";
         }
 
         // verify online
@@ -345,12 +345,12 @@ public final class HiveWriteUtils
                 session.getWarningCollector(),
                 session.getRuntimeStats());
         Optional<String> location = getDatabase(session.getIdentity(), metastoreContext, metastore, schemaName).getLocation();
-        if (!location.isPresent() || location.get().isEmpty()) {
+        if (!location.isPresent() || location.orElseThrow().isEmpty()) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
 
-        HdfsContext context = new HdfsContext(session, schemaName, tableName, location.get(), true);
-        Path databasePath = new Path(location.get());
+        HdfsContext context = new HdfsContext(session, schemaName, tableName, location.orElseThrow(), true);
+        Path databasePath = new Path(location.orElseThrow());
         if (!isS3FileSystem(context, hdfsEnvironment, databasePath)) {
             if (!pathExists(context, hdfsEnvironment, databasePath)) {
                 throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));

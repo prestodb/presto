@@ -104,7 +104,7 @@ public class AggregatedParquetPageSource
         Block[] blocks = new Block[columnHandles.size()];
         for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
             HiveColumnHandle columnHandle = columnHandles.get(fieldId);
-            Aggregation aggregation = columnHandle.getPartialAggregation().get();
+            Aggregation aggregation = columnHandle.getPartialAggregation().orElseThrow();
             Type type = typeManager.getType(columnHandle.getTypeSignature());
             BlockBuilder blockBuilder = type.createBlockBuilder(null, batchSize, 0);
             int columnIndex = columnHandle.getHiveColumnIndex();

@@ -292,14 +292,14 @@ public class StoragePartitionLoader
         Optional<HiveSplit.BucketConversion> bucketConversion = Optional.empty();
         boolean bucketConversionRequiresWorkerParticipation = false;
         if (partition.getPartition().isPresent()) {
-            Optional<HiveBucketProperty> partitionBucketProperty = partition.getPartition().get().getStorage().getBucketProperty();
+            Optional<HiveBucketProperty> partitionBucketProperty = partition.getPartition().orElseThrow().getStorage().getBucketProperty();
             if (tableBucketInfo.isPresent() && partitionBucketProperty.isPresent()) {
-                int tableBucketCount = tableBucketInfo.get().getTableBucketCount();
-                int partitionBucketCount = partitionBucketProperty.get().getBucketCount();
+                int tableBucketCount = tableBucketInfo.orElseThrow().getTableBucketCount();
+                int partitionBucketCount = partitionBucketProperty.orElseThrow().getBucketCount();
                 // Validation was done in HiveSplitManager#getPartitionMetadata.
                 // Here, it's just trying to see if its needs the BucketConversion.
                 if (tableBucketCount != partitionBucketCount) {
-                    bucketConversion = Optional.of(new HiveSplit.BucketConversion(tableBucketCount, partitionBucketCount, tableBucketInfo.get().getBucketColumns()));
+                    bucketConversion = Optional.of(new HiveSplit.BucketConversion(tableBucketCount, partitionBucketCount, tableBucketInfo.orElseThrow().getBucketColumns()));
                     if (tableBucketCount > partitionBucketCount) {
                         bucketConversionRequiresWorkerParticipation = true;
                     }
@@ -333,15 +333,15 @@ public class StoragePartitionLoader
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
-            if (tableBucketInfo.get().isVirtuallyBucketed()) {
+            if (tableBucketInfo.orElseThrow().isVirtuallyBucketed()) {
                 // For virtual bucket, bucket conversion must not be present because there is no physical partition bucket count
                 checkState(!bucketConversion.isPresent(), "Virtually bucketed table must not have partitions that are physically bucketed");
                 checkState(
-                        tableBucketInfo.get().getTableBucketCount() == tableBucketInfo.get().getReadBucketCount(),
+                        tableBucketInfo.orElseThrow().getTableBucketCount() == tableBucketInfo.orElseThrow().getReadBucketCount(),
                         "Table and read bucket count should be the same for virtual bucket");
-                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.get().getReadBucketCount(), partition.getPartition(), splittable));
+                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.orElseThrow().getReadBucketCount(), partition.getPartition(), splittable));
             }
-            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, partition.getPartition(), splittable));
+            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.orElseThrow(), bucketConversion, partitionName, partition.getPartition(), splittable));
         }
 
         fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, partition.getPartition()));
@@ -355,7 +355,7 @@ public class StoragePartitionLoader
         for (InputSplit inputSplit : targetSplits) {
             Optional<InternalHiveSplit> internalHiveSplit = splitFactory.createInternalHiveSplit((FileSplit) inputSplit);
             if (internalHiveSplit.isPresent()) {
-                lastResult = hiveSplitSource.addToQueue(internalHiveSplit.get());
+                lastResult = hiveSplitSource.addToQueue(internalHiveSplit.orElseThrow());
             }
             if (stopped) {
                 return COMPLETED_FUTURE;
@@ -374,7 +374,7 @@ public class StoragePartitionLoader
         boolean cacheable = isUseListDirectoryCache(session);
         if (partition.isPresent()) {
             // Use cache only for sealed partitions
-            cacheable &= partition.get().isSealedPartition();
+            cacheable &= partition.orElseThrow().isSealedPartition();
         }
 
         HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
@@ -626,10 +626,10 @@ public class StoragePartitionLoader
                 return Optional.empty();
             }
 
-            int tableBucketCount = bucketHandle.get().getTableBucketCount();
-            int readBucketCount = bucketHandle.get().getReadBucketCount();
+            int tableBucketCount = bucketHandle.orElseThrow().getTableBucketCount();
+            int readBucketCount = bucketHandle.orElseThrow().getReadBucketCount();
 
-            List<HiveColumnHandle> bucketColumns = bucketHandle.get().getColumns();
+            List<HiveColumnHandle> bucketColumns = bucketHandle.orElseThrow().getColumns();
             IntPredicate predicate = bucketFilter
                     .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)
                     .orElse(bucket -> true);

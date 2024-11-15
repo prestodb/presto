@@ -45,12 +45,12 @@ public abstract class AbstractDwrfEncryptionInformationSource
             return Optional.empty();
         }
 
-        Optional<Map<String, String>> fieldToKeyReference = getFieldToKeyReference(encryptionProperties.get(), requestedColumns);
+        Optional<Map<String, String>> fieldToKeyReference = getFieldToKeyReference(encryptionProperties.orElseThrow(), requestedColumns);
         if (!fieldToKeyReference.isPresent()) {
             return Optional.empty();
         }
 
-        return Optional.of(getReadEncryptionInformationInternal(session, table, requestedColumns, partitions, fieldToKeyReference.get(), encryptionProperties.get()));
+        return Optional.of(getReadEncryptionInformationInternal(session, table, requestedColumns, partitions, fieldToKeyReference.orElseThrow(), encryptionProperties.orElseThrow()));
     }
 
     protected abstract Map<String, EncryptionInformation> getReadEncryptionInformationInternal(
@@ -69,12 +69,12 @@ public abstract class AbstractDwrfEncryptionInformationSource
             return Optional.empty();
         }
 
-        Optional<Map<String, String>> fieldToKeyReference = getFieldToKeyReference(encryptionProperties.get(), requestedColumns);
+        Optional<Map<String, String>> fieldToKeyReference = getFieldToKeyReference(encryptionProperties.orElseThrow(), requestedColumns);
         if (!fieldToKeyReference.isPresent()) {
             return Optional.empty();
         }
 
-        return Optional.of(getReadEncryptionInformationInternal(session, table, requestedColumns, fieldToKeyReference.get(), encryptionProperties.get()));
+        return Optional.of(getReadEncryptionInformationInternal(session, table, requestedColumns, fieldToKeyReference.orElseThrow(), encryptionProperties.orElseThrow()));
     }
 
     protected abstract EncryptionInformation getReadEncryptionInformationInternal(
@@ -106,15 +106,15 @@ public abstract class AbstractDwrfEncryptionInformationSource
 
         Map<String, String> fieldToKeyReference;
         if (encryptTable.isPresent()) {
-            if (!requestedColumns.isPresent() || !requestedColumns.get().isEmpty()) {
-                fieldToKeyReference = ImmutableMap.of(DwrfEncryptionMetadata.TABLE_IDENTIFIER, encryptTable.get());
+            if (!requestedColumns.isPresent() || !requestedColumns.orElseThrow().isEmpty()) {
+                fieldToKeyReference = ImmutableMap.of(DwrfEncryptionMetadata.TABLE_IDENTIFIER, encryptTable.orElseThrow());
             }
             else {
                 fieldToKeyReference = ImmutableMap.of();
             }
         }
         else if (columnEncryptionInformation.isPresent()) {
-            Map<ColumnWithStructSubfield, String> allFieldsToKeyReference = columnEncryptionInformation.get().getColumnToKeyReference();
+            Map<ColumnWithStructSubfield, String> allFieldsToKeyReference = columnEncryptionInformation.orElseThrow().getColumnToKeyReference();
             Optional<Set<String>> requestedColumnNames = requestedColumns.map(columns -> columns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet()));
 
             fieldToKeyReference = allFieldsToKeyReference.entrySet()

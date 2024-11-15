@@ -105,7 +105,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -354,7 +353,6 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_N
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -363,11 +361,12 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
@@ -516,7 +515,7 @@ public class HiveMetadata
         }
 
         if (!isOfflineDataDebugModeEnabled(session)) {
-            verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
+            verifyOnline(tableName, Optional.empty(), getProtectMode(table.orElseThrow()), table.orElseThrow().getParameters());
         }
 
         return new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
@@ -557,10 +556,10 @@ public class HiveMetadata
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
         Optional<Table> table = metastore.getTable(metastoreContext, sourceTableName.getSchemaName(), sourceTableName.getTableName());
-        if (!table.isPresent() || table.get().getTableType().equals(VIRTUAL_VIEW)) {
+        if (!table.isPresent() || table.orElseThrow().getTableType().equals(VIRTUAL_VIEW)) {
             throw new TableNotFoundException(tableName);
         }
-        Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
+        Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.orElseThrow().getParameters());
         List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()
                 .map(key -> new ColumnMetadata(key, VARCHAR))
                 .collect(toImmutableList());
@@ -643,11 +642,11 @@ public class HiveMetadata
 
     private ConnectorTableMetadata getTableMetadata(Optional<Table> table, SchemaTableName tableName, MetastoreContext metastoreContext, ConnectorSession session)
     {
-        if (!table.isPresent() || table.get().getTableType().equals(VIRTUAL_VIEW)) {
+        if (!table.isPresent() || table.orElseThrow().getTableType().equals(VIRTUAL_VIEW)) {
             throw new TableNotFoundException(tableName);
         }
 
-        if (isIcebergTable(table.get()) || isDeltaLakeTable(table.get())) {
+        if (isIcebergTable(table.orElseThrow()) || isDeltaLakeTable(table.orElseThrow())) {
             throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Not a Hive table '%s'", tableName));
         }
 
@@ -658,34 +657,34 @@ public class HiveMetadata
                         .findFirst()
                         .orElseThrow(() -> new PrestoException(HIVE_METASTORE_ERROR, format("NOT NULL constraint found with no column in table %s", tableName.getTableName()))))
                 .collect(toImmutableList());
-        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager, metastoreContext.getColumnConverter(), notNullColumns);
+        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.orElseThrow(), typeManager, metastoreContext.getColumnConverter(), notNullColumns);
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         Map<String, ColumnHandle> columnNameToHandleAssignments = new HashMap<>();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(table.get())) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(table.orElseThrow())) {
             columns.add(metadataGetter.apply(columnHandle));
             columnNameToHandleAssignments.put(columnHandle.getName(), columnHandle);
         }
 
         // External location property
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        if (table.get().getTableType().equals(EXTERNAL_TABLE)) {
-            properties.put(EXTERNAL_LOCATION_PROPERTY, table.get().getStorage().getLocation());
+        if (table.orElseThrow().getTableType().equals(EXTERNAL_TABLE)) {
+            properties.put(EXTERNAL_LOCATION_PROPERTY, table.orElseThrow().getStorage().getLocation());
         }
 
         // Storage format property
         HiveStorageFormat format = null;
         try {
-            format = extractHiveStorageFormat(table.get());
+            format = extractHiveStorageFormat(table.orElseThrow());
             properties.put(STORAGE_FORMAT_PROPERTY, format);
         }
         catch (PrestoException ignored) {
             // todo fail if format is not known
         }
 
-        getTableEncryptionPropertiesFromHiveProperties(table.get().getParameters(), format).map(TableEncryptionProperties::toTableProperties).ifPresent(properties::putAll);
+        getTableEncryptionPropertiesFromHiveProperties(table.orElseThrow().getParameters(), format).map(TableEncryptionProperties::toTableProperties).ifPresent(properties::putAll);
 
         // Partitioning property
-        List<String> partitionedBy = table.get().getPartitionColumns().stream()
+        List<String> partitionedBy = table.orElseThrow().getPartitionColumns().stream()
                 .map(Column::getName)
                 .collect(toList());
         if (!partitionedBy.isEmpty()) {
@@ -693,15 +692,15 @@ public class HiveMetadata
         }
 
         // Bucket properties
-        Optional<HiveBucketProperty> bucketProperty = table.get().getStorage().getBucketProperty();
-        table.get().getStorage().getBucketProperty().ifPresent(property -> {
+        Optional<HiveBucketProperty> bucketProperty = table.orElseThrow().getStorage().getBucketProperty();
+        table.orElseThrow().getStorage().getBucketProperty().ifPresent(property -> {
             properties.put(BUCKET_COUNT_PROPERTY, property.getBucketCount());
             properties.put(BUCKETED_BY_PROPERTY, property.getBucketedBy());
             properties.put(SORTED_BY_PROPERTY, property.getSortedBy());
         });
 
         // Preferred ordering columns
-        List<SortingColumn> preferredOrderingColumns = decodePreferredOrderingColumnsFromStorage(table.get().getStorage());
+        List<SortingColumn> preferredOrderingColumns = decodePreferredOrderingColumnsFromStorage(table.orElseThrow().getStorage());
         if (!preferredOrderingColumns.isEmpty()) {
             if (bucketProperty.isPresent()) {
                 throw new PrestoException(HIVE_INVALID_METADATA, format("bucketed table %s should not specify preferred_ordering_columns", tableName));
@@ -710,33 +709,33 @@ public class HiveMetadata
         }
 
         // ORC format specific properties
-        String orcBloomFilterColumns = table.get().getParameters().get(ORC_BLOOM_FILTER_COLUMNS_KEY);
+        String orcBloomFilterColumns = table.orElseThrow().getParameters().get(ORC_BLOOM_FILTER_COLUMNS_KEY);
         if (orcBloomFilterColumns != null) {
             properties.put(ORC_BLOOM_FILTER_COLUMNS, Splitter.on(COMMA).trimResults().omitEmptyStrings().splitToList(orcBloomFilterColumns));
         }
-        String orcBloomFilterFfp = table.get().getParameters().get(ORC_BLOOM_FILTER_FPP_KEY);
+        String orcBloomFilterFfp = table.orElseThrow().getParameters().get(ORC_BLOOM_FILTER_FPP_KEY);
         if (orcBloomFilterFfp != null) {
             properties.put(ORC_BLOOM_FILTER_FPP, Double.parseDouble(orcBloomFilterFfp));
         }
 
         // Avro specific property
-        String avroSchemaUrl = table.get().getParameters().get(AVRO_SCHEMA_URL_KEY);
+        String avroSchemaUrl = table.orElseThrow().getParameters().get(AVRO_SCHEMA_URL_KEY);
         if (avroSchemaUrl != null) {
             properties.put(AVRO_SCHEMA_URL, avroSchemaUrl);
         }
 
         // CSV specific property
-        getCsvSerdeProperty(table.get(), CSV_SEPARATOR_KEY)
+        getCsvSerdeProperty(table.orElseThrow(), CSV_SEPARATOR_KEY)
                 .ifPresent(csvSeparator -> properties.put(CSV_SEPARATOR, csvSeparator));
-        getCsvSerdeProperty(table.get(), CSV_QUOTE_KEY)
+        getCsvSerdeProperty(table.orElseThrow(), CSV_QUOTE_KEY)
                 .ifPresent(csvQuote -> properties.put(CSV_QUOTE, csvQuote));
-        getCsvSerdeProperty(table.get(), CSV_ESCAPE_KEY)
+        getCsvSerdeProperty(table.orElseThrow(), CSV_ESCAPE_KEY)
                 .ifPresent(csvEscape -> properties.put(CSV_ESCAPE, csvEscape));
 
         // Hook point for extended versions of the Hive Plugin
-        properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
+        properties.putAll(tableParameterCodec.decode(table.orElseThrow().getParameters()));
 
-        Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
+        Optional<String> comment = Optional.ofNullable(table.orElseThrow().getParameters().get(TABLE_COMMENT));
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment, tableConstraints, columnNameToHandleAssignments);
     }
@@ -779,7 +778,7 @@ public class HiveMetadata
         HiveTableLayoutHandle tableLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         if (tableLayoutHandle.getPartitions().isPresent()) {
             return Optional.of(new HiveInputInfo(
-                    tableLayoutHandle.getPartitions().get().stream()
+                    tableLayoutHandle.getPartitions().orElseThrow().stream()
                             .map(hivePartition -> hivePartition.getPartitionId().getPartitionName())
                             .collect(toList()),
                     false));
@@ -849,7 +848,7 @@ public class HiveMetadata
 
         // TODO Adjust statistics to take into account required subfields
 
-        if (!tableLayoutHandle.isPresent() || !((HiveTableLayoutHandle) tableLayoutHandle.get()).isPushdownFilterEnabled()) {
+        if (!tableLayoutHandle.isPresent() || !((HiveTableLayoutHandle) tableLayoutHandle.orElseThrow()).isPushdownFilterEnabled()) {
             Map<String, ColumnHandle> columns = columnHandles.stream()
                     .map(HiveColumnHandle.class::cast)
                     .filter(not(HiveColumnHandle::isHidden))
@@ -863,7 +862,7 @@ public class HiveMetadata
 
         verify(!constraint.predicate().isPresent());
 
-        HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) tableLayoutHandle.get();
+        HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) tableLayoutHandle.orElseThrow();
 
         Set<String> columnNames = columnHandles.stream()
                 .map(HiveColumnHandle.class::cast)
@@ -1476,7 +1475,7 @@ public class HiveMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
         metastore.dropTable(
-                new HdfsContext(session, handle.getSchemaName(), handle.getTableName(), target.get().getStorage().getLocation(), false),
+                new HdfsContext(session, handle.getSchemaName(), handle.getTableName(), target.orElseThrow().getStorage().getLocation(), false),
                 handle.getSchemaName(),
                 handle.getTableName());
     }
@@ -1521,7 +1520,7 @@ public class HiveMetadata
         else {
             List<List<String>> partitionValuesList;
             if (handle.getAnalyzePartitionValues().isPresent()) {
-                partitionValuesList = handle.getAnalyzePartitionValues().get();
+                partitionValuesList = handle.getAnalyzePartitionValues().orElseThrow();
             }
             else {
                 partitionValuesList = metastore.getPartitionNames(metastoreContext, handle.getSchemaName(), handle.getTableName())
@@ -1652,13 +1651,13 @@ public class HiveMetadata
         Map<String, String> tableEncryptionParameters = ImmutableMap.of();
         Map<String, String> partitionEncryptionParameters = ImmutableMap.of();
         if (handle.getEncryptionInformation().isPresent()) {
-            EncryptionInformation encryptionInformation = handle.getEncryptionInformation().get();
+            EncryptionInformation encryptionInformation = handle.getEncryptionInformation().orElseThrow();
             if (encryptionInformation.getDwrfEncryptionMetadata().isPresent()) {
                 if (handle.getPartitionedBy().isEmpty()) {
-                    tableEncryptionParameters = ImmutableMap.copyOf(encryptionInformation.getDwrfEncryptionMetadata().get().getExtraMetadata());
+                    tableEncryptionParameters = ImmutableMap.copyOf(encryptionInformation.getDwrfEncryptionMetadata().orElseThrow().getExtraMetadata());
                 }
                 else {
-                    partitionEncryptionParameters = ImmutableMap.copyOf(encryptionInformation.getDwrfEncryptionMetadata().get().getExtraMetadata());
+                    partitionEncryptionParameters = ImmutableMap.copyOf(encryptionInformation.getDwrfEncryptionMetadata().orElseThrow().getExtraMetadata());
                 }
             }
         }
@@ -1695,7 +1694,8 @@ public class HiveMetadata
                     table,
                     partitionUpdates);
             // replace partitionUpdates before creating the zero-row files so that those files will be cleaned up if we roll back
-            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+            partitionUpdates = PartitionUpdate.mergePartitionUpdates(
+                    Stream.concat(partitionUpdates.stream(), partitionUpdatesForMissingBuckets.stream()).toList());
             HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), true);
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() :
@@ -1792,12 +1792,12 @@ public class HiveMetadata
 
     private Properties getSchema(Optional<Partition> partition, Table table)
     {
-        return partition.isPresent() ? getHiveSchema(partition.get(), table) : getHiveSchema(table);
+        return partition.isPresent() ? getHiveSchema(partition.orElseThrow(), table) : getHiveSchema(table);
     }
 
     private StorageFormat getStorageFormat(Optional<Partition> partition, Table table)
     {
-        return partition.isPresent() ? partition.get().getStorage().getStorageFormat() : table.getStorage().getStorageFormat();
+        return partition.isPresent() ? partition.orElseThrow().getStorage().getStorageFormat() : table.getStorage().getStorageFormat();
     }
 
     private List<PartitionUpdate> computePartitionUpdatesForMissingBuckets(
@@ -1814,7 +1814,7 @@ public class HiveMetadata
 
         // empty un-partitioned bucketed table
         if (table.getPartitionColumns().isEmpty() && partitionUpdates.isEmpty()) {
-            int bucketCount = handle.getBucketProperty().get().getBucketCount();
+            int bucketCount = handle.getBucketProperty().orElseThrow().getBucketCount();
             LocationHandle locationHandle = handle.getLocationHandle();
             List<String> fileNamesForMissingBuckets = computeFileNamesForMissingBuckets(
                     session,
@@ -1838,7 +1838,7 @@ public class HiveMetadata
 
         ImmutableList.Builder<PartitionUpdate> partitionUpdatesForMissingBucketsBuilder = ImmutableList.builder();
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
-            int bucketCount = handle.getBucketProperty().get().getBucketCount();
+            int bucketCount = handle.getBucketProperty().orElseThrow().getBucketCount();
 
             List<String> fileNamesForMissingBuckets = computeFileNamesForMissingBuckets(
                     session,
@@ -2025,7 +2025,8 @@ public class HiveMetadata
                     table,
                     partitionUpdates);
             // replace partitionUpdates before creating the zero-row files so that those files will be cleaned up if we end up rollback
-            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+            partitionUpdates = PartitionUpdate.mergePartitionUpdates(
+                    Stream.concat(partitionUpdates.stream(), partitionUpdatesForMissingBuckets.stream()).toList());
             HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() :
@@ -2182,8 +2183,8 @@ public class HiveMetadata
      * This is required when we are overwriting the partitions by directly writing the new
      * files to the existing directory, where files written by older queries may be present too.
      *
-     * @param  session  the ConnectorSession object
-     * @param  partitionPath the path of the partition from where the older files are to be deleted
+     * @param session the ConnectorSession object
+     * @param partitionPath the path of the partition from where the older files are to be deleted
      */
     private void removeNonCurrentQueryFiles(ConnectorSession session, Path partitionPath)
     {
@@ -2263,7 +2264,7 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(metastoreContext, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !MetastoreUtil.isPrestoView(existing.get())) {
+            if (!replace || !MetastoreUtil.isPrestoView(existing.orElseThrow())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -2324,8 +2325,8 @@ public class HiveMetadata
         MetastoreContext metastoreContext = getMetastoreContext(session);
         for (SchemaTableName schemaTableName : tableNames) {
             Optional<Table> table = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            if (table.isPresent() && isPrestoView(table.get())) {
-                verifyAndPopulateViews(table.get(), schemaTableName, decodeViewData(table.get().getViewOriginalText().get()), views);
+            if (table.isPresent() && isPrestoView(table.orElseThrow())) {
+                verifyAndPopulateViews(table.orElseThrow(), schemaTableName, decodeViewData(table.orElseThrow().getViewOriginalText().orElseThrow()), views);
             }
         }
         return views.build();
@@ -2339,9 +2340,9 @@ public class HiveMetadata
         MetastoreContext metastoreContext = getMetastoreContext(session);
         Optional<Table> table = metastore.getTable(metastoreContext, viewName.getSchemaName(), viewName.getTableName());
 
-        if (table.isPresent() && MetastoreUtil.isPrestoMaterializedView(table.get())) {
+        if (table.isPresent() && MetastoreUtil.isPrestoMaterializedView(table.orElseThrow())) {
             try {
-                return Optional.of(MATERIALIZED_VIEW_JSON_CODEC.fromJson(decodeMaterializedViewData(table.get().getViewOriginalText().get())));
+                return Optional.of(MATERIALIZED_VIEW_JSON_CODEC.fromJson(decodeMaterializedViewData(table.orElseThrow().getViewOriginalText().orElseThrow())));
             }
             catch (IllegalArgumentException e) {
                 throw new PrestoException(INVALID_VIEW, "Invalid materialized view JSON", e);
@@ -2406,7 +2407,7 @@ public class HiveMetadata
             if (!dataPredicates.getPredicateDisjuncts().isEmpty()) {
                 missingPartitions += dataPredicates.getPredicateDisjuncts().stream()
                         .filter(baseQueryDomain::overlaps)
-                        .mapToInt(tupleDomain -> tupleDomain.getDomains().isPresent() ? tupleDomain.getDomains().get().size() : 0)
+                        .mapToInt(tupleDomain -> tupleDomain.getDomains().isPresent() ? tupleDomain.getDomains().orElseThrow().size() : 0)
                         .sum();
             }
         }
@@ -2538,12 +2539,12 @@ public class HiveMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
-        if (table.get().getPartitionColumns().isEmpty()) {
+        if (table.orElseThrow().getPartitionColumns().isEmpty()) {
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
             for (HivePartition hivePartition : getOrComputePartitions(layoutHandle, session, tableHandle)) {
-                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), table.get().getStorage().getLocation(), toPartitionValues(hivePartition.getPartitionId().getPartitionName()));
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), table.orElseThrow().getStorage().getLocation(), toPartitionValues(hivePartition.getPartitionId().getPartitionName()));
             }
         }
         // it is too expensive to determine the exact number of deleted rows
@@ -2553,13 +2554,13 @@ public class HiveMetadata
     private List<HivePartition> getOrComputePartitions(HiveTableLayoutHandle layoutHandle, ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (layoutHandle.getPartitions().isPresent()) {
-            return layoutHandle.getPartitions().get();
+            return layoutHandle.getPartitions().orElseThrow();
         }
         else {
             TupleDomain<ColumnHandle> partitionColumnPredicate = layoutHandle.getPartitionColumnPredicate();
             Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(partitionColumnPredicate);
             List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(partitionColumnPredicate, predicate), Optional.empty());
-            return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get();
+            return ((HiveTableLayoutHandle) tableLayoutResults.stream().collect(onlyElement()).getTableLayout().getHandle()).getPartitions().orElseThrow();
         }
     }
 
@@ -2579,7 +2580,7 @@ public class HiveMetadata
         // Allow metadata delete for range filters on partition columns.
         // TODO Add support for metadata delete for any filter on partition columns.
 
-        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutHandle.get();
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutHandle.orElseThrow();
         if (!layoutHandle.isPushdownFilterEnabled()) {
             return true;
         }
@@ -2597,7 +2598,7 @@ public class HiveMetadata
             return true;
         }
 
-        Set<String> predicateColumnNames = domainPredicate.getDomains().get().keySet().stream()
+        Set<String> predicateColumnNames = domainPredicate.getDomains().orElseThrow().keySet().stream()
                 .map(Subfield::getRootName)
                 .collect(toImmutableSet());
 
@@ -2642,13 +2643,13 @@ public class HiveMetadata
         HivePartitionResult hivePartitionResult;
         if (handle.getAnalyzePartitionValues().isPresent()) {
             verify(constraint.getSummary().isAll(), "There shouldn't be any constraint for ANALYZE operation");
-            hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, handle.getAnalyzePartitionValues().get(), session);
+            hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, handle.getAnalyzePartitionValues().orElseThrow(), session);
         }
         else {
             hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint, session);
         }
 
-        Map<String, HiveColumnHandle> predicateColumns = hivePartitionResult.getEffectivePredicate().getDomains().get().keySet().stream()
+        Map<String, HiveColumnHandle> predicateColumns = hivePartitionResult.getEffectivePredicate().getDomains().orElseThrow().keySet().stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toImmutableMap(HiveColumnHandle::getName, Functions.identity()));
 
@@ -2724,7 +2725,7 @@ public class HiveMetadata
     {
         HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveLayoutHandle.getPartitionColumns());
-        List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
+        List<HivePartition> partitions = hiveLayoutHandle.getPartitions().orElseThrow();
 
         Optional<DiscretePredicates> discretePredicates = getDiscretePredicates(partitionColumns, partitions);
 
@@ -2735,7 +2736,7 @@ public class HiveMetadata
         // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
         boolean bucketExecutionEnabled = table.getTableType().equals(TEMPORARY_TABLE) || isBucketExecutionEnabled(session);
         if (bucketExecutionEnabled && hiveLayoutHandle.getBucketHandle().isPresent()) {
-            HiveBucketHandle hiveBucketHandle = hiveLayoutHandle.getBucketHandle().get();
+            HiveBucketHandle hiveBucketHandle = hiveLayoutHandle.getBucketHandle().orElseThrow();
             HivePartitioningHandle partitioningHandle;
             int bucketCount = hiveBucketHandle.getReadBucketCount();
             OptionalInt maxCompatibleBucketCount = OptionalInt.empty();
@@ -2764,7 +2765,7 @@ public class HiveMetadata
                     case PRESTO_NATIVE:
                         partitioningHandle = createPrestoNativePartitioningHandle(
                                 bucketCount,
-                                bucketProperty.getTypes().get(),
+                                bucketProperty.getTypes().orElseThrow(),
                                 maxCompatibleBucketCount);
                         break;
                     default:
@@ -2802,7 +2803,7 @@ public class HiveMetadata
         ImmutableList.Builder<LocalProperty<ColumnHandle>> localPropertyBuilder = ImmutableList.builder();
         Optional<Set<ColumnHandle>> streamPartitionColumns = Optional.empty();
         if (table.getStorage().getBucketProperty().isPresent()
-                && !table.getStorage().getBucketProperty().get().getSortedBy().isEmpty()
+                && !table.getStorage().getBucketProperty().orElseThrow().getSortedBy().isEmpty()
                 && isOrderBasedExecutionEnabled(session)) {
             ImmutableSet.Builder<ColumnHandle> streamPartitionColumnsBuilder = ImmutableSet.builder();
             Map<String, ColumnHandle> columnHandles = hiveColumnHandles(table).stream()
@@ -2814,13 +2815,13 @@ public class HiveMetadata
             // 1. add partition columns and bucketed-by columns to streamPartitionColumns
             // when order based execution is enabled, splitting is disabled and data is sharded across splits when table is bucketed.
             partitionColumns.forEach(streamPartitionColumnsBuilder::add);
-            table.getStorage().getBucketProperty().get().getBucketedBy().forEach(bucketedByColumn -> {
+            table.getStorage().getBucketProperty().orElseThrow().getBucketedBy().forEach(bucketedByColumn -> {
                 ColumnHandle columnHandle = columnHandles.get(bucketedByColumn);
                 streamPartitionColumnsBuilder.add(columnHandle);
             });
 
             // 2. add sorted-by columns to localPropertyBuilder
-            table.getStorage().getBucketProperty().get().getSortedBy().forEach(sortingColumn -> {
+            table.getStorage().getBucketProperty().orElseThrow().getSortedBy().forEach(sortingColumn -> {
                 ColumnHandle columnHandle = columnHandles.get(sortingColumn.getColumnName());
                 localPropertyBuilder.add(new SortingProperty<>(columnHandle, sortingColumn.getOrder().getSortOrder()));
             });
@@ -2923,7 +2924,7 @@ public class HiveMetadata
         HivePartitioningHandle hivePartitioningHandle = (HivePartitioningHandle) partitioningHandle;
 
         checkArgument(hiveLayoutHandle.getBucketHandle().isPresent(), "Hive connector only provides alternative layout for bucketed table");
-        HiveBucketHandle bucketHandle = hiveLayoutHandle.getBucketHandle().get();
+        HiveBucketHandle bucketHandle = hiveLayoutHandle.getBucketHandle().orElseThrow();
         ImmutableList<HiveType> bucketTypes = bucketHandle.getColumns().stream().map(HiveColumnHandle::getHiveType).collect(toImmutableList());
         Optional<List<HiveType>> hiveTypes = hivePartitioningHandle.getHiveTypes();
         checkArgument(
@@ -2931,9 +2932,9 @@ public class HiveMetadata
                 "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
                 hivePartitioningHandle.getBucketFunctionType());
         checkArgument(
-                hiveTypes.get().equals(bucketTypes),
+                hiveTypes.orElseThrow().equals(bucketTypes),
                 "Types from the new PartitioningHandle (%s) does not match the TableLayoutHandle (%s)",
-                hiveTypes.get(),
+                hiveTypes.orElseThrow(),
                 bucketTypes);
         int largerBucketCount = Math.max(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
         int smallerBucketCount = Math.min(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
@@ -2946,6 +2947,7 @@ public class HiveMetadata
                 .setBucketHandle(Optional.of(updatedBucketHandle))
                 .build();
     }
+
     @Override
     public ConnectorPartitioningHandle getPartitioningHandleForExchange(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
     {
@@ -3004,13 +3006,13 @@ public class HiveMetadata
         }
 
         HivePartitioningHandle partitioningHandle;
-        int bucketCount = hiveBucketHandle.get().getTableBucketCount();
+        int bucketCount = hiveBucketHandle.orElseThrow().getTableBucketCount();
         OptionalInt maxCompatibleBucketCount = OptionalInt.of(bucketCount);
         switch (bucketProperty.getBucketFunctionType()) {
             case HIVE_COMPATIBLE:
                 partitioningHandle = createHiveCompatiblePartitioningHandle(
                         bucketCount,
-                        hiveBucketHandle.get().getColumns().stream()
+                        hiveBucketHandle.orElseThrow().getColumns().stream()
                                 .map(HiveColumnHandle::getHiveType)
                                 .collect(toImmutableList()),
                         maxCompatibleBucketCount);
@@ -3018,14 +3020,14 @@ public class HiveMetadata
             case PRESTO_NATIVE:
                 partitioningHandle = createPrestoNativePartitioningHandle(
                         bucketCount,
-                        bucketProperty.getTypes().get(),
+                        bucketProperty.getTypes().orElseThrow(),
                         maxCompatibleBucketCount);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketProperty.getBucketFunctionType());
         }
 
-        List<String> partitionColumns = hiveBucketHandle.get().getColumns().stream()
+        List<String> partitionColumns = hiveBucketHandle.orElseThrow().getColumns().stream()
                 .map(HiveColumnHandle::getName)
                 .collect(toList());
         return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
@@ -3075,24 +3077,24 @@ public class HiveMetadata
         if (!bucketProperty.isPresent()) {
             return Optional.empty();
         }
-        checkArgument(bucketProperty.get().getBucketFunctionType().equals(BucketFunctionType.HIVE_COMPATIBLE),
+        checkArgument(bucketProperty.orElseThrow().getBucketFunctionType().equals(BucketFunctionType.HIVE_COMPATIBLE),
                 "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
-                bucketProperty.get().getBucketFunctionType());
-        if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
+                bucketProperty.orElseThrow().getBucketFunctionType());
+        if (!bucketProperty.orElseThrow().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
 
-        List<String> bucketedBy = bucketProperty.get().getBucketedBy();
+        List<String> bucketedBy = bucketProperty.orElseThrow().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
                 .collect(toMap(ColumnMetadata::getName, column -> toHiveType(typeTranslator, column.getType())));
 
         return Optional.of(new ConnectorNewTableLayout(
                 createHiveCompatiblePartitioningHandle(
-                        bucketProperty.get().getBucketCount(),
+                        bucketProperty.orElseThrow().getBucketCount(),
                         bucketedBy.stream()
                                 .map(hiveTypeMap::get)
                                 .collect(toImmutableList()),
-                        OptionalInt.of(bucketProperty.get().getBucketCount())),
+                        OptionalInt.of(bucketProperty.orElseThrow().getBucketCount())),
                 bucketedBy));
     }
 
@@ -3137,16 +3139,16 @@ public class HiveMetadata
         if (!isCollectColumnStatisticsOnWrite(session)) {
             return TableStatisticsMetadata.empty();
         }
-        List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
+        List<String> partitionedBy = requireNonNullElse(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
         MetastoreContext metastoreContext = getMetastoreContext(session);
         Optional<Table> table = metastore.getTable(metastoreContext, tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
-        return getStatisticsCollectionMetadata(session, tableMetadata.getColumns(), partitionedBy, false, table.isPresent() && table.get().getTableType() == TEMPORARY_TABLE);
+        return getStatisticsCollectionMetadata(session, tableMetadata.getColumns(), partitionedBy, false, table.isPresent() && table.orElseThrow().getTableType() == TEMPORARY_TABLE);
     }
 
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
+        List<String> partitionedBy = requireNonNullElse(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
         return getStatisticsCollectionMetadata(session, tableMetadata.getColumns(), partitionedBy, true, false);
     }
 
@@ -3423,12 +3425,12 @@ public class HiveMetadata
                 .map(ColumnMetadata::getName)
                 .collect(toSet());
 
-        List<String> bucketedBy = bucketProperty.get().getBucketedBy();
+        List<String> bucketedBy = bucketProperty.orElseThrow().getBucketedBy();
         if (!allColumns.containsAll(bucketedBy)) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(bucketedBy), ImmutableSet.copyOf(allColumns))));
         }
 
-        List<String> sortedBy = bucketProperty.get().getSortedBy().stream()
+        List<String> sortedBy = bucketProperty.orElseThrow().getSortedBy().stream()
                 .map(SortingColumn::getColumnName)
                 .collect(toImmutableList());
         if (!allColumns.containsAll(sortedBy)) {
@@ -3513,7 +3515,7 @@ public class HiveMetadata
             }
 
             if (columnWithSubfield.getSubfieldPath().isPresent()) {
-                Iterable<String> subfieldPathFragments = Splitter.on(".").split(columnWithSubfield.getSubfieldPath().get());
+                Iterable<String> subfieldPathFragments = Splitter.on(".").split(columnWithSubfield.getSubfieldPath().orElseThrow());
                 Type columnType = column.getType();
                 String parentPath = columnWithSubfield.getColumnName();
 
@@ -3658,15 +3660,15 @@ public class HiveMetadata
         ImmutableMap.Builder<String, Optional<String>> builder = ImmutableMap.builder();
         ImmutableMap.Builder<String, Optional<String>> typeMetadataBuilder = ImmutableMap.builder();
 
-        for (Column field : concat(tableColumns, table.getPartitionColumns())) {
-            if (field.getComment().isPresent() && !field.getComment().get().equals("from deserializer")) {
+        Stream.concat(tableColumns.stream(), table.getPartitionColumns().stream()).forEach(field -> {
+            if (field.getComment().isPresent() && !field.getComment().orElseThrow().equals("from deserializer")) {
                 builder.put(field.getName(), field.getComment());
             }
             else {
                 builder.put(field.getName(), Optional.empty());
             }
             typeMetadataBuilder.put(field.getName(), field.getTypeMetadata());
-        }
+        });
         // add hidden columns
         builder.put(PATH_COLUMN_NAME, Optional.empty());
         if (table.getStorage().getBucketProperty().isPresent()) {
@@ -3758,7 +3760,7 @@ public class HiveMetadata
         checkArgument((constraintName.isPresent() && !columnName.isPresent()) || (!constraintName.isPresent() && columnName.isPresent()));
         String constraintToDrop;
         if (constraintName.isPresent()) {
-            constraintToDrop = constraintName.get();
+            constraintToDrop = constraintName.orElseThrow();
         }
         else {
             List<TableConstraint<String>> notNullConstraints = metastore.getTableConstraints(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName())
@@ -3767,12 +3769,12 @@ public class HiveMetadata
                     .filter(constraint -> constraint.getColumns().stream()
                             .findFirst()
                             .orElse("")
-                            .equals(columnName.get()))
+                            .equals(columnName.orElseThrow()))
                     .collect(toImmutableList());
             if (notNullConstraints.isEmpty() || !notNullConstraints.get(0).getName().isPresent()) {
-                throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName.get()));
+                throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName.orElseThrow()));
             }
-            constraintToDrop = notNullConstraints.get(0).getName().get();
+            constraintToDrop = notNullConstraints.get(0).getName().orElseThrow();
         }
         metastore.dropConstraint(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), constraintToDrop);
     }

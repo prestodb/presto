@@ -132,7 +132,7 @@ public class TestSubfieldExtractor
         Subfield subfield = new Subfield(subfieldPath);
         Optional<Subfield> recreatedSubfield = subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield, type));
         assertTrue(recreatedSubfield.isPresent());
-        assertEquals(recreatedSubfield.get(), subfield);
+        assertEquals(recreatedSubfield.orElseThrow(), subfield);
     }
 
     private static RowType rowType(Map<String, Type> fields)

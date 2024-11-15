@@ -354,13 +354,13 @@ public class MetastoreHiveStatisticsProvider
             Optional<BigDecimal> max = decimalStatistics.getMax();
             if (min.isPresent() && max.isPresent()) {
                 checkStatistics(
-                        min.get().compareTo(max.get()) <= 0,
+                        min.orElseThrow().compareTo(max.orElseThrow()) <= 0,
                         table,
                         partition,
                         column,
                         "decimalStatistics.min must be less than or equal to decimalStatistics.max. decimalStatistics.min: %s. decimalStatistics.max: %s.",
-                        min.get(),
-                        max.get());
+                        min.orElseThrow(),
+                        max.orElseThrow());
             }
         });
         columnStatistics.getDateStatistics().ifPresent(dateStatistics -> {
@@ -368,13 +368,13 @@ public class MetastoreHiveStatisticsProvider
             Optional<LocalDate> max = dateStatistics.getMax();
             if (min.isPresent() && max.isPresent()) {
                 checkStatistics(
-                        min.get().compareTo(max.get()) <= 0,
+                        min.orElseThrow().compareTo(max.orElseThrow()) <= 0,
                         table,
                         partition,
                         column,
                         "dateStatistics.min must be less than or equal to dateStatistics.max. dateStatistics.min: %s. dateStatistics.max: %s.",
-                        min.get(),
-                        max.get());
+                        min.orElseThrow(),
+                        max.orElseThrow());
             }
         });
         columnStatistics.getBooleanStatistics().ifPresent(booleanStatistics -> {
@@ -709,10 +709,10 @@ public class MetastoreHiveStatisticsProvider
     private static OptionalLong getDistinctValuesCount(HiveColumnStatistics statistics)
     {
         if (statistics.getBooleanStatistics().isPresent() &&
-                statistics.getBooleanStatistics().get().getFalseCount().isPresent() &&
-                statistics.getBooleanStatistics().get().getTrueCount().isPresent()) {
-            long falseCount = statistics.getBooleanStatistics().get().getFalseCount().getAsLong();
-            long trueCount = statistics.getBooleanStatistics().get().getTrueCount().getAsLong();
+                statistics.getBooleanStatistics().orElseThrow().getFalseCount().isPresent() &&
+                statistics.getBooleanStatistics().orElseThrow().getTrueCount().isPresent()) {
+            long falseCount = statistics.getBooleanStatistics().orElseThrow().getFalseCount().getAsLong();
+            long trueCount = statistics.getBooleanStatistics().orElseThrow().getTrueCount().getAsLong();
             return OptionalLong.of((falseCount > 0 ? 1 : 0) + (trueCount > 0 ? 1 : 0));
         }
         if (statistics.getDistinctValuesCount().isPresent()) {
@@ -895,7 +895,7 @@ public class MetastoreHiveStatisticsProvider
     private static Optional<DoubleRange> createDateRange(DateStatistics statistics)
     {
         if (statistics.getMin().isPresent() && statistics.getMax().isPresent()) {
-            return Optional.of(new DoubleRange(statistics.getMin().get().toEpochDay(), statistics.getMax().get().toEpochDay()));
+            return Optional.of(new DoubleRange(statistics.getMin().orElseThrow().toEpochDay(), statistics.getMax().orElseThrow().toEpochDay()));
         }
         return Optional.empty();
     }
@@ -903,7 +903,7 @@ public class MetastoreHiveStatisticsProvider
     private static Optional<DoubleRange> createDecimalRange(DecimalStatistics statistics)
     {
         if (statistics.getMin().isPresent() && statistics.getMax().isPresent()) {
-            return Optional.of(new DoubleRange(statistics.getMin().get().doubleValue(), statistics.getMax().get().doubleValue()));
+            return Optional.of(new DoubleRange(statistics.getMin().orElseThrow().doubleValue(), statistics.getMax().orElseThrow().doubleValue()));
         }
         return Optional.empty();
     }

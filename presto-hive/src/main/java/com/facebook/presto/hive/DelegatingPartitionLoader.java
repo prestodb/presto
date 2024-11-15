@@ -81,7 +81,7 @@ public class DelegatingPartitionLoader
     private static boolean isListFilesLoadedPartition(ConnectorSession session, Optional<Partition> partition)
     {
         if (partition.isPresent() && isPreferManifestsToListFiles(session)) {
-            Map<String, String> parameters = partition.get().getParameters();
+            Map<String, String> parameters = partition.orElseThrow().getParameters();
             return parameters.containsKey(MANIFEST_VERSION);
         }
 

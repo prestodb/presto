@@ -199,7 +199,7 @@ public class TestDynamicPruning
                 getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
                 FUNCTION_AND_TYPE_MANAGER,
                 ROW_EXPRESSION_SERVICE);
-        return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), splitContext, new RuntimeStats());
+        return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().orElseThrow(), ImmutableList.copyOf(getColumnHandles()), splitContext, new RuntimeStats());
     }
 
     private static TupleDomain<ColumnHandle> getToSkipTupleDomain()
