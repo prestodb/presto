@@ -202,6 +202,7 @@
         <module>presto-hana</module>
         <module>presto-openapi</module>
         <module>presto-native-sidecar-plugin</module>
+        <module>presto-jwt-authenticators</module>
     </modules>
 
     <dependencyManagement>
@@ -266,6 +267,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-password-authenticators</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-jwt-authenticators</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
