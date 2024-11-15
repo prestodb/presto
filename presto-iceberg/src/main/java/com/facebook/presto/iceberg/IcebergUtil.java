@@ -254,7 +254,7 @@ public final class IcebergUtil
 
     public static Table getNativeIcebergTable(IcebergNativeCatalogFactory catalogFactory, ConnectorSession session, SchemaTableName table)
     {
-        return catalogFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
+        return catalogFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table, catalogFactory.isNestedNamespaceEnabled()));
     }
 
     public static View getNativeIcebergView(IcebergNativeCatalogFactory catalogFactory, ConnectorSession session, SchemaTableName table)
@@ -263,7 +263,7 @@ public final class IcebergUtil
         if (!(catalog instanceof ViewCatalog)) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support get views");
         }
-        return ((ViewCatalog) catalog).loadView(toIcebergTableIdentifier(table));
+        return ((ViewCatalog) catalog).loadView(toIcebergTableIdentifier(table, catalogFactory.isNestedNamespaceEnabled()));
     }
 
     public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)

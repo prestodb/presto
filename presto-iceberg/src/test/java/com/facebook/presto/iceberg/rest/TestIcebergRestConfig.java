@@ -36,7 +36,8 @@ public class TestIcebergRestConfig
                 .setCredential(null)
                 .setToken(null)
                 .setScope(null)
-                .setSessionType(null));
+                .setSessionType(null)
+                .setNestedNamespaceEnabled(true));
     }
 
     @Test
@@ -50,6 +51,7 @@ public class TestIcebergRestConfig
                 .put("iceberg.rest.auth.oauth2.token", "SXVLUXUhIExFQ0tFUiEK")
                 .put("iceberg.rest.auth.oauth2.scope", "PRINCIPAL_ROLE:ALL")
                 .put("iceberg.rest.session.type", "USER")
+                .put("iceberg.rest.nested.namespace.enabled", "false")
                 .build();
 
         IcebergRestConfig expected = new IcebergRestConfig()
@@ -59,7 +61,8 @@ public class TestIcebergRestConfig
                 .setCredential("key:secret")
                 .setToken("SXVLUXUhIExFQ0tFUiEK")
                 .setScope("PRINCIPAL_ROLE:ALL")
-                .setSessionType(USER);
+                .setSessionType(USER)
+                .setNestedNamespaceEnabled(false);
 
         assertFullMapping(properties, expected);
     }
