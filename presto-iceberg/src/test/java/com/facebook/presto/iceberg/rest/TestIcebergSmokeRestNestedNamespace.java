@@ -29,6 +29,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
 import org.assertj.core.util.Files;
@@ -38,6 +39,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -60,6 +62,8 @@ import static org.testng.Assert.assertEquals;
 public class TestIcebergSmokeRestNestedNamespace
         extends TestIcebergSmokeRest
 {
+    private static final String ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG = "iceberg_without_nested_namespaces";
+
     private File warehouseLocation;
     private TestingHttpServer restServer;
     private String serverUri;
@@ -105,9 +109,10 @@ public class TestIcebergSmokeRestNestedNamespace
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(
+        Map<String, String> restConnectorProperties = restConnectorProperties(serverUri);
+        DistributedQueryRunner icebergQueryRunner = IcebergQueryRunner.createIcebergQueryRunner(
                 ImmutableMap.of(),
-                restConnectorProperties(serverUri),
+                restConnectorProperties,
                 PARQUET,
                 true,
                 false,
@@ -116,6 +121,15 @@ public class TestIcebergSmokeRestNestedNamespace
                 Optional.of(warehouseLocation.toPath()),
                 false,
                 Optional.of("ns1.ns2"));
+
+        // additional catalog for testing nested namespace disabled
+        icebergQueryRunner.createCatalog(ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG, "iceberg",
+                new ImmutableMap.Builder<String, String>()
+                .putAll(restConnectorProperties)
+                .put("iceberg.rest.nested.namespace.enabled", "false")
+                .build());
+
+        return icebergQueryRunner;
     }
 
     protected IcebergNativeCatalogFactory getCatalogFactory(IcebergRestConfig restConfig)
@@ -330,5 +344,21 @@ public class TestIcebergSmokeRestNestedNamespace
                         "FROM\n" +
                         "  orders", schemaName));
         assertUpdate(session, "DROP VIEW view_orders");
+    }
+
+    @Test
+    void testNestedNamespaceDisabled()
+    {
+        assertQuery(format("SHOW SCHEMAS FROM %s", ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG),
+                "VALUES 'ns1', 'tpch', 'tpcds', 'information_schema'");
+
+        assertQueryFails(format("CREATE SCHEMA %s.\"ns1.ns2.ns3\"", ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG),
+                "Nested namespaces are disabled. Schema ns1.ns2.ns3 is not valid");
+        assertQueryFails(format("CREATE TABLE %s.\"ns1.ns2\".test_table(a int)", ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG),
+                "Nested namespaces are disabled. Schema ns1.ns2 is not valid");
+        assertQueryFails(format("SELECT * FROM %s.\"ns1.ns2\".orders", ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG),
+                "Nested namespaces are disabled. Schema ns1.ns2 is not valid");
+        assertQueryFails(format("SHOW TABLES IN %s.\"ns1.ns2\"", ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG),
+                "line 1:1: Schema 'ns1.ns2' does not exist");
     }
 }

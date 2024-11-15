@@ -224,6 +224,11 @@ Property Name                                        Description
                                                      ``iceberg.rest.auth.oauth2.credential``.
                                                      Example: ``PRINCIPAL_ROLE:ALL``
 
+``iceberg.rest.nested.namespace.enabled``            In REST Catalogs, tables are grouped into namespaces, that can be
+                                                     nested. But if a large number of recursive namespaces result in
+                                                     lower performance, querying nested namespaces can be disabled.
+                                                     Defaults to ``true``.
+
 ``iceberg.rest.session.type``                        The session type to use when communicating with the REST catalog.
                                                      Available values are ``NONE`` or ``USER`` (default: ``NONE``).
 
