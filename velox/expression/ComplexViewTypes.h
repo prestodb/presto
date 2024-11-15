@@ -31,6 +31,53 @@
 
 namespace facebook::velox::exec {
 
+/// Base class for views that need comparison. Default comparison is forbidden
+/// and this class requires specialization. For now, defaulting the
+/// == flag to be kNullAsValue and other comparison flag to be
+/// kNullAsIndeterminate. Can adjust in the future to be more configurable.
+template <typename T>
+struct ViewWithComparison {
+  bool operator==(const T& other) const {
+    static constexpr auto kEqualValueAtFlags =
+        CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
+    return this->compareOrThrow(other, kEqualValueAtFlags) == 0;
+  }
+
+  bool operator<(const T& other) const {
+    return this->compareOrThrow(other) < 0;
+  }
+
+  bool operator<=(const T& other) const {
+    return this->compareOrThrow(other) <= 0;
+  }
+
+  bool operator>(const T& other) const {
+    return this->compareOrThrow(other) > 0;
+  }
+
+  bool operator>=(const T& other) const {
+    return this->compareOrThrow(other) >= 0;
+  }
+
+  bool operator!=(const T& other) const {
+    return this->compareOrThrow(other) != 0;
+  }
+
+ private:
+  int64_t compareOrThrow(
+      const T& other,
+      CompareFlags flags = CompareFlags{
+          .nullHandlingMode =
+              CompareFlags::NullHandlingMode::kNullAsIndeterminate}) const {
+    auto result = static_cast<const T*>(this)->compare(other, flags);
+    // Will throw if it encounters null elements before result is determined.
+    VELOX_DCHECK(
+        result.has_value(),
+        "Compare should have thrown when null is encountered in child.");
+    return result.value();
+  }
+};
+
 template <typename T>
 struct VectorReader;
 
@@ -927,7 +974,8 @@ class DynamicRowView {
 };
 
 template <bool returnsOptionalValues, typename... T>
-class RowView {
+class RowView
+    : public ViewWithComparison<RowView<returnsOptionalValues, T...>> {
   using reader_t = std::tuple<std::unique_ptr<VectorReader<T>>...>;
   using types = std::tuple<T...>;
 
@@ -967,9 +1015,38 @@ class RowView {
     return result;
   }
 
+  std::optional<int64_t> compare(const RowView& other, const CompareFlags flags)
+      const {
+    return compareImpl(other, flags);
+  }
+
  private:
   void initialize() {
     initializeImpl(std::index_sequence_for<T...>());
+  }
+
+  template <std::size_t Is = 0>
+  std::optional<int64_t> compareImpl(
+      const RowView& other,
+      const CompareFlags flags) const {
+    if constexpr (Is < sizeof...(T)) {
+      auto result = std::get<Is>(*childReaders_)
+                        ->baseVector()
+                        ->compare(
+                            std::get<Is>(*other.childReaders_)->baseVector(),
+                            offset_,
+                            other.offset_,
+                            flags);
+      if (!result.has_value()) {
+        return std::nullopt;
+      }
+      if (result.value() != 0) {
+        return result;
+      }
+
+      return compareImpl<Is + 1>(other, flags);
+    }
+    return 0;
   }
 
   using children_types = std::tuple<T...>;
@@ -1068,7 +1145,7 @@ struct AllGenericExceptTop<Row<T...>> {
   }
 };
 
-class GenericView {
+class GenericView : public ViewWithComparison<GenericView> {
  public:
   GenericView(
       const DecodedVector& decoded,
@@ -1090,39 +1167,6 @@ class GenericView {
 
   const BaseVector* base() const {
     return decoded_.base();
-  }
-
-  bool operator==(const GenericView& other) const {
-    return decoded_.base()->equalValueAt(
-        other.decoded_.base(), decodedIndex(), other.decodedIndex());
-  }
-
-  int64_t compareOrThrow(const GenericView& other) const {
-    static constexpr CompareFlags kFlags = {
-        .nullHandlingMode =
-            CompareFlags::NullHandlingMode::kNullAsIndeterminate};
-    std::optional<int64_t> result = this->compare(other, kFlags);
-    // Will throw if it encounters null elements before result is determined.
-    VELOX_DCHECK(
-        result.has_value(),
-        "Compare should have thrown when null is encountered in child.");
-    return result.value();
-  }
-
-  bool operator<(const GenericView& other) const {
-    return compareOrThrow(other) < 0;
-  }
-
-  bool operator<=(const GenericView& other) const {
-    return compareOrThrow(other) <= 0;
-  }
-
-  bool operator>(const GenericView& other) const {
-    return compareOrThrow(other) > 0;
-  }
-
-  bool operator>=(const GenericView& other) const {
-    return compareOrThrow(other) >= 0;
   }
 
   vector_size_t decodedIndex() const {
