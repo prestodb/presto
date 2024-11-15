@@ -1451,19 +1451,12 @@ using CharVector = xsimd::batch<uint8_t, xsimd::neon>;
 #define VELOX_SIMD_STRSTR 0
 #endif
 
-extern const int kPageSize;
-
 #if VELOX_SIMD_STRSTR
 
-FOLLY_ALWAYS_INLINE bool pageSafe(const void* const ptr) {
-  return ((kPageSize - 1) & reinterpret_cast<std::uintptr_t>(ptr)) <=
-      kPageSize - CharVector::size;
-}
-
-template <bool compiled, size_t kNeedleSize>
+template <bool kCompiled, size_t kNeedleSize>
 size_t FOLLY_ALWAYS_INLINE smidStrstrMemcmp(
     const char* s,
-    size_t n,
+    int64_t n,
     const char* needle,
     size_t needleSize) {
   static_assert(kNeedleSize >= 2);
@@ -1471,17 +1464,10 @@ size_t FOLLY_ALWAYS_INLINE smidStrstrMemcmp(
   VELOX_DCHECK_GT(n, 0);
   auto first = CharVector::broadcast(needle[0]);
   auto last = CharVector::broadcast(needle[needleSize - 1]);
-  size_t i = 0;
+  int64_t i = 0;
 
-  for (; i <= n - needleSize; i += CharVector::size) {
-    // Assume that the input string is allocated on virtual pages : VP1, VP2,
-    // VP3 and VP4 has not been allocated yet, we need to check the end of input
-    // string is page-safe to over-read CharVector.
-    const auto lastPos = i + needleSize - 1;
-
-    if (lastPos + CharVector::size > n && !pageSafe(s + lastPos)) {
-      break;
-    }
+  for (int64_t end = n - needleSize - CharVector::size; i <= end;
+       i += CharVector::size) {
     auto blockFirst = CharVector::load_unaligned(s + i);
     const auto eqFirst = (first == blockFirst);
     /// std:find handle the fast-path for first-char-unmatch, so we also need
@@ -1489,12 +1475,12 @@ size_t FOLLY_ALWAYS_INLINE smidStrstrMemcmp(
     if (eqFirst.mask() == 0) {
       continue;
     }
-    auto blockLast = CharVector::load_unaligned(s + lastPos);
+    auto blockLast = CharVector::load_unaligned(s + i + needleSize - 1);
     const auto eqLast = (last == blockLast);
     auto mask = (eqFirst && eqLast).mask();
     while (mask != 0) {
       const auto bitpos = __builtin_ctz(mask);
-      if constexpr (compiled) {
+      if constexpr (kCompiled) {
         if constexpr (kNeedleSize == 2) {
           return i + bitpos;
         }
@@ -1510,15 +1496,12 @@ size_t FOLLY_ALWAYS_INLINE smidStrstrMemcmp(
     }
   }
   // Fallback path for generic path.
-  for (; i <= n - needleSize; ++i) {
-    if constexpr (compiled) {
-      if (memcmp(s + i, needle, kNeedleSize) == 0) {
-        return i;
-      }
+  if (i + needleSize <= n) {
+    std::string_view sv(s, n);
+    if constexpr (kCompiled) {
+      return sv.find(needle, i, kNeedleSize);
     } else {
-      if (memcmp(s + i, needle, needleSize) == 0) {
-        return i;
-      }
+      return sv.find(needle, i, needleSize);
     }
   }
 

@@ -62,7 +62,6 @@ const LeadingMask<int64_t, xsimd::default_arch> leadingMask64;
 const FromBitMask<int32_t, xsimd::default_arch> fromBitMask32;
 const FromBitMask<int64_t, xsimd::default_arch> fromBitMask64;
 
-const int kPageSize = sysconf(_SC_PAGESIZE);
 } // namespace detail
 
 namespace {
