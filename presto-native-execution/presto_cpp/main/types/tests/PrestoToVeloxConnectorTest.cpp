@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include <gtest/gtest.h>
+#include "presto_cpp/main/types/HivePrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/IcebergPrestoToVeloxConnector.h"
 #include "velox/common/base/tests/GTestUtils.h"
 
 using namespace facebook::presto;
