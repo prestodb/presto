@@ -221,7 +221,7 @@ headers and clang-tidy warnings.  These targets are shortcuts for calling
 
 GitHub Actions run `make format-check`, `make header-check` and
 `make tidy-check` as part of our continuous integration.  Pull requests should
-pass Linux-build, format-check, header-check and other jobs without errors
+pass linux-build, format-check, header-check and other jobs without errors
 before being accepted.
 
 Formatting issues found on the changed lines in the current commit can be
