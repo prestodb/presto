@@ -363,6 +363,34 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kMaxLocalExchangePartitionCount,
       std::to_string(c.maxLocalExchangePartitionCount()));
+
+  addSessionProperty(
+      kSpillPrefixSortEnabled,
+      "Enable the prefix sort or fallback to std::sort in spill. The prefix sort is "
+      "faster than std::sort but requires the memory to build normalized prefix "
+      "keys, which might have potential risk of running out of server memory.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kSpillPrefixSortEnabled,
+      std::to_string(c.spillPrefixSortEnabled()));
+
+  addSessionProperty(
+      kPrefixSortNormalizedKeyMaxBytes,
+      "Maximum number of bytes to use for the normalized key in prefix-sort. "
+      "Use 0 to disable prefix-sort.",
+      INTEGER(),
+      false,
+      QueryConfig::kPrefixSortNormalizedKeyMaxBytes,
+      std::to_string(c.prefixSortNormalizedKeyMaxBytes()));
+
+  addSessionProperty(
+      kPrefixSortMinRows,
+      "Minimum number of rows to use prefix-sort. The default value (130) has been "
+      "derived using micro-benchmarking.",
+      INTEGER(),
+      false,
+      QueryConfig::kPrefixSortMinRows,
+      std::to_string(c.prefixSortMinRows()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
