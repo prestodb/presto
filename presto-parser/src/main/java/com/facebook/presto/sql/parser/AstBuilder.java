@@ -56,6 +56,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropBranch;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
@@ -63,6 +64,7 @@ import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropTag;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
@@ -500,6 +502,26 @@ class AstBuilder
                 (Identifier) visit(context.column),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitDropBranch(SqlBaseParser.DropBranchContext context)
+    {
+        return new DropBranch(getLocation(context),
+                getQualifiedName(context.tableName),
+                ((StringLiteral) visit(context.name)).getValue(),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.BRANCH().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.BRANCH().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitDropTag(SqlBaseParser.DropTagContext context)
+    {
+        return new DropTag(getLocation(context),
+                getQualifiedName(context.tableName),
+                ((StringLiteral) visit(context.name)).getValue(),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.TAG().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.TAG().getSymbol().getTokenIndex()));
     }
 
     @Override
