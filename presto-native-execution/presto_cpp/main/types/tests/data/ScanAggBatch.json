@@ -299,6 +299,7 @@
       }
     ],
     "replicateNullsAndAny":false,
+    "encoding":"COLUMNAR",
     "bucketToPartition":[
       0,
       1,

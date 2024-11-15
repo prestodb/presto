@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -35,7 +36,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Join;
 import com.google.common.collect.ImmutableList;
@@ -70,17 +70,17 @@ import static java.lang.Boolean.TRUE;
 
 /**
  * An optimization for quicker execution of simple group by + limit queries. In SQL terms, it will be:
- *
+ * <p>
  * Original:
- *
+ * <p>
  * SELECT SUM(x), userid FROM Table GROUP BY userid LIMIT 1000
- *
+ * <p>
  * Rewritten:
- *
+ * <p>
  * SELECT SUM(x) , userid FROM Table
  * CROSS JOIN (SELECT MAP_AGG(hash(userid)) m FROM (SELECT DISTINCT userid FROM Table LIMIT 1000)))
  * WHERE IF(CARDINALITY(m)=1000, m[hash(userid)], TRUE)
- *
+ * <p>
  * In addition we also add a timeout to the distinctlimit we add so that we don't get stuck trying to find the keys
  */
 

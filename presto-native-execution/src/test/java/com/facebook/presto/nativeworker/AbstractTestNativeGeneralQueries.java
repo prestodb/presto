@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -38,6 +39,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -61,6 +63,8 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegi
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createTableToTestHiddenColumns;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.ROW_WISE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -71,6 +75,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -78,6 +83,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -1849,6 +1855,48 @@ public abstract class AbstractTestNativeGeneralQueries
         for (String unicodeString : unicodeStrings) {
             assertQuery(String.format("SELECT CAST(a as JSON) FROM ( VALUES(U&'%s') ) t(a)", unicodeString));
         }
+    }
+
+    @Test
+    public void testRowWiseExchange()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING, "10")
+                .build();
+
+        assertQuery(session, "SELECT orderkey, count(*) FROM orders GROUP BY orderkey", plan -> {
+            searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode
+                            && ((ExchangeNode) node).getScope() == REMOTE_STREAMING
+                            && ((ExchangeNode) node).getPartitioningScheme().isSingleOrBroadcastOrArbitrary()
+                            && ((ExchangeNode) node).getPartitioningScheme().getEncoding() == COLUMNAR)
+                    .findOnlyElement();
+            searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode
+                            && ((ExchangeNode) node).getScope() == REMOTE_STREAMING
+                            && !((ExchangeNode) node).getPartitioningScheme().isSingleOrBroadcastOrArbitrary()
+                            && ((ExchangeNode) node).getPartitioningScheme().getEncoding() == COLUMNAR)
+                    .findOnlyElement();
+        });
+
+        String wideAggregation = "SELECT orderkey, max(orderdate), max(comment), min(comment), sum(totalprice), max(totalprice) FROM orders GROUP BY orderkey";
+        assertQuery(session, wideAggregation, plan -> {
+            searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode
+                            && ((ExchangeNode) node).getScope() == REMOTE_STREAMING
+                            && ((ExchangeNode) node).getPartitioningScheme().isSingleOrBroadcastOrArbitrary()
+                            && ((ExchangeNode) node).getPartitioningScheme().getEncoding() == COLUMNAR)
+                    .findOnlyElement();
+            searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode
+                            && ((ExchangeNode) node).getScope() == REMOTE_STREAMING
+                            && !((ExchangeNode) node).getPartitioningScheme().isSingleOrBroadcastOrArbitrary()
+                            && ((ExchangeNode) node).getPartitioningScheme().getEncoding() == ROW_WISE)
+                    .findOnlyElement();
+        });
+
+        assertThat(getQueryRunner().execute(session, "EXPLAIN (TYPE DISTRIBUTED) " + wideAggregation).getOnlyValue().toString())
+                .contains("Output encoding: ROW_WISE");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)

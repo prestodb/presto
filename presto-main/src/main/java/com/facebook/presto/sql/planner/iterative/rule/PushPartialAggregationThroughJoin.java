@@ -19,13 +19,13 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -133,11 +133,11 @@ public class PushPartialAggregationThroughJoin
     private Set<VariableReferenceExpression> getJoinRequiredVariables(JoinNode node)
     {
         return Streams.concat(
-                node.getCriteria().stream().map(EquiJoinClause::getLeft),
-                node.getCriteria().stream().map(EquiJoinClause::getRight),
-                node.getFilter().map(expression -> VariablesExtractor.extractUnique(expression)).orElse(ImmutableSet.of()).stream(),
-                node.getLeftHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
-                node.getRightHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
+                        node.getCriteria().stream().map(EquiJoinClause::getLeft),
+                        node.getCriteria().stream().map(EquiJoinClause::getRight),
+                        node.getFilter().map(expression -> VariablesExtractor.extractUnique(expression)).orElse(ImmutableSet.of()).stream(),
+                        node.getLeftHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
+                        node.getRightHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());
     }
 

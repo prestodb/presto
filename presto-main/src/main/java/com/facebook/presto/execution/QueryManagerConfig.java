@@ -100,6 +100,8 @@ public class QueryManagerConfig
     private int rateLimiterCacheLimit = 1000;
     private int rateLimiterCacheWindowMinutes = 5;
 
+    private int minColumnarEncodingChannelsToPreferRowWiseEncoding = 1000;
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {
@@ -735,6 +737,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setEnableWorkerIsolation(boolean enableWorkerIsolation)
     {
         this.enableWorkerIsolation = enableWorkerIsolation;
+        return this;
+    }
+
+    public int getMinColumnarEncodingChannelsToPreferRowWiseEncoding()
+    {
+        return minColumnarEncodingChannelsToPreferRowWiseEncoding;
+    }
+
+    @Config("min-columnar-encoding-channels-to-prefer-row-wise-encoding")
+    @ConfigDescription("Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only")
+    public QueryManagerConfig setMinColumnarEncodingChannelsToPreferRowWiseEncoding(int minColumnarEncodingChannelsToPreferRowWiseEncoding)
+    {
+        this.minColumnarEncodingChannelsToPreferRowWiseEncoding = minColumnarEncodingChannelsToPreferRowWiseEncoding;
         return this;
     }
 

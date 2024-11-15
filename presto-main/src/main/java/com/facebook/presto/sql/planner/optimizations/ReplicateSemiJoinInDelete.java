@@ -18,12 +18,12 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
-import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static java.util.Objects.requireNonNull;
 
 public class ReplicateSemiJoinInDelete

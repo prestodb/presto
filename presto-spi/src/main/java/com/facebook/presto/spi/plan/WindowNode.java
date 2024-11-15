@@ -11,38 +11,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.plan.OrderingScheme;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.RANGE;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class WindowNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final Set<VariableReferenceExpression> prePartitionedInputs;
@@ -85,12 +86,12 @@ public class WindowNode
         checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         Optional<OrderingScheme> orderingScheme = specification.getOrderingScheme();
         checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderByVariables().size()), "Cannot have sorted more symbols than those requested");
-        checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
+        checkArgument(preSortedOrderPrefix == 0 || prePartitionedInputs.equals(new HashSet<>(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
 
         this.source = source;
-        this.prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
+        this.prePartitionedInputs = unmodifiableSet(new LinkedHashSet<>(prePartitionedInputs));
         this.specification = specification;
-        this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
+        this.windowFunctions = unmodifiableMap(new LinkedHashMap<>(windowFunctions));
         this.hashVariable = hashVariable;
         this.preSortedOrderPrefix = preSortedOrderPrefix;
     }
@@ -98,16 +99,15 @@ public class WindowNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return singletonList(source);
     }
 
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.<VariableReferenceExpression>builder()
-                .addAll(source.getOutputVariables())
-                .addAll(windowFunctions.keySet())
-                .build();
+        List<VariableReferenceExpression> outputVariables = new ArrayList<>(source.getOutputVariables());
+        outputVariables.addAll(windowFunctions.keySet());
+        return unmodifiableList(outputVariables);
     }
 
     public Set<VariableReferenceExpression> getCreatedVariable()
@@ -145,9 +145,10 @@ public class WindowNode
 
     public List<Frame> getFrames()
     {
-        return windowFunctions.values().stream()
+        List<Frame> frames = windowFunctions.values().stream()
                 .map(WindowNode.Function::getFrame)
-                .collect(toImmutableList());
+                .collect(Collectors.toList());
+        return unmodifiableList(frames);
     }
 
     @JsonProperty
@@ -169,7 +170,7 @@ public class WindowNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitWindow(this, context);
     }
@@ -177,7 +178,8 @@ public class WindowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new WindowNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
+        checkArgument(newChildren.size() == 1);
+        return new WindowNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
     }
 
     @Override
@@ -200,7 +202,7 @@ public class WindowNode
             requireNonNull(partitionBy, "partitionBy is null");
             requireNonNull(orderingScheme, "orderingScheme is null");
 
-            this.partitionBy = ImmutableList.copyOf(partitionBy);
+            this.partitionBy = unmodifiableList(new ArrayList<>(partitionBy));
             this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
         }
 

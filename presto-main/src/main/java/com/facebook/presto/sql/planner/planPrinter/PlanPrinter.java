@@ -34,6 +34,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.AbstractJoinNode;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteConsumerNode;
@@ -44,8 +45,10 @@ import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
@@ -54,12 +57,15 @@ import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -69,7 +75,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
-import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -80,16 +85,12 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -97,7 +98,6 @@ import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -133,6 +133,7 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.sql.planner.SortExpressionExtractor.getSortExpressionContext;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.JsonRenderer.JsonPlanFragment;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
@@ -426,21 +427,22 @@ public class PlanPrinter
                     Joiner.on(", ").join(partitioningScheme.getPartitioning().getArguments()),
                     formatHash(partitioningScheme.getHashColumn())));
         }
+        builder.append(indentString(1)).append(format("Output encoding: %s%n", fragment.getPartitioningScheme().getEncoding()));
         builder.append(indentString(1)).append(format("Stage Execution Strategy: %s%n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
         TypeProvider typeProvider = TypeProvider.fromVariables(fragment.getVariables());
         builder.append(
-                textLogicalPlan(
-                        fragment.getRoot(),
-                        typeProvider,
-                        Optional.of(fragment.getStageExecutionDescriptor()),
-                        fragment.getStatsAndCosts().orElse(StatsAndCosts.empty()),
-                        planNodeStats,
-                        functionAndTypeManager,
-                        session,
-                        1,
-                        verbose,
-                        isVerboseOptimizerInfoEnabled(session)))
+                        textLogicalPlan(
+                                fragment.getRoot(),
+                                typeProvider,
+                                Optional.of(fragment.getStageExecutionDescriptor()),
+                                fragment.getStatsAndCosts().orElse(StatsAndCosts.empty()),
+                                planNodeStats,
+                                functionAndTypeManager,
+                                session,
+                                1,
+                                verbose,
+                                isVerboseOptimizerInfoEnabled(session)))
                 .append("\n");
 
         return builder.toString();
@@ -528,7 +530,7 @@ public class PlanPrinter
                 nodeOutput.appendDetails(getDynamicFilterAssignments(node));
             }
 
-            node.getSortExpressionContext(functionAndTypeManager)
+            getSortExpressionContext(node, functionAndTypeManager)
                     .ifPresent(sortContext -> nodeOutput.appendDetails("SortExpression[%s]", formatter.apply(sortContext.getSortExpression())));
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
@@ -750,12 +752,12 @@ public class PlanPrinter
             if (node.getOrderingScheme().isPresent()) {
                 OrderingScheme orderingScheme = node.getOrderingScheme().get();
                 args.add(format("order by (%s)", Stream.concat(
-                        orderingScheme.getOrderByVariables().stream()
-                                .limit(node.getPreSortedOrderPrefix())
-                                .map(symbol -> "<" + symbol + " " + orderingScheme.getOrdering(symbol) + ">"),
-                        orderingScheme.getOrderByVariables().stream()
-                                .skip(node.getPreSortedOrderPrefix())
-                                .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
+                                orderingScheme.getOrderByVariables().stream()
+                                        .limit(node.getPreSortedOrderPrefix())
+                                        .map(symbol -> "<" + symbol + " " + orderingScheme.getOrdering(symbol) + ">"),
+                                orderingScheme.getOrderByVariables().stream()
+                                        .skip(node.getPreSortedOrderPrefix())
+                                        .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
                         .collect(Collectors.joining(", "))));
             }
 
@@ -1220,8 +1222,9 @@ public class PlanPrinter
             else {
                 addNode(node,
                         format("%sExchange", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
-                        format("[%s%s]%s",
+                        format("[%s - %s%s]%s",
                                 node.getType(),
+                                node.getPartitioningScheme().getEncoding(),
                                 node.getPartitioningScheme().isReplicateNullsAndAny() ? " - REPLICATE NULLS AND ANY" : "",
                                 formatHash(node.getPartitioningScheme().getHashColumn())));
             }

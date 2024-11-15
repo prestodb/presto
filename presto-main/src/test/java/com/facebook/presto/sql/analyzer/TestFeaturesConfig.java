@@ -246,7 +246,8 @@ public class TestFeaturesConfig
                 .setUseHistograms(false)
                 .setInlineProjectionsOnValues(false)
                 .setEagerPlanValidationEnabled(false)
-                .setEagerPlanValidationThreadPoolSize(20));
+                .setEagerPlanValidationThreadPoolSize(20)
+                .setPrestoSparkExecutionEnvironment(false));
     }
 
     @Test
@@ -442,6 +443,7 @@ public class TestFeaturesConfig
                 .put("optimizer.inline-projections-on-values", "true")
                 .put("eager-plan-validation-enabled", "true")
                 .put("eager-plan-validation-thread-pool-size", "2")
+                .put("presto-spark-execution-environment", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -634,7 +636,8 @@ public class TestFeaturesConfig
                 .setUseHistograms(true)
                 .setInlineProjectionsOnValues(true)
                 .setEagerPlanValidationEnabled(true)
-                .setEagerPlanValidationThreadPoolSize(2);
+                .setEagerPlanValidationThreadPoolSize(2)
+                .setPrestoSparkExecutionEnvironment(true);
         assertFullMapping(properties, expected);
     }
 

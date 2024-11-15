@@ -101,13 +101,25 @@ public final class SystemPartitioningHandle
     @Override
     public boolean isSingleNode()
     {
-        return partitioning == SystemPartitioning.COORDINATOR_ONLY || partitioning == SystemPartitioning.SINGLE;
+        return function == SystemPartitionFunction.SINGLE;
     }
 
     @Override
     public boolean isCoordinatorOnly()
     {
         return partitioning == SystemPartitioning.COORDINATOR_ONLY;
+    }
+
+    @Override
+    public boolean isBroadcast()
+    {
+        return function == SystemPartitionFunction.BROADCAST;
+    }
+
+    @Override
+    public boolean isArbitrary()
+    {
+        return function == SystemPartitionFunction.ROUND_ROBIN;
     }
 
     @Override

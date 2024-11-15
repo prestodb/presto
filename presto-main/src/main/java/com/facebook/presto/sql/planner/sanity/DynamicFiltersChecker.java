@@ -18,14 +18,14 @@ import com.facebook.presto.expressions.DynamicFilters;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.AbstractJoinNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.relational.Expressions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -133,9 +133,9 @@ public class DynamicFiltersChecker
     private static List<DynamicFilterPlaceholder> extractDynamicPredicates(RowExpression expression)
     {
         return Expressions.uniqueSubExpressions(expression).stream()
-            .map(DynamicFilters::getPlaceholder)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .collect(toImmutableList());
+                .map(DynamicFilters::getPlaceholder)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
     }
 }

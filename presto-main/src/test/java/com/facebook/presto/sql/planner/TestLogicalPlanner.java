@@ -21,9 +21,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -40,9 +42,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.testing.QueryRunner;
@@ -454,7 +454,7 @@ public class TestLogicalPlanner
                                         project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderstatus_35), 0))")),
                                                 project(
                                                         ImmutableMap.of("orderstatus_35", expression("'F'")),
-                                                tableScan("orders", ImmutableMap.of())))))));
+                                                        tableScan("orders", ImmutableMap.of())))))));
     }
 
     @Test
@@ -793,12 +793,12 @@ public class TestLogicalPlanner
                 noJoinReordering(),
                 anyTree(
                         markDistinct("is_distinct", ImmutableList.of("unique"),
-                                        join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
-                                                assignUniqueId("unique",
-                                                        exchange(REMOTE_STREAMING, REPARTITION,
-                                                                anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
-                                                anyTree(
-                                                        tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))));
+                                join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
+                                        assignUniqueId("unique",
+                                                exchange(REMOTE_STREAMING, REPARTITION,
+                                                        anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
+                                        anyTree(
+                                                tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))));
     }
 
     @Test
@@ -1008,11 +1008,11 @@ public class TestLogicalPlanner
                 output(
                         project(
                                 ImmutableMap.of("expr_2", expression("5")),
-                        filter("orderkey = BIGINT '5'",
-                                constrainedTableScanWithTableLayout(
-                                        "orders",
-                                        ImmutableMap.of(),
-                                        ImmutableMap.of("orderkey", "orderkey"))))));
+                                filter("orderkey = BIGINT '5'",
+                                        constrainedTableScanWithTableLayout(
+                                                "orders",
+                                                ImmutableMap.of(),
+                                                ImmutableMap.of("orderkey", "orderkey"))))));
         assertPlan(
                 "SELECT orderkey FROM orders WHERE orderstatus='F'",
                 output(
