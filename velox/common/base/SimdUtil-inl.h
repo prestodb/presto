@@ -1453,6 +1453,8 @@ using CharVector = xsimd::batch<uint8_t, xsimd::neon>;
 
 extern const int kPageSize;
 
+#if VELOX_SIMD_STRSTR
+
 FOLLY_ALWAYS_INLINE bool pageSafe(const void* const ptr) {
   return ((kPageSize - 1) & reinterpret_cast<std::uintptr_t>(ptr)) <=
       kPageSize - CharVector::size;
@@ -1522,6 +1524,8 @@ size_t FOLLY_ALWAYS_INLINE smidStrstrMemcmp(
 
   return std::string::npos;
 };
+
+#endif
 
 } // namespace detail
 
