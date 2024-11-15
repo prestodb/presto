@@ -20,6 +20,7 @@
 #include "velox/experimental/wave/common/Block.cuh"
 #include "velox/experimental/wave/common/CudaUtil.cuh"
 #include "velox/experimental/wave/exec/Aggregate.cuh"
+#include "velox/experimental/wave/exec/ExprKernelStream.h"
 #include "velox/experimental/wave/exec/WaveCore.cuh"
 
 DEFINE_bool(kernel_gdb, false, "Run kernels sequentially for debugging");

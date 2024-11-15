@@ -17,9 +17,8 @@
 #pragma once
 
 #include <cstdint>
-#include <cub/warp/warp_scan.cuh>
-#include "velox/experimental/wave/common/Block.cuh"
-#include "velox/experimental/wave/common/CudaUtil.cuh"
+#include "velox/experimental/wave/common/BitUtil.cuh"
+#include "velox/experimental/wave/common/Scan.cuh"
 
 namespace facebook::velox::wave {
 
@@ -221,11 +220,6 @@ inline __device__ int32_t* warpBase(int32_t* smem) {
   constexpr int32_t kWarpThreads = 32;
   return smem + (threadIdx.x / kWarpThreads);
 }
-
-inline __device__ auto* warpScanTemp(void* smem) {
-  // The temp storage is empty. Nothing is written. Return base of smem.
-  return reinterpret_cast<typename cub::WarpScan<uint32_t>::TempStorage*>(smem);
-}
 } // namespace detail
 
 /// Sets 'target' so that a 0 bit in 'mask' is 0 and a 1 bit in 'mask' is the
@@ -240,7 +234,7 @@ __device__ void scatterBitsDevice(
     const uint64_t* targetMask,
     char* target,
     int32_t* smem) {
-  using Scan32 = cub::WarpScan<uint32_t>;
+  using Scan32 = WarpScan<uint32_t>;
   constexpr int32_t kWarpThreads = 32;
   int32_t align = reinterpret_cast<uintptr_t>(source) & 3;
   source -= align;
@@ -261,7 +255,7 @@ __device__ void scatterBitsDevice(
       }
     }
     uint32_t threadFirstBit = 0;
-    Scan32(*detail::warpScanTemp(smem)).ExclusiveSum(count, threadFirstBit);
+    Scan32().exclusiveSum(count, threadFirstBit);
     if ((threadIdx.x & (kWarpThreads - 1)) == kWarpThreads - 1) {
       // Last thread in warp sets warpBase to warp bit count.
       *detail::warpBase(smem) = threadFirstBit + count;
@@ -271,7 +265,7 @@ __device__ void scatterBitsDevice(
     if (threadIdx.x < kWarpThreads) {
       uint32_t start =
           (threadIdx.x < blockDim.x / kWarpThreads) ? smem[threadIdx.x] : 0;
-      Scan32(*detail::warpScanTemp(smem)).ExclusiveSum(start, start);
+      Scan32().exclusiveSum(start, start);
       if (threadIdx.x == (blockDim.x / kWarpThreads) - 1) {
         // The last thread records total sum of bits in smem[blockDim.x / 32].
         smem[blockDim.x / kWarpThreads] =
@@ -348,13 +342,12 @@ inline __device__ int32_t nonNullIndex256(
   auto previousOffset = state->nonNullsBelow;
   __syncthreads();
   if (threadIdx.x < kWarpThreads) {
-    using Scan = cub::WarpScan<uint32_t, 8>;
+    using Scan = WarpScan<uint32_t, 8>;
     uint32_t count = threadIdx.x < (blockDim.x / kWarpThreads)
         ? state->temp[threadIdx.x]
         : 0;
     uint32_t start;
-    Scan(*reinterpret_cast<Scan::TempStorage*>(state->temp))
-        .ExclusiveSum(count, start);
+    Scan().exclusiveSum(count, start);
     if (threadIdx.x < blockDim.x / kWarpThreads) {
       state->temp[threadIdx.x] = start;
       if (threadIdx.x == (blockDim.x / kWarpThreads) - 1 && numRows == 256) {
@@ -388,7 +381,7 @@ inline __device__ int32_t nonNullIndex256Sparse(
     int32_t* rows,
     int32_t numRows,
     NonNullState* state) {
-  using Scan32 = cub::WarpScan<uint32_t>;
+  using Scan32 = WarpScan<uint32_t>;
   bool isNull = true;
   uint32_t nonNullsBelow = 0;
   if (threadIdx.x < numRows) {
@@ -399,8 +392,7 @@ inline __device__ int32_t nonNullIndex256Sparse(
     nonNullsBelow += countBits(
         reinterpret_cast<uint64_t*>(nulls), previousRow, rows[threadIdx.x]);
   }
-  Scan32(*detail::warpScanTemp(state->temp))
-      .InclusiveSum(nonNullsBelow, nonNullsBelow);
+  Scan32().inclusiveSum(nonNullsBelow, nonNullsBelow);
   int32_t previousOffset = state->nonNullsBelow;
   if (detail::isLastInWarp()) {
     // The last thread of the warp writes warp total.
@@ -412,10 +404,9 @@ inline __device__ int32_t nonNullIndex256Sparse(
     if (threadIdx.x < blockDim.x / kWarpThreads) {
       start = state->temp[threadIdx.x];
     }
-    using Scan8 = cub::WarpScan<int32_t, 8>;
+    using Scan8 = WarpScan<int32_t, 8>;
     int32_t sum = 0;
-    Scan8(*reinterpret_cast<Scan8::TempStorage*>(state->temp))
-        .ExclusiveSum(start, sum);
+    Scan8().exclusiveSum(start, sum);
     if (threadIdx.x == (blockDim.x / kWarpThreads) - 1) {
       // The last sum thread increments the running count of non-nulls
       // by the block total.

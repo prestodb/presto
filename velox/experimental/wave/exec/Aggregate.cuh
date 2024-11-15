@@ -48,7 +48,6 @@ class SumGroupByOps {
             *reinterpret_cast<int16_t*>(
                 &inst_->aggregates[inst_->numAggregates]),
             shared_->blockBase,
-            &shared_->data,
             key)) {
       constexpr uint64_t kMul = 0x9ddfea08eb382d69ULL;
       return kMul * key;
@@ -70,7 +69,6 @@ class SumGroupByOps {
             *reinterpret_cast<int16_t*>(
                 &inst_->aggregates[inst_->numAggregates]),
             shared_->blockBase,
-            &shared_->data,
             key)) {
       return k == key;
     }
@@ -90,7 +88,6 @@ class SumGroupByOps {
           shared_->operands,
           *reinterpret_cast<int16_t*>(&inst_->aggregates[inst_->numAggregates]),
           shared_->blockBase,
-          &shared_->data,
           k);
       asDeviceAtomic<int64_t>(&row->key)->store(k, cuda::memory_order_release);
     }
@@ -153,7 +150,6 @@ class SumGroupByOps {
           shared_->operands,
           inst_->aggregates[acc].arg1,
           shared_->blockBase,
-          &shared_->data,
           x);
       increment(row->sums[acc], x);
     }
@@ -212,12 +208,7 @@ __device__ __forceinline__ void aggregateKernel(
       auto& acc = agg.aggregates[i];
       int64_t value = 0;
       if (laneStatus == ErrorCode::kOk) {
-        operandOrNull(
-            shared->operands,
-            acc.arg1,
-            shared->blockBase,
-            &shared->data,
-            value);
+        operandOrNull(shared->operands, acc.arg1, shared->blockBase, value);
       }
       using Reduce = cub::WarpReduce<int64_t>;
       auto sum =
@@ -252,13 +243,11 @@ __device__ __forceinline__ void readAggregateKernel(
         for (auto i = 0; i < agg->numKeys; ++i) {
           auto opIdx = keys[i];
           auto k = *addCast<int64_t>(row, (i + 1) * sizeof(int64_t));
-          flatResult<int64_t>(
-              shared->operands, opIdx, shared->blockBase, &shared->data) = k;
+          flatResult<int64_t>(shared->operands, opIdx, shared->blockBase) = k;
         }
         for (auto i = 0; i < agg->numAggregates; ++i) {
           auto& acc = agg->aggregates[i];
-          flatResult<int64_t>(
-              shared->operands, acc.result, shared->blockBase, &shared->data) =
+          flatResult<int64_t>(shared->operands, acc.result, shared->blockBase) =
               *addCast<int64_t>(row, acc.accumulatorOffset);
         }
       }
@@ -281,8 +270,7 @@ __device__ __forceinline__ void readAggregateKernel(
       shared->status->numRows = 1;
       for (auto i = 0; i < agg->numAggregates; ++i) {
         auto& acc = agg->aggregates[i];
-        flatResult<int64_t>(
-            shared->operands, acc.result, shared->blockBase, &shared->data) =
+        flatResult<int64_t>(shared->operands, acc.result, shared->blockBase) =
             *addCast<int64_t>(row, acc.accumulatorOffset);
       }
     }

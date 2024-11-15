@@ -19,6 +19,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cstdint>
+#include "velox/experimental/wave/common/BitUtil.cuh"
 
 /// Utilities header to include in Cuda code for Velox Wave. Do not combine with
 /// Velox *.h.n
@@ -41,62 +42,6 @@ void cuCheck(CUresult result, const char* file, int32_t line);
 
 // Gets device and context for Driver API. Initializes on first use.
 void getDeviceAndContext(CUdevice& device, CUcontext& context);
-
-template <typename T, typename U>
-__host__ __device__ constexpr inline T roundUp(T value, U factor) {
-  return (value + (factor - 1)) / factor * factor;
-}
-
-template <typename T>
-constexpr T __device__ __host__ lowMask(int32_t bits) {
-  /****
-   * NVCC BUG: If the special case for all bits is not in, all modes except -G
-   * produce a 0 mask for 32 or 64 bits.
-   ****/
-  return bits == 8 * sizeof(T) ? ~static_cast<T>(0)
-                               : (static_cast<T>(1) << bits) - 1;
-}
-
-template <typename T>
-constexpr inline __device__ __host__ T highMask(int32_t bits) {
-  return lowMask<T>(bits) << ((sizeof(T) * 8) - bits);
-}
-
-template <typename T>
-inline T* __device__ __host__ addBytes(T* ptr, int bytes) {
-  return reinterpret_cast<T*>(reinterpret_cast<char*>(ptr) + bytes);
-}
-
-template <typename T>
-inline const T* __device__ __host__ addBytes(const T* ptr, int bytes) {
-  return reinterpret_cast<const T*>(reinterpret_cast<const char*>(ptr) + bytes);
-}
-
-template <typename T>
-inline T* __device__ __host__ addCast(void* ptr, int bytes) {
-  return reinterpret_cast<T*>(reinterpret_cast<char*>(ptr) + bytes);
-}
-
-template <typename T>
-inline const T* __device__ __host__ addCast(const void* ptr, int bytes) {
-  return reinterpret_cast<const T*>(reinterpret_cast<const char*>(ptr) + bytes);
-}
-
-__device__ __host__ inline int
-memcmp(const void* lhs, const void* rhs, size_t n) {
-  auto* a = reinterpret_cast<const uint8_t*>(lhs);
-  auto* b = reinterpret_cast<const uint8_t*>(rhs);
-  for (size_t i = 0; i < n; ++i) {
-    if (int c = (int)a[i] - (int)b[i]) {
-      return c;
-    }
-  }
-  return 0;
-}
-
-inline uint32_t __device__ deviceScale32(uint32_t n, uint32_t scale) {
-  return (static_cast<uint64_t>(static_cast<uint32_t>(n)) * scale) >> 32;
-}
 
 struct StreamImpl {
   cudaStream_t stream{};

@@ -72,8 +72,6 @@ inline int32_t __device__ __host__ bool256ToIndicesSize() {
       33 * sizeof(uint16_t);
 }
 
-constexpr int32_t kWarpThreads = 1 << CUB_LOG_WARP_THREADS(0);
-
 /// Returns indices of set bits for 256 one byte flags. 'getter8' is
 /// invoked for 8 flags at a time, with the ordinal of the 8 byte
 /// flags word as argument, so that an index of 1 means flags
@@ -283,12 +281,6 @@ void __device__ partitionRows(
   }
   __syncthreads();
 }
-
-namespace detail {
-inline __device__ bool isLastInWarp() {
-  return (threadIdx.x & (kWarpThreads - 1)) == (kWarpThreads - 1);
-}
-} // namespace detail
 
 /// Returns the block wide exclusive sum (sum of 'input' for all
 /// lanes below threadIdx.x). If 'total' is non-nullptr, the block

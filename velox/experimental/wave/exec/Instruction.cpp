@@ -134,6 +134,8 @@ void resupplyHashTable(WaveStream& stream, AbstractInstruction& inst) {
     numOldBuckets = hashTable->sizeMask + 1;
     state->buffers[1] = stream.arena().allocate<GpuBucketMembers>(
         newSize / GpuBucketMembers::kNumSlots);
+    deviceStream->memset(
+        state->buffers[1]->as<char>(), 0, state->buffers[1]->size());
     hashTable->sizeMask = (newSize / GpuBucketMembers::kNumSlots) - 1;
     hashTable->buckets = state->buffers[1]->as<GpuBucket>();
     hashTable->maxEntries = newSize / 6 * 5;

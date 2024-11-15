@@ -106,6 +106,9 @@ constexpr uint16_t kSharedOperandMask = 0x7ffc;
 constexpr uint8_t kNull = 0;
 constexpr uint8_t kNotNull = 255;
 
+/// Indicates a null value introduced by wrap in 'indices'.
+constexpr int32_t kNullIndex = -1;
+
 struct Operand {
   static constexpr int32_t kPointersInOperand = 4;
 

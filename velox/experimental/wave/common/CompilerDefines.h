@@ -14,22 +14,14 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/wave/exec/ExprKernel.h"
+#pragma once
 
-#include "velox/experimental/wave/common/Block.cuh"
-#include "velox/experimental/wave/common/CudaUtil.cuh"
-#include "velox/experimental/wave/exec/Aggregate.cuh"
-#include "velox/experimental/wave/exec/WaveCore.cuh"
-
-DECLARE_bool(kernel_gdb);
-
-namespace facebook::velox::wave {
-
-__global__ void
-oneReadAggregate(KernelParams params, int32_t pc, int32_t base) {
-  PROGRAM_PREAMBLE(base);
-  readAggregateKernel(&instruction[pc]._.aggregate, shared);
-  PROGRAM_EPILOGUE();
-}
-
-} // namespace facebook::velox::wave
+// Macro to declare execution domain if the header can be included in a C++ file
+// that is not compiled with nvcc
+#if defined(__CUDACC_RTC__)
+#define WAVE_DEVICE_HOST __device__
+#elif defined(__NVCC__)
+#define WAVE_DEVICE_HOST __device__ __host__
+#else
+#define WAVE_DEVICE_HOST
+#endif

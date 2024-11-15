@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include "velox/experimental/wave/common/CudaUtil.cuh"
 #include "velox/experimental/wave/exec/AggregationInstructions.h"
 
 #include <cub/cub.cuh> // @manual
 #include "velox/experimental/wave/common/IdMap.cuh"
 #include "velox/experimental/wave/exec/AggregateFunctionRegistry.h"
 #include "velox/experimental/wave/exec/BuiltInAggregateFunctions.cuh"
+#include "velox/experimental/wave/exec/ExprKernelStream.h"
 #include "velox/experimental/wave/exec/WaveCore.cuh"
 
 #define VELOX_WAVE_RETURN_NOT_OK(_expr)            \
@@ -89,7 +91,7 @@ template <typename T>
 __device__ ErrorCode
 normalize(BlockInfo* block, void* idMap, Operand* key, int32_t& result) {
   auto* typedIdMap = reinterpret_cast<IdMap<T>*>(idMap);
-  auto id = typedIdMap->makeId(value<T>(key, block->base, block->shared));
+  auto id = typedIdMap->makeId(value<T>(key, block->base));
   if (id == -1) {
     return ErrorCode::kInsufficientMemory;
   }
@@ -106,7 +108,7 @@ __device__ ErrorCode setGroupKey(
     int groupIndex) {
   auto* container = normalizeKeys->container;
   *reinterpret_cast<T*>(container->groups[groupIndex].keys[keyIndex]) =
-      value<T>(&normalizeKeys->inputs[keyIndex], block->base, block->shared);
+      value<T>(&normalizeKeys->inputs[keyIndex], block->base);
   return ErrorCode::kOk;
 }
 

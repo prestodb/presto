@@ -18,6 +18,7 @@
 
 #include <cub/cub.cuh> // @manual
 #include "velox/experimental/wave/common/Bits.cuh"
+#include "velox/experimental/wave/common/Block.cuh"
 
 namespace facebook::velox::wave {
 

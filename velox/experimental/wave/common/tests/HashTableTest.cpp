@@ -144,6 +144,114 @@ class HashTableTest : public testing::Test {
   compareAndReset(                                         \
       reference, rows, run.numDistinct, title, expectCorrect, nextFlags);
 
+  const char* jitMtxCoa =
+      "#include \"velox/experimental/wave/common/HashTable.cuh\"\n"
+      "\n"
+      "namespace facebook::velox::wave {\n"
+      "/// A mock aggregate that concatenates numbers, like array_agg of bigint.\n"
+      "struct ArrayAgg64 {\n"
+      "  struct Run {\n"
+      "    Run* next;\n"
+      "    int64_t data[16];\n"
+      "  };\n"
+      "\n"
+      "  Run* first{nullptr};\n"
+      "  Run* last{nullptr};\n"
+      "  // Fill of 'last->data', all other runs are full.\n"
+      "  int8_t numInLast{0};\n"
+      "};\n"
+      "\n"
+      "/// A mock hash table content row to test HashTable.\n"
+      "struct TestingRow {\n"
+      "  // Single ke part.\n"
+      "  int64_t key;\n"
+      "\n"
+      "  // Count of updates. Sample aggregate\n"
+      "  int64_t count{0};\n"
+      "\n"
+      "  // A mock concatenating aggregate. Use for testing control flow in\n"
+      "  // running out of space in updating a group.\n"
+      "  ArrayAgg64 concatenation;\n"
+      "\n"
+      "  // Next pointer in the case simulating a non-unique join table.\n"
+      "  TestingRow* next{nullptr};\n"
+      "\n"
+      "  // flags for updating the row. E.g. probed flag, marker for exclusive write.\n"
+      "  int32_t flags{0};\n"
+      "};\n"
+      "using Mutex = cuda::binary_semaphore<cuda::thread_scope_device>;\n"
+      "inline void __device__ testingLock(int32_t* mtx) {\n"
+      "  reinterpret_cast<Mutex*>(mtx)->acquire();\n"
+      "}\n"
+      "\n"
+      "inline void __device__ testingUnlock(int32_t* mtx) {\n"
+      "  reinterpret_cast<Mutex*>(mtx)->release();\n"
+      "}\n"
+      "\n"
+      " __global__ void jitSumMtxCoalesce(TestingRow* rows, HashProbe* probe) {\n"
+      "  constexpr int32_t kWarpThreads = 32;\n"
+      "  auto keys = reinterpret_cast<int64_t**>(probe->keys);\n"
+      "  auto indices = keys[0];\n"
+      "  auto deltas = keys[1];\n"
+      "  int32_t base = probe->numRowsPerThread * blockDim.x * blockIdx.x;\n"
+      "  int32_t lane = LaneId();\n"
+      "  int32_t end = base + probe->numRows[blockIdx.x];\n"
+      "\n"
+      "  for (auto count = base; count < end; count += blockDim.x) {\n"
+      "    auto i = threadIdx.x + count;\n"
+      "\n"
+      "    if (i < end) {\n"
+      "      uint32_t laneMask = count + kWarpThreads <= end\n"
+      "          ? 0xffffffff\n"
+      "          : lowMask<uint32_t>(end - count);\n"
+      "      auto index = indices[i];\n"
+      "      auto delta = deltas[i];\n"
+      "      uint32_t allPeers = __match_any_sync(laneMask, index);\n"
+      "      int32_t leader = __ffs(allPeers) - 1;\n"
+      "      auto peers = allPeers;\n"
+      "      int64_t total = 0;\n"
+      "      auto currentPeer = leader;\n"
+      "      for (;;) {\n"
+      "        total += __shfl_sync(allPeers, delta, currentPeer);\n"
+      "        peers &= peers - 1;\n"
+      "        if (peers == 0) {\n"
+      "          break;\n"
+      "        }\n"
+      "        currentPeer = __ffs(peers) - 1;\n"
+      "      }\n"
+      "      if (lane == leader) {\n"
+      "        auto* row = &rows[index];\n"
+      "        testingLock(&row->flags);\n"
+      "        row->count += total;\n"
+      "        testingUnlock(&row->flags);\n"
+      "      }\n"
+      "    }\n"
+      "  }\n"
+      "  }\n"
+      "}\n";
+
+  void updateJitMtxCoa(TestingRow* rows, HashRun& run, TestingRow* reference) {
+    std::cout << "updateJitMtxCoa" << std::endl;
+    KernelSpec spec = {
+        jitMtxCoa,
+        {"facebook::velox::wave::jitSumMtxCoalesce"},
+        "sum1Jit.cu",
+        0,
+        nullptr,
+        nullptr};
+    auto kernel = CompiledModule::create(spec);
+    uint64_t micros = 0;
+    {
+      MicrosecondTimer t(&micros);
+      void* params[] = {&rows, &run.probe};
+      kernel->launch(
+          0, run.numBlocks, run.blockSize, 0, streams_[0].get(), params);
+      streams_[0]->wait();
+    }
+    run.addScore("sum1JitMtxCoa", micros);
+    compareAndReset(reference, rows, run.numDistinct, "sum1JitMtxCoa", true, 1);
+  }
+
   void updateGpu(TestingRow* rows, HashRun& run, TestingRow* reference) {
     uint64_t micros = 0;
     switch (run.testCase) {
@@ -153,6 +261,7 @@ class HashTableTest : public testing::Test {
         UPDATE_CASE("sum1AtmCoaShfl", updateSum1AtomicCoalesceShfl, true, 1);
         UPDATE_CASE("sum1AtmCoaShmem", updateSum1AtomicCoalesceShmem, true, 1);
         UPDATE_CASE("sum1Mtx", updateSum1Mtx, true, 1);
+        updateJitMtxCoa(rows, run, reference);
         UPDATE_CASE("sum1MtxCoa", updateSum1MtxCoalesce, true, 0);
         UPDATE_CASE("sum1Part", updateSum1Part, true, 0);
         // UPDATE_CASE("sum1Order", updateSum1Order, true, 0);

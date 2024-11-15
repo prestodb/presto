@@ -16,10 +16,7 @@
 
 #pragma once
 
-#include <assert.h>
-#include <cuda_runtime.h> // @manual
-
-#include "velox/experimental/wave/common/Block.cuh"
+#include "velox/experimental/wave/common/Scan.cuh"
 #include "velox/experimental/wave/exec/ExprKernel.h"
 #include "velox/experimental/wave/vector/Operand.h"
 
@@ -67,17 +64,16 @@ __device__ __forceinline__ bool operandOrNull(
     Operand** operands,
     OperandIndex opIdx,
     int32_t blockBase,
-    void* shared,
     T& value) {
-  if (opIdx > kMinSharedMemIndex) {
-    assert(false);
-  }
   auto op = operands[opIdx];
   int32_t index = threadIdx.x;
   if (auto indicesInOp = op->indices) {
     auto indices = indicesInOp[blockBase / kBlockSize];
     if (indices) {
       index = indices[index];
+      if (index == kNullIndex) {
+        return false;
+      }
     } else {
       index += blockBase;
     }
@@ -91,65 +87,105 @@ __device__ __forceinline__ bool operandOrNull(
   return true;
 }
 
-template <typename T>
-__device__ inline T getOperand(
+template <bool kMayWrap, typename T>
+bool __device__ __forceinline__ valueOrNull(
     Operand** operands,
     OperandIndex opIdx,
     int32_t blockBase,
-    void* shared) {
-  if (opIdx > kMinSharedMemIndex) {
-    assert(false);
-  }
+    T& value) {
   auto op = operands[opIdx];
-  int32_t index = (threadIdx.x + blockBase) & op->indexMask;
+  int32_t index = threadIdx.x;
+  if (!kMayWrap) {
+    index = (index + blockBase) & op->indexMask;
+    if (op->nulls && op->nulls[index] == kNull) {
+      return false;
+    }
+    value = reinterpret_cast<const T*>(op->base)[index];
+    return true;
+  }
   if (auto indicesInOp = op->indices) {
     auto indices = indicesInOp[blockBase / kBlockSize];
     if (indices) {
       index = indices[index];
+      if (index == kNullIndex) {
+        return false;
+      }
+    } else {
+      index += blockBase;
     }
+  } else {
+    index = (index + blockBase) & op->indexMask;
   }
-  return reinterpret_cast<const T*>(op->base)[index];
+  if (op->nulls && op->nulls[index] == kNull) {
+    return false;
+  }
+  value = reinterpret_cast<const T*>(op->base)[index];
+  return true;
 }
 
-template <typename T>
-__device__ inline T value(Operand* op, int32_t blockBase, char* shared) {
-  return getOperand<T>(&op, 0, blockBase, shared);
-}
-
-template <typename T>
-__device__ inline T value(Operand* op, int index) {
+template <bool kMayWrap, typename T>
+T __device__ __forceinline__
+nonNullOperand(Operand** operands, OperandIndex opIdx, int32_t blockBase) {
+  auto op = operands[opIdx];
+  int32_t index = threadIdx.x;
+  if (!kMayWrap) {
+    index = (index + blockBase) & op->indexMask;
+    return reinterpret_cast<const T*>(op->base)[index];
+  }
   if (auto indicesInOp = op->indices) {
-    auto indices = indicesInOp[0];
+    auto indices = indicesInOp[blockBase / kBlockSize];
     if (indices) {
       index = indices[index];
+    } else {
+      index += blockBase;
     }
+  } else {
+    index = (index + blockBase) & op->indexMask;
   }
   return reinterpret_cast<const T*>(op->base)[index];
+}
+
+bool __device__ __forceinline__
+setRegisterNull(uint32_t& flags, int8_t bit, bool notNull) {
+  if (!notNull) {
+    flags &= ~(1 << bit);
+  }
+  return !notNull;
+}
+
+bool __device__ __forceinline__ isRegisterNull(uint32_t flags, int8_t bit) {
+  return 0 == (flags & (1 << bit));
+}
+
+template <typename T>
+__device__ inline T&
+flatOperand(Operand** operands, OperandIndex opIdx, int32_t blockBase) {
+  auto* op = operands[opIdx];
+  if (op->nulls) {
+    op->nulls[blockBase + threadIdx.x] = kNotNull;
+  }
+  return reinterpret_cast<T*>(op->base)[blockBase + threadIdx.x];
+}
+
+/// Clears 'bit' from 'flags' if notNull is false. Returns true if bit cleared.
+bool __device__ __forceinline__
+setNullRegister(uint32_t& flags, int8_t bit, bool notNull) {
+  if (!notNull) {
+    flags &= ~(1 << bit);
+  }
+  return !notNull;
 }
 
 /// Sets the lane's result to null for opIdx.
-__device__ inline void resultNull(
-    Operand** operands,
-    OperandIndex opIdx,
-    int32_t blockBase,
-    void* shared) {
-  if (opIdx >= kMinSharedMemIndex) {
-    assert(false);
-  } else {
-    auto* op = operands[opIdx];
-    op->nulls[blockBase + threadIdx.x] = kNull;
-  }
+__device__ inline void
+resultNull(Operand** operands, OperandIndex opIdx, int32_t blockBase) {
+  auto* op = operands[opIdx];
+  op->nulls[blockBase + threadIdx.x] = kNull;
 }
 
 template <typename T>
-__device__ inline T& flatResult(
-    Operand** operands,
-    OperandIndex opIdx,
-    int32_t blockBase,
-    void* shared) {
-  if (opIdx >= kMinSharedMemIndex) {
-    assert(false);
-  }
+__device__ inline T&
+flatResult(Operand** operands, OperandIndex opIdx, int32_t blockBase) {
   auto* op = operands[opIdx];
   if (op->nulls) {
     op->nulls[blockBase + threadIdx.x] = kNotNull;
@@ -159,7 +195,7 @@ __device__ inline T& flatResult(
 
 template <typename T>
 __device__ inline T& flatResult(Operand* op, int32_t blockBase) {
-  return flatResult<T>(&op, 0, blockBase, nullptr);
+  return flatResult<T>(&op, 0, blockBase);
 }
 
 #define PROGRAM_PREAMBLE(blockOffset)                                          \
@@ -202,6 +238,45 @@ __device__ inline T& flatResult(Operand* op, int32_t blockBase) {
     laneStatus = shared->status->errors[threadIdx.x];                          \
   }
 
+#define GENERATED_PREAMBLE(blockOffset)                                        \
+  extern __shared__ char sharedChar[];                                         \
+  WaveShared* shared = reinterpret_cast<WaveShared*>(sharedChar);              \
+  int programIndex = params.programIdx[blockIdx.x + blockOffset];              \
+  if (threadIdx.x == 0) {                                                      \
+    shared->operands = params.operands[programIndex];                          \
+    shared->status = &params.status                                            \
+                          [blockIdx.x + blockOffset -                          \
+                           params.blockBase[blockIdx.x + blockOffset]];        \
+    shared->numRows = shared->status->numRows;                                 \
+    shared->blockBase = (blockIdx.x + blockOffset -                            \
+                         params.blockBase[blockIdx.x + blockOffset]) *         \
+        blockDim.x;                                                            \
+    shared->states = params.operatorStates[programIndex];                      \
+    shared->numBlocks = params.numBlocks;                                      \
+    shared->numRowsPerThread = params.numRowsPerThread;                        \
+    shared->streamIdx = params.streamIdx;                                      \
+    shared->isContinue = params.startPC != nullptr;                            \
+    shared->extraWraps = params.extraWraps;                                    \
+    shared.numExtraWraps = params.numExtraWraps;                               \
+    shared->hasContinue = false;                                               \
+    shared->stop = false;                                                      \
+  }                                                                            \
+  __syncthreads();                                                             \
+  auto blockBase = shared->blockBase;                                          \
+  auto operands = shared->operands;                                            \
+  ErrorCode laneStatus;                                                        \
+  int32_t entryPoint = 0;                                                      \
+  if (!shared->isContinue) {                                                   \
+    laneStatus =                                                               \
+        threadIdx.x < shared->numRows ? ErrorCode::kOk : ErrorCode::kInactive; \
+  } else {                                                                     \
+    entryPoint = params.startPC[programIndex];                                 \
+    if (entryPoint == ~0) {                                                    \
+      return; /* no continue in this program*/                                 \
+    }                                                                          \
+    laneStatus = shared->status->errors[threadIdx.x];                          \
+  }
+
 #define PROGRAM_EPILOGUE()                          \
   if (threadIdx.x == 0) {                           \
     shared->status->numRows = shared->numRows;      \
@@ -217,8 +292,7 @@ __device__ __forceinline__ void filterKernel(
     ErrorCode& laneStatus) {
   bool isPassed = laneActive(laneStatus);
   if (isPassed) {
-    if (!operandOrNull(
-            operands, filter.flags, blockBase, &shared->data, isPassed)) {
+    if (!operandOrNull(operands, filter.flags, blockBase, isPassed)) {
       isPassed = false;
     }
   }
@@ -230,12 +304,12 @@ __device__ __forceinline__ void filterKernel(
   __syncthreads();
   if (threadIdx.x < kWarpThreads) {
     constexpr int32_t kNumWarps = kBlockSize / kWarpThreads;
-    int32_t cnt = threadIdx.x < kNumWarps
+    uint32_t cnt = threadIdx.x < kNumWarps
         ? reinterpret_cast<int32_t*>(&shared->data)[threadIdx.x]
         : 0;
-    int32_t sum;
-    using Scan = cub::WarpScan<int32_t, kBlockSize / kWarpThreads>;
-    Scan(*reinterpret_cast<Scan::TempStorage*>(shared)).ExclusiveSum(cnt, sum);
+    uint32_t sum;
+    using Scan = WarpScan<uint32_t, kBlockSize / kWarpThreads>;
+    Scan().exclusiveSum(cnt, sum);
     if (threadIdx.x < kNumWarps) {
       if (threadIdx.x == kNumWarps - 1) {
         shared->numRows = cnt + sum;
@@ -246,6 +320,49 @@ __device__ __forceinline__ void filterKernel(
   __syncthreads();
   if (bits & (1 << (threadIdx.x & (kWarpThreads - 1)))) {
     auto* indices = reinterpret_cast<int32_t*>(operands[filter.indices]->base);
+    auto start = blockBase +
+        reinterpret_cast<int32_t*>(&shared->data)[threadIdx.x / kWarpThreads];
+    auto bit = start +
+        __popc(bits & lowMask<uint32_t>(threadIdx.x & (kWarpThreads - 1)));
+    indices[bit] = blockBase + threadIdx.x;
+  }
+  laneStatus =
+      threadIdx.x < shared->numRows ? ErrorCode::kOk : ErrorCode::kInactive;
+  __syncthreads();
+}
+
+__device__ __forceinline__ void filterKernel(
+    bool flag,
+    Operand** operands,
+    OperandIndex indicesIdx,
+    int32_t blockBase,
+    WaveShared* shared,
+    ErrorCode& laneStatus) {
+  bool isPassed = flag && laneActive(laneStatus);
+  uint32_t bits = __ballot_sync(0xffffffff, isPassed);
+  if ((threadIdx.x & (kWarpThreads - 1)) == 0) {
+    reinterpret_cast<int32_t*>(&shared->data)[threadIdx.x / kWarpThreads] =
+        __popc(bits);
+  }
+  __syncthreads();
+  if (threadIdx.x < kWarpThreads) {
+    constexpr int32_t kNumWarps = kBlockSize / kWarpThreads;
+    uint32_t cnt = threadIdx.x < kNumWarps
+        ? reinterpret_cast<int32_t*>(&shared->data)[threadIdx.x]
+        : 0;
+    uint32_t sum;
+    using Scan = WarpScan<uint32_t, kBlockSize / kWarpThreads>;
+    Scan().exclusiveSum(cnt, sum);
+    if (threadIdx.x < kNumWarps) {
+      if (threadIdx.x == kNumWarps - 1) {
+        shared->numRows = cnt + sum;
+      }
+      reinterpret_cast<int32_t*>(&shared->data)[threadIdx.x] = sum;
+    }
+  }
+  __syncthreads();
+  if (bits & (1 << (threadIdx.x & (kWarpThreads - 1)))) {
+    auto* indices = reinterpret_cast<int32_t*>(operands[indicesIdx]->base);
     auto start = blockBase +
         reinterpret_cast<int32_t*>(&shared->data)[threadIdx.x / kWarpThreads];
     auto bit = start +
@@ -307,6 +424,60 @@ __device__ void __forceinline__ wrapKernel(
   __syncthreads();
 }
 
+__device__ void __forceinline__ wrapKernel(
+    OperandIndex* wraps,
+    int32_t numWraps,
+    OperandIndex indicesIdx,
+    Operand** operands,
+    int32_t blockBase,
+    WaveShared* shared) {
+  Operand* op = operands[indicesIdx];
+  auto* filterIndices = reinterpret_cast<int32_t*>(op->base);
+  if (filterIndices[blockBase + shared->numRows - 1] ==
+      shared->numRows + blockBase - 1) {
+    // There is no cardinality change.
+    return;
+  }
+
+  struct WrapState {
+    int32_t* indices;
+  };
+
+  auto* state = reinterpret_cast<WrapState*>(&shared->data);
+  bool rowActive = threadIdx.x < shared->numRows;
+  int32_t totalWrap = numWraps + shared->numExtraWraps;
+  for (auto column = 0; column < totalWrap; ++column) {
+    if (threadIdx.x == 0) {
+      auto opIndex = column < numWraps ? wraps[column]
+                                       : shared->extraWraps + column - numWraps;
+      auto* op = operands[opIndex];
+      int32_t** opIndices = &op->indices[blockBase / kBlockSize];
+      if (!*opIndices) {
+        *opIndices = filterIndices + blockBase;
+        state->indices = nullptr;
+      } else {
+        state->indices = *opIndices;
+      }
+    }
+    __syncthreads();
+    // Every thread sees the decision on thred 0 above.
+    if (!state->indices) {
+      continue;
+    }
+    int32_t newIndex;
+    if (rowActive) {
+      newIndex =
+          state->indices[filterIndices[blockBase + threadIdx.x] - blockBase];
+    }
+    // All threads hit this.
+    __syncthreads();
+    if (rowActive) {
+      state->indices[threadIdx.x] = newIndex;
+    }
+  }
+  __syncthreads();
+}
+
 template <typename T>
 __device__ inline T opFunc_kPlus(T left, T right) {
   return left + right;
@@ -325,13 +496,21 @@ __device__ __forceinline__ void binaryOpKernel(
   }
   T left;
   T right;
-  if (operandOrNull(operands, instr.left, blockBase, shared, left) &&
-      operandOrNull(operands, instr.right, blockBase, shared, right)) {
-    flatResult<decltype(func(left, right))>(
-        operands, instr.result, blockBase, shared) = func(left, right);
+  if (operandOrNull(operands, instr.left, blockBase, left) &&
+      operandOrNull(operands, instr.right, blockBase, right)) {
+    flatResult<decltype(func(left, right))>(operands, instr.result, blockBase) =
+        func(left, right);
   } else {
-    resultNull(operands, instr.result, blockBase, shared);
+    resultNull(operands, instr.result, blockBase);
   }
+}
+
+template <typename T>
+__device__ T value(Operand* operands, OperandIndex opIdx) {
+  // Obsolete signature. call sites must be changed.
+  //    assert(false);
+  *(long*)0 = 0;
+  return T{};
 }
 
 } // namespace facebook::velox::wave

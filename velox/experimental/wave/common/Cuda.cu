@@ -21,6 +21,7 @@
 #include "velox/experimental/wave/common/CudaUtil.cuh"
 #include "velox/experimental/wave/common/Exception.h"
 
+#include <assert.h>
 #include <mutex>
 #include <sstream>
 
@@ -381,6 +382,39 @@ void printKernels() {
     std::cout << kernelEntries[i].name << " - "
               << getRegisteredKernelInfo(kernelEntries[i].name).toString()
               << std::endl;
+  }
+}
+
+int32_t numRegisteredHeaders{0};
+const char* registeredHeaders[100];
+const char* registeredHeaderNames[100];
+char nameString[5000];
+int32_t nameStringFill{0};
+
+bool registerHeader(const char* header) {
+  assert(
+      numRegisteredHeaders + 1 <
+      sizeof(registeredHeaders) / sizeof(registeredHeaders[0]));
+  auto newline = strchr(header, '\n');
+  assert(newline != nullptr);
+  registeredHeaderNames[numRegisteredHeaders] = &nameString[0] + nameStringFill;
+  int32_t nameLength = newline - header;
+  assert(sizeof(nameString) > nameLength + nameStringFill);
+  memcpy(&nameString[0] + nameStringFill, header, nameLength);
+  nameStringFill += nameLength + 1;
+
+  registeredHeaders[numRegisteredHeaders++] = newline + 1;
+  return true;
+}
+
+void getRegisteredHeaders(
+    std::vector<const char*>& names,
+    std::vector<const char*>& headers) {
+  names.resize(numRegisteredHeaders);
+  headers.resize(numRegisteredHeaders);
+  for (auto i = 0; i < names.size(); ++i) {
+    names[i] = registeredHeaderNames[i];
+    headers[i] = registeredHeaders[i];
   }
 }
 

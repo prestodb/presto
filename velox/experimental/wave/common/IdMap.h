@@ -28,6 +28,7 @@ class IdMap {
  public:
   void init(int capacity, T* values, int32_t* ids);
 
+#ifdef __NVCC__
   __device__ void clearTable();
 
   __device__ int32_t makeId(T value);
@@ -35,8 +36,10 @@ class IdMap {
   __device__ int cardinality() const {
     return lastId_;
   }
+#endif
 
  private:
+#ifdef __NVCC__
   __device__ static T casValue(T* address, T compare, T val);
 
   __device__ void storeNewId(volatile int32_t* id);
@@ -48,7 +51,7 @@ class IdMap {
   __device__ static void ensureIdReady(
       volatile const int32_t* id,
       int32_t placeholder);
-
+#endif
   static constexpr T kEmptyMarker = {};
   int capacity_;
   T* values_;

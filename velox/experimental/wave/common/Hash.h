@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/experimental/wave/common/CompilerDefines.h"
 #include "velox/experimental/wave/common/StringView.h"
 
 namespace facebook::velox::wave {
@@ -25,7 +26,7 @@ struct Hasher;
 
 class Murmur3 {
  public:
-  __device__ __host__ static uint32_t
+  WAVE_DEVICE_HOST static uint32_t
   hashBytes(const char* data, size_t len, uint32_t seed) {
     auto h1 = seed;
     size_t i = 0;
@@ -41,25 +42,25 @@ class Murmur3 {
   }
 
  private:
-  __device__ __host__ static uint32_t rotl32(uint32_t a, int shift) {
+  WAVE_DEVICE_HOST static uint32_t rotl32(uint32_t a, int shift) {
     return (a << shift) | (a >> (32 - shift));
   }
 
-  __device__ __host__ static uint32_t mixK1(uint32_t k1) {
+  WAVE_DEVICE_HOST static uint32_t mixK1(uint32_t k1) {
     k1 *= 0xcc9e2d51;
     k1 = rotl32(k1, 15);
     k1 *= 0x1b873593;
     return k1;
   }
 
-  __device__ __host__ static uint32_t mixH1(uint32_t h1, uint32_t k1) {
+  WAVE_DEVICE_HOST static uint32_t mixH1(uint32_t h1, uint32_t k1) {
     h1 ^= k1;
     h1 = rotl32(h1, 13);
     h1 = h1 * 5 + 0xe6546b64;
     return h1;
   }
 
-  __device__ __host__ static uint32_t fmix(uint32_t h1, uint32_t length) {
+  WAVE_DEVICE_HOST static uint32_t fmix(uint32_t h1, uint32_t length) {
     h1 ^= length;
     h1 ^= h1 >> 16;
     h1 *= 0x85ebca6b;
@@ -70,7 +71,7 @@ class Murmur3 {
   }
 };
 
-__device__ __host__ inline uint32_t jenkinsRevMix32(uint32_t key) {
+WAVE_DEVICE_HOST inline uint32_t jenkinsRevMix32(uint32_t key) {
   key += (key << 12); // key *= (1 + (1 << 12))
   key ^= (key >> 22);
   key += (key << 4); // key *= (1 + (1 << 4))
@@ -83,7 +84,7 @@ __device__ __host__ inline uint32_t jenkinsRevMix32(uint32_t key) {
   return key;
 }
 
-__device__ __host__ inline uint32_t twang32From64(uint64_t key) {
+WAVE_DEVICE_HOST inline uint32_t twang32From64(uint64_t key) {
   key = (~key) + (key << 18);
   key = key ^ (key >> 31);
   key = key * 21;
@@ -93,7 +94,9 @@ __device__ __host__ inline uint32_t twang32From64(uint64_t key) {
   return static_cast<uint32_t>(key);
 }
 
-__device__ inline uint64_t hashMix(const uint64_t upper, const uint64_t lower) {
+WAVE_DEVICE_HOST inline uint64_t hashMix(
+    const uint64_t upper,
+    const uint64_t lower) {
   // Murmur-inspired hashing.
   const uint64_t kMul = 0x9ddfea08eb382d69ULL;
   uint64_t a = (lower ^ upper) * kMul;
@@ -106,7 +109,7 @@ __device__ inline uint64_t hashMix(const uint64_t upper, const uint64_t lower) {
 
 template <typename T>
 struct IntHasher32 {
-  __device__ __host__ uint32_t operator()(T val) const {
+  WAVE_DEVICE_HOST uint32_t operator()(T val) const {
     if constexpr (sizeof(T) <= 4) {
       return jenkinsRevMix32(val);
     } else {
@@ -118,7 +121,7 @@ struct IntHasher32 {
 
 template <>
 struct Hasher<StringView, uint32_t> {
-  __device__ __host__ uint32_t operator()(StringView val) const {
+  WAVE_DEVICE_HOST uint32_t operator()(StringView val) const {
     return Murmur3::hashBytes(val.data(), val.size(), 42);
   }
 };

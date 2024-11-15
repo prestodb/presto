@@ -417,7 +417,7 @@ void BlockTestStream::hashTest(
     HashCase mode) {
   int32_t shared = 0;
   if (mode == HashCase::kGroup) {
-    shared = GpuHashTable::updatingProbeSharedSize();
+    shared = 0;
   }
   hashTestKernel<<<run.numBlocks, run.blockSize, shared, stream_->stream>>>(
       reinterpret_cast<GpuHashTable*>(table), run.probe, mode);

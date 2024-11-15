@@ -16,7 +16,9 @@
 
 #pragma once
 
+#ifndef __CUDACC_RTC__
 #include <string.h>
+#endif
 #include <cstdint>
 
 /// Structs for tagged GPU hash table. Can be inclued in both Velox .cpp and
@@ -32,12 +34,14 @@ struct GpuBucketMembers {
   uint32_t flags;
   uint16_t data[12];
 
+#ifndef __CUDACC_RTC__
   template <typename T>
   T* testingLoad(int32_t idx) {
     auto uptr = static_cast<uint64_t>(data[8 + idx]) << 32;
     uptr |= reinterpret_cast<uint32_t*>(data)[idx];
     return reinterpret_cast<T*>(uptr);
   }
+#endif
 };
 
 template <typename T, int32_t kSize>
@@ -48,15 +52,19 @@ class FreeSetBase {
   T items_[kSize] = {};
 };
 
+#ifndef __CUDACC_RTC__
 static inline int32_t roundUp64(int32_t value) {
   return (value + 64 - 1) / 64 * 64;
 }
+#endif
 
 /// Range of addresses. fixed length from bottom and variable length from top.
 /// if 'rowOffset' goes above 'rowLimit' then rows are full. If 'stringOffset'
 /// goes below 'rowLimit' then strings are full.
 struct AllocationRange {
   AllocationRange() = default;
+
+#ifndef __CUDACC_RTC__
   AllocationRange(
       uintptr_t base,
       uint32_t capacity,
@@ -83,7 +91,7 @@ struct AllocationRange {
 
   void operator=(AllocationRange&& other) {
     *this = other;
-    new (&other) AllocationRange();
+    memset(&other, 0, sizeof(AllocationRange));
   }
 
   int64_t availableFixed() {
@@ -129,7 +137,7 @@ struct AllocationRange {
   bool empty() {
     return capacity == 0;
   }
-
+#endif
   bool fixedFull{true};
   bool variableFull{true};
   /// Number of the partition. Used when filing away ranges on the control
@@ -147,6 +155,7 @@ struct AllocationRange {
 struct HashPartitionAllocator {
   static constexpr uint32_t kEmpty = ~0;
 
+#ifndef __CUDACC_RTC__
   HashPartitionAllocator(
       char* data,
       uint32_t capacity,
@@ -181,6 +190,7 @@ struct HashPartitionAllocator {
     target = ranges[0].trimFixed(target);
     ranges[1].trimFixed(target);
   }
+#endif
 
   const int32_t rowSize{0};
   AllocationRange ranges[2];
@@ -236,6 +246,7 @@ struct HashProbe {
 struct GpuBucket;
 
 struct GpuHashTableBase {
+#ifndef __CUDACC_RTC__
   GpuHashTableBase(
       GpuBucket* buckets,
       int32_t sizeMask,
@@ -246,7 +257,7 @@ struct GpuHashTableBase {
         partitionMask(partitionMask),
         allocators(allocators),
         maxEntries(((sizeMask + 1) * GpuBucketMembers::kNumSlots) / 6 * 5) {}
-
+#endif
   /// Bucket array. Size is 'sizeMask + 1'.
   GpuBucket* buckets{nullptr};
 
