@@ -25,11 +25,11 @@
 #include <limits>
 #include <vector>
 
-#include "functions/sort.h"
+#include "breeze/functions/sort.h"
+#include "breeze/platforms/platform.h"
+#include "breeze/utils/device_vector.h"
+#include "breeze/utils/types.h"
 #include "perftest/perftest.h"
-#include "platforms/platform.h"
-#include "utils/device_vector.h"
-#include "utils/types.h"
 
 namespace breeze {
 

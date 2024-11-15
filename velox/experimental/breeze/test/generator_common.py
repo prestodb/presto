@@ -38,9 +38,11 @@ COPYRIGHT = f"""/*
  * limitations under the License.
  */
 
-// Copyright (c) {datetime.now().year} by Rivos Inc.
-// Licensed under the Apache License, Version 2.0, see LICENSE for details.
-// SPDX-License-Identifier: Apache-2.0
+/*
+ * Copyright (c) {datetime.now().year} by Rivos Inc.
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 """
 
 parser = argparse.ArgumentParser()

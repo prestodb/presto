@@ -140,9 +140,13 @@ struct supported_type<float> {
   static float min() { return __FLT_MIN__; }
   static float max() { return __FLT_MAX__; }
   static float atomic_load(float *address) {
-    unsigned value = __atomic_load_n(reinterpret_cast<unsigned *>(address),
-                                     __ATOMIC_RELAXED);
-    return *reinterpret_cast<float *>(&value);
+    union {
+      float value;
+      unsigned raw;
+    } content;
+    content.raw = __atomic_load_n(reinterpret_cast<unsigned *>(address),
+                                  __ATOMIC_RELAXED);
+    return content.value;
   }
   static void atomic_store(float *address, float value) {
     __atomic_store_n(reinterpret_cast<unsigned *>(address),
@@ -166,9 +170,13 @@ struct supported_type<double> {
   static double min() { return __DBL_MIN__; }
   static double max() { return __DBL_MAX__; }
   static double atomic_load(double *address) {
-    unsigned long long value = __atomic_load_n(
+    union {
+      double value;
+      unsigned long long raw;
+    } content;
+    content.raw = __atomic_load_n(
         reinterpret_cast<unsigned long long *>(address), __ATOMIC_RELAXED);
-    return *reinterpret_cast<double *>(&value);
+    return content.value;
   }
   static void atomic_store(double *address, double value) {
     __atomic_store_n(reinterpret_cast<unsigned long long *>(address),

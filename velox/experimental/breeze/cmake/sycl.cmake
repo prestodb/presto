@@ -29,10 +29,10 @@ function(breeze_add_sycl_test target source)
     OUTPUT ${target}.o
     COMMAND
       ${SYCLCC_EXECUTABLE} ${NDEBUG_DEFINE} -DPLATFORM_SYCL
-      -I${CMAKE_SOURCE_DIR} -I${CMAKE_SOURCE_DIR}/test
-      -I${gtest_SOURCE_DIR}/googletest/include -I${CMAKE_CURRENT_BINARY_DIR}
-      ${CMAKE_CXX_FLAGS} ${OPT_FLAGS} ${SANITIZE_COMPILE_FLAGS} -std=c++17 -c
-      ${source} -MD -MF ${target}.o.d -o ${target}.o
+      -I${CMAKE_SOURCE_DIR} -I${gtest_SOURCE_DIR}/googletest/include
+      -I${CMAKE_BINARY_DIR} ${CMAKE_CXX_FLAGS} ${OPT_FLAGS}
+      ${SANITIZE_COMPILE_FLAGS} -std=c++17 -c ${source} -MD -MF ${target}.o.d -o
+      ${target}.o
     DEPFILE ${target}.o.d
     DEPENDS ${arg_DEPENDS}
     COMMENT "Building SYCL object ${target}.o")

@@ -27,9 +27,8 @@ function(breeze_add_metal_test_kernels target source)
     OUTPUT ${target}.air
     COMMAND
       xcrun -sdk macosx metal -DPLATFORM_METAL -I${CMAKE_SOURCE_DIR}
-      -I${CMAKE_CURRENT_BINARY_DIR} ${WARN_FLAGS} ${OPT_FLAGS}
-      -Wno-c++17-extensions -std=metal3.0 -c ${source} -MD -MF ${target}.air.d
-      -o ${target}.air
+      -I${CMAKE_BINARY_DIR} ${WARN_FLAGS} ${OPT_FLAGS} -Wno-c++17-extensions
+      -std=metal3.0 -c ${source} -MD -MF ${target}.air.d -o ${target}.air
     COMMENT "Compile ${source} --> ${target}.air"
     DEPENDS ${arg_DEPENDS}
     DEPFILE ${target}.air.d)
@@ -44,7 +43,7 @@ endfunction()
 function(breeze_add_metal_test target source shaderlib)
   add_executable(${target} ${source} platforms/metal_test.mm)
   target_compile_features(${target} PRIVATE cxx_std_17)
-  target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_include_directories(${target} PRIVATE ${CMAKE_BINARY_DIR})
   target_compile_definitions(${target} PUBLIC PLATFORM_METAL=1
                                               SHADER_LIB=\"${shaderlib}\")
   target_compile_options(

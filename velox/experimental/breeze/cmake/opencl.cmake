@@ -29,7 +29,7 @@ function(breeze_add_opencl_test_kernels target source)
     OUTPUT ${target}.so
     COMMAND
       ${CLCC_EXECUTABLE} -o ${target}.so ${source} -MD -MF ${target}.clcpp.d
-      -DPLATFORM_OPENCL -I${CMAKE_SOURCE_DIR} -I${CMAKE_CURRENT_BINARY_DIR}
+      -DPLATFORM_OPENCL -I${CMAKE_SOURCE_DIR} -I${CMAKE_BINARY_DIR}
       ${COMPILER_WARN_FLAGS} ${OPT_FLAGS}
     COMMENT "Building OpenCL kernels ${source} --> ${target}.so"
     DEPENDS ${arg_DEPENDS}
@@ -41,7 +41,7 @@ function(breeze_add_opencl_test target source shaderlib)
   add_executable(${target} ${source})
   target_compile_features(${target} PRIVATE cxx_std_17)
   target_include_directories(${target} PRIVATE ${CMAKE_OPENCL_INCLUDE}
-                                               ${CMAKE_CURRENT_BINARY_DIR})
+                                               ${CMAKE_BINARY_DIR})
   target_compile_definitions(${target} PUBLIC PLATFORM_OPENCL=1
                                               SHADER_LIB=\"${shaderlib}\")
   target_compile_options(${target} PRIVATE ${WARN_FLAGS} ${OPT_FLAGS}

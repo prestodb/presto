@@ -30,8 +30,8 @@
 #include <regex>
 #include <string>
 
-#include "platforms/cuda.cuh"
-#include "utils/trace.h"
+#include "breeze/platforms/cuda.cuh"
+#include "breeze/utils/trace.h"
 
 namespace breeze {
 

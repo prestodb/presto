@@ -22,8 +22,8 @@
 
 #pragma once
 
-#include "utils/device_allocator.h"
-#include "utils/device_vector.h"
+#include "breeze/utils/device_allocator.h"
+#include "breeze/utils/device_vector.h"
 
 namespace breeze {
 

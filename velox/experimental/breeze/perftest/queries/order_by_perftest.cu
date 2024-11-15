@@ -28,17 +28,17 @@
 #include <string>
 #include <vector>
 
-#include "algorithms/sort.h"
-#include "functions/load.h"
-#include "functions/reduce.h"
-#include "functions/scan.h"
-#include "functions/store.h"
+#include "breeze/algorithms/sort.h"
+#include "breeze/functions/load.h"
+#include "breeze/functions/reduce.h"
+#include "breeze/functions/scan.h"
+#include "breeze/functions/store.h"
+#include "breeze/platforms/cuda.cuh"
+#include "breeze/utils/device_vector.h"
+#include "breeze/utils/types.h"
 #include "perftest/perftest.h"
 #include "perftest/queries/caching_device_allocator.cuh"
 #include "perftest/queries/device_column.h"
-#include "platforms/cuda.cuh"
-#include "utils/device_vector.h"
-#include "utils/types.h"
 
 namespace breeze {
 namespace test {

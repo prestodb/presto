@@ -21,10 +21,6 @@ if(NOT DEFINED CMAKE_NVCC_FLAGS)
     set(CMAKE_NVCC_FLAGS
         "$ENV{NVCCFLAGS}"
         CACHE STRING "NVCC flags")
-  else()
-    set(CMAKE_NVCC_FLAGS
-        "-gencode;arch=compute_60,code=sm_60;-gencode;arch=compute_70,code=sm_70;-gencode;arch=compute_80,code=sm_80;-gencode;arch=compute_90,code=sm_90"
-        CACHE STRING "NVCC flags")
   endif()
 endif()
 if(BREEZE_BUILD_TYPE MATCHES Debug)
@@ -54,7 +50,7 @@ endif()
 # use PTX specialization by default for CUDA
 if(NOT DEFINED CUDA_PLATFORM_SPECIALIZATION_HEADER)
   set(CUDA_PLATFORM_SPECIALIZATION_HEADER
-      platforms/specialization/cuda-ptx.cuh
+      breeze/platforms/specialization/cuda-ptx.cuh
       CACHE STRING "CUDA platform specialization header")
 endif()
 
@@ -87,8 +83,8 @@ function(breeze_add_cuda_test target source)
     "FLAGS;LIBS;DEPENDS"
     ${ARGN})
   list(APPEND arg_FLAGS -I${gtest_SOURCE_DIR}/googletest/include)
-  list(APPEND arg_FLAGS -I${CMAKE_SOURCE_DIR}/test)
-  list(APPEND arg_FLAGS -I${CMAKE_CURRENT_BINARY_DIR})
+  list(APPEND arg_FLAGS -I${CMAKE_SOURCE_DIR})
+  list(APPEND arg_FLAGS -I${CMAKE_BINARY_DIR})
   breeze_add_cuda_object(
     ${target}
     ${source}

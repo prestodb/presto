@@ -34,6 +34,13 @@ import io
 import subprocess
 
 
+AUTOGEN_HEADER = f"""/*
+ * This file is auto-generated from test_fixture_generator.py
+ * DO NOT EDIT!
+ */
+"""
+
+
 def get_children_with_type(cursor, ty):
     return list(filter(lambda c: c.kind == ty, cursor.get_children()))
 
@@ -125,6 +132,8 @@ class TestFixtureGen:
         out.write(
             f"""\
         {COPYRIGHT}
+
+        {AUTOGEN_HEADER}
 
         #include <gtest/gtest.h>
         #include <vector>

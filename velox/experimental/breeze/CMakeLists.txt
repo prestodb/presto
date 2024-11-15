@@ -120,7 +120,7 @@ endif()
 
 if(NOT DISABLE_GOOGLETEST)
   set(GTest_SOURCE AUTO)
-  resolve_dependency(GTest)
+  velox_resolve_dependency(GTest)
 endif()
 
 if(BUILD_TESTING)

@@ -24,14 +24,14 @@
 
 #include <vector>
 
-#include "algorithms/scan.h"
-#include "functions/load.h"
-#include "functions/scan.h"
-#include "functions/store.h"
+#include "breeze/algorithms/scan.h"
+#include "breeze/functions/load.h"
+#include "breeze/functions/scan.h"
+#include "breeze/functions/store.h"
+#include "breeze/platforms/platform.h"
+#include "breeze/utils/block_details.h"
+#include "breeze/utils/device_vector.h"
 #include "perftest/perftest.h"
-#include "platforms/platform.h"
-#include "utils/block_details.h"
-#include "utils/device_vector.h"
 
 namespace breeze {
 

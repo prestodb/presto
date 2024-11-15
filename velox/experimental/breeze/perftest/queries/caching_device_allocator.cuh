@@ -27,12 +27,12 @@
 #include <memory>
 
 #ifdef __EXCEPTIONS
-#include "utils/types.h"
+#include "breeze/utils/types.h"
 #else
 #include <iostream>
 #endif
 
-#include "platforms/cuda.cuh"
+#include "breeze/platforms/cuda.cuh"
 
 // caching device allocator that can be used to eliminate
 // allocation cost from benchmarks by handling all neccessary

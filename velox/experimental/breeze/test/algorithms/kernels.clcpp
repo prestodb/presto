@@ -22,7 +22,7 @@
 
 enum { OPENCL_WARP_THREADS = 32 };
 
-#include "generated/algorithms/kernels-opencl.h"
+#include "test/generated/algorithms/kernels-opencl.h"
 
 // kernel specializations
 

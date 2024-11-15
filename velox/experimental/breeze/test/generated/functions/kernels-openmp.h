@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 
-// Copyright (c) 2024 by Rivos Inc.
-// Licensed under the Apache License, Version 2.0, see LICENSE for details.
-// SPDX-License-Identifier: Apache-2.0
+/*
+ * Copyright (c) 2024 by Rivos Inc.
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * This file is auto-generated from kernel_generator.py
+ * DO NOT EDIT!
+ */
 
 #include "breeze/functions/load.h"
 #include "breeze/functions/reduce.h"

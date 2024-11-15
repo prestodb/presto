@@ -29,6 +29,12 @@
 
 #if TRACING
 
+// Workaround for CUDA/HIP PERFETTO_NO_INLINE conflict
+#ifdef __noinline__
+#undef __noinline__
+#define __noinline__ noinline
+#endif
+
 #include <perfetto.h>
 
 #include <condition_variable>

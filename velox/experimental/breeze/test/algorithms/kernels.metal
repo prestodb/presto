@@ -20,7 +20,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "generated/algorithms/kernels-metal.h"
+#include "test/generated/algorithms/kernels-metal.h"
 
 // kernel specializations
 

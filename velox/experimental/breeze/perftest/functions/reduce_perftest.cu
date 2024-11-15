@@ -24,10 +24,10 @@
 
 #include <vector>
 
-#include "functions/reduce.h"
+#include "breeze/functions/reduce.h"
+#include "breeze/platforms/platform.h"
+#include "breeze/utils/device_vector.h"
 #include "perftest/perftest.h"
-#include "platforms/platform.h"
-#include "utils/device_vector.h"
 
 namespace breeze {
 

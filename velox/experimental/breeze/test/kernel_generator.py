@@ -34,6 +34,13 @@ import subprocess
 from abc import ABC, abstractmethod
 
 
+AUTOGEN_HEADER = f"""/*
+ * This file is auto-generated from kernel_generator.py
+ * DO NOT EDIT!
+ */
+"""
+
+
 def kernels_extractor(tu):
     kernels = []
     for c in tu.cursor.get_children():
@@ -87,8 +94,8 @@ class KernelCodeGen(ABC):
 
     def generate(self, tu, filename):
         out = io.StringIO()
-        # Copyright and platform specific includes
-        out.write(f"{COPYRIGHT}\n{self.includes}\n")
+        # Copyright, autogen header, and platform specific includes
+        out.write(f"{COPYRIGHT}\n{AUTOGEN_HEADER}\n{self.includes}\n")
         # Add general includes
         for i in includes_extractor(tu):
             out.write(read_extent(i.extent))
