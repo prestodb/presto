@@ -759,7 +759,6 @@ public class PlanOptimizers
 
         builder.add(new GroupInnerJoinsByConnector(metadata));
         builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)));
-        predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser, true));
         builder.add(predicatePushDown, simplifyRowExpressionOptimizer);
 
         builder.add(new IterativeOptimizer(

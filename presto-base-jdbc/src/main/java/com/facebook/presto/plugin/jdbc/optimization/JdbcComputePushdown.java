@@ -48,6 +48,7 @@ import static com.facebook.presto.expressions.translator.RowExpressionTreeTransl
 import static com.facebook.presto.plugin.jdbc.optimization.function.JdbcTranslationUtil.mergeSqlBodies;
 import static com.facebook.presto.plugin.jdbc.optimization.function.JdbcTranslationUtil.mergeVariableBindings;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -167,6 +168,7 @@ public class JdbcComputePushdown
             List<RowExpression> remainingExpressions = new ArrayList<>();
             List<JdbcExpression> translatedExpressions = new ArrayList<>();
 
+            predicate = expressionOptimizer.optimize(node.getPredicate(), SERIALIZABLE, session);
             List<RowExpression> rowExpressions = LogicalRowExpressions.extractConjuncts(predicate);
             for (RowExpression expression : rowExpressions) {
                 TranslatedExpression<JdbcExpression> translatedExpression = translateWith(

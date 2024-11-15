@@ -36,7 +36,7 @@ public final class JdbcQueryRunner
     {
     }
 
-    private static final String TPCH_SCHEMA = "TPCH";
+    private static final String TPCH_SCHEMA = "tpch";
     private static final String JDBC = "jdbc";
 
     public static DistributedQueryRunner createJdbcQueryRunner(TpchTable<?>... tables)
