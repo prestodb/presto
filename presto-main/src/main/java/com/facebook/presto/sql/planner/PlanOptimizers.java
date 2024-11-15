@@ -197,6 +197,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.LOGICAL;
 import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.PHYSICAL;
+import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.STRUCTURAL;
 
 public class PlanOptimizers
 {
@@ -759,7 +760,7 @@ public class PlanOptimizers
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
 
         builder.add(new GroupInnerJoinsByConnector(metadata));
-        builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)));
+        builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(STRUCTURAL)));
         builder.add(predicatePushDown, simplifyRowExpressionOptimizer);
 
         builder.add(new IterativeOptimizer(

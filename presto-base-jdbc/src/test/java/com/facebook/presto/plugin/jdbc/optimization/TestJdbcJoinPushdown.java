@@ -55,6 +55,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -94,14 +95,15 @@ public class TestJdbcJoinPushdown
         ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
         PlanNode actual = this.jdbcJoinPushdown.optimize(original, session, null, ID_ALLOCATOR);
 
+        final String aliasPrefix = "T";
         List<ConnectorTableHandle> tableHandles = new ArrayList<>();
         for (int i = 1; i <= 3; i++) {
             String table = "test_table" + i;
             String schema = "test_schema" + i;
-            JdbcTableHandle tableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.empty());
+            JdbcTableHandle tableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.of(aliasPrefix + i));
             tableHandles.add(tableHandle);
         }
-        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("test_schema1", "test_table1"), CATALOG_NAME, "test_schema1", "test_table1", Optional.of(tableHandles), Optional.empty());
+        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("test_schema1", "test_table1"), CATALOG_NAME, "test_schema1", "test_table1", Optional.of(tableHandles), Optional.of("T1"));
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), Optional.of(new JdbcExpression("(('c1' + 'c2') - 'c2')")));
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcJoinPushdown::integerJdbcColumnHandle).collect(Collectors.toSet());
         assertPlanMatch(
@@ -148,15 +150,16 @@ public class TestJdbcJoinPushdown
 
     private TableScanNode combinedJdbcTableScan(Type type, String... columnNames)
     {
-        List<ConnectorTableHandle> tableHandles = new ArrayList<>();
+        Set<ConnectorTableHandle> tableHandles = new LinkedHashSet<>();
+        final String aliasPrefix = "T";
         for (int i = 1; i <= 3; i++) {
             String table = "test_table" + i;
             String schema = "test_schema" + i;
-            JdbcTableHandle tableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.empty());
+            JdbcTableHandle tableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.of(aliasPrefix + i));
             tableHandles.add(tableHandle);
         }
-        JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandles.get(0);
-        Set<JoinTableInfo> joinTableInfos = new HashSet<>();
+        JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandles.iterator().next();
+        Set<JoinTableInfo> joinTableInfos = new LinkedHashSet<>();
         List<VariableReferenceExpression> outputVariables = Arrays.stream(columnNames).map(column -> newVariable(column, type)).collect(toImmutableList());
         Map<VariableReferenceExpression, ColumnHandle> assignments = Arrays.stream(columnNames)
                 .map(column -> newVariable(column, type)).collect(toMap(identity(), entry -> getColumnHandleForVariable(entry.getName(), type)));
@@ -259,7 +262,6 @@ public class TestJdbcJoinPushdown
             JdbcTableLayoutHandle layoutHandle = (JdbcTableLayoutHandle) tableScanNode.getTable().getLayout().get();
 
             if (jdbcTableLayoutHandle.getTable().equals(layoutHandle.getTable())
-                    && jdbcTableLayoutHandle.getTable().equals(layoutHandle.getTable())
                     && jdbcTableLayoutHandle.getTupleDomain().equals(layoutHandle.getTupleDomain())
                     && ((!jdbcTableLayoutHandle.getAdditionalPredicate().isPresent() && !layoutHandle.getAdditionalPredicate().isPresent())
                     || jdbcTableLayoutHandle.getAdditionalPredicate().get().getExpression().equals(layoutHandle.getAdditionalPredicate().get().getExpression()))) {

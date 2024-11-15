@@ -393,7 +393,11 @@ public class QueryBuilder
             disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), columnHandle, accumulator, joinPushdownEnabled));
         }
         else if (singleValues.size() > 1) {
+            for (Object value : singleValues) {
+                bindValue(value, columnHandle, accumulator);
+            }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
+            disjuncts.add(getColumnIdentifier(columnName, columnHandle, joinPushdownEnabled) + " IN (" + values + ")");
         }
 
         // Add nullability disjuncts

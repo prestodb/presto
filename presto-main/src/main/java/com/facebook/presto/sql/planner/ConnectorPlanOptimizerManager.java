@@ -58,6 +58,8 @@ public class ConnectorPlanOptimizerManager
                 return ImmutableMap.copyOf(transformValues(planOptimizerProviders, ConnectorPlanOptimizerProvider::getLogicalPlanOptimizers));
             case PHYSICAL:
                 return ImmutableMap.copyOf(transformValues(planOptimizerProviders, ConnectorPlanOptimizerProvider::getPhysicalPlanOptimizers));
+            case STRUCTURAL:
+                return ImmutableMap.copyOf(transformValues(planOptimizerProviders, ConnectorPlanOptimizerProvider::getStructuralPlanOptimizers));
             default:
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unknown plan phase " + phase);
         }
@@ -65,6 +67,6 @@ public class ConnectorPlanOptimizerManager
 
     public enum PlanPhase
     {
-        LOGICAL, PHYSICAL
+        LOGICAL, PHYSICAL, STRUCTURAL
     }
 }

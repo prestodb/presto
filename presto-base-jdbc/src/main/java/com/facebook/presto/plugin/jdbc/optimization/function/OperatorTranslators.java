@@ -53,20 +53,6 @@ public class OperatorTranslators
         return new JdbcExpression(infixOperation("=", left, right), forwardBindVariables(left, right));
     }
 
-    @ScalarOperator(EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static JdbcExpression equalInteger(@SqlType(StandardTypes.INTEGER) JdbcExpression left, @SqlType(StandardTypes.INTEGER) JdbcExpression right)
-    {
-        return new JdbcExpression(infixOperation("=", left, right), forwardBindVariables(left, right));
-    }
-
-    @ScalarOperator(EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static JdbcExpression equalVarchar(@SqlType(StandardTypes.VARCHAR) JdbcExpression left, @SqlType(StandardTypes.VARCHAR) JdbcExpression right)
-    {
-        return new JdbcExpression(infixOperation("=", left, right), forwardBindVariables(left, right));
-    }
-
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static JdbcExpression notEqual(@SqlType(StandardTypes.BIGINT) JdbcExpression left, @SqlType(StandardTypes.BIGINT) JdbcExpression right)

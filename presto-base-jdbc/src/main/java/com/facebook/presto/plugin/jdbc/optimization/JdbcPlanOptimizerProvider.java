@@ -55,7 +55,7 @@ public class JdbcPlanOptimizerProvider
     @Override
     public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
     {
-        return ImmutableSet.of(new JdbcJoinPushdown());
+        return ImmutableSet.of();
     }
 
     @Override
@@ -68,6 +68,12 @@ public class JdbcPlanOptimizerProvider
                 expressionOptimizer,
                 identifierQuote,
                 getFunctionTranslators()));
+    }
+
+    @Override
+    public Set<ConnectorPlanOptimizer> getStructuralPlanOptimizers()
+    {
+        return ImmutableSet.of(new JdbcJoinPushdown());
     }
 
     private Set<Class<?>> getFunctionTranslators()

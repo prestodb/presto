@@ -1837,6 +1837,7 @@ public final class SystemSessionProperties
                         INEQUALITY_JOIN_PUSHDOWN_ENABLED,
                         "Enable Join Pushdown for Inequality Predicates",
                         featuresConfig.isInEqualityJoinPushdownEnabled(),
+                    false),
                 integerProperty(
                         NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING,
                         "Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only",
@@ -3126,6 +3127,8 @@ public final class SystemSessionProperties
     public static Boolean isInEqualityPushdownEnabled(Session session)
     {
         return session.getSystemProperty(INEQUALITY_JOIN_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
     public static int getMinColumnarEncodingChannelsToPreferRowWiseEncoding(Session session)
     {
         return session.getSystemProperty(NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING, Integer.class);

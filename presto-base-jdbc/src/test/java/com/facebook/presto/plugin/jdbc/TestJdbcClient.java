@@ -152,10 +152,10 @@ public class TestJdbcClient
         try {
             assertEquals(tableHandle.getTableName(), tableName);
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
-                    new JdbcColumnHandle(CONNECTOR_ID, "columnA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty()),
-                    new JdbcColumnHandle(CONNECTOR_ID, "columnB", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty()),
-                    new JdbcColumnHandle(CONNECTOR_ID, "columnC", JDBC_BIGINT, BigintType.BIGINT, false, Optional.empty(), Optional.empty()),
-                    new JdbcColumnHandle(CONNECTOR_ID, "columnD", JDBC_DATE, DateType.DATE, false, Optional.empty(), Optional.empty())));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNC", JDBC_BIGINT, BigintType.BIGINT, false, Optional.empty(), Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMND", JDBC_DATE, DateType.DATE, false, Optional.empty(), Optional.empty())));
         }
         finally {
             jdbcClient.dropTable(session, JdbcIdentity.from(session), tableHandle);
