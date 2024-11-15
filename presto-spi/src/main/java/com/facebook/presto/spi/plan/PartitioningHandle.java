@@ -71,6 +71,21 @@ public class PartitioningHandle
         return connectorHandle.isCoordinatorOnly();
     }
 
+    public boolean isBroadcast()
+    {
+        return connectorHandle.isBroadcast();
+    }
+
+    public boolean isArbitrary()
+    {
+        return connectorHandle.isArbitrary();
+    }
+
+    public boolean isSingleOrBroadcastOrArbitrary()
+    {
+        return isSingleNode() || isBroadcast() || isArbitrary();
+    }
+
     @Override
     public boolean equals(Object o)
     {

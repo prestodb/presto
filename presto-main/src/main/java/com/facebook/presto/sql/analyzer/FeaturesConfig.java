@@ -290,6 +290,8 @@ public class FeaturesConfig
     private boolean innerJoinPushdownEnabled;
     private boolean inEqualityJoinPushdownEnabled;
 
+    private boolean prestoSparkExecutionEnvironment;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2873,5 +2875,16 @@ public class FeaturesConfig
     public boolean isInEqualityJoinPushdownEnabled()
     {
         return inEqualityJoinPushdownEnabled;
+    }
+    public boolean isPrestoSparkExecutionEnvironment()
+    {
+        return prestoSparkExecutionEnvironment;
+    }
+
+    @Config("presto-spark-execution-environment")
+    public FeaturesConfig setPrestoSparkExecutionEnvironment(boolean prestoSparkExecutionEnvironment)
+    {
+        this.prestoSparkExecutionEnvironment = prestoSparkExecutionEnvironment;
+        return this;
     }
 }

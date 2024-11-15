@@ -1281,6 +1281,11 @@ extern void to_json(json& j, const ExchangeNodeType& e);
 extern void from_json(const json& j, ExchangeNodeType& e);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+enum class ExchangeEncoding { COLUMNAR, ROW_WISE };
+extern void to_json(json& j, const ExchangeEncoding& e);
+extern void from_json(const json& j, ExchangeEncoding& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct PartitioningHandle {
   std::shared_ptr<ConnectorId> connectorId = {};
   std::shared_ptr<ConnectorTransactionHandle> transactionHandle = {};
@@ -1303,6 +1308,7 @@ struct PartitioningScheme {
   List<VariableReferenceExpression> outputLayout = {};
   std::shared_ptr<VariableReferenceExpression> hashColumn = {};
   bool replicateNullsAndAny = {};
+  ExchangeEncoding encoding = {};
   std::shared_ptr<List<int>> bucketToPartition = {};
 };
 void to_json(json& j, const PartitioningScheme& p);
@@ -1889,6 +1895,7 @@ struct RemoteSourceNode : public PlanNode {
   bool ensureSourceOrdering = {};
   std::shared_ptr<OrderingScheme> orderingScheme = {};
   ExchangeNodeType exchangeType = {};
+  ExchangeEncoding encoding = {};
 
   RemoteSourceNode() noexcept;
 };

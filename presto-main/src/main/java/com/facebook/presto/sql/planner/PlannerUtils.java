@@ -31,6 +31,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -44,7 +45,6 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -277,16 +277,16 @@ public class PlannerUtils
         AggregationNode.GroupingSetDescriptor groupingSetDescriptor = new AggregationNode.GroupingSetDescriptor(groupingKeys, 1, ImmutableSet.of(1));
         return projectExpressions(
                 new AggregationNode(
-                    Optional.empty(),
-                    planNodeIdAllocator.getNextId(),
-                    planNode,
-                    aggregationMap,
-                    groupingSetDescriptor,
-                    ImmutableList.of(),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty()),
+                        Optional.empty(),
+                        planNodeIdAllocator.getNextId(),
+                        planNode,
+                        aggregationMap,
+                        groupingSetDescriptor,
+                        ImmutableList.of(),
+                        AggregationNode.Step.SINGLE,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
                 planNodeIdAllocator,
                 variableAllocator,
                 ImmutableList.of(resultVariable),
@@ -455,7 +455,7 @@ public class PlannerUtils
     public static boolean isScanFilterProject(PlanNode node)
     {
         return node instanceof TableScanNode ||
-            node instanceof ProjectNode && isScanFilterProject(((ProjectNode) node).getSource()) ||
+                node instanceof ProjectNode && isScanFilterProject(((ProjectNode) node).getSource()) ||
                 node instanceof FilterNode && isScanFilterProject(((FilterNode) node).getSource());
     }
 

@@ -346,7 +346,7 @@ public class TestCanonicalPlanGenerator
                         .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
-                ImmutableSet.of("partitioning", "outputLayout", "hashColumn", "replicateNullsAndAny", "bucketToPartition"));
+                ImmutableSet.of("partitioning", "outputLayout", "hashColumn", "replicateNullsAndAny", "encoding", "bucketToPartition"));
         assertEquals(
                 Arrays.stream(Partitioning.class.getDeclaredFields())
                         .filter(f -> !f.isSynthetic())

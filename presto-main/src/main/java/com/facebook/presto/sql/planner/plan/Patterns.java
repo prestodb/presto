@@ -21,17 +21,21 @@ import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
@@ -314,6 +318,19 @@ public class Patterns
         public static Property<ValuesNode, List<List<RowExpression>>> rows()
         {
             return property("rows", ValuesNode::getRows);
+        }
+    }
+
+    public static class Exchange
+    {
+        public static Property<ExchangeNode, ExchangeNode.Scope> scope()
+        {
+            return property("scope", ExchangeNode::getScope);
+        }
+
+        public static Property<ExchangeNode, ExchangeNode.Type> type()
+        {
+            return property("type", ExchangeNode::getType);
         }
     }
 }

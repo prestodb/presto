@@ -248,7 +248,8 @@ public class TestFeaturesConfig
                 .setEagerPlanValidationEnabled(false)
                 .setEagerPlanValidationThreadPoolSize(20)
                 .setInnerJoinPushdownEnabled(false)
-                .setInEqualityJoinPushdownEnabled(false));
+                .setInEqualityJoinPushdownEnabled(false)
+                .setPrestoSparkExecutionEnvironment(false));
     }
 
     @Test
@@ -446,6 +447,7 @@ public class TestFeaturesConfig
                 .put("eager-plan-validation-thread-pool-size", "2")
                 .put("optimizer.inner-join-pushdown-enabled", "true")
                 .put("optimizer.inequality-join-pushdown-enabled", "true")
+                .put("presto-spark-execution-environment", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -640,7 +642,8 @@ public class TestFeaturesConfig
                 .setEagerPlanValidationEnabled(true)
                 .setEagerPlanValidationThreadPoolSize(2)
                 .setInEqualityJoinPushdownEnabled(true)
-                .setInnerJoinPushdownEnabled(true);
+                .setInnerJoinPushdownEnabled(true)
+                .setPrestoSparkExecutionEnvironment(true);
         assertFullMapping(properties, expected);
     }
 

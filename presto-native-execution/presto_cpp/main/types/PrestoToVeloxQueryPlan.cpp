@@ -332,6 +332,16 @@ core::LocalPartitionNode::Type toLocalExchangeType(
   }
 }
 
+VectorSerde::Kind toVeloxSerdeKind(protocol::ExchangeEncoding encoding) {
+  switch (encoding) {
+    case protocol::ExchangeEncoding::COLUMNAR:
+      return VectorSerde::Kind::kPresto;
+    case protocol::ExchangeEncoding::ROW_WISE:
+      return VectorSerde::Kind::kCompactRow;
+  }
+  VELOX_UNSUPPORTED("Unsupported encoding: {}.", fmt::underlying(encoding));
+}
+
 std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     const std::shared_ptr<const protocol::ExchangeNode>& node,
     core::LocalPartitionNode::Type type,
@@ -1830,7 +1840,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         planFragment.planNode = core::PartitionedOutputNode::single(
             partitionedOutputNodeId,
             outputType,
-            velox::VectorSerde::Kind::kPresto,
+            toVeloxSerdeKind((partitioningScheme.encoding)),
             sourceNode);
         return planFragment;
       case protocol::SystemPartitioning::FIXED: {
@@ -1842,7 +1852,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
               planFragment.planNode = core::PartitionedOutputNode::single(
                   partitionedOutputNodeId,
                   outputType,
-                  velox::VectorSerde::Kind::kPresto,
+                  toVeloxSerdeKind((partitioningScheme.encoding)),
                   sourceNode);
               return planFragment;
             }
@@ -1855,7 +1865,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     partitioningScheme.replicateNullsAndAny,
                     std::make_shared<RoundRobinPartitionFunctionSpec>(),
                     outputType,
-                    velox::VectorSerde::Kind::kPresto,
+                    toVeloxSerdeKind((partitioningScheme.encoding)),
                     sourceNode);
             return planFragment;
           }
@@ -1866,7 +1876,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
               planFragment.planNode = core::PartitionedOutputNode::single(
                   partitionedOutputNodeId,
                   outputType,
-                  velox::VectorSerde::Kind::kPresto,
+                  toVeloxSerdeKind((partitioningScheme.encoding)),
                   sourceNode);
               return planFragment;
             }
@@ -1880,7 +1890,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     std::make_shared<HashPartitionFunctionSpec>(
                         inputType, keyChannels, constValues),
                     outputType,
-                    velox::VectorSerde::Kind::kPresto,
+                    toVeloxSerdeKind((partitioningScheme.encoding)),
                     sourceNode);
             return planFragment;
           }
@@ -1889,7 +1899,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                 partitionedOutputNodeId,
                 1,
                 outputType,
-                velox::VectorSerde::Kind::kPresto,
+                toVeloxSerdeKind((partitioningScheme.encoding)),
                 sourceNode);
             return planFragment;
           }
@@ -1908,7 +1918,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         planFragment.planNode = core::PartitionedOutputNode::arbitrary(
             partitionedOutputNodeId,
             std::move(outputType),
-            velox::VectorSerde::Kind::kPresto,
+            toVeloxSerdeKind((partitioningScheme.encoding)),
             std::move(sourceNode));
         return planFragment;
       }
@@ -1927,7 +1937,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     planFragment.planNode = core::PartitionedOutputNode::single(
         partitionedOutputNodeId,
         outputType,
-        velox::VectorSerde::Kind::kPresto,
+        toVeloxSerdeKind((partitioningScheme.encoding)),
         sourceNode);
     return planFragment;
   }
@@ -1943,7 +1953,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       partitioningScheme.replicateNullsAndAny,
       std::shared_ptr(std::move(spec)),
       toRowType(partitioningScheme.outputLayout, typeParser_),
-      velox::VectorSerde::Kind::kPresto,
+      toVeloxSerdeKind((partitioningScheme.encoding)),
       sourceNode);
   return planFragment;
 }
@@ -1980,10 +1990,10 @@ velox::core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
         rowType,
         sortingKeys,
         sortingOrders,
-        velox::VectorSerde::Kind::kPresto);
+        toVeloxSerdeKind(node->encoding));
   }
   return std::make_shared<core::ExchangeNode>(
-      node->id, rowType, velox::VectorSerde::Kind::kPresto);
+      node->id, rowType, toVeloxSerdeKind(node->encoding));
 }
 
 velox::connector::CommitStrategy

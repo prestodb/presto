@@ -334,6 +334,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String INNER_JOIN_PUSHDOWN_ENABLED = "optimizer_inner_join_pushdown_enabled";
     public static final String INEQUALITY_JOIN_PUSHDOWN_ENABLED = "optimizer_inequality_join_pushdown_enabled";
+    public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1836,6 +1837,10 @@ public final class SystemSessionProperties
                         INEQUALITY_JOIN_PUSHDOWN_ENABLED,
                         "Enable Join Pushdown for Inequality Predicates",
                         featuresConfig.isInEqualityJoinPushdownEnabled(),
+                integerProperty(
+                        NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING,
+                        "Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only",
+                        queryManagerConfig.getMinColumnarEncodingChannelsToPreferRowWiseEncoding(),
                         false));
     }
 
@@ -3121,5 +3126,8 @@ public final class SystemSessionProperties
     public static Boolean isInEqualityPushdownEnabled(Session session)
     {
         return session.getSystemProperty(INEQUALITY_JOIN_PUSHDOWN_ENABLED, Boolean.class);
+    public static int getMinColumnarEncodingChannelsToPreferRowWiseEncoding(Session session)
+    {
+        return session.getSystemProperty(NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING, Integer.class);
     }
 }

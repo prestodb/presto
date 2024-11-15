@@ -11,48 +11,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.EquiJoinClause;
-import com.facebook.presto.spi.plan.JoinDistributionType;
-import com.facebook.presto.spi.plan.JoinType;
-import com.facebook.presto.spi.plan.LogicalProperties;
-import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.common.Utils.checkState;
 import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.FULL;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
-import static com.facebook.presto.sql.planner.SortExpressionExtractor.extractSortExpression;
-import static com.facebook.presto.sql.planner.sanity.ValidateDependenciesChecker.checkLeftOutputVariablesBeforeRight;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -118,21 +108,20 @@ public class JoinNode
         this.type = type;
         this.left = left;
         this.right = right;
-        this.criteria = ImmutableList.copyOf(criteria);
-        this.outputVariables = ImmutableList.copyOf(outputVariables);
+        this.criteria = unmodifiableList(new ArrayList<>(criteria));
+        this.outputVariables = unmodifiableList(new ArrayList<>(outputVariables));
         this.filter = filter;
         this.leftHashVariable = leftHashVariable;
         this.rightHashVariable = rightHashVariable;
         this.distributionType = distributionType;
-        this.dynamicFilters = ImmutableMap.copyOf(dynamicFilters);
+        this.dynamicFilters = unmodifiableMap(new LinkedHashMap<>(dynamicFilters));
 
         checkLeftOutputVariablesBeforeRight(left.getOutputVariables(), outputVariables);
 
-        Set<VariableReferenceExpression> inputVariables = ImmutableSet.<VariableReferenceExpression>builder()
-                .addAll(left.getOutputVariables())
-                .addAll(right.getOutputVariables())
-                .build();
-        checkArgument(new HashSet<>(inputVariables).containsAll(outputVariables), "Left and right join inputs do not contain all output variables");
+        Set<VariableReferenceExpression> inputVariables = new HashSet<>();
+        inputVariables.addAll(left.getOutputVariables());
+        inputVariables.addAll(right.getOutputVariables());
+        checkArgument(inputVariables.containsAll(outputVariables), "Left and right join inputs do not contain all output variables");
         checkArgument(!isCrossJoin() || inputVariables.size() == outputVariables.size(), "Cross join does not support output variables pruning or reordering");
 
         checkArgument(!(criteria.isEmpty() && leftHashVariable.isPresent()), "Left hash variable is only valid in an equijoin");
@@ -142,15 +131,15 @@ public class JoinNode
             // The implementation of full outer join only works if the data is hash partitioned.
             checkArgument(
                     !(distributionType.get() == REPLICATED && type.mustPartition()),
-                    "%s join do not work with %s distribution type",
-                    type,
-                    distributionType.get());
+                    format("%s join do not work with %s distribution type",
+                            type,
+                            distributionType.get()));
             // It does not make sense to PARTITION when there is nothing to partition on
             checkArgument(
                     !(distributionType.get() == PARTITIONED && type.mustReplicate(criteria)),
-                    "Equi criteria are empty, so %s join should not have %s distribution type",
-                    type,
-                    distributionType.get());
+                    format("Equi criteria are empty, so %s join should not have %s distribution type",
+                            type,
+                            distributionType.get()));
         }
 
         for (VariableReferenceExpression variableReferenceExpression : dynamicFilters.values()) {
@@ -160,6 +149,23 @@ public class JoinNode
                     Arrays.toString(right.getOutputVariables().toArray()),
                     Arrays.toString(dynamicFilters.values().toArray())));
         }
+    }
+
+    public static void checkLeftOutputVariablesBeforeRight(List<VariableReferenceExpression> leftVariables, List<VariableReferenceExpression> outputVariables)
+    {
+        int leftMaxPosition = -1;
+        Optional<Integer> rightMinPosition = Optional.empty();
+        Set<VariableReferenceExpression> leftVariablesSet = new HashSet<>(leftVariables);
+        for (int i = 0; i < outputVariables.size(); i++) {
+            VariableReferenceExpression variable = outputVariables.get(i);
+            if (leftVariablesSet.contains(variable)) {
+                leftMaxPosition = i;
+            }
+            else if (!rightMinPosition.isPresent()) {
+                rightMinPosition = Optional.of(i);
+            }
+        }
+        checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output variables are before right output variables");
     }
 
     public JoinNode flipChildren()
@@ -177,10 +183,9 @@ public class JoinNode
                 rightHashVariable,
                 leftHashVariable,
                 distributionType,
-                ImmutableMap.of()); // dynamicFilters are invalid after flipping children
+                Collections.emptyMap()); // dynamicFilters are invalid after flipping children
     }
 
-    @VisibleForTesting
     public static JoinType flipType(JoinType type)
     {
         switch (type) {
@@ -199,9 +204,10 @@ public class JoinNode
 
     private static List<EquiJoinClause> flipJoinCriteria(List<EquiJoinClause> joinCriteria)
     {
-        return joinCriteria.stream()
+        List<EquiJoinClause> flippedCriteria = joinCriteria.stream()
                 .map(EquiJoinClause::flip)
-                .collect(toImmutableList());
+                .collect(Collectors.toList());
+        return unmodifiableList(flippedCriteria);
     }
 
     private static List<VariableReferenceExpression> flipOutputVariables(List<VariableReferenceExpression> outputVariables, PlanNode left, PlanNode right)
@@ -212,10 +218,9 @@ public class JoinNode
         List<VariableReferenceExpression> rightVariables = outputVariables.stream()
                 .filter(variable -> right.getOutputVariables().contains(variable))
                 .collect(Collectors.toList());
-        return ImmutableList.<VariableReferenceExpression>builder()
-                .addAll(rightVariables)
-                .addAll(leftVariables)
-                .build();
+        List<VariableReferenceExpression> flippedOutput = new ArrayList<VariableReferenceExpression>(rightVariables);
+        flippedOutput.addAll(leftVariables);
+        return unmodifiableList(flippedOutput);
     }
 
     @JsonProperty
@@ -260,12 +265,6 @@ public class JoinNode
         return filter;
     }
 
-    public Optional<SortExpressionContext> getSortExpressionContext(FunctionAndTypeManager functionAndTypeManager)
-    {
-        return filter
-                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputVariables()), filter, functionAndTypeManager));
-    }
-
     @JsonProperty
     public Optional<VariableReferenceExpression> getLeftHashVariable()
     {
@@ -281,7 +280,10 @@ public class JoinNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(left, right);
+        List<PlanNode> sources = new ArrayList<>();
+        sources.add(left);
+        sources.add(right);
+        return unmodifiableList(sources);
     }
 
     @Override
@@ -312,7 +314,7 @@ public class JoinNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitJoin(this, context);
     }

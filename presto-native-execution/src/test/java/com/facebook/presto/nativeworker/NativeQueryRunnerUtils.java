@@ -209,19 +209,19 @@ public class NativeQueryRunnerUtils
     public static void createNationWithFormat(Session session, QueryRunner queryRunner, String storageFormat)
     {
         queryRunner.execute(session, "DROP TABLE IF EXISTS nation");
-        if (storageFormat.equals("PARQUET") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
+        if (storageFormat.equals("PARQUET") && !queryRunner.tableExists(session, "nation")) {
             queryRunner.execute(session, "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         }
 
-        if (storageFormat.equals("ORC") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
+        if (storageFormat.equals("ORC") && !queryRunner.tableExists(session, "nation")) {
             queryRunner.execute(session, "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         }
 
-        if (storageFormat.equals("JSON") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_json")) {
+        if (storageFormat.equals("JSON") && !queryRunner.tableExists(session, "nation_json")) {
             queryRunner.execute(session, "CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
         }
 
-        if (storageFormat.equals("TEXTFILE") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_text")) {
+        if (storageFormat.equals("TEXTFILE") && !queryRunner.tableExists(session, "nation_text")) {
             queryRunner.execute(session, "CREATE TABLE nation_text WITH (FORMAT = 'TEXTFILE') AS SELECT * FROM tpch.tiny.nation");
         }
     }
@@ -272,7 +272,7 @@ public class NativeQueryRunnerUtils
 
     public static void createCustomer(Session session, QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "customer")) {
+        if (!queryRunner.tableExists(session, "customer")) {
             queryRunner.execute(session, "CREATE TABLE customer AS " +
                     "SELECT custkey, name, address, nationkey, phone, acctbal, comment, mktsegment " +
                     "FROM tpch.tiny.customer");
@@ -394,7 +394,7 @@ public class NativeQueryRunnerUtils
 
     public static void createPart(Session session, QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "part")) {
+        if (!queryRunner.tableExists(session, "part")) {
             queryRunner.execute(session, "CREATE TABLE part AS SELECT * FROM tpch.tiny.part");
         }
     }
@@ -406,7 +406,7 @@ public class NativeQueryRunnerUtils
 
     public static void createPartSupp(Session session, QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "partsupp")) {
+        if (!queryRunner.tableExists(session, "partsupp")) {
             queryRunner.execute(session, "CREATE TABLE partsupp AS SELECT * FROM tpch.tiny.partsupp");
         }
     }

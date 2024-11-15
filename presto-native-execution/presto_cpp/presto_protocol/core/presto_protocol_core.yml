@@ -17,6 +17,7 @@ EnumMap:
   ExchangeNode:
     Type: ExchangeNodeType
     Scope: ExchangeNodeScope
+    Encoding: ExchangeEncoding
 
   LimitNode:
     Step: LimitNodeStep
@@ -32,14 +33,14 @@ ExtraFields:
     std::shared_ptr<SourceLocation>: sourceLocation
 
   Aggregation:
-    FunctionHandle:      functionHandle
+    FunctionHandle: functionHandle
     List<RowExpression>: arguments
 
   PlanNode:
-    PlanNodeId:          id
+    PlanNodeId: id
 
   RemoteTransactionHandle:
-    Optional<String>:    dummy
+    Optional<String>: dummy
 
 AddToOutput:
   - NodeState
@@ -58,8 +59,8 @@ AbstractClasses:
     super: JsonEncodedSubclass
     subclasses:
       - { name: SystemPartitioningHandle, key: $remote }
-      - { name: HivePartitioningHandle,   key: hive}
-      - { name: TpchPartitioningHandle,   key: tpch}
+      - { name: HivePartitioningHandle,   key: hive }
+      - { name: TpchPartitioningHandle,   key: tpch }
 
   ConnectorTableHandle:
     super: JsonEncodedSubclass
@@ -99,7 +100,7 @@ AbstractClasses:
   ConnectorMetadataUpdateHandle:
     super: JsonEncodedSubclass
     subclasses:
-      - { name: HiveMetadataUpdateHandle, key: hive}
+      - { name: HiveMetadataUpdateHandle, key: hive }
 
   ConnectorSplit:
     super: JsonEncodedSubclass
@@ -114,7 +115,7 @@ AbstractClasses:
   ConnectorHistogram:
     super: JsonEncodedSubclass
     subclasses:
-      - { name: UniformDistributionHistogram, key: uniform-distribution}
+      - { name: UniformDistributionHistogram, key: uniform-distribution }
 
   ExecutionWriterTarget:
     super: JsonEncodedSubclass
@@ -132,7 +133,7 @@ AbstractClasses:
       - { name: EnforceSingleRowNode,     key: com.facebook.presto.sql.planner.plan.EnforceSingleRowNode }
       - { name: ExchangeNode,             key: com.facebook.presto.sql.planner.plan.ExchangeNode }
       - { name: FilterNode,               key: .FilterNode }
-      - { name: JoinNode,                 key: com.facebook.presto.sql.planner.plan.JoinNode }
+      - { name: JoinNode,                 key: .JoinNode }
       - { name: LimitNode,                key: .LimitNode }
       - { name: MarkDistinctNode,         key: .MarkDistinctNode }
       - { name: SortNode,                 key: .SortNode }
@@ -141,7 +142,7 @@ AbstractClasses:
       - { name: RowNumberNode,            key: com.facebook.presto.sql.planner.plan.RowNumberNode }
       - { name: RemoteSourceNode,         key: com.facebook.presto.sql.planner.plan.RemoteSourceNode }
       - { name: SampleNode,               key: com.facebook.presto.sql.planner.plan.SampleNode }
-      - { name: SemiJoinNode,             key: com.facebook.presto.sql.planner.plan.SemiJoinNode }
+      - { name: SemiJoinNode,             key: .SemiJoinNode }
       - { name: TableScanNode,            key: .TableScanNode }
       - { name: TableWriterNode,          key: com.facebook.presto.sql.planner.plan.TableWriterNode }
       - { name: TableWriterMergeNode,     key: com.facebook.presto.sql.planner.plan.TableWriterMergeNode }
@@ -150,8 +151,8 @@ AbstractClasses:
       - { name: UnnestNode,               key: com.facebook.presto.sql.planner.plan.UnnestNode }
       - { name: ValuesNode,               key: .ValuesNode }
       - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
-      - { name: MergeJoinNode,            key: com.facebook.presto.sql.planner.plan.MergeJoinNode }
-      - { name: WindowNode,               key: com.facebook.presto.sql.planner.plan.WindowNode }
+      - { name: MergeJoinNode,            key: .MergeJoinNode }
+      - { name: WindowNode,               key: .WindowNode }
 
   RowExpression:
     super: JsonEncodedSubclass
@@ -219,7 +220,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterMergeNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/UnnestNode.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/WindowNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/WindowNode.java
   - presto-main/src/main/java/com/facebook/presto/execution/ExecutionFailureInfo.java
   - presto-main/src/main/java/com/facebook/presto/execution/Location.java
   - presto-main/src/main/java/com/facebook/presto/metadata/RemoteTransactionHandle.java
@@ -293,9 +294,9 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/VariableReferenceExpression.java
   - presto-main/src/main/java/com/facebook/presto/cost/VariableStatsEstimate.java
   - presto-main/src/main/java/com/facebook/presto/metadata/MetadataUpdates.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/JoinNode.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/SemiJoinNode.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/MergeJoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/SemiJoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/MergeJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/TopNNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorMetadataUpdateHandle.java
   - presto-main/src/main/java/com/facebook/presto/split/EmptySplit.java
@@ -314,3 +315,4 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTransactionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/AggregationFunctionMetadata.java
   - presto-function-namespace-managers/src/main/java/com/facebook/presto/functionNamespace/json/JsonBasedUdfFunctionMetadata.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/ExchangeEncoding.java
