@@ -274,12 +274,13 @@ class FlatVector final : public SimpleVector<T> {
 
   VectorPtr copyPreserveEncodings(
       velox::memory::MemoryPool* pool = nullptr) const override {
+    const auto allocPool = pool ? pool : BaseVector::pool_;
     return std::make_shared<FlatVector<T>>(
-        pool ? pool : BaseVector::pool_,
+        allocPool,
         BaseVector::type_,
-        AlignedBuffer::copy(BaseVector::pool_, BaseVector::nulls_),
+        AlignedBuffer::copy(allocPool, BaseVector::nulls_),
         BaseVector::length_,
-        AlignedBuffer::copy(BaseVector::pool_, values_),
+        AlignedBuffer::copy(allocPool, values_),
         std::vector<BufferPtr>(stringBuffers_),
         SimpleVector<T>::stats_,
         BaseVector::distinctValueCount_,
@@ -637,6 +638,10 @@ char* FlatVector<StringView>::getRawStringBufferWithSpace(
 
 template <>
 void FlatVector<StringView>::prepareForReuse();
+
+template <>
+VectorPtr FlatVector<StringView>::copyPreserveEncodings(
+    velox::memory::MemoryPool* pool) const;
 
 template <typename T>
 using FlatVectorPtr = std::shared_ptr<FlatVector<T>>;

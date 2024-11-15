@@ -1269,8 +1269,8 @@ void MemoryPoolImpl::leakCheckDbg() {
   }
   std::stringbuf buf;
   std::ostream oss(&buf);
-  oss << "Detected total of " << debugAllocRecords_.size()
-      << " leaked allocations:\n";
+  oss << "[MemoryPool] : " << name_ << " - Detected total of "
+      << debugAllocRecords_.size() << " leaked allocations:\n";
   struct AllocationStats {
     uint64_t size{0};
     uint64_t numAllocations{0};
