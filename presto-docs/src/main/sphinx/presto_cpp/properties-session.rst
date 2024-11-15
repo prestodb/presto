@@ -279,7 +279,7 @@ Affects concurrency for pipelines containing LocalPartitionNode.
 
 
 ``native_spill_prefixsort_enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
@@ -289,7 +289,7 @@ faster than std::sort but requires the memory to build normalized prefix
 keys, which might have potential risk of running out of server memory.
 
 ``native_prefixsort_normalized_key_max_bytes``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
 * **Default value:** ``128``
@@ -298,7 +298,7 @@ Maximum number of bytes to use for the normalized key in prefix-sort.
 Use ``0`` to disable prefix-sort.
 
 ``native_prefixsort_min_rows``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
 * **Default value:** ``130``
