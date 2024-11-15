@@ -32,8 +32,8 @@ public class ArrowFlightClient
     public ArrowFlightClient(FlightClient flightClient, Optional<InputStream> trustedCertificate, RootAllocator allocator)
     {
         this.flightClient = requireNonNull(flightClient, "flightClient cannot be null");
-        this.trustedCertificate = trustedCertificate;
-        this.allocator = allocator;
+        this.trustedCertificate = requireNonNull(trustedCertificate, "trustedCertificate is null");
+        this.allocator = requireNonNull(allocator, "allocator is null");
     }
 
     public FlightClient getFlightClient()
@@ -53,9 +53,6 @@ public class ArrowFlightClient
         if (trustedCertificate.isPresent()) {
             trustedCertificate.get().close();
         }
-        if (allocator != null) {
-            allocator.close();
-            allocator = null;
-        }
+        allocator.close();
     }
 }
