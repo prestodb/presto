@@ -86,8 +86,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
@@ -201,7 +201,7 @@ public class HivePageSourceProvider
                     fileContext,
                     encryptionInformation);
             if (selectivePageSource.isPresent()) {
-                return selectivePageSource.get();
+                return selectivePageSource.orElseThrow();
             }
         }
 
@@ -246,7 +246,7 @@ public class HivePageSourceProvider
                 encryptionInformation,
                 hiveSplit.getRowIdPartitionComponent());
         if (pageSource.isPresent()) {
-            return pageSource.get();
+            return pageSource.orElseThrow();
         }
         throw new IllegalStateException("Could not find a file reader for split " + hiveSplit);
     }
@@ -281,7 +281,7 @@ public class HivePageSourceProvider
                     fileContext,
                     encryptionInformation);
             if (pageSource.isPresent()) {
-                return pageSource.get();
+                return pageSource.orElseThrow();
             }
         }
         throw new PrestoException(
@@ -354,7 +354,7 @@ public class HivePageSourceProvider
                 .filter(mapping -> mapping.getCoercionFrom().isPresent())
                 .collect(toImmutableMap(
                         mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(),
-                        mapping -> createCoercer(typeManager, mapping.getCoercionFrom().get(), mapping.getHiveColumnHandle().getHiveType())));
+                        mapping -> createCoercer(typeManager, mapping.getCoercionFrom().orElseThrow(), mapping.getHiveColumnHandle().getHiveType())));
 
         List<Integer> outputColumns = selectedColumns.stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
@@ -396,7 +396,7 @@ public class HivePageSourceProvider
                     layout.isAppendRowNumberEnabled(),
                     rowIDPartitionComponent);
             if (pageSource.isPresent()) {
-                return Optional.of(pageSource.get());
+                return Optional.of(pageSource.orElseThrow());
             }
         }
 
@@ -517,7 +517,7 @@ public class HivePageSourceProvider
                         bucketAdaptation,
                         hiveStorageTimeZone,
                         typeManager,
-                        pageSource.get(),
+                        pageSource.orElseThrow(),
                         fileSplit.getPath(),
                         rowIdPartitionComponent);
 
@@ -619,15 +619,15 @@ public class HivePageSourceProvider
                     s3SelectPushdownEnabled);
 
             if (cursor.isPresent()) {
-                RecordCursor delegate = cursor.get();
+                RecordCursor delegate = cursor.orElseThrow();
 
                 if (bucketAdaptation.isPresent()) {
                     delegate = new HiveBucketAdapterRecordCursor(
-                            bucketAdaptation.get().getBucketColumnIndices(),
-                            bucketAdaptation.get().getBucketColumnHiveTypes(),
-                            bucketAdaptation.get().getTableBucketCount(),
-                            bucketAdaptation.get().getPartitionBucketCount(),
-                            bucketAdaptation.get().getBucketToKeep(),
+                            bucketAdaptation.orElseThrow().getBucketColumnIndices(),
+                            bucketAdaptation.orElseThrow().getBucketColumnHiveTypes(),
+                            bucketAdaptation.orElseThrow().getTableBucketCount(),
+                            bucketAdaptation.orElseThrow().getPartitionBucketCount(),
+                            bucketAdaptation.orElseThrow().getBucketToKeep(),
                             typeManager,
                             delegate,
                             isLegacyTimestampBucketing(session));
@@ -674,7 +674,7 @@ public class HivePageSourceProvider
             return false;
         }
 
-        TupleDomain<ColumnHandle> dynamicFilter = splitContext.getDynamicFilterPredicate().get();
+        TupleDomain<ColumnHandle> dynamicFilter = splitContext.getDynamicFilterPredicate().orElseThrow();
         Optional<HiveBucketing.HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveSplit.getStorage().getBucketProperty(), hiveLayout.getDataColumns(), dynamicFilter, useLegacyTimestampBucketing);
 
         return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getReadBucketNumber().getAsInt())).orElse(false);
@@ -697,8 +697,8 @@ public class HivePageSourceProvider
             return false;
         }
 
-        TupleDomain<ColumnHandle> dynamicFilter = splitContext.getDynamicFilterPredicate().get();
-        Map<ColumnHandle, Domain> domains = dynamicFilter.getDomains().get();
+        TupleDomain<ColumnHandle> dynamicFilter = splitContext.getDynamicFilterPredicate().orElseThrow();
+        Map<ColumnHandle, Domain> domains = dynamicFilter.getDomains().orElseThrow();
         for (int i = 0; i < partitionKeys.size(); i++) {
             Type type = partitionTypes.get(i);
             HivePartitionKey hivePartitionKey = partitionKeys.get(i);
@@ -836,8 +836,8 @@ public class HivePageSourceProvider
                 Optional<Column> partitionColumn = tableToPartitionMapping.getPartitionColumn(column.getHiveColumnIndex());
                 Optional<HiveType> coercionFrom = Optional.empty();
                 // we don't care if only the column name has changed
-                if (partitionColumn.isPresent() && !partitionColumn.get().getType().equals(column.getHiveType())) {
-                    coercionFrom = Optional.of(partitionColumn.get().getType());
+                if (partitionColumn.isPresent() && !partitionColumn.orElseThrow().getType().equals(column.getHiveType())) {
+                    coercionFrom = Optional.of(partitionColumn.orElseThrow().getType());
                 }
 
                 if (column.getColumnType() == REGULAR) {
@@ -850,9 +850,9 @@ public class HivePageSourceProvider
                     regularIndex++;
                 }
                 else if (isPushedDownSubfield(column)) {
-                    Optional<HiveType> coercionFromType = getHiveType(coercionFrom, getOnlyElement(column.getRequiredSubfields()));
+                    Optional<HiveType> coercionFromType = getHiveType(coercionFrom, column.getRequiredSubfields().stream().collect(onlyElement()));
                     HiveType coercionToType = column.getHiveType();
-                    if (coercionFromType.isPresent() && coercionFromType.get().equals(coercionToType)) {
+                    if (coercionFromType.isPresent() && coercionFromType.orElseThrow().equals(coercionToType)) {
                         // In nested columns, if the resolved type is same as requested type don't add the coercion mapping
                         coercionFromType = Optional.empty();
                     }
@@ -913,8 +913,8 @@ public class HivePageSourceProvider
                         }
                         return new HiveColumnHandle(
                                 columnHandle.getName(),
-                                columnMapping.getCoercionFrom().get(),
-                                columnMapping.getCoercionFrom().get().getTypeSignature(),
+                                columnMapping.getCoercionFrom().orElseThrow(),
+                                columnMapping.getCoercionFrom().orElseThrow().getTypeSignature(),
                                 columnHandle.getHiveColumnIndex(),
                                 columnHandle.getColumnType(),
                                 Optional.empty(),

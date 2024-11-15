@@ -97,7 +97,7 @@ public class FilteringPageSource
         domainFilters = new TupleDomainFilter[columnMappings.size()];
         columnTypes = new Type[columnMappings.size()];
         if (!domainPredicate.isAll()) {
-            Map<Integer, Domain> domains = domainPredicate.transform(HiveColumnHandle::getHiveColumnIndex).getDomains().get();
+            Map<Integer, Domain> domains = domainPredicate.transform(HiveColumnHandle::getHiveColumnIndex).getDomains().orElseThrow();
             for (int i = 0; i < columnMappings.size(); i++) {
                 HiveColumnHandle columnHandle = columnMappings.get(i).getHiveColumnHandle();
                 int hiveColumnIndex = columnHandle.getHiveColumnIndex();

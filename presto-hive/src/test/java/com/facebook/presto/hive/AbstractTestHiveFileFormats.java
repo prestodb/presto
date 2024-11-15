@@ -121,8 +121,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.padEnd;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.fill;
@@ -505,7 +503,7 @@ public abstract class AbstractTestHiveFileFormats
             HiveFileWriterFactory fileWriterFactory)
     {
         // filter out partition keys, which are not written to the file
-        testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
+        testColumns = testColumns.stream().filter(not(TestColumn::isPartitionKey)).toList();
 
         List<Type> types = testColumns.stream()
                 .map(TestColumn::getType)
@@ -532,8 +530,10 @@ public abstract class AbstractTestHiveFileFormats
         JobConf jobConf = configureCompression(new JobConf(), compressionCodec);
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
+        tableProperties.setProperty("columns", Joiner.on(',')
+                .join(testColumns.stream().map(TestColumn::getName).iterator()));
+        tableProperties.setProperty("columns.types", Joiner.on(',')
+                .join(testColumns.stream().map(TestColumn::getType).iterator()));
 
         Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
                 new Path(filePath),
@@ -559,7 +559,7 @@ public abstract class AbstractTestHiveFileFormats
     {
         if (storageFormat == ORC || storageFormat == DWRF) {
             assertTrue(fileStatistics.isPresent());
-            Page statisticsPage = fileStatistics.get();
+            Page statisticsPage = fileStatistics.orElseThrow();
             assertEquals(statisticsPage.getPositionCount(), 1);
             assertEquals(writtenBytes, getFileSize(statisticsPage, 0));
         }
@@ -577,11 +577,13 @@ public abstract class AbstractTestHiveFileFormats
         Serializer serializer = newInstance(storageFormat.getSerDe(), Serializer.class);
 
         // filter out partition keys, which are not written to the file
-        testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
+        testColumns = testColumns.stream().filter(not(TestColumn::isPartitionKey)).toList();
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
+        tableProperties.setProperty("columns", Joiner.on(',')
+                .join(testColumns.stream().map(TestColumn::getName).iterator()));
+        tableProperties.setProperty("columns.types", Joiner.on(',')
+                .join(testColumns.stream().map(TestColumn::getType).iterator()));
         serializer.initialize(new Configuration(), tableProperties);
 
         JobConf jobConf = configureCompression(new JobConf(), compressionCodec);
@@ -598,8 +600,8 @@ public abstract class AbstractTestHiveFileFormats
             serializer.initialize(new Configuration(), tableProperties);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getObjectInspector)));
+                    testColumns.stream().map(TestColumn::getName).toList(),
+                    testColumns.stream().map(TestColumn::getObjectInspector).toList());
 
             Object row = objectInspector.create();
 

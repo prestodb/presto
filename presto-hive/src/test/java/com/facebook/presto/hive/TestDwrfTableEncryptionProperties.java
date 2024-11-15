@@ -86,7 +86,7 @@ public class TestDwrfTableEncryptionProperties
                 DWRF_ENCRYPTION_PROVIDER_KEY, "test_prov");
         Optional<DwrfTableEncryptionProperties> encryptionProperties = fromHiveTableProperties(hiveProperties);
         assertTrue(encryptionProperties.isPresent());
-        assertEquals(encryptionProperties.get().toHiveProperties(), hiveProperties);
+        assertEquals(encryptionProperties.orElseThrow().toHiveProperties(), hiveProperties);
     }
 
     @Test
@@ -98,6 +98,6 @@ public class TestDwrfTableEncryptionProperties
                 DWRF_ENCRYPTION_PROVIDER_KEY, "test_prov");
         Optional<DwrfTableEncryptionProperties> encryptionProperties = fromHiveTableProperties(hiveProperties);
         assertTrue(encryptionProperties.isPresent());
-        assertEquals(encryptionProperties.get().toHiveProperties(), hiveProperties);
+        assertEquals(encryptionProperties.orElseThrow().toHiveProperties(), hiveProperties);
     }
 }

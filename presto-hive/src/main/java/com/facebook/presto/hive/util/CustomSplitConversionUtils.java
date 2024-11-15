@@ -44,7 +44,7 @@ public class CustomSplitConversionUtils
         for (CustomSplitConverter converter : converters) {
             Optional<Map<String, String>> customSplitData = converter.extractCustomSplitInfo(split);
             if (customSplitData.isPresent()) {
-                return customSplitData.get();
+                return customSplitData.orElseThrow();
             }
         }
         return ImmutableMap.of();
@@ -61,7 +61,7 @@ public class CustomSplitConversionUtils
                 throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, String.format("Split converter %s failed to create FileSplit.", converter.getClass()), e);
             }
             if (fileSplit.isPresent()) {
-                return fileSplit.get();
+                return fileSplit.orElseThrow();
             }
         }
         return split;

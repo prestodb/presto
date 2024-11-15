@@ -156,7 +156,7 @@ public class ParquetPageSource
                 else {
                     Optional<Field> field = fields.get(fieldId);
                     if (field.isPresent()) {
-                        blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
+                        blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.orElseThrow()));
                     }
                     else {
                         blocks[fieldId] = RunLengthEncodedBlock.create(types.get(fieldId), null, batchSize);

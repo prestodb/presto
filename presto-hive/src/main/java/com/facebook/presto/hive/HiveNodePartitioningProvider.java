@@ -55,9 +55,9 @@ public class HiveNodePartitioningProvider
         BucketFunctionType bucketFunctionType = handle.getBucketFunctionType();
         switch (bucketFunctionType) {
             case HIVE_COMPATIBLE:
-                return createHiveCompatibleBucketFunction(bucketCount, handle.getHiveTypes().get(), isLegacyTimestampBucketing(session));
+                return createHiveCompatibleBucketFunction(bucketCount, handle.getHiveTypes().orElseThrow(), isLegacyTimestampBucketing(session));
             case PRESTO_NATIVE:
-                return createPrestoNativeBucketFunction(bucketCount, handle.getTypes().get(), isLegacyTimestampBucketing(session));
+                return createPrestoNativeBucketFunction(bucketCount, handle.getTypes().orElseThrow(), isLegacyTimestampBucketing(session));
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
         }

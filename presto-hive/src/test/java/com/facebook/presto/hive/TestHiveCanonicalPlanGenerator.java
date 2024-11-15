@@ -47,7 +47,7 @@ import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCan
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlanFragment;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -277,8 +277,8 @@ public class TestHiveCanonicalPlanGenerator
     private void assertDifferentCanonicalLeafSubPlan(Session session, String sql1, String sql2)
             throws Exception
     {
-        PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, session))).getFragment();
-        PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, session))).getFragment();
+        PlanFragment fragment1 = getLeafSubPlans(subplan(sql1, session)).stream().collect(onlyElement()).getFragment();
+        PlanFragment fragment2 = getLeafSubPlans(subplan(sql2, session)).stream().collect(onlyElement()).getFragment();
         Optional<CanonicalPlanFragment> canonicalPlan1 = generateCanonicalPlanFragment(fragment1.getRoot(), fragment1.getPartitioningScheme(), objectMapper, session);
         Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlanFragment(fragment2.getRoot(), fragment2.getPartitioningScheme(), objectMapper, session);
         assertTrue(canonicalPlan1.isPresent());
@@ -289,8 +289,8 @@ public class TestHiveCanonicalPlanGenerator
     private void assertDifferentCanonicalLeafPlan(Session session, String sql1, String sql2, PlanCanonicalizationStrategy strategy)
             throws Exception
     {
-        PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, session))).getFragment();
-        PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, session))).getFragment();
+        PlanFragment fragment1 = getLeafSubPlans(subplan(sql1, session)).stream().collect(onlyElement()).getFragment();
+        PlanFragment fragment2 = getLeafSubPlans(subplan(sql2, session)).stream().collect(onlyElement()).getFragment();
         Optional<CanonicalPlan> canonicalPlan1 = generateCanonicalPlan(fragment1.getRoot(), strategy, objectMapper, session);
         Optional<CanonicalPlan> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), strategy, objectMapper, session);
         assertTrue(canonicalPlan1.isPresent());
@@ -301,8 +301,8 @@ public class TestHiveCanonicalPlanGenerator
     private void assertSameCanonicalLeafPlan(Session session, String sql1, String sql2, PlanCanonicalizationStrategy strategy)
             throws Exception
     {
-        PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, session))).getFragment();
-        PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, session))).getFragment();
+        PlanFragment fragment1 = getLeafSubPlans(subplan(sql1, session)).stream().collect(onlyElement()).getFragment();
+        PlanFragment fragment2 = getLeafSubPlans(subplan(sql2, session)).stream().collect(onlyElement()).getFragment();
         Optional<CanonicalPlan> canonicalPlan1 = generateCanonicalPlan(fragment1.getRoot(), strategy, objectMapper, session);
         Optional<CanonicalPlan> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), strategy, objectMapper, session);
         assertTrue(canonicalPlan1.isPresent());

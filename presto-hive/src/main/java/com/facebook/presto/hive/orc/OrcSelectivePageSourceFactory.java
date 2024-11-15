@@ -510,7 +510,7 @@ public class OrcSelectivePageSourceFactory
         {
             Optional<Subfield> subfield = subfieldExtractor.extract(call);
             if (subfield.isPresent()) {
-                context.accept(subfield.get());
+                context.accept(subfield.orElseThrow());
                 return null;
             }
 
@@ -523,7 +523,7 @@ public class OrcSelectivePageSourceFactory
         {
             Optional<Subfield> subfield = subfieldExtractor.extract(specialForm);
             if (subfield.isPresent()) {
-                context.accept(subfield.get());
+                context.accept(subfield.orElseThrow());
                 return null;
             }
 
@@ -536,7 +536,7 @@ public class OrcSelectivePageSourceFactory
         {
             Optional<Subfield> subfield = subfieldExtractor.extract(reference);
             if (subfield.isPresent()) {
-                context.accept(subfield.get());
+                context.accept(subfield.orElseThrow());
                 return null;
             }
 
@@ -546,7 +546,7 @@ public class OrcSelectivePageSourceFactory
 
     private static Map<Integer, Map<Subfield, TupleDomainFilter>> toTupleDomainFilters(TupleDomain<Subfield> domainPredicate, Map<String, Integer> columnIndices, Map<Integer, HiveCoercer> coercers, TupleDomainFilterCache tupleDomainFilterCache)
     {
-        Map<Subfield, TupleDomainFilter> filtersBySubfield = Maps.transformValues(domainPredicate.getDomains().get(), tupleDomainFilterCache::getFilter);
+        Map<Subfield, TupleDomainFilter> filtersBySubfield = Maps.transformValues(domainPredicate.getDomains().orElseThrow(), tupleDomainFilterCache::getFilter);
 
         Map<Integer, Map<Subfield, TupleDomainFilter>> filtersByColumn = new HashMap<>();
         for (Map.Entry<Subfield, TupleDomainFilter> entry : filtersBySubfield.entrySet()) {

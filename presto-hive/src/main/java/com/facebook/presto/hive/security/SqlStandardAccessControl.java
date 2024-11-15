@@ -684,7 +684,7 @@ public class SqlStandardAccessControl
             return false;
         }
 
-        Database database = databaseMetadata.get();
+        Database database = databaseMetadata.orElseThrow();
 
         // a database can be owned by a user or role
         if (database.getOwnerType() == USER && identity.getUser().equals(database.getOwnerName())) {

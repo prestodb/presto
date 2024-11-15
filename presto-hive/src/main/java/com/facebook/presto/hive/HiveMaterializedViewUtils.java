@@ -108,7 +108,7 @@ public class HiveMaterializedViewUtils
                         NOT_SUPPORTED,
                         format("Materialized view %s must have at least one partition column that exists in %s as well", viewName, baseTable.getTableName()));
             }
-            if (viewDefinition.getBaseTablesOnOuterJoinSide().contains(schemaBaseTable) && viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(viewDefinition, baseTable).get().isEmpty()) {
+            if (viewDefinition.getBaseTablesOnOuterJoinSide().contains(schemaBaseTable) && viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(viewDefinition, baseTable).orElseThrow().isEmpty()) {
                 throw new PrestoException(
                         NOT_SUPPORTED,
                         format("Outer join conditions in Materialized view %s must have at least one common partition equality constraint", viewName));

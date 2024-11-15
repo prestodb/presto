@@ -99,8 +99,8 @@ public class TestMergeRequestedAndPredicateColumns
     {
         Optional<Set<HiveColumnHandle>> result = mergeRequestedAndPredicateColumns(Optional.of(ImmutableSet.of()), ImmutableSet.of(STRUCT_WITH_SUBFIELD_A));
         assertTrue(result.isPresent());
-        assertEquals(result.get().size(), 1);
-        assertEquals(ImmutableList.copyOf(result.get()).get(0), STRUCT_WITH_SUBFIELD_A);
+        assertEquals(result.orElseThrow().size(), 1);
+        assertEquals(ImmutableList.copyOf(result.orElseThrow()).get(0), STRUCT_WITH_SUBFIELD_A);
     }
 
     @Test
@@ -108,8 +108,8 @@ public class TestMergeRequestedAndPredicateColumns
     {
         Optional<Set<HiveColumnHandle>> result = mergeRequestedAndPredicateColumns(Optional.of(ImmutableSet.of(VARCHAR_COL, BIGINT_COL, STRUCT_WITHOUT_SUBFIELD)), ImmutableSet.of());
         assertTrue(result.isPresent());
-        assertEquals(result.get().size(), 3);
-        assertEquals(result.get(), ImmutableSet.of(VARCHAR_COL, BIGINT_COL, STRUCT_WITHOUT_SUBFIELD));
+        assertEquals(result.orElseThrow().size(), 3);
+        assertEquals(result.orElseThrow(), ImmutableSet.of(VARCHAR_COL, BIGINT_COL, STRUCT_WITHOUT_SUBFIELD));
     }
 
     @Test
@@ -119,8 +119,8 @@ public class TestMergeRequestedAndPredicateColumns
                 Optional.of(ImmutableSet.of(VARCHAR_COL, BIGINT_COL)),
                 ImmutableSet.of(BIGINT_COL, STRUCT_WITHOUT_SUBFIELD));
         assertTrue(result.isPresent());
-        assertEquals(result.get().size(), 3);
-        assertEquals(result.get(), ImmutableSet.of(VARCHAR_COL, BIGINT_COL, STRUCT_WITHOUT_SUBFIELD));
+        assertEquals(result.orElseThrow().size(), 3);
+        assertEquals(result.orElseThrow(), ImmutableSet.of(VARCHAR_COL, BIGINT_COL, STRUCT_WITHOUT_SUBFIELD));
     }
 
     @Test
@@ -130,21 +130,21 @@ public class TestMergeRequestedAndPredicateColumns
                 Optional.of(ImmutableSet.of(STRUCT_WITHOUT_SUBFIELD)),
                 ImmutableSet.of(STRUCT_WITH_SUBFIELD_A));
         assertTrue(result.isPresent());
-        assertEquals(result.get().size(), 1);
-        assertEquals(result.get(), ImmutableSet.of(STRUCT_WITHOUT_SUBFIELD));
+        assertEquals(result.orElseThrow().size(), 1);
+        assertEquals(result.orElseThrow(), ImmutableSet.of(STRUCT_WITHOUT_SUBFIELD));
 
         result = mergeRequestedAndPredicateColumns(
                 Optional.of(ImmutableSet.of(STRUCT_WITH_SUBFIELD_A)),
                 ImmutableSet.of(STRUCT_WITH_SUBFIELD_B));
         assertTrue(result.isPresent());
-        assertEquals(result.get().size(), 1);
-        assertEquals(result.get(), ImmutableSet.of(STRUCT_WITH_SUBFIELD_AB));
+        assertEquals(result.orElseThrow().size(), 1);
+        assertEquals(result.orElseThrow(), ImmutableSet.of(STRUCT_WITH_SUBFIELD_AB));
 
         result = mergeRequestedAndPredicateColumns(
                 Optional.of(ImmutableSet.of(STRUCT_WITH_SUBFIELD_A)),
                 ImmutableSet.of(STRUCT_WITH_SUBFIELD_AB));
         assertTrue(result.isPresent());
-        assertEquals(result.get().size(), 1);
-        assertEquals(result.get(), ImmutableSet.of(STRUCT_WITH_SUBFIELD_AB));
+        assertEquals(result.orElseThrow().size(), 1);
+        assertEquals(result.orElseThrow(), ImmutableSet.of(STRUCT_WITH_SUBFIELD_AB));
     }
 }
