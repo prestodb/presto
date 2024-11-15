@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.hive.functions.gen.AccumulatorCompiler.generateAccumulatorClass;
 import static com.facebook.presto.hive.functions.gen.AggregationUtils.createInputParameterMetadata;
 import static com.facebook.presto.hive.functions.gen.AggregationUtils.generateAggregationName;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class HiveAggregationFunctionImplementation
@@ -88,7 +88,7 @@ public class HiveAggregationFunctionImplementation
     {
         List<Type> intermediateType = aggregationFunctionDescription.getIntermediateTypes();
         if (intermediateType.size() == 1) {
-            return getOnlyElement(intermediateType);
+            return intermediateType.stream().collect(onlyElement());
         }
         else {
             return RowType.withDefaultFieldNames(intermediateType);

@@ -62,7 +62,7 @@ public abstract class AbstractTestHiveFunctions
         typeManager = server.getInstance(Key.get(TypeManager.class));
 
         if (getInitScript().isPresent()) {
-            String sql = Files.asCharSource(getInitScript().get(), UTF_8).read();
+            String sql = Files.asCharSource(getInitScript().orElseThrow(), UTF_8).read();
             Iterable<String> initQueries = Splitter.on("----\n").omitEmptyStrings().trimResults().split(sql);
             for (@Language("SQL") String query : initQueries) {
                 log.debug("Executing %s", query);
