@@ -114,7 +114,7 @@ public class TestAbstractDwrfEncryptionInformationSource
 
         assertTrue(encryptionInformation.isPresent());
         assertEquals(
-                encryptionInformation.get(),
+                encryptionInformation.orElseThrow(),
                 ImmutableMap.of(
                         "ds=2020-01-01", EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forTable("table_level_key".getBytes(), ImmutableMap.of(TEST_EXTRA_METADATA, "ds=2020-01-01"), "algo", "provider")),
                         "ds=2020-01-02", EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forTable("table_level_key".getBytes(), ImmutableMap.of(TEST_EXTRA_METADATA, "ds=2020-01-02"), "algo", "provider"))));
@@ -134,7 +134,7 @@ public class TestAbstractDwrfEncryptionInformationSource
 
         assertTrue(encryptionInformation.isPresent());
         assertEquals(
-                encryptionInformation.get(),
+                encryptionInformation.orElseThrow(),
                 ImmutableMap.of(
                         "ds=2020-01-01", EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(ImmutableMap.of(), ImmutableMap.of(TEST_EXTRA_METADATA, "ds=2020-01-01"), "algo", "provider")),
                         "ds=2020-01-02", EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(ImmutableMap.of(), ImmutableMap.of(TEST_EXTRA_METADATA, "ds=2020-01-02"), "algo", "provider"))));
@@ -167,7 +167,7 @@ public class TestAbstractDwrfEncryptionInformationSource
         Map<String, byte[]> expectedFieldToKeyData = ImmutableMap.of("col_bigint", "key2".getBytes(), "col_struct.a", "key2".getBytes(), "col_struct.b.b2", "key1".getBytes());
         assertTrue(encryptionInformation.isPresent());
         assertEquals(
-                encryptionInformation.get(),
+                encryptionInformation.orElseThrow(),
                 ImmutableMap.of(
                         "ds=2020-01-01", EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(expectedFieldToKeyData, ImmutableMap.of(TEST_EXTRA_METADATA, "ds=2020-01-01"), "algo", "provider")),
                         "ds=2020-01-02", EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(expectedFieldToKeyData, ImmutableMap.of(TEST_EXTRA_METADATA, "ds=2020-01-02"), "algo", "provider"))));
@@ -197,7 +197,7 @@ public class TestAbstractDwrfEncryptionInformationSource
         Map<String, byte[]> expectedFieldToKeyData = ImmutableMap.of("col_bigint", "key2".getBytes(), "col_struct.a", "key2".getBytes(), "col_struct.b.b2", "key1".getBytes());
         assertTrue(encryptionInformation.isPresent());
         assertEquals(
-                encryptionInformation.get(),
+                encryptionInformation.orElseThrow(),
                 EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(expectedFieldToKeyData, ImmutableMap.of(TEST_EXTRA_METADATA, table.getTableName()), "algo", "provider")));
     }
 
@@ -207,7 +207,7 @@ public class TestAbstractDwrfEncryptionInformationSource
         Optional<EncryptionInformation> encryptionInformation = encryptionInformationSource.getWriteEncryptionInformation(SESSION, forTable("table_level", "algo", "provider"), "dbName", "tableName");
         assertTrue(encryptionInformation.isPresent());
         assertEquals(
-                encryptionInformation.get(),
+                encryptionInformation.orElseThrow(),
                 EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forTable("table_level".getBytes(), ImmutableMap.of(TEST_EXTRA_METADATA, "algo"), "algo", "provider")));
     }
 

@@ -177,8 +177,8 @@ public class DwrfEncryptionMetadata
         int columnId = typeId;
         if (subfield.isPresent()) {
             verify(type.getOrcTypeKind() == STRUCT, "subfield references are only permitted for struct types, but found %s for column %s", subfield, columnId);
-            String name = subfield.get().getColumnName().toLowerCase(Locale.ENGLISH);
-            Optional<ColumnEncryptionInformation.ColumnWithStructSubfield> nextSubfield = subfield.get().getChildField();
+            String name = subfield.orElseThrow().getColumnName().toLowerCase(Locale.ENGLISH);
+            Optional<ColumnEncryptionInformation.ColumnWithStructSubfield> nextSubfield = subfield.orElseThrow().getChildField();
 
             int children = type.getFieldCount();
             for (int i = 0; i < children; ++i) {

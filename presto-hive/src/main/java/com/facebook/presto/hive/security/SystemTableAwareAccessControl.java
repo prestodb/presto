@@ -138,7 +138,7 @@ public class SystemTableAwareAccessControl
         Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
         if (sourceTableName.isPresent()) {
             try {
-                checkCanSelectFromColumns(transactionHandle, identity, context, sourceTableName.get(), columnOrSubfieldNames);
+                checkCanSelectFromColumns(transactionHandle, identity, context, sourceTableName.orElseThrow(), columnOrSubfieldNames);
                 return;
             }
             catch (AccessDeniedException e) {

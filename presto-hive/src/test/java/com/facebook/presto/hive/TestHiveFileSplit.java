@@ -32,7 +32,7 @@ public class TestHiveFileSplit
         assertEquals(split.getStart(), 0L);
         assertEquals(split.getFileSize(), 3L);
         assertEquals(split.getFileModifiedTime(), 400L);
-        assertEquals(split.getExtraFileInfo().get().length, 21);
+        assertEquals(split.getExtraFileInfo().orElseThrow().length, 21);
         assertEquals(split.getCustomSplitInfo().size(), 0);
     }
 

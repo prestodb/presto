@@ -325,7 +325,7 @@ public final class HiveTestUtils
             suppliedDataDirectoryPath = getProperty("DATA_DIR");
         }
         if (suppliedDataDirectoryPath.isPresent()) {
-            File dataDirectoryFile = new File(suppliedDataDirectoryPath.get());
+            File dataDirectoryFile = new File(suppliedDataDirectoryPath.orElseThrow());
             if (dataDirectoryFile.exists()) {
                 if (!dataDirectoryFile.isDirectory()) {
                     log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");

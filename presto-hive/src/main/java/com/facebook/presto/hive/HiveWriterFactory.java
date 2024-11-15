@@ -235,7 +235,7 @@ public class HiveWriterFactory
             if (!table.isPresent()) {
                 throw new PrestoException(HIVE_INVALID_METADATA, format("Table %s.%s was dropped during insert", schemaName, tableName));
             }
-            this.table = table.get();
+            this.table = table.orElseThrow();
             writePath = locationService.getQueryWriteInfo(locationHandle).getWritePath();
         }
 
@@ -376,7 +376,7 @@ public class HiveWriterFactory
                     session,
                     encryptionInformation);
             if (fileWriter.isPresent()) {
-                hiveFileWriter = fileWriter.get();
+                hiveFileWriter = fileWriter.orElseThrow();
                 break;
             }
         }
@@ -398,7 +398,7 @@ public class HiveWriterFactory
         if (sortingFileWriterFactory.isPresent()) {
             // File number in createSortingFileWriter() is used for determining the temporary directory to store the temporary file.
             // Limit file number for unbucketed table to have the same magnitude as bucket number
-            hiveFileWriter = sortingFileWriterFactory.get().createSortingFileWriter(
+            hiveFileWriter = sortingFileWriterFactory.orElseThrow().createSortingFileWriter(
                     path,
                     hiveFileWriter,
                     bucketNumber.orElse(abs(path.hashCode() % 1024)),
@@ -425,7 +425,7 @@ public class HiveWriterFactory
         if (table == null) {
             // partitioned
             if (partitionName.isPresent()) {
-                return getWriterParametersForNewPartitionedTable(partitionName.get());
+                return getWriterParametersForNewPartitionedTable(partitionName.orElseThrow());
             }
             // unpartitioned
             return getWriterParametersForNewUnpartitionedTable();
@@ -437,7 +437,7 @@ public class HiveWriterFactory
         }
 
         // existing partitioned table
-        return getWriterParametersForExistingPartitionedTable(partitionName.get(), bucketNumber);
+        return getWriterParametersForExistingPartitionedTable(partitionName.orElseThrow(), bucketNumber);
     }
 
     private WriterParameters getWriterParametersForNewUnpartitionedTable()
@@ -525,14 +525,14 @@ public class HiveWriterFactory
             throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into existing partition of bucketed Hive table: " + partitionName);
         }
         // Check the column types in partition schema match the column types in table schema
-        checkPartitionSchemeSameAsTableScheme(tableName, partitionName, table.getDataColumns(), partition.get().getColumns());
-        checkPartitionIsWritable(partitionName, partition.get());
+        checkPartitionSchemeSameAsTableScheme(tableName, partitionName, table.getDataColumns(), partition.orElseThrow().getColumns());
+        checkPartitionIsWritable(partitionName, partition.orElseThrow());
 
         return new WriterParameters(
                 UpdateMode.APPEND,
-                getHiveSchema(partition.get(), table),
+                getHiveSchema(partition.orElseThrow(), table),
                 locationService.getPartitionWriteInfo(locationHandle, partition, partitionName),
-                partition.get().getStorage().getStorageFormat());
+                partition.orElseThrow().getStorage().getStorageFormat());
     }
 
     private WriterParameters getWriterParametersForOverwritePartition(String partitionName)
@@ -694,10 +694,10 @@ public class HiveWriterFactory
         }
 
         try {
-            return compressionCodec.getCodec().get().getConstructor().newInstance().getDefaultExtension();
+            return compressionCodec.getCodec().orElseThrow().getConstructor().newInstance().getDefaultExtension();
         }
         catch (ReflectiveOperationException e) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Failed to load compression codec: " + compressionCodec.getCodec().get(), e);
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Failed to load compression codec: " + compressionCodec.getCodec().orElseThrow(), e);
         }
     }
 

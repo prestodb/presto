@@ -26,7 +26,7 @@ import java.util.Optional;
 import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_ENABLED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
@@ -243,6 +243,6 @@ public class TestParquetDistributedQueries
     {
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN ", query, LOGICAL));
     }
 }

@@ -71,8 +71,8 @@ public class TestGlueToPrestoConverter
     {
         com.facebook.presto.hive.metastore.Database prestoDb = GlueToPrestoConverter.convertDatabase(testDb);
         assertEquals(prestoDb.getDatabaseName(), testDb.getName());
-        assertEquals(prestoDb.getLocation().get(), testDb.getLocationUri());
-        assertEquals(prestoDb.getComment().get(), testDb.getDescription());
+        assertEquals(prestoDb.getLocation().orElseThrow(), testDb.getLocationUri());
+        assertEquals(prestoDb.getComment().orElseThrow(), testDb.getDescription());
         assertEquals(prestoDb.getParameters(), testDb.getParameters());
         assertEquals(prestoDb.getOwnerName(), PUBLIC_OWNER);
         assertEquals(prestoDb.getOwnerType(), PrincipalType.ROLE);
@@ -90,8 +90,8 @@ public class TestGlueToPrestoConverter
         assertColumnList(prestoTbl.getDataColumns(), testTbl.getStorageDescriptor().getColumns());
         assertColumnList(prestoTbl.getPartitionColumns(), testTbl.getPartitionKeys());
         assertStorage(prestoTbl.getStorage(), testTbl.getStorageDescriptor());
-        assertEquals(prestoTbl.getViewOriginalText().get(), testTbl.getViewOriginalText());
-        assertEquals(prestoTbl.getViewExpandedText().get(), testTbl.getViewExpandedText());
+        assertEquals(prestoTbl.getViewOriginalText().orElseThrow(), testTbl.getViewOriginalText());
+        assertEquals(prestoTbl.getViewExpandedText().orElseThrow(), testTbl.getViewExpandedText());
     }
 
     @Test
@@ -225,7 +225,7 @@ public class TestGlueToPrestoConverter
     {
         assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getType().getHiveTypeName().toString(), expected.getType());
-        assertEquals(actual.getComment().get(), expected.getComment());
+        assertEquals(actual.getComment().orElseThrow(), expected.getComment());
     }
 
     private static void assertStorage(Storage actual, StorageDescriptor expected)
@@ -235,7 +235,7 @@ public class TestGlueToPrestoConverter
         assertEquals(actual.getStorageFormat().getInputFormat(), expected.getInputFormat());
         assertEquals(actual.getStorageFormat().getOutputFormat(), expected.getOutputFormat());
         if (!isNullOrEmpty(expected.getBucketColumns())) {
-            HiveBucketProperty bucketProperty = actual.getBucketProperty().get();
+            HiveBucketProperty bucketProperty = actual.getBucketProperty().orElseThrow();
             assertEquals(bucketProperty.getBucketedBy(), expected.getBucketColumns());
             assertEquals(bucketProperty.getBucketCount(), expected.getNumberOfBuckets().intValue());
         }

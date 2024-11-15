@@ -134,13 +134,13 @@ public class HivePartialAggregationPushdown
                 return false;
             }
 
-            final HiveStorageFormat hiveStorageFormat = HiveStorageFormat.valueOf(rawFormat.get().toString());
+            final HiveStorageFormat hiveStorageFormat = HiveStorageFormat.valueOf(rawFormat.orElseThrow().toString());
             if (hiveStorageFormat != ORC && hiveStorageFormat != PARQUET && hiveStorageFormat != DWRF) {
                 return false;
             }
 
             if (tableScanNode.getTable().getLayout().isPresent()) {
-                HiveTableLayoutHandle hiveTableLayoutHandle = (HiveTableLayoutHandle) tableScanNode.getTable().getLayout().get();
+                HiveTableLayoutHandle hiveTableLayoutHandle = (HiveTableLayoutHandle) tableScanNode.getTable().getLayout().orElseThrow();
                 if (!hiveTableLayoutHandle.getPredicateColumns().isEmpty()) {
                     return false;
                 }
@@ -280,7 +280,7 @@ public class HivePartialAggregationPushdown
                 assignments.put(aggregationEntry.getKey(), newColumnHandle);
             }
 
-            HiveTableLayoutHandle oldTableLayoutHandle = (HiveTableLayoutHandle) oldTableHandle.getLayout().get();
+            HiveTableLayoutHandle oldTableLayoutHandle = (HiveTableLayoutHandle) oldTableHandle.getLayout().orElseThrow();
             HiveTableLayoutHandle newTableLayoutHandle = oldTableLayoutHandle.builder().setPartialAggregationsPushedDown(true).build();
 
             TableHandle newTableHandle = new TableHandle(

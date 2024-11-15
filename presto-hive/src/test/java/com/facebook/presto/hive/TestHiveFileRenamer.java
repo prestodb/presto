@@ -193,7 +193,7 @@ public class TestHiveFileRenamer
                 .map(result -> {
                     Optional<String> fileName = ((HiveMetadataUpdateHandle) result).getMetadataUpdate();
                     assertTrue(fileName.isPresent());
-                    return fileName.get();
+                    return fileName.orElseThrow();
                 })
                 .collect(Collectors.toList());
     }

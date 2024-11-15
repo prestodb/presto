@@ -598,7 +598,7 @@ public class TestHiveLogicalPlanner
                         "SELECT orderkey, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
         ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
         MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector(), getSession().getRuntimeStats());
-        Table table = metastore.getTable(metastoreContext, getSession().getSchema().get(), "test_metadata_aggregation_folding_with_empty_partitions").get();
+        Table table = metastore.getTable(metastoreContext, getSession().getSchema().orElseThrow(), "test_metadata_aggregation_folding_with_empty_partitions").orElseThrow();
 
         // Add one partition with no statistics.
         String partitionNameNoStats = "ds=2020-07-20";
@@ -742,7 +742,7 @@ public class TestHiveLogicalPlanner
                         "SELECT orderkey, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
         ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
         MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector(), getSession().getRuntimeStats());
-        Table table = metastore.getTable(metastoreContext, getSession().getSchema().get(), "test_metadata_aggregation_folding_with_empty_partitions_with_threshold").get();
+        Table table = metastore.getTable(metastoreContext, getSession().getSchema().orElseThrow(), "test_metadata_aggregation_folding_with_empty_partitions_with_threshold").orElseThrow();
 
         // Add one partition with no statistics.
         String partitionNameNoStats = "ds=2020-07-20";
@@ -816,7 +816,7 @@ public class TestHiveLogicalPlanner
                         "FROM orders WHERE orderkey < 1000");
         ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
         MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector(), getSession().getRuntimeStats());
-        Table table = metastore.getTable(metastoreContext, getSession().getSchema().get(), "test_metadata_aggregation_folding_with_two_partitions_columns").get();
+        Table table = metastore.getTable(metastoreContext, getSession().getSchema().orElseThrow(), "test_metadata_aggregation_folding_with_two_partitions_columns").orElseThrow();
 
         // Add one partition with no statistics.
         String partitionNameNoStats = "ds=2020-07-03/status=C";
@@ -970,7 +970,7 @@ public class TestHiveLogicalPlanner
                         .transform(HiveColumnHandle.class::cast)
                         .transform(HiveColumnHandle::getName);
 
-                if (!expectedConstraint.equals(constraint.getDomains().get())) {
+                if (!expectedConstraint.equals(constraint.getDomains().orElseThrow())) {
                     return NO_MATCH;
                 }
 
@@ -2082,7 +2082,7 @@ public class TestHiveLogicalPlanner
                 .findOnlyElement();
 
         assertTrue(tableScan.getTable().getLayout().isPresent());
-        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().orElseThrow();
 
         assertEquals(layoutHandle.getPredicateColumns().keySet(), predicateColumnNames);
         assertEquals(layoutHandle.getDomainPredicate(), domainPredicate);
@@ -2097,12 +2097,12 @@ public class TestHiveLogicalPlanner
                 .findOnlyElement();
 
         assertTrue(tableScan.getTable().getLayout().isPresent());
-        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().orElseThrow();
 
         assertTrue(layoutHandle.getBucketHandle().isPresent());
         assertTrue(layoutHandle.getBucketFilter().isPresent());
-        assertEquals(layoutHandle.getBucketHandle().get().getReadBucketCount(), readBucketCount);
-        assertEquals(layoutHandle.getBucketFilter().get().getBucketsToKeep(), bucketsToKeep);
+        assertEquals(layoutHandle.getBucketHandle().orElseThrow().getReadBucketCount(), readBucketCount);
+        assertEquals(layoutHandle.getBucketFilter().orElseThrow().getBucketsToKeep(), bucketsToKeep);
     }
 
     private void assertNoBucketFilter(Plan plan, String tableName, int readBucketCount)
@@ -2112,9 +2112,9 @@ public class TestHiveLogicalPlanner
                 .findOnlyElement();
 
         assertTrue(tableScan.getTable().getLayout().isPresent());
-        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().orElseThrow();
 
-        assertEquals(layoutHandle.getBucketHandle().get().getReadBucketCount(), readBucketCount);
+        assertEquals(layoutHandle.getBucketHandle().orElseThrow().getReadBucketCount(), readBucketCount);
         assertFalse(layoutHandle.getBucketFilter().isPresent());
     }
 
@@ -2139,10 +2139,10 @@ public class TestHiveLogicalPlanner
                 .findOnlyElement();
 
         assertTrue(tableScan.getTable().getLayout().isPresent());
-        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().orElseThrow();
 
         assertTrue(layoutHandle.getRequestedColumns().isPresent());
-        Set<HiveColumnHandle> requestedColumns = layoutHandle.getRequestedColumns().get();
+        Set<HiveColumnHandle> requestedColumns = layoutHandle.getRequestedColumns().orElseThrow();
 
         List<String> actualRequestedColumns = new ArrayList<>();
         for (HiveColumnHandle column : requestedColumns) {
@@ -2190,7 +2190,7 @@ public class TestHiveLogicalPlanner
                     return NO_MATCH;
                 }
 
-                HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) layout.get();
+                HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) layout.orElseThrow();
 
                 if (!Objects.equals(layoutHandle.getPredicateColumns().keySet(), predicateColumnNames) ||
                         !Objects.equals(layoutHandle.getDomainPredicate(), domainPredicate.transform(Subfield::new)) ||
@@ -2308,7 +2308,7 @@ public class TestHiveLogicalPlanner
                 return NO_MATCH;
             }
 
-            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) layout.get();
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) layout.orElseThrow();
 
             if (!Objects.equals(layoutHandle.getPredicateColumns().keySet(), predicateColumns) ||
                     !Objects.equals(layoutHandle.getDomainPredicate(), domainPredicate.transform(Subfield::new)) ||

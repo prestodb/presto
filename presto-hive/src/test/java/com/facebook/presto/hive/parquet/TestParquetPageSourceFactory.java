@@ -51,14 +51,14 @@ public class TestParquetPageSourceFactory
         PrimitiveType expectedNameType = new PrimitiveType(REQUIRED, BINARY, "name");
         assertTrue(parquetType.isPresent());
         assertEquals(
-                parquetType.get(), expectedNameType);
+                parquetType.orElseThrow(), expectedNameType);
 
         // Simple field by name.
         parquetType = getColumnType(VarcharType.VARCHAR, messageType, true,
                 buildSimpleColumnHandle("name", 0), tableName, path);
         assertTrue(parquetType.isPresent());
         assertEquals(
-                parquetType.get(), expectedNameType);
+                parquetType.orElseThrow(), expectedNameType);
 
         // Pushdown fields with useParquetColumnNames = false.
         HiveColumnHandle addressCityColumn = buildNestedPushDownColumnHandle("address", "city");
@@ -70,14 +70,14 @@ public class TestParquetPageSourceFactory
 
         assertTrue(parquetType.isPresent());
         assertEquals(
-                parquetType.get(), expectedAddressWithCityType);
+                parquetType.orElseThrow(), expectedAddressWithCityType);
 
         // Pushdown fields with useParquetColumnNames = true.
         parquetType = getColumnType(VarcharType.VARCHAR, messageType, true,
                 addressCityColumn, tableName, path);
         assertTrue(parquetType.isPresent());
         assertEquals(
-                parquetType.get(), expectedAddressWithCityType);
+                parquetType.orElseThrow(), expectedAddressWithCityType);
     }
 
     private static HiveColumnHandle buildSimpleColumnHandle(String name, int index)

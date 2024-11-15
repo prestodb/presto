@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -103,8 +103,8 @@ public class TestEventListenerWithExchangeMaterialization
         // We expect one runtime optimized stage: 1.
         int expectedEvents = 2;
         QueryId queryId = runQueryAndWaitForEvents("SELECT phone, regionkey FROM nation INNER JOIN supplier ON supplier.nationkey=nation.nationkey", expectedEvents);
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryCreatedEvent queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
+        QueryCompletedEvent queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         QueryMetadata queryMetadata = queryCompletedEvent.getMetadata();
         Optional<List<StageId>> runtimeOptimizedStages = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getRuntimeOptimizedStages();
 
@@ -112,15 +112,15 @@ public class TestEventListenerWithExchangeMaterialization
         assertEquals(queryMetadata.getRuntimeOptimizedStages().size(), 1);
         assertEquals(queryMetadata.getRuntimeOptimizedStages().get(0), "1");
         assertTrue(runtimeOptimizedStages.isPresent());
-        assertEquals(runtimeOptimizedStages.get().size(), 1);
-        assertEquals(queryMetadata.getRuntimeOptimizedStages(), runtimeOptimizedStages.get().stream()
+        assertEquals(runtimeOptimizedStages.orElseThrow().size(), 1);
+        assertEquals(queryMetadata.getRuntimeOptimizedStages(), runtimeOptimizedStages.orElseThrow().stream()
                 .map(stageId -> String.valueOf(stageId.getId()))
                 .collect(toImmutableList()));
 
         // Now, the following query should not trigger runtime optimizations, so should have empty list of runtime optimized stages.
         runQueryAndWaitForEvents("SELECT phone, regionkey FROM supplier INNER JOIN nation ON supplier.nationkey=nation.nationkey", expectedEvents);
-        queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
-        queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
+        queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         runtimeOptimizedStages = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getRuntimeOptimizedStages();
 
         assertTrue(queryCompletedEvent.getMetadata().getRuntimeOptimizedStages().isEmpty());
@@ -128,31 +128,31 @@ public class TestEventListenerWithExchangeMaterialization
 
         // Now, the following query should have two optimized joins in a single stage (both on the same nationkey), therefore expect only one optimized stage: 1.
         runQueryAndWaitForEvents("SELECT supplier.phone, regionkey, custkey FROM nation INNER JOIN supplier ON supplier.nationkey=nation.nationkey INNER JOIN customer ON nation.nationkey=customer.nationkey", expectedEvents);
-        queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
-        queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
+        queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         queryMetadata = queryCompletedEvent.getMetadata();
         runtimeOptimizedStages = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getRuntimeOptimizedStages();
 
         assertEquals(queryMetadata.getRuntimeOptimizedStages().size(), 1);
         assertEquals(queryMetadata.getRuntimeOptimizedStages().get(0), "1");
         assertTrue(runtimeOptimizedStages.isPresent());
-        assertEquals(runtimeOptimizedStages.get().size(), 1);
-        assertEquals(queryMetadata.getRuntimeOptimizedStages(), runtimeOptimizedStages.get().stream()
+        assertEquals(runtimeOptimizedStages.orElseThrow().size(), 1);
+        assertEquals(queryMetadata.getRuntimeOptimizedStages(), runtimeOptimizedStages.orElseThrow().stream()
                 .map(stageId -> String.valueOf(stageId.getId()))
                 .collect(toImmutableList()));
 
         // Now, the following query should have two runtime optimized stages: 1 and 4, corresponding to the two join operations (on regionkey and nationkey respectively).
         runQueryAndWaitForEvents("WITH natreg AS (SELECT nation.regionkey, nationkey, region.name FROM region INNER JOIN nation ON nation.regionkey=region.regionkey) SELECT phone, regionkey FROM natreg INNER JOIN supplier ON supplier.nationkey=natreg.nationkey", expectedEvents);
-        queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
-        queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
+        queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         queryMetadata = queryCompletedEvent.getMetadata();
         runtimeOptimizedStages = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getRuntimeOptimizedStages();
 
         assertEquals(queryMetadata.getRuntimeOptimizedStages().size(), 2);
         assertEquals(ImmutableSet.copyOf(queryMetadata.getRuntimeOptimizedStages()), ImmutableSet.of("1", "4"));
         assertTrue(runtimeOptimizedStages.isPresent());
-        assertEquals(runtimeOptimizedStages.get().size(), 2);
-        assertEquals(queryMetadata.getRuntimeOptimizedStages(), runtimeOptimizedStages.get().stream()
+        assertEquals(runtimeOptimizedStages.orElseThrow().size(), 2);
+        assertEquals(queryMetadata.getRuntimeOptimizedStages(), runtimeOptimizedStages.orElseThrow().stream()
                 .map(stageId -> String.valueOf(stageId.getId()))
                 .collect(toImmutableList()));
     }

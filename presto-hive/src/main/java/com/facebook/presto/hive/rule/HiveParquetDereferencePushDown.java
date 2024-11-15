@@ -107,7 +107,7 @@ public class HiveParquetDereferencePushDown
         // Create column handle for subfield column
         return new HiveColumnHandle(
                 subfieldColumnName,
-                nestedColumnHiveType.get(),
+                nestedColumnHiveType.orElseThrow(),
                 subfieldDataType.getTypeSignature(),
                 -1,
                 SYNTHESIZED,

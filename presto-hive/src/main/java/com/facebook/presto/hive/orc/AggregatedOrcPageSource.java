@@ -97,7 +97,7 @@ public class AggregatedOrcPageSource
         Block[] blocks = new Block[columnHandles.size()];
         for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
             HiveColumnHandle columnHandle = columnHandles.get(fieldId);
-            Aggregation aggregation = columnHandle.getPartialAggregation().get();
+            Aggregation aggregation = columnHandle.getPartialAggregation().orElseThrow();
             int columnIndex = columnHandle.getHiveColumnIndex();
             Type type = typeManager.getType(columnHandle.getTypeSignature());
             BlockBuilder blockBuilder = type.createBlockBuilder(null, batchSize, 0);

@@ -145,15 +145,15 @@ public class CachingDirectoryLister
     public void invalidateDirectoryListCache(Optional<String> directoryPath)
     {
         if (directoryPath.isPresent()) {
-            if (directoryPath.get().isEmpty()) {
+            if (directoryPath.orElseThrow().isEmpty()) {
                 throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Directory path can not be a empty string");
             }
 
-            ValueHolder value = cache.getIfPresent(directoryPath.get());
+            ValueHolder value = cache.getIfPresent(directoryPath.orElseThrow());
             if (value == null) {
                 throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Given directory path is not cached : " + directoryPath);
             }
-            cache.invalidate(directoryPath.get());
+            cache.invalidate(directoryPath.orElseThrow());
         }
         else {
             flushCache();

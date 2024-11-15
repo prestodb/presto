@@ -748,13 +748,13 @@ public class TestHiveSplitManager
                 .map(HiveSplit.class::cast)
                 .map(HiveSplit::getEncryptionInformation)
                 .findFirst()
-                .get();
+                .orElseThrow();
         assertTrue(encryptionInformation.isPresent());
-        Optional<DwrfEncryptionMetadata> dwrfEncryptionMetadata = encryptionInformation.get().getDwrfEncryptionMetadata();
+        Optional<DwrfEncryptionMetadata> dwrfEncryptionMetadata = encryptionInformation.orElseThrow().getDwrfEncryptionMetadata();
         assertTrue(dwrfEncryptionMetadata.isPresent());
-        assertEquals(dwrfEncryptionMetadata.get().getEncryptionAlgorithm(), testEncryptionAlgorithm);
-        assertEquals(dwrfEncryptionMetadata.get().getEncryptionProvider(), testEncryptionProvider);
-        assertEquals(dwrfEncryptionMetadata.get().getFieldToKeyData().size(), 4);
+        assertEquals(dwrfEncryptionMetadata.orElseThrow().getEncryptionAlgorithm(), testEncryptionAlgorithm);
+        assertEquals(dwrfEncryptionMetadata.orElseThrow().getEncryptionProvider(), testEncryptionProvider);
+        assertEquals(dwrfEncryptionMetadata.orElseThrow().getFieldToKeyData().size(), 4);
     }
 
     private static class TestingHiveTransactionManager

@@ -134,7 +134,7 @@ public class HivePageSinkProvider
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
         Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
         checkArgument(hiveMetadataUpdater.isPresent(), "Metadata Updater for HivePageSink is null");
-        return createPageSink(handle, true, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired(), handle.getAdditionalTableParameters());
+        return createPageSink(handle, true, session, (HiveMetadataUpdater) hiveMetadataUpdater.orElseThrow(), pageSinkContext.isCommitRequired(), handle.getAdditionalTableParameters());
     }
 
     @Override
@@ -143,7 +143,7 @@ public class HivePageSinkProvider
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
         Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
         checkArgument(hiveMetadataUpdater.isPresent(), "Metadata Updater for HivePageSink is null");
-        return createPageSink(handle, false, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired(), ImmutableMap.of());
+        return createPageSink(handle, false, session, (HiveMetadataUpdater) hiveMetadataUpdater.orElseThrow(), pageSinkContext.isCommitRequired(), ImmutableMap.of());
     }
 
     private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, HiveMetadataUpdater hiveMetadataUpdater, boolean commitRequired, Map<String, String> additionalTableParameters)
@@ -152,8 +152,8 @@ public class HivePageSinkProvider
         List<SortingColumn> sortedBy;
 
         if (handle.getBucketProperty().isPresent()) {
-            bucketCount = OptionalInt.of(handle.getBucketProperty().get().getBucketCount());
-            sortedBy = handle.getBucketProperty().get().getSortedBy();
+            bucketCount = OptionalInt.of(handle.getBucketProperty().orElseThrow().getBucketCount());
+            sortedBy = handle.getBucketProperty().orElseThrow().getSortedBy();
         }
         else {
             sortedBy = handle.getPreferredOrderingColumns();

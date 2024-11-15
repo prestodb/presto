@@ -97,7 +97,7 @@ public class TableToPartitionMapping
         if (!tableToPartitionColumns.isPresent()) {
             return Optional.of(tableColumnIndex);
         }
-        return Optional.ofNullable(tableToPartitionColumns.get().get(tableColumnIndex));
+        return Optional.ofNullable(tableToPartitionColumns.orElseThrow().get(tableColumnIndex));
     }
 
     public int getEstimatedSizeInBytes()
@@ -109,7 +109,7 @@ public class TableToPartitionMapping
         }
         result += OPTIONAL_INSTANCE_SIZE;
         if (tableToPartitionColumns.isPresent()) {
-            result += sizeOfObjectArray(tableToPartitionColumns.get().size()) + 2 * tableToPartitionColumns.get().size() * INTEGER_INSTANCE_SIZE;
+            result += sizeOfObjectArray(tableToPartitionColumns.orElseThrow().size()) + 2 * tableToPartitionColumns.orElseThrow().size() * INTEGER_INSTANCE_SIZE;
         }
         return result;
     }

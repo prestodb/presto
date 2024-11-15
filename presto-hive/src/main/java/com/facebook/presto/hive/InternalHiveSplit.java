@@ -266,7 +266,7 @@ public class InternalHiveSplit
             }
         }
         if (extraFileInfo.isPresent()) {
-            result += sizeOf(extraFileInfo.get());
+            result += sizeOf(extraFileInfo.orElseThrow());
         }
         return result;
     }

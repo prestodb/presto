@@ -96,7 +96,7 @@ public class S3SelectRecordCursorProvider
         Optional<S3SelectDataType> s3SelectDataTypeOptional = S3SelectSerDeDataTypeMapper.getDataType(serdeName);
 
         if (s3SelectDataTypeOptional.isPresent()) {
-            S3SelectDataType s3SelectDataType = s3SelectDataTypeOptional.get();
+            S3SelectDataType s3SelectDataType = s3SelectDataTypeOptional.orElseThrow();
 
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, s3SelectDataType);
             String ionSqlQuery = queryBuilder.buildSql(columns, effectivePredicate);
