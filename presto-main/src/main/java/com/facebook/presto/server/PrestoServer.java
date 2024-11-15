@@ -44,6 +44,7 @@ import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
+import com.facebook.presto.server.security.JWTAuthenticatorManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -171,6 +172,7 @@ public class PrestoServer
                 injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             }
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
+            injector.getInstance(JWTAuthenticatorManager.class).loadJWTAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
             injector.getInstance(TempStorageManager.class).loadTempStorages();
             injector.getInstance(QueryPrerequisitesManager.class).loadQueryPrerequisites();

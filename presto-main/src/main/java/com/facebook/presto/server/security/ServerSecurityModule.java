@@ -55,7 +55,6 @@ public class ServerSecurityModule
                 authBinder.addBinding().to(PasswordAuthenticator.class).in(Scopes.SINGLETON);
             }
             else if (authType == JWT) {
-                configBinder(binder).bindConfig(JsonWebTokenConfig.class);
                 authBinder.addBinding().to(JsonWebTokenAuthenticator.class).in(Scopes.SINGLETON);
             }
             else {
