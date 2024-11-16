@@ -23,12 +23,6 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>bootstrap</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-core</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -40,14 +34,6 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <exclusions>
-                <exclusion>
-                    <groupId>org.checkerframework</groupId>
-                    <artifactId>checker-qual</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.errorprone</groupId>
-                    <artifactId>error_prone_annotations</artifactId>
-                </exclusion>
                 <exclusion>
                     <groupId>com.google.j2objc</groupId>
                     <artifactId>j2objc-annotations</artifactId>
@@ -140,12 +126,6 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-handler-proxy</artifactId>
             <version>${netty.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-codec-http</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -160,12 +140,16 @@
             <version>${arrow.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>com.fasterxml.jackson.datatype</groupId>
-                    <artifactId>jackson-datatype-jsr310</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.datatype</groupId>
+                    <artifactId>jackson-datatype-jsr310</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -206,12 +190,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.checkerframework</groupId>
-            <artifactId>checker-qual</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-testng-services</artifactId>
             <scope>test</scope>
@@ -242,12 +220,12 @@
             <version>${arrow.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>com.google.j2objc</groupId>
-                    <artifactId>j2objc-annotations</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.j2objc</groupId>
+                    <artifactId>j2objc-annotations</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -290,16 +268,6 @@
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>2.14.0</version> <!-- Use the highest version found in conflict -->
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.protobuf</groupId>
-                <artifactId>protobuf-java</artifactId>
-            </dependency>
-
-            <dependency>
-                <groupId>commons-codec</groupId>
-                <artifactId>commons-codec</artifactId>
             </dependency>
 
             <dependency>
