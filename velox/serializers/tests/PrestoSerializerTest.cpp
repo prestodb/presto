@@ -773,6 +773,16 @@ class PrestoSerializerTest
          makeMapVector<StringView, int32_t>({})});
   }
 
+  void testDeserializeSingleColumn(
+      const std::string& serializedData,
+      const VectorPtr& expected) {
+    auto byteStream = toByteStream(serializedData);
+    VectorPtr deserialized;
+    serde_->deserializeSingleColumn(
+        byteStream.get(), pool(), expected->type(), &deserialized, nullptr);
+    assertEqualVectors(expected, deserialized);
+  }
+
   std::unique_ptr<serializer::presto::PrestoVectorSerde> serde_;
   folly::Random::DefaultGenerator rng_;
 };
@@ -1536,14 +1546,16 @@ INSTANTIATE_TEST_SUITE_P(
         common::CompressionKind::CompressionKind_LZ4,
         common::CompressionKind::CompressionKind_GZIP));
 
-TEST_F(PrestoSerializerTest, deserializeSingleColumn) {
-  // Verify that deserializeSingleColumn API can handle all supported types.
-  static const size_t kPrestoPageHeaderBytes = 21;
-  static const size_t kNumOfColumnsSerializedBytes = sizeof(int32_t);
-  static const size_t kBytesToTrim =
-      kPrestoPageHeaderBytes + kNumOfColumnsSerializedBytes;
+TEST_F(PrestoSerializerTest, serdeSingleColumn) {
+  // The difference between serialized data obtained from
+  // PrestoIterativeVectorSerializer and serializeSingleColumn() is the
+  // PrestoPage header and number of columns section in the serialized data.
+  auto testSerializeRoundTrip = [&](const VectorPtr& vector) {
+    static const size_t kPrestoPageHeaderBytes = 21;
+    static const size_t kNumOfColumnsSerializedBytes = sizeof(int32_t);
+    static const size_t kBytesToTrim =
+        kPrestoPageHeaderBytes + kNumOfColumnsSerializedBytes;
 
-  auto testRoundTripSingleColumn = [&](const VectorPtr& vector) {
     auto rowVector = makeRowVector({vector});
     // Serialize to PrestoPage format.
     std::ostringstream output;
@@ -1562,14 +1574,17 @@ TEST_F(PrestoSerializerTest, deserializeSingleColumn) {
     // Remove the PrestoPage header and Number of columns section from the
     // serialized data.
     std::string input = output.str().substr(kBytesToTrim);
-
-    auto byteStream = toByteStream(input);
-    VectorPtr deserialized;
-    serde_->deserializeSingleColumn(
-        byteStream.get(), pool(), vector->type(), &deserialized, nullptr);
-    assertEqualVectors(vector, deserialized);
+    testDeserializeSingleColumn(input, vector);
   };
 
+  auto testSerializeSingleColumnRoundTrip = [&](const VectorPtr& vector) {
+    std::ostringstream output;
+    serde_->serializeSingleColumn(vector, nullptr, pool_.get(), &output);
+    const auto serialized = output.str();
+    testDeserializeSingleColumn(serialized, vector);
+  };
+
+  // Verify that (de)serializeSingleColumn API can handle all supported types.
   std::vector<TypePtr> typesToTest = {
       BOOLEAN(),
       TINYINT(),
@@ -1607,7 +1622,16 @@ TEST_F(PrestoSerializerTest, deserializeSingleColumn) {
   for (const auto& type : typesToTest) {
     SCOPED_TRACE(fmt::format("Type: {}", type->toString()));
     auto data = fuzzer.fuzz(type);
-    testRoundTripSingleColumn(data);
+
+    // Test deserializeSingleColumn() round trip with serialized data obtained
+    // by PrestoIterativeVectorSerializer. This serialized data includes the
+    // PrestoPage header and number of columns, which is removed for testing.
+    testSerializeRoundTrip(data);
+
+    // Test serializeSingleColumn() round trip with deserializeSingleColumn(),
+    // both of these functions do not consider the PrestoPage header and number
+    // of columns when (de)serializing the data.
+    testSerializeSingleColumnRoundTrip(data);
   }
 }
 

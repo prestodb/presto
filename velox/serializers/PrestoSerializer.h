@@ -41,6 +41,10 @@ namespace facebook::velox::serializer::presto {
 /// 2. To serialize a single RowVector, one can use the BatchVectorSerializer
 /// returned by createBatchSerializer(). Since it serializes a single RowVector,
 /// it tries to preserve the encodings of the input data.
+///
+/// 3. To serialize data from a vector into a single column, adhering to
+/// PrestoPage's column format and excluding the PrestoPage header, one can use
+/// serializeSingleColumn() directly.
 class PrestoVectorSerde : public VectorSerde {
  public:
   // Input options that the serializer recognizes.
@@ -144,6 +148,18 @@ class PrestoVectorSerde : public VectorSerde {
       TypePtr type,
       VectorPtr* result,
       const Options* options);
+
+  /// This function is used to serialize data from input vector into a single
+  /// column that conforms to PrestoPage's column format. The serialized binary
+  /// data is uncompressed and starts at the column header since the PrestoPage
+  /// header is not included. The deserializeSingleColumn function can be used
+  /// to deserialize the serialized binary data returned by this function back
+  /// to the input vector.
+  void serializeSingleColumn(
+      const VectorPtr& vector,
+      const Options* opts,
+      memory::MemoryPool* pool,
+      std::ostream* output);
 
   enum class TokenType {
     HEADER,

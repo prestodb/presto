@@ -4272,6 +4272,34 @@ void PrestoVectorSerde::deserializeSingleColumn(
   *result = row->childAt(0);
 }
 
+void PrestoVectorSerde::serializeSingleColumn(
+    const VectorPtr& vector,
+    const Options* opts,
+    memory::MemoryPool* pool,
+    std::ostream* output) {
+  const auto prestoOptions = toPrestoOptions(opts);
+  VELOX_USER_CHECK_EQ(
+      prestoOptions.compressionKind,
+      common::CompressionKind::CompressionKind_NONE);
+  VELOX_USER_CHECK_EQ(prestoOptions.nullsFirst, false);
+
+  const IndexRange range{0, vector->size()};
+  const auto arena = std::make_unique<StreamArena>(pool);
+  auto stream = std::make_unique<VectorStream>(
+      vector->type(),
+      std::nullopt,
+      std::nullopt,
+      arena.get(),
+      vector->size(),
+      prestoOptions);
+  Scratch scratch;
+  serializeColumn(vector, folly::Range(&range, 1), stream.get(), scratch);
+
+  PrestoOutputStreamListener listener;
+  OStreamOutputStream outputStream(output, &listener);
+  stream->flush(&outputStream);
+}
+
 namespace {
 void initBitsToMapOnce() {
   static folly::once_flag initOnceFlag;
