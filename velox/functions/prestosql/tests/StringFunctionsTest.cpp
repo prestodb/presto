@@ -1399,7 +1399,7 @@ void StringFunctionsTest::testReplaceInPlace(
   auto result = evaluate<FlatVector<StringView>>(
       fmt::format(
           "{}(c0, '{}', '{}')",
-          replaceFirst ? "replaceFirst" : "replace",
+          replaceFirst ? "replace_first" : "replace",
           search,
           replace),
       makeRowVector({makeInput()}));
@@ -1412,7 +1412,7 @@ void StringFunctionsTest::testReplaceInPlace(
     core::QueryConfig config({});
     auto replaceFunction = replaceFirst
         ? exec::getVectorFunction(
-              "replaceFirst", {VARCHAR(), VARCHAR(), VARCHAR()}, {}, config)
+              "replace_first", {VARCHAR(), VARCHAR(), VARCHAR()}, {}, config)
         : exec::getVectorFunction(
               "replace", {VARCHAR(), VARCHAR()}, {}, config);
     SelectivityVector rows(tests.size());
@@ -1459,7 +1459,7 @@ void StringFunctionsTest::testReplaceFlatVector(
   FlatVectorPtr<StringView> result;
   if (replaceFirst) {
     result = evaluate<FlatVector<StringView>>(
-        "replaceFirst(c0, c1, c2)",
+        "replace_first(c0, c1, c2)",
         makeRowVector({stringVector, searchVector, replaceVector}));
   } else if (withReplaceArgument) {
     result = evaluate<FlatVector<StringView>>(
