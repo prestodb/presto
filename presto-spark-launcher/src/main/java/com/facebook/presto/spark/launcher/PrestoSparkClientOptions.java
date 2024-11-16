@@ -26,7 +26,7 @@ public class PrestoSparkClientOptions
     @Option(name = {"-c", "--config"}, title = "file", description = "config.properties path", required = true)
     public String config;
 
-    @Option(name = {"--catalogs"}, title = "directory", description = "catalog configuration directory path", required = true)
+    @Option(name = "--catalogs", title = "directory", description = "catalog configuration directory path", required = true)
     public String catalogs;
 
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
