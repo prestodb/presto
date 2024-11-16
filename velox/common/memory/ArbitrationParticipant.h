@@ -49,26 +49,16 @@ class ScopedArbitrationParticipant;
 /// automatically be applied.
 ///
 /// NOTE: TSAN is incompatible with std::timed_mutex when used with timeout. So
-/// in TSAN build a trivial implementation is implemented.
-#ifdef TSAN_BUILD
-class ArbitrationOperationTimedLock {
+/// in TSAN build a trivial lock is implemented.
+class ArbitrationTimedLock {
  public:
-  explicit ArbitrationOperationTimedLock(std::timed_mutex& mutex);
-  ~ArbitrationOperationTimedLock();
+  ArbitrationTimedLock(std::timed_mutex& mutex, uint64_t timeoutNs);
+  ~ArbitrationTimedLock();
 
  private:
   std::timed_mutex& mutex_;
 };
-#else
-class ArbitrationOperationTimedLock {
- public:
-  explicit ArbitrationOperationTimedLock(std::timed_mutex& mutex);
-  ~ArbitrationOperationTimedLock();
 
- private:
-  std::unique_lock<std::timed_mutex> timedLock_;
-};
-#endif
 /// Manages the memory arbitration operations on a query memory pool. It also
 /// tracks the arbitration stats during the query memory pool's lifecycle.
 class ArbitrationParticipant

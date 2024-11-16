@@ -421,13 +421,9 @@ struct MemoryArbitrationContext {
   /// global memory arbitration type.
   const std::string requestorName;
 
-  ArbitrationOperation* const op;
+  explicit MemoryArbitrationContext(const MemoryPool* requestor);
 
-  MemoryArbitrationContext(
-      const MemoryPool* requestor,
-      ArbitrationOperation* _op);
-
-  MemoryArbitrationContext() : type(Type::kGlobal), op(nullptr) {}
+  MemoryArbitrationContext() : type(Type::kGlobal) {}
 };
 
 /// Object used to set/restore the memory arbitration context when a thread is
@@ -439,9 +435,7 @@ class ScopedMemoryArbitrationContext {
   explicit ScopedMemoryArbitrationContext(
       const MemoryArbitrationContext* context);
 
-  ScopedMemoryArbitrationContext(
-      const MemoryPool* requestor,
-      ArbitrationOperation* op);
+  explicit ScopedMemoryArbitrationContext(const MemoryPool* requestor);
 
   ~ScopedMemoryArbitrationContext();
 

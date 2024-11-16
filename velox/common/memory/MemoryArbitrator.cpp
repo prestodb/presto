@@ -449,12 +449,8 @@ bool MemoryArbitrator::Stats::operator<=(const Stats& other) const {
   return !(*this > other);
 }
 
-MemoryArbitrationContext::MemoryArbitrationContext(
-    const MemoryPool* requestor,
-    ArbitrationOperation* _op)
-    : type(Type::kLocal), requestorName(requestor->name()), op(_op) {
-  VELOX_CHECK_NOT_NULL(op);
-}
+MemoryArbitrationContext::MemoryArbitrationContext(const MemoryPool* requestor)
+    : type(Type::kLocal), requestorName(requestor->name()) {}
 
 std::string MemoryArbitrationContext::typeName(
     MemoryArbitrationContext::Type type) {
@@ -469,10 +465,8 @@ std::string MemoryArbitrationContext::typeName(
 }
 
 ScopedMemoryArbitrationContext::ScopedMemoryArbitrationContext(
-    const MemoryPool* requestor,
-    ArbitrationOperation* op)
-    : savedArbitrationCtx_(arbitrationCtx),
-      currentArbitrationCtx_(requestor, op) {
+    const MemoryPool* requestor)
+    : savedArbitrationCtx_(arbitrationCtx), currentArbitrationCtx_(requestor) {
   arbitrationCtx = &currentArbitrationCtx_;
 }
 

@@ -1735,11 +1735,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
     const auto oldReservedBytes = writerPool->reservedBytes();
     const auto oldUsedBytes = writerPool->usedBytes();
     {
-      auto arbitrationStructs =
-          memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-              writerPool);
-      memory::ScopedMemoryArbitrationContext arbitrationCtx(
-          writerPool.get(), arbitrationStructs.operation.get());
+      memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
       writerPool->reclaim(1L << 30, 0, stats);
     }
     ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
@@ -1778,11 +1774,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
       writer->testingNonReclaimableSection() = false;
       stats.numNonReclaimableAttempts = 0;
       {
-        auto arbitrationStructs =
-            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-                writerPool);
-        memory::ScopedMemoryArbitrationContext arbitrationCtx(
-            writerPool.get(), arbitrationStructs.operation.get());
+        memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
         const auto reclaimedBytes = writerPool->reclaim(1L << 30, 0, stats);
         ASSERT_GT(reclaimedBytes, 0);
       }
@@ -2124,11 +2116,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimThreshold) {
           *writerPool, reclaimableBytes));
       ASSERT_GT(reclaimableBytes, 0);
       {
-        auto arbitrationStructs =
-            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-                writerPool);
-        memory::ScopedMemoryArbitrationContext arbitrationCtx(
-            writerPool.get(), arbitrationStructs.operation.get());
+        memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
         ASSERT_GT(writerPool->reclaim(1L << 30, 0, stats), 0);
       }
       ASSERT_GT(stats.reclaimExecTimeUs, 0);
@@ -2138,11 +2126,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimThreshold) {
           *writerPool, reclaimableBytes));
       ASSERT_EQ(reclaimableBytes, 0);
       {
-        auto arbitrationStructs =
-            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-                writerPool);
-        memory::ScopedMemoryArbitrationContext arbitrationCtx(
-            writerPool.get(), arbitrationStructs.operation.get());
+        memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
         ASSERT_EQ(writerPool->reclaim(1L << 30, 0, stats), 0);
       }
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);

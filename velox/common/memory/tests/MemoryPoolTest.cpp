@@ -3888,10 +3888,7 @@ TEST_P(MemoryPoolTest, overuseUnderArbitration) {
   ASSERT_FALSE(child->maybeReserve(2 * kMaxSize));
   ASSERT_EQ(child->usedBytes(), 0);
   ASSERT_EQ(child->reservedBytes(), 0);
-  auto arbitrationTestStructs =
-      test::ArbitrationTestStructs::createArbitrationTestStructs(root);
-  ScopedMemoryArbitrationContext scopedMemoryArbitration(
-      root.get(), arbitrationTestStructs.operation.get());
+  ScopedMemoryArbitrationContext scopedMemoryArbitration(root.get());
   ASSERT_TRUE(underMemoryArbitration());
   ASSERT_TRUE(child->maybeReserve(2 * kMaxSize));
   ASSERT_EQ(child->usedBytes(), 0);

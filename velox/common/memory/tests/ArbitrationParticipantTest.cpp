@@ -1419,7 +1419,7 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, reclaimLock) {
   folly::EventCount reclaim1CompletedWait;
   std::thread reclaimThread1([&]() {
     memory::MemoryReclaimer::Stats stats;
-    ASSERT_EQ(scopedParticipant->reclaim(MB, 1'000'000, stats), 0);
+    ASSERT_EQ(scopedParticipant->reclaim(MB, 1'000'000'000'000, stats), 0);
     ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
     reclaim1CompletedFlag = true;
     reclaim1CompletedWait.notifyAll();
@@ -1454,7 +1454,7 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, reclaimLock) {
   folly::EventCount reclaim2CompletedWait;
   std::thread reclaimThread2([&]() {
     memory::MemoryReclaimer::Stats stats;
-    ASSERT_EQ(scopedParticipant->reclaim(MB, 1'000'000, stats), 0);
+    ASSERT_EQ(scopedParticipant->reclaim(MB, 1'000'000'000'000, stats), 0);
     ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
     reclaim2CompletedFlag = true;
     reclaim2CompletedWait.notifyAll();
@@ -1896,65 +1896,31 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperationTimedLock) {
   };
 
   struct TestData {
-    std::string type;
     uint64_t lockHoldTimeNs;
     uint64_t opTimeoutNs;
   };
 
   std::timed_mutex mutex;
   std::vector<TestData> testDataVec{
-      {"local", 1'000'000'000UL, 2'000'000'000UL},
-      {"local", 2'000'000'000UL, 1'000'000'000UL},
-      {"global", 1'000'000'000UL, 2'000'000'000UL},
-      {"global", 2'000'000'000UL, 1'000'000'000UL},
-      {"none", 1'000'000'000UL, 2'000'000'000UL}};
+      {1'000'000'000UL, 2'000'000'000UL}, {2'000'000'000UL, 1'000'000'000UL}};
 
   for (auto& testData : testDataVec) {
-    ScopedArbitrationParticipant scopedArbitrationParticipant(
-        participant, participantPool);
-    ArbitrationOperation operation(
-        std::move(scopedArbitrationParticipant), 1024, testData.opTimeoutNs);
-    if (testData.type == "local") {
-      MemoryArbitrationContext ctx(participantPool.get(), &operation);
-      ScopedMemoryArbitrationContext scopedCtx(&ctx);
-
-      folly::EventCount lockWait;
-      std::atomic_bool lockWaitFlag{true};
-      auto lockHolder = createLockHolderThread(
-          mutex, testData.lockHoldTimeNs, lockWait, lockWaitFlag);
-      std::unique_ptr<ArbitrationOperationTimedLock> timedLock{nullptr};
-      lockWait.await([&]() { return !lockWaitFlag.load(); });
-      if (testData.lockHoldTimeNs < testData.opTimeoutNs) {
-        timedLock = std::make_unique<ArbitrationOperationTimedLock>(mutex);
-        ASSERT_FALSE(mutex.try_lock());
-      } else {
-        VELOX_ASSERT_THROW(
-            std::make_unique<ArbitrationOperationTimedLock>(mutex),
-            "Memory arbitration lock timed out");
-      }
-      lockHolder.join();
-    } else if (testData.type == "global") {
-      MemoryArbitrationContext ctx;
-      ScopedMemoryArbitrationContext scopedCtx(&ctx);
-
-      folly::EventCount lockWait;
-      std::atomic_bool lockWaitFlag{true};
-      auto lockHolder = createLockHolderThread(
-          mutex, testData.lockHoldTimeNs, lockWait, lockWaitFlag);
-      lockWait.await([&]() { return !lockWaitFlag.load(); });
-      ArbitrationOperationTimedLock timedLock(mutex);
+    folly::EventCount lockWait;
+    std::atomic_bool lockWaitFlag{true};
+    auto lockHolder = createLockHolderThread(
+        mutex, testData.lockHoldTimeNs, lockWait, lockWaitFlag);
+    std::unique_ptr<ArbitrationTimedLock> timedLock{nullptr};
+    lockWait.await([&]() { return !lockWaitFlag.load(); });
+    if (testData.lockHoldTimeNs < testData.opTimeoutNs) {
+      timedLock =
+          std::make_unique<ArbitrationTimedLock>(mutex, testData.opTimeoutNs);
       ASSERT_FALSE(mutex.try_lock());
-      lockHolder.join();
     } else {
-      folly::EventCount lockWait;
-      std::atomic_bool lockWaitFlag{true};
-      auto lockHolder = createLockHolderThread(
-          mutex, testData.lockHoldTimeNs, lockWait, lockWaitFlag);
-      lockWait.await([&]() { return !lockWaitFlag.load(); });
-      ArbitrationOperationTimedLock timedLock(mutex);
-      ASSERT_FALSE(mutex.try_lock());
-      lockHolder.join();
+      VELOX_ASSERT_THROW(
+          std::make_unique<ArbitrationTimedLock>(mutex, testData.opTimeoutNs),
+          "Memory arbitration lock timed out");
     }
+    lockHolder.join();
   }
 }
 #endif

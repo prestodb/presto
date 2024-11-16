@@ -1352,7 +1352,7 @@ SharedArbitrator::ScopedArbitration::ScopedArbitration(
     ArbitrationOperation* operation)
     : arbitrator_(arbitrator),
       operation_(operation),
-      arbitrationCtx_(operation->participant()->pool(), operation),
+      arbitrationCtx_(operation->participant()->pool()),
       startTime_(std::chrono::steady_clock::now()) {
   VELOX_CHECK_NOT_NULL(arbitrator_);
   VELOX_CHECK_NOT_NULL(operation_);

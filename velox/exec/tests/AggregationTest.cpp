@@ -2168,11 +2168,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
 
     if (testData.expectedReclaimable) {
       {
-        auto arbitrationStructs =
-            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-                op->pool()->shared_from_this());
-        memory::ScopedMemoryArbitrationContext ctx(
-            op->pool(), arbitrationStructs.operation.get());
+        memory::ScopedMemoryArbitrationContext ctx(op->pool());
         op->pool()->reclaim(
             folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
             0,
@@ -2185,11 +2181,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
       ASSERT_EQ(op->pool()->usedBytes(), 0);
     } else {
       {
-        auto arbitrationStructs =
-            memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-                op->pool()->shared_from_this());
-        memory::ScopedMemoryArbitrationContext ctx(
-            op->pool(), arbitrationStructs.operation.get());
+        memory::ScopedMemoryArbitrationContext ctx(op->pool());
         VELOX_ASSERT_THROW(
             op->reclaim(
                 folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
@@ -2305,11 +2297,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
 
   const auto usedMemory = op->pool()->usedBytes();
   {
-    auto arbitrationStructs =
-        memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-            op->pool()->shared_from_this());
-    memory::ScopedMemoryArbitrationContext ctx(
-        op->pool(), arbitrationStructs.operation.get());
+    memory::ScopedMemoryArbitrationContext ctx(op->pool());
     op->pool()->reclaim(
         folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
         0,
@@ -2554,11 +2542,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
       const auto usedMemory = op->pool()->usedBytes();
-      auto arbitrationStructs =
-          memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-              op->pool()->shared_from_this());
-      memory::ScopedMemoryArbitrationContext ctx(
-          op->pool(), arbitrationStructs.operation.get());
+      memory::ScopedMemoryArbitrationContext ctx(op->pool());
       op->pool()->reclaim(
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
           0,
@@ -2570,11 +2554,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
       reclaimerStats_.reset();
     } else {
       ASSERT_EQ(reclaimableBytes, 0);
-      auto arbitrationStructs =
-          memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-              op->pool()->shared_from_this());
-      memory::ScopedMemoryArbitrationContext ctx(
-          op->pool(), arbitrationStructs.operation.get());
+      memory::ScopedMemoryArbitrationContext ctx(op->pool());
       VELOX_ASSERT_THROW(
           op->reclaim(
               folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
@@ -3197,10 +3177,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
-          auto arbitrationStructs = memory::test::ArbitrationTestStructs::
-              createArbitrationTestStructs(op->pool()->shared_from_this());
-          memory::ScopedMemoryArbitrationContext ctx(
-              op->pool(), arbitrationStructs.operation.get());
+          memory::ScopedMemoryArbitrationContext ctx(op->pool());
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
           ASSERT_GT(stats.reclaimExecTimeUs, 0);

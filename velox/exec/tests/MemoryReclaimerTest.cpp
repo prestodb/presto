@@ -265,11 +265,7 @@ TEST_F(MemoryReclaimerTest, parallelMemoryReclaimer) {
           static_cast<MockMemoryReclaimer*>(leafPools.back()->reclaimer()));
     }
 
-    auto arbitrationStructs =
-        memory::test::ArbitrationTestStructs::createArbitrationTestStructs(
-            rootPool);
-    memory::ScopedMemoryArbitrationContext context(
-        rootPool.get(), arbitrationStructs.operation.get());
+    memory::ScopedMemoryArbitrationContext context(rootPool.get());
     memory::MemoryReclaimer::Stats stats;
     rootPool->reclaim(testData.bytesToReclaim, 0, stats);
     for (int i = 0; i < memoryReclaimers.size(); ++i) {
