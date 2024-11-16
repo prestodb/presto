@@ -258,7 +258,7 @@ public class PrestoSparkRunner
         IPrestoSparkService service = serviceFactory.createService(sparkProcessType, configuration, bootstrapTimer);
         bootstrapTimer.endRunnerServiceCreation();
         if (bootstrapMetricsCollector.isPresent() && bootstrapTimer.isExecutorBootstrap()) {
-            bootstrapMetricsCollector.get().add(bootstrapTimer.exportBootstrapDurations());
+            bootstrapMetricsCollector.orElseThrow().add(bootstrapTimer.exportBootstrapDurations());
         }
         return service;
     }
