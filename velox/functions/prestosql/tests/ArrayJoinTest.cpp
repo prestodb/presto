@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -39,12 +40,16 @@ class ArrayJoinTest : public FunctionBaseTest {
       std::vector<std::optional<T>> array,
       const StringView& delimiter,
       const StringView& expected,
-      bool isDate = false) {
+      bool isDate = false,
+      bool isJson = false) {
     auto arrayVector = makeNullableArrayVector(
         std::vector<std::vector<std::optional<T>>>{array});
     if (isDate) {
       arrayVector = makeNullableArrayVector(
           std::vector<std::vector<std::optional<T>>>{array}, ARRAY(DATE()));
+    } else if (isJson) {
+      arrayVector = makeNullableArrayVector(
+          std::vector<std::vector<std::optional<T>>>{array}, ARRAY(JSON()));
     }
     auto delimiterVector = makeFlatVector<StringView>({delimiter});
     auto expectedVector = makeFlatVector<StringView>({expected});
@@ -58,12 +63,16 @@ class ArrayJoinTest : public FunctionBaseTest {
       const StringView& delimiter,
       const StringView& replacement,
       const StringView& expected,
-      bool isDate = false) {
+      bool isDate = false,
+      bool isJson = false) {
     auto arrayVector = makeNullableArrayVector(
         std::vector<std::vector<std::optional<T>>>{array});
     if (isDate) {
       arrayVector = makeNullableArrayVector(
           std::vector<std::vector<std::optional<T>>>{array}, ARRAY(DATE()));
+    } else if (isJson) {
+      arrayVector = makeNullableArrayVector(
+          std::vector<std::vector<std::optional<T>>>{array}, ARRAY(JSON()));
     }
     auto delimiterVector = makeFlatVector<StringView>({delimiter});
     auto replacementVector = makeFlatVector<StringView>({replacement});
@@ -160,4 +169,103 @@ TEST_F(ArrayJoinTest, dateTest) {
       true);
 }
 
+TEST_F(ArrayJoinTest, jsonTest) {
+  setLegacyCast(false);
+  std::vector<std::optional<StringView>> input{
+      R"({"one":1,"two":2})",
+      std::nullopt,
+      R"(secondElement)",
+  };
+  testArrayJoinNoReplacement<StringView>(
+      input, ", ", R"({"one":1,"two":2}, secondElement)", false, true);
+  testArrayJoinReplacement<StringView>(
+      input, ", ", "0", R"({"one":1,"two":2}, 0, secondElement)", false, true);
+
+  input = {R"("one element")"};
+  testArrayJoinNoReplacement<StringView>(
+      input, ", ", "one element", false, true);
+  testArrayJoinReplacement<StringView>(
+      input, ", ", "0", "one element", false, true);
+
+  input = {std::nullopt, std::nullopt};
+  testArrayJoinNoReplacement<StringView>(input, ", ", "", false, true);
+  testArrayJoinReplacement<StringView>(input, ", ", "0", "0, 0", false, true);
+
+  // JSON strings with special characters
+  input = {
+      R"({"key": "value\with\backslash"})",
+      std::nullopt,
+      R"('value\with\backslash')",
+  };
+  testArrayJoinNoReplacement<StringView>(
+      input,
+      ", ",
+      R"({"key": "value\with\backslash"}, 'value\with\backslash')",
+      false,
+      true);
+  testArrayJoinReplacement<StringView>(
+      input,
+      ", ",
+      "0",
+      R"({"key": "value\with\backslash"}, 0, 'value\with\backslash')",
+      false,
+      true);
+
+  input = {
+      R"({"key": "value\nwith\nnewline"})",
+      std::nullopt,
+      R"("value\nwith\nnewline")",
+  };
+  testArrayJoinNoReplacement<StringView>(
+      input,
+      ", ",
+      R"({"key": "value\nwith\nnewline"}, value\nwith\nnewline)",
+      false,
+      true);
+  testArrayJoinReplacement<StringView>(
+      input,
+      ", ",
+      "0",
+      R"({"key": "value\nwith\nnewline"}, 0, value\nwith\nnewline)",
+      false,
+      true);
+
+  input = {
+      R"({"key": "value with \u00A9 and \u20AC"})",
+      std::nullopt,
+      R"("value with \u00A9 and \u20AC")",
+  };
+  testArrayJoinNoReplacement<StringView>(
+      input,
+      ", ",
+      R"({"key": "value with \u00A9 and \u20AC"}, value with \u00A9 and \u20AC)",
+      false,
+      true);
+  testArrayJoinReplacement<StringView>(
+      input,
+      ", ",
+      "0",
+      R"({"key": "value with \u00A9 and \u20AC"}, 0, value with \u00A9 and \u20AC)",
+      false,
+      true);
+
+  input = {
+      R"({"key": "!@#$%^&*()_+-={}:<>?,./~`"})",
+      std::nullopt,
+      R"("!@#$%^&*()_+-={}:<>?,./~`")",
+  };
+  testArrayJoinNoReplacement<StringView>(
+      input,
+      ", ",
+      R"({"key": "!@#$%^&*()_+-={}:<>?,./~`"}, !@#$%^&*()_+-={}:<>?,./~`)",
+      false,
+      true);
+  testArrayJoinReplacement<StringView>(
+      input,
+      ", ",
+      "0",
+      R"({"key": "!@#$%^&*()_+-={}:<>?,./~`"}, 0, !@#$%^&*()_+-={}:<>?,./~`)",
+      false,
+      true);
+}
 } // namespace

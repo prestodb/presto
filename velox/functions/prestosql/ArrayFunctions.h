@@ -21,6 +21,8 @@
 #include "velox/expression/PrestoCastHooks.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/lib/CheckedArithmetic.h"
+#include "velox/functions/prestosql/json/SIMDJsonUtil.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/FloatingPointUtil.h"
 
@@ -186,6 +188,20 @@ struct ArrayJoinFunction {
   template <typename C>
   void writeValue(out_type<velox::Varchar>& result, const C& value) {
     // To VARCHAR converter never throws.
+    result += util::Converter<TypeKind::VARCHAR>::tryCast(value).value();
+  }
+
+  void writeValue(out_type<velox::Varchar>& result, const StringView& value) {
+    // To VARCHAR converter never throws.
+    if (isJsonType(arrayElementType_)) {
+      if (value.size() >= 2 && *value.begin() == '"' &&
+          *(value.end() - 1) == '"') {
+        result += util::Converter<TypeKind::VARCHAR>::tryCast(
+                      std::string_view(value.data() + 1, value.size() - 2))
+                      .value();
+        return;
+      }
+    }
     result += util::Converter<TypeKind::VARCHAR>::tryCast(value).value();
   }
 

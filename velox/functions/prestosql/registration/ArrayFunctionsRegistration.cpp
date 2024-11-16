@@ -122,6 +122,7 @@ void registerInternalArrayFunctions() {
 }
 
 void registerArrayFunctions(const std::string& prefix) {
+  registerJsonType();
   registerArrayConstructor(prefix + "array_constructor");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_all_match, prefix + "all_match");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_any_match, prefix + "any_match");
@@ -191,6 +192,7 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayJoinFunctions<Varchar>(prefix);
   registerArrayJoinFunctions<Timestamp>(prefix);
   registerArrayJoinFunctions<Date>(prefix);
+  registerArrayJoinFunctions<Json>(prefix);
 
   registerFunction<ArrayAverageFunction, double, Array<double>>(
       {prefix + "array_average"});
