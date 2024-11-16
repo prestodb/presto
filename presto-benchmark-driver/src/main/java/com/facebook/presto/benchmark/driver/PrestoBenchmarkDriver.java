@@ -33,8 +33,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.google.common.io.ByteStreams.nullOutputStream;
 import static io.airlift.airline.SingleCommand.singleCommand;
+import static java.io.OutputStream.nullOutputStream;
 import static java.util.function.Function.identity;
 
 @Command(name = "presto-benchmark", description = "Presto benchmark driver")
