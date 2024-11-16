@@ -222,7 +222,6 @@ void TraceReplayRunner::init() {
   VELOX_USER_CHECK(!FLAGS_root_dir.empty(), "--root_dir must be provided");
   VELOX_USER_CHECK(!FLAGS_query_id.empty(), "--query_id must be provided");
   VELOX_USER_CHECK(!FLAGS_node_id.empty(), "--node_id must be provided");
-  fs_ = filesystems::getFileSystem(FLAGS_root_dir, nullptr);
 
   memory::initializeMemoryManager({});
   filesystems::registerLocalFileSystem();
@@ -275,6 +274,8 @@ void TraceReplayRunner::init() {
               std::unordered_map<std::string, std::string>()),
           ioExecutor_.get());
   connector::registerConnector(hiveConnector);
+
+  fs_ = filesystems::getFileSystem(FLAGS_root_dir, nullptr);
 }
 
 std::unique_ptr<tool::trace::OperatorReplayerBase>
