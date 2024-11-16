@@ -14,7 +14,6 @@
 package com.facebook.presto.spark.launcher;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.io.ByteStreams;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
@@ -122,7 +121,7 @@ public class TargzBasedPackageSupplier
                         createDirectories(directory.toPath());
                     }
                     try (OutputStream outputStream = new FileOutputStream(output)) {
-                        ByteStreams.copy(archiveInputStream, outputStream);
+                        archiveInputStream.transferTo(outputStream);
                     }
                 }
             }

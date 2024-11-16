@@ -15,7 +15,7 @@ package com.facebook.presto.spark.launcher;
 
 import io.airlift.airline.Option;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class PrestoSparkVersionOption
 {
@@ -26,7 +26,7 @@ public class PrestoSparkVersionOption
     {
         if (version) {
             String clientVersion = PrestoSparkLauncherCommand.class.getPackage().getImplementationVersion();
-            System.out.println(firstNonNull(clientVersion, "(version unknown)"));
+            System.out.println(requireNonNullElse(clientVersion, "(version unknown)"));
         }
         return version;
     }
