@@ -16,7 +16,6 @@
         <dep.okhttp.version>4.10.0</dep.okhttp.version>
         <arrow.version>17.0.0</arrow.version>
         <netty.version>4.1.110.Final</netty.version>
-        <netty.tcnative.version>2.0.65.Final</netty.tcnative.version>
     </properties>
 
     <dependencies>
@@ -117,24 +116,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-codec-http2</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-handler-proxy</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-tcnative-boringssl-static</artifactId>
-            <version>${netty.tcnative.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
             <version>${arrow.version}</version>
@@ -226,6 +207,14 @@
                 <exclusion>
                     <groupId>com.google.j2objc</groupId>
                     <artifactId>j2objc-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-handler-proxy</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-codec-http</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -345,13 +334,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <ignoredUnusedDeclaredDependencies>
-                        <ignoredUnusedDeclaredDependency>io.netty:netty-codec-http2</ignoredUnusedDeclaredDependency>
-                        <ignoredUnusedDeclaredDependency>io.netty:netty-handler-proxy</ignoredUnusedDeclaredDependency>
-                        <ignoredUnusedDeclaredDependency>io.netty:netty-tcnative-boringssl-static</ignoredUnusedDeclaredDependency>
-                    </ignoredUnusedDeclaredDependencies>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
