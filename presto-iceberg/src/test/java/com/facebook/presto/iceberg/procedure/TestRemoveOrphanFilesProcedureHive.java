@@ -58,7 +58,7 @@ public class TestRemoveOrphanFilesProcedureHive
     Table createTable(String tableName, String targetPath, Map<String, String> tableProperties)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
-        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).orElseThrow().getConnectorId();
         ConnectorSession session = getQueryRunner().getDefaultSession().toConnectorSession(connectorId);
 
         MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getClientTags(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());
@@ -86,7 +86,7 @@ public class TestRemoveOrphanFilesProcedureHive
     Table loadTable(String tableName)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
-        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).orElseThrow().getConnectorId();
 
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),
@@ -99,7 +99,7 @@ public class TestRemoveOrphanFilesProcedureHive
     void dropTableFromCatalog(String tableName)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
-        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).orElseThrow().getConnectorId();
         ConnectorSession session = getQueryRunner().getDefaultSession().toConnectorSession(connectorId);
 
         MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getClientTags(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());

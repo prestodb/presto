@@ -196,7 +196,7 @@ public class IcebergHiveMetadata
         if (!hiveTable.isPresent()) {
             return false;
         }
-        if (!isIcebergTable(hiveTable.get())) {
+        if (!isIcebergTable(hiveTable.orElseThrow())) {
             throw new UnknownTableTypeException(schemaTableName);
         }
         return true;
@@ -289,11 +289,11 @@ public class IcebergHiveMetadata
         String targetPath = getTableLocation(tableMetadata.getProperties());
         if (targetPath == null) {
             Optional<String> location = database.getLocation();
-            if (!location.isPresent() || location.get().isEmpty()) {
+            if (!location.isPresent() || location.orElseThrow().isEmpty()) {
                 throw new PrestoException(NOT_SUPPORTED, "Database " + schemaName + " location is not set");
             }
 
-            Path databasePath = new Path(location.get());
+            Path databasePath = new Path(location.orElseThrow());
             Path resultPath = new Path(databasePath, tableName);
             targetPath = resultPath.toString();
         }
@@ -337,10 +337,10 @@ public class IcebergHiveMetadata
         org.apache.iceberg.Table table = getIcebergTable(session, handle.getSchemaTableName());
         Optional<Map<String, String>> tableProperties = tryGetProperties(table);
         if (tableProperties.isPresent()) {
-            if (tableProperties.get().containsKey(OBJECT_STORE_PATH) ||
-                    tableProperties.get().containsKey("write.folder-storage.path") || // Removed from Iceberg as of 0.14.0, but preserved for backward compatibility
-                    tableProperties.get().containsKey(WRITE_METADATA_LOCATION) ||
-                    tableProperties.get().containsKey(WRITE_DATA_LOCATION)) {
+            if (tableProperties.orElseThrow().containsKey(OBJECT_STORE_PATH) ||
+                    tableProperties.orElseThrow().containsKey("write.folder-storage.path") || // Removed from Iceberg as of 0.14.0, but preserved for backward compatibility
+                    tableProperties.orElseThrow().containsKey(WRITE_METADATA_LOCATION) ||
+                    tableProperties.orElseThrow().containsKey(WRITE_DATA_LOCATION)) {
                 throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
             }
         }
@@ -371,7 +371,7 @@ public class IcebergHiveMetadata
 
         Optional<Table> existing = metastore.getTable(metastoreContext, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(existing.get())) {
+            if (!replace || !isPrestoView(existing.orElseThrow())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -414,8 +414,8 @@ public class IcebergHiveMetadata
         MetastoreContext metastoreContext = getMetastoreContext(session);
         for (SchemaTableName schemaTableName : tableNames) {
             Optional<Table> table = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            if (table.isPresent() && isPrestoView(table.get())) {
-                verifyAndPopulateViews(table.get(), schemaTableName, decodeViewData(table.get().getViewOriginalText().get()), views);
+            if (table.isPresent() && isPrestoView(table.orElseThrow())) {
+                verifyAndPopulateViews(table.orElseThrow(), schemaTableName, decodeViewData(table.orElseThrow().getViewOriginalText().orElseThrow()), views);
             }
         }
         return views.build();

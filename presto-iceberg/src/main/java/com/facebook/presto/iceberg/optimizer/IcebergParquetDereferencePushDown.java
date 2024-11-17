@@ -108,7 +108,7 @@ public class IcebergParquetDereferencePushDown
             throw new IllegalArgumentException("nested column [" + subfield + "] type is not present in Hive column type");
         }
 
-        Type pushdownColumnType = nestedColumnHiveType.get().getType(typeManager);
+        Type pushdownColumnType = nestedColumnHiveType.orElseThrow().getType(typeManager);
 
         return getSynthesizedIcebergColumnHandle(subfieldColumnName, pushdownColumnType, ImmutableList.of(subfield));
     }

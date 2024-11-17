@@ -146,7 +146,7 @@ public class IcebergNativeMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaName.isPresent() && INFORMATION_SCHEMA.equals(schemaName.get())) {
+        if (schemaName.isPresent() && INFORMATION_SCHEMA.equals(schemaName.orElseThrow())) {
             return listSchemaNames(session).stream()
                     .map(schema -> new SchemaTableName(INFORMATION_SCHEMA, schema))
                     .collect(toList());

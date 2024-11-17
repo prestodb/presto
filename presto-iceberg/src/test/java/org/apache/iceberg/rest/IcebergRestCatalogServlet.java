@@ -107,7 +107,7 @@ public class IcebergRestCatalogServlet
 
         if (context.error().isPresent()) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            RESTObjectMapper.mapper().writeValue(response.getWriter(), context.error().get());
+            RESTObjectMapper.mapper().writeValue(response.getWriter(), context.error().orElseThrow());
             return;
         }
 

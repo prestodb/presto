@@ -287,8 +287,8 @@ public final class IcebergUtil
     public static Optional<Long> resolveSnapshotIdByName(Table table, IcebergTableName name)
     {
         if (name.getSnapshotId().isPresent()) {
-            if (table.snapshot(name.getSnapshotId().get()) == null) {
-                throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().get(), table));
+            if (table.snapshot(name.getSnapshotId().orElseThrow()) == null) {
+                throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().orElseThrow(), table));
             }
             return name.getSnapshotId();
         }
@@ -565,7 +565,7 @@ public final class IcebergUtil
 
         boolean matches = true;
         if (constraints.getDomains().isPresent()) {
-            for (Map.Entry<IcebergColumnHandle, Domain> constraint : constraints.getDomains().get().entrySet()) {
+            for (Map.Entry<IcebergColumnHandle, Domain> constraint : constraints.getDomains().orElseThrow().entrySet()) {
                 if (constraint.getKey() == PATH_COLUMN_HANDLE) {
                     matches &= constraint.getValue().includesNullableValue(utf8Slice(path));
                 }
@@ -597,7 +597,7 @@ public final class IcebergUtil
                 .filter(toIcebergExpression(getNonMetadataColumnConstraints(constraint
                         .getSummary()
                         .simplify())))
-                .useSnapshot(snapshotId.get());
+                .useSnapshot(snapshotId.orElseThrow());
 
         Set<HivePartition> partitions = new HashSet<>();
 
@@ -637,7 +637,7 @@ public final class IcebergUtil
                             .findAny();
 
                     if (column.isPresent()) {
-                        builder.put(column.get(), partitionValue);
+                        builder.put(column.orElseThrow(), partitionValue);
                     }
                 });
 
@@ -648,7 +648,7 @@ public final class IcebergUtil
                         values);
 
                 boolean isIncludePartition = true;
-                Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
+                Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow();
                 for (IcebergColumnHandle column : partitionColumns) {
                     NullableValue value = newPartition.getKeys().get(column);
                     Domain allowedDomain = domains.get(column);
@@ -658,7 +658,7 @@ public final class IcebergUtil
                     }
                 }
 
-                if (constraint.predicate().isPresent() && !constraint.predicate().get().test(newPartition.getKeys())) {
+                if (constraint.predicate().isPresent() && !constraint.predicate().orElseThrow().test(newPartition.getKeys())) {
                     isIncludePartition = false;
                 }
 
@@ -1090,7 +1090,7 @@ public final class IcebergUtil
         private boolean shouldIncludeFile(DeleteFile file, PartitionSpec partitionSpec)
         {
             boolean matchesPartition = !requestedPartitionSpec.isPresent() ||
-                    requestedPartitionSpec.get().equals(partitionSpec.fields().stream().map(PartitionField::fieldId).collect(Collectors.toSet()));
+                    requestedPartitionSpec.orElseThrow().equals(partitionSpec.fields().stream().map(PartitionField::fieldId).collect(Collectors.toSet()));
             return matchesPartition &&
                     (fromIcebergFileContent(file.content()) == POSITION_DELETES ||
                             equalityFieldIdsFulfillRequestSchema(file, partitionSpec));
@@ -1105,7 +1105,7 @@ public final class IcebergUtil
             // Column ids in `requestedSchema` do not include identity partition columns for the sake of `delete-schema-merging` within the same partition spec.
             // So we need to filter out the identity partition columns from delete files' `equalityFiledIds` when determine if they fulfill the `requestedSchema`.
             return !requestedSchema.isPresent() ||
-                    requestedSchema.get().equals(Sets.difference(ImmutableSet.copyOf(file.equalityFieldIds()), identityPartitionSourceIds));
+                    requestedSchema.orElseThrow().equals(Sets.difference(ImmutableSet.copyOf(file.equalityFieldIds()), identityPartitionSourceIds));
         }
 
         @Override
@@ -1128,14 +1128,14 @@ public final class IcebergUtil
         propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
         switch (fileFormat) {
             case PARQUET:
-                propertiesBuilder.put(PARQUET_COMPRESSION, getCompressionCodec(session).getParquetCompressionCodec().get().toString());
+                propertiesBuilder.put(PARQUET_COMPRESSION, getCompressionCodec(session).getParquetCompressionCodec().orElseThrow().toString());
                 break;
             case ORC:
                 propertiesBuilder.put(ORC_COMPRESSION, getCompressionCodec(session).getOrcCompressionKind().name());
                 break;
         }
         if (tableMetadata.getComment().isPresent()) {
-            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().orElseThrow());
         }
 
         String formatVersion = getFormatVersion(tableMetadata.getProperties());
@@ -1208,7 +1208,7 @@ public final class IcebergUtil
         Optional<PartitionData> partitionData = Optional.empty();
         if (spec.isPartitioned()) {
             verify(partitionDataAsJson.isPresent(), "partitionDataJson is null");
-            partitionData = Optional.of(PartitionData.fromJson(partitionDataAsJson.get(), partitionColumnTypes));
+            partitionData = Optional.of(PartitionData.fromJson(partitionDataAsJson.orElseThrow(), partitionColumnTypes));
         }
         return partitionData;
     }

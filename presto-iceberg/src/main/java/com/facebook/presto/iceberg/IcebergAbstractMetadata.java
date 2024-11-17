@@ -238,7 +238,7 @@ public abstract class IcebergAbstractMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        Map<String, IcebergColumnHandle> predicateColumns = constraint.getSummary().getDomains().get().keySet().stream()
+        Map<String, IcebergColumnHandle> predicateColumns = constraint.getSummary().getDomains().orElseThrow().keySet().stream()
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableMap(IcebergColumnHandle::getName, Functions.identity()));
 
@@ -246,7 +246,7 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
         List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles(handle, icebergTable, typeManager);
-        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
+        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().orElseThrow(), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
 
         List<HivePartition> partitions;
@@ -836,8 +836,8 @@ public abstract class IcebergAbstractMetadata
 
         Table icebergTable = getIcebergTable(session, icebergTableName);
 
-        if (name.getSnapshotId().isPresent() && icebergTable.snapshot(name.getSnapshotId().get()) == null) {
-            throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().get(), icebergTable));
+        if (name.getSnapshotId().isPresent() && icebergTable.snapshot(name.getSnapshotId().orElseThrow()) == null) {
+            throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().orElseThrow(), icebergTable));
         }
 
         return getIcebergSystemTable(tableName, icebergTable);
@@ -910,7 +910,7 @@ public abstract class IcebergAbstractMetadata
             }
             rowDelta.addDeletes(builder.build());
             if (task.getReferencedDataFile().isPresent()) {
-                referencedDataFiles.add(task.getReferencedDataFile().get());
+                referencedDataFiles.add(task.getReferencedDataFile().orElseThrow());
             }
         }
 
@@ -935,14 +935,14 @@ public abstract class IcebergAbstractMetadata
         }
 
         // Allow metadata delete for range filters on partition columns.
-        IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) tableLayoutHandle.get();
+        IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) tableLayoutHandle.orElseThrow();
 
         // Do not support metadata delete if existing predicate on non-entire columns
         Optional<Set<Subfield>> subFields = layoutHandle.getDomainPredicate().getDomains()
                 .map(subfieldDomainMap -> subfieldDomainMap.keySet().stream()
                         .filter(subfield -> !isEntireColumn(subfield))
                         .collect(Collectors.toSet()));
-        if (subFields.isPresent() && !subFields.get().isEmpty()) {
+        if (subFields.isPresent() && !subFields.orElseThrow().isEmpty()) {
             return false;
         }
 
@@ -964,7 +964,7 @@ public abstract class IcebergAbstractMetadata
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
 
-        Set<Integer> predicateColumnIds = domainPredicate.getDomains().get().keySet().stream()
+        Set<Integer> predicateColumnIds = domainPredicate.getDomains().orElseThrow().keySet().stream()
                 .map(IcebergColumnHandle.class::cast)
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
