@@ -190,7 +190,7 @@ public class ThriftMetadata
             throw new TableNotFoundException(schemaTableName);
         }
         else {
-            return table.get();
+            return table.orElseThrow();
         }
     }
 

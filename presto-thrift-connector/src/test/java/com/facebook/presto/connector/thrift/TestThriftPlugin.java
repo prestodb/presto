@@ -24,7 +24,8 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static java.util.stream.StreamSupport.stream;
 import static org.testng.Assert.assertNotNull;
 
 public class TestThriftPlugin
@@ -34,7 +35,7 @@ public class TestThriftPlugin
     {
         ThriftPlugin plugin = loadPlugin(ThriftPlugin.class);
 
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = stream(plugin.getConnectorFactories().spliterator(), false).collect(onlyElement());
         assertInstanceOf(factory, ThriftConnectorFactory.class);
 
         Map<String, String> config = ImmutableMap.of("presto.thrift.client.addresses", "localhost:7779");
