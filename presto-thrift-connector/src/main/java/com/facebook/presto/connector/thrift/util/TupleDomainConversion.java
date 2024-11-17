@@ -30,7 +30,7 @@ public final class TupleDomainConversion
         if (!tupleDomain.getDomains().isPresent()) {
             return new PrestoThriftTupleDomain(null);
         }
-        return new PrestoThriftTupleDomain(tupleDomain.getDomains().get()
+        return new PrestoThriftTupleDomain(tupleDomain.getDomains().orElseThrow()
                 .entrySet().stream()
                 .collect(toImmutableMap(
                         entry -> ((ThriftColumnHandle) entry.getKey()).getColumnName(),
