@@ -1016,8 +1016,8 @@ public abstract class IcebergDistributedTestBase
         Metadata metadata = getDistributedQueryRunner().getMetadata();
         MetadataResolver resolver = metadata.getMetadataResolver(metadataSession);
         String tableName = snapshot.map(snap -> format("%s@%d", name, snap)).orElse(name);
-        String qualifiedName = format("%s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
-        TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).get();
+        String qualifiedName = format("%s.%s.%s", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
+        TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).orElseThrow();
         return metadata.getTableStatistics(metadataSession,
                 handle,
                 new ArrayList<>(columns
@@ -1032,7 +1032,7 @@ public abstract class IcebergDistributedTestBase
                 .stream().filter(entry -> ((IcebergColumnHandle) entry.getKey()).getName().equals(name))
                 .map(Map.Entry::getValue)
                 .findFirst()
-                .get();
+                .orElseThrow();
     }
 
     @DataProvider(name = "fileFormat")
@@ -1871,14 +1871,14 @@ public abstract class IcebergDistributedTestBase
                 .build();
         Optional<TableHandle> handle = MetadataUtil.getOptionalTableHandle(session,
                 getQueryRunner().getTransactionManager(),
-                QualifiedObjectName.valueOf(session.getCatalog().get(), session.getSchema().get(), "test_statistics_file_cache"),
+                QualifiedObjectName.valueOf(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "test_statistics_file_cache"),
                 Optional.empty());
         CatalogMetadata catalogMetadata = getQueryRunner().getTransactionManager()
-                .getCatalogMetadata(session.getTransactionId().get(), handle.get().getConnectorId());
+                .getCatalogMetadata(session.getTransactionId().orElseThrow(), handle.orElseThrow().getConnectorId());
         // There isn't an easy way to access the cache internally, so use some reflection to grab it
         Field delegate = ClassLoaderSafeConnectorMetadata.class.getDeclaredField("delegate");
         delegate.setAccessible(true);
-        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) delegate.get(catalogMetadata.getMetadataFor(handle.get().getConnectorId()));
+        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) delegate.get(catalogMetadata.getMetadataFor(handle.orElseThrow().getConnectorId()));
         CacheStats initial = metadata.statisticsFileCache.stats();
         assertEquals(metadata.statisticsFileCache.stats().minus(initial).hitCount(), 0);
         TableStatistics stats = getTableStats("test_statistics_file_cache", Optional.empty(), getSession(), Optional.of(ImmutableList.of("i")));

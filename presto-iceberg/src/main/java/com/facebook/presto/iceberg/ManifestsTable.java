@@ -97,7 +97,7 @@ public class ManifestsTable
         if (!snapshotId.isPresent()) {
             return new FixedPageSource(ImmutableList.of());
         }
-        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.get()));
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.orElseThrow()));
     }
 
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, long snapshotId)

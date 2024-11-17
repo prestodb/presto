@@ -82,7 +82,7 @@ public class TestStatisticsUtil
         assertEquals(stats.getDataSize(), Estimate.of(8));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
         assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
-        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        assertEquals(stats.getRange().orElseThrow(), new DoubleRange(0.0, 1.0));
         stats = columnStats.get("testvarchar");
         assertEquals(stats.getDataSize(), Estimate.of(8));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
@@ -102,7 +102,7 @@ public class TestStatisticsUtil
         assertEquals(stats.getDataSize(), Estimate.of(8));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
         assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
-        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        assertEquals(stats.getRange().orElseThrow(), new DoubleRange(0.0, 1.0));
         stats = columnStats.get("testvarchar");
         assertEquals(stats.getDataSize(), Estimate.of(8));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
@@ -121,7 +121,7 @@ public class TestStatisticsUtil
         assertEquals(stats.getDataSize(), Estimate.of(8));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(2));
         assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
-        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        assertEquals(stats.getRange().orElseThrow(), new DoubleRange(0.0, 1.0));
         stats = columnStats.get("testvarchar");
         assertEquals(stats.getDataSize(), Estimate.of(8));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(2));
@@ -140,7 +140,7 @@ public class TestStatisticsUtil
         assertEquals(stats.getDataSize(), Estimate.of(8));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
         assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
-        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        assertEquals(stats.getRange().orElseThrow(), new DoubleRange(0.0, 1.0));
         stats = columnStats.get("testvarchar");
         assertEquals(stats.getDataSize(), Estimate.of(14));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
@@ -159,7 +159,7 @@ public class TestStatisticsUtil
         assertEquals(stats.getDataSize(), Estimate.of(8));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(2));
         assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
-        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        assertEquals(stats.getRange().orElseThrow(), new DoubleRange(0.0, 1.0));
         stats = columnStats.get("testvarchar");
         assertEquals(stats.getDataSize(), Estimate.of(14));
         assertEquals(stats.getDistinctValuesCount(), Estimate.of(2));

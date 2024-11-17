@@ -45,7 +45,7 @@ import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METAD
 import static com.facebook.presto.iceberg.procedure.TestIcebergRegisterAndUnregisterProcedure.getMetadataFileLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -428,13 +428,13 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   metrics_max_inferred_column = 100,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH),
-                getLocation(getSession().getSchema().get(), "test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH)));
+                getLocation(getSession().getSchema().orElseThrow(), "test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH)));
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH));
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), createTableSql);
 
         assertQuery(session, "SELECT * from test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH), "SELECT orderkey, shippriority, orderstatus FROM orders");
 
@@ -634,7 +634,7 @@ public abstract class IcebergDistributedSmokeTestBase
         String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
 
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
-        assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(resultOfCreate.getOnlyColumnAsSet().stream().collect(onlyElement()), createTableSql);
 
         dropTable(session, "test_table_comments");
     }
@@ -823,15 +823,15 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "test_create_table_with_format_version_" + formatVersion,
                 defaultDeleteMode,
                 formatVersion,
-                getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion));
+                getLocation(getSession().getSchema().orElseThrow(), "test_create_table_with_format_version_" + formatVersion));
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_table_with_format_version_" + formatVersion);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), createTableSql);
 
         dropTable(session, "test_create_table_with_format_version_" + formatVersion);
     }
@@ -845,7 +845,7 @@ public abstract class IcebergDistributedSmokeTestBase
     private String getTablePropertiesString(String tableName)
     {
         MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
-        String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
+        String createTable = (String) showCreateTable.getOnlyColumnAsSet().stream().collect(onlyElement());
         Matcher matcher = WITH_CLAUSE_EXTRACTER.matcher(createTable);
         if (matcher.matches()) {
             return matcher.group(1);
@@ -1153,7 +1153,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer) WITH (format_version = '2')");
 
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
-        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).orElseThrow().getConnectorId();
 
         Table icebergTable = getIcebergTable(session.toConnectorSession(connectorId), schema, tableName);
 
@@ -1397,7 +1397,7 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testRegisterTable()
     {
-        String schemaName = getSession().getSchema().get();
+        String schemaName = getSession().getSchema().orElseThrow();
         String tableName = "register";
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
@@ -1415,7 +1415,7 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testRegisterTableAndInsert()
     {
-        String schemaName = getSession().getSchema().get();
+        String schemaName = getSession().getSchema().orElseThrow();
         String tableName = "register_insert";
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
@@ -1436,7 +1436,7 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testRegisterTableWithFileName()
     {
-        String schemaName = getSession().getSchema().get();
+        String schemaName = getSession().getSchema().orElseThrow();
         String tableName = "register_filename";
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
@@ -1456,7 +1456,7 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testRegisterTableWithInvalidLocation()
     {
-        String schemaName = getSession().getSchema().get();
+        String schemaName = getSession().getSchema().orElseThrow();
         String tableName = "register_invalid";
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
@@ -1472,7 +1472,7 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testUnregisterTable()
     {
-        String schemaName = getSession().getSchema().get();
+        String schemaName = getSession().getSchema().orElseThrow();
         String tableName = "unregister";
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
 

@@ -37,7 +37,7 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NU
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -190,7 +190,7 @@ public class IcebergColumnHandle
     public static Subfield getPushedDownSubfield(IcebergColumnHandle column)
     {
         checkArgument(isPushedDownSubfield(column), format("not a valid pushed down subfield: type=%s, subfields=%s", column.getColumnType(), column.getRequiredSubfields()));
-        return getOnlyElement(column.getRequiredSubfields());
+        return column.getRequiredSubfields().stream().collect(onlyElement());
     }
 
     public static boolean isPushedDownSubfield(IcebergColumnHandle column)

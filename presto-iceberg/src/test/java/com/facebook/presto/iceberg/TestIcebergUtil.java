@@ -292,23 +292,23 @@ public class TestIcebergUtil
     {
         assertThat(getAdjacentValue(DOUBLE, DOUBLE_NEGATIVE_INFINITE, true))
                 .isEqualTo(Optional.empty());
-        assertThat(longBitsToDouble((long) getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_NEGATIVE_INFINITE, false).get(), true).get()))
+        assertThat(longBitsToDouble((long) getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_NEGATIVE_INFINITE, false).orElseThrow(), true).orElseThrow()))
                 .isEqualTo(Double.NEGATIVE_INFINITY);
 
         assertThat(getAdjacentValue(DOUBLE, DOUBLE_POSITIVE_ZERO, true))
                 .isEqualTo(getAdjacentValue(DOUBLE, DOUBLE_NEGATIVE_ZERO, true));
-        assertThat(longBitsToDouble((long) getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_NEGATIVE_ZERO, false).get(), true).get()))
+        assertThat(longBitsToDouble((long) getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_NEGATIVE_ZERO, false).orElseThrow(), true).orElseThrow()))
                 .isEqualTo(0.0d);
-        assertThat(getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_NEGATIVE_ZERO, false).get(), true).get())
+        assertThat(getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_NEGATIVE_ZERO, false).orElseThrow(), true).orElseThrow())
                 .isEqualTo(DOUBLE_POSITIVE_ZERO);
-        assertThat(longBitsToDouble((long) getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_POSITIVE_ZERO, true).get(), false).get()))
+        assertThat(longBitsToDouble((long) getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_POSITIVE_ZERO, true).orElseThrow(), false).orElseThrow()))
                 .isEqualTo(0.0d);
-        assertThat(getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_POSITIVE_ZERO, true).get(), false).get())
+        assertThat(getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_POSITIVE_ZERO, true).orElseThrow(), false).orElseThrow())
                 .isEqualTo(DOUBLE_POSITIVE_ZERO);
 
         assertThat(getAdjacentValue(DOUBLE, DOUBLE_POSITIVE_INFINITE, false))
                 .isEqualTo(Optional.empty());
-        assertThat(longBitsToDouble((long) getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_POSITIVE_INFINITE, true).get(), false).get()))
+        assertThat(longBitsToDouble((long) getAdjacentValue(DOUBLE, getAdjacentValue(DOUBLE, DOUBLE_POSITIVE_INFINITE, true).orElseThrow(), false).orElseThrow()))
                 .isEqualTo(Double.POSITIVE_INFINITY);
     }
 
@@ -317,23 +317,23 @@ public class TestIcebergUtil
     {
         assertThat(getAdjacentValue(REAL, REAL_NEGATIVE_INFINITE, true))
                 .isEqualTo(Optional.empty());
-        assertThat(intBitsToFloat((int) getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_NEGATIVE_INFINITE, false).get(), true).get()))
+        assertThat(intBitsToFloat((int) getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_NEGATIVE_INFINITE, false).orElseThrow(), true).orElseThrow()))
                 .isEqualTo(Float.NEGATIVE_INFINITY);
 
         assertThat(getAdjacentValue(REAL, REAL_POSITIVE_ZERO, true))
                 .isEqualTo(getAdjacentValue(REAL, REAL_NEGATIVE_ZERO, true));
-        assertThat(intBitsToFloat((int) getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_NEGATIVE_ZERO, false).get(), true).get()))
+        assertThat(intBitsToFloat((int) getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_NEGATIVE_ZERO, false).orElseThrow(), true).orElseThrow()))
                 .isEqualTo(0.0f);
-        assertThat(getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_NEGATIVE_ZERO, false).get(), true).get())
+        assertThat(getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_NEGATIVE_ZERO, false).orElseThrow(), true).orElseThrow())
                 .isEqualTo(REAL_POSITIVE_ZERO);
-        assertThat(intBitsToFloat((int) getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_POSITIVE_ZERO, true).get(), false).get()))
+        assertThat(intBitsToFloat((int) getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_POSITIVE_ZERO, true).orElseThrow(), false).orElseThrow()))
                 .isEqualTo(0.0f);
-        assertThat(getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_POSITIVE_ZERO, true).get(), false).get())
+        assertThat(getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_POSITIVE_ZERO, true).orElseThrow(), false).orElseThrow())
                 .isEqualTo(REAL_POSITIVE_ZERO);
 
         assertThat(getAdjacentValue(REAL, REAL_POSITIVE_INFINITE, false))
                 .isEqualTo(Optional.empty());
-        assertThat(intBitsToFloat((int) getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_POSITIVE_INFINITE, true).get(), false).get()))
+        assertThat(intBitsToFloat((int) getAdjacentValue(REAL, getAdjacentValue(REAL, REAL_POSITIVE_INFINITE, true).orElseThrow(), false).orElseThrow()))
                 .isEqualTo(Float.POSITIVE_INFINITY);
     }
 

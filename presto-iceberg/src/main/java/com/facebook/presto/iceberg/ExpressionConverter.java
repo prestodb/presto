@@ -50,11 +50,11 @@ import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
@@ -80,7 +80,7 @@ public final class ExpressionConverter
         if (!tupleDomain.getDomains().isPresent()) {
             return alwaysFalse();
         }
-        Map<IcebergColumnHandle, Domain> domainMap = tupleDomain.getDomains().get();
+        Map<IcebergColumnHandle, Domain> domainMap = tupleDomain.getDomains().orElseThrow();
         Expression expression = alwaysTrue();
         for (Map.Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
             IcebergColumnHandle columnHandle = entry.getKey();
@@ -127,7 +127,7 @@ public final class ExpressionConverter
 
         if (domainValues instanceof SortedRangeSet) {
             List<Range> orderedRanges = ((SortedRangeSet) domainValues).getOrderedRanges();
-            expression = firstNonNull(expression, alwaysFalse());
+            expression = requireNonNullElse(expression, alwaysFalse());
 
             for (Range range : orderedRanges) {
                 Marker low = range.getLow();
