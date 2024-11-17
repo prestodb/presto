@@ -64,7 +64,7 @@ public class PrestoExceptionClassifier
     {
         Optional<Throwable> clusterConnectionExceptionCause = getClusterConnectionExceptionCause(cause);
         if (clusterConnectionExceptionCause.isPresent()) {
-            return QueryException.forClusterConnection(clusterConnectionExceptionCause.get());
+            return QueryException.forClusterConnection(clusterConnectionExceptionCause.orElseThrow());
         }
 
         Optional<ErrorCodeSupplier> errorCode = Optional.ofNullable(errorByCode.get(cause.getErrorCode()));

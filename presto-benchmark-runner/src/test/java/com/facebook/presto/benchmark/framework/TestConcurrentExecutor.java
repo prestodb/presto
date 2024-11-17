@@ -42,7 +42,7 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -94,7 +94,7 @@ public class TestConcurrentExecutor
         assertEquals(queryEvents.get("Q1").size(), 2);
         assertEvent(queryEvents.get("Q1").get(0), "Q1", BenchmarkQueryEvent.Status.SUCCEEDED);
         assertEvent(queryEvents.get("Q1").get(1), "Q1", BenchmarkQueryEvent.Status.SUCCEEDED);
-        assertEvent(getOnlyElement(queryEvents.get("Q2")), "Q2", BenchmarkQueryEvent.Status.SUCCEEDED);
+        assertEvent(queryEvents.get("Q2").stream().collect(onlyElement()), "Q2", BenchmarkQueryEvent.Status.SUCCEEDED);
     }
 
     @Test
@@ -108,8 +108,8 @@ public class TestConcurrentExecutor
 
         // check query events
         ListMultimap<String, BenchmarkQueryEvent> queryEvents = getEventClient().getQueryEventsByName();
-        assertEvent(getOnlyElement(queryEvents.get("Q1")), "Q1", BenchmarkQueryEvent.Status.SUCCEEDED);
-        assertEvent(getOnlyElement(queryEvents.get("QBad")), "QBad", BenchmarkQueryEvent.Status.FAILED);
+        assertEvent(queryEvents.get("Q1").stream().collect(onlyElement()), "Q1", BenchmarkQueryEvent.Status.SUCCEEDED);
+        assertEvent(queryEvents.get("QBad").stream().collect(onlyElement()), "QBad", BenchmarkQueryEvent.Status.FAILED);
     }
 
     @Test
@@ -123,9 +123,9 @@ public class TestConcurrentExecutor
 
         // check query events
         ListMultimap<String, BenchmarkQueryEvent> queryEvents = getEventClient().getQueryEventsByName();
-        assertEvent(getOnlyElement(queryEvents.get("Q1")), "Q1", BenchmarkQueryEvent.Status.SUCCEEDED);
-        assertEvent(getOnlyElement(queryEvents.get("Q2")), "Q2", BenchmarkQueryEvent.Status.SUCCEEDED);
-        assertEvent(getOnlyElement(queryEvents.get("QBad")), "QBad", BenchmarkQueryEvent.Status.FAILED);
+        assertEvent(queryEvents.get("Q1").stream().collect(onlyElement()), "Q1", BenchmarkQueryEvent.Status.SUCCEEDED);
+        assertEvent(queryEvents.get("Q2").stream().collect(onlyElement()), "Q2", BenchmarkQueryEvent.Status.SUCCEEDED);
+        assertEvent(queryEvents.get("QBad").stream().collect(onlyElement()), "QBad", BenchmarkQueryEvent.Status.FAILED);
     }
 
     private ConcurrentPhaseExecutor createExecutor()
