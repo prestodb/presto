@@ -156,7 +156,7 @@ public class PartitionTable
             return new InMemoryRecordSet(resultTypes, ImmutableList.of()).cursor();
         }
         TableScan tableScan = icebergTable.newScan()
-                .useSnapshot(snapshotId.get())
+                .useSnapshot(snapshotId.orElseThrow())
                 .includeColumnStats();
         return buildRecordCursor(getPartitions(tableScan), icebergTable.spec().fields());
     }

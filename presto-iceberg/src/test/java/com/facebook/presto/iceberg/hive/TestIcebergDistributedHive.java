@@ -71,7 +71,7 @@ public class TestIcebergDistributedHive
     protected Table loadTable(String tableName)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
-        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).orElseThrow().getConnectorId();
 
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),

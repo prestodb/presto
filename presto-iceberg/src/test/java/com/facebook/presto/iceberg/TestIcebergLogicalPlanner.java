@@ -2254,7 +2254,7 @@ public class TestIcebergLogicalPlanner
                 .findOnlyElement();
 
         assertTrue(tableScan.getTable().getLayout().isPresent());
-        IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) tableScan.getTable().getLayout().get();
+        IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) tableScan.getTable().getLayout().orElseThrow();
 
         assertEquals(layoutHandle.getPredicateColumns().keySet(), predicateColumnNames);
         assertEquals(layoutHandle.getDomainPredicate(), domainPredicate);
@@ -2346,7 +2346,7 @@ public class TestIcebergLogicalPlanner
                         .transform(IcebergColumnHandle.class::cast)
                         .transform(IcebergColumnHandle::getName);
 
-                if (!expectedConstraint.equals(constraint.getDomains().get())) {
+                if (!expectedConstraint.equals(constraint.getDomains().orElseThrow())) {
                     return NO_MATCH;
                 }
 
@@ -2458,7 +2458,7 @@ public class TestIcebergLogicalPlanner
                 return NO_MATCH;
             }
 
-            IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout.get();
+            IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout.orElseThrow();
 
             TupleDomain<ColumnHandle> tupleDomain = layoutHandle.getDomainPredicate()
                     .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
@@ -2468,7 +2468,7 @@ public class TestIcebergLogicalPlanner
             Optional<List<TupleDomain.ColumnDomain<ColumnHandle>>> columnDomains = tupleDomain.getColumnDomains();
             Set<String> actualPredicateColumns = ImmutableSet.of();
             if (columnDomains.isPresent()) {
-                actualPredicateColumns = columnDomains.get().stream()
+                actualPredicateColumns = columnDomains.orElseThrow().stream()
                         .map(TupleDomain.ColumnDomain::getColumn)
                         .filter(c -> c instanceof IcebergColumnHandle)
                         .map(c -> ((IcebergColumnHandle) c).getName())

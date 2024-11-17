@@ -185,14 +185,14 @@ public class IcebergPlanOptimizer
             TupleDomain<ColumnHandle> identityPartitionColumnPredicate = TupleDomain.withColumnDomains(
                     Maps.filterKeys(
                             entireColumnDomain.transform(icebergColumnHandle -> (ColumnHandle) icebergColumnHandle)
-                                    .getDomains().get(),
+                                    .getDomains().orElseThrow(),
                             Predicates.in(enforcedColumns)));
 
             // Get predicate expression on entire columns that could not be enforced by iceberg table
             TupleDomain<RowExpression> nonPartitionColumnPredicate = TupleDomain.withColumnDomains(
                     Maps.filterKeys(
                             entireColumnDomain.transform(icebergColumnHandle -> (ColumnHandle) icebergColumnHandle)
-                                    .getDomains().get(),
+                                    .getDomains().orElseThrow(),
                             Predicates.not(Predicates.in(enforcedColumns))))
                     .transform(columnHandle -> new Subfield(columnHandleToNameMapping.get(columnHandle), ImmutableList.of()))
                     .transform(subfield -> subfieldExtractor.toRowExpression(subfield, columnTypes.get(subfield.getRootName())));
@@ -343,14 +343,14 @@ public class IcebergPlanOptimizer
         if (!range.isLowUnbounded()) {
             Object boundedValue = range.getLowBoundedValue();
             Optional<Object> adjacentValue = getAdjacentValue(type, boundedValue, range.isLowInclusive());
-            if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), session)) {
+            if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.orElseThrow(), session)) {
                 return false;
             }
         }
         if (!range.isHighUnbounded()) {
             Object boundedValue = range.getHighBoundedValue();
             Optional<Object> adjacentValue = getAdjacentValue(type, boundedValue, !range.isHighInclusive());
-            if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), session)) {
+            if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.orElseThrow(), session)) {
                 return false;
             }
         }

@@ -29,7 +29,7 @@ import java.util.function.Consumer;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionField;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 public class TestPartitionFields
@@ -60,7 +60,7 @@ public class TestPartitionFields
     {
         assertEquals(expected.fields().size(), 1);
         assertEquals(parseField(value), expected);
-        assertEquals(getOnlyElement(toPartitionFields(expected)), value);
+        assertEquals(toPartitionFields(expected).stream().collect(onlyElement()), value);
     }
 
     private static void assertInvalid(String value, String message)

@@ -27,7 +27,7 @@ import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -131,7 +131,7 @@ public class ColumnIdentity
         }
 
         if (fieldType.isListType()) {
-            ColumnIdentity elementColumn = createColumnIdentity(getOnlyElement(fieldType.asListType().fields()));
+            ColumnIdentity elementColumn = createColumnIdentity(fieldType.asListType().fields().stream().collect(onlyElement()));
             return new ColumnIdentity(id, name, ARRAY, ImmutableList.of(elementColumn));
         }
 
