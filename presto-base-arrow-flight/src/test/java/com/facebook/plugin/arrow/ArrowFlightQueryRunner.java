@@ -25,7 +25,6 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class ArrowFlightQueryRunner
 {
-    private static DistributedQueryRunner queryRunner;
     private static final Logger logger = Logger.get(ArrowFlightQueryRunner.class);
     private ArrowFlightQueryRunner()
     {
@@ -34,10 +33,7 @@ public class ArrowFlightQueryRunner
 
     public static DistributedQueryRunner createQueryRunner() throws Exception
     {
-        if (queryRunner == null) {
-            queryRunner = createQueryRunner(ImmutableMap.of(), TestingArrowFactory.class);
-        }
-        return queryRunner;
+        return createQueryRunner(ImmutableMap.of(), TestingArrowFactory.class);
     }
 
     private static DistributedQueryRunner createQueryRunner(Map<String, String> catalogProperties, Class<? extends TestingArrowFactory> factoryClass) throws Exception
@@ -47,9 +43,7 @@ public class ArrowFlightQueryRunner
                 .setSchema("testdb")
                 .build();
 
-        if (queryRunner == null) {
-            queryRunner = DistributedQueryRunner.builder(session).build();
-        }
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         try {
             String connectorName = "arrow";
