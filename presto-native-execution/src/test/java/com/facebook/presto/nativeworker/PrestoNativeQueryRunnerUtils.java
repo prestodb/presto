@@ -171,7 +171,6 @@ public class PrestoNativeQueryRunnerUtils
                 HiveQueryRunner.createQueryRunner(
                         ImmutableList.of(),
                         ImmutableMap.of(
-                                "parse-decimal-literals-as-double", "true",
                                 "regex-library", "RE2J",
                                 "offset-clause-enabled", "true"),
                         security,
@@ -228,7 +227,6 @@ public class PrestoNativeQueryRunnerUtils
 
         DistributedQueryRunner queryRunner = createIcebergQueryRunner(
                 ImmutableMap.of(
-                        "parse-decimal-literals-as-double", "true",
                         "regex-library", "RE2J",
                         "offset-clause-enabled", "true",
                         "query.max-stage-count", "110"),
