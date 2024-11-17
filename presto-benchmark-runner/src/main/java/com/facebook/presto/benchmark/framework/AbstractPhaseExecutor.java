@@ -93,10 +93,10 @@ public abstract class AbstractPhaseExecutor<T extends PhaseSpecification>
         Optional<String> stackTrace = Optional.empty();
 
         if (!succeeded && queryException.isPresent()) {
-            queryStats = queryException.get().getQueryStats();
-            errorCode = queryException.get().getPrestoErrorCode().map(ErrorCodeSupplier::toErrorCode).map(ErrorCode::getName);
-            errorMessage = Optional.of(queryException.get().getMessage());
-            stackTrace = Optional.of(getStackTraceAsString(queryException.get().getCause()));
+            queryStats = queryException.orElseThrow().getQueryStats();
+            errorCode = queryException.orElseThrow().getPrestoErrorCode().map(ErrorCodeSupplier::toErrorCode).map(ErrorCode::getName);
+            errorMessage = Optional.of(queryException.orElseThrow().getMessage());
+            stackTrace = Optional.of(getStackTraceAsString(queryException.orElseThrow().getCause()));
         }
 
         return new BenchmarkQueryEvent(
