@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.RootAllocator;
@@ -52,11 +53,13 @@ public class TestArrowFlightQueries
     private static RootAllocator allocator;
     private static FlightServer server;
     private static Location serverLocation;
+    private DistributedQueryRunner arrowFlightQueryRunner;
 
     @BeforeClass
     public void setup()
             throws Exception
     {
+        arrowFlightQueryRunner = getDistributedQueryRunner();
         File certChainFile = new File("src/test/resources/server.crt");
         File privateKeyFile = new File("src/test/resources/server.key");
 
@@ -83,6 +86,7 @@ public class TestArrowFlightQueries
     {
         server.close();
         allocator.close();
+        arrowFlightQueryRunner.close();
     }
 
     @Test
