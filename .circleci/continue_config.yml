@@ -121,6 +121,7 @@ jobs:
                     -DCMAKE_BUILD_TYPE=Debug \
                     -DPRESTO_ENABLE_PARQUET=ON \
                     -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+                    -DPRESTO_ENABLE_TPCDS_CONNECTOR=ON \
                     -DPRESTO_ENABLE_JWT=ON \
                     -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
                     -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
