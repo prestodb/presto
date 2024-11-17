@@ -654,6 +654,11 @@
                             <dependency>javax.servlet:javax.servlet-api:jar</dependency>
                             <dependency>org.apache.httpcomponents.core5:httpcore5:jar</dependency>
                         </ignoredUsedUndeclaredDependencies>
+                        <ignoredNonTestScopedDependencies>
+                            <ignoredNonTestScopedDependency>com.facebook.airlift:node</ignoredNonTestScopedDependency>
+                            <ignoredNonTestScopedDependency>org.projectnessie.nessie:nessie-model</ignoredNonTestScopedDependency>
+                            <ignoredNonTestScopedDependency>org.projectnessie.nessie:nessie-client</ignoredNonTestScopedDependency>
+                        </ignoredNonTestScopedDependencies>
                     </configuration>
                 </plugin>
                 <plugin>
