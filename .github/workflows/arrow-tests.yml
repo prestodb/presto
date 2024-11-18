@@ -2,8 +2,6 @@ name: arrow tests
 
 on:
   pull_request:
-    paths:
-      - 'presto-base-arrow-flight/**'  # Trigger this workflow only when there are changes in the presto-base-arrow-flight module
 
 env:
   CONTINUOUS_INTEGRATION: true
@@ -26,7 +24,7 @@ jobs:
         with:
           filters: |
             codechange:
-              - 'presto-base-arrow-flight/**'  
+              - 'presto-base-arrow-flight/**'  # Only trigger if changes are in `presto-base-arrow-flight`
 
   test:
     runs-on: ubuntu-latest
@@ -43,17 +41,20 @@ jobs:
       cancel-in-progress: true
 
     steps:
+      # Checkout the code only if there are changes in the relevant files
       - uses: actions/checkout@v4
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
 
+      # Set up Java for the build environment
       - uses: actions/setup-java@v2
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: 'temurin'
           java-version: 8
 
+      # Cache Maven dependencies to speed up the build
       - name: Cache local Maven repository
         if: needs.changes.outputs.codechange == 'true'
         id: cache-maven
@@ -64,16 +65,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-2-
 
-      - name: Populate maven cache
+      # Resolve Maven dependencies (if cache is not found)
+      - name: Populate Maven cache
         if: steps.cache-maven.outputs.cache-hit != 'true' && needs.changes.outputs.codechange == 'true'
         run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies --no-transfer-progress && .github/bin/download_nodejs
 
+      # Install dependencies for the target module
       - name: Maven Install
         if: needs.changes.outputs.codechange == 'true'
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl ${{ matrix.modules }}
 
+      # Run Maven tests for the target module
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
         run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
