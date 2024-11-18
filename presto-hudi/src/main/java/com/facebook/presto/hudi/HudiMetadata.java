@@ -92,7 +92,7 @@ public class HudiMetadata
             return null;
         }
 
-        Table table = hiveTable.get();
+        Table table = hiveTable.orElseThrow();
         String inputFormat = table.getStorage().getStorageFormat().getInputFormat();
         HudiTableType hudiTableType = HudiTableType.fromInputFormat(inputFormat);
 
@@ -147,10 +147,10 @@ public class HudiMetadata
     {
         MetastoreContext metastoreContext = toMetastoreContext(session);
         return metastore
-                .getAllTables(metastoreContext, schemaName.get())
+                .getAllTables(metastoreContext, schemaName.orElseThrow())
                 .orElseGet(() -> metastore.getAllDatabases(metastoreContext))
                 .stream()
-                .map(table -> new SchemaTableName(schemaName.get(), table))
+                .map(table -> new SchemaTableName(schemaName.orElseThrow(), table))
                 .collect(toList());
     }
 
@@ -195,7 +195,7 @@ public class HudiMetadata
         HudiTableHandle handle = (HudiTableHandle) tableHandle;
         Optional<Table> table = metastore.getTable(metastoreContext, handle.getSchemaName(), handle.getTableName());
         checkArgument(table.isPresent());
-        return table.get();
+        return table.orElseThrow();
     }
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
