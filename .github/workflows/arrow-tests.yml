@@ -24,8 +24,7 @@ jobs:
         with:
           filters: |
             codechange:
-              - 'presto-base-arrow-flight/**'  # Only trigger if changes are in `presto-base-arrow-flight`
-
+               - '!presto-docs/**'
   test:
     runs-on: ubuntu-latest
     needs: changes
