@@ -90,7 +90,7 @@ public final class DeltaColumnHandle
                 .add("columnType", columnType);
 
         if (subfield.isPresent()) {
-            stringHelper = stringHelper.add("subfield", subfield.get());
+            stringHelper = stringHelper.add("subfield", subfield.orElseThrow());
         }
 
         return stringHelper.toString();
@@ -126,7 +126,7 @@ public final class DeltaColumnHandle
     public static Subfield getPushedDownSubfield(DeltaColumnHandle column)
     {
         checkArgument(isPushedDownSubfield(column), format("not a valid pushed down subfield: %s", column));
-        return column.getSubfield().get();
+        return column.getSubfield().orElseThrow();
     }
 
     public static boolean isPushedDownSubfield(DeltaColumnHandle column)
