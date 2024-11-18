@@ -221,7 +221,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
   The minimal memory capacity in bytes transferred between memory pools
   during memory arbitration.
 
-``shared-arbitrator.memory-reclaim-max-wait-time``
+``shared-arbitrator.max-memory-arbitration-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``string``
