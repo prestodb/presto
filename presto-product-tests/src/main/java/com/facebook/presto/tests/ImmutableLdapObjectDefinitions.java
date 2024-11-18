@@ -86,7 +86,7 @@ public final class ImmutableLdapObjectDefinitions
                     .setAttributes(ImmutableMap.of(
                             "cn", groupName,
                             "member", format("uid=%s,%s", userName, userOrganizationName)))
-                    .setModificationAttributes(getAttributes(childGroupNames.get(), childGroupOrganizationName.get(), MEMBER))
+                    .setModificationAttributes(getAttributes(childGroupNames.orElseThrow(), childGroupOrganizationName.orElseThrow(), MEMBER))
                     .setObjectClasses(Arrays.asList("groupOfNames"))
                     .build();
         }
@@ -124,7 +124,7 @@ public final class ImmutableLdapObjectDefinitions
                             "sn", userName,
                             "userPassword", password))
                     .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
-                    .setModificationAttributes(getAttributes(groupNames.get(), groupOrganizationName.get(), MEMBER_OF))
+                    .setModificationAttributes(getAttributes(groupNames.orElseThrow(), groupOrganizationName.orElseThrow(), MEMBER_OF))
                     .build();
         }
         else {

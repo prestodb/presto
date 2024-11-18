@@ -67,7 +67,7 @@ public class TestHttpQueryStatsClient
         mockHttpResponse(SINGLE_QUERY_INFO);
         Optional<QueryStats> infoForQuery = queryStatsClient.getQueryStats("20150505_160116_00005_sdzex");
         assertThat(infoForQuery).isPresent();
-        assertThat(infoForQuery.get().getTotalCpuTime().getValue()).isEqualTo(1.19);
+        assertThat(infoForQuery.orElseThrow().getTotalCpuTime().getValue()).isEqualTo(1.19);
     }
 
     @Test

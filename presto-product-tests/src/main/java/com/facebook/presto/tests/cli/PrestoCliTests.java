@@ -16,7 +16,6 @@ package com.facebook.presto.tests.cli;
 import com.facebook.airlift.testing.TempFile;
 import com.facebook.presto.cli.Presto;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.prestodb.tempto.AfterTestWithContext;
@@ -27,16 +26,17 @@ import io.prestodb.tempto.fulfillment.table.ImmutableTableRequirement;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 
 import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
 import static com.facebook.presto.tests.TestGroups.CLI;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestodb.tempto.process.CliProcess.trimLines;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -105,7 +105,7 @@ public class PrestoCliTests
             throws IOException
     {
         launchPrestoCli("--version");
-        String version = firstNonNull(Presto.class.getPackage().getImplementationVersion(), "(version unknown)");
+        String version = requireNonNullElse(Presto.class.getPackage().getImplementationVersion(), "(version unknown)");
         assertThat(presto.readRemainingOutputLines()).containsExactly("Presto CLI " + version);
     }
 
@@ -141,7 +141,7 @@ public class PrestoCliTests
             throws Exception
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nation;\n", file.file(), UTF_8);
+            Files.writeString(file.file().toPath(), "select * from hive.default.nation;\n", UTF_8);
 
             launchPrestoCliWithServerArgument("--file", file.file().getAbsolutePath());
             assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -166,7 +166,7 @@ public class PrestoCliTests
             throws IOException, InterruptedException
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
+            Files.writeString(file.file().toPath(), "select * from hive.default.nations;\nselect * from hive.default.nation;\n", UTF_8);
 
             launchPrestoCliWithServerArgument("--file", file.file().getAbsolutePath());
             assertThat(trimLines(presto.readRemainingOutputLines())).isEmpty();
@@ -191,7 +191,7 @@ public class PrestoCliTests
             throws IOException, InterruptedException
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
+            Files.writeString(file.file().toPath(), "select * from hive.default.nations;\nselect * from hive.default.nation;\n", UTF_8);
 
             launchPrestoCliWithServerArgument("--file", file.file().getAbsolutePath(), "--ignore-errors");
             assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
