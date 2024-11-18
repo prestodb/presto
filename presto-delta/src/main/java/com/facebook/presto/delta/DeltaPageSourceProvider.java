@@ -259,7 +259,7 @@ public class DeltaPageSourceProvider
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
                 if (firstIndex.isPresent()) {
-                    long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
+                    long firstDataPage = block.getColumns().get(firstIndex.orElseThrow()).getFirstDataPageOffset();
                     if (firstDataPage >= start && firstDataPage < start + length) {
                         footerBlocks.add(block);
                     }
@@ -312,7 +312,7 @@ public class DeltaPageSourceProvider
                     List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
                     Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
                     if (columnIO.isPresent()) {
-                        fieldsBuilder.add(constructField(type, columnIO.get()));
+                        fieldsBuilder.add(constructField(type, columnIO.orElseThrow()));
                     }
                     else {
                         fieldsBuilder.add(Optional.empty());
@@ -362,7 +362,7 @@ public class DeltaPageSourceProvider
         }
 
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
-        for (Map.Entry<DeltaColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
+        for (Map.Entry<DeltaColumnHandle, Domain> entry : effectivePredicate.getDomains().orElseThrow().entrySet()) {
             DeltaColumnHandle columnHandle = entry.getKey();
 
             RichColumnDescriptor descriptor;
