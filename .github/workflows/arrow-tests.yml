@@ -1,4 +1,4 @@
-name: arrow-tests
+name: arrow tests
 
 on:
   pull_request:
