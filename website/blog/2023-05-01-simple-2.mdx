@@ -28,7 +28,7 @@ The previous representations of input complex types in the simple function inter
 
 The previous approach has two key inefficiencies; **Eager materialization** : For each row, all the data in the input vector is decoded and read before calling the function. And **Double reading**, the data is read twice once when the input is constructed, and again in the function when it's used.
 
-In order to mitigate those regressions, Velox introduced <a href="https://github.com/facebookincubator/velox/blob/main/velox/expression/ComplexViewTypes.h">View types</a>: ArraViews, MapViews ...etc. The goal is to keep the authoring simple but achieve at least the performance of a basic vector implementation that decodes input and applies some logic for every row without any special optimizations.
+In order to mitigate those regressions, Velox introduced <a href="https://github.com/facebookincubator/velox/blob/main/velox/expression/ComplexViewTypes.h">View types</a>: ArrayViews, MapViews ...etc. The goal is to keep the authoring simple but achieve at least the performance of a basic vector implementation that decodes input and applies some logic for every row without any special optimizations.
 
 The view types are **Lazy**, very cheap to construct and do not materialize the underlying data unless the code accesses it.For example, the function _array_first_ only needs to read the first element in every array, moreover the _cardinality_ function does not need to read any elements in the array. They view types have interfaces similar to those of std::containers.
 
@@ -69,7 +69,7 @@ A similar pattern of inefficiency existed for functions with complex output type
 
 We changed the writing path so that the data is written directly into the Velox vector during the function evaluation. By introducing <a href="https://github.com/facebookincubator/velox/blob/main/velox/expression/ComplexWriterTypes.h">writer types</a>: ArrayWriter, MapWriter, RowWriter. This avoids the double materialization and the unnecessary sorting and hashing for maps.
 
-Consider the function below for example that constructs an array [0, n-1).
+Consider the function below for example that constructs an array [0, n).
 
 <figure>
  <img src="/img/simple1_code1.png"/>
