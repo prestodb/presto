@@ -32,40 +32,40 @@ public class TestCassandraCqlUtils
     @Test
     public void testValidSchemaName()
     {
-        assertEquals("foo", validSchemaName("foo"));
-        assertEquals("\"select\"", validSchemaName("select"));
+        assertEquals(validSchemaName("foo"), "foo");
+        assertEquals(validSchemaName("select"), "\"select\"");
     }
 
     @Test
     public void testValidTableName()
     {
-        assertEquals("foo", validTableName("foo"));
-        assertEquals("\"Foo\"", validTableName("Foo"));
-        assertEquals("\"select\"", validTableName("select"));
+        assertEquals(validTableName("foo"), "foo");
+        assertEquals(validTableName("Foo"), "\"Foo\"");
+        assertEquals(validTableName("select"), "\"select\"");
     }
 
     @Test
     public void testValidColumnName()
     {
-        assertEquals("foo", validColumnName("foo"));
-        assertEquals("\"\"", validColumnName(CassandraCqlUtils.EMPTY_COLUMN_NAME));
-        assertEquals("\"\"", validColumnName(""));
-        assertEquals("\"select\"", validColumnName("select"));
+        assertEquals(validColumnName("foo"), "foo");
+        assertEquals(validColumnName(CassandraCqlUtils.EMPTY_COLUMN_NAME), "\"\"");
+        assertEquals(validColumnName(""), "\"\"");
+        assertEquals(validColumnName("select"), "\"select\"");
     }
 
     @Test
     public void testQuote()
     {
-        assertEquals("'foo'", quoteStringLiteral("foo"));
-        assertEquals("'Presto''s'", quoteStringLiteral("Presto's"));
+        assertEquals(quoteStringLiteral("foo"), "'foo'");
+        assertEquals(quoteStringLiteral("Presto's"), "'Presto''s'");
     }
 
     @Test
     public void testQuoteJson()
     {
-        assertEquals("\"foo\"", quoteStringLiteralForJson("foo"));
-        assertEquals("\"Presto's\"", quoteStringLiteralForJson("Presto's"));
-        assertEquals("\"xx\\\"xx\"", quoteStringLiteralForJson("xx\"xx"));
+        assertEquals(quoteStringLiteralForJson("foo"), "\"foo\"");
+        assertEquals(quoteStringLiteralForJson("Presto's"), "\"Presto's\"");
+        assertEquals(quoteStringLiteralForJson("xx\"xx"), "\"xx\\\"xx\"");
     }
 
     @Test
@@ -80,6 +80,6 @@ public class TestCassandraCqlUtils
         CassandraCqlUtils.appendSelectColumns(sb, columns);
         String str = sb.toString();
 
-        assertEquals("foo,bar,\"table\"", str);
+        assertEquals(str, "foo,bar,\"table\"");
     }
 }

@@ -156,8 +156,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.cassandra</groupId>
-            <artifactId>cassandra-server</artifactId>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -183,6 +183,7 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>security</artifactId>
         </dependency>
+
     </dependencies>
 
     <dependencyManagement>
@@ -191,6 +192,7 @@
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
                 <version>2.0</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -227,6 +229,7 @@
                         <requireUpperBoundDeps>
                             <excludes combine.children="append">
                                 <exclude>org.yaml:snakeyaml</exclude>
+                                <exclude>org.slf4j:slf4j-api</exclude>
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>
