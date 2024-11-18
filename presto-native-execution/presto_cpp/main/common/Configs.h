@@ -425,8 +425,8 @@ class SystemConfig : public ConfigBase {
   /// Specifies the max time to wait for memory reclaim by arbitration. The
   /// memory reclaim might fail if the max wait time has exceeded. If it is
   /// zero, then there is no timeout.
-  static constexpr std::string_view kSharedArbitratorMemoryReclaimMaxWaitTime{
-      "shared-arbitrator.memory-reclaim-max-wait-time"};
+  static constexpr std::string_view kSharedArbitratorMaxMemoryArbitrationTime{
+      "shared-arbitrator.max-memory-arbitration-time"};
 
   /// When shared arbitrator grows memory pool's capacity, the growth bytes will
   /// be adjusted in the following way:
@@ -792,7 +792,7 @@ class SystemConfig : public ConfigBase {
 
   std::string sharedArbitratorMemoryPoolReservedCapacity() const;
 
-  std::string sharedArbitratorMemoryReclaimWaitTime() const;
+  std::string sharedArbitratorMaxMemoryArbitrationTime() const;
 
   std::string sharedArbitratorMemoryPoolInitialCapacity() const;
 
