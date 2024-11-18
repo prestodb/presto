@@ -463,7 +463,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypes()
     {
@@ -511,7 +511,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null, null));
     }
 
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesNoData()
     {
@@ -558,7 +558,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 0.0, null, null, null));
     }
 
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesOnlyNulls()
     {
@@ -877,7 +877,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypes()
     {
@@ -923,7 +923,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null, null));
     }
 
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypesNoData()
     {
@@ -968,7 +968,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 0.0, null, null, null));
     }
 
-    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypesOnlyNulls()
     {

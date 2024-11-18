@@ -81,7 +81,7 @@ public class SqlCancelTests
         closer.close();
     }
 
-    @Test(groups = {CANCEL_QUERY}, timeOut = 60_000L)
+    @Test(groups = CANCEL_QUERY, timeOut = 60_000L)
     public void cancelCreateTable()
             throws Exception
     {
@@ -93,7 +93,7 @@ public class SqlCancelTests
                 .failsWithMessage(format("Table hive.default.%s does not exist", tableName));
     }
 
-    @Test(groups = {CANCEL_QUERY}, timeOut = 60_000L)
+    @Test(groups = CANCEL_QUERY, timeOut = 60_000L)
     public void cancelInsertInto()
             throws Exception
     {
@@ -105,7 +105,7 @@ public class SqlCancelTests
         query("DROP TABLE " + tableName);
     }
 
-    @Test(groups = {CANCEL_QUERY}, timeOut = 60_000L)
+    @Test(groups = CANCEL_QUERY, timeOut = 60_000L)
     public void cancelSelect()
             throws Exception
     {
