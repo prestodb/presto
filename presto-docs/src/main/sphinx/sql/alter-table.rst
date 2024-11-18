@@ -13,7 +13,7 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] column_name TO new_column_name
     ALTER TABLE [ IF EXISTS ] name ADD [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] } ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED } ]
     ALTER TABLE [ IF EXISTS ] name DROP CONSTRAINT [ IF EXISTS ] constraint_name
-    ALTER TABLE [ IF EXISTS ] ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
+    ALTER TABLE [ IF EXISTS ] name ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
 
 Description
 -----------
