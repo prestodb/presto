@@ -243,6 +243,17 @@ public class FunctionAndTypeManager
             {
                 return FunctionAndTypeManager.this.lookupCast(CastType.valueOf(castType), fromType, toType);
             }
+
+            public QualifiedObjectName qualifyObjectName(QualifiedName name)
+            {
+                if (!name.getPrefix().isPresent()) {
+                    return QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name.getSuffix());
+                }
+                if (name.getOriginalParts().size() != 3) {
+                    throw new PrestoException(FUNCTION_NOT_FOUND, format("Functions that are not temporary or builtin must be referenced by 'catalog.schema.function_name', found: %s", name));
+                }
+                return QualifiedObjectName.valueOf(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2));
+            }
         };
     }
 
@@ -417,17 +428,6 @@ public class FunctionAndTypeManager
         }
     }
 
-    public static QualifiedObjectName qualifyObjectName(QualifiedName name)
-    {
-        if (!name.getPrefix().isPresent()) {
-            return QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name.getSuffix());
-        }
-        if (name.getOriginalParts().size() != 3) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, format("Functions that are not temporary or builtin must be referenced by 'catalog.schema.function_name', found: %s", name));
-        }
-        return QualifiedObjectName.valueOf(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2));
-    }
-
     /**
      * Resolves a function using implicit type coercions. We enforce explicit naming for dynamic function namespaces.
      * All unqualified function names will only be resolved against the built-in static function namespace. While it is
@@ -597,7 +597,7 @@ public class FunctionAndTypeManager
      */
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
-        QualifiedObjectName functionName = qualifyObjectName(QualifiedName.of(name));
+        QualifiedObjectName functionName = getFunctionAndTypeResolver().qualifyObjectName(QualifiedName.of(name));
         if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
             return lookupCachedFunction(functionName, parameterTypes);
         }

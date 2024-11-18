@@ -23,6 +23,7 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.sql.tree.QualifiedName;
 
 import java.util.Collection;
 import java.util.List;
@@ -49,4 +50,6 @@ public interface FunctionAndTypeResolver
     boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
 
     FunctionHandle lookupCast(String castType, Type fromType, Type toType);
+
+    QualifiedObjectName qualifyObjectName(QualifiedName name);
 }
