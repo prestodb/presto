@@ -97,7 +97,7 @@ public class TestHivePartitionsTable
                 .build();
     }
 
-    @Test(groups = {HIVE_PARTITIONING})
+    @Test(groups = HIVE_PARTITIONING)
     public void testShowPartitionsFromHiveTable()
     {
         String tableNameInDatabase = tablesState.get(PARTITIONED_TABLE).getNameInDatabase();
@@ -119,14 +119,14 @@ public class TestHivePartitionsTable
                 .failsWithMessage("Column 'col' cannot be resolved");
     }
 
-    @Test(groups = {HIVE_PARTITIONING})
+    @Test(groups = HIVE_PARTITIONING)
     public void testShowPartitionsFromUnpartitionedTable()
     {
         assertThat(() -> query("SELECT * FROM \"nation$partitions\""))
                 .failsWithMessageMatching(".*Table hive.default.nation\\$partitions does not exist");
     }
 
-    @Test(groups = {HIVE_PARTITIONING})
+    @Test(groups = HIVE_PARTITIONING)
     public void testShowPartitionsFromHiveTableWithTooManyPartitions()
     {
         String tableName = tablesState.get(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS).getNameInDatabase();

@@ -126,7 +126,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {SMOKE})
+    @Test(groups = SMOKE)
     public void testSelectAllDatatypesTextFile()
     {
         String tableName = ALL_HIVE_SIMPLE_TYPES_TEXTFILE.getName();
@@ -155,7 +155,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {JDBC})
+    @Test(groups = JDBC)
     public void testSelectAllDatatypesOrc()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_ORC).getNameInDatabase();
@@ -186,7 +186,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(RcfileRequirements.class)
-    @Test(groups = {JDBC})
+    @Test(groups = JDBC)
     public void testSelectAllDatatypesRcfile()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_RCFILE).getNameInDatabase();
@@ -347,7 +347,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {POST_HIVE_1_0_1})
+    @Test(groups = POST_HIVE_1_0_1)
     public void testSelectAllDatatypesParquetFile()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_PARQUET).getNameInDatabase();
