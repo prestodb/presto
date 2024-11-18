@@ -654,7 +654,7 @@ TEST_F(FaultyFsTest, fileReadFaultHookInjection) {
 
 TEST_F(FaultyFsTest, fileWriteErrorInjection) {
   // Set write error.
-  fs_->setFileInjectionError(fileError_, {FaultFileOperation::Type::kAppend});
+  fs_->setFileInjectionError(fileError_, {FaultFileOperation::Type::kWrite});
   {
     auto writeFile = fs_->openFileForWrite(writeFilePath_, {});
     VELOX_ASSERT_THROW(writeFile->append("hello"), "InjectedFaultFileError");
@@ -672,7 +672,7 @@ TEST_F(FaultyFsTest, fileWriteErrorInjection) {
 TEST_F(FaultyFsTest, fileWriteDelayInjection) {
   // Set 2 seconds delay.
   const uint64_t injectDelay{2'000'000};
-  fs_->setFileInjectionDelay(injectDelay, {FaultFileOperation::Type::kAppend});
+  fs_->setFileInjectionDelay(injectDelay, {FaultFileOperation::Type::kWrite});
   {
     auto writeFile = fs_->openFileForWrite(writeFilePath_, {});
     uint64_t readDurationUs{0};
@@ -691,14 +691,14 @@ TEST_F(FaultyFsTest, fileWriteFaultHookInjection) {
   // Set to write fake data.
   fs_->setFileInjectionHook([&](FaultFileOperation* op) {
     // Only inject for write.
-    if (op->type != FaultFileOperation::Type::kAppend) {
+    if (op->type != FaultFileOperation::Type::kWrite) {
       return;
     }
     // Only inject for path2.
     if (op->path != path2) {
       return;
     }
-    auto* writeOp = static_cast<FaultFileAppendOperation*>(op);
+    auto* writeOp = static_cast<FaultFileWriteOperation*>(op);
     *writeOp->data = "Error data";
   });
   {
@@ -725,14 +725,14 @@ TEST_F(FaultyFsTest, fileWriteFaultHookInjection) {
   // Set to not delegate.
   fs_->setFileInjectionHook([&](FaultFileOperation* op) {
     // Only inject for write.
-    if (op->type != FaultFileOperation::Type::kAppend) {
+    if (op->type != FaultFileOperation::Type::kWrite) {
       return;
     }
     // Only inject for path2.
     if (op->path != path2) {
       return;
     }
-    auto* writeOp = static_cast<FaultFileAppendOperation*>(op);
+    auto* writeOp = static_cast<FaultFileWriteOperation*>(op);
     writeOp->delegate = false;
   });
   {

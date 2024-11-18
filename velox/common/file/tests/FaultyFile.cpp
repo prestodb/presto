@@ -99,7 +99,7 @@ FaultyWriteFile::FaultyWriteFile(
 
 void FaultyWriteFile::append(std::string_view data) {
   if (injectionHook_ != nullptr) {
-    FaultFileAppendOperation op(path_, data);
+    FaultFileWriteOperation op(path_, data);
     injectionHook_(&op);
     if (!op.delegate) {
       return;
@@ -116,13 +116,6 @@ void FaultyWriteFile::write(
     const std::vector<iovec>& iovecs,
     int64_t offset,
     int64_t length) {
-  if (injectionHook_ != nullptr) {
-    FaultFileWriteOperation op(path_, iovecs, offset, length);
-    injectionHook_(&op);
-    if (!op.delegate) {
-      return;
-    }
-  }
   delegatedFile_->write(iovecs, offset, length);
 }
 

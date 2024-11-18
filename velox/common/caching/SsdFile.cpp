@@ -43,12 +43,31 @@ DEFINE_bool(ssd_verify_write, false, "Read back data after writing to SSD");
 namespace facebook::velox::cache {
 
 namespace {
-
-// TODO: Remove this function once we migrate all files to velox fs.
-//
 // Disable 'copy on write' on the given file. Will throw if failed for any
 // reason, including file system not supporting cow feature.
 void disableCow(int32_t fd) {
+#ifdef linux
+  int attr{0};
+  auto res = ioctl(fd, FS_IOC_GETFLAGS, &attr);
+  VELOX_CHECK_EQ(
+      0,
+      res,
+      "ioctl(FS_IOC_GETFLAGS) failed: {}, {}",
+      res,
+      folly::errnoStr(errno));
+  attr |= FS_NOCOW_FL;
+  res = ioctl(fd, FS_IOC_SETFLAGS, &attr);
+  VELOX_CHECK_EQ(
+      0,
+      res,
+      "ioctl(FS_IOC_SETFLAGS, FS_NOCOW_FL) failed: {}, {}",
+      res,
+      folly::errnoStr(errno));
+#endif // linux
+}
+
+// TODO: Remove this function once we migrate all files to velox fs.
+void disableFileCow(int32_t fd) {
 #ifdef linux
   int attr{0};
   auto res = ioctl(fd, FS_IOC_GETFLAGS, &attr);
@@ -335,7 +354,7 @@ bool SsdFile::growOrEvictLocked() {
     }
   }
 
-  auto candidates =
+  const auto candidates =
       tracker_.findEvictionCandidates(3, numRegions_, regionPins_);
   if (candidates.empty()) {
     suspended_ = true;
@@ -657,17 +676,13 @@ bool SsdFile::removeFileEntries(
   return true;
 }
 
-void SsdFile::logEviction(std::vector<int32_t>& regions) {
-  if (!checkpointEnabled()) {
-    return;
-  }
-  const auto length = regions.size() * sizeof(regions[0]);
-  const std::vector<iovec> iovecs = {{regions.data(), length}};
-  try {
-    evictLogWriteFile_->write(iovecs, 0, static_cast<int64_t>(length));
-  } catch (const std::exception& e) {
-    ++stats_.writeSsdErrors;
-    VELOX_SSD_CACHE_LOG(ERROR) << "Failed to log eviction: " << e.what();
+void SsdFile::logEviction(const std::vector<int32_t>& regions) {
+  if (checkpointEnabled()) {
+    const int32_t rc = ::write(
+        evictLogFd_, regions.data(), regions.size() * sizeof(regions[0]));
+    if (rc != regions.size() * sizeof(regions[0])) {
+      checkpointError(rc, "Failed to log eviction");
+    }
   }
 }
 
@@ -675,31 +690,30 @@ void SsdFile::deleteCheckpoint(bool keepLog) {
   if (checkpointDeleted_) {
     return;
   }
-
-  if (evictLogWriteFile_ != nullptr) {
-    try {
-      if (keepLog) {
-        evictLogWriteFile_->truncate(0);
-        evictLogWriteFile_->flush();
-      } else {
-        evictLogWriteFile_->close();
-        fs_->remove(getEvictLogFilePath());
-        evictLogWriteFile_.reset();
-      }
-    } catch (const std::exception& e) {
-      ++stats_.deleteCheckpointErrors;
-      VELOX_SSD_CACHE_LOG(ERROR) << "Error in deleting evictLog: " << e.what();
+  if (evictLogFd_ >= 0) {
+    if (keepLog) {
+      ::lseek(evictLogFd_, 0, SEEK_SET);
+      ::ftruncate(evictLogFd_, 0);
+      ::fsync(evictLogFd_);
+    } else {
+      ::close(evictLogFd_);
+      evictLogFd_ = -1;
     }
   }
 
+  checkpointDeleted_ = true;
+  const auto logPath = getEvictLogFilePath();
+  int32_t logRc = 0;
+  if (!keepLog) {
+    logRc = ::unlink(logPath.c_str());
+  }
   const auto checkpointPath = getCheckpointFilePath();
   const auto checkpointRc = ::unlink(checkpointPath.c_str());
-  if (checkpointRc != 0) {
-    VELOX_SSD_CACHE_LOG(ERROR)
-        << "Error in deleting checkpoint: " << checkpointRc;
-  }
-  if (checkpointRc != 0) {
+  if ((logRc != 0) || (checkpointRc != 0)) {
     ++stats_.deleteCheckpointErrors;
+    VELOX_SSD_CACHE_LOG(ERROR)
+        << "Error in deleting log and checkpoint. log: " << logRc
+        << " checkpoint: " << checkpointRc;
   }
 }
 
@@ -837,9 +851,8 @@ void SsdFile::checkpoint(bool force) {
     // NOTE: we shall truncate eviction log after checkpoint file sync
     // completes so that we never recover from an old checkpoint file without
     // log evictions. The latter might lead to data consistent issue.
-    VELOX_CHECK_NOT_NULL(evictLogWriteFile_);
-    evictLogWriteFile_->truncate(0);
-    evictLogWriteFile_->flush();
+    checkRc(::ftruncate(evictLogFd_, 0), "Truncate of event log");
+    checkRc(::fsync(evictLogFd_), "Sync of evict log");
 
     VELOX_SSD_CACHE_LOG(INFO)
         << "Checkpoint persisted with " << entries_.size() << " cache entries";
@@ -870,14 +883,18 @@ void SsdFile::initializeCheckpoint() {
         getCheckpointFilePath());
   }
   const auto logPath = getEvictLogFilePath();
-  filesystems::FileOptions evictLogFileOptions;
-  evictLogFileOptions.shouldThrowOnFileAlreadyExists = false;
-  try {
-    evictLogWriteFile_ = fs_->openFileForWrite(logPath, evictLogFileOptions);
-  } catch (std::exception& e) {
+  evictLogFd_ = ::open(logPath.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+  if (disableFileCow_) {
+    disableCow(evictLogFd_);
+  }
+  if (evictLogFd_ < 0) {
     ++stats_.openLogErrors;
     // Failure to open the log at startup is a process terminating error.
-    VELOX_FAIL("Could not open evict log {}: {}", logPath, e.what());
+    VELOX_FAIL(
+        "Could not open evict log {}, rc {}: {}",
+        logPath,
+        evictLogFd_,
+        folly::errnoStr(errno));
   }
 
   try {
@@ -948,9 +965,6 @@ void SsdFile::disableFileCow() {
   const std::unordered_map<std::string, std::string> attributes = {
       {std::string(LocalWriteFile::Attributes::kNoCow), "true"}};
   writeFile_->setAttributes(attributes);
-  if (evictLogWriteFile_ != nullptr) {
-    evictLogWriteFile_->setAttributes(attributes);
-  }
 #endif // linux
 }
 
@@ -1007,16 +1021,10 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
     idMap[id] = StringIdLease(fileIds(), id, name);
   }
 
-  const auto logPath = getEvictLogFilePath();
-  const auto evictLogReadFile = fs_->openFileForRead(logPath);
-  const auto logSize = evictLogReadFile->size();
+  const auto logSize = ::lseek(evictLogFd_, 0, SEEK_END);
   std::vector<uint32_t> evicted(logSize / sizeof(uint32_t));
-  try {
-    evictLogReadFile->pread(0, logSize, evicted.data());
-  } catch (const std::exception& e) {
-    ++stats_.readCheckpointErrors;
-    VELOX_FAIL("Failed to read eviction log: {}", e.what());
-  }
+  const auto rc = ::pread(evictLogFd_, evicted.data(), logSize, 0);
+  VELOX_CHECK_EQ(logSize, rc, "Failed to read eviction log");
   std::unordered_set<uint32_t> evictedMap;
   for (auto region : evicted) {
     evictedMap.insert(region);
