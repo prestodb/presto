@@ -68,7 +68,7 @@
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
-        <dep.druid.version>0.19.0</dep.druid.version>
+        <dep.druid.version>30.0.1</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
         <dep.hudi.version>0.14.0</dep.hudi.version>
         <dep.testcontainers.version>1.18.3</dep.testcontainers.version>
@@ -1247,7 +1247,7 @@
                 <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna</artifactId>
-                <version>5.12.1</version>
+                <version>5.13.0</version>
             </dependency>
 
             <dependency>
@@ -1648,86 +1648,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.druid</groupId>
-                <artifactId>druid-core</artifactId>
-                <version>${dep.druid.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-annotations</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-databind</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.datatype</groupId>
-                        <artifactId>jackson-datatype-guava</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.datatype</groupId>
-                        <artifactId>jackson-datatype-joda</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.dataformat</groupId>
-                        <artifactId>jackson-dataformat-smile</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>it.unimi.dsi</groupId>
-                        <artifactId>fastutil</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>joda-time</groupId>
-                        <artifactId>joda-time</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.commons</groupId>
-                        <artifactId>commons-lang3</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.logging.log4j</groupId>
-                        <artifactId>log4j-slf4j-impl</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.logging.log4j</groupId>
-                        <artifactId>log4j-1.2-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.checkerframework</groupId>
-                        <artifactId>checker-qual</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.glassfish</groupId>
-                        <artifactId>javax.el</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.objenesis</groupId>
-                        <artifactId>objenesis</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.ow2.asm</groupId>
-                        <artifactId>asm-commons</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.roaringbitmap</groupId>
-                        <artifactId>RoaringBitmap</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpclient</artifactId>
                 <version>4.5.5</version>
@@ -1954,7 +1874,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.2-2</version>
+                <version>1.5.2-3</version>
             </dependency>
 
             <dependency>
