@@ -242,16 +242,16 @@ public class TestDeltaScanOptimizations
     {
         return constraint.transform(DeltaColumnHandle.class::cast)
                 .transform(DeltaColumnHandle::getName)
-                .getDomains().get();
+                .getDomains().orElseThrow();
     }
 
     private static Map<String, Domain> getConstraintInDeltaTable(TableScanNode tableScan)
     {
-        return ((DeltaTableLayoutHandle) tableScan.getTable().getLayout().get())
+        return ((DeltaTableLayoutHandle) tableScan.getTable().getLayout().orElseThrow())
                 .getPredicate()
                 .transform(DeltaColumnHandle::getName)
                 .getDomains()
-                .get();
+                .orElseThrow();
     }
 
     private Session withDereferencePushdownEnabled()

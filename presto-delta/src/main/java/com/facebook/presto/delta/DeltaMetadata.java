@@ -200,8 +200,8 @@ public class DeltaMetadata
                 return null; // indicates table doesn't exist
             }
 
-            Map<String, String> tableParameters = metastoreTable.get().getParameters();
-            Storage storage = metastoreTable.get().getStorage();
+            Map<String, String> tableParameters = metastoreTable.orElseThrow().getParameters();
+            Storage storage = metastoreTable.orElseThrow().getStorage();
             tableLocation = storage.getLocation();
 
             // Delta table written using Spark and Hive have set the table parameter
@@ -226,7 +226,7 @@ public class DeltaMetadata
                 deltaTableName.getSnapshotId(),
                 deltaTableName.getTimestampMillisUtc());
         if (table.isPresent()) {
-            return new DeltaTableHandle(connectorId, table.get());
+            return new DeltaTableHandle(connectorId, table.orElseThrow());
         }
         return null;
     }

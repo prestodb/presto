@@ -88,15 +88,15 @@ public class DeltaClient
             return Optional.empty();
         }
 
-        Table deltaTable = loadDeltaTable(location.toString(), deltaEngine.get());
-        Snapshot snapshot = getSnapshot(deltaTable, deltaEngine.get(), schemaTableName, snapshotId,
+        Table deltaTable = loadDeltaTable(location.toString(), deltaEngine.orElseThrow());
+        Snapshot snapshot = getSnapshot(deltaTable, deltaEngine.orElseThrow(), schemaTableName, snapshotId,
                 snapshotAsOfTimestampMillis);
         return Optional.of(new DeltaTable(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 tableLocation,
-                Optional.of(snapshot.getVersion(deltaEngine.get())), // lock the snapshot version
-                getSchema(config, schemaTableName, deltaEngine.get(), snapshot)));
+                Optional.of(snapshot.getVersion(deltaEngine.orElseThrow())), // lock the snapshot version
+                getSchema(config, schemaTableName, deltaEngine.orElseThrow(), snapshot)));
     }
 
     private Snapshot getSnapshot(
@@ -112,11 +112,11 @@ public class DeltaClient
         // version when the underlying delta table is changing while the query is running.
         Snapshot snapshot;
         if (snapshotId.isPresent()) {
-            snapshot = getSnapshotById(deltaTable, deltaEngine, snapshotId.get(), schemaTableName);
+            snapshot = getSnapshotById(deltaTable, deltaEngine, snapshotId.orElseThrow(), schemaTableName);
         }
         else if (snapshotAsOfTimestampMillis.isPresent()) {
             snapshot = getSnapshotAsOfTimestamp(deltaTable, deltaEngine,
-                    snapshotAsOfTimestampMillis.get(), schemaTableName);
+                    snapshotAsOfTimestampMillis.orElseThrow(), schemaTableName);
         }
         else {
             try {
@@ -155,16 +155,16 @@ public class DeltaClient
             throw new PrestoException(DeltaErrorCode.DELTA_ERROR_LOADING_METADATA,
                     format("Could not obtain Delta engine in '%s'", deltaTable.getTableLocation()));
         }
-        Table sourceTable = loadDeltaTable(deltaTable.getTableLocation(), deltaEngine.get());
+        Table sourceTable = loadDeltaTable(deltaTable.getTableLocation(), deltaEngine.orElseThrow());
 
         if (!deltaTable.getSnapshotId().isPresent()) {
             throw new PrestoException(DeltaErrorCode.DELTA_ERROR_LOADING_SNAPSHOT, "Could not obtain snapshot id");
         }
 
         try {
-            return sourceTable.getSnapshotAsOfVersion(deltaEngine.get(),
-                            deltaTable.getSnapshotId().get()).getScanBuilder(deltaEngine.get()).build()
-                    .getScanFiles(deltaEngine.get());
+            return sourceTable.getSnapshotAsOfVersion(deltaEngine.orElseThrow(),
+                            deltaTable.getSnapshotId().orElseThrow()).getScanBuilder(deltaEngine.orElseThrow()).build()
+                    .getScanFiles(deltaEngine.orElseThrow());
         }
         catch (TableNotFoundException e) {
             throw new PrestoException(StandardErrorCode.NOT_FOUND,
