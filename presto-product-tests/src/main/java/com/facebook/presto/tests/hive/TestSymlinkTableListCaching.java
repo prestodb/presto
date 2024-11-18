@@ -65,7 +65,7 @@ public class TestSymlinkTableListCaching
         hdfsClient.saveFile(tableRoot + "/manifest", format("hdfs://hadoop-master:9000%s/data.parquet", dataDir));
     }
 
-    @Test(groups = {HIVE_LIST_CACHING})
+    @Test(groups = HIVE_LIST_CACHING)
     public void testSymlinkTableListCaching()
     {
         String jmxMetricsQuery = "SELECT sum(hitcount), sum(misscount) from jmx.current.\"com.facebook.presto.hive:name=hivecached,type=cachingdirectorylister\"";

@@ -43,7 +43,7 @@ public class TestHivePartitionSchemaEvolution
         setSessionProperty(onPresto().getConnection(), "hive.parquet_use_column_names", "true");
     }
 
-    @Test(groups = {HIVE_PARTITIONING})
+    @Test(groups = HIVE_PARTITIONING)
     public void testParquet()
     {
         test(() -> createTable("PARQUET"));
