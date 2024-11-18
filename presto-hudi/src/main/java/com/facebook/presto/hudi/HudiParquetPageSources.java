@@ -138,7 +138,7 @@ class HudiParquetPageSources
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
                 if (firstIndex.isPresent()) {
-                    long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
+                    long firstDataPage = block.getColumns().get(firstIndex.orElseThrow()).getFirstDataPageOffset();
                     Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
                     if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
                             predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()))) {
@@ -208,7 +208,7 @@ class HudiParquetPageSources
         }
 
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
-        effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
+        effectivePredicate.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
             String baseType = columnHandle.getHiveType().getTypeSignature().getBase();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
             if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
