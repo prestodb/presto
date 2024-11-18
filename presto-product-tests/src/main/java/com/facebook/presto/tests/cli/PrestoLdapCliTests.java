@@ -14,7 +14,6 @@
 package com.facebook.presto.tests.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.prestodb.tempto.AfterTestWithContext;
@@ -26,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 
 import static com.facebook.presto.tests.ImmutableLdapObjectDefinitions.AMERICA_ORG;
@@ -121,7 +121,7 @@ public class PrestoLdapCliTests
     {
         File temporaryFile = File.createTempFile("test-sql", null);
         temporaryFile.deleteOnExit();
-        Files.write("select * from hive.default.nation;\n", temporaryFile, UTF_8);
+        Files.writeString(temporaryFile.toPath(), "select * from hive.default.nation;\n", UTF_8);
 
         launchPrestoCliWithServerArgument("--file", temporaryFile.getAbsolutePath());
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);

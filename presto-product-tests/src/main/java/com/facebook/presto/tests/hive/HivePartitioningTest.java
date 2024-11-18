@@ -42,14 +42,14 @@ public abstract class HivePartitioningTest
             throws SQLException
     {
         String queryId;
-        if (queryResult.getJdbcResultSet().isPresent() && queryResult.getJdbcResultSet().get().isWrapperFor(PrestoResultSet.class)) {
+        if (queryResult.getJdbcResultSet().isPresent() && queryResult.getJdbcResultSet().orElseThrow().isWrapperFor(PrestoResultSet.class)) {
             // if PrestoResult is available, just unwrap it from ResultSet and extract query id
-            queryId = queryResult.getJdbcResultSet().get().unwrap(PrestoResultSet.class).getQueryId();
+            queryId = queryResult.getJdbcResultSet().orElseThrow().unwrap(PrestoResultSet.class).getQueryId();
         }
         else {
             // if there is no ResultSet (UPDATE statements), try to find it in system.runtime.queries table
             queryId = (String) query(format("select query_id from system.runtime.queries where query = '%s'", sqlStatement)).row(0).get(0);
         }
-        return queryStatsClient.getQueryStats(queryId).get().getRawInputPositions();
+        return queryStatsClient.getQueryStats(queryId).orElseThrow().getRawInputPositions();
     }
 }

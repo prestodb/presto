@@ -188,7 +188,7 @@ public class TestSelect
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "\0", String.valueOf(Long.MIN_VALUE)),
                         row("the quick brown fox jumped over the lazy dog", 9223372036854775807L, "01234".getBytes(),
-                                true, new Double("99999999999999999999999999999999999999"), Double.MAX_VALUE, Date.valueOf("9999-12-31"),
+                                true, Double.valueOf("99999999999999999999999999999999999999"), Double.MAX_VALUE, Date.valueOf("9999-12-31"),
                                 Float.MAX_VALUE, "[4,5,6,7]", "255.255.255.255", Integer.MAX_VALUE, "[4,5,6]",
                                 "{\"a\":1,\"b\":2}", "[4,5,6]", Short.MAX_VALUE, "this is a text value", Byte.MAX_VALUE, Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",

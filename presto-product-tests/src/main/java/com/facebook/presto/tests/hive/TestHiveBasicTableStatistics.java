@@ -419,12 +419,12 @@ public class TestHiveBasicTableStatistics
                     .map(Object::toString)
                     .map(String::trim);
 
-            if (parameterKey.isPresent() && key.equals(parameterKey.get())) {
+            if (parameterKey.isPresent() && key.equals(parameterKey.orElseThrow())) {
                 return Optional.ofNullable(row.get(2))
                         .map(Object::toString)
                         .map(String::trim)
                         .map(TestHiveBasicTableStatistics::tryParse)
-                        .get();
+                        .orElseThrow();
             }
         }
         return OptionalLong.empty();
