@@ -367,7 +367,13 @@ class SsdFile {
 
   /// Returns the checkpoint file path.
   std::string getCheckpointFilePath() const {
-    return fileName_ + kCheckpointExtension;
+    // Faulty file path needs to be handled manually before we switch checkpoint
+    // file to Velox filesystem.
+    const std::string faultyPrefix = "faulty:";
+    std::string checkpointPath = fileName_ + kCheckpointExtension;
+    return checkpointPath.find(faultyPrefix) == 0
+        ? checkpointPath.substr(faultyPrefix.size())
+        : checkpointPath;
   }
 
   /// Deletes the backing file. Used in testing.
@@ -477,7 +483,7 @@ class SsdFile {
 
   // Synchronously logs that 'regions' are no longer valid in a possibly
   // existing checkpoint.
-  void logEviction(const std::vector<int32_t>& regions);
+  void logEviction(std::vector<int32_t>& regions);
 
   // Computes the checksum of data in cache 'entry'.
   uint32_t checksumEntry(const AsyncDataCacheEntry& entry) const;
@@ -572,6 +578,9 @@ class SsdFile {
   // WriteFile for cache data file.
   std::unique_ptr<WriteFile> writeFile_;
 
+  // WriteFile for evict log file.
+  std::unique_ptr<WriteFile> evictLogWriteFile_;
+
   // Counters.
   SsdCacheStats stats_;
 
@@ -584,9 +593,6 @@ class SsdFile {
 
   // Count of bytes written after last checkpoint.
   std::atomic<uint64_t> bytesAfterCheckpoint_{0};
-
-  // fd for logging evictions.
-  int32_t evictLogFd_{-1};
 
   // True if there was an error with checkpoint and the checkpoint was deleted.
   bool checkpointDeleted_{false};

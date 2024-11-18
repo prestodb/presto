@@ -36,6 +36,7 @@ target_link_libraries(
   PRIVATE
     velox_caching
     velox_file
+    velox_file_test_utils
     velox_memory
     velox_temp_path
     Folly::folly
