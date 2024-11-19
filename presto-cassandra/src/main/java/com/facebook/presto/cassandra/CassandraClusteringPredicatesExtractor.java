@@ -53,7 +53,7 @@ public class CassandraClusteringPredicatesExtractor
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
     {
         Map<ColumnHandle, Domain> pushedDown = clusteringPushDownResult.getDomains();
-        Map<ColumnHandle, Domain> notPushedDown = new HashMap<>(predicates.getDomains().get());
+        Map<ColumnHandle, Domain> notPushedDown = new HashMap<>(predicates.getDomains().orElseThrow());
 
         if (!notPushedDown.isEmpty() && !pushedDown.isEmpty()) {
             notPushedDown.entrySet().removeAll(pushedDown.entrySet());
@@ -68,7 +68,7 @@ public class CassandraClusteringPredicatesExtractor
         ImmutableList.Builder<String> clusteringColumnSql = ImmutableList.builder();
         int currentClusteringColumn = 0;
         for (CassandraColumnHandle columnHandle : clusteringColumns) {
-            Domain domain = predicates.getDomains().get().get(columnHandle);
+            Domain domain = predicates.getDomains().orElseThrow().get(columnHandle);
             if (domain == null) {
                 break;
             }

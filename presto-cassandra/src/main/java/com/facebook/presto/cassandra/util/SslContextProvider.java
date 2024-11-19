@@ -74,7 +74,7 @@ public class SslContextProvider
                 char[] keyManagerPassword;
                 try {
                     // attempt to read the key store as a PEM file
-                    keystore = loadKeyStore(keystorePath.get(), keystorePath.get(), keystorePassword);
+                    keystore = loadKeyStore(keystorePath.orElseThrow(), keystorePath.orElseThrow(), keystorePassword);
                     // for PEM encoded keys, the password is used to decrypt the specific key (and does not
                     // protect the keystore itself)
                     keyManagerPassword = new char[0];
@@ -82,7 +82,7 @@ public class SslContextProvider
                 catch (IOException | GeneralSecurityException ignored) {
                     keyManagerPassword = keystorePassword.map(String::toCharArray).orElse(null);
                     keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-                    try (InputStream in = new FileInputStream(keystorePath.get())) {
+                    try (InputStream in = new FileInputStream(keystorePath.orElseThrow())) {
                         keystore.load(in, keyManagerPassword);
                     }
                 }
@@ -95,7 +95,7 @@ public class SslContextProvider
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore truststore = keystore;
             if (truststorePath.isPresent()) {
-                truststore = loadTrustStore(truststorePath.get(), truststorePassword);
+                truststore = loadTrustStore(truststorePath.orElseThrow(), truststorePassword);
             }
 
             // create TrustManagerFactory

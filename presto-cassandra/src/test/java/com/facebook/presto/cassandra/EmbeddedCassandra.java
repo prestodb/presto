@@ -37,10 +37,10 @@ import java.util.concurrent.TimeoutException;
 import static com.datastax.driver.core.ProtocolVersion.V3;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.Files.createTempDir;
-import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.writeString;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -118,7 +118,7 @@ public final class EmbeddedCassandra
         String modified = original.replaceAll("\\$\\{data_directory\\}", dataDir.toAbsolutePath().toString());
 
         Path yamlLocation = tmpDirPath.resolve("cu-cassandra.yaml");
-        write(modified, yamlLocation.toFile(), UTF_8);
+        writeString(yamlLocation.toFile().toPath(), modified, UTF_8);
 
         return yamlLocation.toAbsolutePath().toString();
     }
