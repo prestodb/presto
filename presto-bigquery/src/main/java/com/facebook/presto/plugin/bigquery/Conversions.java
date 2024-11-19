@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 
 import static com.google.cloud.bigquery.Field.Mode;
 import static com.google.cloud.bigquery.Field.Mode.NULLABLE;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Objects.requireNonNullElse;
 
 public class Conversions
 {
@@ -89,6 +89,6 @@ public class Conversions
 
     private static Mode getMode(Field field)
     {
-        return firstNonNull(field.getMode(), NULLABLE);
+        return requireNonNullElse(field.getMode(), NULLABLE);
     }
 }

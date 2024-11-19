@@ -81,12 +81,12 @@ public class BigQueryConnectorModule
     static String calculateBillingProjectId(Optional<String> configParentProjectId, Optional<Credentials> credentials)
     {
         if (configParentProjectId.isPresent()) {
-            return configParentProjectId.get();
+            return configParentProjectId.orElseThrow();
         }
 
         // All other credentials types (User, AppEngine, GCE, CloudShell, etc.) take it from the environment
-        if (credentials.isPresent() && credentials.get() instanceof ServiceAccountCredentials) {
-            return ((ServiceAccountCredentials) credentials.get()).getProjectId();
+        if (credentials.isPresent() && credentials.orElseThrow() instanceof ServiceAccountCredentials) {
+            return ((ServiceAccountCredentials) credentials.orElseThrow()).getProjectId();
         }
 
         return BigQueryOptions.getDefaultProjectId();
