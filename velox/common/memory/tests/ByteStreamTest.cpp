@@ -357,6 +357,18 @@ TEST_F(ByteStreamTest, reuse) {
   }
 }
 
+TEST_F(ByteStreamTest, unalignedWrite) {
+  constexpr int kSize = 1 + sizeof(int128_t);
+  auto arena = newArena();
+  ByteOutputStream stream(arena.get());
+  stream.startWrite(kSize);
+  stream.appendStringView(std::string_view("x"));
+  int128_t data{};
+  // This only crashes in opt mode.
+  stream.append<int128_t>(folly::Range(&data, 1));
+  ASSERT_EQ(stream.size(), kSize);
+}
+
 class InputByteStreamTest : public ByteStreamTest,
                             public testing::WithParamInterface<bool> {
  protected:

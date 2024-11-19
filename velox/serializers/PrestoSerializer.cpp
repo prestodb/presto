@@ -1545,7 +1545,7 @@ class VectorStream {
   void initializeHeader(std::string_view name, StreamArena& streamArena) {
     streamArena.newTinyRange(50, nullptr, &header_);
     header_.size = name.size() + sizeof(int32_t);
-    *reinterpret_cast<int32_t*>(header_.buffer) = name.size();
+    folly::storeUnaligned<int32_t>(header_.buffer, name.size());
     ::memcpy(header_.buffer + sizeof(int32_t), &name[0], name.size());
   }
 
@@ -2507,46 +2507,34 @@ int32_t rowsToRanges(
   return fill;
 }
 
-template <typename T>
+template <typename T, typename Conv = folly::Identity>
 void copyWords(
-    T* destination,
+    uint8_t* destination,
     const int32_t* indices,
     int32_t numIndices,
     const T* values,
-    bool isLongDecimal = false) {
-  if (std::is_same_v<T, int128_t> && isLongDecimal) {
-    for (auto i = 0; i < numIndices; ++i) {
-      reinterpret_cast<int128_t*>(destination)[i] = toJavaDecimalValue(
-          reinterpret_cast<const int128_t*>(values)[indices[i]]);
-    }
-    return;
-  }
+    Conv&& conv = {}) {
   for (auto i = 0; i < numIndices; ++i) {
-    destination[i] = values[indices[i]];
+    folly::storeUnaligned(
+        destination + i * sizeof(T), conv(values[indices[i]]));
   }
 }
 
-template <typename T>
+template <typename T, typename Conv = folly::Identity>
 void copyWordsWithRows(
-    T* destination,
+    uint8_t* destination,
     const int32_t* rows,
     const int32_t* indices,
     int32_t numIndices,
     const T* values,
-    bool isLongDecimal = false) {
+    Conv&& conv = {}) {
   if (!indices) {
-    copyWords(destination, rows, numIndices, values, isLongDecimal);
-    return;
-  }
-  if (std::is_same_v<T, int128_t> && isLongDecimal) {
-    for (auto i = 0; i < numIndices; ++i) {
-      reinterpret_cast<int128_t*>(destination)[i] = toJavaDecimalValue(
-          reinterpret_cast<const int128_t*>(values)[rows[indices[i]]]);
-    }
+    copyWords(destination, rows, numIndices, values, std::forward<Conv>(conv));
     return;
   }
   for (auto i = 0; i < numIndices; ++i) {
-    destination[i] = values[rows[indices[i]]];
+    folly::storeUnaligned(
+        destination + i * sizeof(T), conv(values[rows[indices[i]]]));
   }
 }
 
@@ -2580,7 +2568,7 @@ void appendNonNull(
 
   if constexpr (sizeof(T) == 8) {
     AppendWindow<int64_t> window(out, scratch);
-    int64_t* output = window.get(numNonNull);
+    auto* output = window.get(numNonNull);
     copyWordsWithRows(
         output,
         rows.data(),
@@ -2589,7 +2577,7 @@ void appendNonNull(
         reinterpret_cast<const int64_t*>(values));
   } else if constexpr (sizeof(T) == 4) {
     AppendWindow<int32_t> window(out, scratch);
-    int32_t* output = window.get(numNonNull);
+    auto* output = window.get(numNonNull);
     copyWordsWithRows(
         output,
         rows.data(),
@@ -2598,14 +2586,19 @@ void appendNonNull(
         reinterpret_cast<const int32_t*>(values));
   } else {
     AppendWindow<T> window(out, scratch);
-    T* output = window.get(numNonNull);
-    copyWordsWithRows(
-        output,
-        rows.data(),
-        nonNullIndices,
-        numNonNull,
-        values,
-        stream->isLongDecimal());
+    auto* output = window.get(numNonNull);
+    if (stream->isLongDecimal()) {
+      copyWordsWithRows(
+          output,
+          rows.data(),
+          nonNullIndices,
+          numNonNull,
+          values,
+          toJavaDecimalValue);
+    } else {
+      copyWordsWithRows(
+          output, rows.data(), nonNullIndices, numNonNull, values);
+    }
   }
 }
 
@@ -2674,56 +2667,34 @@ void serializeFlatVector(
   auto* flatVector = vector->asUnchecked<FlatVector<T>>();
   auto* rawValues = flatVector->rawValues();
   if (!flatVector->mayHaveNulls()) {
-    if (std::is_same_v<T, Timestamp>) {
-      appendTimestamps(
-          nullptr,
-          rows,
-          reinterpret_cast<const Timestamp*>(rawValues),
-          stream,
-          scratch);
-      return;
+    if constexpr (std::is_same_v<T, Timestamp>) {
+      appendTimestamps(nullptr, rows, rawValues, stream, scratch);
+    } else if constexpr (std::is_same_v<T, StringView>) {
+      appendStrings(nullptr, rows, rawValues, stream, scratch);
+    } else {
+      stream->appendNonNull(rows.size());
+      AppendWindow<T> window(stream->values(), scratch);
+      auto* output = window.get(rows.size());
+      if (stream->isLongDecimal()) {
+        copyWords(
+            output, rows.data(), rows.size(), rawValues, toJavaDecimalValue);
+      } else {
+        copyWords(output, rows.data(), rows.size(), rawValues);
+      }
     }
-
-    if (std::is_same_v<T, StringView>) {
-      appendStrings(
-          nullptr,
-          rows,
-          reinterpret_cast<const StringView*>(rawValues),
-          stream,
-          scratch);
-      return;
-    }
-
-    stream->appendNonNull(rows.size());
-    AppendWindow<T> window(stream->values(), scratch);
-    T* output = window.get(rows.size());
-    copyWords(
-        output, rows.data(), rows.size(), rawValues, stream->isLongDecimal());
     return;
   }
 
   ScratchPtr<uint64_t, 4> nullsHolder(scratch);
   uint64_t* nulls = nullsHolder.get(bits::nwords(rows.size()));
   simd::gatherBits(vector->rawNulls(), rows, nulls);
-  if (std::is_same_v<T, Timestamp>) {
-    appendTimestamps(
-        nulls,
-        rows,
-        reinterpret_cast<const Timestamp*>(rawValues),
-        stream,
-        scratch);
-    return;
+  if constexpr (std::is_same_v<T, Timestamp>) {
+    appendTimestamps(nulls, rows, rawValues, stream, scratch);
+  } else if constexpr (std::is_same_v<T, StringView>) {
+    appendStrings(nulls, rows, rawValues, stream, scratch);
+  } else {
+    appendNonNull(stream, nulls, rows, rawValues, scratch);
   }
-  if (std::is_same_v<T, StringView>) {
-    appendStrings(
-        nulls,
-        rows,
-        reinterpret_cast<const StringView*>(rawValues),
-        stream,
-        scratch);
-    return;
-  }
-  appendNonNull(stream, nulls, rows, rawValues, scratch);
 }
 
 uint64_t bitsToBytesMap[256];
@@ -2739,15 +2710,14 @@ void serializeFlatVector<TypeKind::BOOLEAN>(
     VectorStream* stream,
     Scratch& scratch) {
   auto* flatVector = vector->as<FlatVector<bool>>();
-  auto* rawValues = flatVector->rawValues<uint64_t*>();
+  auto* rawValues = flatVector->rawValues<uint64_t>();
   ScratchPtr<uint64_t, 4> bitsHolder(scratch);
   uint64_t* valueBits;
   int32_t numValueBits;
   if (!flatVector->mayHaveNulls()) {
     stream->appendNonNull(rows.size());
     valueBits = bitsHolder.get(bits::nwords(rows.size()));
-    simd::gatherBits(
-        reinterpret_cast<const uint64_t*>(rawValues), rows, valueBits);
+    simd::gatherBits(rawValues, rows, valueBits);
     numValueBits = rows.size();
   } else {
     uint64_t* nulls = bitsHolder.get(bits::nwords(rows.size()));
@@ -2762,7 +2732,7 @@ void serializeFlatVector<TypeKind::BOOLEAN>(
         folly::Range<const vector_size_t*>(nonNulls, numValueBits),
         nonNulls);
     simd::gatherBits(
-        reinterpret_cast<const uint64_t*>(rawValues),
+        rawValues,
         folly::Range<const vector_size_t*>(nonNulls, numValueBits),
         valueBits);
   }
@@ -2776,10 +2746,11 @@ void serializeFlatVector<TypeKind::BOOLEAN>(
   const auto numBytes = bits::nbytes(numValueBits);
   for (auto i = 0; i < numBytes; ++i) {
     uint64_t word = bitsToBytes(reinterpret_cast<uint8_t*>(valueBits)[i]);
+    auto* target = output + i * 8;
     if (i < numBytes - 1) {
-      reinterpret_cast<uint64_t*>(output)[i] = word;
+      folly::storeUnaligned(target, word);
     } else {
-      memcpy(output + i * 8, &word, numValueBits - i * 8);
+      memcpy(target, &word, numValueBits - i * 8);
     }
   }
 }
@@ -3199,10 +3170,8 @@ void estimateFlattenedConstantSerializedSize(
   int32_t elementSize = sizeof(T);
   if (constantVector->isNullAt(0)) {
     elementSize = 1;
-  } else if (std::is_same_v<T, StringView>) {
-    const auto value = constantVector->valueAt(0);
-    const auto* string = reinterpret_cast<const StringView*>(&value);
-    elementSize = string->size();
+  } else if constexpr (std::is_same_v<T, StringView>) {
+    elementSize = constantVector->valueAt(0).size();
   }
   for (int32_t i = 0; i < ranges.size(); ++i) {
     *sizes[i] += elementSize * ranges[i].size;
@@ -3469,10 +3438,8 @@ void estimateFlattenedConstantSerializedSize(
         folly::Range<const vector_size_t*>(&singleRow, 1),
         &sizePtr,
         scratch);
-  } else if (std::is_same_v<T, StringView>) {
-    const auto value = constantVector->valueAt(0);
-    const auto string = reinterpret_cast<const StringView*>(&value);
-    elementSize = string->size();
+  } else if constexpr (std::is_same_v<T, StringView>) {
+    elementSize = constantVector->valueAt(0).size();
   }
   for (int32_t i = 0; i < rows.size(); ++i) {
     *sizes[i] += elementSize;
@@ -3819,10 +3786,8 @@ void estimateConstantSerializedSize(
         newRanges,
         &elementSizePtr,
         scratch);
-  } else if (std::is_same_v<T, StringView>) {
-    auto value = constantVector->valueAt(0);
-    auto string = reinterpret_cast<const StringView*>(&value);
-    elementSize = string->size();
+  } else if constexpr (std::is_same_v<T, StringView>) {
+    elementSize = constantVector->valueAt(0).size();
   } else {
     elementSize = sizeof(T);
   }
