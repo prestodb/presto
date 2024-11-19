@@ -137,7 +137,7 @@ public class RawRowEncoder
 
             Optional<String> mapping = Optional.ofNullable(columnHandle.getMapping());
             if (mapping.isPresent()) {
-                Matcher mappingMatcher = MAPPING_PATTERN.matcher(mapping.get());
+                Matcher mappingMatcher = MAPPING_PATTERN.matcher(mapping.orElseThrow());
                 if (!mappingMatcher.matches()) {
                     throw new IllegalArgumentException(format("Invalid mapping for column '%s'", this.name));
                 }

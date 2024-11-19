@@ -19,8 +19,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-
-import static com.google.common.collect.Iterables.transform;
+import java.util.stream.StreamSupport;
 
 public class FileKafkaClusterMetadataSupplierConfig
 {
@@ -46,7 +45,8 @@ public class FileKafkaClusterMetadataSupplierConfig
     public static ImmutableSet<HostAddress> parseNodes(String nodes)
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
-        return ImmutableSet.copyOf(transform(splitter.split(nodes), FileKafkaClusterMetadataSupplierConfig::toHostAddress));
+        return ImmutableSet.copyOf(StreamSupport.stream(
+                splitter.split(nodes).spliterator(), false).map(FileKafkaClusterMetadataSupplierConfig::toHostAddress).toList());
     }
 
     private static HostAddress toHostAddress(String value)

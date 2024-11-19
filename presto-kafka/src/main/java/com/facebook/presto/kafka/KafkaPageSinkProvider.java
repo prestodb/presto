@@ -108,7 +108,7 @@ public class KafkaPageSinkProvider
                 return new String(Files.readAllBytes(Paths.get(location)));
             }
             catch (IOException e) {
-                throw new PrestoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", dataSchemaLocation.get()), e);
+                throw new PrestoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", dataSchemaLocation.orElseThrow()), e);
             }
         });
     }
