@@ -82,7 +82,7 @@ public class RedisPlanStatisticsProvider
                 if (!planNodeWithHash.getHash().isPresent()) {
                     continue;
                 }
-                RedisFuture<HistoricalPlanStatistics> future = commands.get(planNodeWithHash.getHash().get());
+                RedisFuture<HistoricalPlanStatistics> future = commands.get(planNodeWithHash.getHash().orElseThrow());
                 redisFutureMap.put(planNodeWithHash, future);
             }
             LettuceFutures.awaitAll(Duration.ofMillis(totalFetchTimeoutMillis), redisFutureMap.values().toArray(new RedisFuture[redisFutureMap.values().size()]));
@@ -118,7 +118,7 @@ public class RedisPlanStatisticsProvider
             List<RedisFuture> redisFuturesList = new ArrayList<>();
             hashesAndStatistics.forEach((k, v) -> {
                 if (k.getHash().isPresent()) {
-                    redisFuturesList.add(commands.setex(k.getHash().get(), defaultTTLSeconds, v));
+                    redisFuturesList.add(commands.setex(k.getHash().orElseThrow(), defaultTTLSeconds, v));
                 }
             });
             LettuceFutures.awaitAll(Duration.ofMillis(totalSetTimeMillis), redisFuturesList.toArray(new RedisFuture[redisFuturesList.size()]));
