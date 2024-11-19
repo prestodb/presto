@@ -29,10 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class RedisTableDescriptionSupplier
         implements Supplier<Map<SchemaTableName, RedisTableDescription>>
@@ -58,7 +58,7 @@ public class RedisTableDescriptionSupplier
             for (File file : listFiles(redisConnectorConfig.getTableDescriptionDir())) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
                     RedisTableDescription table = tableDescriptionCodec.fromJson(readAllBytes(file.toPath()));
-                    String schemaName = firstNonNull(table.getSchemaName(), redisConnectorConfig.getDefaultSchema());
+                    String schemaName = requireNonNullElse(table.getSchemaName(), redisConnectorConfig.getDefaultSchema());
                     log.debug("Redis table %s.%s: %s", schemaName, table.getTableName(), table);
                     builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
                 }
