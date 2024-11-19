@@ -168,10 +168,10 @@ public class PinotClusterInfoFetcher
         if (rpcService.isPresent()) {
             requestBuilder
                     .setHeader(pinotConfig.getCallerHeaderParam(), pinotConfig.getCallerHeaderValue())
-                    .setHeader(pinotConfig.getServiceHeaderParam(), rpcService.get());
+                    .setHeader(pinotConfig.getServiceHeaderParam(), rpcService.orElseThrow());
         }
         if (requestBody.isPresent()) {
-            requestBuilder.setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(requestBody.get(), StandardCharsets.UTF_8));
+            requestBuilder.setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(requestBody.orElseThrow(), StandardCharsets.UTF_8));
         }
         pinotConfig.getExtraHttpHeaders().forEach(requestBuilder::setHeader);
         Request request = requestBuilder.build();

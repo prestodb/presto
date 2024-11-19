@@ -144,7 +144,7 @@ public class PinotSplit
     public Optional<String> getGrpcHost()
     {
         if (segmentHost.isPresent()) {
-            String[] hostSplits = segmentHost.get().split("_");
+            String[] hostSplits = segmentHost.orElseThrow().split("_");
             return (hostSplits.length > 1) ? Optional.of(hostSplits[hostSplits.length - 2]) : segmentHost;
         }
         return Optional.empty();

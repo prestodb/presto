@@ -231,10 +231,10 @@ class PinotProjectExpressionConverter
         FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(call.getFunctionHandle());
         Optional<OperatorType> operatorType = functionMetadata.getOperatorType();
         if (standardFunctionResolution.isComparisonFunction(functionHandle) && operatorType.isPresent()) {
-            return handleLogicalBinary(call, operatorType.get().getOperator(), context);
+            return handleLogicalBinary(call, operatorType.orElseThrow().getOperator(), context);
         }
         if (standardFunctionResolution.isArithmeticFunction(functionHandle) && operatorType.isPresent()) {
-            return handleArithmeticExpression(call, operatorType.get(), context);
+            return handleArithmeticExpression(call, operatorType.orElseThrow(), context);
         }
         if (standardFunctionResolution.isNegateFunction(functionHandle)) {
             return derived('-' + call.getArguments().get(0).accept(this, context).getDefinition());

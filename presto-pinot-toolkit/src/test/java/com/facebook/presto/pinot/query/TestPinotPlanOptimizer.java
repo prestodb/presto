@@ -154,8 +154,8 @@ public class TestPinotPlanOptimizer
                 return true;
             }
             if (sql.isPresent() && regex.isPresent()) {
-                String toMatch = sql.get();
-                Pattern compiled = Pattern.compile(regex.get(), Pattern.CASE_INSENSITIVE);
+                String toMatch = sql.orElseThrow();
+                Pattern compiled = Pattern.compile(regex.orElseThrow(), Pattern.CASE_INSENSITIVE);
                 return compiled.matcher(toMatch).matches();
             }
             return false;
