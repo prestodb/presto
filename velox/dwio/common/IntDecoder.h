@@ -46,7 +46,7 @@ class IntDecoder {
         numBytes_(numBytes),
         bigEndian_(bigEndian) {}
 
-  /// Constructs for use in Parquet /Alphawhere the buffer is always preloaded.
+  /// Constructs for use in Parquet where the buffer is always preloaded.
   IntDecoder(const char* start, const char* end)
       : bufferStart_(start), bufferEnd_(end), useVInts_(false), numBytes_(0) {}
 
