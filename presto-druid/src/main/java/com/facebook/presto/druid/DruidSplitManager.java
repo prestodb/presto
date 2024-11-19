@@ -52,8 +52,8 @@ public class DruidSplitManager
     {
         DruidTableLayoutHandle layoutHandle = (DruidTableLayoutHandle) layout;
         DruidTableHandle table = layoutHandle.getTable();
-        if (isComputePushdownEnabled(session) || (table.getDql().isPresent() && table.getDql().get().getPushdown())) {
-            return new FixedSplitSource(ImmutableList.of(createBrokerSplit(table.getDql().get())));
+        if (isComputePushdownEnabled(session) || (table.getDql().isPresent() && table.getDql().orElseThrow().getPushdown())) {
+            return new FixedSplitSource(ImmutableList.of(createBrokerSplit(table.getDql().orElseThrow())));
         }
         List<String> segmentIds = druidClient.getDataSegmentId(table.getTableName());
 
