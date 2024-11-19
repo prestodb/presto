@@ -247,8 +247,8 @@ public class ElasticsearchClient
     {
         if (config.getAccessKey().isPresent() && config.getSecretKey().isPresent()) {
             return new AWSStaticCredentialsProvider(new BasicAWSCredentials(
-                    config.getAccessKey().get(),
-                    config.getSecretKey().get()));
+                    config.getAccessKey().orElseThrow(),
+                    config.getSecretKey().orElseThrow()));
         }
         if (config.isUseInstanceCredentials()) {
             return InstanceProfileCredentialsProvider.getInstance();
@@ -274,7 +274,7 @@ public class ElasticsearchClient
                 char[] keyManagerPassword;
                 try {
                     // attempt to read the key store as a PEM file
-                    keyStore = PemReader.loadKeyStore(keyStorePath.get(), keyStorePath.get(), keyStorePassword);
+                    keyStore = PemReader.loadKeyStore(keyStorePath.orElseThrow(), keyStorePath.orElseThrow(), keyStorePassword);
                     // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
                     keyManagerPassword = new char[0];
                 }
@@ -282,7 +282,7 @@ public class ElasticsearchClient
                     keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
                     keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-                    try (InputStream in = new FileInputStream(keyStorePath.get())) {
+                    try (InputStream in = new FileInputStream(keyStorePath.orElseThrow())) {
                         keyStore.load(in, keyManagerPassword);
                     }
                 }
@@ -296,7 +296,7 @@ public class ElasticsearchClient
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
             if (trustStorePath.isPresent()) {
-                trustStore = loadTrustStore(trustStorePath.get(), trustStorePassword);
+                trustStore = loadTrustStore(trustStorePath.orElseThrow(), trustStorePassword);
             }
 
             // create TrustManagerFactory
@@ -413,12 +413,12 @@ public class ElasticsearchClient
             SearchShardsResponse.Shard chosen;
             ElasticsearchNode node;
             if (candidate.isPresent()) {
-                chosen = candidate.get();
+                chosen = candidate.orElseThrow();
                 node = nodeById.get(chosen.getNode());
             }
             else {
                 // pick an arbitrary shard with and assign to an arbitrary node
-                chosen = preferred.findFirst().get();
+                chosen = preferred.findFirst().orElseThrow();
                 node = nodes.get(chosen.getShard() % nodes.size());
             }
             shards.add(new Shard(chosen.getIndex(), chosen.getShard(), node.getAddress()));
