@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -105,7 +104,7 @@ public class ExampleClient
     private static Function<List<ExampleTable>, Map<String, ExampleTable>> resolveAndIndexTables(final URI metadataUri)
     {
         return tables -> {
-            Iterable<ExampleTable> resolvedTables = transform(tables, tableUriResolver(metadataUri));
+            Iterable<ExampleTable> resolvedTables = tables.stream().map(tableUriResolver(metadataUri)).toList();
             return ImmutableMap.copyOf(uniqueIndex(resolvedTables, ExampleTable::getName));
         };
     }
@@ -113,7 +112,7 @@ public class ExampleClient
     private static Function<ExampleTable, ExampleTable> tableUriResolver(final URI baseUri)
     {
         return table -> {
-            List<URI> sources = ImmutableList.copyOf(transform(table.getSources(), baseUri::resolve));
+            List<URI> sources = ImmutableList.copyOf(table.getSources().stream().map(baseUri::resolve).toList());
             return new ExampleTable(table.getName(), table.getColumns(), sources);
         };
     }
