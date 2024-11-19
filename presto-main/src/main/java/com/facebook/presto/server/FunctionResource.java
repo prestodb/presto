@@ -80,11 +80,11 @@ import static java.lang.Double.longBitsToDouble;
 @Path("/v1/functions")
 public class FunctionResource
 {
+    public static final String FUNCTION_CATALOG = "remote";
     private final FunctionAndTypeManager manager;
     private final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> jsonCodec;
     private final PagesSerde pagesSerde;
     private String etag = "\"etag\"";
-    public static final String FUNCTION_CATALOG = "remote";
 
     @Inject
     public FunctionResource(FunctionAndTypeManager manager, JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> jsonCodec)

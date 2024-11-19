@@ -14,7 +14,6 @@
 package com.facebook.presto.functionNamespace.rest;
 
 import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
@@ -54,7 +53,12 @@ import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_SERVER_FAILURE;
+import static com.facebook.presto.functionNamespace.rest.RestErrorCode.REST_SERVER_BAD_RESPONSE;
+import static com.facebook.presto.functionNamespace.rest.RestErrorCode.REST_SERVER_CONNECT_ERROR;
+import static com.facebook.presto.functionNamespace.rest.RestErrorCode.REST_SERVER_ERROR;
+import static com.facebook.presto.functionNamespace.rest.RestErrorCode.REST_SERVER_IO_ERROR;
+import static com.facebook.presto.functionNamespace.rest.RestErrorCode.REST_SERVER_NOT_FOUND;
+import static com.facebook.presto.functionNamespace.rest.RestErrorCode.REST_SERVER_TIMEOUT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionImplementationType.REST;
@@ -159,15 +163,30 @@ public class RestSqlFunctionExecutor
         @Override
         public SqlFunctionResult handleException(Request request, Exception exception)
         {
-            throw new PrestoException(FUNCTION_SERVER_FAILURE, "Failed to get response for rest function call from function server, with exception" + exception.getMessage());
+            if (exception instanceof java.net.SocketTimeoutException) {
+                throw new PrestoException(REST_SERVER_TIMEOUT, "Request to REST server timed out. Request: " + request, exception);
+            }
+            else if (exception instanceof java.net.ConnectException) {
+                throw new PrestoException(REST_SERVER_CONNECT_ERROR, "Failed to connect to REST server. Request: " + request, exception);
+            }
+            else {
+                throw new PrestoException(REST_SERVER_ERROR, "Unexpected error during REST call. Request: " + request + ", Exception: " + exception.getMessage(), exception);
+            }
         }
 
         @Override
         public SqlFunctionResult handle(Request request, Response response)
         {
-            if (response.getStatusCode() != 200 || response.getStatusCode() != HttpStatus.OK.code()) {
-                throw new PrestoException(FUNCTION_SERVER_FAILURE, "Failed to get response for rest function call from function server. Response code: " + response.getStatusCode());
+            if (response.getStatusCode() == 404) {
+                throw new PrestoException(REST_SERVER_NOT_FOUND, "Resource not found on REST server. Request: " + request);
             }
+            else if (response.getStatusCode() == 500) {
+                throw new PrestoException(REST_SERVER_ERROR, "Internal server error on REST server. Request: " + request);
+            }
+            else if (response.getStatusCode() != 200) {
+                throw new PrestoException(REST_SERVER_BAD_RESPONSE, "Unexpected response code: " + response.getStatusCode() + ". Request: " + request);
+            }
+
             try {
                 SliceInput input = new InputStreamSliceInput(response.getInputStream());
                 SerializedPage serializedPage = readSerializedPage(input);
@@ -177,7 +196,7 @@ public class RestSqlFunctionExecutor
                 return output;
             }
             catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new PrestoException(REST_SERVER_IO_ERROR, "Error deserializing REST server response: " + e.getMessage(), e);
             }
         }
     }
@@ -194,7 +213,15 @@ public class RestSqlFunctionExecutor
         @Override
         public void onFailure(Throwable t)
         {
-            throw new PrestoException(FUNCTION_SERVER_FAILURE, "Failed with message " + t.getMessage());
+            if (t instanceof PrestoException) {
+                throw (PrestoException) t;
+            }
+            else if (t instanceof java.net.SocketTimeoutException) {
+                throw new PrestoException(REST_SERVER_TIMEOUT, "REST server execution timed out. Error: " + t.getMessage(), t);
+            }
+            else {
+                throw new PrestoException(REST_SERVER_ERROR, "Unknown error during REST execution. Error: " + t.getMessage(), t);
+            }
         }
     }
 }
