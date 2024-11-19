@@ -164,7 +164,7 @@ where:
 
 Examples of PR titles are:
 
-* feature(type): Add IPPREFIX
+* feat(type): Add IPPREFIX
 * fix: Prevent unnecessary flatmap to map conversion
 * refactor(vector): Use 'if constexpr' for Buffer::is_pod_like_v\<T\>
 
