@@ -28,9 +28,9 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
-import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -232,7 +232,8 @@ public class TestTableFinishOperator
         // pages for successful recoverable grouped execution
         // expect lifespan committer to be called and pages published
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, LIFESPAN_COMMIT, false), 9).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(11, new byte[] {10}, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, LIFESPAN_COMMIT, true), null).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(11, new byte[] {
+                10}, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, LIFESPAN_COMMIT, true), null).build().get(0));
         assertEquals(getOnlyElement(pageSinkCommitter.getCommittedFragments()), ImmutableList.of(Slices.wrappedBuffer(new byte[] {10})));
 
         assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);

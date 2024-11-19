@@ -22,19 +22,18 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
@@ -90,7 +89,7 @@ public class TableWriteInfo
     private static Optional<ExecutionWriterTarget> createWriterTarget(Optional<TableFinishNode> finishNodeOptional, Metadata metadata, Session session)
     {
         if (finishNodeOptional.isPresent()) {
-            WriterTarget target = finishNodeOptional.get().getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            TableWriterNode.WriterTarget target = finishNodeOptional.get().getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             if (target instanceof TableWriterNode.CreateName) {
                 TableWriterNode.CreateName create = (TableWriterNode.CreateName) target;
                 return Optional.of(new ExecutionWriterTarget.CreateHandle(metadata.beginCreateTable(session, create.getConnectorId().getCatalogName(), create.getTableMetadata(), create.getLayout()), create.getSchemaTableName()));

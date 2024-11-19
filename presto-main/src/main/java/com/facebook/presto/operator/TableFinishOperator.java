@@ -26,8 +26,8 @@ import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
-import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -469,9 +469,9 @@ public class TableFinishOperator
         {
             checkState(uncommittedRecoverableLifespanAndStageStates.isEmpty(), "All recoverable LifespanAndStage should be committed when fetching final row count");
             return Streams.concat(
-                    noCommitUnrecoverableLifespanAndStageStates.values().stream(),
-                    taskCommitUnrecoverableLifespanAndStageStates.values().stream(),
-                    committedRecoverableLifespanAndStages.values().stream())
+                            noCommitUnrecoverableLifespanAndStageStates.values().stream(),
+                            taskCommitUnrecoverableLifespanAndStageStates.values().stream(),
+                            committedRecoverableLifespanAndStages.values().stream())
                     .mapToLong(LifespanAndStageState::getRowCount)
                     .sum();
         }
@@ -480,9 +480,9 @@ public class TableFinishOperator
         {
             checkState(uncommittedRecoverableLifespanAndStageStates.isEmpty(), "All recoverable LifespanAndStage should be committed when fetching final fragments");
             return Streams.concat(
-                    noCommitUnrecoverableLifespanAndStageStates.values().stream(),
-                    taskCommitUnrecoverableLifespanAndStageStates.values().stream(),
-                    committedRecoverableLifespanAndStages.values().stream())
+                            noCommitUnrecoverableLifespanAndStageStates.values().stream(),
+                            taskCommitUnrecoverableLifespanAndStageStates.values().stream(),
+                            committedRecoverableLifespanAndStages.values().stream())
                     .map(LifespanAndStageState::getFragments)
                     .flatMap(List::stream)
                     .collect(toImmutableList());

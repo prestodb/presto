@@ -52,17 +52,7 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitTableWriter(TableWriterNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitTableWriteMerge(TableWriterMergeNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitDelete(DeleteNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -73,11 +63,6 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitUpdate(UpdateNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitTableFinish(TableFinishNode node, C context)
     {
         return visitPlan(node, context);
     }
