@@ -50,6 +50,6 @@ public class RemoveRedundantSortColumns
             return Result.empty();
         }
 
-        return Result.ofPlanNode(new SortNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getSource(), newOrderingScheme, node.isPartial()));
+        return Result.ofPlanNode(new SortNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getSource(), newOrderingScheme, node.isPartial(), node.getPartitionBy()));
     }
 }

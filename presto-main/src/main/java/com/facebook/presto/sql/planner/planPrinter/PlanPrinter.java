@@ -1104,9 +1104,11 @@ public class PlanPrinter
         {
             Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderByVariables(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
 
-            addNode(node,
-                    format("%sSort", node.isPartial() ? "Partial" : ""),
-                    format("[%s]", Joiner.on(", ").join(keys)));
+            String detail = format("[%s]", Joiner.on(", ").join(keys));
+            if (!node.getPartitionBy().isEmpty()) {
+                detail = format("%s[Partition by %s]", detail, Joiner.on(", ").join(node.getPartitionBy()));
+            }
+            addNode(node, format("%sSort", node.isPartial() ? "Partial" : ""), detail);
 
             return processChildren(node, context);
         }
