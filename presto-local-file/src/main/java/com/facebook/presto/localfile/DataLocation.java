@@ -82,7 +82,7 @@ final class DataLocation
 
         checkState(location.isDirectory(), "location %s is not a directory", location);
 
-        try (DirectoryStream<Path> paths = newDirectoryStream(location.toPath(), pattern.get())) {
+        try (DirectoryStream<Path> paths = newDirectoryStream(location.toPath(), pattern.orElseThrow())) {
             ImmutableList.Builder<File> builder = ImmutableList.builder();
             for (Path path : paths) {
                 builder.add(path.toFile());
