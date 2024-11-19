@@ -31,7 +31,8 @@ import java.util.Base64;
 import java.util.Map;
 
 import static com.facebook.presto.lark.sheets.LarkSheetsConfig.Domain.FEISHU;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static java.util.stream.StreamSupport.stream;
 import static org.testng.Assert.assertNotNull;
 
 public class TestLarkSheetsPlugin
@@ -42,7 +43,7 @@ public class TestLarkSheetsPlugin
     public void testCreateConnector()
     {
         Plugin plugin = new LarkSheetsPlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = stream(plugin.getConnectorFactories().spliterator(), false).collect(onlyElement());
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .putAll(getTestingConnectorConfig())
                 .build();

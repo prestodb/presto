@@ -167,7 +167,7 @@ public class LarkSheetsMetadata
         if (!schemaName.isPresent()) {
             throw new PrestoException(NOT_PERMITTED, "Schema is required to list tables");
         }
-        LarkSheetsSchema schema = requireVisibleSchema(session, schemaName.get());
+        LarkSheetsSchema schema = requireVisibleSchema(session, schemaName.orElseThrow());
         checkSchemaReadable(schema);
         return api.getMetaInfo(schema.getToken())
                 .getSheets()
