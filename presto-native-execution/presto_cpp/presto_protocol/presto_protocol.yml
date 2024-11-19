@@ -143,7 +143,7 @@ AbstractClasses:
         - { name: SampleNode,               key: com.facebook.presto.sql.planner.plan.SampleNode }
         - { name: SemiJoinNode,             key: .SemiJoinNode }
         - { name: TableScanNode,            key: .TableScanNode }
-        - { name: TableWriterNode,          key: com.facebook.presto.sql.planner.plan.TableWriterNode }
+        - { name: TableWriterNode,          key: .TableWriterNode }
         - { name: TableWriterMergeNode,     key: com.facebook.presto.sql.planner.plan.TableWriterMergeNode }
         - { name: TopNNode,                 key: .TopNNode }
         - { name: TopNRowNumberNode,        key: com.facebook.presto.sql.planner.plan.TopNRowNumberNode }
@@ -221,7 +221,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/RowNumberNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/SampleNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TopNRowNumberNode.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/TableWriterNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterMergeNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/UnnestNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/WindowNode.java
@@ -299,7 +299,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/cost/PlanNodeStatsEstimate.java
   - presto-main/src/main/java/com/facebook/presto/cost/JoinNodeStatsEstimate.java
   - presto-main/src/main/java/com/facebook/presto/cost/TableWriterNodeStatsEstimate.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/StatisticAggregations.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/StatisticAggregations.java
   - presto-main/src/main/java/com/facebook/presto/cost/PartialAggregationStatsEstimate.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/ProjectNode.java
   - presto-matching/src/test/java/com/facebook/presto/matching/example/rel/ProjectNode.java

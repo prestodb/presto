@@ -11,22 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregationsDescriptor<T>
@@ -46,8 +46,8 @@ public class StatisticAggregationsDescriptor<T>
             @JsonProperty("tableStatistics") Map<TableStatisticType, T> tableStatistics,
             @JsonProperty("columnStatistics") List<ColumnStatisticsDescriptor<T>> columnStatistics)
     {
-        this.grouping = ImmutableMap.copyOf(requireNonNull(grouping, "grouping is null"));
-        this.tableStatistics = ImmutableMap.copyOf(requireNonNull(tableStatistics, "tableStatistics is null"));
+        this.grouping = Collections.unmodifiableMap(new LinkedHashMap<>(requireNonNull(grouping, "grouping is null")));
+        this.tableStatistics = Collections.unmodifiableMap(new LinkedHashMap<>(requireNonNull(tableStatistics, "tableStatistics is null")));
         this.columnStatistics = requireNonNull(columnStatistics, "columnStatistics is null");
     }
 
@@ -56,10 +56,8 @@ public class StatisticAggregationsDescriptor<T>
             Map<TableStatisticType, T> tableStatistics,
             Map<ColumnStatisticMetadata, T> columnStatistics)
     {
-        this(grouping, tableStatistics, ImmutableList.<ColumnStatisticsDescriptor<T>>builder()
-                .addAll(columnStatistics.entrySet().stream()
-                        .map(e -> new ColumnStatisticsDescriptor<>(e.getKey(), e.getValue())).iterator())
-                .build());
+        this(grouping, tableStatistics, Collections.unmodifiableList(columnStatistics.entrySet().stream()
+                .map(e -> new ColumnStatisticsDescriptor<>(e.getKey(), e.getValue())).collect(Collectors.toList())));
     }
 
     @JsonProperty
@@ -104,11 +102,7 @@ public class StatisticAggregationsDescriptor<T>
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("grouping", grouping)
-                .add("tableStatistics", tableStatistics)
-                .add("columnStatistics", columnStatistics)
-                .toString();
+        return format("%s {grouping=%s, tableStatistics=%s, columnStatistics=%s}", this.getClass().getSimpleName(), grouping, tableStatistics, columnStatistics);
     }
 
     public static <B> Builder<B> builder()
@@ -118,28 +112,33 @@ public class StatisticAggregationsDescriptor<T>
 
     public <T2> StatisticAggregationsDescriptor<T2> map(Function<T, T2> mapper)
     {
+        Map<ColumnStatisticMetadata, T> newMap = new LinkedHashMap<>();
+        this.getColumnStatistics().forEach(x ->
+        {
+            if (newMap.containsKey(x.getMetadata())) {
+                throw new IllegalStateException(format("Duplicate key %s", x));
+            }
+            newMap.put(x.getMetadata(), x.getItem());
+        });
         return new StatisticAggregationsDescriptor<>(
                 map(this.getGrouping(), mapper),
                 map(this.getTableStatistics(), mapper),
-                map(this.getColumnStatistics().stream()
-                                .collect(toImmutableMap(
-                                        ColumnStatisticsDescriptor::getMetadata,
-                                        ColumnStatisticsDescriptor::getItem)),
+                map(Collections.unmodifiableMap(newMap),
                         mapper));
     }
 
     private static <K, V1, V2> Map<K, V2> map(Map<K, V1> input, Function<V1, V2> mapper)
     {
-        return input.entrySet()
+        return Collections.unmodifiableMap(input.entrySet()
                 .stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> mapper.apply(entry.getValue())));
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> mapper.apply(entry.getValue()), (e1, e2) -> { throw new IllegalStateException(format("Duplicate key %s", e1)); }, LinkedHashMap::new)));
     }
 
     public static class Builder<T>
     {
-        private final ImmutableMap.Builder<String, T> grouping = ImmutableMap.builder();
-        private final ImmutableMap.Builder<TableStatisticType, T> tableStatistics = ImmutableMap.builder();
-        private final ImmutableMap.Builder<ColumnStatisticMetadata, T> columnStatistics = ImmutableMap.builder();
+        private final Map<String, T> grouping = new LinkedHashMap<>();
+        private final Map<TableStatisticType, T> tableStatistics = new LinkedHashMap<>();
+        private final Map<ColumnStatisticMetadata, T> columnStatistics = new LinkedHashMap<>();
 
         public void addGrouping(String column, T key)
         {
@@ -158,7 +157,7 @@ public class StatisticAggregationsDescriptor<T>
 
         public StatisticAggregationsDescriptor<T> build()
         {
-            return new StatisticAggregationsDescriptor<>(grouping.build(), tableStatistics.build(), columnStatistics.build());
+            return new StatisticAggregationsDescriptor<>(Collections.unmodifiableMap(grouping), Collections.unmodifiableMap(tableStatistics), Collections.unmodifiableMap(columnStatistics));
         }
     }
 
@@ -211,10 +210,7 @@ public class StatisticAggregationsDescriptor<T>
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("metadata", metadata)
-                    .add("item", item)
-                    .toString();
+            return format("%s {metadata=%s, item=%s}", this.getClass().getSimpleName(), metadata, item);
         }
     }
 }

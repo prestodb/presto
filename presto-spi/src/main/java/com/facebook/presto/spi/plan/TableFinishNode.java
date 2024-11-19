@@ -11,33 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TableFinishNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final PlanNode source;
-    private final Optional<WriterTarget> target;
+    private final Optional<TableWriterNode.WriterTarget> target;
     private final VariableReferenceExpression rowCountVariable;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor;
@@ -47,7 +43,7 @@ public class TableFinishNode
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") Optional<WriterTarget> target,
+            @JsonProperty("target") Optional<TableWriterNode.WriterTarget> target,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
@@ -60,7 +56,7 @@ public class TableFinishNode
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
-            Optional<WriterTarget> target,
+            Optional<TableWriterNode.WriterTarget> target,
             VariableReferenceExpression rowCountVariable,
             Optional<StatisticAggregations> statisticsAggregation,
             Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
@@ -83,7 +79,7 @@ public class TableFinishNode
     }
 
     @JsonIgnore
-    public Optional<WriterTarget> getTarget()
+    public Optional<TableWriterNode.WriterTarget> getTarget()
     {
         return target;
     }
@@ -109,17 +105,17 @@ public class TableFinishNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return Collections.singletonList(source);
     }
 
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.of(rowCountVariable);
+        return Collections.singletonList(rowCountVariable);
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTableFinish(this, context);
     }
@@ -127,11 +123,12 @@ public class TableFinishNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
+        checkArgument(newChildren.size() == 1);
         return new TableFinishNode(
                 getSourceLocation(),
                 getId(),
                 getStatsEquivalentPlanNode(),
-                Iterables.getOnlyElement(newChildren),
+                newChildren.get(0),
                 target,
                 rowCountVariable,
                 statisticsAggregation,

@@ -16,8 +16,8 @@ package com.facebook.presto.sql;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.PartitioningMetadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
@@ -25,11 +25,15 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -37,7 +41,11 @@ import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.StatisticAggregations;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -45,10 +53,7 @@ import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.planner.BasePlanFragmenter;
 import com.facebook.presto.sql.planner.StatisticsAggregationPlanner;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.StatisticAggregations;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -318,14 +323,14 @@ public class TemporaryTableUtil
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
         StatisticsAggregationPlanner.TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable);
-        StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
+        StatisticAggregations.Parts aggregations = splitIntoPartialAndFinal(statisticsResult.getAggregations(), variableAllocator, metadata.getFunctionAndTypeManager());
         PlanNode tableWriterMerge;
 
         // Disabled by default. Enable when the column statistics are essential for future runtime adaptive plan optimizations
         boolean enableStatsCollectionForTemporaryTable = SystemSessionProperties.isEnableStatsCollectionForTemporaryTable(session);
 
         if (isTableWriterMergeOperatorEnabled(session)) {
-            StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getFunctionAndTypeManager());
+            StatisticAggregations.Parts localAggregations = splitIntoPartialAndIntermediate(aggregations.getPartialAggregation(), variableAllocator, metadata.getFunctionAndTypeManager());
             tableWriterMerge = new TableWriterMergeNode(
                     sourceLocation,
                     idAllocator.getNextId(),
@@ -383,5 +388,60 @@ public class TemporaryTableUtil
                 variableAllocator.newVariable("rows", BIGINT),
                 enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getFinalAggregation()) : Optional.empty(),
                 enableStatsCollectionForTemporaryTable ? Optional.of(statisticsResult.getDescriptor()) : Optional.empty());
+    }
+
+    public static StatisticAggregations.Parts splitIntoPartialAndFinal(StatisticAggregations statisticAggregations, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+    {
+        return split(statisticAggregations, variableAllocator, functionAndTypeManager, false);
+    }
+
+    public static StatisticAggregations.Parts splitIntoPartialAndIntermediate(StatisticAggregations statisticAggregations, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+    {
+        return split(statisticAggregations, variableAllocator, functionAndTypeManager, true);
+    }
+
+    private static StatisticAggregations.Parts split(StatisticAggregations statisticAggregations, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager, boolean intermediate)
+    {
+        ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> finalOrIntermediateAggregations = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> partialAggregations = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : statisticAggregations.getAggregations().entrySet()) {
+            AggregationNode.Aggregation originalAggregation = entry.getValue();
+            FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
+            AggregationFunctionImplementation function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
+
+            // create partial aggregation
+            VariableReferenceExpression partialVariable = variableAllocator.newVariable(entry.getValue().getCall().getSourceLocation(), functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(), function.getIntermediateType());
+            partialAggregations.put(partialVariable, new AggregationNode.Aggregation(
+                    new CallExpression(
+                            originalAggregation.getCall().getSourceLocation(),
+                            originalAggregation.getCall().getDisplayName(),
+                            functionHandle,
+                            function.getIntermediateType(),
+                            originalAggregation.getArguments()),
+                    originalAggregation.getFilter(),
+                    originalAggregation.getOrderBy(),
+                    originalAggregation.isDistinct(),
+                    originalAggregation.getMask()));
+
+            // create final aggregation
+            finalOrIntermediateAggregations.put(entry.getKey(),
+                    new AggregationNode.Aggregation(
+                            new CallExpression(
+                                    originalAggregation.getCall().getSourceLocation(),
+                                    originalAggregation.getCall().getDisplayName(),
+                                    functionHandle,
+                                    intermediate ? function.getIntermediateType() : function.getFinalType(),
+                                    ImmutableList.of(partialVariable)),
+                            Optional.empty(),
+                            Optional.empty(),
+                            false,
+                            Optional.empty()));
+        }
+
+        StatisticAggregations finalOrIntermediateAggregation = new StatisticAggregations(finalOrIntermediateAggregations.build(), statisticAggregations.getGroupingVariables());
+        return new StatisticAggregations.Parts(
+                intermediate ? Optional.empty() : Optional.of(finalOrIntermediateAggregation),
+                intermediate ? Optional.of(finalOrIntermediateAggregation) : Optional.empty(),
+                new StatisticAggregations(partialAggregations.build(), statisticAggregations.getGroupingVariables()));
     }
 }

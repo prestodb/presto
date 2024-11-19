@@ -11,10 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,7 +22,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NewTableLayout
@@ -91,10 +89,6 @@ public class NewTableLayout
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .add("transactionHandle", transactionHandle)
-                .add("layout", layout)
-                .toString();
+        return format("%s {connectorId=%s, transactionHandle=%s, layout=%s}", this.getClass().getSimpleName(), connectorId, transactionHandle, layout);
     }
 }
