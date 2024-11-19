@@ -354,6 +354,8 @@ public class LocalQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
+    private List<PlanOptimizer> additionalOptimizer = ImmutableList.of();
+
     public LocalQueryRunner(Session defaultSession)
     {
         this(defaultSession, new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false);
@@ -1097,12 +1099,21 @@ public class LocalQueryRunner
         return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, warningCollector);
     }
 
+    public void setAdditionalOptimizer(List<PlanOptimizer> additionalOptimizer)
+    {
+        this.additionalOptimizer = additionalOptimizer;
+    }
+
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        return new PlanOptimizers(
+        ImmutableList.Builder<PlanOptimizer> planOptimizers = ImmutableList.builder();
+        if (!additionalOptimizer.isEmpty()) {
+            planOptimizers.addAll(additionalOptimizer);
+        }
+        planOptimizers.addAll(new PlanOptimizers(
                 metadata,
                 sqlParser,
                 forceSingleNode,
@@ -1116,7 +1127,8 @@ public class LocalQueryRunner
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig).getPlanningTimeOptimizers();
+                featuresConfig).getPlanningTimeOptimizers());
+        return planOptimizers.build();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)

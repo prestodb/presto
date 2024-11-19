@@ -531,6 +531,44 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, PreferredProperties preferredProperties)
         {
+            if (!node.getPartitionBy().isEmpty()) {
+                return planSortWithPartition(node, preferredProperties);
+            }
+            return planSortWithoutPartition(node, preferredProperties);
+        }
+
+        private PlanWithProperties planSortWithPartition(SortNode node, PreferredProperties preferredProperties)
+        {
+            List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
+            checkArgument(!node.getPartitionBy().isEmpty());
+            desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+
+            node.getOrderingScheme().getOrderByVariables().stream()
+                    .map(variable -> new SortingProperty<>(variable, node.getOrderingScheme().getOrdering(variable)))
+                    .forEach(desiredProperties::add);
+
+            PlanWithProperties child = planChild(
+                    node,
+                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)
+                            .mergeWithParent(preferredProperties, !isExactPartitioningPreferred(session)));
+
+            if (!isStreamPartitionedOn(child.getProperties(), node.getPartitionBy()) &&
+                    !isNodePartitionedOn(child.getProperties(), node.getPartitionBy())) {
+                child = withDerivedProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                selectExchangeScopeForPartitionedRemoteExchange(child.getNode(), false),
+                                child.getNode(),
+                                createPartitioning(node.getPartitionBy()),
+                                Optional.empty()),
+                        child.getProperties());
+            }
+
+            return rebaseAndDeriveProperties(node, child);
+        }
+
+        private PlanWithProperties planSortWithoutPartition(SortNode node, PreferredProperties preferredProperties)
+        {
             PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
             if (child.getProperties().isSingleNode()) {
@@ -561,7 +599,8 @@ public class AddExchanges
                                         idAllocator.getNextId(),
                                         source,
                                         node.getOrderingScheme(),
-                                        true),
+                                        true,
+                                        node.getPartitionBy()),
                                 node.getOrderingScheme()),
                         child.getProperties());
             }

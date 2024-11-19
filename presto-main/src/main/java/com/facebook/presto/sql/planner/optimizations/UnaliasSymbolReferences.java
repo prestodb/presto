@@ -563,7 +563,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new SortNode(node.getSourceLocation(), node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()), node.isPartial());
+            return new SortNode(node.getSourceLocation(), node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()), node.isPartial(), node.getPartitionBy());
         }
 
         @Override

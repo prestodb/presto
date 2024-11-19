@@ -191,6 +191,30 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, StreamPreferredProperties parentPreferences)
         {
+            if (!node.getPartitionBy().isEmpty()) {
+                return planSortWithPartition(node, parentPreferences);
+            }
+            return planSortWithoutPartition(node, parentPreferences);
+        }
+
+        private PlanWithProperties planSortWithPartition(SortNode node, StreamPreferredProperties parentPreferences)
+        {
+            checkArgument(!node.getPartitionBy().isEmpty());
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputVariables())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(node.getPartitionBy());
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+
+            SortNode result = new SortNode(node.getSourceLocation(), idAllocator.getNextId(), child.getNode(), node.getOrderingScheme(), node.isPartial(), node.getPartitionBy());
+
+            return deriveProperties(result, child.getProperties());
+        }
+
+        private PlanWithProperties planSortWithoutPartition(SortNode node, StreamPreferredProperties parentPreferences)
+        {
+            checkArgument(node.getPartitionBy().isEmpty());
             // Remove sort if the child is already sorted and in a single stream
             // TODO: extract to its own optimization after AddLocalExchanges once the
             // constraint optimization framework is in a better state to be extended

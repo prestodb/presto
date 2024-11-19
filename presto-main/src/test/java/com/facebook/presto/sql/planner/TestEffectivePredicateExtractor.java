@@ -318,7 +318,8 @@ public class TestEffectivePredicateExtractor
                                 equals(BV, CV),
                                 lessThan(CV, bigintLiteral(10)))),
                 new OrderingScheme(ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))),
-                false);
+                false,
+                ImmutableList.of());
 
         RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 

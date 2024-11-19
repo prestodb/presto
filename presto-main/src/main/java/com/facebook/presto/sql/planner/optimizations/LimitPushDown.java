@@ -207,7 +207,7 @@ public class LimitPushDown
             }
             else if (rewrittenSource != node.getSource()) {
                 planChanged = true;
-                return new SortNode(node.getSourceLocation(), node.getId(), rewrittenSource, node.getOrderingScheme(), node.isPartial());
+                return new SortNode(node.getSourceLocation(), node.getId(), rewrittenSource, node.getOrderingScheme(), node.isPartial(), node.getPartitionBy());
             }
             return node;
         }

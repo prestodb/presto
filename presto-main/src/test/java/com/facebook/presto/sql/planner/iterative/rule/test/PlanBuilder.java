@@ -246,7 +246,8 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())),
-                false);
+                false,
+                ImmutableList.of());
     }
 
     public OffsetNode offset(long rowCount, PlanNode source)
