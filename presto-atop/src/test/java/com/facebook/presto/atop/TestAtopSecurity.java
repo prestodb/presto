@@ -64,8 +64,8 @@ public class TestAtopSecurity
     private Session getSession(String user)
     {
         return testSessionBuilder()
-                .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
-                .setSchema(queryRunner.getDefaultSession().getSchema().get())
+                .setCatalog(queryRunner.getDefaultSession().getCatalog().orElseThrow())
+                .setSchema(queryRunner.getDefaultSession().getSchema().orElseThrow())
                 .setIdentity(new Identity(user, Optional.empty())).build();
     }
 }

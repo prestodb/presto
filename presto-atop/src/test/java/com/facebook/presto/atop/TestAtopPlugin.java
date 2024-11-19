@@ -16,7 +16,8 @@ package com.facebook.presto.atop;
 import org.testng.annotations.Test;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static java.util.stream.StreamSupport.stream;
 
 public class TestAtopPlugin
 {
@@ -24,6 +25,8 @@ public class TestAtopPlugin
     public void testGetConnectorFactory()
     {
         AtopPlugin plugin = new AtopPlugin();
-        assertInstanceOf(getOnlyElement(plugin.getConnectorFactories()), AtopConnectorFactory.class);
+        assertInstanceOf(
+                stream(plugin.getConnectorFactories().spliterator(), false).collect(onlyElement()),
+                AtopConnectorFactory.class);
     }
 }
