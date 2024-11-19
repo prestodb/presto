@@ -214,12 +214,12 @@ public class TestPostgreSqlIntegrationSmokeTest
                 ")";
         @Language("SQL") String createTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "column_a",
                 "column_b");
         @Language("SQL") String expectedShowCreateTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "\"column_a\"",
                 "\"column_b\"");
         assertUpdate(createTableSql);
@@ -237,7 +237,7 @@ public class TestPostgreSqlIntegrationSmokeTest
                 ")";
         expectedShowCreateTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "\"column_a\"",
                 "\"column_b\"",
                 "\"column_c\"");
