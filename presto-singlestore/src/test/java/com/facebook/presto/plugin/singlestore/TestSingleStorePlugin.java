@@ -19,7 +19,9 @@ import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import java.util.stream.StreamSupport;
+
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 public class TestSingleStorePlugin
 {
@@ -27,7 +29,7 @@ public class TestSingleStorePlugin
     public void testCreateConnector()
     {
         Plugin plugin = new SingleStorePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = StreamSupport.stream(plugin.getConnectorFactories().spliterator(), false).collect(onlyElement());
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:singlestore://test"), new TestingConnectorContext());
     }
 }
