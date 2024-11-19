@@ -154,7 +154,7 @@ public class ColumnCardinalityCache
                 // If the smallest cardinality is present and below the threshold, set the earlyReturn flag
                 Optional<Entry<Long, AccumuloColumnConstraint>> smallestCardinality = cardinalityToConstraints.entries().stream().findFirst();
                 if (smallestCardinality.isPresent()) {
-                    if (smallestCardinality.get().getKey() <= earlyReturnThreshold) {
+                    if (smallestCardinality.orElseThrow().getKey() <= earlyReturnThreshold) {
                         LOG.info("Cardinality %s, is below threshold. Returning early while other tasks finish", smallestCardinality);
                         earlyReturn = true;
                     }
@@ -372,7 +372,7 @@ public class ColumnCardinalityCache
             // In order to simplify the implementation, we are making a (safe) assumption
             // that the CacheKeys will all contain the same combination of schema/table/family/qualifier
             // This is asserted with the below implementation error just to make sure
-            CacheKey anyKey = stream(keys).findAny().get();
+            CacheKey anyKey = stream(keys).findAny().orElseThrow();
             if (stream(keys).anyMatch(k -> !k.getSchema().equals(anyKey.getSchema()) || !k.getTable().equals(anyKey.getTable()) || !k.getFamily().equals(anyKey.getFamily()) || !k.getQualifier().equals(anyKey.getQualifier()))) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "loadAll called with a non-homogeneous collection of cache keys");
             }

@@ -81,7 +81,7 @@ public class AccumuloTable
         }
 
         if (rowIdOrdinal.isPresent()) {
-            this.rowIdOrdinal = rowIdOrdinal.get();
+            this.rowIdOrdinal = rowIdOrdinal.orElseThrow();
         }
         else {
             throw new IllegalArgumentException("rowIdOrdinal is null, enable to locate rowId in given column list");
