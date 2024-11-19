@@ -64,7 +64,7 @@ struct ViewWithComparison {
   }
 
  private:
-  int64_t compareOrThrow(
+  int32_t compareOrThrow(
       const T& other,
       CompareFlags flags = CompareFlags{
           .nullHandlingMode =
@@ -1015,7 +1015,7 @@ class RowView
     return result;
   }
 
-  std::optional<int64_t> compare(const RowView& other, const CompareFlags flags)
+  std::optional<int32_t> compare(const RowView& other, const CompareFlags flags)
       const {
     return compareImpl(other, flags);
   }
@@ -1026,7 +1026,7 @@ class RowView
   }
 
   template <std::size_t Is = 0>
-  std::optional<int64_t> compareImpl(
+  std::optional<int32_t> compareImpl(
       const RowView& other,
       const CompareFlags flags) const {
     if constexpr (Is < sizeof...(T)) {
@@ -1173,7 +1173,7 @@ class GenericView : public ViewWithComparison<GenericView> {
     return decoded_.index(index_);
   }
 
-  std::optional<int64_t> compare(
+  std::optional<int32_t> compare(
       const GenericView& other,
       const CompareFlags flags) const {
     return decoded_.base()->compare(
