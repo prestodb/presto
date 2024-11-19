@@ -135,7 +135,7 @@ public class TestSingleStoreDistributedQueries
     {
         skipTestUnless(supportsNotNullColumns());
 
-        String catalog = getSession().getCatalog().get();
+        String catalog = getSession().getCatalog().orElseThrow();
         String createTableStatement = "CREATE TABLE " + catalog + ".tpch.test_not_null_with_insert (\n" +
                 "   \"column_a\" date,\n" +
                 "   \"column_b\" date NOT NULL\n" +
