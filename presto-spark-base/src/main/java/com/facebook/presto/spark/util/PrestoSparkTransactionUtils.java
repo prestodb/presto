@@ -41,7 +41,7 @@ public class PrestoSparkTransactionUtils
         Optional<TransactionInfo> transaction = session.getTransactionId()
                 .flatMap(transactionManager::getOptionalTransactionInfo);
         checkState(transaction.isPresent(), "transaction is not present");
-        checkState(transaction.get().isAutoCommitContext(), "transaction doesn't have auto commit context enabled");
-        return transaction.get();
+        checkState(transaction.orElseThrow().isAutoCommitContext(), "transaction doesn't have auto commit context enabled");
+        return transaction.orElseThrow();
     }
 }

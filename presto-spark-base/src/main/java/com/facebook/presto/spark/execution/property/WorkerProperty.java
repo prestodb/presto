@@ -16,6 +16,7 @@ package com.facebook.presto.spark.execution.property;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -118,7 +119,7 @@ public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extend
         file.getParentFile().mkdirs();
         try {
             // We're not using Java's Properties here because colon is a reserved character in Properties but our configs contains colon in certain config values (e.g http://)
-            FileWriter fileWriter = new FileWriter(file);
+            FileWriter fileWriter = new FileWriter(file, Charset.defaultCharset());
             for (Map.Entry<String, String> entry : properties.entrySet()) {
                 checkArgument(!entry.getKey().contains("="), format("Config key %s contains invalid character: =", entry.getKey()));
                 fileWriter.write(entry.getKey() + "=" + entry.getValue() + "\n");

@@ -210,9 +210,9 @@ public class PrestoSparkRddFactory
             }
             else {
                 checkArgument(
-                        numberOfShufflePartitions.get() == rdd.getNumPartitions(),
+                        numberOfShufflePartitions.orElseThrow() == rdd.getNumPartitions(),
                         "Incompatible number of input partitions: %s != %s",
-                        numberOfShufflePartitions.get(),
+                        numberOfShufflePartitions.orElseThrow(),
                         rdd.getNumPartitions());
             }
         }
@@ -299,10 +299,10 @@ public class PrestoSparkRddFactory
                     if (!batch.isPresent()) {
                         break;
                     }
-                    int numberOfSplitsInCurrentBatch = batch.get().size();
+                    int numberOfSplitsInCurrentBatch = batch.orElseThrow().size();
                     log.info("Found %s splits for table scan node with id %s", numberOfSplitsInCurrentBatch, tableScanId);
                     totalNumberOfSplits += numberOfSplitsInCurrentBatch;
-                    taskSourcesMap.putAll(createTaskSources(source.getSourceId(), batch.get()));
+                    taskSourcesMap.putAll(createTaskSources(source.getSourceId(), batch.orElseThrow()));
                 }
             }
             log.info("Total number of splits for table scan node with id %s: %s", tableScanId, totalNumberOfSplits);
@@ -323,7 +323,7 @@ public class PrestoSparkRddFactory
             // The non bucketed table will be shuffled into K partitions, where K is the number of buckets.
             // The bucketed table may have some buckets missing. To make sure the partitions for bucketed and
             // non bucketed tables match, an empty partition must be inserted if bucket is missing.
-            for (int partitionId = 0; partitionId < numberOfShufflePartitions.get(); partitionId++) {
+            for (int partitionId = 0; partitionId < numberOfShufflePartitions.orElseThrow(); partitionId++) {
                 // Eagerly remove task sources from the map to let GC reclaim the memory
                 // If task sources are missing for a partition the removeAll returns an empty list
                 taskSourcesByPartitionId.add(requireNonNull(taskSourcesMap.removeAll(partitionId), "taskSources is null"));

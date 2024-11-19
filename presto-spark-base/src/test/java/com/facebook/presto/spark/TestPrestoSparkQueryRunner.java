@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.google.common.io.Files;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
@@ -60,6 +59,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.writeString;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -837,7 +837,7 @@ public class TestPrestoSparkQueryRunner
         Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics = ((PrestoSparkQueryRunner) getQueryRunner()).getWaitTimeMetrics();
         PrestoSparkTestingServiceWaitTimeMetrics testingServiceWaitTimeMetrics = (PrestoSparkTestingServiceWaitTimeMetrics) waitTimeMetrics.stream()
                 .filter(metric -> metric instanceof PrestoSparkTestingServiceWaitTimeMetrics)
-                .findFirst().get();
+                .findFirst().orElseThrow();
         testingServiceWaitTimeMetrics.setWaitTime(new Duration(600, SECONDS));
         queryMaxRunTimeLimitSession = Session.builder(getSession())
                 .setSystemProperty("query_max_execution_time", "5s")
@@ -1218,7 +1218,7 @@ public class TestPrestoSparkQueryRunner
     {
         File tempDir = createTempDir();
         File dataFile = new File(tempDir, "test.txt");
-        Files.write("hello\nworld\n", dataFile, UTF_8);
+        writeString(dataFile.toPath(), "hello\nworld\n", UTF_8);
 
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.test_create_external (\n" +
@@ -1228,8 +1228,8 @@ public class TestPrestoSparkQueryRunner
                         "   external_location = '%s',\n" +
                         "   format = 'TEXTFILE'\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 new Path(tempDir.toURI().toASCIIString()).toString());
 
         assertQuerySucceeds(createTableSql);
