@@ -155,7 +155,7 @@ public class ClickHouseComputePushdown
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.tableScanNodes = tableScanNodes;
-            tableScanNodes.forEach((key, value) -> getClickHouseTableHandle(value).get().getTableName());
+            tableScanNodes.forEach((key, value) -> getClickHouseTableHandle(value).orElseThrow().getTableName());
         }
 
         private Optional<PlanNode> tryCreatingNewScanNode(PlanNode plan)
@@ -164,7 +164,7 @@ public class ClickHouseComputePushdown
             if (!clickhouseSQL.isPresent()) {
                 return Optional.empty();
             }
-            ClickHouseQueryGeneratorContext context = clickhouseSQL.get().getContext();
+            ClickHouseQueryGeneratorContext context = clickhouseSQL.orElseThrow().getContext();
             final PlanNodeId tableScanNodeId = context.getTableScanNodeId().orElseThrow(() -> new PrestoException(CLICKHOUSE_QUERY_GENERATOR_FAILURE, "Expected to find a clickhouse table scan node id"));
             if (!tableScanNodes.containsKey(tableScanNodeId)) {
                 throw new PrestoException(CLICKHOUSE_QUERY_GENERATOR_FAILURE, "Expected to find a clickhouse table scan node");
@@ -176,11 +176,11 @@ public class ClickHouseComputePushdown
             Map<VariableReferenceExpression, ClickHouseColumnHandle> assignments = context.getAssignments();
 
             ClickHouseTableHandle oldConnectorTable = (ClickHouseTableHandle) oldTableHandle.getConnectorHandle();
-            ClickHouseTableLayoutHandle oldTableLayoutHandle = (ClickHouseTableLayoutHandle) oldTableHandle.getLayout().get();
+            ClickHouseTableLayoutHandle oldTableLayoutHandle = (ClickHouseTableLayoutHandle) oldTableHandle.getLayout().orElseThrow();
             ClickHouseTableLayoutHandle newTableLayoutHandle = new ClickHouseTableLayoutHandle(
                     oldConnectorTable,
                     oldTableLayoutHandle.getTupleDomain(),
-                    Optional.empty(), Optional.empty(), Optional.of(clickhouseSQL.get().getGeneratedClickhouseSQL()));
+                    Optional.empty(), Optional.empty(), Optional.of(clickhouseSQL.orElseThrow().getGeneratedClickhouseSQL()));
 
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
@@ -210,13 +210,13 @@ public class ClickHouseComputePushdown
 
             boolean hasAvg = false;
             if (pushedDownPlan.isPresent()) {
-                for (int variableIndex = 0; variableIndex < pushedDownPlan.get().getOutputVariables().size(); variableIndex++) {
+                for (int variableIndex = 0; variableIndex < pushedDownPlan.orElseThrow().getOutputVariables().size(); variableIndex++) {
                     // Filter nodes that may contain aggregate functions, avg function name length is 3.
-                    if (pushedDownPlan.get().getOutputVariables().get(variableIndex).getName().length() >= NOT_PUSHDOWN_FUNCTION_NAME.length()) {
+                    if (pushedDownPlan.orElseThrow().getOutputVariables().get(variableIndex).getName().length() >= NOT_PUSHDOWN_FUNCTION_NAME.length()) {
                         // Determine whether the node is an avg function. The avg function currently does not support pushdown.
                         // Regarding the calculation of the average function, the value calculated by the two-layer aggregation
                         // is not equal to the value calculated directly
-                        if (pushedDownPlan.get().getOutputVariables().get(variableIndex).getName().substring(0, 3).equals(NOT_PUSHDOWN_FUNCTION_NAME)) {
+                        if (pushedDownPlan.orElseThrow().getOutputVariables().get(variableIndex).getName().substring(0, 3).equals(NOT_PUSHDOWN_FUNCTION_NAME)) {
                             hasAvg = true;
                             break;
                         }
@@ -267,7 +267,7 @@ public class ClickHouseComputePushdown
                 return node;
             }
 
-            ClickHouseTableLayoutHandle oldTableLayoutHandle = (ClickHouseTableLayoutHandle) oldTableHandle.getLayout().get();
+            ClickHouseTableLayoutHandle oldTableLayoutHandle = (ClickHouseTableLayoutHandle) oldTableHandle.getLayout().orElseThrow();
             ClickHouseTableLayoutHandle newTableLayoutHandle = new ClickHouseTableLayoutHandle(
                     oldConnectorTable,
                     oldTableLayoutHandle.getTupleDomain(),

@@ -53,7 +53,7 @@ import static com.facebook.presto.plugin.clickhouse.DateTimeUtil.convertZonedDay
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -120,14 +120,14 @@ public class QueryBuilder
             if (additionalPredicate.isPresent()) {
                 clauses = ImmutableList.<String>builder()
                         .addAll(clauses)
-                        .add(additionalPredicate.get().getExpression())
+                        .add(additionalPredicate.orElseThrow().getExpression())
                         .build();
-                accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
+                accumulator.addAll(additionalPredicate.orElseThrow().getBoundConstantValues().stream()
                         .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
                         .collect(ImmutableList.toImmutableList()));
             }
 
-            statement = client.getPreparedStatement(connection, clickhouseSQL.get().getClickhouseSQL());
+            statement = client.getPreparedStatement(connection, clickhouseSQL.orElseThrow().getClickhouseSQL());
         }
         else {
             sql = new StringBuilder();
@@ -155,9 +155,9 @@ public class QueryBuilder
             if (additionalPredicate.isPresent()) {
                 clauses = ImmutableList.<String>builder()
                         .addAll(clauses)
-                        .add(additionalPredicate.get().getExpression())
+                        .add(additionalPredicate.orElseThrow().getExpression())
                         .build();
-                accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
+                accumulator.addAll(additionalPredicate.orElseThrow().getBoundConstantValues().stream()
                         .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
                         .collect(ImmutableList.toImmutableList()));
             }
@@ -168,7 +168,7 @@ public class QueryBuilder
             }
 
             if (simpleExpression.isPresent()) {
-                sql.append(simpleExpression.get());
+                sql.append(simpleExpression.orElseThrow());
             }
 
             sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
@@ -252,7 +252,7 @@ public class QueryBuilder
         for (ClickHouseColumnHandle column : columns) {
             Type type = column.getColumnType();
             if (isAcceptedType(type)) {
-                Domain domain = tupleDomain.getDomains().get().get(column);
+                Domain domain = tupleDomain.getDomains().orElseThrow().get(column);
                 if (domain != null) {
                     builder.add(toPredicate(column.getColumnName(), domain, type, accumulator));
                 }
@@ -296,7 +296,7 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), type, accumulator));
+            disjuncts.add(toPredicate(columnName, "=", singleValues.stream().collect(onlyElement()), type, accumulator));
         }
         else if (singleValues.size() > 1) {
             for (Object value : singleValues) {
