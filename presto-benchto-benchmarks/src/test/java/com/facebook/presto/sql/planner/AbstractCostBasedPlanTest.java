@@ -275,7 +275,7 @@ public abstract class AbstractCostBasedPlanTest
         @Override
         public Void visitSemiJoin(final SemiJoinNode node, Integer indent)
         {
-            output(indent, "semijoin (%s):", node.getDistributionType().get());
+            output(indent, "semijoin (%s):", node.getDistributionType().orElseThrow());
 
             return visitPlan(node, indent + 1);
         }
