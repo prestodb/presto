@@ -188,14 +188,14 @@ public class PrestoSparkInjectorFactory
             bootstrapTimer.beginNonTestingModulesLoading();
             if (!isForTesting) {
                 if (accessControlProperties.isPresent()) {
-                    injector.getInstance(AccessControlManager.class).loadSystemAccessControl(accessControlProperties.get());
+                    injector.getInstance(AccessControlManager.class).loadSystemAccessControl(accessControlProperties.orElseThrow());
                 }
                 else {
                     injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
                 }
 
                 if (tempStorageProperties.isPresent()) {
-                    injector.getInstance(TempStorageManager.class).loadTempStorages(tempStorageProperties.get());
+                    injector.getInstance(TempStorageManager.class).loadTempStorages(tempStorageProperties.orElseThrow());
                 }
                 else {
                     injector.getInstance(TempStorageManager.class).loadTempStorages();
@@ -206,7 +206,7 @@ public class PrestoSparkInjectorFactory
             bootstrapTimer.beginDriverModulesLoading();
             if ((sparkProcessType.equals(DRIVER))) {
                 if (sessionPropertyConfigurationProperties.isPresent()) {
-                    injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager(sessionPropertyConfigurationProperties.get());
+                    injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager(sessionPropertyConfigurationProperties.orElseThrow());
                 }
                 else {
                     injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
@@ -216,7 +216,7 @@ public class PrestoSparkInjectorFactory
             if (sparkProcessType.equals(DRIVER) ||
                     !injector.getInstance(FeaturesConfig.class).isInlineSqlFunctions()) {
                 if (functionNamespaceProperties.isPresent()) {
-                    injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(functionNamespaceProperties.get());
+                    injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(functionNamespaceProperties.orElseThrow());
                 }
                 else {
                     injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();

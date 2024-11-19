@@ -204,15 +204,15 @@ public class TestPrestoSparkQueryExecution
 
         // Empty partition array
         planNodeStatsEstimate = createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {})));
-        assertEquals(planNodeStatsEstimate.get().getOutputSizeInBytes(), 0);
+        assertEquals(planNodeStatsEstimate.orElseThrow().getOutputSizeInBytes(), 0);
 
         // One partition case
         planNodeStatsEstimate = createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {23})));
-        assertEquals(planNodeStatsEstimate.get().getOutputSizeInBytes(), 23);
+        assertEquals(planNodeStatsEstimate.orElseThrow().getOutputSizeInBytes(), 23);
 
         // Multiple partition case
         planNodeStatsEstimate = createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {23, 520, 190})));
-        assertEquals(planNodeStatsEstimate.get().getOutputSizeInBytes(), 733);
+        assertEquals(planNodeStatsEstimate.orElseThrow().getOutputSizeInBytes(), 733);
     }
 
     private void validateFragmentedRddCreation(Session session, String sql)

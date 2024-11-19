@@ -113,7 +113,7 @@ public class TestBatchTaskUpdateRequest
         assertTrue(((ScheduledSplit) source.getSplits().toArray()[0]).getSplit().getConnectorSplit() instanceof RemoteSplit);
         RemoteSplit remoteSplit = (RemoteSplit) ((ScheduledSplit) source.getSplits().toArray()[0]).getSplit().getConnectorSplit();
         assertEquals(stringSerializedReadInfo, remoteSplit.getLocation().getLocation());
-        assertEquals(batchUpdateRequest.getShuffleWriteInfo().get(), recoveredBatchUpdateRequest.getShuffleWriteInfo().get());
+        assertEquals(batchUpdateRequest.getShuffleWriteInfo().orElseThrow(), recoveredBatchUpdateRequest.getShuffleWriteInfo().orElseThrow());
         assertEquals(batchUpdateRequest.getTaskUpdateRequest().getExtraCredentials(), recoveredBatchUpdateRequest.getTaskUpdateRequest().getExtraCredentials());
         assertEquals(batchUpdateRequest.getTaskUpdateRequest().getSession().getCatalog(), recoveredBatchUpdateRequest.getTaskUpdateRequest().getSession().getCatalog());
     }

@@ -336,7 +336,7 @@ public class PrestoSparkRowOutputOperator
         for (int i = 0; i < blocks.length; i++) {
             Optional<Block> partitionConstant = partitionConstants.get(i);
             if (partitionConstant.isPresent()) {
-                blocks[i] = new RunLengthEncodedBlock(partitionConstant.get(), page.getPositionCount());
+                blocks[i] = new RunLengthEncodedBlock(partitionConstant.orElseThrow(), page.getPositionCount());
             }
             else {
                 blocks[i] = page.getBlock(partitionChannels.get(i));

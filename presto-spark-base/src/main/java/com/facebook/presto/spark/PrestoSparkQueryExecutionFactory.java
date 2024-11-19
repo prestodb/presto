@@ -151,7 +151,6 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.facebook.presto.util.Failures.toFailure;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.base.Verify.verify;
@@ -161,6 +160,7 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PrestoSparkQueryExecutionFactory
@@ -344,10 +344,10 @@ public class PrestoSparkQueryExecutionFactory
         if (planAndMore.isPresent()) {
             prestoSparkExecutionContext = Optional.of(
                     PrestoSparkExecutionContext.create(
-                            planAndMore.get().getPhysicalResourceSettings().getHashPartitionCount(),
-                            planAndMore.get().getPhysicalResourceSettings().getMaxExecutorCount(),
-                            planAndMore.get().getPhysicalResourceSettings().isHashPartitionCountAutoTuned(),
-                            planAndMore.get().getPhysicalResourceSettings().isMaxExecutorCountAutoTuned()));
+                            planAndMore.orElseThrow().getPhysicalResourceSettings().getHashPartitionCount(),
+                            planAndMore.orElseThrow().getPhysicalResourceSettings().getMaxExecutorCount(),
+                            planAndMore.orElseThrow().getPhysicalResourceSettings().isHashPartitionCountAutoTuned(),
+                            planAndMore.orElseThrow().getPhysicalResourceSettings().isMaxExecutorCountAutoTuned()));
         }
 
         return new QueryInfo(
@@ -538,7 +538,7 @@ public class PrestoSparkQueryExecutionFactory
         }
 
         return new QueryError(
-                firstNonNull(executionFailureInfo.getMessage(), "Internal error"),
+                requireNonNullElse(executionFailureInfo.getMessage(), "Internal error"),
                 null,
                 errorCode.getCode(),
                 errorCode.getName(),
@@ -568,26 +568,26 @@ public class PrestoSparkQueryExecutionFactory
         String sql;
         if (sqlText.isPresent()) {
             checkArgument(!sqlLocation.isPresent(), "sqlText and sqlLocation should not be set at the same time");
-            sql = sqlText.get();
+            sql = sqlText.orElseThrow();
         }
         else {
             checkArgument(sqlLocation.isPresent(), "sqlText or sqlLocation must be present");
-            byte[] sqlFileBytes = metadataStorage.read(sqlLocation.get());
+            byte[] sqlFileBytes = metadataStorage.read(sqlLocation.orElseThrow());
             if (sqlFileSizeInBytes.isPresent()) {
-                if (Integer.valueOf(sqlFileSizeInBytes.get()) != sqlFileBytes.length) {
+                if (Integer.valueOf(sqlFileSizeInBytes.orElseThrow()) != sqlFileBytes.length) {
                     throw new PrestoException(
                             MALFORMED_QUERY_FILE,
-                            format("sql file size %s is different from expected sqlFileSizeInBytes %s", sqlFileBytes.length, sqlFileSizeInBytes.get()));
+                            format("sql file size %s is different from expected sqlFileSizeInBytes %s", sqlFileBytes.length, sqlFileSizeInBytes.orElseThrow()));
                 }
             }
             if (sqlFileHexHash.isPresent()) {
                 try {
                     MessageDigest md = MessageDigest.getInstance("SHA-512");
                     String actualHexHashCode = BaseEncoding.base16().lowerCase().encode(md.digest(sqlFileBytes));
-                    if (!sqlFileHexHash.get().equals(actualHexHashCode)) {
+                    if (!sqlFileHexHash.orElseThrow().equals(actualHexHashCode)) {
                         throw new PrestoException(
                                 MALFORMED_QUERY_FILE,
-                                format("actual hash code %s is different from expected sqlFileHexHash %s", actualHexHashCode, sqlFileHexHash.get()));
+                                format("actual hash code %s is different from expected sqlFileHexHash %s", actualHexHashCode, sqlFileHexHash.orElseThrow()));
                     }
                 }
                 catch (NoSuchAlgorithmException e) {
@@ -668,7 +668,7 @@ public class PrestoSparkQueryExecutionFactory
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
             BuiltInPreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
             Optional<QueryType> queryType = StatementUtils.getQueryType(preparedQuery.getStatement().getClass());
-            if (queryType.isPresent() && (queryType.get() == QueryType.DATA_DEFINITION || queryType.get() == QueryType.CONTROL)) {
+            if (queryType.isPresent() && (queryType.orElseThrow() == QueryType.DATA_DEFINITION || queryType.orElseThrow() == QueryType.CONTROL)) {
                 queryStateTimer.endAnalysis();
                 DDLDefinitionTask<?> task = (DDLDefinitionTask<?>) ddlTasks.get(preparedQuery.getStatement().getClass());
                 return new PrestoSparkDataDefinitionExecution(task, preparedQuery.getStatement(), transactionManager, accessControl, metadata, session, queryStateTimer, warningCollector);
@@ -811,7 +811,7 @@ public class PrestoSparkQueryExecutionFactory
                             warningCollector,
                             OptionalLong.empty());
                     metadataStorage.write(
-                            queryStatusInfoOutputLocation.get(),
+                            queryStatusInfoOutputLocation.orElseThrow(),
                             queryStatusInfoJsonCodec.toJsonBytes(prestoSparkQueryStatusInfo));
                 }
             }
@@ -824,7 +824,7 @@ public class PrestoSparkQueryExecutionFactory
                 throw executionFailure;
             }
             else {
-                throw toPrestoSparkFailure(session, failureInfo.get());
+                throw toPrestoSparkFailure(session, failureInfo.orElseThrow());
             }
         }
     }

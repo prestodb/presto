@@ -75,7 +75,7 @@ public class NativeExecutionModule
     {
         newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
         if (connectorConfig.isPresent()) {
-            binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(connectorConfig.get(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(), new NativeExecutionVeloxConfig()));
+            binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(connectorConfig.orElseThrow(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(), new NativeExecutionVeloxConfig()));
         }
         else {
             binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);

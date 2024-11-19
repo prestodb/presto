@@ -66,7 +66,7 @@ public class PickJoinSides
 {
     private static final Pattern<JoinNode> PATTERN = join().matching(joinNode ->
             joinNode.getDistributionType().isPresent()
-                    && joinNode.getDistributionType().get() == PARTITIONED
+                    && joinNode.getDistributionType().orElseThrow() == PARTITIONED
                     // Flipping right/left non-equality joins is only supported when
                     // changing the distribution type too
                     && !(joinNode.getCriteria().isEmpty() && (joinNode.getType() == LEFT || joinNode.getType() == RIGHT)));
