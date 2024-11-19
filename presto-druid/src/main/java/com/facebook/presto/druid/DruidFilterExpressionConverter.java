@@ -165,7 +165,7 @@ public class DruidFilterExpressionConverter
         FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(call.getFunctionHandle());
         Optional<OperatorType> operatorTypeOptional = functionMetadata.getOperatorType();
         if (operatorTypeOptional.isPresent()) {
-            OperatorType operatorType = operatorTypeOptional.get();
+            OperatorType operatorType = operatorTypeOptional.orElseThrow();
             if (operatorType.isArithmeticOperator()) {
                 throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Arithmetic expressions are not supported in Druid filter: " + call);
             }

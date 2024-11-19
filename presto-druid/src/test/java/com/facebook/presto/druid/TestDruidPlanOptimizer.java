@@ -36,7 +36,6 @@ import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -49,6 +48,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 public class TestDruidPlanOptimizer
         extends TestDruidQueryBase
@@ -100,7 +100,7 @@ public class TestDruidPlanOptimizer
             DruidTableHandle druidTableHandle = (DruidTableHandle) tableScanNode.getTable().getConnectorHandle();
             if (druidTableHandle.getTableName().equals(tableName)) {
                 Optional<String> actualDql = druidTableHandle.getDql().map(DruidQueryGenerator.GeneratedDql::getDql);
-                return actualDql.isPresent() && actualDql.get().equalsIgnoreCase(expectedDql) ? MatchResult.match() : MatchResult.NO_MATCH;
+                return actualDql.isPresent() && actualDql.orElseThrow().equalsIgnoreCase(expectedDql) ? MatchResult.match() : MatchResult.NO_MATCH;
             }
             return MatchResult.NO_MATCH;
         }
@@ -123,7 +123,9 @@ public class TestDruidPlanOptimizer
                         groupByColumn,
                         Stream.concat(aggregationOne.getGroupingKeys().stream(), aggregationTwo.getGroupingKeys().stream()).collect(toImmutableList()),
                         sumColumn,
-                        ImmutableList.of(Iterables.getOnlyElement(aggregationOne.getAggregations().keySet()), Iterables.getOnlyElement(aggregationTwo.getAggregations().keySet()))));
+                        ImmutableList.of(
+                                aggregationOne.getAggregations().keySet().stream().collect(onlyElement()),
+                                aggregationTwo.getAggregations().keySet().stream().collect(onlyElement()))));
         PlanNode optimizedPlan = getOptimizedPlan(planBuilder, originalPlan);
         PlanMatchPattern tableScanMatcherOne = DruidTableScanMatcher.match(druidTableOne.getTableName(), "SELECT \"city\", sum(fare) FROM \"realtimeOnly\" GROUP BY \"city\"");
         PlanMatchPattern tableScanMatcherTwo = DruidTableScanMatcher.match(druidTableTwo.getTableName(), "SELECT \"city\", sum(fare) FROM \"hybrid\" GROUP BY \"city\"");
