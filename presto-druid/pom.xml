@@ -138,6 +138,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.checkerframework</groupId>
+            <artifactId>checker-qual</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <optional>true</optional>
@@ -386,7 +391,7 @@
         <profile>
             <id>java17</id>
             <activation>
-                <jdk>17</jdk>
+                <jdk>[17,)</jdk>
             </activation>
             <dependencies>
                 <!-- same as in java 8, except add an exclusion for guice-multibindings -->
