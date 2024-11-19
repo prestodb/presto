@@ -86,6 +86,7 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.exceptions.NoSuchTableException;
+import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
@@ -396,8 +397,9 @@ public abstract class IcebergAbstractMetadata
 
     protected ConnectorTableMetadata getTableOrViewMetadata(ConnectorSession session, SchemaTableName table, IcebergTableName icebergTableName)
     {
+        SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName());
         try {
-            Table icebergTable = getIcebergTable(session, new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName()));
+            Table icebergTable = getIcebergTable(session, schemaTableName);
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             columns.addAll(getColumnMetadata(icebergTable));
             if (icebergTableName.getTableType() == CHANGELOG) {
@@ -409,12 +411,17 @@ public abstract class IcebergAbstractMetadata
             }
             return new ConnectorTableMetadata(table, columns.build(), createMetadataProperties(icebergTable), getTableComment(icebergTable));
         }
-        catch (NoSuchTableException e) {
+        catch (NoSuchTableException noSuchTableException) {
             // Considering that the Iceberg library does not provide an efficient way to determine whether
             //  it's a view or a table without loading it, we first try to load it as a table directly, and then
             //  try to load it as a view when getting an `NoSuchTableException`. This will be more efficient.
-            View icebergView = getIcebergView(session, new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName()));
-            return new ConnectorTableMetadata(table, getColumnMetadata(icebergView), createViewMetadataProperties(icebergView), getViewComment(icebergView));
+            try {
+                View icebergView = getIcebergView(session, schemaTableName);
+                return new ConnectorTableMetadata(table, getColumnMetadata(icebergView), createViewMetadataProperties(icebergView), getViewComment(icebergView));
+            }
+            catch (NoSuchViewException noSuchViewException) {
+                throw new TableNotFoundException(schemaTableName);
+            }
         }
     }
 
