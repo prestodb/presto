@@ -18,6 +18,7 @@
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
@@ -25,9 +26,11 @@
 #include <folly/executors/QueuedImmediateExecutor.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <re2/re2.h>
 
 using namespace facebook::velox;
 using namespace facebook::velox::cache;
+using namespace facebook::velox::tests::utils;
 
 using facebook::velox::memory::MemoryAllocator;
 
@@ -47,6 +50,7 @@ class SsdFileTest : public testing::Test {
 
   void SetUp() override {
     filesystems::registerLocalFileSystem();
+    registerFaultyFileSystem();
     memory::MemoryManager::testingSetInstance({});
   }
 
@@ -65,12 +69,14 @@ class SsdFileTest : public testing::Test {
       uint64_t checkpointIntervalBytes = 0,
       bool checksumEnabled = false,
       bool checksumReadVerificationEnabled = false,
-      bool disableFileCow = false) {
+      bool disableFileCow = false,
+      bool enableFaultInjection = false) {
     // tmpfs does not support O_DIRECT, so turn this off for testing.
     FLAGS_ssd_odirect = false;
     cache_ = AsyncDataCache::create(memory::memoryManager()->allocator());
     fileName_ = StringIdLease(fileIds(), "fileInStorage");
-    tempDirectory_ = exec::test::TempDirectoryPath::create();
+    tempDirectory_ =
+        exec::test::TempDirectoryPath::create(enableFaultInjection);
     initializeSsdFile(
         ssdBytes,
         checkpointIntervalBytes,
@@ -793,6 +799,140 @@ TEST_F(SsdFileTest, ssdReadWithoutChecksumCheck) {
   ssdFile_->updateStats(stats);
   ASSERT_EQ(stats.readWithoutChecksumChecks, 1);
 #endif
+}
+
+TEST_F(SsdFileTest, dataFileErrorInjection) {
+  constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
+  initializeCache(kSsdSize, 0, false, false, false, true);
+
+  auto faultyFs = faultyFileSystem();
+  std::atomic_bool injectWriteError{true};
+  std::atomic_bool injectReadError{true};
+  faultyFs->setFileInjectionHook([&](FaultFileOperation* op) {
+    if (injectWriteError && op->type == FaultFileOperation::Type::kWrite) {
+      VELOX_FAIL("Inject hook write failure");
+    }
+    if (injectReadError && op->type == FaultFileOperation::Type::kReadv) {
+      VELOX_FAIL("Inject hook read failure");
+    }
+  });
+
+  // Write a set of cache entries.
+  auto pins =
+      makePins(fileName_.id(), 0, 4096, 2048 * 1025, SsdFile::kRegionSize / 2);
+  ssdFile_->write(pins);
+
+  // With write error injected, no entry has been written to SSD cache and the
+  // error has recorded as a write ssd error.
+  SsdCacheStats statsWithWriteErrorInjected;
+  ssdFile_->updateStats(statsWithWriteErrorInjected);
+
+  EXPECT_GT(statsWithWriteErrorInjected.writeSsdErrors, 0);
+  EXPECT_EQ(statsWithWriteErrorInjected.entriesWritten, 0);
+
+  // Without write error injected, the data was cached to SSD successfully.
+  injectWriteError = false;
+  ssdFile_->write(pins);
+
+  SsdCacheStats statsWithoutWriteErrorInjected;
+  ssdFile_->updateStats(statsWithoutWriteErrorInjected);
+
+  EXPECT_EQ(
+      statsWithoutWriteErrorInjected.writeSsdErrors,
+      statsWithWriteErrorInjected.writeSsdErrors); // No new error occurred.
+  EXPECT_GT(statsWithoutWriteErrorInjected.entriesWritten, 0);
+  EXPECT_GT(
+      statsWithoutWriteErrorInjected.regionsCached,
+      statsWithWriteErrorInjected.regionsCached);
+
+  // Load the ssd pins by reading the ssd cache.
+  std::vector<SsdPin> ssdPins;
+  ssdPins.reserve(pins.size());
+  for (auto& pin : pins) {
+    ssdPins.push_back(ssdFile_->find(RawFileCacheKey{
+        pin.entry()->key().fileNum.id(), pin.entry()->key().offset}));
+  }
+
+  SsdCacheStats statsWithReadErrorInjected;
+  ssdFile_->updateStats(statsWithReadErrorInjected);
+  VELOX_ASSERT_THROW(ssdFile_->load(ssdPins, pins), "Inject hook read failure");
+  VELOX_ASSERT_THROW(
+      readAndCheckPins(pins), ""); // Cache pins have not been loaded.
+  EXPECT_EQ(statsWithReadErrorInjected.entriesRead, 0); // No entry was loaded.
+
+  injectReadError = false;
+  ssdFile_->load(ssdPins, pins);
+  readAndCheckPins(pins);
+  SsdCacheStats statsWithoutReadErrorInjected;
+  ssdFile_->updateStats(statsWithoutReadErrorInjected);
+  EXPECT_GT(
+      statsWithoutReadErrorInjected.entriesRead,
+      0); // Read operations succeeded after clearing the injected error.
+}
+
+TEST_F(SsdFileTest, evictlogFileErrorInjection) {
+  constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
+  const uint64_t checkpointIntervalBytes = 5 * SsdFile::kRegionSize;
+  const auto retainFile = StringIdLease(fileIds(), "faultyFiles.Retained");
+  const auto evictFile = StringIdLease(fileIds(), "faultyFiles.Evicted");
+
+  initializeCache(kSsdSize, checkpointIntervalBytes, false, false, false, true);
+
+  auto faultyFs = faultyFileSystem();
+  faultyFs->setFileInjectionHook([&](FaultFileOperation* op) {
+    // Inject error on evict log file only.
+    const std::string evictlogFileRe(".*log");
+    if (RE2::FullMatch(op->path, evictlogFileRe)) {
+      VELOX_FAIL("Inject hook read failure");
+    }
+  });
+
+  // Fully populate ssd cache with two files.
+  for (auto startOffset = 0; startOffset <= kSsdSize / 2 - SsdFile::kRegionSize;
+       startOffset += SsdFile::kRegionSize) {
+    auto pins = makePins(
+        retainFile.id(),
+        startOffset,
+        4096,
+        2048 * 1025,
+        SsdFile::kRegionSize / 2);
+    ssdFile_->write(pins);
+  }
+
+  for (auto startOffset = kSsdSize / 2;
+       startOffset <= kSsdSize - SsdFile::kRegionSize;
+       startOffset += SsdFile::kRegionSize) {
+    auto pins = makePins(
+        evictFile.id(),
+        startOffset + SsdFile::kRegionSize,
+        4096,
+        2048 * 1025,
+        SsdFile::kRegionSize / 2);
+    ssdFile_->write(pins);
+  }
+
+  SsdCacheStats statsBeforeEviction;
+  ssdFile_->updateStats(statsBeforeEviction);
+  ASSERT_GT(statsBeforeEviction.entriesWritten, 0);
+
+  // Remove one file from the ssd cache to trigger eviction.
+  folly::F14FastSet<uint64_t> retainedFileIds;
+  ssdFile_->removeFileEntries({evictFile.id()}, retainedFileIds);
+  ASSERT_TRUE(retainedFileIds.empty());
+
+  SsdCacheStats statsWithLogErrorInjected;
+  ssdFile_->updateStats(statsWithLogErrorInjected);
+  EXPECT_GT(
+      statsWithLogErrorInjected.writeSsdErrors,
+      statsBeforeEviction.writeSsdErrors);
+
+  // Re-initialize SSD file from checkpoint.
+  ssdFile_->checkpoint(true);
+  initializeSsdFile(kSsdSize, checkpointIntervalBytes);
+
+  SsdCacheStats statsAfterRecovery;
+  ssdFile_->updateStats(statsAfterRecovery);
+  ASSERT_GT(statsAfterRecovery.readCheckpointErrors, 0);
 }
 
 #ifdef VELOX_SSD_FILE_TEST_SET_NO_COW_FLAG
