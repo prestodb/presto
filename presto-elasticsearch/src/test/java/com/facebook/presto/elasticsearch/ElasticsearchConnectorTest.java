@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.tpch.TpchTable;
 import org.apache.http.HttpHost;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
@@ -39,7 +40,7 @@ import static java.lang.String.format;
 public class ElasticsearchConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:7.13.4";
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
 
@@ -219,6 +220,6 @@ public class ElasticsearchConnectorTest
             throws IOException
     {
         client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+                .performRequest(new Request("PUT", format("/%s/_alias/%s", index, alias)));
     }
 }

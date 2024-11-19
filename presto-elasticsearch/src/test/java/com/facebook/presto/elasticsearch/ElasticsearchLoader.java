@@ -24,8 +24,9 @@ import com.facebook.presto.tests.AbstractTestingPrestoClient;
 import com.facebook.presto.tests.ResultsSession;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.xcontent.XContentBuilder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -43,7 +44,7 @@ import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.elasticsearch.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchLoader
         extends AbstractTestingPrestoClient<Void>
@@ -110,7 +111,7 @@ public class ElasticsearchLoader
             }
             request.setRefreshPolicy(IMMEDIATE);
             try {
-                restClient.bulk(request);
+                restClient.bulk(request, RequestOptions.DEFAULT);
             }
             catch (IOException e) {
                 throw new RuntimeException(e);

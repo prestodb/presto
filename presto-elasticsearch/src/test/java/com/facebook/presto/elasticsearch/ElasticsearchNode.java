@@ -25,6 +25,6 @@ public class ElasticsearchNode
 {
     public ElasticsearchNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins)
     {
-        super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null), classpathPlugins);
+        super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null, null, null), classpathPlugins, true);
     }
 }
