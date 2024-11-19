@@ -86,6 +86,12 @@
                 <version>1.64.0</version>
             </dependency>
 
+            <dependency>
+                <groupId>com.google.api.grpc</groupId>
+                <artifactId>proto-google-common-protos</artifactId>
+                <version>2.29.0</version>
+            </dependency>
+
             <!-- Pinned version is required. -->
             <!-- It is a transitive dependency of gRPC and bigquerystorage libraries -->
             <dependency>
