@@ -41,7 +41,7 @@ public class PassthroughQueryPageSource
         this.jsonType = requireNonNull(jsonType, "jsonType is null");
 
         long start = System.nanoTime();
-        result = client.executeQuery(table.getIndex(), table.getQuery().get());
+        result = client.executeQuery(table.getIndex(), table.getQuery().orElseThrow());
         readTimeNanos = System.nanoTime() - start;
     }
 

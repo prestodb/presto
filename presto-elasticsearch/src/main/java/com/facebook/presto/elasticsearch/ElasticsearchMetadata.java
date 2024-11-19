@@ -344,7 +344,7 @@ public class ElasticsearchMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaName.isPresent() && !schemaName.get().equals(this.schemaName)) {
+        if (schemaName.isPresent() && !schemaName.orElseThrow().equals(this.schemaName)) {
             return ImmutableList.of();
         }
 

@@ -250,7 +250,7 @@ public class ScanQueryPageSource
     {
         if (type instanceof RowType) {
             for (RowType.Field field : ((RowType) type).getFields()) {
-                flattenFields(result, appendPath(fieldName, field.getName().get()), field.getType());
+                flattenFields(result, appendPath(fieldName, field.getName().orElseThrow()), field.getType());
             }
         }
         else {
@@ -318,7 +318,7 @@ public class ScanQueryPageSource
             RowType rowType = (RowType) type;
 
             List<Decoder> decoders = rowType.getFields().stream()
-                    .map(field -> createDecoder(session, appendPath(path, field.getName().get()), field.getType()))
+                    .map(field -> createDecoder(session, appendPath(path, field.getName().orElseThrow()), field.getType()))
                     .collect(toImmutableList());
 
             List<String> fieldNames = rowType.getFields().stream()
