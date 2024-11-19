@@ -71,13 +71,13 @@ public class MapColumnChecksum
     public FloatingPointColumnChecksum getKeysFloatingPointChecksum()
     {
         checkArgument(keysFloatingPointChecksum.isPresent(), "Expect Floating Point Checksum to be present, but it is not");
-        return keysFloatingPointChecksum.get();
+        return keysFloatingPointChecksum.orElseThrow();
     }
 
     public FloatingPointColumnChecksum getValuesFloatingPointChecksum()
     {
         checkArgument(valuesFloatingPointChecksum.isPresent(), "Expect Floating Point Checksum to be present, but it is not");
-        return valuesFloatingPointChecksum.get();
+        return valuesFloatingPointChecksum.orElseThrow();
     }
 
     @Override
@@ -124,8 +124,8 @@ public class MapColumnChecksum
         String result = format("checksum: %s, cardinality_checksum: %s, cardinality_sum: %s", checksum, cardinalityChecksum, cardinalitySum);
         result += keysFloatingPointChecksum.isPresent() ? "" : format(", keys_checksum: %s", keysChecksum);
         result += valuesFloatingPointChecksum.isPresent() ? "" : format(", values_checksum: %s", valuesChecksum);
-        result += keysFloatingPointChecksum.isPresent() ? format(". [keys] %s", keysFloatingPointChecksum.get()) : "";
-        result += valuesFloatingPointChecksum.isPresent() ? format(". [values] %s", valuesFloatingPointChecksum.get()) : "";
+        result += keysFloatingPointChecksum.isPresent() ? format(". [keys] %s", keysFloatingPointChecksum.orElseThrow()) : "";
+        result += valuesFloatingPointChecksum.isPresent() ? format(". [values] %s", valuesFloatingPointChecksum.orElseThrow()) : "";
         return result;
     }
 }

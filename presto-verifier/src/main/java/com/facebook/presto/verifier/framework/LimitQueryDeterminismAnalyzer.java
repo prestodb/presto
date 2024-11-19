@@ -57,7 +57,7 @@ import static com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetCo
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -149,10 +149,10 @@ class LimitQueryDeterminismAnalyzer
         if (query.getOrderBy().isPresent() || !query.getLimit().isPresent()) {
             return NOT_RUN;
         }
-        if (isLimitAll(query.getLimit().get())) {
+        if (isLimitAll(query.getLimit().orElseThrow())) {
             return NOT_RUN;
         }
-        long limit = parseLong(query.getLimit().get());
+        long limit = parseLong(query.getLimit().orElseThrow());
         if (rowCount < limit) {
             return DETERMINISTIC;
         }
@@ -210,10 +210,10 @@ class LimitQueryDeterminismAnalyzer
         if (!querySpecification.getLimit().isPresent()) {
             return NOT_RUN;
         }
-        if (isLimitAll(querySpecification.getLimit().get())) {
+        if (isLimitAll(querySpecification.getLimit().orElseThrow())) {
             return NOT_RUN;
         }
-        long limit = parseLong(querySpecification.getLimit().get());
+        long limit = parseLong(querySpecification.getLimit().orElseThrow());
         if (rowCount < limit) {
             return DETERMINISTIC;
         }
@@ -222,7 +222,7 @@ class LimitQueryDeterminismAnalyzer
 
         if (orderBy.isPresent()) {
             List<SelectItem> selectItems = new ArrayList<>(querySpecification.getSelect().getSelectItems());
-            List<ColumnNameOrIndex> orderByKeys = populateSelectItems(selectItems, orderBy.get());
+            List<ColumnNameOrIndex> orderByKeys = populateSelectItems(selectItems, orderBy.orElseThrow());
             return analyzeLimitOrderBy(
                     new Query(
                             with,
@@ -268,7 +268,7 @@ class LimitQueryDeterminismAnalyzer
                 () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS_MAIN, resultSet -> Optional.of(resultSet.getLong(1))),
                 stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(determinismAnalysisDetails::setLimitQueryAnalysisQueryId));
 
-        long rowCountHigherLimit = getOnlyElement(result.getResults());
+        long rowCountHigherLimit = result.getResults().stream().collect(onlyElement());
         if (rowCountHigherLimit == rowCount) {
             return DETERMINISTIC;
         }
@@ -297,7 +297,7 @@ class LimitQueryDeterminismAnalyzer
         Map<String, Integer> columnIndices = getColumnIndices(result.getMetadata());
         for (ColumnNameOrIndex orderByKey : orderByKeys) {
             int columnIndex = orderByKey.getIndex().isPresent()
-                    ? orderByKey.getIndex().get()
+                    ? orderByKey.getIndex().orElseThrow()
                     : columnIndices.get(orderByKey.getName().orElseThrow(() -> new IllegalArgumentException(format("Invalid orderByKey: %s", orderByKey))));
             if (!Objects.equals(row1.get(columnIndex), row2.get(columnIndex))) {
                 return DETERMINISTIC;

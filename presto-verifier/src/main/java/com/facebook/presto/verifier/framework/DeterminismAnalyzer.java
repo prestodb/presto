@@ -53,7 +53,7 @@ import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANAL
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_SETUP;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -145,9 +145,9 @@ public class DeterminismAnalyzer
 
                 // Run checksum query
                 Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getObjectName(), columns, Optional.empty());
-                ChecksumResult testChecksum = getOnlyElement(callAndConsume(
+                ChecksumResult testChecksum = callAndConsume(
                         () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
-                        stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setChecksumQueryId)).getResults());
+                        stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setChecksumQueryId)).getResults().stream().collect(onlyElement());
 
                 DeterminismAnalysis analysis = matchResultToDeterminism(match(DataMatchResult.DataType.DATA, checksumValidator, columns, columns, controlChecksum, testChecksum));
                 if (analysis != DETERMINISTIC) {

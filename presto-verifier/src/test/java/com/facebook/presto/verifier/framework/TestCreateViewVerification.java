@@ -48,7 +48,7 @@ public class TestCreateViewVerification
 
         Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.of(MATCH), false);
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.of(MATCH), false);
     }
 
     @Test
@@ -59,7 +59,7 @@ public class TestCreateViewVerification
 
         Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.of(MATCH), true);
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.of(MATCH), true);
 
         getQueryRunner().execute("DROP VIEW succeeded_exists");
     }
@@ -72,7 +72,7 @@ public class TestCreateViewVerification
 
         Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SKIPPED, Optional.empty(), true);
+        assertEvent(event.orElseThrow(), SKIPPED, Optional.empty(), true);
 
         getQueryRunner().execute("DROP VIEW skipped_exists");
     }
@@ -85,7 +85,7 @@ public class TestCreateViewVerification
 
         Optional<VerifierQueryEvent> event = verify(getSourceQuery(query, query), false, prestoAction);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), FAILED, Optional.of(CONTROL_NOT_PARSABLE), false);
+        assertEvent(event.orElseThrow(), FAILED, Optional.of(CONTROL_NOT_PARSABLE), false);
     }
 
     @Test
@@ -96,7 +96,7 @@ public class TestCreateViewVerification
 
         Optional<VerifierQueryEvent> event = verify(getSourceQuery(query, query), false, prestoAction);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), FAILED, Optional.of(TEST_NOT_PARSABLE), false);
+        assertEvent(event.orElseThrow(), FAILED, Optional.of(TEST_NOT_PARSABLE), false);
     }
 
     @Test
@@ -109,7 +109,7 @@ public class TestCreateViewVerification
 
         Optional<VerifierQueryEvent> event = verify(getSourceQuery(query, query), false, prestoAction);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), FAILED, Optional.of(MISMATCH), false);
+        assertEvent(event.orElseThrow(), FAILED, Optional.of(MISMATCH), false);
     }
 
     @Test
@@ -120,7 +120,7 @@ public class TestCreateViewVerification
                 "CREATE OR REPLACE VIEW column_mismatched AS SELECT name FROM tpch.tiny.nation",
                 "CREATE OR REPLACE VIEW column_mismatched AS SELECT concat(name, name) name FROM tpch.tiny.nation");
         assertTrue(event.isPresent());
-        assertEvent(event.get(), FAILED, Optional.of(MISMATCH), true);
+        assertEvent(event.orElseThrow(), FAILED, Optional.of(MISMATCH), true);
 
         getQueryRunner().execute("DROP VIEW column_mismatched");
     }
@@ -133,7 +133,7 @@ public class TestCreateViewVerification
                 "CREATE OR REPLACE VIEW failed AS SELECT name FROM tpch.tiny.nation",
                 "CREATE OR REPLACE VIEW failed AS SELECT nonexistent_column FROM tpch.tiny.nation");
         assertTrue(event.isPresent());
-        assertEvent(event.get(), FAILED, Optional.empty(), true);
+        assertEvent(event.orElseThrow(), FAILED, Optional.empty(), true);
 
         getQueryRunner().execute("DROP VIEW failed");
     }
@@ -145,12 +145,12 @@ public class TestCreateViewVerification
 
         Optional<VerifierQueryEvent> event = runVerification(snapshotModeQuery, snapshotModeQuery, saveSnapshotSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.orElseThrow(), SUCCEEDED);
 
         String queryBankModeQuery = "CREATE VIEW succeeded_not_exists_querybank AS SELECT * FROM tpch.tiny.nation";
         event = runVerification(queryBankModeQuery, queryBankModeQuery, queryBankModeSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.orElseThrow(), SUCCEEDED);
     }
 
     private void assertEvent(

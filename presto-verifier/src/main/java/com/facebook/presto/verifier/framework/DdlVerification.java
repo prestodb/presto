@@ -40,7 +40,7 @@ import static com.facebook.presto.verifier.framework.VerifierConfig.QUERY_BANK_M
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.source.AbstractJdbiSnapshotQuerySupplier.VERIFIER_SNAPSHOT_KEY_PATTERN;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -87,9 +87,9 @@ public abstract class DdlVerification<S extends Statement>
             Statement controlChecksumQuery = getChecksumQuery(control);
             controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
 
-            controlChecksum = getOnlyElement(callAndConsume(
+            controlChecksum = callAndConsume(
                     () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, checksumConverter),
-                    stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId)).getResults());
+                    stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId)).getResults().stream().collect(onlyElement());
 
             if (saveSnapshot) {
                 try {
@@ -123,9 +123,9 @@ public abstract class DdlVerification<S extends Statement>
 
         Statement testChecksumQuery = getChecksumQuery(test);
         testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
-        String testChecksum = getOnlyElement(callAndConsume(
+        String testChecksum = callAndConsume(
                 () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, checksumConverter),
-                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId)).getResults());
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId)).getResults().stream().collect(onlyElement());
 
         S controlObject;
         S testObject;

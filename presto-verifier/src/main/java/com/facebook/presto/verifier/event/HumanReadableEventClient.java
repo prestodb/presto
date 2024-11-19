@@ -34,7 +34,7 @@ public class HumanReadableEventClient
             throws FileNotFoundException
     {
         requireNonNull(config.getHumanReadableEventLogFile(), "humanReadableEventLogFile is null");
-        this.out = config.getHumanReadableEventLogFile().isPresent() ? new PrintStream(config.getHumanReadableEventLogFile().get()) : System.out;
+        this.out = config.getHumanReadableEventLogFile().isPresent() ? new PrintStream(config.getHumanReadableEventLogFile().orElseThrow()) : System.out;
     }
 
     @Override

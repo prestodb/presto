@@ -40,7 +40,7 @@ public class FailureResolverUtil
             return Optional.empty();
         }
 
-        int code = prestoException.getErrorCode().get().toErrorCode().getCode();
+        int code = prestoException.getErrorCode().orElseThrow().toErrorCode().getCode();
         for (ErrorCodeSupplier supplier : errorCodeSuppliers) {
             if (supplier.toErrorCode().getCode() == code) {
                 return mapper.apply(prestoException);

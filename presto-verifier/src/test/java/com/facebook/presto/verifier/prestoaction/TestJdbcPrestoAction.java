@@ -43,7 +43,7 @@ import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -136,7 +136,7 @@ public class TestJdbcPrestoAction
             assertTrue(e.getQueryActionStats().getQueryStats().isPresent());
             assertEquals(e.getQueryActionStats().getQueryStats().map(QueryStats::getState).orElse(null), FAILED.name());
 
-            QueryFailure queryFailure = getOnlyElement(verificationContext.getQueryFailures());
+            QueryFailure queryFailure = verificationContext.getQueryFailures().stream().collect(onlyElement());
             assertEquals(queryFailure.getClusterType(), CONTROL.name());
             assertEquals(queryFailure.getQueryStage(), QUERY_STAGE.name());
             assertEquals(queryFailure.getErrorCode(), "PRESTO(SYNTAX_ERROR)");
