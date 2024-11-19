@@ -39,7 +39,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -160,7 +160,7 @@ public class TestMySqlIntegrationSmokeTest
         execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
         assertEquals(materializedRows.getRowCount(), 1);
-        MaterializedRow row = getOnlyElement(materializedRows);
+        MaterializedRow row = materializedRows.getMaterializedRows().stream().collect(onlyElement());
 
         assertEquals(row.getFields().size(), 1);
         assertEquals(row.getField(0), (byte) 127);
@@ -232,12 +232,12 @@ public class TestMySqlIntegrationSmokeTest
                 ")";
         @Language("SQL") String createTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "column_a",
                 "column_b");
         @Language("SQL") String expectedCreateTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "\"column_a\"",
                 "\"column_b\"");
         assertUpdate(createTableSql);
@@ -255,13 +255,13 @@ public class TestMySqlIntegrationSmokeTest
                 ")";
         createTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "column_a",
                 "column_b",
                 "column_c");
         expectedCreateTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "\"column_a\"",
                 "\"column_b\"",
                 "\"column_c\"");
