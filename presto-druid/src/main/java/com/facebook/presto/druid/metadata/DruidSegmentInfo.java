@@ -19,10 +19,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nullable;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -152,7 +152,7 @@ public class DruidSegmentInfo
                     segmentLocURI = URI.create(
                             format("gs://%s/%s",
                                 loadSpec.get(DEEP_STORAGE_BUCKET_KEY),
-                                URLEncoder.encode(loadSpec.get(DEEP_STORAGE_PATH_KEY), "UTF-8")));
+                                URLEncoder.encode(loadSpec.get(DEEP_STORAGE_PATH_KEY), StandardCharsets.UTF_8)));
                     break;
                 case LOCAL:
                     segmentLocURI = new URI("file", null, loadSpec.get(DEEP_STORAGE_PATH_KEY), null, null);
@@ -161,7 +161,7 @@ public class DruidSegmentInfo
                     throw new PrestoException(DRUID_METADATA_ERROR, format("Unsupported segment filesystem: %s", type));
             }
         }
-        catch (URISyntaxException | UnsupportedEncodingException e) {
+        catch (URISyntaxException e) {
             throw new PrestoException(DRUID_METADATA_ERROR, e);
         }
         return segmentLocURI;

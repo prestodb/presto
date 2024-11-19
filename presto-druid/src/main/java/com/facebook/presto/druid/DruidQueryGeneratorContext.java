@@ -281,7 +281,7 @@ public class DruidQueryGeneratorContext
         if (filter.isPresent()) {
             // this is hack!!!. Ideally we want to clone the scan pipeline and create/update the filter in the scan pipeline to contain this filter and
             // at the same time add the time column to scan so that the query generator doesn't fail when it looks up the time column in scan output columns
-            query += " WHERE " + filter.get();
+            query += " WHERE " + filter.orElseThrow();
             pushdown = true;
         }
 
