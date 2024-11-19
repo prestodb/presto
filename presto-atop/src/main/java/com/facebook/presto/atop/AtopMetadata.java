@@ -96,11 +96,11 @@ public class AtopMetadata
         Domain endTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
         Domain startTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
         if (domains.isPresent()) {
-            if (domains.get().containsKey(START_TIME_HANDLE)) {
-                startTimeDomain = domains.get().get(START_TIME_HANDLE);
+            if (domains.orElseThrow().containsKey(START_TIME_HANDLE)) {
+                startTimeDomain = domains.orElseThrow().get(START_TIME_HANDLE);
             }
-            if (domains.get().containsKey(END_TIME_HANDLE)) {
-                endTimeDomain = domains.get().get(END_TIME_HANDLE);
+            if (domains.orElseThrow().containsKey(END_TIME_HANDLE)) {
+                endTimeDomain = domains.orElseThrow().get(END_TIME_HANDLE);
             }
         }
         AtopTableLayoutHandle layoutHandle = new AtopTableLayoutHandle(tableHandle, startTimeDomain, endTimeDomain);
