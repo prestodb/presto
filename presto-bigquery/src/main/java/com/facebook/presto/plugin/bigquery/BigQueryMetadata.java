@@ -96,7 +96,7 @@ public class BigQueryMetadata
 
     private List<SchemaTableName> listTablesWithTypes(ConnectorSession session, Optional<String> schemaName, TableDefinition.Type... types)
     {
-        if (schemaName.isPresent() && schemaName.get().equalsIgnoreCase(INFORMATION_SCHEMA)) {
+        if (schemaName.isPresent() && schemaName.orElseThrow().equalsIgnoreCase(INFORMATION_SCHEMA)) {
             return ImmutableList.of();
         }
         Set<String> schemaNames = schemaName.map(ImmutableSet::of)
@@ -120,7 +120,7 @@ public class BigQueryMetadata
             log.debug("Table [%s.%s] was not found", tableName.getSchemaName(), tableName.getTableName());
             return null;
         }
-        return BigQueryTableHandle.from(tableInfo.get());
+        return BigQueryTableHandle.from(tableInfo.orElseThrow());
     }
 
     @Override
@@ -133,7 +133,7 @@ public class BigQueryMetadata
         log.debug("getTableMetadata(session=%s, table=%s, constraint=%s, desiredColumns=%s)", session, table, constraint, desiredColumns);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
         if (desiredColumns.isPresent()) {
-            bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(ImmutableList.copyOf(desiredColumns.get()));
+            bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(ImmutableList.copyOf(desiredColumns.orElseThrow()));
         }
         BigQueryTableLayoutHandle bigQueryTableLayoutHandle = new BigQueryTableLayoutHandle(bigQueryTableHandle);
         return ImmutableList.of(new ConnectorTableLayoutResult(new ConnectorTableLayout(bigQueryTableLayoutHandle), constraint.getSummary()));
