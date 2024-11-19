@@ -1301,11 +1301,7 @@ void PrestoServer::registerFileSystems() {
   velox::filesystems::registerS3FileSystem();
   velox::filesystems::registerHdfsFileSystem();
   velox::filesystems::registerGcsFileSystem();
-#ifdef VELOX_ENABLE_FORWARD_COMPATIBILITY
   velox::filesystems::registerAbfsFileSystem();
-#else
-  velox::filesystems::abfs::registerAbfsFileSystem();
-#endif
 }
 
 void PrestoServer::unregisterFileSystems() {
