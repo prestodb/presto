@@ -151,7 +151,7 @@ public class SheetsClient
             if (!sheetExpression.isPresent()) {
                 throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName);
             }
-            return sheetDataCache.getUnchecked(sheetExpression.get());
+            return sheetDataCache.getUnchecked(sheetExpression.orElseThrow());
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
