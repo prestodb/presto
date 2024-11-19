@@ -73,13 +73,13 @@ class SortBuffer {
   void ensureInputFits(const VectorPtr& input);
   // Reserves memory for output processing. If reservation cannot be increased,
   // spills enough to make output fit.
-  void ensureOutputFits();
+  void ensureOutputFits(vector_size_t outputBatchSize);
   // Reserves memory for sort. If reservation cannot be increased,
   // spills enough to make output fit.
   void ensureSortFits();
   void updateEstimatedOutputRowSize();
   // Invoked to initialize or reset the reusable output buffer to get output.
-  void prepareOutput(vector_size_t maxOutputRows);
+  void prepareOutput(vector_size_t outputBatchSize);
   // Invoked to initialize reader to read the spilled data from storage for
   // output processing.
   void prepareOutputWithSpill();
