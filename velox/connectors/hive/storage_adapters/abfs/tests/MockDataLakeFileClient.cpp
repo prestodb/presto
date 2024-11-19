@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-#include "velox/connectors/hive/storage_adapters/abfs/tests/MockBlobStorageFileClient.h"
+#include "velox/connectors/hive/storage_adapters/abfs/tests/MockDataLakeFileClient.h"
 
 #include <filesystem>
 
 #include <azure/storage/files/datalake.hpp>
 
-using namespace Azure::Storage::Files::DataLake;
-namespace facebook::velox::filesystems::test {
-void MockBlobStorageFileClient::create() {
+namespace facebook::velox::filesystems {
+
+void MockDataLakeFileClient::create() {
   fileStream_ = std::ofstream(
       filePath_,
       std::ios_base::out | std::ios_base::binary | std::ios_base::app);
 }
 
-PathProperties MockBlobStorageFileClient::getProperties() {
+PathProperties MockDataLakeFileClient::getProperties() {
   if (!std::filesystem::exists(filePath_)) {
     Azure::Storage::StorageException exp(filePath_ + "doesn't exists");
     exp.StatusCode = Azure::Core::Http::HttpStatusCode::NotFound;
@@ -41,7 +41,7 @@ PathProperties MockBlobStorageFileClient::getProperties() {
   return ret;
 }
 
-void MockBlobStorageFileClient::append(
+void MockDataLakeFileClient::append(
     const uint8_t* buffer,
     size_t size,
     uint64_t offset) {
@@ -49,12 +49,12 @@ void MockBlobStorageFileClient::append(
   fileStream_.write(reinterpret_cast<const char*>(buffer), size);
 }
 
-void MockBlobStorageFileClient::flush(uint64_t position) {
+void MockDataLakeFileClient::flush(uint64_t position) {
   fileStream_.flush();
 }
 
-void MockBlobStorageFileClient::close() {
+void MockDataLakeFileClient::close() {
   fileStream_.flush();
   fileStream_.close();
 }
-} // namespace facebook::velox::filesystems::test
+} // namespace facebook::velox::filesystems

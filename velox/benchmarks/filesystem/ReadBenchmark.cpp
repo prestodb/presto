@@ -107,7 +107,7 @@ void ReadBenchmark::initialize() {
     filesystems::registerS3FileSystem();
     filesystems::registerGcsFileSystem();
     filesystems::registerHdfsFileSystem();
-    filesystems::abfs::registerAbfsFileSystem();
+    filesystems::registerAbfsFileSystem();
     std::shared_ptr<config::ConfigBase> config;
     if (!FLAGS_config.empty()) {
       config = readConfig(FLAGS_config);

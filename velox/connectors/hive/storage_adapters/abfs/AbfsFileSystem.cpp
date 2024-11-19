@@ -21,43 +21,25 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <glog/logging.h>
 
-#include "velox/common/config/Config.h"
-#include "velox/common/file/File.h"
-#include "velox/connectors/hive/HiveConfig.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsConfig.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsReadFile.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsUtil.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsWriteFile.h"
 
-namespace facebook::velox::filesystems::abfs {
+namespace facebook::velox::filesystems {
 using namespace Azure::Storage::Blobs;
-
-class AbfsConfig {
- public:
-  AbfsConfig(const config::ConfigBase* config) : config_(config) {}
-
-  std::string connectionString(const std::string& path) const {
-    auto abfsAccount = AbfsAccount(path);
-    auto key = abfsAccount.credKey();
-    VELOX_USER_CHECK(
-        config_->valueExists(key), "Failed to find storage credentials");
-
-    return abfsAccount.connectionString(config_->get<std::string>(key).value());
-  }
-
- private:
-  const config::ConfigBase* config_;
-};
 
 class AbfsReadFile::Impl {
   constexpr static uint64_t kNaturalReadSize = 4 << 20; // 4M
   constexpr static uint64_t kReadConcurrency = 8;
 
  public:
-  explicit Impl(const std::string& path, const std::string& connectStr) {
-    auto abfsAccount = AbfsAccount(path);
-    fileName_ = abfsAccount.filePath();
+  explicit Impl(std::string_view path, const config::ConfigBase& config) {
+    auto account = AbfsConfig(path, config);
+    filePath_ = account.filePath();
     fileClient_ =
         std::make_unique<BlobClient>(BlobClient::CreateFromConnectionString(
-            connectStr, abfsAccount.fileSystem(), fileName_));
+            account.connectionString(), account.fileSystem(), filePath_));
   }
 
   void initialize(const FileOptions& options) {
@@ -75,7 +57,7 @@ class AbfsReadFile::Impl {
       auto properties = fileClient_->GetProperties();
       length_ = properties.Value.BlobSize;
     } catch (Azure::Storage::StorageException& e) {
-      throwStorageExceptionWithOperationDetails("GetProperties", fileName_, e);
+      throwStorageExceptionWithOperationDetails("GetProperties", filePath_, e);
     }
 
     VELOX_CHECK_GE(length_, 0);
@@ -143,7 +125,7 @@ class AbfsReadFile::Impl {
   }
 
   std::string getName() const {
-    return fileName_;
+    return filePath_;
   }
 
   uint64_t getNaturalReadSize() const {
@@ -165,16 +147,15 @@ class AbfsReadFile::Impl {
         reinterpret_cast<uint8_t*>(position), length);
   }
 
-  std::string fileName_;
+  std::string filePath_;
   std::unique_ptr<BlobClient> fileClient_;
-
   int64_t length_ = -1;
 };
 
 AbfsReadFile::AbfsReadFile(
-    const std::string& path,
-    const std::string& connectStr) {
-  impl_ = std::make_shared<Impl>(path, connectStr);
+    std::string_view path,
+    const config::ConfigBase& config) {
+  impl_ = std::make_shared<Impl>(path, config);
 }
 
 void AbfsReadFile::initialize(const FileOptions& options) {
@@ -222,30 +203,9 @@ uint64_t AbfsReadFile::getNaturalReadSize() const {
   return impl_->getNaturalReadSize();
 }
 
-class AbfsFileSystem::Impl {
- public:
-  explicit Impl(const config::ConfigBase* config) : abfsConfig_(config) {
-    LOG(INFO) << "Init Azure Blob file system";
-  }
-
-  ~Impl() {
-    LOG(INFO) << "Dispose Azure Blob file system";
-  }
-
-  const std::string connectionString(const std::string& path) const {
-    // Extract account name
-    return abfsConfig_.connectionString(path);
-  }
-
- private:
-  const AbfsConfig abfsConfig_;
-  std::shared_ptr<folly::Executor> ioExecutor_;
-};
-
-AbfsFileSystem::AbfsFileSystem(
-    const std::shared_ptr<const config::ConfigBase>& config)
+AbfsFileSystem::AbfsFileSystem(std::shared_ptr<const config::ConfigBase> config)
     : FileSystem(config) {
-  impl_ = std::make_shared<Impl>(config.get());
+  VELOX_CHECK_NOT_NULL(config.get());
 }
 
 std::string AbfsFileSystem::name() const {
@@ -255,8 +215,7 @@ std::string AbfsFileSystem::name() const {
 std::unique_ptr<ReadFile> AbfsFileSystem::openFileForRead(
     std::string_view path,
     const FileOptions& options) {
-  auto abfsfile = std::make_unique<AbfsReadFile>(
-      std::string(path), impl_->connectionString(std::string(path)));
+  auto abfsfile = std::make_unique<AbfsReadFile>(path, *config_);
   abfsfile->initialize(options);
   return abfsfile;
 }
@@ -264,9 +223,6 @@ std::unique_ptr<ReadFile> AbfsFileSystem::openFileForRead(
 std::unique_ptr<WriteFile> AbfsFileSystem::openFileForWrite(
     std::string_view path,
     const FileOptions& /*unused*/) {
-  auto abfsfile = std::make_unique<AbfsWriteFile>(
-      std::string(path), impl_->connectionString(std::string(path)));
-  abfsfile->initialize();
-  return abfsfile;
+  return std::make_unique<AbfsWriteFile>(path, *config_);
 }
-} // namespace facebook::velox::filesystems::abfs
+} // namespace facebook::velox::filesystems

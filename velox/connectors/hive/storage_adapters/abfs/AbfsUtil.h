@@ -15,13 +15,12 @@
  */
 
 #pragma once
+
 #include <azure/storage/common/storage_exception.hpp>
+#include <fmt/format.h>
 #include "velox/common/file/File.h"
 
-#include <fmt/format.h>
-#include <regex>
-
-namespace facebook::velox::filesystems::abfs {
+namespace facebook::velox::filesystems {
 namespace {
 constexpr std::string_view kAbfsScheme{"abfs://"};
 constexpr std::string_view kAbfssScheme{"abfss://"};
@@ -31,38 +30,7 @@ inline bool isAbfsFile(const std::string_view filename) {
   return filename.find(kAbfsScheme) == 0 || filename.find(kAbfssScheme) == 0;
 }
 
-class AbfsAccount {
- public:
-  explicit AbfsAccount(const std::string path);
-
-  const std::string accountNameWithSuffix() const;
-
-  const std::string scheme() const;
-
-  const std::string accountName() const;
-
-  const std::string endpointSuffix() const;
-
-  const std::string fileSystem() const;
-
-  const std::string filePath() const;
-
-  const std::string credKey() const;
-
-  const std::string connectionString(const std::string accountKey) const;
-
- private:
-  std::string scheme_;
-  std::string accountName_;
-  std::string endpointSuffix_;
-  std::string accountNameWithSuffix_;
-  std::string fileSystem_;
-  std::string filePath_;
-  std::string path_;
-  std::string credKey_;
-};
-
-inline const std::string throwStorageExceptionWithOperationDetails(
+inline std::string throwStorageExceptionWithOperationDetails(
     std::string operation,
     std::string path,
     Azure::Storage::StorageException& error) {
@@ -77,4 +45,4 @@ inline const std::string throwStorageExceptionWithOperationDetails(
   VELOX_FAIL(errMsg);
 }
 
-} // namespace facebook::velox::filesystems::abfs
+} // namespace facebook::velox::filesystems

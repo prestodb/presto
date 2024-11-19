@@ -14,26 +14,36 @@
  * limitations under the License.
  */
 
-#include "velox/connectors/hive/storage_adapters/abfs/AbfsWriteFile.h"
-
 #include "velox/exec/tests/utils/TempFilePath.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::filesystems::abfs;
+#include "velox/connectors/hive/storage_adapters/abfs/AzureDataLakeFileClient.h"
 
-namespace facebook::velox::filesystems::test {
-// A mocked blob storage file client backend with local file store.
-class MockBlobStorageFileClient : public IBlobStorageFileClient {
+using namespace Azure::Storage::Files::DataLake::Models;
+
+namespace facebook::velox::filesystems {
+
+// A mock AzureDataLakeFileClient backend with local file store.
+class MockDataLakeFileClient : public AzureDataLakeFileClient {
  public:
-  MockBlobStorageFileClient() {
-    auto tempFile = ::exec::test::TempFilePath::create();
+  MockDataLakeFileClient() {
+    auto tempFile = velox::exec::test::TempFilePath::create();
     filePath_ = tempFile->getPath();
   }
 
+  MockDataLakeFileClient(std::string_view filePath) : filePath_(filePath) {}
+
+  std::string_view path() const {
+    return filePath_;
+  }
+
   void create() override;
+
   PathProperties getProperties() override;
+
   void append(const uint8_t* buffer, size_t size, uint64_t offset) override;
+
   void flush(uint64_t position) override;
+
   void close() override;
 
   // for testing purpose to verify the written content if correct.
@@ -53,4 +63,4 @@ class MockBlobStorageFileClient : public IBlobStorageFileClient {
   std::string filePath_;
   std::ofstream fileStream_;
 };
-} // namespace facebook::velox::filesystems::test
+} // namespace facebook::velox::filesystems

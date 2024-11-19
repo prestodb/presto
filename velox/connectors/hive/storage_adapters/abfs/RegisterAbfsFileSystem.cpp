@@ -20,7 +20,7 @@
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsUtil.h" // @manual
 #endif
 
-namespace facebook::velox::filesystems::abfs {
+namespace facebook::velox::filesystems {
 
 #ifdef VELOX_ENABLE_ABFS
 folly::once_flag abfsInitiationFlag;
@@ -43,4 +43,4 @@ void registerAbfsFileSystem() {
 #endif
 }
 
-} // namespace facebook::velox::filesystems::abfs
+} // namespace facebook::velox::filesystems

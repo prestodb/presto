@@ -15,15 +15,34 @@
  */
 
 #include "velox/connectors/hive/storage_adapters/abfs/tests/AzuriteServer.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsConfig.h"
 
-namespace facebook::velox::filesystems::test {
-const std::string AzuriteServer::connectionStr() const {
+namespace facebook::velox::filesystems {
+
+std::string AzuriteServer::URI() const {
   return fmt::format(
-      "DefaultEndpointsProtocol=http;AccountName={};AccountKey={};BlobEndpoint=http://127.0.0.1:{}/{};",
-      AzuriteAccountName,
-      AzuriteAccountKey,
-      port_,
-      AzuriteAccountName);
+      "abfs://{}@{}.dfs.core.windows.net/", container_, account_);
+}
+
+std::string AzuriteServer::fileURI() const {
+  return fmt::format(
+      "abfs://{}@{}.dfs.core.windows.net/{}", container_, account_, file_);
+}
+
+// Return the hiveConfig for the Azurite instance.
+// Specify configOverride map to update the default config map.
+std::shared_ptr<const config::ConfigBase> AzuriteServer::hiveConfig(
+    const std::unordered_map<std::string, std::string> configOverride) const {
+  auto endpoint = fmt::format("http://127.0.0.1:{}/{}", port_, account_);
+  std::unordered_map<std::string, std::string> config(
+      {{"fs.azure.account.key.test.dfs.core.windows.net", key_},
+       {kAzureBlobEndpoint, endpoint}});
+
+  for (const auto& [key, value] : configOverride) {
+    config[key] = value;
+  }
+
+  return std::make_shared<const config::ConfigBase>(std::move(config));
 }
 
 void AzuriteServer::start() {
@@ -75,29 +94,29 @@ AzuriteServer::AzuriteServer(int64_t port) : port_(port) {
       logFilePath,
   };
   env_ = (boost::process::environment)boost::this_process::environment();
-  env_["PATH"] = env_["PATH"].to_string() + AzuriteSearchPath;
-  env_["AZURITE_ACCOUNTS"] =
-      fmt::format("{}:{}", AzuriteAccountName, AzuriteAccountKey);
+  env_["PATH"] = env_["PATH"].to_string() + std::string(kAzuriteSearchPath);
+  env_["AZURITE_ACCOUNTS"] = fmt::format("{}:{}", account_, key_);
   auto path = env_["PATH"].to_vector();
   exePath_ = boost::process::search_path(
-      AzuriteServerExecutableName,
+      kAzuriteServerExecutableName,
       std::vector<boost::filesystem::path>(path.begin(), path.end()));
   std::printf("AzuriteServer executable path: %s\n", exePath_.c_str());
   if (exePath_.empty()) {
     VELOX_FAIL(
-        "Failed to find azurite executable {}'", AzuriteServerExecutableName);
+        "Failed to find azurite executable {}'", kAzuriteServerExecutableName);
   }
 }
 
-void AzuriteServer::addFile(std::string source, std::string destination) {
+void AzuriteServer::addFile(std::string source) {
+  AbfsConfig conf(fileURI(), *hiveConfig());
   auto containerClient = BlobContainerClient::CreateFromConnectionString(
-      connectionStr(), AzuriteContainerName);
+      conf.connectionString(), container_);
   containerClient.CreateIfNotExists();
-  auto blobClient = containerClient.GetBlockBlobClient(destination);
+  auto blobClient = containerClient.GetBlockBlobClient(file_);
   blobClient.UploadFrom(source);
 }
 
 AzuriteServer::~AzuriteServer() {
   // stop();
 }
-} // namespace facebook::velox::filesystems::test
+} // namespace facebook::velox::filesystems

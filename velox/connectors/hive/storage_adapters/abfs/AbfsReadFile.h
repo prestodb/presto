@@ -14,15 +14,20 @@
  * limitations under the License.
  */
 
-#include <folly/executors/ThreadedExecutor.h>
-#include <folly/futures/Future.h>
-#include "velox/common/file/File.h"
-#include "velox/connectors/hive/storage_adapters/abfs/AbfsUtil.h"
+#pragma once
 
-namespace facebook::velox::filesystems::abfs {
+#include "velox/common/file/File.h"
+
+namespace facebook::velox::config {
+class ConfigBase;
+}
+
+namespace facebook::velox::filesystems {
 class AbfsReadFile final : public ReadFile {
  public:
-  explicit AbfsReadFile(const std::string& path, const std::string& connectStr);
+  explicit AbfsReadFile(
+      std::string_view path,
+      const config::ConfigBase& config);
 
   void initialize(const FileOptions& options);
 
@@ -53,4 +58,4 @@ class AbfsReadFile final : public ReadFile {
   class Impl;
   std::shared_ptr<Impl> impl_;
 };
-} // namespace facebook::velox::filesystems::abfs
+} // namespace facebook::velox::filesystems

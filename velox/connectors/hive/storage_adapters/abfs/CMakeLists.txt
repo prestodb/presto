@@ -21,8 +21,9 @@ if(VELOX_ENABLE_ABFS)
     velox_abfs
     PRIVATE
     AbfsFileSystem.cpp
-    AbfsUtils.cpp
+    AbfsConfig.cpp
     AbfsWriteFile.cpp)
+
   velox_link_libraries(
     velox_abfs
     PUBLIC velox_file

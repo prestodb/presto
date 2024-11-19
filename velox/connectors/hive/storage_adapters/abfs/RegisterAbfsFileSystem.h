@@ -16,9 +16,9 @@
 
 #pragma once
 
-namespace facebook::velox::filesystems::abfs {
+namespace facebook::velox::filesystems {
 
 // Register the ABFS filesystem.
 void registerAbfsFileSystem();
 
-} // namespace facebook::velox::filesystems::abfs
+} // namespace facebook::velox::filesystems

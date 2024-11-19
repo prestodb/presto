@@ -15,20 +15,23 @@
  */
 
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsWriteFile.h"
-
 #include <azure/storage/files/datalake.hpp>
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsConfig.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsUtil.h"
 
-namespace facebook::velox::filesystems::abfs {
-class BlobStorageFileClient final : public IBlobStorageFileClient {
+using namespace Azure::Storage::Files::DataLake;
+
+namespace facebook::velox::filesystems {
+class DataLakeFileClientWrapper final : public AzureDataLakeFileClient {
  public:
-  BlobStorageFileClient(std::unique_ptr<DataLakeFileClient> client)
+  DataLakeFileClientWrapper(std::unique_ptr<DataLakeFileClient> client)
       : client_(std::move(client)) {}
 
   void create() override {
     client_->Create();
   }
 
-  PathProperties getProperties() override {
+  Models::PathProperties getProperties() override {
     return client_->GetProperties().Value;
   }
 
@@ -51,46 +54,29 @@ class BlobStorageFileClient final : public IBlobStorageFileClient {
 
 class AbfsWriteFile::Impl {
  public:
-  explicit Impl(const std::string& path, const std::string& connectStr)
-      : path_(path), connectStr_(connectStr) {
+  explicit Impl(
+      std::string_view path,
+      std::unique_ptr<AzureDataLakeFileClient>& client)
+      : path_(path), client_(std::move(client)) {
     // Make it a no-op if invoked twice.
     if (position_ != -1) {
       return;
     }
     position_ = 0;
-  }
-
-  void initialize() {
-    if (!blobStorageFileClient_) {
-      auto abfsAccount = AbfsAccount(path_);
-      blobStorageFileClient_ = std::make_unique<BlobStorageFileClient>(
-          std::make_unique<DataLakeFileClient>(
-              DataLakeFileClient::CreateFromConnectionString(
-                  connectStr_,
-                  abfsAccount.fileSystem(),
-                  abfsAccount.filePath())));
-    }
-
     VELOX_CHECK(!checkIfFileExists(), "File already exists");
-    blobStorageFileClient_->create();
-  }
-
-  void testingSetFileClient(
-      const std::shared_ptr<IBlobStorageFileClient>& blobStorageManager) {
-    blobStorageFileClient_ = blobStorageManager;
+    client_->create();
   }
 
   void close() {
     if (!closed_) {
       flush();
-      blobStorageFileClient_->close();
       closed_ = true;
     }
   }
 
   void flush() {
     if (!closed_) {
-      blobStorageFileClient_->flush(position_);
+      client_->flush(position_);
     }
   }
 
@@ -103,19 +89,18 @@ class AbfsWriteFile::Impl {
   }
 
   uint64_t size() const {
-    return blobStorageFileClient_->getProperties().FileSize;
+    return client_->getProperties().FileSize;
   }
 
   void append(const char* buffer, size_t size) {
-    blobStorageFileClient_->append(
-        reinterpret_cast<const uint8_t*>(buffer), size, position_);
+    client_->append(reinterpret_cast<const uint8_t*>(buffer), size, position_);
     position_ += size;
   }
 
  private:
   bool checkIfFileExists() {
     try {
-      blobStorageFileClient_->getProperties();
+      client_->getProperties();
       return true;
     } catch (Azure::Storage::StorageException& e) {
       if (e.StatusCode != Azure::Core::Http::HttpStatusCode::NotFound) {
@@ -126,24 +111,34 @@ class AbfsWriteFile::Impl {
   }
 
   const std::string path_;
-  const std::string connectStr_;
-  std::string fileSystem_;
-  std::string fileName_;
-  std::shared_ptr<IBlobStorageFileClient> blobStorageFileClient_;
+  const std::unique_ptr<AzureDataLakeFileClient> client_;
 
   uint64_t position_ = -1;
   bool closed_ = false;
 };
 
 AbfsWriteFile::AbfsWriteFile(
-    const std::string& path,
-    const std::string& connectStr) {
-  impl_ = std::make_shared<Impl>(path, connectStr);
+    std::string_view path,
+    const config::ConfigBase& config) {
+  auto abfsAccount = AbfsConfig(path, config);
+  std::unique_ptr<AzureDataLakeFileClient> client =
+      std::make_unique<DataLakeFileClientWrapper>(
+          std::make_unique<DataLakeFileClient>(
+              DataLakeFileClient::CreateFromConnectionString(
+                  abfsAccount.connectionString(),
+                  abfsAccount.fileSystem(),
+                  abfsAccount.filePath())));
+
+  impl_ = std::make_unique<Impl>(path, client);
 }
 
-void AbfsWriteFile::initialize() {
-  impl_->initialize();
+AbfsWriteFile::AbfsWriteFile(
+    std::string_view path,
+    std::unique_ptr<AzureDataLakeFileClient>& client) {
+  impl_ = std::make_unique<Impl>(path, client);
 }
+
+AbfsWriteFile::~AbfsWriteFile() {}
 
 void AbfsWriteFile::close() {
   impl_->close();
@@ -161,8 +156,4 @@ uint64_t AbfsWriteFile::size() const {
   return impl_->size();
 }
 
-void AbfsWriteFile::testingSetFileClient(
-    const std::shared_ptr<IBlobStorageFileClient>& fileClient) {
-  impl_->testingSetFileClient(fileClient);
-}
-} // namespace facebook::velox::filesystems::abfs
+} // namespace facebook::velox::filesystems

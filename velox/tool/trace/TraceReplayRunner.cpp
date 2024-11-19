@@ -228,7 +228,7 @@ void TraceReplayRunner::init() {
   filesystems::registerS3FileSystem();
   filesystems::registerHdfsFileSystem();
   filesystems::registerGcsFileSystem();
-  filesystems::abfs::registerAbfsFileSystem();
+  filesystems::registerAbfsFileSystem();
 
   dwio::common::registerFileSinks();
   dwrf::registerDwrfReaderFactory();
