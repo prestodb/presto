@@ -167,6 +167,9 @@ std::string_view typeToEncodingName(const TypePtr& type) {
       return kRow;
     case TypeKind::UNKNOWN:
       return kByteArray;
+    case TypeKind::OPAQUE:
+      return kVariableWidth;
+
     default:
       VELOX_FAIL("Unknown type kind: {}", static_cast<int>(type->kind()));
   }
@@ -625,6 +628,64 @@ void read<StringView>(
   }
 }
 
+template <>
+void read<OpaqueType>(
+    ByteInputStream* source,
+    const TypePtr& type,
+    vector_size_t resultOffset,
+    const uint64_t* incomingNulls,
+    int32_t numIncomingNulls,
+    memory::MemoryPool* pool,
+    const SerdeOpts&,
+    VectorPtr& result) {
+  // Opaque values are serialized by first converting them to string
+  // then serializing them as if they were string. The deserializable
+  // does the reverse operation.
+
+  const int32_t size = source->read<int32_t>();
+  const int32_t numNewValues = sizeWithIncomingNulls(size, numIncomingNulls);
+
+  result->resize(resultOffset + numNewValues);
+
+  auto opaqueType = std::dynamic_pointer_cast<const OpaqueType>(type);
+  auto deserialization = opaqueType->getDeserializeFunc();
+
+  auto flatResult = result->as<FlatVector<std::shared_ptr<void>>>();
+  BufferPtr values = flatResult->mutableValues(resultOffset + size);
+
+  auto rawValues = values->asMutable<std::shared_ptr<void>>();
+  std::vector<int32_t> offsets;
+  int32_t lastOffset = 0;
+  for (int32_t i = 0; i < numNewValues; ++i) {
+    // Set the first int32_t of each StringView to be the offset.
+    if (incomingNulls && bits::isBitNull(incomingNulls, i)) {
+      offsets.push_back(lastOffset);
+      continue;
+    }
+    lastOffset = source->read<int32_t>();
+    offsets.push_back(lastOffset);
+  }
+  readNulls(
+      source, size, resultOffset, incomingNulls, numIncomingNulls, *flatResult);
+
+  const int32_t dataSize = source->read<int32_t>();
+  if (dataSize == 0) {
+    return;
+  }
+
+  BufferPtr newBuffer = AlignedBuffer::allocate<char>(dataSize, pool);
+  char* rawString = newBuffer->asMutable<char>();
+  source->readBytes(rawString, dataSize);
+  int32_t previousOffset = 0;
+  for (int32_t i = 0; i < numNewValues; ++i) {
+    int32_t offset = offsets[i];
+    auto sv = StringView(rawString + previousOffset, offset - previousOffset);
+    auto opaqueValue = deserialization(sv);
+    rawValues[resultOffset + i] = opaqueValue;
+    previousOffset = offset;
+  }
+}
+
 void readColumns(
     ByteInputStream* source,
     const std::vector<TypePtr>& types,
@@ -1031,6 +1092,7 @@ void readColumns(
           {TypeKind::TIMESTAMP, &read<Timestamp>},
           {TypeKind::VARCHAR, &read<StringView>},
           {TypeKind::VARBINARY, &read<StringView>},
+          {TypeKind::OPAQUE, &read<OpaqueType>},
           {TypeKind::ARRAY, &readArrayVector},
           {TypeKind::MAP, &readMapVector},
           {TypeKind::ROW, &readRowVector},
@@ -1686,6 +1748,7 @@ class VectorStream {
 
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
+      case TypeKind::OPAQUE:
         writeInt32(out, nullCount_ + nonNullCount_);
         lengths_.flush(out);
         flushNulls(out);
@@ -1768,6 +1831,8 @@ class VectorStream {
         lengths_.startWrite(sizeof(vector_size_t));
         lengths_.appendOne<int32_t>(0);
         break;
+      case TypeKind::OPAQUE:
+        [[fallthrough]];
       case TypeKind::VARCHAR:
         [[fallthrough]];
       case TypeKind::VARBINARY:
@@ -1935,6 +2000,38 @@ void serializeFlatVector<TypeKind::BOOLEAN>(
         stream->appendNonNull();
         stream->appendOne<uint8_t>(flatVector->valueAtFast(offset) ? 1 : 0);
       }
+    }
+  }
+}
+
+template <>
+void serializeFlatVector<TypeKind::OPAQUE>(
+    const VectorPtr& vector,
+    const folly::Range<const IndexRange*>& ranges,
+    VectorStream* stream) {
+  using T = typename TypeTraits<TypeKind::OPAQUE>::NativeType;
+  auto* flatVector = vector->as<FlatVector<T>>();
+  VELOX_CHECK_NOT_NULL(flatVector, "Should cast to FlatVector properly");
+
+  auto opaqueType =
+      std::dynamic_pointer_cast<const OpaqueType>(flatVector->type());
+  auto serialization = opaqueType->getSerializeFunc();
+  auto* rawValues = flatVector->rawValues();
+
+  // Do not handle the case !flatVector->mayHaveNulls() in a special way like
+  // we do for say TypeKind::VARCHAR, because we need to traverse each element
+  // anyway to serialize them.
+  for (int32_t i = 0; i < ranges.size(); ++i) {
+    const int32_t end = ranges[i].begin + ranges[i].size;
+    for (int32_t offset = ranges[i].begin; offset < end; ++offset) {
+      if (flatVector->isNullAt(offset)) {
+        stream->appendNull();
+        continue;
+      }
+      stream->appendNonNull();
+      auto serialized = serialization(rawValues[offset]);
+      const auto view = StringView(serialized);
+      stream->appendOne(view);
     }
   }
 }
@@ -2207,10 +2304,24 @@ void serializeConstantVectorImpl(
     return;
   }
 
-  const T value = constVector->valueAtFast(0);
-  for (int32_t i = 0; i < count; ++i) {
-    stream->appendNonNull();
-    stream->appendOne(value);
+  if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
+    auto opaqueType =
+        std::dynamic_pointer_cast<const OpaqueType>(constVector->type());
+    auto serialization = opaqueType->getSerializeFunc();
+    T valueOpaque = constVector->valueAtFast(0);
+
+    std::string serialized = serialization(valueOpaque);
+    const auto value = StringView(serialized);
+    for (int32_t i = 0; i < count; ++i) {
+      stream->appendNonNull();
+      stream->appendOne(value);
+    }
+  } else {
+    T value = constVector->valueAtFast(0);
+    for (int32_t i = 0; i < count; ++i) {
+      stream->appendNonNull();
+      stream->appendOne(value);
+    }
   }
 }
 
@@ -3014,6 +3125,14 @@ void estimateFlatSerializedSize<TypeKind::VARBINARY>(
   estimateFlatSerializedSizeVarcharOrVarbinary(vector, ranges, sizes);
 }
 
+template <>
+void estimateFlatSerializedSize<TypeKind::OPAQUE>(
+    const BaseVector*,
+    const folly::Range<const IndexRange*>&,
+    vector_size_t**) {
+  VELOX_FAIL("Opaque type support is not implemented.");
+}
+
 void estimateBiasedSerializedSize(
     const BaseVector* vector,
     const folly::Range<const IndexRange*>& ranges,
@@ -3268,6 +3387,15 @@ void estimateFlatSerializedSize<TypeKind::VARBINARY>(
     vector_size_t** sizes,
     Scratch& scratch) {
   estimateFlatSerializedSizeVarcharOrVarbinary(vector, rows, sizes, scratch);
+}
+
+template <>
+void estimateFlatSerializedSize<TypeKind::OPAQUE>(
+    const BaseVector*,
+    const folly::Range<const vector_size_t*>&,
+    vector_size_t**,
+    Scratch&) {
+  VELOX_FAIL("Opaque type support is not implemented.");
 }
 
 void estimateBiasedSerializedSize(

@@ -1206,6 +1206,8 @@ class OpaqueType : public TypeBase<TypeKind::OPAQUE> {
         deserializeTypeErased);
   }
 
+  static void clearSerializationRegistry();
+
  protected:
   bool equals(const Type& other) const override;
 

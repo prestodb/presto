@@ -712,6 +712,12 @@ std::shared_ptr<const OpaqueType> OpaqueType::deserializeExtra(
   return nullptr;
 }
 
+void OpaqueType::clearSerializationRegistry() {
+  auto& registry = OpaqueSerdeRegistry::get();
+  registry.mapping.clear();
+  registry.reverse.clear();
+}
+
 void OpaqueType::registerSerializationTypeErased(
     const std::shared_ptr<const OpaqueType>& type,
     const std::string& persistentName,
