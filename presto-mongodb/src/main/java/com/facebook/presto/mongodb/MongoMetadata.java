@@ -167,7 +167,7 @@ public class MongoMetadata
                     continue;
                 }
                 if (columns.get(key.getName()) != null) {
-                    localProperties.add(new SortingProperty<>(columns.get(key.getName()), key.getSortOrder().get()));
+                    localProperties.add(new SortingProperty<>(columns.get(key.getName()), key.getSortOrder().orElseThrow()));
                 }
             }
         }

@@ -275,7 +275,7 @@ public class MongoSession
     {
         Document query = new Document();
         if (tupleDomain.getDomains().isPresent()) {
-            for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
+            for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().orElseThrow().entrySet()) {
                 MongoColumnHandle column = (MongoColumnHandle) entry.getKey();
                 query.putAll(buildPredicate(column, entry.getValue()));
             }
@@ -487,9 +487,9 @@ public class MongoSession
             if (fieldType.isPresent()) {
                 Document metadata = new Document();
                 metadata.append(FIELDS_NAME_KEY, key);
-                metadata.append(FIELDS_TYPE_KEY, fieldType.get().toString());
+                metadata.append(FIELDS_TYPE_KEY, fieldType.orElseThrow().toString());
                 metadata.append(FIELDS_HIDDEN_KEY,
-                        key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature()));
+                        key.equals("_id") && fieldType.orElseThrow().equals(OBJECT_ID.getTypeSignature()));
 
                 builder.add(metadata);
             }
@@ -549,7 +549,7 @@ public class MongoSession
                 typeSignature = new TypeSignature(StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
                                 .mapToObj(idx -> TypeSignatureParameter.of(
-                                        new NamedTypeSignature(Optional.of(new RowFieldName(String.format("%s%d", implicitPrefix, idx + 1), false)), subTypes.get(idx).get())))
+                                        new NamedTypeSignature(Optional.of(new RowFieldName(String.format("%s%d", implicitPrefix, idx + 1), false)), subTypes.get(idx).orElseThrow())))
                                 .collect(toList()));
             }
         }
@@ -562,7 +562,7 @@ public class MongoSession
                     return Optional.empty();
                 }
 
-                parameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(key, false)), fieldType.get())));
+                parameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(key, false)), fieldType.orElseThrow())));
             }
             typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
         }
