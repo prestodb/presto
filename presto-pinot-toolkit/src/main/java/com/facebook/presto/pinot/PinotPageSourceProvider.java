@@ -99,7 +99,7 @@ public class PinotPageSourceProvider
                 return new PinotBrokerPageSource(
                     pinotConfig,
                     session,
-                    pinotSplit.getBrokerPinotQuery().get(),
+                    pinotSplit.getBrokerPinotQuery().orElseThrow(),
                     handles,
                     pinotSplit.getExpectedColumnHandles(),
                     clusterInfoFetcher,
