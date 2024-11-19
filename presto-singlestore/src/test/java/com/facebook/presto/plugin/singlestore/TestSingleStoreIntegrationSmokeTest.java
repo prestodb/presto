@@ -149,12 +149,12 @@ public class TestSingleStoreIntegrationSmokeTest
                 ")";
         @Language("SQL") String createTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "column_a",
                 "column_b");
         @Language("SQL") String expectedCreateTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "\"column_a\"",
                 "\"column_b\"");
         assertUpdate(createTableSql);
@@ -172,13 +172,13 @@ public class TestSingleStoreIntegrationSmokeTest
                 ")";
         createTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "column_a",
                 "column_b",
                 "column_c");
         expectedCreateTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "\"column_a\"",
                 "\"column_b\"",
                 "\"column_c\"");
