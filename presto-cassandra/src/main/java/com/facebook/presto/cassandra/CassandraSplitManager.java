@@ -124,7 +124,7 @@ public class CassandraSplitManager
         boolean singlePartitionKeyColumn = true;
         String partitionKeyColumnName = null;
         if (!partitions.isEmpty()) {
-            singlePartitionKeyColumn = partitions.get(0).getTupleDomain().getDomains().get().size() == 1;
+            singlePartitionKeyColumn = partitions.get(0).getTupleDomain().getDomains().orElseThrow().size() == 1;
             if (singlePartitionKeyColumn) {
                 String partitionId = partitions.get(0).getPartitionId();
                 partitionKeyColumnName = partitionId.substring(0, partitionId.lastIndexOf('=') - 1);
