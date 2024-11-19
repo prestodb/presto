@@ -433,7 +433,8 @@ public class NativeQueryRunnerUtils
             try {
                 TimeUnit.SECONDS.sleep(2);
             }
-            catch (InterruptedException e) { }
+            catch (InterruptedException e) {
+            }
             queryRunner.execute("INSERT INTO test_hidden_columns SELECT * FROM region where regionkey = 1");
         }
     }
