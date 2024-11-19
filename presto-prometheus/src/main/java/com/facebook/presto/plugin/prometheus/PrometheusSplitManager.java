@@ -233,18 +233,18 @@ public class PrometheusSplitManager
         public EffectiveLimits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Optional<PrometheusPredicateTimeInfo> maybePredicateRange)
         {
             if (maybePredicateRange.isPresent()) {
-                if (maybePredicateRange.get().getPredicateUpperTimeBound().isPresent()) {
+                if (maybePredicateRange.orElseThrow().getPredicateUpperTimeBound().isPresent()) {
                     // predicate upper bound set
-                    upperBound = maybePredicateRange.get().getPredicateUpperTimeBound().get();
+                    upperBound = maybePredicateRange.orElseThrow().getPredicateUpperTimeBound().orElseThrow();
                 }
                 else {
                     // predicate upper bound NOT set
                     upperBound = defaultUpperBound;
                 }
                 // here we're just working out the max duration using the above upperBound for upper bound
-                if (maybePredicateRange.get().getPredicateLowerTimeBound().isPresent()) {
+                if (maybePredicateRange.orElseThrow().getPredicateLowerTimeBound().isPresent()) {
                     // predicate lower bound set
-                    maxQueryRangeDuration = java.time.Duration.between(maybePredicateRange.get().getPredicateLowerTimeBound().get(), upperBound);
+                    maxQueryRangeDuration = java.time.Duration.between(maybePredicateRange.orElseThrow().getPredicateLowerTimeBound().orElseThrow(), upperBound);
                 }
                 else {
                     // predicate lower bound NOT set
