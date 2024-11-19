@@ -11,38 +11,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.plan.PartitioningScheme;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TableWriterNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final Optional<WriterTarget> target;
@@ -112,22 +110,22 @@ public class TableWriterNode
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
         this.fragmentVariable = requireNonNull(fragmentVariable, "fragmentVariable is null");
         this.tableCommitContextVariable = requireNonNull(tableCommitContextVariable, "tableCommitContextVariable is null");
-        this.columns = ImmutableList.copyOf(columns);
-        this.columnNames = ImmutableList.copyOf(columnNames);
-        this.notNullColumnVariables = ImmutableSet.copyOf(requireNonNull(notNullColumnVariables, "notNullColumns is null"));
+        this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
+        this.columnNames = Collections.unmodifiableList(new ArrayList<>(columnNames));
+        this.notNullColumnVariables = Collections.unmodifiableSet(new LinkedHashSet<>(requireNonNull(notNullColumnVariables, "notNullColumns is null")));
         this.tablePartitioningScheme = requireNonNull(tablePartitioningScheme, "partitioningScheme is null");
         this.preferredShufflePartitioningScheme = requireNonNull(preferredShufflePartitioningScheme, "preferredShufflePartitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
 
-        ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.<VariableReferenceExpression>builder()
-                .add(rowCountVariable)
-                .add(fragmentVariable)
-                .add(tableCommitContextVariable);
+        List<VariableReferenceExpression> outputsList = new ArrayList<>();
+        outputsList.add(rowCountVariable);
+        outputsList.add(fragmentVariable);
+        outputsList.add(tableCommitContextVariable);
         statisticsAggregation.ifPresent(aggregation -> {
-            outputs.addAll(aggregation.getGroupingVariables());
-            outputs.addAll(aggregation.getAggregations().keySet());
+            outputsList.addAll(aggregation.getGroupingVariables());
+            outputsList.addAll(aggregation.getAggregations().keySet());
         });
-        this.outputs = outputs.build();
+        this.outputs = Collections.unmodifiableList(outputsList);
         this.taskCountIfScaledWriter = requireNonNull(taskCountIfScaledWriter, "taskCountIfScaledWriter is null");
         this.isTemporaryTableWriter = requireNonNull(isTemporaryTableWriter, "isTemporaryTableWriter is null");
     }
@@ -201,7 +199,7 @@ public class TableWriterNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return Collections.singletonList(source);
     }
 
     @Override
@@ -223,7 +221,7 @@ public class TableWriterNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTableWriter(this, context);
     }
@@ -231,11 +229,12 @@ public class TableWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
+        checkArgument(newChildren.size() == 1);
         return new TableWriterNode(
                 getSourceLocation(),
                 getId(),
                 getStatsEquivalentPlanNode(),
-                Iterables.getOnlyElement(newChildren),
+                newChildren.get(0),
                 target,
                 rowCountVariable,
                 fragmentVariable,
@@ -451,7 +450,7 @@ public class TableWriterNode
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-            checkArgument(updatedColumns.size() == updatedColumnHandles.size(), "updatedColumns size %s must equal updatedColumnHandles size %s", updatedColumns.size(), updatedColumnHandles.size());
+            checkArgument(updatedColumns.size() == updatedColumnHandles.size(), format("updatedColumns size %s must equal updatedColumnHandles size %s", updatedColumns.size(), updatedColumnHandles.size()));
             this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
             this.updatedColumnHandles = requireNonNull(updatedColumnHandles, "updatedColumnHandles is null");
         }
