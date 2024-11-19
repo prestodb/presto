@@ -23,7 +23,7 @@ import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 
-@Test(groups = {"parquet"})
+@Test(groups = "parquet")
 public class TestPrestoNativeCteExecutionParquet
         extends AbstractTestNativeCteExecution
 {
