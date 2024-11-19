@@ -209,8 +209,8 @@ public class FunctionCallRewriter
                         return defaultRewrite;
                     }
 
-                    Map<Identifier, Expression> identifierToArgumentMap = getIdentifierToOriginalArgumentMap((FunctionCall) substituteInfo.get().originalExpression, defaultRewrite);
-                    Expression rewritten = buildSubstitute(substituteInfo.get().substituteExpression, identifierToArgumentMap, defaultRewrite);
+                    Map<Identifier, Expression> identifierToArgumentMap = getIdentifierToOriginalArgumentMap((FunctionCall) substituteInfo.orElseThrow().originalExpression, defaultRewrite);
+                    Expression rewritten = buildSubstitute(substituteInfo.orElseThrow().substituteExpression, identifierToArgumentMap, defaultRewrite);
 
                     context.rewrittenFunctionCalls.add(new FunctionCallSubstitute(original, rewritten));
                     return rewritten;
@@ -226,7 +226,7 @@ public class FunctionCallRewriter
                         return defaultRewrite;
                     }
 
-                    Expression rewritten = substituteInfo.get().substituteExpression;
+                    Expression rewritten = substituteInfo.orElseThrow().substituteExpression;
 
                     context.rewrittenFunctionCalls.add(new FunctionCallSubstitute(original, rewritten));
                     return rewritten;
@@ -392,8 +392,8 @@ public class FunctionCallRewriter
 
                     Optional<Window> rewrittenWindow;
                     if (defaultRewrite.getWindow().isPresent() && originalInstance.getWindow().isPresent()) {
-                        Window defaultWindow = defaultRewrite.getWindow().get();
-                        Window originalWindow = originalInstance.getWindow().get();
+                        Window defaultWindow = defaultRewrite.getWindow().orElseThrow();
+                        Window originalWindow = originalInstance.getWindow().orElseThrow();
                         rewrittenWindow = Optional.of(new Window(!defaultWindow.getPartitionBy().isEmpty() ? defaultWindow.getPartitionBy() : originalWindow.getPartitionBy(),
                                 defaultWindow.getOrderBy().isPresent() ? defaultWindow.getOrderBy() : originalWindow.getOrderBy(), defaultWindow.getFrame().isPresent() ?
                                 defaultWindow.getFrame() : originalWindow.getFrame()));

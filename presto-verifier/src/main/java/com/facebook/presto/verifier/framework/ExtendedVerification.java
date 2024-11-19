@@ -137,11 +137,11 @@ public class ExtendedVerification
                 controlChecksumQueryContext,
                 testChecksumQueryContext);
 
-        if (partitionMatchResult.isPresent() && !partitionMatchResult.get().isMatched()) {
-            return partitionMatchResult.get();
+        if (partitionMatchResult.isPresent() && !partitionMatchResult.orElseThrow().isMatched()) {
+            return partitionMatchResult.orElseThrow();
         }
-        if (bucketMatchResult.isPresent() && !bucketMatchResult.get().isMatched()) {
-            return bucketMatchResult.get();
+        if (bucketMatchResult.isPresent() && !bucketMatchResult.orElseThrow().isMatched()) {
+            return bucketMatchResult.orElseThrow();
         }
         return dataMatchResult;
     }

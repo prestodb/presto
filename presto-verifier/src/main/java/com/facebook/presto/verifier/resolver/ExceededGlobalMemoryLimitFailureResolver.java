@@ -34,7 +34,7 @@ public class ExceededGlobalMemoryLimitFailureResolver
     {
         return mapMatchingPrestoException(queryException, TEST_MAIN, ImmutableSet.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                 e -> e.getQueryActionStats().getQueryStats().isPresent()
-                        && controlQueryStats.getPeakTotalMemoryBytes() > e.getQueryActionStats().getQueryStats().get().getPeakTotalMemoryBytes()
+                        && controlQueryStats.getPeakTotalMemoryBytes() > e.getQueryActionStats().getQueryStats().orElseThrow().getPeakTotalMemoryBytes()
                         ? Optional.of("Control query uses more memory than the test cluster memory limit")
                         : Optional.empty());
     }
