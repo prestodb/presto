@@ -521,7 +521,7 @@ public final class IcebergUtil
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
                 type instanceof TimestampType ||
-                (TIME.equals(type) && fileFormat == PARQUET) ||
+                TIME.equals(type) ||
                 VARBINARY.equals(type) ||
                 isVarcharType(type) ||
                 isCharType(type);
