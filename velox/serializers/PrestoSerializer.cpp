@@ -223,7 +223,11 @@ struct PrestoHeader {
   int32_t compressedSize;
   int64_t checksum;
 
-  static PrestoHeader read(ByteInputStream* source) {
+  static Expected<PrestoHeader> read(ByteInputStream* source) {
+    if (source->remainingSize() < kHeaderSize) {
+      return folly::makeUnexpected(Status::Invalid(
+          fmt::format("{} bytes for header", source->remainingSize())));
+    }
     PrestoHeader header;
     header.numRows = source->read<int32_t>();
     header.pageCodecMarker = source->read<int8_t>();
@@ -231,9 +235,18 @@ struct PrestoHeader {
     header.compressedSize = source->read<int32_t>();
     header.checksum = source->read<int64_t>();
 
-    VELOX_CHECK_GE(header.numRows, 0);
-    VELOX_CHECK_GE(header.uncompressedSize, 0);
-    VELOX_CHECK_GE(header.compressedSize, 0);
+    if (header.numRows < 0) {
+      return folly::makeUnexpected(
+          Status::Invalid(fmt::format("negative numRows: {}", header.numRows)));
+    }
+    if (header.uncompressedSize < 0) {
+      return folly::makeUnexpected(Status::Invalid(fmt::format(
+          "negative uncompressedSize: {}", header.uncompressedSize)));
+    }
+    if (header.compressedSize < 0) {
+      return folly::makeUnexpected(Status::Invalid(
+          fmt::format("negative compressedSize: {}", header.compressedSize)));
+    }
 
     return header;
   }
@@ -4286,7 +4299,12 @@ void PrestoVectorSerde::deserialize(
   const auto prestoOptions = toPrestoOptions(options);
   const auto codec =
       common::compressionKindToCodec(prestoOptions.compressionKind);
-  auto const header = PrestoHeader::read(source);
+  auto maybeHeader = PrestoHeader::read(source);
+  VELOX_CHECK(
+      maybeHeader.hasValue(),
+      fmt::format(
+          "PrestoPage header is invalid: {}", maybeHeader.error().message()));
+  auto const header = std::move(maybeHeader.value());
 
   int64_t actualCheckSum = 0;
   if (isChecksumBitSet(header.pageCodecMarker)) {

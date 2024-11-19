@@ -242,11 +242,13 @@ class PrestoSerializerTest
   RowVectorPtr deserialize(
       const RowTypePtr& rowType,
       const std::string& input,
-      const serializer::presto::PrestoVectorSerde::PrestoOptions*
-          serdeOptions) {
+      const serializer::presto::PrestoVectorSerde::PrestoOptions* serdeOptions,
+      bool skipLexer = false) {
     auto byteStream = toByteStream(input);
     auto paramOptions = getParamSerdeOptions(serdeOptions);
-    validateLexer(input, paramOptions);
+    if (!skipLexer) {
+      validateLexer(input, paramOptions);
+    }
     RowVectorPtr result;
     serde_->deserialize(
         byteStream.get(), pool_.get(), rowType, &result, 0, &paramOptions);
@@ -877,6 +879,19 @@ TEST_P(PrestoSerializerTest, emptyPage) {
   auto rowType = asRowType(rowVector->type());
   auto deserialized = deserialize(rowType, out.str(), nullptr);
   assertEqualVectors(deserialized, rowVector);
+}
+
+TEST_P(PrestoSerializerTest, invalidPage) {
+  auto rowVector = makeEmptyTestVector();
+
+  std::ostringstream out;
+  serialize(rowVector, &out, nullptr);
+
+  auto invalidPage = ""; // empty string
+  auto rowType = asRowType(rowVector->type());
+  VELOX_ASSERT_THROW(
+      deserialize(rowType, invalidPage, nullptr, true /*skipLexer*/),
+      "PrestoPage header is invalid: 0 bytes for header");
 }
 
 TEST_P(PrestoSerializerTest, initMemory) {
