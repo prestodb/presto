@@ -371,7 +371,7 @@ public class TestPrestoSparkHttpClient
             List<SerializedPage> pages = new ArrayList<>();
             Optional<SerializedPage> page = taskResultFetcher.pollPage();
             while (page.isPresent()) {
-                pages.add(page.get());
+                pages.add(page.orElseThrow());
                 page = taskResultFetcher.pollPage();
             }
 
@@ -391,7 +391,7 @@ public class TestPrestoSparkHttpClient
         for (int i = 0; i < 1_000 && pages.size() < numPages; ++i) {
             Optional<SerializedPage> page = taskResultFetcher.pollPage();
             if (page.isPresent()) {
-                pages.add(page.get());
+                pages.add(page.orElseThrow());
             }
         }
         return pages;
@@ -533,7 +533,7 @@ public class TestPrestoSparkHttpClient
             Thread.sleep(5000);
             assertEquals(breakingLimitResponseManager.getRemainingPageCount(), 5);
             List<SerializedPage> pages = new ArrayList<>();
-            pages.add(page.get());
+            pages.add(page.orElseThrow());
             while (pages.size() < numPages) {
                 page = taskResultFetcher.pollPage();
                 page.ifPresent(pages::add);
@@ -829,7 +829,7 @@ public class TestPrestoSparkHttpClient
 
     private boolean isTaskDone(Optional<TaskInfo> taskInfo)
     {
-        return taskInfo.isPresent() && taskInfo.get().getTaskStatus().getState().isDone();
+        return taskInfo.isPresent() && taskInfo.orElseThrow().getTaskStatus().getState().isDone();
     }
 
     @Test

@@ -37,7 +37,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -67,6 +66,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -135,8 +135,8 @@ public class PrestoSparkTaskExecution
         ImmutableList.Builder<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle = ImmutableList.builder();
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
-            if (sourceId.isPresent() && tableScanSources.contains(sourceId.get())) {
-                driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
+            if (sourceId.isPresent() && tableScanSources.contains(sourceId.orElseThrow())) {
+                driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.orElseThrow(), new DriverSplitRunnerFactory(driverFactory, true));
             }
             else {
                 checkArgument(
@@ -370,7 +370,7 @@ public class PrestoSparkTaskExecution
                             scheduledSplits.size(),
                             Joiner.on(",").join(scheduledSplits.stream().map(ScheduledSplit::toString).collect(Collectors.toList()))));
                 }
-                PlanNodeId sourceNodeId = nativeExecution ? driver.getSourceId().get() : Iterables.getOnlyElement(scheduledSplits).getPlanNodeId();
+                PlanNodeId sourceNodeId = nativeExecution ? driver.getSourceId().orElseThrow() : scheduledSplits.stream().collect(onlyElement()).getPlanNodeId();
                 // TableScanOperator requires partitioned split to be added before the first call to process
                 driver.updateSource(new TaskSource(sourceNodeId, ImmutableSet.copyOf(scheduledSplits), true));
             }

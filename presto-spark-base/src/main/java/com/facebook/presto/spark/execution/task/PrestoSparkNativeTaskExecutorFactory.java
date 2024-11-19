@@ -365,14 +365,14 @@ public class PrestoSparkNativeTaskExecutorFactory
 
         // Record process-wide CPU time spent while executing this task. Since we run one task at a time,
         // process-wide CPU time matches task's CPU time.
-        processCpuTime.ifPresent(cpuTime -> taskInfoOptional.get().getStats().getRuntimeStats()
+        processCpuTime.ifPresent(cpuTime -> taskInfoOptional.orElseThrow().getStats().getRuntimeStats()
                 .addMetricValue("javaProcessCpuTime", RuntimeUnit.NANO, cpuTime));
 
-        SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfoOptional.get()));
+        SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfoOptional.orElseThrow()));
         taskInfoCollector.add(serializedTaskInfo);
 
         // Update Spark Accumulators for spark internal metrics
-        PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.get());
+        PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.orElseThrow());
     }
 
     private static Optional<TaskInfo> tryGetTaskInfo(NativeExecutionTask task)
@@ -624,7 +624,7 @@ public class PrestoSparkNativeTaskExecutorFactory
 
                 Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
 
-                processTaskInfoForErrorsOrCompletion(taskInfo.get());
+                processTaskInfoForErrorsOrCompletion(taskInfo.orElseThrow());
             }
             catch (RuntimeException ex) {
                 // For a failed task, if taskInfo is present we still want to log the metrics
@@ -656,7 +656,7 @@ public class PrestoSparkNativeTaskExecutorFactory
             // Set partition ID to help match the results to the task on the driver for debugging.
             MutablePartitionId mutablePartitionId = new MutablePartitionId();
             mutablePartitionId.setPartition(partitionId);
-            return new Tuple2<>(mutablePartitionId, (T) toPrestoSparkSerializedPage(next.get()));
+            return new Tuple2<>(mutablePartitionId, (T) toPrestoSparkSerializedPage(next.orElseThrow()));
         }
     }
 

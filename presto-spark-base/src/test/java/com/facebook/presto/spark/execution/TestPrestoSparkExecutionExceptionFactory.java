@@ -71,14 +71,14 @@ public class TestPrestoSparkExecutionExceptionFactory
 
         Optional<ExecutionFailureInfo> failure = factory.extractExecutionFailureInfo(executionException);
         assertTrue(failure.isPresent());
-        assertFailure(failure.get().toFailure(), prestoException);
+        assertFailure(failure.orElseThrow().toFailure(), prestoException);
 
         ExceptionFailure exceptionFailure = new ExceptionFailure(executionException, asScalaBuffer(ImmutableList.of()));
         SparkException sparkException = new SparkException(SPARK_EXCEPTION_STRING + exceptionFailure.toErrorString());
 
         failure = factory.extractExecutionFailureInfo(sparkException);
         assertTrue(failure.isPresent());
-        assertFailure(failure.get().toFailure(), prestoException);
+        assertFailure(failure.orElseThrow().toFailure(), prestoException);
     }
 
     private static void assertFailure(Failure failure, Throwable expected)

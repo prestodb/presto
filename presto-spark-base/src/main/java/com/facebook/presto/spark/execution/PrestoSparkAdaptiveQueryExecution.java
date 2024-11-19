@@ -272,7 +272,7 @@ public class PrestoSparkAdaptiveQueryExecution
 
         while (planAndFragments.hasRemainingPlan()) {
             List<SubPlan> readyFragments = planAndFragments.getReadyFragments();
-            Set<PlanFragmentId> rootChildren = getRootChildNodeFragmentIDs(planAndFragments.getRemainingPlan().get());
+            Set<PlanFragmentId> rootChildren = getRootChildNodeFragmentIDs(planAndFragments.getRemainingPlan().orElseThrow());
             for (SubPlan fragment : readyFragments) {
                 log.info(format("Executing fragment : %s",
                         textPlanFragment(fragment.getFragment(), metadata.getFunctionAndTypeManager(), session, true)));
@@ -288,7 +288,7 @@ public class PrestoSparkAdaptiveQueryExecution
                 // Note that these are Scala futures that we manipulate here in Java.
                 Optional<SimpleFutureAction<MapOutputStatistics>> fragmentFuture = fragmentExecutionResult.getMapOutputStatisticsFutureAction();
                 if (fragmentFuture.isPresent()) {
-                    SimpleFutureAction<MapOutputStatistics> mapOutputStatsFuture = fragmentFuture.get();
+                    SimpleFutureAction<MapOutputStatistics> mapOutputStatsFuture = fragmentFuture.orElseThrow();
 
                     mapOutputStatsFuture.onComplete(new AbstractFunction1<Try<MapOutputStatistics>, Void>()
                     {
@@ -343,12 +343,12 @@ public class PrestoSparkAdaptiveQueryExecution
                     stats -> fragmentStatsProvider.putStats(session.getQueryId(), successEvent.getFragmentId(), stats));
 
             // Re-optimize plan.
-            PlanNode optimizedPlan = planAndFragments.getRemainingPlan().get();
+            PlanNode optimizedPlan = planAndFragments.getRemainingPlan().orElseThrow();
             for (PlanOptimizer optimizer : adaptivePlanOptimizers) {
                 optimizedPlan = optimizer.optimize(optimizedPlan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector).getPlanNode();
             }
 
-            if (!optimizedPlan.equals(planAndFragments.getRemainingPlan().get())) {
+            if (!optimizedPlan.equals(planAndFragments.getRemainingPlan().orElseThrow())) {
                 log.info("adaptive plan optimizations triggered");
             }
 
@@ -405,7 +405,7 @@ public class PrestoSparkAdaptiveQueryExecution
         if (finalFragment.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION)) {
             Map<PlanFragmentId, RddAndMore<PrestoSparkSerializedPage>> inputRdds = new HashMap<>();
             for (SubPlan child : finalFragment.getChildren()) {
-                inputRdds.put(child.getFragment().getId(), getRdd(child.getFragment().getId()).get());
+                inputRdds.put(child.getFragment().getId(), getRdd(child.getFragment().getId()).orElseThrow());
             }
             return collectPages(tableWriteInfo, finalFragment.getFragment(), inputRdds);
         }

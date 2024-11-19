@@ -331,7 +331,7 @@ public class NativeExecutionProcess
     private String getNativeExecutionCatalogName(Session session)
     {
         checkArgument(session.getCatalog().isPresent(), "Catalog isn't set in the session.");
-        return session.getCatalog().get();
+        return session.getCatalog().orElseThrow();
     }
 
     private void populateConfigurationFiles(String configBasePath)

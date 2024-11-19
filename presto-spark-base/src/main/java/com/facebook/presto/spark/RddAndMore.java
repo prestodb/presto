@@ -100,6 +100,6 @@ public class RddAndMore<T extends PrestoSparkTaskOutput>
 
     public boolean isBroadcastDistribution()
     {
-        return this.getPartitioningHandle().isPresent() && this.getPartitioningHandle().get().equals(FIXED_BROADCAST_DISTRIBUTION);
+        return this.getPartitioningHandle().isPresent() && this.getPartitioningHandle().orElseThrow().equals(FIXED_BROADCAST_DISTRIBUTION);
     }
 }
