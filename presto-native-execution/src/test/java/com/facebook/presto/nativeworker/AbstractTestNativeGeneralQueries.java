@@ -1646,7 +1646,7 @@ public abstract class AbstractTestNativeGeneralQueries
             // We have to create the table through metadata, rather than
             // through Presto SQL since, if we use the latter, Presto will
             // convert the field names to lower case.
-            SchemaTableName table = new SchemaTableName(session.getSchema().get(), tmpTableName);
+            SchemaTableName table = new SchemaTableName(session.getSchema().orElseThrow(), tmpTableName);
             Map<String, Object> tableProperties = ImmutableMap.<String, Object>builder()
                     .put(STORAGE_FORMAT_PROPERTY, DWRF)
                     .put(PARTITIONED_BY_PROPERTY, ImmutableList.of())
@@ -1664,7 +1664,7 @@ public abstract class AbstractTestNativeGeneralQueries
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .singleStatement()
                     .execute(session, s -> {
-                        queryRunner.getMetadata().createTable(s, s.getCatalog().get(), tableMetadata, false);
+                        queryRunner.getMetadata().createTable(s, s.getCatalog().orElseThrow(), tableMetadata, false);
                     });
 
             // Write some data so we can read it back.
