@@ -90,7 +90,7 @@ public class RowColumnValidator
     private static Column getFieldAsColumn(Column column, Field field, int fieldIndex)
     {
         Expression fieldExpression = field.getName()
-                .<Expression>map(name -> new DereferenceExpression(column.getExpression(), delimitedIdentifier(field.getName().get())))
+                .<Expression>map(name -> new DereferenceExpression(column.getExpression(), delimitedIdentifier(field.getName().orElseThrow())))
                 .orElseGet(() -> new SubscriptExpression(column.getExpression(), new LongLiteral(String.valueOf(fieldIndex + 1))));
 
         return Column.create(column.getName() + "." + field.getName().orElse("_col" + (fieldIndex + 1)), fieldExpression, field.getType());

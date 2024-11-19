@@ -46,7 +46,7 @@ import static com.facebook.presto.verifier.framework.VerifierConfig.QUERY_BANK_M
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.source.AbstractJdbiSnapshotQuerySupplier.VERIFIER_SNAPSHOT_KEY_PATTERN;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -122,7 +122,7 @@ public class DataVerification
             QueryResult<ChecksumResult> controlChecksum = callAndConsume(
                     () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
                     stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId));
-            controlChecksumResult = getOnlyElement(controlChecksum.getResults());
+            controlChecksumResult = controlChecksum.getResults().stream().collect(onlyElement());
 
             if (saveSnapshot) {
                 String snapshot = ChecksumResult.toJson(controlChecksumResult);
@@ -153,7 +153,7 @@ public class DataVerification
         QueryResult<ChecksumResult> testChecksum = callAndConsume(
                 () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
                 stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId));
-        ChecksumResult testChecksumResult = getOnlyElement(testChecksum.getResults());
+        ChecksumResult testChecksumResult = testChecksum.getResults().stream().collect(onlyElement());
 
         return match(DATA, checksumValidator, controlColumns, testColumns, controlChecksumResult, testChecksumResult);
     }
@@ -172,13 +172,13 @@ public class DataVerification
             Optional<DataMatchResult> matchResult,
             Optional<Throwable> throwable)
     {
-        if (matchResult.isPresent() && !matchResult.get().isMatched()) {
+        if (matchResult.isPresent() && !matchResult.orElseThrow().isMatched()) {
             checkState(control.isPresent(), "control is missing");
-            return failureResolverManager.resolveResultMismatch((DataMatchResult) matchResult.get(), control.get());
+            return failureResolverManager.resolveResultMismatch((DataMatchResult) matchResult.orElseThrow(), control.orElseThrow());
         }
         if (throwable.isPresent() && ImmutableList.of(QueryState.SUCCEEDED, QueryState.REUSE).contains(controlQueryContext.getState())) {
             checkState(controlQueryContext.getMainQueryStats().isPresent(), "controlQueryStats is missing");
-            return failureResolverManager.resolveException(controlQueryContext.getMainQueryStats().get(), throwable.get(), test);
+            return failureResolverManager.resolveException(controlQueryContext.getMainQueryStats().orElseThrow(), throwable.orElseThrow(), test);
         }
         return Optional.empty();
     }

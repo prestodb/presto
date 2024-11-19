@@ -64,7 +64,7 @@ public class ArrayColumnChecksum
     public FloatingPointColumnChecksum getFloatingPointChecksum()
     {
         checkArgument(floatingPointChecksum.isPresent(), "Expect Floating Point Checksum to be present, but it is not");
-        return floatingPointChecksum.get();
+        return floatingPointChecksum.orElseThrow();
     }
 
     @Override
@@ -98,7 +98,7 @@ public class ArrayColumnChecksum
         else {
             return format(
                     "%s, cardinality_checksum: %s, cardinality_sum: %s",
-                    floatingPointChecksum.get(),
+                    floatingPointChecksum.orElseThrow(),
                     cardinalityChecksum,
                     cardinalitySum);
         }

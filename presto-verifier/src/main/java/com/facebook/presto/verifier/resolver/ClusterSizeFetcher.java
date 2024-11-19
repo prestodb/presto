@@ -32,7 +32,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -53,7 +53,7 @@ public class ClusterSizeFetcher
             RetryConfig networkRetryConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.nodeResourceUri = requireNonNull(getOnlyElement(prestoAddress.getHttpUris(PATH)), "nodeResourceUri is null");
+        this.nodeResourceUri = requireNonNull(prestoAddress.getHttpUris(PATH).stream().collect(onlyElement()), "nodeResourceUri is null");
         this.networkRetry = new RetryDriver<>(networkRetryConfig, PrestoExceptionClassifier::isClusterConnectionException, RuntimeException.class, e -> {});
     }
 

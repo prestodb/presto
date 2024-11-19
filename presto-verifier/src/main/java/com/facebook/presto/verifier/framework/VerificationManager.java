@@ -235,7 +235,7 @@ public class VerificationManager
             return sourceQueries;
         }
         List<SourceQuery> selected = sourceQueries.stream()
-                .filter(sourceQuery -> whitelist.get().contains(sourceQuery.getName()))
+                .filter(sourceQuery -> whitelist.orElseThrow().contains(sourceQuery.getName()))
                 .collect(toImmutableList());
         log.info("Applying whitelist... Remaining queries: %s", selected.size());
         return selected;
@@ -247,7 +247,7 @@ public class VerificationManager
             return sourceQueries;
         }
         List<SourceQuery> selected = sourceQueries.stream()
-                .filter(sourceQuery -> !blacklist.get().contains(sourceQuery.getName()))
+                .filter(sourceQuery -> !blacklist.orElseThrow().contains(sourceQuery.getName()))
                 .collect(toImmutableList());
         log.info("Applying blacklist... Remaining queries: %s", selected.size());
         return selected;
@@ -358,8 +358,8 @@ public class VerificationManager
                 Optional<VerifierQueryEvent> event = result.getEvent();
                 completed++;
                 if (event.isPresent()) {
-                    statusCount.compute(EventStatus.valueOf(event.get().getStatus()), (status, count) -> count == null ? 1 : count + 1);
-                    postEvent(event.get());
+                    statusCount.compute(EventStatus.valueOf(event.orElseThrow().getStatus()), (status, count) -> count == null ? 1 : count + 1);
+                    postEvent(event.orElseThrow());
                 }
 
                 if (result.shouldResubmit()) {

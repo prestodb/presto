@@ -45,14 +45,14 @@ public class TestCreateTableVerification
 
         Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.of(MATCH), false);
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.of(MATCH), false);
 
         getQueryRunner().execute("CREATE TABLE like_table (x int, ds varchar)");
         query = "CREATE TABLE succeeded (LIKE like_table INCLUDING PROPERTIES)";
 
         event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.of(MATCH), false);
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.of(MATCH), false);
 
         getQueryRunner().execute("DROP TABLE like_table");
     }
@@ -65,7 +65,7 @@ public class TestCreateTableVerification
 
         Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.of(MATCH), false);
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.of(MATCH), false);
 
         getQueryRunner().execute("DROP TABLE succeeded_exists");
     }
@@ -78,7 +78,7 @@ public class TestCreateTableVerification
 
         Optional<VerifierQueryEvent> event = verify(getSourceQuery(query, query), false, prestoAction);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), FAILED, Optional.of(CONTROL_NOT_PARSABLE), false);
+        assertEvent(event.orElseThrow(), FAILED, Optional.of(CONTROL_NOT_PARSABLE), false);
     }
 
     @Test
@@ -89,7 +89,7 @@ public class TestCreateTableVerification
 
         Optional<VerifierQueryEvent> event = verify(getSourceQuery(query, query), false, prestoAction);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), FAILED, Optional.of(TEST_NOT_PARSABLE), false);
+        assertEvent(event.orElseThrow(), FAILED, Optional.of(TEST_NOT_PARSABLE), false);
     }
 
     @Test
@@ -102,7 +102,7 @@ public class TestCreateTableVerification
 
         Optional<VerifierQueryEvent> event = verify(getSourceQuery(query, query), false, prestoAction);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), FAILED, Optional.of(MISMATCH), false);
+        assertEvent(event.orElseThrow(), FAILED, Optional.of(MISMATCH), false);
     }
 
     @Test
@@ -112,7 +112,7 @@ public class TestCreateTableVerification
                 "CREATE TABLE failed (LIKE non_existing)",
                 "CREATE TABLE failed (LIKE non_existing)");
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SKIPPED, Optional.empty(), false);
+        assertEvent(event.orElseThrow(), SKIPPED, Optional.empty(), false);
     }
 
     @Test
@@ -122,7 +122,7 @@ public class TestCreateTableVerification
                 "CREATE TABLE failed (x int, ds varchar)",
                 "CREATE TABLE failed (LIKE non_existing)");
         assertTrue(event.isPresent());
-        assertEvent(event.get(), FAILED, Optional.empty(), false);
+        assertEvent(event.orElseThrow(), FAILED, Optional.empty(), false);
     }
 
     @Test
@@ -132,11 +132,11 @@ public class TestCreateTableVerification
 
         Optional<VerifierQueryEvent> event = runVerification(query, query, saveSnapshotSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.orElseThrow(), SUCCEEDED);
 
         event = runVerification(query, query, queryBankModeSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.orElseThrow(), SUCCEEDED);
     }
 
     private void assertEvent(

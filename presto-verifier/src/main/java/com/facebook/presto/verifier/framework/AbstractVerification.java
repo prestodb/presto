@@ -206,23 +206,23 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             // Rewrite queries
             if (isControlEnabled()) {
                 control = Optional.of(getQueryRewrite(CONTROL));
-                controlReuseTable = control.isPresent() && control.get() instanceof QueryObjectBundle && ((QueryObjectBundle) control.get()).isReuseTable();
+                controlReuseTable = control.isPresent() && control.orElseThrow() instanceof QueryObjectBundle && ((QueryObjectBundle) control.orElseThrow()).isReuseTable();
                 if (controlReuseTable) {
                     controlQueryContext.setState(QueryState.REUSE);
-                    controlQueryContext.setMainQueryStats(QueryActionStats.queryIdStats(sourceQuery.getQueryId(CONTROL).get()));
+                    controlQueryContext.setMainQueryStats(QueryActionStats.queryIdStats(sourceQuery.getQueryId(CONTROL).orElseThrow()));
                 }
             }
 
             test = Optional.of(getQueryRewrite(TEST));
-            testReuseTable = test.isPresent() && test.get() instanceof QueryObjectBundle && ((QueryObjectBundle) test.get()).isReuseTable();
+            testReuseTable = test.isPresent() && test.orElseThrow() instanceof QueryObjectBundle && ((QueryObjectBundle) test.orElseThrow()).isReuseTable();
             if (testReuseTable) {
                 testQueryContext.setState(QueryState.REUSE);
-                testQueryContext.setMainQueryStats(QueryActionStats.queryIdStats(sourceQuery.getQueryId(TEST).get()));
+                testQueryContext.setMainQueryStats(QueryActionStats.queryIdStats(sourceQuery.getQueryId(TEST).orElseThrow()));
             }
 
             // First run setup queries
             if (isControlEnabled() && !controlReuseTable) {
-                QueryBundle controlQueryBundle = control.get();
+                QueryBundle controlQueryBundle = control.orElseThrow();
                 QueryAction controlSetupAction = setupOnMainClusters ? queryActions.getControlAction() : queryActions.getHelperAction();
                 controlQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
                         () -> controlSetupAction.execute(query, CONTROL_SETUP),
@@ -230,7 +230,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                         controlQueryContext::setException));
             }
             if (!testReuseTable) {
-                QueryBundle testQueryBundle = test.get();
+                QueryBundle testQueryBundle = test.orElseThrow();
                 QueryAction testSetupAction = setupOnMainClusters ? queryActions.getTestAction() : queryActions.getHelperAction();
                 testQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
                         () -> testSetupAction.execute(query, TEST_SETUP),
@@ -242,7 +242,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             ListenableFuture<Optional<QueryResult<V>>> testQueryFuture = immediateFuture(Optional.empty());
             // Start control query
             if (isControlEnabled() && !controlReuseTable) {
-                QueryBundle controlQueryBundle = control.get();
+                QueryBundle controlQueryBundle = control.orElseThrow();
                 controlQueryFuture = executor.submit(() -> runMainQuery(controlQueryBundle.getQuery(), CONTROL, controlQueryContext));
             }
             if (!concurrentControlAndTest) {
@@ -251,7 +251,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
 
             // Run test queries
             if (!testReuseTable) {
-                QueryBundle testQueryBundle = test.get();
+                QueryBundle testQueryBundle = test.orElseThrow();
                 testQueryFuture = executor.submit(() -> runMainQuery(testQueryBundle.getQuery(), TEST, testQueryContext));
             }
             controlQueryResult = getFutureValue(controlQueryFuture);
@@ -279,19 +279,19 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             if (QUERY_BANK_MODE.equals(runningMode) && !saveSnapshot && !skipChecksum) {
                 // query-bank mode
                 control = test;
-                matchResult = Optional.of(verify(control.get(), test.get(), controlQueryResult, testQueryResult, controlChecksumQueryContext, testChecksumQueryContext));
+                matchResult = Optional.of(verify(control.orElseThrow(), test.orElseThrow(), controlQueryResult, testQueryResult, controlChecksumQueryContext, testChecksumQueryContext));
             }
             else if ((isControlEnabled()) && !skipChecksum) {
                 // regular mode or query-bank with saveSnapshot = true
-                matchResult = Optional.of(verify(control.get(), test.get(), controlQueryResult, testQueryResult, controlChecksumQueryContext, testChecksumQueryContext));
+                matchResult = Optional.of(verify(control.orElseThrow(), test.orElseThrow(), controlQueryResult, testQueryResult, controlChecksumQueryContext, testChecksumQueryContext));
 
                 // Determinism analysis
                 if (!QUERY_BANK_MODE.equals(runningMode)) {
-                    if ((controlReuseTable || testReuseTable) && matchResult.get().isMismatchPossiblyCausedByReuseOutdatedTable() && verificationContext.getResubmissionCount() < verificationResubmissionLimit) {
+                    if ((controlReuseTable || testReuseTable) && matchResult.orElseThrow().isMismatchPossiblyCausedByReuseOutdatedTable() && verificationContext.getResubmissionCount() < verificationResubmissionLimit) {
                         return new VerificationResult(this, true, Optional.empty());
                     }
-                    else if (matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
-                        determinismAnalysisDetails = Optional.of(analyzeDeterminism(control.get(), matchResult.get()));
+                    else if (matchResult.orElseThrow().isMismatchPossiblyCausedByNonDeterminism()) {
+                        determinismAnalysisDetails = Optional.of(analyzeDeterminism(control.orElseThrow(), matchResult.orElseThrow()));
                     }
                 }
             }
@@ -317,7 +317,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         finally {
             if (!smartTeardown
                     || !ImmutableList.of(QueryState.SUCCEEDED, QueryState.REUSE).contains(testQueryContext.getState())
-                    || (partialResult.isPresent() && partialResult.get().getStatus().equals(SUCCEEDED))) {
+                    || (partialResult.isPresent() && partialResult.orElseThrow().getStatus().equals(SUCCEEDED))) {
                 QueryAction controlTeardownAction = teardownOnMainClusters ? queryActions.getControlAction() : queryActions.getHelperAction();
                 QueryAction testTeardownAction = teardownOnMainClusters ? queryActions.getTestAction() : queryActions.getHelperAction();
                 teardownSafely(controlTeardownAction, control, controlQueryContext::addTeardownQuery);
@@ -326,7 +326,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         }
 
         return concludeVerification(
-                partialResult.get(),
+                partialResult.orElseThrow(),
                 control,
                 test,
                 controlQueryResult,
@@ -349,7 +349,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                     () -> ((PrestoAction) queryActions.getQueryAction(clusterType)).execute(
                             statement,
                             clusterType == CONTROL ? CONTROL_MAIN : TEST_MAIN,
-                            mainQueryResultSetConverter.get()),
+                            mainQueryResultSetConverter.orElseThrow()),
                     queryContext::setMainQueryStats,
                     queryContext::setException));
         }
@@ -368,7 +368,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             QueryContext controlQueryContext,
             QueryContext testQueryContext)
     {
-        if (skippedReason.isPresent() || (matchResult.isPresent() && SNAPSHOT_DOES_NOT_EXIST.equals(matchResult.get().getMatchTypeName()))) {
+        if (skippedReason.isPresent() || (matchResult.isPresent() && SNAPSHOT_DOES_NOT_EXIST.equals(matchResult.orElseThrow().getMatchTypeName()))) {
             return SKIPPED;
         }
         if (resolveMessage.isPresent()) {
@@ -388,7 +388,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 }
             }
             else {
-                if (matchResult.isPresent() && matchResult.get().isMatched()) {
+                if (matchResult.isPresent() && matchResult.orElseThrow().isMatched()) {
                     return SUCCEEDED;
                 }
             }
@@ -500,7 +500,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
 
     protected static String formatSql(Statement statement, Optional<String> comment)
     {
-        return comment.isPresent() ? formatSql(statement) + "\n-- " + comment.get() : formatSql(statement);
+        return comment.isPresent() ? formatSql(statement) + "\n-- " + comment.orElseThrow() : formatSql(statement);
     }
 
     protected static List<String> formatSqls(List<Statement> statements)
@@ -512,7 +512,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
 
     private Optional<SkippedReason> getSkippedReason(Optional<Throwable> throwable, QueryState controlState, Optional<DeterminismAnalysis> determinismAnalysis)
     {
-        if (throwable.isPresent() && !(throwable.get() instanceof QueryException)) {
+        if (throwable.isPresent() && !(throwable.orElseThrow() instanceof QueryException)) {
             return Optional.of(VERIFIER_INTERNAL_ERROR);
         }
         if (skipControl && !QUERY_BANK_MODE.equals(runningMode)) {
@@ -528,7 +528,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             case NOT_RUN:
                 return Optional.of(FAILED_BEFORE_CONTROL_QUERY);
         }
-        if (determinismAnalysis.isPresent() && determinismAnalysis.get().isNonDeterministic()) {
+        if (determinismAnalysis.isPresent() && determinismAnalysis.orElseThrow().isNonDeterministic()) {
             return Optional.of(NON_DETERMINISTIC);
         }
         return Optional.empty();
@@ -559,8 +559,8 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
     {
         StringBuilder message = new StringBuilder(format("Test state %s, Control state %s.%n%n", testState, controlState));
         if (throwable.isPresent()) {
-            if (throwable.get() instanceof PrestoQueryException) {
-                PrestoQueryException exception = (PrestoQueryException) throwable.get();
+            if (throwable.orElseThrow() instanceof PrestoQueryException) {
+                PrestoQueryException exception = (PrestoQueryException) throwable.orElseThrow();
                 message.append(exception.getQueryStage().name().replace("_", " "))
                         .append(" query failed on ")
                         .append(exception.getQueryStage().getTargetCluster())
@@ -568,7 +568,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                         .append(exception.getCause() == null ? nullToEmpty(exception.getMessage()) : getStackTraceAsString(exception.getCause()));
             }
             else {
-                message.append(getStackTraceAsString(throwable.get()));
+                message.append(getStackTraceAsString(throwable.orElseThrow()));
             }
         }
         matchResult.ifPresent(result -> message.append(result.getReport()));

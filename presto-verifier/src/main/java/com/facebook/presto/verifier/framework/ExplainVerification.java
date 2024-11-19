@@ -47,7 +47,7 @@ import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchTyp
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.facebook.presto.verifier.source.AbstractJdbiSnapshotQuerySupplier.VERIFIER_SNAPSHOT_KEY_PATTERN;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -100,7 +100,7 @@ public class ExplainVerification
         JsonRenderedNode controlPlan;
         if (isControlEnabled()) {
             checkArgument(controlQueryResult.isPresent(), "control query plan is missing");
-            String result = getOnlyElement(controlQueryResult.get().getResults());
+            String result = controlQueryResult.orElseThrow().getResults().stream().collect(onlyElement());
             if (saveSnapshot) {
                 snapshotQueryConsumer.accept(new SnapshotQuery(getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain, result));
                 return new ExplainMatchResult(MATCH);
@@ -116,7 +116,7 @@ public class ExplainVerification
             String snapshotJson = snapshotQuery.getSnapshot();
             controlPlan = planCodec.fromJson(snapshotJson);
         }
-        JsonRenderedNode testPlan = planCodec.fromJson(getOnlyElement(testQueryResult.get().getResults()));
+        JsonRenderedNode testPlan = planCodec.fromJson(testQueryResult.orElseThrow().getResults().stream().collect(onlyElement()));
 
         return new ExplainMatchResult(match(controlPlan, testPlan));
     }
@@ -136,7 +136,7 @@ public class ExplainVerification
     @Override
     protected void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<String>> queryResult)
     {
-        queryResult.ifPresent(result -> queryInfo.setJsonPlan(getOnlyElement(result.getResults())));
+        queryResult.ifPresent(result -> queryInfo.setJsonPlan(result.getResults().stream().collect(onlyElement())));
     }
 
     private MatchType match(JsonRenderedNode controlPlan, JsonRenderedNode testPlan)

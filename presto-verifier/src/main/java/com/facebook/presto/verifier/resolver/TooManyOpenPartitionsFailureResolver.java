@@ -44,7 +44,7 @@ import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.facebook.presto.verifier.resolver.FailureResolverUtil.mapMatchingPrestoException;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -93,8 +93,8 @@ public class TooManyOpenPartitionsFailureResolver
         return mapMatchingPrestoException(queryException, TEST_MAIN, ImmutableSet.of(errorCodeSupplier),
                 e -> {
                     try {
-                        ShowCreate showCreate = new ShowCreate(TABLE, test.get().getObjectName());
-                        String showCreateResult = getOnlyElement(prestoAction.execute(showCreate, DESCRIBE, resultSet -> Optional.of(resultSet.getString(1))).getResults());
+                        ShowCreate showCreate = new ShowCreate(TABLE, test.orElseThrow().getObjectName());
+                        String showCreateResult = prestoAction.execute(showCreate, DESCRIBE, resultSet -> Optional.of(resultSet.getString(1))).getResults().stream().collect(onlyElement());
                         CreateTable createTable = (CreateTable) sqlParser.createStatement(showCreateResult, ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build());
                         List<Property> bucketCountProperty = createTable.getProperties().stream()
                                 .filter(property -> property.getName().getValue().equals("bucket_count"))
@@ -102,7 +102,7 @@ public class TooManyOpenPartitionsFailureResolver
                         if (bucketCountProperty.size() != 1) {
                             return Optional.empty();
                         }
-                        long bucketCount = ((LongLiteral) getOnlyElement(bucketCountProperty).getValue()).getValue();
+                        long bucketCount = ((LongLiteral) bucketCountProperty.stream().collect(onlyElement()).getValue()).getValue();
 
                         int testClusterSize = this.testClusterSizeSupplier.get();
 

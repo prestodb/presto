@@ -43,7 +43,7 @@ public class FailureResolverManager
             if (!controlStats.getQueryStats().isPresent()) {
                 continue;
             }
-            Optional<String> resolveMessage = failureResolver.resolveQueryFailure(controlStats.getQueryStats().get(), (QueryException) throwable, test);
+            Optional<String> resolveMessage = failureResolver.resolveQueryFailure(controlStats.getQueryStats().orElseThrow(), (QueryException) throwable, test);
             if (resolveMessage.isPresent()) {
                 return resolveMessage;
             }
