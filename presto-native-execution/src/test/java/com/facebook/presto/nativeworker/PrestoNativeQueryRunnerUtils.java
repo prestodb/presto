@@ -121,7 +121,7 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath, false, isCoordinatorSidecarEnabled);
+        return createNativeQueryRunner(dataDirectory.orElseThrow().toString(), prestoServerPath.orElseThrow(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath, false, isCoordinatorSidecarEnabled);
     }
 
     public static QueryRunner createJavaQueryRunner()
@@ -511,7 +511,7 @@ public class PrestoNativeQueryRunnerUtils
                                     "remote-function-server.catalog-name=%s%n" +
                                     "remote-function-server.thrift.uds-path=%s%n" +
                                     "remote-function-server.serde=presto_page%n" +
-                                    "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
+                                    "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.orElseThrow(), jsonSignaturesPath);
                         }
 
                         if (failOnNestedLoopJoin) {
