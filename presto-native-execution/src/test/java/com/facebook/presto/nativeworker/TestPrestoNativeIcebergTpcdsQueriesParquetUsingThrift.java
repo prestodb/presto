@@ -23,7 +23,7 @@ import java.util.Map;
 
 import static org.testng.Assert.assertEquals;
 
-@Test(groups = {"parquet"})
+@Test(groups = "parquet")
 public class TestPrestoNativeIcebergTpcdsQueriesParquetUsingThrift
         extends AbstractTestNativeTpcdsQueries
 {

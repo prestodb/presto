@@ -308,7 +308,7 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
-    @Test(groups = {"parquet"})
+    @Test(groups = "parquet")
     public void testAnalyzeStatsOnDecimals()
     {
         String tmpTableName = generateRandomTableName();
@@ -376,7 +376,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 "JOIN lineitem i TABLESAMPLE BERNOULLI (40) ON o.orderkey = i.orderkey");
     }
 
-    @Test(groups = {"parquet"})
+    @Test(groups = "parquet")
     public void testDateFilter()
     {
         String tmpTableName = generateRandomTableName();
@@ -1246,19 +1246,19 @@ public abstract class AbstractTestNativeGeneralQueries
         return tableName;
     }
 
-    @Test(groups = {"no_json_reader"})
+    @Test(groups = "no_json_reader")
     public void testReadTableWithUnsupportedJsonFormat()
     {
         assertQueryFails("SELECT * FROM nation_json", ".*ReaderFactory is not registered for format json.*");
     }
 
-    @Test(groups = {"no_textfile_reader"})
+    @Test(groups = "no_textfile_reader")
     public void testReadTableWithUnsupportedTextfileFormat()
     {
         assertQueryFails("SELECT * FROM nation_text", ".*ReaderFactory is not registered for format text.*");
     }
 
-    @Test(groups = {"textfile_reader"})
+    @Test(groups = "textfile_reader")
     public void testReadTableWithTextfileFormat()
     {
         assertQuery("SELECT * FROM nation_text");
@@ -1383,7 +1383,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT row(name, null, cast(row(nationkey, regionkey) as row(a bigint, b bigint))) FROM nation");
     }
 
-    @Test(groups = {"parquet"})
+    @Test(groups = "parquet")
     public void testDecimalRangeFilters()
     {
         // Actual session is for the native query runner.
@@ -1445,7 +1445,7 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
-    @Test(groups = {"parquet"})
+    @Test(groups = "parquet")
     public void testDecimalApproximateAggregates()
     {
         // Actual session is for the native query runner.
