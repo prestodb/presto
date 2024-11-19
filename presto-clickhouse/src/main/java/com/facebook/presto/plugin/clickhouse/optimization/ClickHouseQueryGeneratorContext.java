@@ -275,7 +275,7 @@ public class ClickHouseQueryGeneratorContext
         String query = "SELECT " + expressions + " FROM " + schema + "." + escapeSqlIdentifier(tableName);
         boolean pushdown = false;
         if (filter.isPresent()) {
-            query += " WHERE " + filter.get();
+            query += " WHERE " + filter.orElseThrow();
             pushdown = true;
         }
 
