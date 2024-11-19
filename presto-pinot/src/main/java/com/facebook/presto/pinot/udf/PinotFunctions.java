@@ -20,10 +20,12 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 import org.apache.commons.codec.binary.Hex;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+@SuppressModernizer
 public class PinotFunctions
 {
     private PinotFunctions() {}
