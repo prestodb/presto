@@ -228,7 +228,7 @@ public class IndexLookup
             return false;
         }
 
-        Entry<Long, AccumuloColumnConstraint> lowestCardinality = entry.get();
+        Entry<Long, AccumuloColumnConstraint> lowestCardinality = entry.orElseThrow();
         String indexTable = getIndexTableName(schema, table);
         double threshold = getIndexThreshold(session);
         List<Range> indexRanges;

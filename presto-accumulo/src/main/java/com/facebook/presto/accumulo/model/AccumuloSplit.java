@@ -72,7 +72,7 @@ public class AccumuloSplit
 
         // Parse the host address into a list of addresses, this would be an Accumulo Tablet server or some localhost thing
         if (hostPort.isPresent()) {
-            addresses = ImmutableList.of(HostAddress.fromString(hostPort.get()));
+            addresses = ImmutableList.of(HostAddress.fromString(hostPort.orElseThrow()));
         }
         else {
             addresses = ImmutableList.of();

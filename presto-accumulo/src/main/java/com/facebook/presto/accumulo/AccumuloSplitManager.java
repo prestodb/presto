@@ -101,7 +101,7 @@ public class AccumuloSplitManager
     private static Optional<Domain> getRangeDomain(String rowIdName, TupleDomain<ColumnHandle> constraint)
     {
         if (constraint.getColumnDomains().isPresent()) {
-            for (ColumnDomain<ColumnHandle> cd : constraint.getColumnDomains().get()) {
+            for (ColumnDomain<ColumnHandle> cd : constraint.getColumnDomains().orElseThrow()) {
                 AccumuloColumnHandle col = (AccumuloColumnHandle) cd.getColumn();
                 if (col.getName().equals(rowIdName)) {
                     return Optional.of(cd.getDomain());
@@ -122,15 +122,15 @@ public class AccumuloSplitManager
     private static List<AccumuloColumnConstraint> getColumnConstraints(String rowIdName, TupleDomain<ColumnHandle> constraint)
     {
         ImmutableList.Builder<AccumuloColumnConstraint> constraintBuilder = ImmutableList.builder();
-        for (ColumnDomain<ColumnHandle> columnDomain : constraint.getColumnDomains().get()) {
+        for (ColumnDomain<ColumnHandle> columnDomain : constraint.getColumnDomains().orElseThrow()) {
             AccumuloColumnHandle columnHandle = (AccumuloColumnHandle) columnDomain.getColumn();
 
             if (!columnHandle.getName().equals(rowIdName)) {
                 // Family and qualifier will exist for non-row ID columns
                 constraintBuilder.add(new AccumuloColumnConstraint(
                         columnHandle.getName(),
-                        columnHandle.getFamily().get(),
-                        columnHandle.getQualifier().get(),
+                        columnHandle.getFamily().orElseThrow(),
+                        columnHandle.getQualifier().orElseThrow(),
                         Optional.of(columnDomain.getDomain()),
                         columnHandle.isIndexed()));
             }
