@@ -228,10 +228,6 @@
                     <groupId>org.apache.hudi</groupId>
                     <artifactId>hudi-presto-bundle</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.yaml</groupId>
-                    <artifactId>snakeyaml</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 

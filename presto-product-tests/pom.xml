@@ -57,12 +57,6 @@
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-core</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.yaml</groupId>
-                    <artifactId>snakeyaml</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
