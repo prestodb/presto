@@ -89,8 +89,8 @@ public class FunctionResource
     @Inject
     public FunctionResource(FunctionAndTypeManager manager, JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> jsonCodec)
     {
-        this.manager = manager;
-        this.jsonCodec = jsonCodec;
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.pagesSerde = createPagesSerde();
     }
 

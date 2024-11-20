@@ -32,10 +32,6 @@ public class FunctionServer
 {
     private static final Logger log = Logger.get(FunctionServer.class);
 
-    public FunctionServer()
-    {
-    }
-
     public static void main(String[] args)
     {
         new FunctionServer().run();
