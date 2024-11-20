@@ -75,8 +75,8 @@ public class ClusterManager
             return Optional.empty();
         }
 
-        checkArgument(groups.containsKey(target.get()));
-        GroupSpec groupSpec = groups.get(target.get());
+        checkArgument(groups.containsKey(target.orElseThrow()));
+        GroupSpec groupSpec = groups.get(target.orElseThrow());
         scheduler.setCandidates(groupSpec.getMembers());
         if (schedulerType == WEIGHTED_RANDOM_CHOICE) {
             scheduler.setWeights(serverWeights.get(groupSpec.getName()));
