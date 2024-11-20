@@ -71,6 +71,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnforceFixedDistributionForOutputOperator;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeJoinBuildPartitionEnforced;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
@@ -787,7 +788,12 @@ public class AddLocalExchanges
                     .collect(toImmutableList());
             StreamPreferredProperties buildPreference;
             if (getTaskConcurrency(session) > 1) {
-                buildPreference = exactlyPartitionedOn(buildHashVariables);
+                if (nativeExecution && !isNativeJoinBuildPartitionEnforced(session)) {
+                    buildPreference = defaultParallelism(session);
+                }
+                else {
+                    buildPreference = exactlyPartitionedOn(buildHashVariables);
+                }
             }
             else {
                 buildPreference = singleStream();

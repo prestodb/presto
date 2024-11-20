@@ -31,6 +31,7 @@ import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeJoinBuildPartitionEnforced;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
@@ -89,7 +90,12 @@ public class ValidateStreamingJoins
                         .collect(toImmutableList());
                 StreamPreferredProperties requiredBuildProperty;
                 if (getTaskConcurrency(session) > 1) {
-                    requiredBuildProperty = exactlyPartitionedOn(buildJoinVariables);
+                    if (nativeExecutionEnabled && !isNativeJoinBuildPartitionEnforced(session)) {
+                        requiredBuildProperty = defaultParallelism(session);
+                    }
+                    else {
+                        requiredBuildProperty = exactlyPartitionedOn(buildJoinVariables);
+                    }
                 }
                 else {
                     requiredBuildProperty = singleStream();
