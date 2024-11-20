@@ -238,6 +238,7 @@ public class FeaturesConfig
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
+    private boolean nativeEnforceJoinBuildInputPartition = true;
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
     private ShardedJoinStrategy shardedJoinStrategy = ShardedJoinStrategy.DISABLED;
@@ -2316,6 +2317,19 @@ public class FeaturesConfig
     public boolean isNativeExecutionProcessReuseEnabled()
     {
         return this.nativeExecutionProcessReuseEnabled;
+    }
+
+    @Config("native-enforce-join-build-input-partition")
+    @ConfigDescription("Enforce that the join build input is partitioned on join key")
+    public FeaturesConfig setNativeEnforceJoinBuildInputPartition(boolean nativeEnforceJoinBuildInputPartition)
+    {
+        this.nativeEnforceJoinBuildInputPartition = nativeEnforceJoinBuildInputPartition;
+        return this;
+    }
+
+    public boolean isNativeEnforceJoinBuildInputPartition()
+    {
+        return this.nativeEnforceJoinBuildInputPartition;
     }
 
     public boolean isRandomizeOuterJoinNullKeyEnabled()
