@@ -950,7 +950,7 @@ assigns row numbers within each partition starting from 1.
 
 This operator accumulates state: a hash table mapping partition keys to a list
 of top 'limit' rows within that partition.  Returning the row numbers as
-a column in the output is optional. This operator doesn't support spilling yet.
+a column in the output is optional. This operator supports spilling as well.
 
 This operator is logically equivalent to a WindowNode followed by
 FilterNode(row_number <= limit), but it uses less memory and CPU.
