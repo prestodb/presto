@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 namespace facebook::velox::exec::trace {
