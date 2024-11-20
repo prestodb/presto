@@ -313,6 +313,12 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kAsyncDataCacheEnabled{
       "async-data-cache-enabled"};
+  /// If true, SSD cache is enabled by default and is disabled only if
+  /// `node_selection_strategy` is present and set to `NO_PREFERENCE`.
+  /// Otherwise, SSD cache is disabled by default and is enabled if
+  /// `node_selection_strategy` is present and set to `SOFT_AFFINITY`.
+  static constexpr std::string_view kQueryDataCacheEnabledDefault{
+      "query-data-cache-enabled-default"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
   static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
       "async-cache-ssd-checkpoint-gb"};
@@ -751,6 +757,8 @@ class SystemConfig : public ConfigBase {
   uint32_t mallocMemMaxHeapDumpFiles() const;
 
   bool asyncDataCacheEnabled() const;
+
+  bool queryDataCacheEnabledDefault() const;
 
   uint64_t asyncCacheSsdGb() const;
 
