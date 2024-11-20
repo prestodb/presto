@@ -82,6 +82,7 @@
         <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.26.2</dep.commons.compress.version>
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
+        <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -2058,22 +2059,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.cassandra</groupId>
-                <artifactId>cassandra-server</artifactId>
-                <version>2.1.16-1</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.googlecode.json-simple</groupId>
-                        <artifactId>json-simple</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>io.netty</groupId>
-                        <artifactId>netty-all</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-delta</artifactId>
                 <version>${project.version}</version>
@@ -2217,6 +2202,12 @@
                 <groupId>com.datastax.cassandra</groupId>
                 <artifactId>cassandra-driver-core</artifactId>
                 <version>3.11.5</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${dep.snakeyaml.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
