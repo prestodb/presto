@@ -917,6 +917,7 @@ public class TestScalarStatsCalculator
             return (long) ((Math.random() * (max - min)) + min);
         }
 
+        // Following functions are annotated with incorrect Stats annotation to cover -ve or boundary conditions.
         @ScalarFunction(value = "custom_is_null2", calledOnNullInput = true)
         @SqlType(StandardTypes.BOOLEAN)
         @ScalarFunctionConstantStats(distinctValuesCount = -3.19, nullFraction = 0.0)

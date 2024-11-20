@@ -117,14 +117,14 @@ public class ScalarStatsCalculator
         private final PlanNodeStatsEstimate input;
         private final ConnectorSession session;
         private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
-        private final boolean isStatsPropagationEnabled;
+        private final boolean isScalarFunctionStatsPropagationEnabled;
 
         public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, ConnectorSession session)
         {
             this.input = requireNonNull(input, "input is null");
             this.session = requireNonNull(session, "session is null");
             // casting session to FullConnectorSession is not ideal.
-            this.isStatsPropagationEnabled =
+            this.isScalarFunctionStatsPropagationEnabled =
                     SystemSessionProperties.shouldEnableScalarFunctionStatsPropagation(((FullConnectorSession) session).getSession());
         }
 
@@ -216,7 +216,7 @@ public class ScalarStatsCalculator
 
         private VariableStatsEstimate computeStatsViaAnnotations(CallExpression call, Void context, FunctionMetadata functionMetadata)
         {
-            if (isStatsPropagationEnabled) {
+            if (isScalarFunctionStatsPropagationEnabled) {
                 if (functionMetadata.hasStatsHeader() && call.getFunctionHandle() instanceof BuiltInFunctionHandle) {
                     Signature signature = ((BuiltInFunctionHandle) call.getFunctionHandle()).getSignature().canonicalization();
                     Optional<ScalarStatsHeader> statsHeader = functionMetadata.getScalarStatsHeader(signature);
