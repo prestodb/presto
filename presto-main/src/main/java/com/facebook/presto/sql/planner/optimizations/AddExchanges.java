@@ -651,10 +651,6 @@ public class AddExchanges
 
             Optional<PartitioningScheme> shufflePartitioningScheme = node.getTablePartitioningScheme();
             if (!shufflePartitioningScheme.isPresent()) {
-                shufflePartitioningScheme = node.getPreferredShufflePartitioningScheme();
-            }
-
-            if (!shufflePartitioningScheme.isPresent()) {
                 if (scaleWriters) {
                     shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
                 }

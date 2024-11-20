@@ -51,7 +51,6 @@ public class TableWriterNode
     private final List<String> columnNames;
     private final Set<VariableReferenceExpression> notNullColumnVariables;
     private final Optional<PartitioningScheme> tablePartitioningScheme;
-    private final Optional<PartitioningScheme> preferredShufflePartitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final List<VariableReferenceExpression> outputs;
     private final Optional<Integer> taskCountIfScaledWriter;
@@ -70,12 +69,26 @@ public class TableWriterNode
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("notNullColumnVariables") Set<VariableReferenceExpression> notNullColumnVariables,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> tablePartitioningScheme,
-            @JsonProperty("preferredShufflePartitioningScheme") Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("taskCountIfScaledWriter") Optional<Integer> taskCountIfScaledWriter,
             @JsonProperty("isTemporaryTableWriter") Optional<Boolean> isTemporaryTableWriter)
     {
-        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, notNullColumnVariables, tablePartitioningScheme, preferredShufflePartitioningScheme, statisticsAggregation, taskCountIfScaledWriter, isTemporaryTableWriter);
+        this(
+                sourceLocation,
+                id,
+                Optional.empty(),
+                source,
+                target,
+                rowCountVariable,
+                fragmentVariable,
+                tableCommitContextVariable,
+                columns,
+                columnNames,
+                notNullColumnVariables,
+                tablePartitioningScheme,
+                statisticsAggregation,
+                taskCountIfScaledWriter,
+                isTemporaryTableWriter);
     }
 
     public TableWriterNode(
@@ -91,7 +104,6 @@ public class TableWriterNode
             List<String> columnNames,
             Set<VariableReferenceExpression> notNullColumnVariables,
             Optional<PartitioningScheme> tablePartitioningScheme,
-            Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             Optional<StatisticAggregations> statisticsAggregation,
             Optional<Integer> taskCountIfScaledWriter,
             Optional<Boolean> isTemporaryTableWriter)
@@ -101,9 +113,6 @@ public class TableWriterNode
         requireNonNull(columns, "columns is null");
         requireNonNull(columnNames, "columnNames is null");
         checkArgument(columns.size() == columnNames.size(), "columns and columnNames sizes don't match");
-        checkArgument(
-                !(tablePartitioningScheme.isPresent() && preferredShufflePartitioningScheme.isPresent()),
-                "tablePartitioningScheme and preferredShufflePartitioningScheme cannot both exist");
 
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
@@ -114,7 +123,6 @@ public class TableWriterNode
         this.columnNames = Collections.unmodifiableList(new ArrayList<>(columnNames));
         this.notNullColumnVariables = Collections.unmodifiableSet(new LinkedHashSet<>(requireNonNull(notNullColumnVariables, "notNullColumns is null")));
         this.tablePartitioningScheme = requireNonNull(tablePartitioningScheme, "partitioningScheme is null");
-        this.preferredShufflePartitioningScheme = requireNonNull(preferredShufflePartitioningScheme, "preferredShufflePartitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
 
         List<VariableReferenceExpression> outputsList = new ArrayList<>();
@@ -185,12 +193,6 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public Optional<PartitioningScheme> getPreferredShufflePartitioningScheme()
-    {
-        return preferredShufflePartitioningScheme;
-    }
-
-    @JsonProperty
     public Optional<StatisticAggregations> getStatisticsAggregation()
     {
         return statisticsAggregation;
@@ -243,7 +245,6 @@ public class TableWriterNode
                 columnNames,
                 notNullColumnVariables,
                 tablePartitioningScheme,
-                preferredShufflePartitioningScheme,
                 statisticsAggregation,
                 taskCountIfScaledWriter, isTemporaryTableWriter);
     }
@@ -264,7 +265,6 @@ public class TableWriterNode
                 columnNames,
                 notNullColumnVariables,
                 tablePartitioningScheme,
-                preferredShufflePartitioningScheme,
                 statisticsAggregation,
                 taskCountIfScaledWriter, isTemporaryTableWriter);
     }

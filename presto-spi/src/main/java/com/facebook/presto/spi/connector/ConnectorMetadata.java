@@ -414,19 +414,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * A connector can have preferred shuffle layout for table write.
-     * For example, Hive connector might prefer to shuffle on partitioned columns for partitioned unbucketed table.
-     *
-     * @apiNote this method and {@link #getNewTableLayout} cannot both return non-empty table layout.
-     * @see #getPreferredShuffleLayoutForInsert
-     */
-    @Experimental
-    default Optional<ConnectorNewTableLayout> getPreferredShuffleLayoutForNewTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        return Optional.empty();
-    }
-
-    /**
      * Get the physical layout for a inserting into an existing table.
      */
     default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -446,19 +433,6 @@ public interface ConnectorMetadata
                 .collect(toList());
 
         return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
-    }
-
-    /**
-     * A connector can have preferred shuffle layout for table write.
-     * For example, Hive connector might prefer to shuffle on partitioned columns for partitioned unbucketed table.
-     *
-     * @apiNote this method and {@link #getInsertLayout} cannot both return non-empty table layout.
-     * @see #getPreferredShuffleLayoutForNewTable
-     */
-    @Experimental
-    default Optional<ConnectorNewTableLayout> getPreferredShuffleLayoutForInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return Optional.empty();
     }
 
     /**

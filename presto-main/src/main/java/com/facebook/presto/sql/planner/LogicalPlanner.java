@@ -275,8 +275,6 @@ public class LogicalPlanner
                 analysis.getParameters(),
                 analysis.getCreateTableComment());
         Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
-        Optional<NewTableLayout> preferredShuffleLayout = metadata.getPreferredShuffleLayoutForNewTable(session, destination.getCatalogName(), tableMetadata);
-
         List<String> columnNames = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
                 .map(ColumnMetadata::getName)
@@ -291,7 +289,6 @@ public class LogicalPlanner
                 columnNames,
                 tableMetadata.getColumns(),
                 newTableLayout,
-                preferredShuffleLayout,
                 statisticsMetadata);
     }
 
@@ -372,7 +369,6 @@ public class LogicalPlanner
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputVariables());
 
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, tableHandle);
-        Optional<NewTableLayout> preferredShuffleLayout = metadata.getPreferredShuffleLayoutForInsert(session, tableHandle);
 
         String catalogName = tableHandle.getConnectorId().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
@@ -384,7 +380,6 @@ public class LogicalPlanner
                 visibleTableColumnNames,
                 visibleTableColumns,
                 newTableLayout,
-                preferredShuffleLayout,
                 statisticsMetadata);
     }
 
@@ -395,11 +390,8 @@ public class LogicalPlanner
             List<String> columnNames,
             List<ColumnMetadata> columnMetadataList,
             Optional<NewTableLayout> writeTableLayout,
-            Optional<NewTableLayout> preferredShuffleLayout,
             TableStatisticsMetadata statisticsMetadata)
     {
-        verify(!(writeTableLayout.isPresent() && preferredShuffleLayout.isPresent()), "writeTableLayout and preferredShuffleLayout cannot both exist");
-
         PlanNode source = plan.getRoot();
 
         if (!analysis.isCreateTableAsSelectWithData()) {
@@ -408,7 +400,6 @@ public class LogicalPlanner
 
         List<VariableReferenceExpression> variables = plan.getFieldMappings();
         Optional<PartitioningScheme> tablePartitioningScheme = getPartitioningSchemeForTableWrite(writeTableLayout, columnNames, variables);
-        Optional<PartitioningScheme> preferredShufflePartitioningScheme = getPartitioningSchemeForTableWrite(preferredShuffleLayout, columnNames, variables);
 
         verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
         Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
@@ -440,7 +431,6 @@ public class LogicalPlanner
                             columnNames,
                             notNullColumnVariables,
                             tablePartitioningScheme,
-                            preferredShufflePartitioningScheme,
                             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
                             // the data consumed by the TableWriteOperator
                             Optional.of(aggregations.getPartialAggregation()),
@@ -471,7 +461,6 @@ public class LogicalPlanner
                         columnNames,
                         notNullColumnVariables,
                         tablePartitioningScheme,
-                        preferredShufflePartitioningScheme,
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(Boolean.FALSE)),
