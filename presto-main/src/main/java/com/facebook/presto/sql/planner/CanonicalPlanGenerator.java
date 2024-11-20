@@ -228,7 +228,6 @@ public class CanonicalPlanGenerator
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
         context.addPlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);

@@ -212,7 +212,6 @@ public class TemporaryTableUtil
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty(),
                         Optional.of(Boolean.TRUE)),
                 Optional.of(insertReference),
                 outputVar,
@@ -349,7 +348,6 @@ public class TemporaryTableUtil
                                     outputColumnNames,
                                     outputNotNullColumnVariables,
                                     Optional.of(partitioningScheme),
-                                    Optional.empty(),
                                     enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty(),
                                     Optional.empty(),
                                     Optional.of(Boolean.TRUE))),
@@ -371,7 +369,6 @@ public class TemporaryTableUtil
                     outputColumnNames,
                     outputNotNullColumnVariables,
                     Optional.of(partitioningScheme),
-                    Optional.empty(),
                     enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty(),
                     Optional.empty(),
                     Optional.of(Boolean.TRUE));

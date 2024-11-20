@@ -587,7 +587,6 @@ public class RowExpressionRewriteRuleSet
                         node.getColumnNames(),
                         node.getNotNullColumnVariables(),
                         node.getTablePartitioningScheme(),
-                        node.getPreferredShufflePartitioningScheme(),
                         rewrittenStatisticsAggregation,
                         node.getTaskCountIfScaledWriter(),
                         node.getIsTemporaryTableWriter()));
