@@ -22,6 +22,7 @@ add_executable(
   ConcurrentCounterTest.cpp
   ExceptionTest.cpp
   FsTest.cpp
+  IndexedPriorityQueueTest.cpp
   RangeTest.cpp
   RawVectorTest.cpp
   RuntimeMetricsTest.cpp

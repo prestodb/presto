@@ -54,6 +54,7 @@ class SsdRun {
     fileBits_ = other.fileBits_;
     checksum_ = other.checksum_;
   }
+
   void operator=(SsdRun&& other) {
     fileBits_ = other.fileBits_;
     checksum_ = other.checksum_;
