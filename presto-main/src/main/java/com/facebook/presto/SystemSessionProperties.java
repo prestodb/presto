@@ -334,6 +334,7 @@ public final class SystemSessionProperties
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
+    public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1542,6 +1543,11 @@ public final class SystemSessionProperties
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
                         "Enable reuse the native process within the same JVM",
                         true,
+                        false),
+                booleanProperty(
+                        NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION,
+                        "Enforce that the join build input is partitioned on join key",
+                        featuresConfig.isNativeEnforceJoinBuildInputPartition(),
                         false),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
@@ -2886,6 +2892,11 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionProcessReuseEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_PROCESS_REUSE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeJoinBuildPartitionEnforced(Session session)
+    {
+        return session.getSystemProperty(NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION, Boolean.class);
     }
 
     public static RandomizeOuterJoinNullKeyStrategy getRandomizeOuterJoinNullKeyStrategy(Session session)
