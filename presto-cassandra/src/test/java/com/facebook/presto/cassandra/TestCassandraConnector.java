@@ -42,7 +42,7 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -74,7 +74,6 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-@Test(singleThreaded = true)
 public class TestCassandraConnector
 {
     protected static final String INVALID_DATABASE = "totally_invalid_database";
@@ -95,9 +94,11 @@ public class TestCassandraConnector
             Optional.empty(),
             ImmutableMap.of());
     protected String database;
+
     protected SchemaTableName table;
     protected SchemaTableName tableUnpartitioned;
     protected SchemaTableName invalidTable;
+    private CassandraServer server;
     private ConnectorMetadata metadata;
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
@@ -106,17 +107,17 @@ public class TestCassandraConnector
     public void setup()
             throws Exception
     {
-        EmbeddedCassandra.start();
+        this.server = new CassandraServer();
 
         String keyspace = "test_connector";
-        createTestTables(EmbeddedCassandra.getSession(), keyspace, DATE);
+        createTestTables(server.getSession(), keyspace, DATE);
 
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(connectorId);
 
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
-                "cassandra.contact-points", EmbeddedCassandra.getHost(),
-                "cassandra.native-protocol-port", Integer.toString(EmbeddedCassandra.getPort())),
+                "cassandra.contact-points", server.getHost(),
+                "cassandra.native-protocol-port", Integer.toString(server.getPort())),
                 new TestingConnectorContext());
 
         metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);
@@ -134,14 +135,15 @@ public class TestCassandraConnector
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
     }
 
-    @AfterMethod
-    public void tearDown()
-    {
-    }
-
     @Test
     public void testGetClient()
     {
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        server.close();
     }
 
     @Test
