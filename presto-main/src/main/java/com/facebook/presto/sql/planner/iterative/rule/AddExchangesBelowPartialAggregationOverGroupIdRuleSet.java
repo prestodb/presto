@@ -252,7 +252,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                 return Optional.empty();
             }
 
-            List<VariableReferenceExpression> desiredHashSymbols = groupingSetHistogram.entrySet().stream()
+            List<VariableReferenceExpression> desiredHashVariables = groupingSetHistogram.entrySet().stream()
                     // Take only frequently used symbols
                     .filter(entry -> entry.getCount() >= groupId.getGroupingSets().size() * GROUPING_SETS_SYMBOL_REQUIRED_FREQUENCY)
                     .map(Multiset.Entry::getElement)
@@ -265,12 +265,12 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
             // Use only the symbol with the highest cardinality (if we have statistics). This makes partial aggregation more efficient in case of
             // low correlation between symbol that are in every grouping set vs additional symbols.
             PlanNodeStatsEstimate sourceStats = context.getStatsProvider().getStats(groupId.getSource());
-            desiredHashSymbols = desiredHashSymbols.stream()
+            desiredHashVariables = desiredHashVariables.stream()
                     .filter(symbol -> !isNaN(sourceStats.getVariableStatistics(symbol).getDistinctValuesCount()))
                     .max(comparing(symbol -> sourceStats.getVariableStatistics(symbol).getDistinctValuesCount()))
-                    .map(symbol -> (List<VariableReferenceExpression>) ImmutableList.of(symbol)).orElse(desiredHashSymbols);
+                    .map(symbol -> (List<VariableReferenceExpression>) ImmutableList.of(symbol)).orElse(desiredHashVariables);
 
-            StreamPreferredProperties requiredProperties = fixedParallelism().withPartitioning(desiredHashSymbols);
+            StreamPreferredProperties requiredProperties = fixedParallelism().withPartitioning(desiredHashVariables);
             StreamProperties sourceProperties = derivePropertiesRecursively(groupId.getSource(), context);
             if (requiredProperties.isSatisfiedBy(sourceProperties)) {
                 // Stream is already (locally) partitioned just as we want.
@@ -281,7 +281,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                 return Optional.empty();
             }
 
-            double estimatedGroups = estimatedGroupCount(desiredHashSymbols, context.getStatsProvider().getStats(groupId.getSource()));
+            double estimatedGroups = estimateGroupCount(desiredHashVariables, context.getStatsProvider().getStats(groupId.getSource()));
             if (isNaN(estimatedGroups) || estimatedGroups * ANTI_SKEWNESS_MARGIN < maximalConcurrencyAfterRepartition(context)) {
                 // Desired hash symbols form too few groups. Hashing over them would harm concurrency.
                 // TODO instead of taking symbols with >GROUPING_SETS_SYMBOL_REQUIRED_FREQUENCY presence, we could take symbols from high freq to low until there are enough groups
@@ -297,7 +297,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                     REMOTE_STREAMING,
                     source,
                     new PartitioningScheme(
-                            Partitioning.create(FIXED_HASH_DISTRIBUTION, desiredHashSymbols),
+                            Partitioning.create(FIXED_HASH_DISTRIBUTION, desiredHashVariables),
                             source.getOutputVariables()));
 
             source = partitionedExchange(
@@ -305,7 +305,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                     LOCAL,
                     source,
                     new PartitioningScheme(
-                            Partitioning.create(FIXED_HASH_DISTRIBUTION, desiredHashSymbols),
+                            Partitioning.create(FIXED_HASH_DISTRIBUTION, desiredHashVariables),
                             source.getOutputVariables()));
 
             PlanNode newGroupId = groupId.replaceChildren(ImmutableList.of(source));
@@ -330,12 +330,12 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
             double keysMemoryRequirements = 0;
 
             for (List<VariableReferenceExpression> groupingSet : groupId.getGroupingSets()) {
-                List<VariableReferenceExpression> sourceSymbols = groupingSet.stream()
+                List<VariableReferenceExpression> sourceVariables = groupingSet.stream()
                         .map(groupId.getGroupingColumns()::get)
                         .collect(toImmutableList());
 
-                double keyWidth = sourceStats.getOutputSizeForVariables(sourceSymbols) / sourceStats.getOutputRowCount();
-                double keyNdv = min(estimatedGroupCount(sourceSymbols, sourceStats), sourceStats.getOutputRowCount());
+                double keyWidth = sourceStats.getOutputSizeForVariables(sourceVariables) / sourceStats.getOutputRowCount();
+                double keyNdv = min(estimateGroupCount(sourceVariables, sourceStats), sourceStats.getOutputRowCount());
 
                 keysMemoryRequirements += keyWidth * keyNdv;
             }
@@ -344,21 +344,21 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
             return keysMemoryRequirements;
         }
 
-        private double estimatedGroupCount(List<VariableReferenceExpression> symbols, PlanNodeStatsEstimate statsEstimate)
+        private double estimateGroupCount(List<VariableReferenceExpression> variables, PlanNodeStatsEstimate statsEstimate)
         {
-            return symbols.stream()
+            return variables.stream()
                     .map(statsEstimate::getVariableStatistics)
                     .mapToDouble(this::ndvIncludingNull)
                     // This assumes no correlation, maximum number of aggregation keys
                     .reduce(1, (a, b) -> a * b);
         }
 
-        private double ndvIncludingNull(VariableStatsEstimate symbolStatsEstimate)
+        private double ndvIncludingNull(VariableStatsEstimate variableStatsEstimate)
         {
-            if (symbolStatsEstimate.getNullsFraction() == 0.) {
-                return symbolStatsEstimate.getDistinctValuesCount();
+            if (variableStatsEstimate.getNullsFraction() == 0.) {
+                return variableStatsEstimate.getDistinctValuesCount();
             }
-            return symbolStatsEstimate.getDistinctValuesCount() + 1;
+            return variableStatsEstimate.getDistinctValuesCount() + 1;
         }
 
         private StreamProperties derivePropertiesRecursively(PlanNode node, Context context)

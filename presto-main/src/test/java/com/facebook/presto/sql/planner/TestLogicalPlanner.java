@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
@@ -41,6 +42,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
@@ -50,6 +52,7 @@ import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -59,6 +62,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
+import static com.facebook.presto.SystemSessionProperties.ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR;
 import static com.facebook.presto.SystemSessionProperties.EXPLOIT_CONSTRAINTS;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
@@ -1716,6 +1720,41 @@ public class TestLogicalPlanner
                                 anyTree(node(AggregationNode.class,
                                         node(ProjectNode.class,
                                                 node(ValuesNode.class)))))));
+    }
+
+    @Test
+    public void testExchangeAddedWhen()
+    {
+        Session ruleEnabled = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID, Boolean.toString(true))
+                .build();
+
+        assertDistributedPlan("SELECT \n" +
+                        "    p.type,\n" +
+                        "    p.size,\n" +
+                        "    p.container,\n" +
+                        "    s.name,\n" +
+                        "    l.linenumber,\n" +
+                        "    SUM(o.totalprice)\n" +
+                        "FROM \n" +
+                        "    part p,\n" +
+                        "    supplier s,\n" +
+                        "    partsupp ps,\n" +
+                        "    lineitem l,\n" +
+                        "    orders o\n" +
+                        "WHERE \n" +
+                        "    ps.suppkey = s.suppkey\n" +
+                        "    AND ps.partkey = p.partkey\n" +
+                        "    AND p.partkey = l.partkey\n" +
+                        "    AND l.orderkey = o.orderkey\n" +
+                        "GROUP BY \n" +
+                        "    ROLLUP(p.type, p.size, p.container, s.name, l.linenumber)",
+                ruleEnabled,
+                node(OutputNode.class,anyTree(
+                        node(GroupIdNode.class,
+                                anyTree(
+                                        node(JoinNode.class,
+                                        anyTree()))))));
     }
 
     @Test

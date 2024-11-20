@@ -159,6 +159,7 @@ import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.JoinPrefilter;
 import com.facebook.presto.sql.planner.optimizations.KeyBasedSampler;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
+import com.facebook.presto.sql.planner.optimizations.LogPlanTreeOptimizer;
 import com.facebook.presto.sql.planner.optimizations.LogicalCteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MergeJoinForSortedInputOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MergePartialAggregationsWithFilter;
@@ -821,6 +822,7 @@ public class PlanOptimizers
 
         if (!noExchange) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
+
             builder.add(new IterativeOptimizer(
                     metadata,
                     ruleStats,
@@ -831,6 +833,7 @@ public class PlanOptimizers
                             // Must run before AddExchanges and after ReplicateSemiJoinInDelete
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
+
             builder.add(new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager(), statsCalculator),
                     new PruneUnreferencedOutputs(),
                     new IterativeOptimizer(
@@ -842,6 +845,7 @@ public class PlanOptimizers
                                     new PruneRedundantProjectionAssignments(),
                                     new InlineProjections(metadata.getFunctionAndTypeManager()),
                                     new RemoveRedundantIdentityProjections())));
+
             builder.add(new ShardJoins(metadata, metadata.getFunctionAndTypeManager(), statsCalculator),
                     new PruneUnreferencedOutputs());
             builder.add(
@@ -915,6 +919,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new PruneJoinColumns())));
 
+        builder.add(new LogPlanTreeOptimizer("Before AddExchangesBelowPartialAggregationOverGroupIdRuleSet"));
         builder.add(new IterativeOptimizer(
                 metadata,
                 ruleStats,
