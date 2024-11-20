@@ -16,14 +16,17 @@ package com.facebook.presto.sql.relational;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -65,5 +68,9 @@ public class TestFunctionResolution
         // subscript
         assertTrue(standardFunctionResolution.isSubscriptFunction(standardFunctionResolution.subscriptFunction(new ArrayType(DOUBLE), BIGINT)));
         assertFalse(standardFunctionResolution.isBetweenFunction(standardFunctionResolution.subscriptFunction(new ArrayType(DOUBLE), BIGINT)));
+
+        // BuiltInFunction
+        assertEquals(standardFunctionResolution.notFunction(), standardFunctionResolution.lookupBuiltInFunction("not", ImmutableList.of(BOOLEAN)));
+        assertEquals(standardFunctionResolution.countFunction(), standardFunctionResolution.lookupBuiltInFunction("count", ImmutableList.of()));
     }
 }

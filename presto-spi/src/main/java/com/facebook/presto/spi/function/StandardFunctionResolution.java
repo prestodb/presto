@@ -85,4 +85,6 @@ public interface StandardFunctionResolution
     boolean isApproximateSetFunction(FunctionHandle functionHandle);
 
     FunctionHandle approximateSetFunction(Type valueType);
+
+    FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes);
 }
