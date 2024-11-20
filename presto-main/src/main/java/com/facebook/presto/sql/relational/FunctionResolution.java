@@ -371,4 +371,10 @@ public final class FunctionResolution
     {
         return windowValueFunctions.contains(functionAndTypeResolver.getFunctionMetadata(functionHandle).getName());
     }
+
+    @Override
+    public FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes)
+    {
+        return functionAndTypeResolver.lookupFunction(functionName, fromTypes(inputTypes));
+    }
 }
