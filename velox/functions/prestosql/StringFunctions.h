@@ -412,7 +412,9 @@ struct StrPosFunctionBase {
       const arg_type<Varchar>& subString,
       const arg_type<int64_t>& instance = 1) {
     result = stringImpl::stringPosition<false /*isAscii*/, lpos>(
-        string, subString, instance);
+        std::string_view(string.data(), string.size()),
+        std::string_view(subString.data(), subString.size()),
+        instance);
   }
 
   FOLLY_ALWAYS_INLINE void callAscii(
@@ -421,7 +423,9 @@ struct StrPosFunctionBase {
       const arg_type<Varchar>& subString,
       const arg_type<int64_t>& instance = 1) {
     result = stringImpl::stringPosition<true /*isAscii*/, lpos>(
-        string, subString, instance);
+        std::string_view(string.data(), string.size()),
+        std::string_view(subString.data(), subString.size()),
+        instance);
   }
 };
 

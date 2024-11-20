@@ -303,13 +303,15 @@ void registerFunctions(const std::string& prefix) {
   registerCompareFunctions(prefix);
   registerBitwiseFunctions(prefix);
 
-  // String sreach function
+  // String search function
   registerFunction<StartsWithFunction, bool, Varchar, Varchar>(
       {prefix + "startswith"});
   registerFunction<EndsWithFunction, bool, Varchar, Varchar>(
       {prefix + "endswith"});
   registerFunction<ContainsFunction, bool, Varchar, Varchar>(
       {prefix + "contains"});
+  registerFunction<LocateFunction, int32_t, Varchar, Varchar, int32_t>(
+      {prefix + "locate"});
 
   registerFunction<TrimSpaceFunction, Varchar, Varchar>({prefix + "trim"});
   registerFunction<TrimFunction, Varchar, Varchar, Varchar>({prefix + "trim"});
