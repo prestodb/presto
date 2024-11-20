@@ -52,7 +52,7 @@ public class PushTableWriteThroughUnion
             // guaranteed regardless of this optimizer. The level of local parallelism will be
             // determined by LocalExecutionPlanner separately, and shouldn't be a concern of
             // this optimizer.
-            .matching(tableWriter -> !(tableWriter.getTablePartitioningScheme().isPresent() || tableWriter.getPreferredShufflePartitioningScheme().isPresent()))
+            .matching(tableWriter -> !tableWriter.getTablePartitioningScheme().isPresent())
             .with(source().matching(union().capturedAs(CHILD)));
 
     @Override

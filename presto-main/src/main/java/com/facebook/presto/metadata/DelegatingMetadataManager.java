@@ -281,12 +281,6 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForNewTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
-    {
-        return delegate.getPreferredShuffleLayoutForNewTable(session, catalogName, tableMetadata);
-    }
-
-    @Override
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
     {
         return delegate.beginCreateTable(session, catalogName, tableMetadata, layout);
@@ -306,12 +300,6 @@ public abstract class DelegatingMetadataManager
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
     {
         return delegate.getInsertLayout(session, target);
-    }
-
-    @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForInsert(Session session, TableHandle target)
-    {
-        return delegate.getPreferredShuffleLayoutForInsert(session, target);
     }
 
     @Override

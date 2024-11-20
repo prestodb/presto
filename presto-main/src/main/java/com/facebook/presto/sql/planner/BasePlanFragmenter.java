@@ -255,9 +255,6 @@ public abstract class BasePlanFragmenter
         if (node.getTablePartitioningScheme().isPresent()) {
             context.get().setDistribution(node.getTablePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
         }
-        if (node.getPreferredShufflePartitioningScheme().isPresent()) {
-            context.get().setDistribution(node.getPreferredShufflePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
-        }
         return context.defaultRewrite(node, context.get());
     }
 
