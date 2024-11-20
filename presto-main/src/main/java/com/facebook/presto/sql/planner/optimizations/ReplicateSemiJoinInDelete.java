@@ -88,7 +88,8 @@ public class ReplicateSemiJoinInDelete
                     node.getId(),
                     rewrittenSource,
                     node.getRowId(),
-                    node.getOutputVariables());
+                    node.getOutputVariables(),
+                    node.getInputDistribution());
         }
     }
 }

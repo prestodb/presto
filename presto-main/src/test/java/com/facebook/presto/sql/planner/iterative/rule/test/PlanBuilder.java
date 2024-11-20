@@ -585,7 +585,8 @@ public class PlanBuilder
                                 idAllocator.getNextId(),
                                 deleteSource,
                                 deleteRowId,
-                                ImmutableList.of(deleteRowId)))
+                                ImmutableList.of(deleteRowId),
+                                Optional.empty()))
                         .addInputsSet(deleteRowId)
                         .singleDistributionPartitioningScheme(deleteRowId)),
                 Optional.of(deleteHandle),
