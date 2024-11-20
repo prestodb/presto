@@ -103,8 +103,8 @@ public class FeaturesConfig
     private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
     private boolean logPlansUsedInHistoryBasedOptimizer;
     private boolean enforceTimeoutForHBOQueryRegistration;
-    private boolean redistributeWrites = true;
-    private boolean scaleWriters;
+    private boolean redistributeWrites;
+    private boolean scaleWriters = true;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
     private boolean optimizedScaleWriterProducerBuffer = true;
     private boolean optimizeMetadataQueries;
