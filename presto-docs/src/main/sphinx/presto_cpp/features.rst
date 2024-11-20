@@ -184,6 +184,17 @@ disabled if ``connector.num-io-threads-hw-multiplier`` is set to zero.
 
 Whether async data cache is enabled.
 
+``query-data-cache-enabled-default``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type** ``bool``
+* **Default value:** ``true``
+
+If ``true``, SSD cache is enabled by default and is disabled only if
+``node_selection_strategy`` is present and set to ``NO_PREFERENCE``.
+Otherwise, SSD cache is disabled by default and is enabled if
+``node_selection_strategy`` is present and set to ``SOFT_AFFINITY``.
+
 ``async-cache-ssd-gb``
 ^^^^^^^^^^^^^^^^^^^^^^
 
