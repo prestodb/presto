@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "folly/Unicode.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -69,6 +70,13 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
         ? std::make_optional(StringView(json.value()))
         : std::nullopt;
     return makeNullableFlatVector<StringView>({s}, JSON());
+  }
+
+  void testJsonParse(std::string json, std::string expectedJson) {
+    auto data = makeRowVector({makeFlatVector<std::string>({json})});
+    auto result = evaluate("json_parse(c0)", data);
+    auto expected = makeFlatVector<std::string>({expectedJson}, JSON());
+    velox::test::assertEqualVectors(expected, result);
   }
 
   std::pair<VectorPtr, VectorPtr> makeVectors(std::optional<std::string> json) {
@@ -189,13 +197,43 @@ TEST_F(JsonFunctionsTest, jsonParse) {
   };
 
   EXPECT_EQ(jsonParse(std::nullopt), std::nullopt);
+  // Spaces before and after.
+  EXPECT_EQ(jsonParse(R"( "abc"       )"), R"("abc")");
   EXPECT_EQ(jsonParse(R"(true)"), "true");
   EXPECT_EQ(jsonParse(R"(null)"), "null");
   EXPECT_EQ(jsonParse(R"(42)"), "42");
   EXPECT_EQ(jsonParse(R"("abc")"), R"("abc")");
-  EXPECT_EQ(jsonParse(R"([1, 2, 3])"), "[1, 2, 3]");
-  EXPECT_EQ(jsonParse(R"({"k1":"v1"})"), R"({"k1":"v1"})");
-  EXPECT_EQ(jsonParse(R"(["k1", "v1"])"), R"(["k1", "v1"])");
+  EXPECT_EQ(jsonParse("\"abc\u4FE1\""), "\"abc\u4FE1\"");
+  auto utf32cp = folly::codePointToUtf8(U'😀');
+  testJsonParse(fmt::format("\"{}\"", utf32cp), R"("\uD83D\uDE00")");
+  EXPECT_EQ(jsonParse(R"([1, 2, 3])"), "[1,2,3]");
+  EXPECT_EQ(jsonParse(R"({"k1": "v1" })"), R"({"k1":"v1"})");
+  EXPECT_EQ(jsonParse(R"(["k1", "v1"])"), R"(["k1","v1"])");
+  testJsonParse(R"({ "abc" : "\/"})", R"({"abc":"/"})");
+  testJsonParse(R"({ "abc" : "\\/"})", R"({"abc":"\\/"})");
+  testJsonParse(R"({ "abc" : [1, 2, 3, 4    ]})", R"({"abc":[1,2,3,4]})");
+  // Test out with unicodes and empty keys.
+  testJsonParse(
+      R"({"4":0.1,"\"":0.14, "自社在庫":0.1, "٢": 2.0, "١": 1.0, "१": 1.0, "": 3.5})",
+      R"({"":3.5,"\"":0.14,"4":0.1,"١":1.0,"٢":2.0,"१":1.0,"自社在庫":0.1})");
+  testJsonParse(
+      R"({"error":"Falha na configura\u00e7\u00e3o do pagamento"})",
+      R"({"error":"Falha na configuração do pagamento"})");
+  // Test unicode in key and surogate pairs in values.
+  testJsonParse(
+      R"({"utf\u4FE1": "\u4FE1 \uD83D\uDE00 \/ \n abc a\uD834\uDD1Ec \u263Acba \u0002 \u001F \u0020"})",
+      R"({"utf信":"信 \uD83D\uDE00 / \n abc a\uD834\uDD1Ec ☺cba \u0002 \u001F  "})");
+  testJsonParse(
+      R"({"v\u06ecfzo-\u04fbyw\u25d6#\u2adc\u27e6\u0494\u090e":0.74,"\u042d\u25eb\u03fe)\u044c\u25cb\u2184e":0.89})",
+      R"({"v۬fzo-ӻyw◖#⫝̸⟦Ҕऎ":0.74,"Э◫Ͼ)ь○ↄe":0.89})");
+  // Test special unicode characters.
+  testJsonParse(
+      R"({"utf\u4FE1": "\u0002 \u001F \u0020"})",
+      R"({"utf信":"\u0002 \u001F  "})");
+  // Test casing
+  testJsonParse(
+      R"("Items for D \ud835\udc52\ud835\udcc1 ")",
+      R"("Items for D \uD835\uDC52\uD835\uDCC1 ")");
 
   VELOX_ASSERT_THROW(
       jsonParse(R"({"k1":})"), "The JSON document has an improper structure");
@@ -228,7 +266,7 @@ TEST_F(JsonFunctionsTest, jsonParse) {
 
   VELOX_ASSERT_THROW(
       evaluate("json_parse(c0)", data),
-      "Unexpected trailing content in the JSON input");
+      "TAPE_ERROR: The JSON document has an improper structure: missing or superfluous commas, braces, missing keys, etc.");
 
   data = makeRowVector({makeFlatVector<StringView>(
       {R"("This is a long sentence")", R"("This is some other sentence")"})});
@@ -274,6 +312,100 @@ TEST_F(JsonFunctionsTest, jsonParse) {
   } catch (const VeloxUserError& e) {
     ASSERT_EQ(e.context(), "Top-level Expression: json_parse(c0)");
   }
+}
+
+TEST_F(JsonFunctionsTest, canonicalization) {
+  auto json = R"({
+  "menu": {
+      "id": "file",
+      "value": "File",
+      "popup": {
+          "menuitem": [
+              {
+                  "value": "New",
+                  "onclick": "CreateNewDoc() "
+              },
+              {
+                  "value": "Open",
+                  "onclick": "OpenDoc() "
+              },
+              {
+                  "value": "Close",
+                  "onclick": "CloseDoc() "
+              }
+          ]
+  }
+  }
+  })";
+
+  auto expectedJson =
+      R"({"menu":{"id":"file","popup":{"menuitem":[{"onclick":"CreateNewDoc() ","value":"New"},{"onclick":"OpenDoc() ","value":"Open"},{"onclick":"CloseDoc() ","value":"Close"}]},"value":"File"}})";
+  testJsonParse(json, expectedJson);
+
+  json =
+      "{\n"
+      "  \"name\": \"John Doe\",\n"
+      "  \"address\": {\n"
+      "    \"street\": \"123 Main St\",\n"
+      "    \"city\": \"Anytown\",\n"
+      "    \"state\": \"CA\",\n"
+      "    \"zip\": \"12345\"\n"
+      "  },\n"
+      "  \"phoneNumbers\": [\n"
+      "    {\n"
+      "      \"type\": \"home\",\n"
+      "      \"number\": \"555-1234\"\n"
+      "    },\n"
+      "    {\n"
+      "      \"type\": \"work\",\n"
+      "      \"number\": \"555-5678\"\n"
+      "    }\n"
+      "  ],\n"
+      "  \"familyMembers\": [\n"
+      "    {\n"
+      "      \"name\": \"Jane Doe\",\n"
+      "      \"relationship\": \"wife\"\n"
+      "    },\n"
+      "    {\n"
+      "      \"name\": \"Jimmy Doe\",\n"
+      "      \"relationship\": \"son\"\n"
+      "    }\n"
+      "  ],\n"
+      "  \"hobbies\": [\"golf\", \"reading\", \"traveling\"]\n"
+      "}";
+  expectedJson =
+      R"({"address":{"city":"Anytown","state":"CA","street":"123 Main St","zip":"12345"},"familyMembers":[{"name":"Jane Doe","relationship":"wife"},{"name":"Jimmy Doe","relationship":"son"}],"hobbies":["golf","reading","traveling"],"name":"John Doe","phoneNumbers":[{"number":"555-1234","type":"home"},{"number":"555-5678","type":"work"}]})";
+  testJsonParse(json, expectedJson);
+
+  // Json with spaces in keys
+  json = R"({
+  "menu": {
+      "id": "file",
+      "value": "File",
+      "emptyArray": [],
+      "popup": {
+          "menuitem": [
+              {
+                  "value ": "New ",
+                  "onclick": "CreateNewDoc() ",
+                  " value ": " Space "
+              }
+           ]
+  }
+  }
+  })";
+
+  expectedJson =
+      R"({"menu":{"emptyArray":[],"id":"file","popup":{"menuitem":[{" value ":" Space ","onclick":"CreateNewDoc() ","value ":"New "}]},"value":"File"}})";
+  testJsonParse(json, expectedJson);
+
+  json =
+      R"({"stars":[{"updated_deferred_payout_state":null,"onboard_surface":"MTA_ON_MOBILE","entry_point":"FROM_STARS","task_name":null,"event":"START_APPLICATION","time":1678975122,"user_id":123456789123456},{"updated_deferred_payout_state":null,"onboard_surface":"MTA_ON_MOBILE","entry_point":"FROM_STARS","task_name":"STARS_SIGN_TOS","event":"START_TASK","time":1678975122,"user_id":123456789123456},{"updated_deferred_payout_state":null,"onboard_surface":"MTA_ON_MOBILE","entry_point":"FROM_STARS","task_name":"STARS_SIGN_TOS","event":"COMPLETE_TASK","time":1678975128,"user_id":123456789123456},{"error":null,"updated_deferred_payout_state":null,"onboard_surface":"MTA_ON_MOBILE","entry_point":"FROM_MOBILE_PRO_DASH","task_name":null,"event":"START_APPLICATION","time":1706866395,"user_id":123456789123456},{"error":null,"updated_deferred_payout_state":null,"onboard_surface":"MTA_ON_MOBILE","entry_point":"FROM_MOBILE_PRO_DASH","task_name":"STARS_DEFERRED_PAYOUT_WITH_TOS","event":"START_TASK","time":1706866395,"user_id":123456789123456},{"error":null,"updated_deferred_payout_state":"PAYOUT_SETUP_DEFERRED","onboard_surface":"MTA_ON_MOBILE","entry_point":"FROM_MOBILE_PRO_DASH","task_name":"STARS_DEFERRED_PAYOUT_WITH_TOS","event":"COMPLETE_TASK","time":1706866402,"user_id":123456789123456},{"error":null,"updated_deferred_payout_state":null,"onboard_surface":"MTA_ON_MOBILE","entry_point":"FROM_MOBILE_PRO_DASH","task_name":null,"event":"SUBMIT_APPLICATION","time":1706866402,"user_id":123456789123456},{"error":null,"updated_deferred_payout_state":null,"onboard_surface":"MTA_ON_MOBILE","entry_point":"FROM_MOBILE_PRO_DASH","task_name":null,"event":"APPLICATION_APPROVED","time":1706866402,"user_id":123456789123456}]})";
+
+  expectedJson =
+      R"({"stars":[{"entry_point":"FROM_STARS","event":"START_APPLICATION","onboard_surface":"MTA_ON_MOBILE","task_name":null,"time":1678975122,"updated_deferred_payout_state":null,"user_id":123456789123456},{"entry_point":"FROM_STARS","event":"START_TASK","onboard_surface":"MTA_ON_MOBILE","task_name":"STARS_SIGN_TOS","time":1678975122,"updated_deferred_payout_state":null,"user_id":123456789123456},{"entry_point":"FROM_STARS","event":"COMPLETE_TASK","onboard_surface":"MTA_ON_MOBILE","task_name":"STARS_SIGN_TOS","time":1678975128,"updated_deferred_payout_state":null,"user_id":123456789123456},{"entry_point":"FROM_MOBILE_PRO_DASH","error":null,"event":"START_APPLICATION","onboard_surface":"MTA_ON_MOBILE","task_name":null,"time":1706866395,"updated_deferred_payout_state":null,"user_id":123456789123456},{"entry_point":"FROM_MOBILE_PRO_DASH","error":null,"event":"START_TASK","onboard_surface":"MTA_ON_MOBILE","task_name":"STARS_DEFERRED_PAYOUT_WITH_TOS","time":1706866395,"updated_deferred_payout_state":null,"user_id":123456789123456},{"entry_point":"FROM_MOBILE_PRO_DASH","error":null,"event":"COMPLETE_TASK","onboard_surface":"MTA_ON_MOBILE","task_name":"STARS_DEFERRED_PAYOUT_WITH_TOS","time":1706866402,"updated_deferred_payout_state":"PAYOUT_SETUP_DEFERRED","user_id":123456789123456},{"entry_point":"FROM_MOBILE_PRO_DASH","error":null,"event":"SUBMIT_APPLICATION","onboard_surface":"MTA_ON_MOBILE","task_name":null,"time":1706866402,"updated_deferred_payout_state":null,"user_id":123456789123456},{"entry_point":"FROM_MOBILE_PRO_DASH","error":null,"event":"APPLICATION_APPROVED","onboard_surface":"MTA_ON_MOBILE","task_name":null,"time":1706866402,"updated_deferred_payout_state":null,"user_id":123456789123456}]})";
+
+  testJsonParse(json, expectedJson);
 }
 
 TEST_F(JsonFunctionsTest, isJsonScalarSignatures) {

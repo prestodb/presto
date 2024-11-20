@@ -30,9 +30,9 @@ namespace facebook::velox::util {
 /// folly's tryTo doesn't ignore control characters or other unicode whitespace.
 /// We trim the string for control and unicode whitespace
 /// from both directions and return a StringView of the result.
-StringView trimWhiteSpace(const char* data, size_t length) {
+std::string_view trimWhiteSpace(const char* data, size_t length) {
   if (length == 0) {
-    return StringView(data, 0);
+    return std::string_view(data, 0);
   }
 
   int startIndex = 0;
@@ -67,7 +67,7 @@ StringView trimWhiteSpace(const char* data, size_t length) {
   }
 
   // Trim whitespace from right side.
-  for (auto i = length - 1; i > startIndex;) {
+  for (auto i = length - 1; i >= startIndex; i--) {
     size = 0;
     auto isWhiteSpaceOrControlChar = false;
 
@@ -92,15 +92,11 @@ StringView trimWhiteSpace(const char* data, size_t length) {
       endIndex = i;
       break;
     }
-
-    if (i > 0) {
-      i--;
-    }
   }
 
   // If we end on a unicode char make sure we add that to the end.
   auto charSize = size > 0 ? size : 1;
-  return StringView(data + startIndex, endIndex - startIndex + charSize);
+  return std::string_view(data + startIndex, endIndex - startIndex + charSize);
 }
 
 } // namespace facebook::velox::util

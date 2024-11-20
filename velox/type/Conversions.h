@@ -233,7 +233,7 @@ struct Converter<TypeKind::BOOLEAN, void, TPolicy> {
 /// Presto compatible trim of whitespace. This also trims
 /// control characters from both front and back and returns
 /// a StringView of the trimmed string.
-StringView trimWhiteSpace(const char* data, size_t length);
+std::string_view trimWhiteSpace(const char* data, size_t length);
 
 /// To TINYINT, SMALLINT, INTEGER, BIGINT, and HUGEINT converter.
 template <TypeKind KIND, typename TPolicy>

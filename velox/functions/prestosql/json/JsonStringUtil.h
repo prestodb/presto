@@ -40,12 +40,32 @@ namespace facebook::velox {
 ///                responsible to allocate enough space for output.
 void escapeString(const char* input, size_t length, char* output);
 
+/// Unescape the unicode characters of `input` to make it canonical for JSON
+/// The behavior is compatible with Presto Java's json_parse.
+/// Presto java json_parse will unescape the following characters:
+/// \/ and non surrogate unicode characters.
+/// Other behavior is similar to escapeString.
+/// @param input: Input string to escape that is UTF-8 encoded.
+/// @param length: Length of the input string.
+/// @param output: Output string to write the escaped input to. The caller is
+///                responsible to allocate enough space for output.
+/// @return The number of bytes written to the output.
+size_t prestoJavaEscapeString(const char* input, size_t length, char* output);
+
 /// Return the size of string after the unicode characters of `input` are
 /// escaped using the method as in`escapeString`. The function will iterate
 /// over `input` once.
 /// @param input: Input string to escape that is UTF-8 encoded.
 /// @param length: Length of the input string.
+/// @return The size of the string after escaping.
 size_t escapedStringSize(const char* input, size_t length);
+
+/// Compares two string views. The comparison takes into account
+/// escape sequences and also unicode characters.
+/// Returns true if first is less than second else false.
+/// @param first: First string to compare.
+/// @param second: Second string to compare.
+bool lessThan(const std::string_view& first, const std::string_view& second);
 
 /// For test only. Encode `codePoint` value by UTF-16 and write the one or two
 /// prefixed hexadecimals to `out`. Move `out` forward by 6 or 12 chars
