@@ -186,6 +186,16 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+
             <!-- TODO: this is needed here because of the dependecny on presto-native-execution -->
             <plugin>
                 <groupId>org.basepom.maven</groupId>
