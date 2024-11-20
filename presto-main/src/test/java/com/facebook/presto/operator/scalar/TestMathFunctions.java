@@ -1315,15 +1315,26 @@ public class TestMathFunctions
         // failure modes
         assertInvalidFunction("width_bucket(3.14E0, array[])", "Bins cannot be an empty array");
         assertInvalidFunction("width_bucket(nan(), array[1.0E0, 2.0E0, 3.0E0])", "Operand cannot be NaN");
-        assertInvalidFunction("width_bucket(3.14E0, array[0.0E0, infinity()])", "Bin value must be finite, got Infinity");
+        assertInvalidFunction("width_bucket(3.14E0, array[0.0E0, infinity()])", "Bin values must be finite");
 
         // fail if we aren't sorted
+        assertInvalidFunction("width_bucket(3.14E0, array[0.0E0, infinity(), 10.0E0])", "Bin values are not sorted in ascending order");
         assertInvalidFunction("width_bucket(3.145E0, array[1.0E0, 0.0E0])", "Bin values are not sorted in ascending order");
         assertInvalidFunction("width_bucket(3.145E0, array[1.0E0, 0.0E0, -1.0E0])", "Bin values are not sorted in ascending order");
         assertInvalidFunction("width_bucket(3.145E0, array[1.0E0, 0.3E0, 0.0E0, -1.0E0])", "Bin values are not sorted in ascending order");
+        assertInvalidFunction("width_bucket(1.5E0, array[1.0E0, 2.3E0, 2.0E0])", "Bin values are not sorted in ascending order");
 
-        // this is a case that we can't catch because we are using binary search to bisect the bins array
-        assertFunction("width_bucket(1.5E0, array[1.0E0, 2.3E0, 2.0E0])", BIGINT, 1L);
+        // Cases with nulls. When we hit a null element we throw.
+        assertInvalidFunction("width_bucket(3.14E0, array[cast(null as double)])", "Bin values cannot be NULL");
+        assertInvalidFunction("width_bucket(3.14E0, array[0.0E0, null, 4.0E0])", "Bin values cannot be NULL");
+        assertInvalidFunction("width_bucket(3.14E0, array[0.0E0, 2.0E0, 4.0E0, null])", "Bin values cannot be NULL");
+
+        // Cases we cannot catch due to the binary search algorithm.
+        // Has null elements.
+        assertFunction("width_bucket(3.14E0, array[0.0E0, null, 2.0E0, 4.0E0])", BIGINT, 3L);
+        assertFunction("width_bucket(3.14E0, array[0.0E0, null, 1.0E0, 2.0E0, 4.0E0])", BIGINT, 4L);
+        // Not properly sorted and has infinity.
+        assertFunction("width_bucket(3.14E0, array[0.0E0, infinity(), 1.0E0, 2.0E0, 4.0E0])", BIGINT, 4L);
     }
 
     @Test

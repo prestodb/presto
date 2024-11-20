@@ -1572,17 +1572,23 @@ public final class MathFunctions
 
         int index;
         double bin;
+        double lowerBin;
+        double upperBin;
 
         while (lower < upper) {
-            if (DOUBLE.getDouble(bins, lower) > DOUBLE.getDouble(bins, upper - 1)) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin values are not sorted in ascending order");
+            index = (lower + upper) / 2;
+            if (bins.isNull(lower) || bins.isNull(index) || bins.isNull(upper - 1)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin values cannot be NULL");
             }
 
-            index = (lower + upper) / 2;
             bin = DOUBLE.getDouble(bins, index);
-
-            if (!isFinite(bin)) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin value must be finite, got " + bin);
+            lowerBin = DOUBLE.getDouble(bins, lower);
+            upperBin = DOUBLE.getDouble(bins, upper - 1);
+            if (lowerBin > upperBin || lowerBin > bin || bin > upperBin) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin values are not sorted in ascending order");
+            }
+            if (!isFinite(bin) || !isFinite(lowerBin) || !isFinite(upperBin)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin values must be finite");
             }
 
             if (operand < bin) {

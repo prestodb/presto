@@ -168,8 +168,12 @@ Mathematical Functions
 .. function:: width_bucket(x, bins) -> bigint
 
     Returns the bin number of ``x`` according to the bins specified by the
-    array ``bins``. The ``bins`` parameter must be an array of doubles and is
-    assumed to be in sorted ascending order.
+    array ``bins``. The ``bins`` parameter must be an array of doubles, should not
+    contain ``null`` or non-finite elements, and is assumed to be in sorted ascending order.
+
+    Note: The function returns an error if it encounters a ``null`` or non-finite
+    element in ``bins``, but due to the binary search algorithm some such elements
+    might go unnoticed and the function will return a result.
 
 Probability Functions: cdf
 --------------------------
