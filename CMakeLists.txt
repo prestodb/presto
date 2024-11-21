@@ -286,11 +286,6 @@ if(UNIX AND NOT APPLE)
   add_link_options("-Wl,-export-dynamic")
 endif()
 
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64" AND ${CMAKE_SYSTEM_NAME} MATCHES
-                                                 "Darwin")
-  set(ON_APPLE_M1 True)
-endif()
-
 # Required so velox code can be used in a dynamic library
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 

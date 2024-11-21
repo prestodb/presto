@@ -36,10 +36,6 @@ FetchContent_Declare(
   PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/folly-no-export.patch
                 ${glog_patch})
 
-if(ON_APPLE_M1)
-  # folly will wrongly assume x86_64 if this is not set
-  set(CMAKE_LIBRARY_ARCHITECTURE aarch64)
-endif()
 # Suppress all warnings
 set(FOLLY_CXX_FLAGS -w)
 # Enable INT128 support
