@@ -1427,3 +1427,51 @@ TEST_F(ElementAtTest, timestampWithTimeZoneWithCaching) {
       std::vector<int64_t>{pack(5, 10)}, TIMESTAMP_WITH_TIME_ZONE())});
   testCaching({mapOfRowKeys, lookup}, makeConstant<int32_t>(5, 1));
 }
+
+TEST_F(ElementAtTest, highlySelective) {
+  // Verify that selecting a single element from a large array/map will ensure
+  // the underlying elements vector is flattened before generating the result
+  // which is otherwise wrapped in a dictionary with indices pointing to the
+  // selected subscript. This ensures large element vectors are not passed
+  // along.
+  vector_size_t vectorSize = 100;
+  auto sizeAtLarge = [](vector_size_t /* row */) { return 10; };
+  auto sizeAtSmall = [](vector_size_t /* row */) { return 5; };
+  auto keyAt = [](vector_size_t idx) { return idx; };
+  auto valueAt = [](vector_size_t /* idx */) { return 10; };
+  {
+    auto mapVector = makeMapVector<int64_t, int64_t>(
+        vectorSize, sizeAtLarge, keyAt, valueAt);
+    auto result = evaluate<SimpleVector<int64_t>>(
+        "element_at(C0, 3)", makeRowVector({mapVector}));
+    EXPECT_EQ(result->encoding(), VectorEncoding::Simple::FLAT);
+  }
+
+  {
+    auto mapVector = makeMapVector<int64_t, int64_t>(
+        vectorSize, sizeAtSmall, keyAt, valueAt);
+    auto result = evaluate<SimpleVector<int64_t>>(
+        "element_at(C0, 3)", makeRowVector({mapVector}));
+    EXPECT_EQ(result->encoding(), VectorEncoding::Simple::DICTIONARY);
+  }
+
+  auto valueAtArray = [](vector_size_t /* row */, vector_size_t /* idx */) {
+    return 10;
+  };
+
+  {
+    auto arrayVector =
+        makeArrayVector<int64_t>(vectorSize, sizeAtLarge, valueAtArray);
+    auto result = evaluate<SimpleVector<int64_t>>(
+        "element_at(C0, 3)", makeRowVector({arrayVector}));
+    EXPECT_EQ(result->encoding(), VectorEncoding::Simple::FLAT);
+  }
+
+  {
+    auto arrayVector =
+        makeArrayVector<int64_t>(vectorSize, sizeAtSmall, valueAtArray);
+    auto result = evaluate<SimpleVector<int64_t>>(
+        "element_at(C0, 3)", makeRowVector({arrayVector}));
+    EXPECT_EQ(result->encoding(), VectorEncoding::Simple::DICTIONARY);
+  }
+}

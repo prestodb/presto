@@ -174,8 +174,16 @@ VectorPtr applyMapTyped(
         baseMap->mapValues()->type(), rows.end(), context.pool());
   }
 
+  // Subscript can pass along very large elements vectors that can hold onto
+  // memory and copy operations on them can further put memory pressure. We
+  // try to flatten them if the dictionary layer is much smaller than the
+  // elements vector.
   return BaseVector::wrapInDictionary(
-      nullsBuilder.build(), indices, rows.end(), baseMap->mapValues());
+      nullsBuilder.build(),
+      indices,
+      rows.end(),
+      baseMap->mapValues(),
+      true /*flattenIfRedundant*/);
 }
 
 VectorPtr applyMapComplexType(
@@ -294,8 +302,16 @@ VectorPtr applyMapComplexType(
         baseMap->mapValues()->type(), rows.end(), context.pool());
   }
 
+  // Subscript can pass along very large elements vectors that can hold onto
+  // memory and copy operations on them can further put memory pressure. We
+  // try to flatten them if the dictionary layer is much smaller than the
+  // elements vector.
   return BaseVector::wrapInDictionary(
-      nullsBuilder.build(), indices, rows.end(), baseMap->mapValues());
+      nullsBuilder.build(),
+      indices,
+      rows.end(),
+      baseMap->mapValues(),
+      true /*flattenIfRedundant*/);
 }
 
 } // namespace

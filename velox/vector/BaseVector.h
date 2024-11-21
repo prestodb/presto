@@ -559,11 +559,18 @@ class BaseVector {
       vector_size_t size,
       velox::memory::MemoryPool* pool);
 
+  /// Wraps the 'vector' in the provided dictionary encoding. If the input
+  /// vector is constant and the nulls buffer is empty, this method may return a
+  /// ConstantVector. Additionally, if 'flattenIfRedundant' is true, this method
+  /// may return a flattened version of the expected dictionary vector if
+  /// applying the dictionary encoding would result in a suboptimally encoded
+  /// vector.
   static VectorPtr wrapInDictionary(
       BufferPtr nulls,
       BufferPtr indices,
       vector_size_t size,
-      VectorPtr vector);
+      VectorPtr vector,
+      bool flattenIfRedundant = false);
 
   static VectorPtr
   wrapInSequence(BufferPtr lengths, vector_size_t size, VectorPtr vector);

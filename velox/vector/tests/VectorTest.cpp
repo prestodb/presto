@@ -3901,6 +3901,38 @@ TEST_F(VectorTest, testOverSizedArray) {
   EXPECT_THROW(BaseVector::flattenVector(constArray), VeloxUserError);
 }
 
+TEST_F(VectorTest, testFlatteningOfRedundantDictionary) {
+  // Verify that BaseVector::wrapInDictionary() API flattens the output if
+  // 'flattenIfRedundant' is set to true and the wrapped vector has a size less
+  // than 1/8 the size of the base.
+  auto vectorSize = 100;
+  auto flat =
+      makeFlatVector<int32_t>(vectorSize, [](auto /*row*/) { return 1; });
+  {
+    auto dictionarySize = vectorSize / 10;
+    auto indices = makeIndices(dictionarySize, [](auto i) { return i; });
+    auto wrapped =
+        BaseVector::wrapInDictionary(nullptr, indices, dictionarySize, flat);
+    EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::DICTIONARY);
+
+    wrapped = BaseVector::wrapInDictionary(
+        nullptr, indices, dictionarySize, flat, true /*flattenIfRedundant*/);
+    EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::FLAT);
+  }
+
+  {
+    auto dictionarySize = vectorSize / 3;
+    auto indices = makeIndices(dictionarySize, [](auto i) { return i; });
+    auto wrapped =
+        BaseVector::wrapInDictionary(nullptr, indices, dictionarySize, flat);
+    EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::DICTIONARY);
+
+    wrapped = BaseVector::wrapInDictionary(
+        nullptr, indices, dictionarySize, flat, true /*flattenIfRedundant*/);
+    EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::DICTIONARY);
+  }
+}
+
 TEST_F(VectorTest, hasOverlappingRanges) {
   auto test = [this](
                   vector_size_t length,

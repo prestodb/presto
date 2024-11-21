@@ -233,3 +233,23 @@ TEST_F(ArrayFilterTest, try) {
       {{{1, 2}}, std::nullopt, {{6, 7, 8, 9}}, {{10, 11, 12, 13}}});
   assertEqualVectors(expected, result);
 }
+
+TEST_F(ArrayFilterTest, selectiveFilter) {
+  // Verify that a selective filter will ensure the underlying elements
+  // vector is flattened before generating the result which is otherwise wrapped
+  // in a dictionary with the filter results. This ensures large element
+  // vectors are not passed along.
+  auto data = makeRowVector({
+      makeArrayVector<int64_t>({
+          {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+          {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+      }),
+  });
+  auto result = evaluate<BaseVector>("filter(c0, x -> (x = 1))", data);
+  auto base = result->as<ArrayVector>()->elements();
+  EXPECT_EQ(base->encoding(), VectorEncoding::Simple::FLAT);
+
+  result = evaluate<BaseVector>("filter(c0, x -> (x < 4))", data);
+  base = result->as<ArrayVector>()->elements();
+  EXPECT_EQ(base->encoding(), VectorEncoding::Simple::DICTIONARY);
+}

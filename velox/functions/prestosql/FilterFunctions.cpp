@@ -133,11 +133,16 @@ class ArrayFilterFunction : public FilterFunctionBase {
         resultSizes,
         selectedIndices);
 
+    // Filter can pass along very large elements vectors that can hold onto
+    // memory and copy operations on them can further put memory pressure. We
+    // try to flatten them if the dictionary layer is much smaller than the
+    // elements vector.
     auto wrappedElements = numSelected ? BaseVector::wrapInDictionary(
                                              BufferPtr(nullptr),
                                              std::move(selectedIndices),
                                              numSelected,
-                                             std::move(elements))
+                                             std::move(elements),
+                                             true /*flattenIfRedundant*/)
                                        : nullptr;
     // Set nulls for rows not present in 'rows'.
     BufferPtr newNulls = addNullsForUnselectedRows(flatArray, rows);
@@ -196,15 +201,23 @@ class MapFilterFunction : public FilterFunctionBase {
         resultSizes,
         selectedIndices);
 
-    auto wrappedKeys = numSelected
-        ? BaseVector::wrapInDictionary(
-              BufferPtr(nullptr), selectedIndices, numSelected, std::move(keys))
-        : nullptr;
+    // Filter can pass along very large elements vectors that can hold onto
+    // memory and copy operations on them can further put memory pressure. We
+    // try to flatten them if the dictionary layer is much smaller than the
+    // elements vector.
+    auto wrappedKeys = numSelected ? BaseVector::wrapInDictionary(
+                                         BufferPtr(nullptr),
+                                         selectedIndices,
+                                         numSelected,
+                                         std::move(keys),
+                                         true /*flattenIfRedundant*/)
+                                   : nullptr;
     auto wrappedValues = numSelected ? BaseVector::wrapInDictionary(
                                            BufferPtr(nullptr),
                                            selectedIndices,
                                            numSelected,
-                                           std::move(values))
+                                           std::move(values),
+                                           true /*flattenIfRedundant*/)
                                      : nullptr;
     // Set nulls for rows not present in 'rows'.
     BufferPtr newNulls = addNullsForUnselectedRows(flatMap, rows);

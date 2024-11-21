@@ -134,7 +134,8 @@ VectorPtr BaseVector::wrapInDictionary(
     BufferPtr nulls,
     BufferPtr indices,
     vector_size_t size,
-    VectorPtr vector) {
+    VectorPtr vector,
+    bool flattenIfRedundant) {
   // Dictionary that doesn't add nulls over constant is same as constant. Just
   // make sure to adjust the size.
   if (vector->encoding() == VectorEncoding::Simple::CONSTANT && !nulls) {
@@ -144,14 +145,29 @@ VectorPtr BaseVector::wrapInDictionary(
     return BaseVector::wrapInConstant(size, 0, std::move(vector));
   }
 
+  bool shouldFlatten = false;
+  if (flattenIfRedundant) {
+    auto base = vector;
+    while (base->encoding() == VectorEncoding::Simple::DICTIONARY) {
+      base = base->valueVector();
+    }
+    shouldFlatten = !isLazyNotLoaded(*base) && (base->size() / 8) > size;
+  }
+
   auto kind = vector->typeKind();
-  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
+  auto result = VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       addDictionary,
       kind,
       std::move(nulls),
       std::move(indices),
       size,
       std::move(vector));
+
+  if (shouldFlatten) {
+    BaseVector::flattenVector(result);
+  }
+
+  return result;
 }
 
 template <TypeKind kind>

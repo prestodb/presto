@@ -373,8 +373,16 @@ class SubscriptImpl : public exec::Subscript {
           baseArray->elements()->type(), rows.end(), context.pool());
     }
 
+    // Subscript can pass along very large elements vectors that can hold onto
+    // memory and copy operations on them can further put memory pressure. We
+    // try to flatten them if the dictionary layer is much smaller than the
+    // elements vector.
     return BaseVector::wrapInDictionary(
-        nullsBuilder.build(), indices, rows.end(), baseArray->elements());
+        nullsBuilder.build(),
+        indices,
+        rows.end(),
+        baseArray->elements(),
+        true /*flattenIfRedundant*/);
   }
 
   // Normalize indices from 1 or 0-based into always 0-based (according to
