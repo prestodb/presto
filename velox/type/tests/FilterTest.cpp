@@ -76,6 +76,7 @@ TEST(FilterTest, isNull) {
 
   EXPECT_FALSE(isNull.testNonNull());
   EXPECT_FALSE(isNull.testInt64(10));
+  EXPECT_FALSE(isNull.testInt128(10));
 
   EXPECT_EQ("Filter(IsNull, deterministic, null allowed)", isNull.toString());
 }

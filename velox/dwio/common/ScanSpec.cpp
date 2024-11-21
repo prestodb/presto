@@ -316,6 +316,9 @@ bool testFilter(
     return true;
   }
   if (type->isDecimal()) {
+    // The min and max value in the metadata for decimal type in Parquet can be
+    // stored in different physical types, including int32, int64 and
+    // fixed_len_byte_array. The loading of them is not supported in Metadata.
     return true;
   }
   switch (type->kind()) {

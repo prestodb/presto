@@ -342,8 +342,7 @@ void E2EFilterTestBase::testRowGroupSkip(
   // Makes a row group skipping filter for the first bigint column.
   for (auto& field : filterable) {
     VectorPtr child = getChildBySubfield(batches[0].get(), Subfield(field));
-    if (child->typeKind() == TypeKind::BIGINT ||
-        child->typeKind() == TypeKind::VARCHAR) {
+    if (child->type() == BIGINT() || child->typeKind() == TypeKind::VARCHAR) {
       specs.emplace_back();
       specs.back().field = field;
       specs.back().isForRowGroupSkip = true;

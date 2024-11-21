@@ -136,13 +136,18 @@ VectorPtr BatchMaker::createVector<TypeKind::INTEGER>(
 
 template <>
 VectorPtr BatchMaker::createVector<TypeKind::BIGINT>(
-    const TypePtr& /*type*/,
+    const TypePtr& type,
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
     std::function<bool(vector_size_t /*index*/)> isNullAt) {
   return createScalar<int64_t>(
-      size, gen, [&gen]() { return Random::rand64(gen); }, pool, isNullAt);
+      size,
+      gen,
+      [&gen]() { return Random::rand64(gen); },
+      pool,
+      isNullAt,
+      type);
 }
 
 template <>

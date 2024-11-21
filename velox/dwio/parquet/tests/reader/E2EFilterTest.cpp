@@ -414,7 +414,7 @@ TEST_F(E2EFilterTest, longDecimalDictionary) {
               true);
         },
         true,
-        {},
+        {"longdecimal_val"},
         20);
   }
 }
@@ -443,7 +443,7 @@ TEST_F(E2EFilterTest, longDecimalDirect) {
               true);
         },
         true,
-        {},
+        {"longdecimal_val"},
         20);
   }
 
@@ -456,7 +456,7 @@ TEST_F(E2EFilterTest, longDecimalDirect) {
             {-479, HugeInt::build(1546093991, 4054979645)});
       },
       false,
-      {},
+      {"longdecimal_val"},
       20);
 }
 
