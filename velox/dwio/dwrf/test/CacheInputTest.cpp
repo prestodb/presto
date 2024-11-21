@@ -19,6 +19,7 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/FileIds.h"
+#include "velox/common/caching/tests/CacheTestUtil.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/io/IoStatistics.h"
 #include "velox/common/io/Options.h"
@@ -77,7 +78,7 @@ class CacheTest : public ::testing::Test {
     if (cache_ != nullptr) {
       auto* ssdCache = cache_->ssdCache();
       if (ssdCache != nullptr) {
-        ssdCache->testingDeleteFiles();
+        ssdCacheHelper_->deleteFiles();
       }
     }
   }
@@ -106,12 +107,15 @@ class CacheTest : public ::testing::Test {
           checksumEnabled,
           checksumEnabled);
       ssd = std::make_unique<SsdCache>(config);
+      ssdCacheHelper_ = std::make_unique<test::SsdCacheTestHelper>(ssd.get());
       groupStats_ = &ssd->groupStats();
     }
     memory::MmapAllocator::Options options;
     options.capacity = maxBytes;
     allocator_ = std::make_shared<memory::MmapAllocator>(options);
     cache_ = AsyncDataCache::create(allocator_.get(), std::move(ssd));
+    asyncDataCacheHelper_ =
+        std::make_unique<test::AsyncDataCacheTestHelper>(cache_.get());
     cache_->setVerifyHook(checkEntry);
     for (auto i = 0; i < kMaxStreams; ++i) {
       streamIds_.push_back(std::make_unique<dwrf::DwrfStreamIdentifier>(
@@ -423,6 +427,8 @@ class CacheTest : public ::testing::Test {
   cache::FileGroupStats* groupStats_ = nullptr;
   std::shared_ptr<memory::MemoryAllocator> allocator_;
   std::shared_ptr<AsyncDataCache> cache_;
+  std::unique_ptr<test::AsyncDataCacheTestHelper> asyncDataCacheHelper_;
+  std::unique_ptr<test::SsdCacheTestHelper> ssdCacheHelper_;
   std::shared_ptr<IoStatistics> ioStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
   std::shared_ptr<memory::MemoryPool> pool_{
@@ -832,14 +838,16 @@ TEST_F(CacheTest, noCacheRetention) {
       }
       ASSERT_EQ(ssdCache->stats().regionsEvicted, 0);
     }
-    const auto cacheEntries = cache_->testingCacheEntries();
+    const auto cacheEntries = asyncDataCacheHelper_->cacheEntries();
     for (const auto& cacheEntry : cacheEntries) {
+      const auto cacheEntryHelper =
+          std::make_unique<test::AsyncDataCacheEntryTestHelper>(cacheEntry);
       if (testData.noCacheRetention) {
-        ASSERT_EQ(cacheEntry->testingAccessStats().numUses, 0);
-        ASSERT_EQ(cacheEntry->testingAccessStats().lastUse, 0);
+        ASSERT_EQ(cacheEntryHelper->accessStats().numUses, 0);
+        ASSERT_EQ(cacheEntryHelper->accessStats().lastUse, 0);
       } else {
-        ASSERT_GE(cacheEntry->testingAccessStats().numUses, 0);
-        ASSERT_NE(cacheEntry->testingAccessStats().lastUse, 0);
+        ASSERT_GE(cacheEntryHelper->accessStats().numUses, 0);
+        ASSERT_NE(cacheEntryHelper->accessStats().lastUse, 0);
       }
     }
     const auto stats = cache_->refreshStats();

@@ -382,32 +382,10 @@ class SsdFile {
         : checkpointPath;
   }
 
-  /// Deletes the backing file. Used in testing.
-  void testingDeleteFile();
-
   /// Resets this' to a post-construction empty state. See SsdCache::clear().
   ///
   /// NOTE: this is only used by test and Prestissimo worker operation.
   void clear();
-
-  /// Returns true if copy on write is disabled for this file. Used in testing.
-  bool testingIsCowDisabled() const;
-
-  std::vector<double> testingCopyScores() {
-    return tracker_.copyScores();
-  }
-
-  int32_t testingNumWritableRegions() const {
-    return writableRegions_.size();
-  }
-
-  const folly::F14FastMap<FileCacheKey, SsdRun>& testingEntries() {
-    return entries_;
-  }
-
-  bool testingChecksumReadVerificationEnabled() const {
-    return checksumReadVerificationEnabled_;
-  }
 
  private:
   // Magic number separating file names from cache entry data in checkpoint

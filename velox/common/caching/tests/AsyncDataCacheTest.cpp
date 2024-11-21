@@ -94,7 +94,7 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
       cache_->shutdown();
       auto* ssdCache = cache_->ssdCache();
       if (ssdCache) {
-        ssdCache->testingDeleteFiles();
+        ssdCacheHelper_->deleteFiles();
       }
     }
     if (loadExecutor_ != nullptr) {
@@ -143,14 +143,15 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
           GetParam().checksumVerificationEnabled);
       ssdCache = std::make_unique<SsdCache>(config);
       if (ssdCache != nullptr) {
-        test::SsdCacheTestHelper ssdCacheHelper(ssdCache.get());
-        ASSERT_EQ(ssdCacheHelper.numShards(), kNumSsdShards);
+        ssdCacheHelper_ =
+            std::make_unique<test::SsdCacheTestHelper>(ssdCache.get());
+        ASSERT_EQ(ssdCacheHelper_->numShards(), kNumSsdShards);
         const auto sizeQuantum = kNumSsdShards * SsdFile::kRegionSize;
         const auto maxNumRegions = static_cast<int32_t>(
             bits::roundUp(config.maxBytes, sizeQuantum) / sizeQuantum);
         for (int32_t i = 0; i < kNumSsdShards; ++i) {
           ASSERT_EQ(
-              ssdCacheHelper.writeFileSize(i),
+              ssdCacheHelper_->writeFileSize(i),
               maxNumRegions * SsdFile::kRegionSize);
         }
       }
@@ -165,6 +166,8 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
     allocator_ = static_cast<memory::MmapAllocator*>(manager_->allocator());
     cache_ =
         AsyncDataCache::create(allocator_, std::move(ssdCache), cacheOptions);
+    asyncDataCacheHelper_ =
+        std::make_unique<test::AsyncDataCacheTestHelper>(cache_.get());
     if (filenames_.empty()) {
       for (auto i = 0; i < kNumFiles; ++i) {
         auto name = fmt::format("testing_file_{}", i);
@@ -308,6 +311,8 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
   std::unique_ptr<memory::MemoryManager> manager_;
   memory::MemoryAllocator* allocator_;
   std::shared_ptr<AsyncDataCache> cache_;
+  std::unique_ptr<test::AsyncDataCacheTestHelper> asyncDataCacheHelper_;
+  std::unique_ptr<test::SsdCacheTestHelper> ssdCacheHelper_;
   std::vector<StringIdLease> filenames_;
   std::unique_ptr<folly::IOThreadPoolExecutor> loadExecutor_;
   std::unique_ptr<folly::IOThreadPoolExecutor> ssdExecutor_;
@@ -1222,7 +1227,7 @@ TEST_P(AsyncDataCacheTest, shutdown) {
     loadLoop(0, 16 * kSsdBytes);
     ASSERT_EQ(cache_->ssdCache()->stats().checkpointsWritten, 0);
     ASSERT_GT(cache_->ssdCache()->stats().regionsEvicted, 0);
-    ASSERT_GT(cache_->ssdCache()->testingTotalLogEvictionFilesSize(), 0);
+    ASSERT_GT(ssdCacheHelper_->totalEvictionLogFilesSize(), 0);
 
     // Shutdown cache.
     if (!asyncShutdown) {
@@ -1248,7 +1253,7 @@ TEST_P(AsyncDataCacheTest, shutdown) {
       ASSERT_EQ(bytesWrittenBeforeShutdown, bytesWrittenAfterShutdown);
     }
     // Eviction log files have been truncated.
-    ASSERT_EQ(cache_->ssdCache()->testingTotalLogEvictionFilesSize(), 0);
+    ASSERT_EQ(ssdCacheHelper_->totalEvictionLogFilesSize(), 0);
 
     // Shutdown again making sure no issue is triggered.
     cache_->ssdCache()->shutdown();
@@ -1264,7 +1269,7 @@ TEST_P(AsyncDataCacheTest, shutdown) {
     // Checkpoint files are intact and readable.
     ASSERT_EQ(cache_->ssdCache()->stats().openCheckpointErrors, 0);
     ASSERT_EQ(cache_->ssdCache()->stats().readCheckpointErrors, 0);
-    cache_->ssdCache()->testingDeleteCheckpoints();
+    ssdCacheHelper_->deleteCheckpoints();
   }
 }
 
@@ -1397,14 +1402,16 @@ TEST_P(AsyncDataCacheTest, makeEvictable) {
         cache_->makeEvictable(key);
       }
     }
-    const auto cacheEntries = cache_->testingCacheEntries();
+    const auto cacheEntries = asyncDataCacheHelper_->cacheEntries();
     for (const auto& cacheEntry : cacheEntries) {
+      const auto cacheEntryHelper =
+          test::AsyncDataCacheEntryTestHelper(cacheEntry);
       ASSERT_EQ(cacheEntry->ssdSaveable(), !evictable);
-      ASSERT_EQ(cacheEntry->testingAccessStats().numUses, 0);
+      ASSERT_EQ(cacheEntryHelper.accessStats().numUses, 0);
       if (evictable) {
-        ASSERT_EQ(cacheEntry->testingAccessStats().lastUse, 0);
+        ASSERT_EQ(cacheEntryHelper.accessStats().lastUse, 0);
       } else {
-        ASSERT_NE(cacheEntry->testingAccessStats().lastUse, 0);
+        ASSERT_NE(cacheEntryHelper.accessStats().lastUse, 0);
       }
     }
     auto* ssdCache = cache_->ssdCache();
@@ -1415,7 +1422,7 @@ TEST_P(AsyncDataCacheTest, makeEvictable) {
     if (evictable) {
       ASSERT_EQ(ssdCache->stats().entriesCached, 0);
     } else {
-      if (cache_->testingSsdSavable() == 0) {
+      if (asyncDataCacheHelper_->ssdSavable() == 0) {
         ASSERT_GT(ssdCache->stats().entriesCached, 0);
       } else {
         // Ssd write only gets triggered after a certain ssd space usage
@@ -1526,7 +1533,8 @@ TEST_P(AsyncDataCacheTest, appendSsdSaveable) {
       // There might be some cache evictions.
       ASSERT_GE(stats.ssdStats->entriesWritten, stats.numEntries);
     } else {
-      ASSERT_EQ(stats.ssdStats->entriesWritten, cache_->testingNumShards());
+      ASSERT_EQ(
+          stats.ssdStats->entriesWritten, asyncDataCacheHelper_->numShards());
     }
   }
 }

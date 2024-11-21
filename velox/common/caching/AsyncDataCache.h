@@ -48,6 +48,12 @@ class SsdCache;
 struct SsdCacheStats;
 class SsdFile;
 
+namespace test {
+class AsyncDataCacheEntryTestHelper;
+class CacheShardTestHelper;
+class AsyncDataCacheTestHelper;
+} // namespace test
+
 // Type for tracking last access. This is based on CPU clock and
 // scaled to be around 1ms resolution. This can wrap around and is
 // only comparable to other values of the same type. This is a
@@ -266,14 +272,6 @@ class AsyncDataCacheEntry {
 
   std::string toString() const;
 
-  const AccessStats& testingAccessStats() const {
-    return accessStats_;
-  }
-
-  bool testingFirstUse() const {
-    return isFirstUse_;
-  }
-
  private:
   void release();
   void addReference();
@@ -338,6 +336,7 @@ class AsyncDataCacheEntry {
 
   friend class CacheShard;
   friend class CachePin;
+  friend class test::AsyncDataCacheEntryTestHelper;
 };
 
 class CachePin {
@@ -627,8 +626,6 @@ class CacheShard {
     return allocClocks_;
   }
 
-  std::vector<AsyncDataCacheEntry*> testingCacheEntries() const;
-
  private:
   static constexpr uint32_t kMaxFreeEntries = 1 << 10;
   static constexpr int32_t kNoThreshold = std::numeric_limits<int32_t>::max();
@@ -693,6 +690,8 @@ class CacheShard {
   // Tracker of cumulative time spent in allocating/freeing MemoryAllocator
   // space for backing cached data.
   std::atomic<uint64_t> allocClocks_{0};
+
+  friend class test::CacheShardTestHelper;
 };
 
 class AsyncDataCache : public memory::Cache {
@@ -870,16 +869,6 @@ class AsyncDataCache : public memory::Cache {
   /// NOTE: it is used by testing and Prestissimo server operation.
   void clear();
 
-  std::vector<AsyncDataCacheEntry*> testingCacheEntries() const;
-
-  uint64_t testingSsdSavable() const {
-    return ssdSaveable_;
-  }
-
-  int32_t testingNumShards() const {
-    return shards_.size();
-  }
-
  private:
   static constexpr int32_t kNumShards = 4; // Must be power of 2.
   static constexpr int32_t kShardMask = kNumShards - 1;
@@ -929,6 +918,8 @@ class AsyncDataCache : public memory::Cache {
   // Counter of threads competing for allocation in makeSpace(). Used
   // for setting staggered backoff. Mutexes are not allowed for this.
   std::atomic<int32_t> numThreadsInAllocate_{0};
+
+  friend class test::AsyncDataCacheTestHelper;
 };
 
 /// Samples a set of values T from 'numSamples' calls of 'iter'. Returns the

@@ -56,7 +56,7 @@ class SsdFileTest : public testing::Test {
 
   void TearDown() override {
     if (ssdFile_) {
-      ssdFile_->testingDeleteFile();
+      ssdFileHelper_->deleteFile();
     }
     if (cache_) {
       cache_->shutdown();
@@ -74,6 +74,8 @@ class SsdFileTest : public testing::Test {
     // tmpfs does not support O_DIRECT, so turn this off for testing.
     FLAGS_ssd_odirect = false;
     cache_ = AsyncDataCache::create(memory::memoryManager()->allocator());
+    cacheHelper_ =
+        std::make_unique<test::AsyncDataCacheTestHelper>(cache_.get());
     fileName_ = StringIdLease(fileIds(), "fileInStorage");
     tempDirectory_ =
         exec::test::TempDirectoryPath::create(enableFaultInjection);
@@ -103,9 +105,11 @@ class SsdFileTest : public testing::Test {
         checksumReadVerificationEnabled);
     ssdFile_ = std::make_unique<SsdFile>(config);
     if (ssdFile_ != nullptr) {
-      test::SsdFileTestHelper ssdFileHelper(ssdFile_.get());
+      ssdFileHelper_ =
+          std::make_unique<test::SsdFileTestHelper>(ssdFile_.get());
       ASSERT_EQ(
-          ssdFileHelper.writeFileSize(), maxNumRegions * ssdFile_->kRegionSize);
+          ssdFileHelper_->writeFileSize(),
+          maxNumRegions * ssdFile_->kRegionSize);
     }
   }
 
@@ -309,9 +313,11 @@ class SsdFileTest : public testing::Test {
   std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
 
   std::shared_ptr<AsyncDataCache> cache_;
+  std::unique_ptr<test::AsyncDataCacheTestHelper> cacheHelper_;
   StringIdLease fileName_;
 
   std::unique_ptr<SsdFile> ssdFile_;
+  std::unique_ptr<test::SsdFileTestHelper> ssdFileHelper_;
 };
 
 TEST_F(SsdFileTest, writeAndRead) {
@@ -414,13 +420,13 @@ TEST_F(SsdFileTest, checkpoint) {
     };
     readAndCheckPins(pins);
   }
-  const auto originalRegionScores = ssdFile_->testingCopyScores();
+  const auto originalRegionScores = ssdFileHelper_->copyScores();
   EXPECT_EQ(originalRegionScores.size(), 16);
 
   // Re-initialize SSD file from checkpoint.
   ssdFile_->checkpoint(true);
   initializeSsdFile(kSsdSize, checkpointIntervalBytes);
-  const auto recoveredRegionScores = ssdFile_->testingCopyScores();
+  const auto recoveredRegionScores = ssdFileHelper_->copyScores();
   EXPECT_EQ(recoveredRegionScores.size(), 16);
   EXPECT_EQ(originalRegionScores, recoveredRegionScores);
 
@@ -451,7 +457,7 @@ TEST_F(SsdFileTest, checkpoint) {
   // Block eviction.
   auto ssdPins = pinAllRegions(allEntries);
   ssdFile_->removeFileEntries(filesToRemove, filesRetained);
-  EXPECT_EQ(ssdFile_->testingNumWritableRegions(), 0);
+  EXPECT_EQ(ssdFileHelper_->numWritableRegions(), 0);
   EXPECT_EQ(filesRetained.size(), 1);
   numEntriesFound = checkEntries(allEntries);
   EXPECT_EQ(numEntriesFound, allEntries.size());
@@ -467,7 +473,7 @@ TEST_F(SsdFileTest, checkpoint) {
   filesRetained.clear();
   ssdFile_->removeFileEntries(filesToRemove, filesRetained);
   // All regions have been evicted and marked as writable.
-  EXPECT_EQ(ssdFile_->testingNumWritableRegions(), 16);
+  EXPECT_EQ(ssdFileHelper_->numWritableRegions(), 16);
   EXPECT_EQ(filesRetained.size(), 0);
   numEntriesFound = checkEntries(allEntries);
   EXPECT_EQ(numEntriesFound, 0);
@@ -611,7 +617,7 @@ TEST_F(SsdFileTest, recoverFromCheckpointWithChecksum) {
         testData.writeEnabled,
         testData.readVerificationEnabled);
     EXPECT_EQ(
-        ssdFile_->testingChecksumReadVerificationEnabled(),
+        ssdFileHelper_->checksumReadVerificationEnabled(),
         testData.expectedReadVerificationEnabled);
 
     // Populate the cache with some entries.
@@ -665,7 +671,7 @@ TEST_F(SsdFileTest, recoverFromCheckpointWithChecksum) {
     }
 
     EXPECT_EQ(
-        ssdFile_->testingChecksumReadVerificationEnabled(),
+        ssdFileHelper_->checksumReadVerificationEnabled(),
         testData.expectedReadVerificationEnabledOnRecovery);
 
     // Check if cache data is recoverable as expected.
@@ -946,12 +952,12 @@ TEST_F(SsdFileTest, evictlogFileErrorInjection) {
 TEST_F(SsdFileTest, disabledCow) {
   constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
   initializeCache(kSsdSize, 0, false, false, true);
-  EXPECT_TRUE(ssdFile_->testingIsCowDisabled());
+  EXPECT_TRUE(ssdFileHelper_->isCowDisabled());
 }
 
 TEST_F(SsdFileTest, notDisabledCow) {
   constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
   initializeCache(kSsdSize, 0, false, false, false);
-  EXPECT_FALSE(ssdFile_->testingIsCowDisabled());
+  EXPECT_FALSE(ssdFileHelper_->isCowDisabled());
 }
 #endif // VELOX_SSD_FILE_TEST_SET_NO_COW_FLAG

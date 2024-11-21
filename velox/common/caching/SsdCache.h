@@ -168,15 +168,6 @@ class SsdCache {
   /// test and Prestissimo worker operation.
   void waitForWriteToFinish();
 
-  /// Deletes backing files. Used in testing.
-  void testingDeleteFiles();
-
-  /// Deletes checkpoint files. Used in testing.
-  void testingDeleteCheckpoints();
-
-  /// Returns the total size of eviction log files. Used by test only.
-  uint64_t testingTotalLogEvictionFilesSize();
-
  private:
   void checkNotShutdownLocked() {
     VELOX_CHECK(

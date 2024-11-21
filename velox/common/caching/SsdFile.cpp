@@ -567,21 +567,6 @@ void SsdFile::clear() {
   tracker_.clear();
 }
 
-void SsdFile::testingDeleteFile() {
-  process::TraceContext trace("SsdFile::testingDeleteFile");
-  if (writeFile_) {
-    writeFile_->close();
-    writeFile_.reset();
-  }
-  try {
-    fs_->remove(fileName_);
-  } catch (const std::exception& e) {
-    VELOX_SSD_CACHE_LOG(ERROR) << "Failed to delete cache file " << fileName_
-                               << ", error code: " << errno
-                               << ", error string: " << folly::errnoStr(errno);
-  }
-}
-
 bool SsdFile::removeFileEntries(
     const folly::F14FastSet<uint64_t>& filesToRemove,
     folly::F14FastSet<uint64_t>& filesRetained) {
@@ -953,17 +938,6 @@ void SsdFile::disableFileCow() {
   if (evictLogWriteFile_ != nullptr) {
     evictLogWriteFile_->setAttributes(attributes);
   }
-#endif // linux
-}
-
-bool SsdFile::testingIsCowDisabled() const {
-#ifdef linux
-  const auto attributes = writeFile_->getAttributes();
-  const auto it =
-      attributes.find(std::string(LocalWriteFile::Attributes::kNoCow));
-  return it != attributes.end() && it->second == "true";
-#else
-  return false;
 #endif // linux
 }
 

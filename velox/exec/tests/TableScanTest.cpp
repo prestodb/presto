@@ -23,6 +23,7 @@
 
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/caching/tests/CacheTestUtil.h"
 #include "velox/common/file/tests/FaultyFile.h"
 #include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/common/memory/MemoryArbitrator.h"
@@ -49,6 +50,7 @@
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::cache;
 using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::core;
 using namespace facebook::velox::exec;
@@ -5109,26 +5111,29 @@ TEST_F(TableScanTest, noCacheRetention) {
         .assertResults("SELECT * FROM tmp");
     waitForAllTasksToBeDeleted();
 
-    const auto cacheEntries = asyncDataCache_->testingCacheEntries();
-    if (noCacheRetention) {
-      for (const auto& cacheEntry : cacheEntries) {
-        if (!cacheEntry->testingFirstUse()) {
-          ASSERT_EQ(cacheEntry->testingAccessStats().lastUse, 0)
+    const auto asyncDataCacheHelper =
+        cache::test::AsyncDataCacheTestHelper(asyncDataCache_.get());
+    const auto cacheEntries = asyncDataCacheHelper.cacheEntries();
+
+    for (const auto& cacheEntry : cacheEntries) {
+      const auto cacheEntryHelper =
+          cache::test::AsyncDataCacheEntryTestHelper(cacheEntry);
+      if (noCacheRetention) {
+        if (!cacheEntryHelper.firstUse()) {
+          ASSERT_EQ(cacheEntryHelper.accessStats().lastUse, 0)
               << cacheEntry->toString();
         }
-        ASSERT_EQ(cacheEntry->testingAccessStats().numUses, 0)
+        ASSERT_EQ(cacheEntryHelper.accessStats().numUses, 0)
             << cacheEntry->toString();
-      }
-    } else {
-      for (const auto& cacheEntry : cacheEntries) {
-        if (cacheEntry->testingFirstUse()) {
-          ASSERT_EQ(cacheEntry->testingAccessStats().numUses, 0)
+      } else {
+        if (cacheEntryHelper.firstUse()) {
+          ASSERT_EQ(cacheEntryHelper.accessStats().numUses, 0)
               << cacheEntry->toString();
         } else {
-          ASSERT_GT(cacheEntry->testingAccessStats().numUses, 0)
+          ASSERT_GT(cacheEntryHelper.accessStats().numUses, 0)
               << cacheEntry->toString();
         }
-        ASSERT_NE(cacheEntry->testingAccessStats().lastUse, 0)
+        ASSERT_NE(cacheEntryHelper.accessStats().lastUse, 0)
             << cacheEntry->toString();
       }
     }
