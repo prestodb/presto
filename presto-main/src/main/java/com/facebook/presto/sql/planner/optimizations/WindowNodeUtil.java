@@ -13,26 +13,26 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.plan.WindowNode.Frame.BoundType;
+import com.facebook.presto.spi.plan.WindowNode.Frame.WindowType;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.VariablesExtractor;
-import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
-import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.GROUPS;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.ROWS;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.FOLLOWING;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.PRECEDING;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.GROUPS;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.RANGE;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.ROWS;
 import static java.lang.String.format;
 
 public final class WindowNodeUtil

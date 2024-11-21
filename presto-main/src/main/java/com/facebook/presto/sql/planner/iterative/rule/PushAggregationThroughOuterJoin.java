@@ -25,6 +25,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -37,7 +38,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -280,23 +280,23 @@ public class PushAggregationThroughOuterJoin
 
         PlanNode finalJoinNode = outerJoin;
         if (literalMap.size() < aggregationNode.getAggregations().size()) {
-        // Do a cross join with the aggregation over null
+            // Do a cross join with the aggregation over null
             finalJoinNode = new JoinNode(
-                outerJoin.getSourceLocation(),
-                idAllocator.getNextId(),
-                JoinType.INNER,
-                outerJoin,
-                aggregationOverNull,
-                ImmutableList.of(),
-                ImmutableList.<VariableReferenceExpression>builder()
-                        .addAll(outerJoin.getOutputVariables())
-                        .addAll(aggregationOverNull.getOutputVariables())
-                        .build(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of());
+                    outerJoin.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    JoinType.INNER,
+                    outerJoin,
+                    aggregationOverNull,
+                    ImmutableList.of(),
+                    ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(outerJoin.getOutputVariables())
+                            .addAll(aggregationOverNull.getOutputVariables())
+                            .build(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of());
         }
 
         // Add coalesce expressions for all aggregation functions

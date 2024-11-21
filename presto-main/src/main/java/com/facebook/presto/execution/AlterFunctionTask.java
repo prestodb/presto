@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -72,7 +71,7 @@ public class AlterFunctionTask
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, warningCollector);
         analyzer.analyze(statement);
 
-        QualifiedObjectName functionName = qualifyObjectName(statement.getFunctionName());
+        QualifiedObjectName functionName = metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver().qualifyObjectName(statement.getFunctionName());
         AlterRoutineCharacteristics alterRoutineCharacteristics = new AlterRoutineCharacteristics(
                 statement.getCharacteristics().getNullCallClause()
                         .map(com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause::name)

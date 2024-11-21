@@ -11,31 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.JoinType;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SpatialJoinNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     public enum Type
     {
@@ -117,18 +115,17 @@ public class SpatialJoinNode
         this.type = requireNonNull(type, "type is null");
         this.left = requireNonNull(left, "left is null");
         this.right = requireNonNull(right, "right is null");
-        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
+        this.outputVariables = unmodifiableList(new ArrayList<>(requireNonNull(outputVariables, "outputVariables is null")));
         this.filter = requireNonNull(filter, "filter is null");
         this.leftPartitionVariable = requireNonNull(leftPartitionVariable, "leftPartitionVariable is null");
         this.rightPartitionVariable = requireNonNull(rightPartitionVariable, "rightPartitionVariable is null");
         this.kdbTree = requireNonNull(kdbTree, "kdbTree is null");
 
-        Set<VariableReferenceExpression> inputSymbols = ImmutableSet.<VariableReferenceExpression>builder()
-                .addAll(left.getOutputVariables())
-                .addAll(right.getOutputVariables())
-                .build();
-
+        Set<VariableReferenceExpression> inputSymbols = new LinkedHashSet<>();
+        inputSymbols.addAll(left.getOutputVariables());
+        inputSymbols.addAll(right.getOutputVariables());
         checkArgument(inputSymbols.containsAll(outputVariables), "Left and right join inputs do not contain all output variables");
+
         if (kdbTree.isPresent()) {
             checkArgument(leftPartitionVariable.isPresent(), "Left partition variable is missing");
             checkArgument(rightPartitionVariable.isPresent(), "Right partition variable is missing");
@@ -182,7 +179,10 @@ public class SpatialJoinNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(left, right);
+        List<PlanNode> sources = new ArrayList<>();
+        sources.add(left);
+        sources.add(right);
+        return unmodifiableList(sources);
     }
 
     @Override
@@ -205,7 +205,7 @@ public class SpatialJoinNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitSpatialJoin(this, context);
     }

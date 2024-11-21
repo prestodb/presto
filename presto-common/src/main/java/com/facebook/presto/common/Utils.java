@@ -55,4 +55,11 @@ public final class Utils
             throw new IllegalArgumentException(errorMessage);
         }
     }
+
+    public static void checkState(boolean test, String errorMessage)
+    {
+        if (!test) {
+            throw new IllegalStateException(errorMessage);
+        }
+    }
 }

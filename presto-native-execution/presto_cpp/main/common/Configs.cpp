@@ -178,6 +178,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kNativeSidecar, false),
           BOOL_PROP(kAsyncDataCacheEnabled, true),
           NUM_PROP(kAsyncCacheSsdGb, 0),
+          BOOL_PROP(kQueryDataCacheEnabledDefault, true),
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
           STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
           NUM_PROP(kAsyncCacheMaxSsdWriteRatio, 0.7),
@@ -194,7 +195,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSharedArbitratorReservedCapacity, "4GB"),
           STR_PROP(kSharedArbitratorMemoryPoolInitialCapacity, "128MB"),
           STR_PROP(kSharedArbitratorMemoryPoolReservedCapacity, "64MB"),
-          STR_PROP(kSharedArbitratorMemoryReclaimMaxWaitTime, "5m"),
+          STR_PROP(kSharedArbitratorMaxMemoryArbitrationTime, "5m"),
           STR_PROP(kSharedArbitratorGlobalArbitrationEnabled, "false"),
           NUM_PROP(kLargestSizeClassPages, 256),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
@@ -464,6 +465,10 @@ bool SystemConfig::asyncDataCacheEnabled() const {
   return optionalProperty<bool>(kAsyncDataCacheEnabled).value();
 }
 
+bool SystemConfig::queryDataCacheEnabledDefault() const {
+  return optionalProperty<bool>(kQueryDataCacheEnabledDefault).value();
+}
+
 uint64_t SystemConfig::asyncCacheSsdCheckpointGb() const {
   return optionalProperty<uint64_t>(kAsyncCacheSsdCheckpointGb).value();
 }
@@ -562,12 +567,12 @@ std::string SystemConfig::sharedArbitratorMemoryPoolReservedCapacity() const {
           std::string(kSharedArbitratorMemoryPoolReservedCapacityDefault));
 }
 
-std::string SystemConfig::sharedArbitratorMemoryReclaimWaitTime() const {
+std::string SystemConfig::sharedArbitratorMaxMemoryArbitrationTime() const {
   static constexpr std::string_view
-      kSharedArbitratorMemoryReclaimMaxWaitTimeDefault = "5m";
+      kSharedArbitratorMaxMemoryArbitrationTimeDefault = "5m";
   return optionalProperty<std::string>(
-             kSharedArbitratorMemoryReclaimMaxWaitTime)
-      .value_or(std::string(kSharedArbitratorMemoryReclaimMaxWaitTimeDefault));
+             kSharedArbitratorMaxMemoryArbitrationTime)
+      .value_or(std::string(kSharedArbitratorMaxMemoryArbitrationTimeDefault));
 }
 
 std::string SystemConfig::sharedArbitratorFastExponentialGrowthCapacityLimit()
