@@ -2003,6 +2003,15 @@ class DataFetcher {
     return {numPackets_, numPages_, totalBytes_};
   }
 
+  std::string getPacketPageSizes() const {
+    std::stringstream out;
+    for (const auto& sizes : packetPageSizes_) {
+      out << sizes.size() << " pages: [" << folly::join(", ", sizes) << "], ";
+    }
+    return to<std::string>(packetPageSizes_.size()) + " packets: [" +
+        out.str() + "]";
+  }
+
  private:
   static constexpr int64_t kInitialSequence = 0;
 
@@ -2033,6 +2042,9 @@ class DataFetcher {
     numPages_ += pages.size();
     ++numPackets_;
 
+    /// Save the page sizes of each packet to help with diagnosis.
+    auto pageSizes = std::vector<std::size_t>();
+
     int64_t numBytes = 0;
     bool atEnd = false;
     for (const auto& page : pages) {
@@ -2040,11 +2052,14 @@ class DataFetcher {
         VELOX_CHECK(!atEnd);
         atEnd = true;
       } else {
-        numBytes += page->computeChainDataLength();
+        auto chainDataLength = page->computeChainDataLength();
+        numBytes += chainDataLength;
+        pageSizes.push_back(chainDataLength);
       }
     }
 
     totalBytes_ += numBytes;
+    packetPageSizes_.push_back(std::move(pageSizes));
     return atEnd;
   }
 
@@ -2055,6 +2070,8 @@ class DataFetcher {
   int32_t numPackets_{0};
   int32_t numPages_{0};
   int64_t totalBytes_{0};
+  /// All the pages sizes of each packet.
+  std::vector<std::vector<std::size_t>> packetPageSizes_;
 
   std::shared_ptr<OutputBufferManager> bufferManager_{
       OutputBufferManager::getInstance().lock()};
@@ -2105,7 +2122,8 @@ TEST_P(MultiFragmentTest, maxBytes) {
     if (testIteration > 1) {
       ASSERT_EQ(prevStats.numPages, stats.numPages);
       ASSERT_EQ(prevStats.totalBytes, stats.totalBytes);
-      ASSERT_GT(prevStats.numPackets, stats.numPackets) << stats.toString();
+      ASSERT_GT(prevStats.numPackets, stats.numPackets)
+          << stats.toString() << " " << fetcher.getPacketPageSizes();
     }
 
     ASSERT_LT(stats.averagePacketBytes(), maxBytes * 1.5);
