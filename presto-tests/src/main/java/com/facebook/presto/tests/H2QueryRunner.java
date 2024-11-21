@@ -107,7 +107,7 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
-        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
+        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextLong() + ";NON_KEYWORDS=KEY,VALUE"); // key and value are reserved keywords in H2 2.x
         TpchMetadata tpchMetadata = new TpchMetadata("");
 
         handle.execute("CREATE TABLE orders (\n" +
