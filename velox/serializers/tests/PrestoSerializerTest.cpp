@@ -1164,6 +1164,19 @@ TEST_P(PrestoSerializerTest, longDecimal) {
   testRoundTrip(vector);
 }
 
+TEST_P(PrestoSerializerTest, uuid) {
+  auto vector = makeFlatVector<int128_t>(
+      200, [](vector_size_t row) { return (int128_t)0xD1 << row % 120; });
+
+  testRoundTrip(vector);
+
+  // Add some nulls.
+  for (auto i = 0; i < vector->size(); i += 7) {
+    vector->setNull(i, true);
+  }
+  testRoundTrip(vector);
+}
+
 // Test that hierarchically encoded columns (rows) have their encodings
 // preserved by the PrestoBatchVectorSerializer.
 TEST_P(PrestoSerializerTest, encodingsBatchVectorSerializer) {

@@ -63,7 +63,7 @@ TEST_F(UuidFunctionsTest, castAsVarchar) {
   // Verify that CAST results as the same as boost::lexical_cast. We do not use
   // boost::lexical_cast to implement CAST because it is too slow.
   auto expected = makeFlatVector<std::string>(size, [&](auto row) {
-    const auto uuid = uuids->valueAt(row);
+    const auto uuid = DecimalUtil::bigEndian(uuids->valueAt(row));
 
     boost::uuids::uuid u;
     memcpy(&u, &uuid, 16);
