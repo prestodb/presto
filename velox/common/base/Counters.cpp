@@ -265,6 +265,13 @@ void registerVeloxMetrics() {
   DEFINE_METRIC(
       kMetricSsdCacheRecoveredEntries, facebook::velox::StatType::SUM);
 
+  // Total number of local file space allocation failures.
+  //
+  // NOTE: space allocation is attempted by fallocate wherever it is supported.
+  DEFINE_METRIC(
+      kMetricLocalFileSpaceAllocationFailuresCount,
+      facebook::velox::StatType::COUNT);
+
   /// ================== Memory Arbitration Counters =================
 
   // The number of arbitration requests.

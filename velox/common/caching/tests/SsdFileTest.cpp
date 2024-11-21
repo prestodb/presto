@@ -16,7 +16,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/FileIds.h"
-#include "velox/common/caching/SsdCache.h"
+#include "velox/common/caching/tests/CacheTestUtil.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/common/memory/Memory.h"
@@ -91,15 +91,22 @@ class SsdFileTest : public testing::Test {
       bool checksumEnabled = false,
       bool checksumReadVerificationEnabled = false,
       bool disableFileCow = false) {
+    const auto maxNumRegions = static_cast<int32_t>(
+        bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize);
     SsdFile::Config config(
         fmt::format("{}/ssdtest", tempDirectory_->getPath()),
         0, // shardId
-        bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize,
+        maxNumRegions,
         checkpointIntervalBytes,
         disableFileCow,
         checksumEnabled,
         checksumReadVerificationEnabled);
     ssdFile_ = std::make_unique<SsdFile>(config);
+    if (ssdFile_ != nullptr) {
+      test::SsdFileTestHelper ssdFileHelper(ssdFile_.get());
+      ASSERT_EQ(
+          ssdFileHelper.writeFileSize(), maxNumRegions * ssdFile_->kRegionSize);
+    }
   }
 
   // Corrupts the file by invalidate the last 1/10th of its content.
@@ -653,7 +660,7 @@ TEST_F(SsdFileTest, recoverFromCheckpointWithChecksum) {
       ASSERT_EQ(statsAfterRecover.entriesCached, stats.entriesCached);
     } else {
       ASSERT_EQ(statsAfterRecover.bytesCached, 0);
-      ASSERT_EQ(statsAfterRecover.regionsCached, stats.regionsCached);
+      ASSERT_EQ(statsAfterRecover.regionsCached, 0);
       ASSERT_EQ(statsAfterRecover.entriesCached, 0);
     }
 

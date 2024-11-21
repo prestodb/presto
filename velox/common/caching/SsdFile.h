@@ -29,6 +29,11 @@ DECLARE_bool(ssd_verify_write);
 
 namespace facebook::velox::cache {
 
+namespace test {
+class SsdFileTestHelper;
+class SsdCacheTestHelper;
+} // namespace test
+
 /// A 64 bit word describing a SSD cache entry in an SsdFile. The low 23 bits
 /// are the size, for a maximum entry size of 8MB. The high bits are the offset.
 class SsdRun {
@@ -570,8 +575,8 @@ class SsdFile {
   // File system.
   std::shared_ptr<filesystems::FileSystem> fs_;
 
-  // Size of the backing file in bytes. Must be multiple of kRegionSize.
-  uint64_t fileSize_{0};
+  // The size of actual cached data in bytes. Must be multiple of kRegionSize.
+  uint64_t dataSize_{0};
 
   // ReadFile for cache data file.
   std::unique_ptr<ReadFile> readFile_;
@@ -597,6 +602,9 @@ class SsdFile {
 
   // True if there was an error with checkpoint and the checkpoint was deleted.
   bool checkpointDeleted_{false};
+
+  friend class test::SsdFileTestHelper;
+  friend class test::SsdCacheTestHelper;
 };
 
 } // namespace facebook::velox::cache

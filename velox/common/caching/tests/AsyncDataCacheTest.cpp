@@ -20,6 +20,7 @@
 #include "velox/common/caching/CacheTTLController.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/common/caching/tests/CacheTestUtil.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MmapAllocator.h"
@@ -141,6 +142,18 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
           GetParam().checksumEnabled,
           GetParam().checksumVerificationEnabled);
       ssdCache = std::make_unique<SsdCache>(config);
+      if (ssdCache != nullptr) {
+        test::SsdCacheTestHelper ssdCacheHelper(ssdCache.get());
+        ASSERT_EQ(ssdCacheHelper.numShards(), kNumSsdShards);
+        const auto sizeQuantum = kNumSsdShards * SsdFile::kRegionSize;
+        const auto maxNumRegions = static_cast<int32_t>(
+            bits::roundUp(config.maxBytes, sizeQuantum) / sizeQuantum);
+        for (int32_t i = 0; i < kNumSsdShards; ++i) {
+          ASSERT_EQ(
+              ssdCacheHelper.writeFileSize(i),
+              maxNumRegions * SsdFile::kRegionSize);
+        }
+      }
     }
 
     memory::MemoryManagerOptions options;
