@@ -37,6 +37,7 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.BlockMissingException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -111,14 +112,14 @@ public class OrcPageSourceFactoryUtils
     public static PrestoException mapToPrestoException(Exception e, Path path, HiveFileSplit fileSplit)
     {
         // instanceof and class comparison do not work here since they are loaded by different class loaders.
-        if (e.getClass().getName().equals(UncheckedExecutionException.class.getName()) && e.getCause() instanceof PrestoException) {
+        if (UncheckedExecutionException.class.isAssignableFrom(e.getClass()) && e.getCause() instanceof PrestoException) {
             return (PrestoException) e.getCause();
         }
         if (e instanceof PrestoException) {
             return (PrestoException) e;
         }
         String message = splitError(e, path, fileSplit.getStart(), fileSplit.getLength());
-        if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+        if (e.getCause() instanceof BlockMissingException) {
             return new PrestoException(HIVE_MISSING_DATA, message, e);
         }
         return new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
