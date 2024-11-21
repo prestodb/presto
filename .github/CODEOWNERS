@@ -29,6 +29,9 @@ CMake/ @assignUser @majetideepak
 scripts/ @assignUser @majetideepak
 .github/ @assignUser @majetideepak
 
+# Breeze 
+velox/experimental/breeze @dreveman
+
 # Parquet
 velox/dwio/parquet/ @majetideepak
 
