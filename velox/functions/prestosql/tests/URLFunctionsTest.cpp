@@ -496,6 +496,35 @@ TEST_F(URLFunctionsTest, urlEncode) {
       urlEncode("http://\u30c6\u30b9\u30c8"));
   EXPECT_EQ("%7E%40%3A.-*_%2B+%E2%98%83", urlEncode("~@:.-*_+ \u2603"));
   EXPECT_EQ("test", urlEncode("test"));
+  // Test a single byte invalid UTF-8 character.
+  EXPECT_EQ("te%EF%BF%BDst", urlEncode("te\x88st"));
+  // Test a multi-byte invalid UTF-8 character. (If the first byte is between
+  // 0xe0 and 0xef, it should be a 3 byte character, but we only have 2 bytes
+  // here.)
+  EXPECT_EQ("te%EF%BF%BDst", urlEncode("te\xe0\xb8st"));
+  // Test an overlong 3 byte UTF-8 character
+  EXPECT_EQ("%EF%BF%BD%EF%BF%BD", urlEncode("\xe0\x94"));
+  // Test an overlong 3 byte UTF-8 character with a continuation byte.
+  EXPECT_EQ("%EF%BF%BD%EF%BF%BD%EF%BF%BD", urlEncode("\xe0\x94\x83"));
+  // Test an overlong 4 byte UTF-8 character
+  EXPECT_EQ("%EF%BF%BD%EF%BF%BD", urlEncode("\xf0\x84"));
+  // Test an overlong 4 byte UTF-8 character with continuation bytes.
+  EXPECT_EQ(
+      "%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD", urlEncode("\xf0\x84\x90\x90"));
+  // Test a 4 byte UTF-8 character outside the range of valid values.
+  EXPECT_EQ(
+      "%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD", urlEncode("\xfa\x80\x80\x80"));
+  // Test the beginning of a 4 byte UTF-8 character followed by a
+  // non-continuation byte.
+  EXPECT_EQ("%EF%BF%BD%EF%BF%BD", urlEncode("\xf0\xe0"));
+  // Test the invalid byte 0xc0.
+  EXPECT_EQ("%EF%BF%BD%EF%BF%BD", urlEncode("\xc0\x83"));
+  // Test the invalid byte 0xc1.
+  EXPECT_EQ("%EF%BF%BD%EF%BF%BD", urlEncode("\xc1\x83"));
+  // Test a 4 byte UTF-8 character that looks valid, but is actually outside the
+  // range of valid values.
+  EXPECT_EQ(
+      "%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD", urlEncode("\xf4\x92\x83\x83"));
 }
 
 TEST_F(URLFunctionsTest, urlDecode) {

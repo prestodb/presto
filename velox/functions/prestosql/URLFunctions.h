@@ -16,15 +16,21 @@
 #pragma once
 
 #include <boost/regex.hpp>
-#include <cctype>
-#include <optional>
 #include "velox/functions/Macros.h"
-#include "velox/functions/lib/string/StringImpl.h"
+#include "velox/functions/lib/Utf8Utils.h"
 #include "velox/functions/prestosql/URIParser.h"
 
 namespace facebook::velox::functions {
 
 namespace detail {
+constexpr std::array<std::string_view, 6> kEncodedReplacementCharacterStrings =
+    {"%EF%BF%BD",
+     "%EF%BF%BD%EF%BF%BD",
+     "%EF%BF%BD%EF%BF%BD%EF%BF%BD",
+     "%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD",
+     "%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD",
+     "%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD"};
+
 FOLLY_ALWAYS_INLINE StringView submatch(const boost::cmatch& match, int idx) {
   const auto& sub = match[idx];
   return StringView(sub.first, sub.length());
@@ -49,27 +55,86 @@ FOLLY_ALWAYS_INLINE void charEscape(unsigned char c, char* output) {
 ///  * All other characters are converted to UTF-8 and the bytes are encoded
 ///    as the string ``%XX`` where ``XX`` is the uppercase hexadecimal
 ///    value of the UTF-8 byte.
+///  * If the character is invalid UTF-8 each maximal subpart of an
+///    ill-formed subsequence (defined below) is converted to %EF%BF%BD.
 template <typename TOutString, typename TInString>
 FOLLY_ALWAYS_INLINE void urlEscape(TOutString& output, const TInString& input) {
   auto inputSize = input.size();
-  output.reserve(inputSize * 3);
+  // In the worst case every byte is an invalid UTF-8 character.
+  output.reserve(inputSize * kEncodedReplacementCharacterStrings[0].size());
 
   auto inputBuffer = input.data();
   auto outputBuffer = output.data();
 
+  size_t inputIndex = 0;
   size_t outIndex = 0;
-  for (auto i = 0; i < inputSize; ++i) {
-    unsigned char p = inputBuffer[i];
+  while (inputIndex < inputSize) {
+    unsigned char p = inputBuffer[inputIndex];
 
     if ((p >= 'a' && p <= 'z') || (p >= 'A' && p <= 'Z') ||
         (p >= '0' && p <= '9') || p == '-' || p == '_' || p == '.' ||
         p == '*') {
       outputBuffer[outIndex++] = p;
+      inputIndex++;
     } else if (p == ' ') {
       outputBuffer[outIndex++] = '+';
+      inputIndex++;
     } else {
-      charEscape(p, outputBuffer + outIndex);
-      outIndex += 3;
+      const auto charLength =
+          tryGetCharLength(inputBuffer + inputIndex, inputSize - inputIndex);
+      if (charLength > 0) {
+        for (int i = 0; i < charLength; ++i) {
+          charEscape(inputBuffer[inputIndex + i], outputBuffer + outIndex);
+          outIndex += 3;
+        }
+
+        inputIndex += charLength;
+      } else {
+        // According to the Unicode standard the "maximal subpart of an
+        // ill-formed subsequence" is the longest code unit subsequenece that is
+        // either well-formed or of length 1. A replacement character should be
+        // written for each of these.  In practice tryGetCharLength breaks most
+        // cases into maximal subparts, the exceptions are overlong encodings or
+        // subsequences outside the range of valid 4 byte sequences.  In both
+        // these cases we should just write out a replacement character for
+        // every byte in the sequence.
+        size_t replaceCharactersToWriteOut = 1;
+        if (inputIndex < inputSize - 1) {
+          bool isMultipleInvalidSequences =
+              // 0xe0 followed by a value less than 0xe0 or 0xf0 followed by a
+              // value less than 0x90 is considered an overlong encoding.
+              (inputBuffer[inputIndex] == '\xe0' &&
+               (inputBuffer[inputIndex + 1] & 0xe0) == 0x80) ||
+              (inputBuffer[inputIndex] == '\xf0' &&
+               (inputBuffer[inputIndex + 1] & 0xf0) == 0x80) ||
+              // 0xf4 followed by a byte >= 0x90 looks valid to
+              // tryGetCharLength, but is actually outside the range of valid
+              // code points.
+              (inputBuffer[inputIndex] == '\xf4' &&
+               (inputBuffer[inputIndex + 1] & 0xf0) != 0x80) ||
+              // The bytes 0xf5-0xff, 0xc0, and 0xc1 look like the start of
+              // multi-byte code points to tryGetCharLength, but are not part of
+              // any valid code point.
+              (unsigned char)inputBuffer[inputIndex] > 0xf4 ||
+              inputBuffer[inputIndex] == '\xc0' ||
+              inputBuffer[inputIndex] == '\xc1';
+
+          if (isMultipleInvalidSequences) {
+            replaceCharactersToWriteOut = charLength * -1;
+          }
+        }
+
+        const auto& replacementCharacterString =
+            kEncodedReplacementCharacterStrings
+                [replaceCharactersToWriteOut - 1];
+        std::memcpy(
+            outputBuffer + outIndex,
+            replacementCharacterString.data(),
+            replacementCharacterString.size());
+        outIndex += replacementCharacterString.size();
+
+        inputIndex += -charLength;
+      }
     }
   }
   output.resize(outIndex);
