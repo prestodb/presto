@@ -21,7 +21,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 cxx_library(test_main "${cxx_strict}" test_main.cpp)
 target_link_libraries(
   test_main
-  PUBLIC gtest $<$<BOOL:BUILD_TRACING>:perfetto>)
+  PUBLIC gtest $<$<BOOL:${BUILD_TRACING}>:perfetto>)
 target_compile_features(test_main PRIVATE cxx_std_17)
 target_compile_options(test_main PRIVATE ${CMAKE_CXX_FLAGS} ${WARN_FLAGS}
                                          ${SANITIZE_COMPILE_FLAGS})

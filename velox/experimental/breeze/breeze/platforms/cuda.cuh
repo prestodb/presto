@@ -26,6 +26,12 @@
 
 #include "breeze/utils/types.h"
 
+#if defined(__CUDA_ARCH__)
+#if __CUDA_ARCH__ < 500
+#error "Unsupported CUDA architecture"
+#endif
+#endif
+
 struct CudaSpecialization {
   template <int WARP_THREADS>
   static __device__ __forceinline__ int lane_idx();
@@ -231,6 +237,31 @@ struct CudaPlatform {
     CudaSpecialization::scheduling_hint<HIGH_PRIORITY>();
   }
 };
+
+#if __CUDA_ARCH__ < 600
+// specialization for T=Slice<GLOBAL, BLOCKED, double>
+template <>
+__device__ __forceinline__ double
+CudaSpecialization::atomic_add<breeze::utils::Slice<
+    breeze::utils::GLOBAL, breeze::utils::BLOCKED, double>>(
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED, double>
+        address,
+    double value) {
+  static_assert(sizeof(double) == sizeof(unsigned long long),
+                "unexpected type sizes");
+  unsigned long long old =
+      *reinterpret_cast<unsigned long long *>(address.data());
+  unsigned long long assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(
+        reinterpret_cast<unsigned long long *>(address.data()), assumed,
+        __double_as_longlong(value + __longlong_as_double(assumed)));
+  } while (assumed != old);
+
+  return __longlong_as_double(old);
+}
+#endif
 
 // specialization for T=Slice<GLOBAL, BLOCKED, long long>
 template <>

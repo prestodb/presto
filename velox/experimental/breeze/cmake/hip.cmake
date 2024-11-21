@@ -41,7 +41,7 @@ function(breeze_add_hip_test target source)
       ${HIPCC_EXECUTABLE} -o ${target} ${target}.o
       $<TARGET_FILE_DIR:gtest>/libgtest.a
       $<TARGET_FILE_DIR:test_main>/libtest_main.a
-      $<$<BOOL:BUILD_TRACING>:$<TARGET_FILE_DIR:perfetto>/libperfetto.a>
+      $<$<BOOL:${BUILD_TRACING}>:$<TARGET_FILE_DIR:perfetto>/libperfetto.a>
       ${ARCH_LINK_FLAGS}
     DEPENDS ${target}.o test_main
     COMMENT "Linking HIP executable ${target}")

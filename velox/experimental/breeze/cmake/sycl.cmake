@@ -43,7 +43,7 @@ function(breeze_add_sycl_test target source)
       $<TARGET_FILE_DIR:gtest>/libgtest.a
       $<TARGET_FILE_DIR:test_main>/libtest_main.a ${CMAKE_THREAD_LIBS_INIT}
       ${ARCH_LINK_FLAGS}
-      $<$<BOOL:BUILD_TRACING>:$<TARGET_FILE_DIR:perfetto>/libperfetto.a>
+      $<$<BOOL:${BUILD_TRACING}>:$<TARGET_FILE_DIR:perfetto>/libperfetto.a>
     DEPENDS ${target}.o test_main
     COMMENT "Linking SYCL executable ${target}")
   add_executable(${target}_TESTS IMPORTED)
