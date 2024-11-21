@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/sparksql/Register.h"
@@ -37,6 +38,7 @@ class SparkQueryRunnerTest : public ::testing::Test,
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
+    parquet::registerParquetWriterFactory();
   }
 
   void SetUp() override {
@@ -78,6 +80,21 @@ TEST_F(SparkQueryRunnerTest, DISABLED_basic) {
       makeFlatVector<int64_t>({5, 5, 5, 5, 5}),
   });
   exec::test::assertEqualResults(sparkResults, outputType, {expected});
+}
+
+// This test requires a Spark coordinator running at localhost, so disable it
+// by default.
+TEST_F(SparkQueryRunnerTest, DISABLED_decimal) {
+  auto aggregatePool = rootPool_->addAggregateChild("decimal");
+  auto queryRunner = std::make_unique<fuzzer::SparkQueryRunner>(
+      aggregatePool.get(), "localhost:15002", "test", "decimal");
+  auto input = makeRowVector({
+      makeConstant<int128_t>(123456789, 25, DECIMAL(34, 2)),
+  });
+  auto outputType = ROW({"a"}, {DECIMAL(34, 2)});
+  auto sparkResults =
+      queryRunner->execute("SELECT abs(c0) FROM tmp", {input}, outputType);
+  exec::test::assertEqualResults(sparkResults, outputType, {input});
 }
 
 // This test requires a Spark coordinator running at localhost, so disable it

@@ -1270,6 +1270,14 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
 
     testArrowImport<int64_t, int128_t>(
         "d:5,2", {1, -1, 0, 12345, -12345, std::nullopt});
+    testArrowImport<int128_t, int128_t>(
+        "d:36,2",
+        {HugeInt::parse("20000000000000000"),
+         HugeInt::parse("50000000000000000"),
+         0,
+         HugeInt::parse("50000000000000000000"),
+         HugeInt::parse("-40000000000000000000"),
+         std::nullopt});
   }
 
   template <typename TOutput, typename TInput>

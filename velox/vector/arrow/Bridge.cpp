@@ -1866,6 +1866,24 @@ VectorPtr createShortDecimalVector(
       pool, type, nulls, length, values, nullCount);
 }
 
+// Arrow uses two uint64_t values to represent a 128-bit decimal value. The
+// memory allocated by Arrow might not be 16-byte aligned, so we need to copy
+// the values to a new buffer to ensure 16-byte alignment.
+VectorPtr createLongDecimalVector(
+    memory::MemoryPool* pool,
+    const TypePtr& type,
+    BufferPtr nulls,
+    const int128_t* input,
+    size_t length,
+    int64_t nullCount) {
+  auto values = AlignedBuffer::allocate<int128_t>(length, pool);
+  auto rawValues = values->asMutable<int128_t>();
+  memcpy(rawValues, input, length * sizeof(int128_t));
+
+  return createFlatVector<TypeKind::HUGEINT>(
+      pool, type, nulls, length, values, nullCount);
+}
+
 bool isREE(const ArrowSchema& arrowSchema) {
   return arrowSchema.format[0] == '+' && arrowSchema.format[1] == 'r';
 }
@@ -1954,6 +1972,14 @@ VectorPtr importFromArrowImpl(
         arrowArray.null_count);
   } else if (type->isShortDecimal()) {
     return createShortDecimalVector(
+        pool,
+        type,
+        nulls,
+        static_cast<const int128_t*>(arrowArray.buffers[1]),
+        arrowArray.length,
+        arrowArray.null_count);
+  } else if (type->isLongDecimal()) {
+    return createLongDecimalVector(
         pool,
         type,
         nulls,
