@@ -30,7 +30,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class SemiJoinNode
+public final class SemiJoinNode
         extends AbstractJoinNode
 {
     private final PlanNode source;

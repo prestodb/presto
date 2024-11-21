@@ -46,7 +46,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class JoinNode
+public final class JoinNode
         extends AbstractJoinNode
 {
     private final JoinType type;
