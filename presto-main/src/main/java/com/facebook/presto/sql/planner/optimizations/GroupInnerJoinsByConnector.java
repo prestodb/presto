@@ -32,7 +32,6 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -40,14 +39,15 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.CanonicalJoinNode;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.NullabilityAnalyzer;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AssignmentUtils;
+import com.facebook.presto.sql.planner.plan.MultiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -60,7 +60,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -283,8 +282,8 @@ public class GroupInnerJoinsByConnector
         private PlanNode getCombinedJoin(JoinNode node, FunctionResolution functionResolution, DeterminismEvaluator determinismEvaluator, Metadata metadata, Session session)
         {
             if (node.getType() == INNER) {
-                MultiJoinNode multiJoinNode = new JoinNodeFlattener(node, functionResolution, determinismEvaluator).toMultiJoinNode();
-                MultiJoinNode rewrittenMultiJoinNode = joinPushdownCombineSources(multiJoinNode, idAllocator, metadata, session);
+                MultiJoinNode groupInnerJoinsMultiJoinNode = new JoinNodeFlattener(node, functionResolution, determinismEvaluator).toMultiJoinNode();
+                MultiJoinNode rewrittenMultiJoinNode = joinPushdownCombineSources(groupInnerJoinsMultiJoinNode, idAllocator, metadata, session);
                 if (rewrittenMultiJoinNode.getContainsCombinedSources()) {
                     return createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
                 }
@@ -303,7 +302,7 @@ public class GroupInnerJoinsByConnector
         private PlanNode createLeftDeepJoinTree(MultiJoinNode multiJoinNode, PlanNodeIdAllocator idAllocator)
         {
             PlanNode joinNode = createJoin(0, ImmutableList.copyOf(multiJoinNode.getSources()), idAllocator);
-            RowExpression combinedFilters = and(multiJoinNode.getJoinFilter(), multiJoinNode.getFilter());
+            RowExpression combinedFilters = and(multiJoinNode.getJoinFilter().get(), multiJoinNode.getFilter());
             return new FilterNode(Optional.empty(), idAllocator.getNextId(), joinNode, combinedFilters);
         }
 
@@ -349,9 +348,9 @@ public class GroupInnerJoinsByConnector
              */
 
             EqualityInference filterEqualityInference = new EqualityInference.Builder(metadata)
-                    .addEqualityInference(multiJoinNode.getJoinFilter())
+                    .addEqualityInference(multiJoinNode.getJoinFilter().get())
                     .build();
-            Iterable<RowExpression> inequalityPredicates = isInEqualityPushDownEnabled ? filter(extractConjuncts(multiJoinNode.getJoinFilter()), isInequalityInferenceCandidate()) : ImmutableSet.of();
+            Iterable<RowExpression> inequalityPredicates = isInEqualityPushDownEnabled ? filter(extractConjuncts(multiJoinNode.getJoinFilter().get()), isInequalityInferenceCandidate()) : ImmutableSet.of();
             AtomicReference<Boolean> wereSourcesRewritten = new AtomicReference<>(false);
             for (PlanNode source : multiJoinNode.getSources()) {
                 Optional<String> connectorId = getConnectorIdFromSource(source, session);
@@ -578,101 +577,7 @@ public class GroupInnerJoinsByConnector
         }
     }
 
-    /**
-    * This class is a copy of ReorderJoins#MultiJoinNode class, with changes made to #flattenNode method to only handle simple filters and projects.
-    */
-    // TODO : refactor this class and share the implementation between ReorderJoins and this class
-    static class MultiJoinNode
-    {
-        private final CanonicalJoinNode node;
-        private final Assignments assignments;
-        private final boolean containsCombinedSources;
-        private final RowExpression joinFilter;
-
-        public MultiJoinNode(LinkedHashSet<PlanNode> sources, RowExpression filter, List<VariableReferenceExpression> outputVariables,
-                             Assignments assignments, boolean containsCombinedSources, RowExpression joinFilter)
-        {
-            requireNonNull(sources, "sources is null");
-            requireNonNull(filter, "filter is null");
-            requireNonNull(outputVariables, "outputVariables is null");
-            requireNonNull(assignments, "assignments is null");
-
-            this.assignments = assignments;
-            // Plan node id doesn't matter here as we don't use this in planner
-            this.node = new CanonicalJoinNode(
-                    new PlanNodeId(""),
-                    sources.stream().collect(toImmutableList()),
-                    INNER,
-                    ImmutableSet.of(),
-                    ImmutableSet.of(filter),
-                    outputVariables);
-            this.containsCombinedSources = containsCombinedSources;
-            this.joinFilter = joinFilter;
-        }
-
-        public RowExpression getFilter()
-        {
-            return node.getFilters().stream().findAny().get();
-        }
-
-        public RowExpression getJoinFilter()
-        {
-            return joinFilter;
-        }
-
-        public boolean getContainsCombinedSources()
-        {
-            return containsCombinedSources;
-        }
-
-        public LinkedHashSet<PlanNode> getSources()
-        {
-            return new LinkedHashSet<>(node.getSources());
-        }
-
-        public List<VariableReferenceExpression> getOutputVariables()
-        {
-            return node.getOutputVariables();
-        }
-
-        public Assignments getAssignments()
-        {
-            return assignments;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(getSources(), ImmutableSet.copyOf(extractConjuncts(getFilter())), getOutputVariables());
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (!(obj instanceof MultiJoinNode)) {
-                return false;
-            }
-
-            MultiJoinNode other = (MultiJoinNode) obj;
-            return getSources().equals(other.getSources())
-                    && ImmutableSet.copyOf(extractConjuncts(getFilter())).equals(ImmutableSet.copyOf(extractConjuncts(other.getFilter())))
-                    && getOutputVariables().equals(other.getOutputVariables())
-                    && getAssignments().equals(other.getAssignments());
-        }
-
-        @Override
-        public String toString()
-        {
-            return "MultiJoinNode{" +
-                    "node=" + node +
-                    ", assignments=" + assignments +
-                    '}';
-        }
-    }
-
-    /**
-     * This class is a copy of ReorderJoins#JoinNodeFlattener class, with changes made to #flattenNode method to only handle simple filters and projects.
-     */
+    @VisibleForTesting
     private static class JoinNodeFlattener
     {
         private final LinkedHashSet<PlanNode> sources = new LinkedHashSet<>();
@@ -696,10 +601,10 @@ public class GroupInnerJoinsByConnector
         private void flattenNode(PlanNode resolved)
         {
             if (resolved instanceof FilterNode) {
-                /*
-                 We pull up all Filters to the top of the join graph, these will be pushed down again by predicate pushdown
-                 We do this in hope of surfacing any TableScan nodes that can be combined
-                */
+            /*
+                We pull up all Filters to the top of the join graph, these will be pushed down again by predicate pushdown
+                We do this in hope of surfacing any TableScan nodes that can be combined
+            */
                 FilterNode filterNode = (FilterNode) resolved;
                 filters.add(filterNode.getPredicate());
                 flattenNode(filterNode.getSource());
@@ -709,9 +614,9 @@ public class GroupInnerJoinsByConnector
             if (!(resolved instanceof JoinNode)) {
                 if (resolved instanceof ProjectNode) {
                     /*
-                     Certain ProjectNodes can be 'inlined' into the parent TableScan, e.g a CAST expression
-                     We will do this here while flattening the JoinNode if possible
-                     For now, we log the fact that we saw a ProjectNode and if identity projection, will continue
+                        Certain ProjectNodes can be 'inlined' into the parent TableScan, e.g a CAST expression
+                        We will do this here while flattening the JoinNode if possible
+                        For now, we log the fact that we saw a ProjectNode and if identity projection, will continue
                     */
                     //Only identity projections can be handled.
                     if (AssignmentUtils.isIdentity(((ProjectNode) resolved).getAssignments())) {
@@ -739,11 +644,9 @@ public class GroupInnerJoinsByConnector
         MultiJoinNode toMultiJoinNode()
         {
             ImmutableSet<VariableReferenceExpression> inputVariables = sources.stream().flatMap(source -> source.getOutputVariables().stream()).collect(toImmutableSet());
-
             /*
-             We do this to satisfy the invariant that the rewritten Join node must produce the same output variables as the input Join node
+                We do this to satisfy the invariant that the rewritten Join node must produce the same output variables as the input Join node
             */
-
             ImmutableSet.Builder<VariableReferenceExpression> updatedOutputVariables = ImmutableSet.builder();
 
             for (VariableReferenceExpression outputVariable : outputVariables) {
@@ -754,7 +657,7 @@ public class GroupInnerJoinsByConnector
 
             return new MultiJoinNode(sources,
                     and(filters),
-                    updatedOutputVariables.build().asList(), Assignments.of(), connectorJoinNode, and(joinCriteriaFilters));
+                    updatedOutputVariables.build().asList(), Assignments.of(), connectorJoinNode, Optional.of(and(joinCriteriaFilters)));
         }
     }
 }
