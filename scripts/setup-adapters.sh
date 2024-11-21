@@ -24,7 +24,6 @@ source $SCRIPTDIR/setup-helper-functions.sh
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)/deps-download}
 CMAKE_BUILD_TYPE="${BUILD_TYPE:-Release}"
 MACHINE=$(uname -m)
-LINUX_DISTRIBUTION=$(. /etc/os-release && echo ${ID})
 
 if [[ "$OSTYPE" == darwin* ]]; then
   export INSTALL_PREFIX=${INSTALL_PREFIX:-"$(pwd)/deps-install"}
@@ -162,6 +161,7 @@ function install_hdfs_deps {
     cp -a ${DEPENDENCY_DIR}/hadoop /usr/local/
     wget -P /usr/local/hadoop/share/hadoop/common/lib/ https://repo1.maven.org/maven2/junit/junit/4.11/junit-4.11.jar
 
+    LINUX_DISTRIBUTION=$(. /etc/os-release && echo ${ID})
     if [[ "$LINUX_DISTRIBUTION" == "ubuntu" || "$LINUX_DISTRIBUTION" == "debian" ]]; then
       apt install -y openjdk-8-jdk
     else # Assume Fedora/CentOS
@@ -177,6 +177,7 @@ function install_hdfs_deps {
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
    # /etc/os-release is a standard way to query various distribution
    # information and is available everywhere
+   LINUX_DISTRIBUTION=$(. /etc/os-release && echo ${ID})
    if [[ "$LINUX_DISTRIBUTION" == "ubuntu" || "$LINUX_DISTRIBUTION" == "debian" ]]; then
       apt install -y --no-install-recommends libxml2-dev libgsasl7-dev uuid-dev
       # Dependencies of GCS, probably a workaround until the docker image is rebuilt
