@@ -110,9 +110,10 @@ public class QueryStateInfoResource
             List<BasicQueryInfo> queryInfos = dispatchManager.getQueries();
             Optional<Pattern> userPattern = isNullOrEmpty(user) ? Optional.empty() : Optional.of(Pattern.compile(user));
 
+            ExecutorService executor = Executors.newSingleThreadExecutor();
             List<QueryStateInfo> queryStateInfos = queryInfos.stream()
                     .filter(queryInfo -> includeAllQueries || !queryInfo.getState().isDone())
-                    .filter(queryInfo -> matchesWithTimeout(userPattern, queryInfo.getSession().getUser(), 10000))
+                    .filter(queryInfo -> matchesWithTimeout(userPattern, queryInfo.getSession().getUser(), 10000, executor))
                     .map(queryInfo -> getQueryStateInfo(
                             queryInfo,
                             includeAllQueryProgressStats,
@@ -124,14 +125,13 @@ public class QueryStateInfoResource
         }
     }
 
-    private static boolean matchesWithTimeout(Optional<Pattern> pattern, String input, long timeoutMillis)
+    private static boolean matchesWithTimeout(Optional<Pattern> pattern, String input, long timeoutMillis, ExecutorService executor)
     {
         if (!pattern.isPresent()) {
             return true;
         }
         Pattern rawPattern = pattern.get();
         Callable<Boolean> callable = () -> rawPattern.matcher(input).matches();
-        ExecutorService executor = Executors.newSingleThreadExecutor();
         Future<Boolean> result = executor.submit(callable);
         try {
             return result.get(timeoutMillis, TimeUnit.MILLISECONDS);
