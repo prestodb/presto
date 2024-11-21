@@ -223,109 +223,15 @@ class HiveConnectorTestBase : public OperatorTestBase {
   }
 };
 
-class HiveConnectorSplitBuilder {
+/// Same as connector::hive::HiveConnectorBuilder, except that this defaults
+/// connectorId to kHiveConnectorId.
+class HiveConnectorSplitBuilder
+    : public connector::hive::HiveConnectorSplitBuilder {
  public:
   explicit HiveConnectorSplitBuilder(std::string filePath)
-      : filePath_{std::move(filePath)} {
-    infoColumns_["$path"] = filePath_;
+      : connector::hive::HiveConnectorSplitBuilder(filePath) {
+    connectorId(kHiveConnectorId);
   }
-
-  HiveConnectorSplitBuilder& start(uint64_t start) {
-    start_ = start;
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& length(uint64_t length) {
-    length_ = length;
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& splitWeight(int64_t splitWeight) {
-    splitWeight_ = splitWeight;
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& fileFormat(dwio::common::FileFormat format) {
-    fileFormat_ = format;
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& infoColumn(
-      const std::string& name,
-      const std::string& value) {
-    infoColumns_.emplace(std::move(name), std::move(value));
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& partitionKey(
-      std::string name,
-      std::optional<std::string> value) {
-    partitionKeys_.emplace(std::move(name), std::move(value));
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& tableBucketNumber(int32_t bucket) {
-    tableBucketNumber_ = bucket;
-    infoColumns_["$bucket"] = std::to_string(bucket);
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& customSplitInfo(
-      const std::unordered_map<std::string, std::string>& customSplitInfo) {
-    customSplitInfo_ = customSplitInfo;
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& extraFileInfo(
-      const std::shared_ptr<std::string>& extraFileInfo) {
-    extraFileInfo_ = extraFileInfo;
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& serdeParameters(
-      const std::unordered_map<std::string, std::string>& serdeParameters) {
-    serdeParameters_ = serdeParameters;
-    return *this;
-  }
-
-  HiveConnectorSplitBuilder& connectorId(const std::string& connectorId) {
-    connectorId_ = connectorId;
-    return *this;
-  }
-
-  std::shared_ptr<connector::hive::HiveConnectorSplit> build() const {
-    static const std::unordered_map<std::string, std::string> customSplitInfo;
-    static const std::shared_ptr<std::string> extraFileInfo;
-    static const std::unordered_map<std::string, std::string> serdeParameters;
-    return std::make_shared<connector::hive::HiveConnectorSplit>(
-        connectorId_,
-        filePath_,
-        fileFormat_,
-        start_,
-        length_,
-        partitionKeys_,
-        tableBucketNumber_,
-        customSplitInfo,
-        extraFileInfo,
-        serdeParameters,
-        splitWeight_,
-        infoColumns_,
-        std::nullopt);
-  }
-
- private:
-  const std::string filePath_;
-  dwio::common::FileFormat fileFormat_{dwio::common::FileFormat::DWRF};
-  uint64_t start_{0};
-  uint64_t length_{std::numeric_limits<uint64_t>::max()};
-  std::unordered_map<std::string, std::optional<std::string>> partitionKeys_;
-  std::optional<int32_t> tableBucketNumber_;
-  std::unordered_map<std::string, std::string> customSplitInfo_ = {};
-  std::shared_ptr<std::string> extraFileInfo_ = {};
-  std::unordered_map<std::string, std::string> serdeParameters_ = {};
-  std::unordered_map<std::string, std::string> infoColumns_ = {};
-  std::string connectorId_ = kHiveConnectorId;
-  int64_t splitWeight_{0};
 };
 
 } // namespace facebook::velox::exec::test
