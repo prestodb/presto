@@ -118,10 +118,248 @@ TEST_F(URLFunctionsTest, validateURL) {
       "IC6S!8hGVRpo+!,yTaJEy/$RUZpqcr",
       "",
       "",
-      "IC6S!8hGVRpo !,yTaJEy/$RUZpqcr",
+      "IC6S!8hGVRpo+!,yTaJEy/$RUZpqcr",
       "",
       "",
       std::nullopt);
+
+  // Some examples from Wikipedia.
+  // https://en.wikipedia.org/wiki/Uniform_Resource_Identifier
+  validate(
+      "https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest#top",
+      "https",
+      "www.example.com",
+      "/forum/questions/",
+      "top",
+      "tag=networking&order=newest",
+      1234);
+  validate(
+      "https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest#:~:text=whatever",
+      "https",
+      "www.example.com",
+      "/forum/questions/",
+      ":~:text=whatever",
+      "tag=networking&order=newest",
+      1234);
+  validate(
+      "ldap://[2001:db8::7]/c=GB?objectClass?one",
+      "ldap",
+      "[2001:db8::7]",
+      "/c=GB",
+      "",
+      "objectClass?one",
+      std::nullopt);
+  validate(
+      "mailto:John.Doe@example.com",
+      "mailto",
+      "",
+      "John.Doe@example.com",
+      "",
+      "",
+      std::nullopt);
+  validate(
+      "news:comp.infosystems.www.servers.unix",
+      "news",
+      "",
+      "comp.infosystems.www.servers.unix",
+      "",
+      "",
+      std::nullopt);
+  validate(
+      "tel:+1-816-555-1212",
+      "tel",
+      "",
+      "+1-816-555-1212",
+      "",
+      "",
+      std::nullopt);
+  validate("telnet://192.0.2.16:80/", "telnet", "192.0.2.16", "/", "", "", 80);
+  validate(
+      "urn:oasis:names:specification:docbook:dtd:xml:4.1.2",
+      "urn",
+      "",
+      "oasis:names:specification:docbook:dtd:xml:4.1.2",
+      "",
+      "",
+      std::nullopt);
+}
+
+TEST_F(URLFunctionsTest, extractProtocol) {
+  const auto extractProtocol = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<std::string>("url_extract_protocol(c0)", url);
+  };
+
+  // Test minimal protocol.
+  EXPECT_EQ("a", extractProtocol("a://www.yahoo.com"));
+  // Test all valid characters
+  EXPECT_EQ(
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-.",
+      extractProtocol(
+          "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-.://www.yahoo.com"));
+
+  // Test empty protocol.
+  EXPECT_EQ(std::nullopt, extractProtocol("://www.yahoo.com/"));
+  // Test protocol starts with digit.
+  EXPECT_EQ(std::nullopt, extractProtocol("1abc://www.yahoo.com/"));
+}
+
+TEST_F(URLFunctionsTest, extractHostIPv4) {
+  const auto extractHost = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<std::string>("url_extract_host(c0)", url);
+  };
+
+  // Upper bounds of the ranges of the rules for IPv4 dec-octets.
+  EXPECT_EQ("255.249.199.99", extractHost("http://255.249.199.99"));
+  // Lower bounds of the ranges of the rules for IPv4 dec-octets.
+  EXPECT_EQ("250.200.100.10", extractHost("http://250.200.100.10"));
+  // All single digits.
+  EXPECT_EQ("9.8.1.0", extractHost("http://9.8.1.0"));
+  // All two digits.
+  EXPECT_EQ("99.98.11.10", extractHost("http://99.98.11.10"));
+  // All three digits.
+  EXPECT_EQ("254.237.150.100", extractHost("http://254.237.150.100"));
+
+  // We don't test invalid cases here as they will match the reg-name rule, we
+  // test them under the IPv6 cases below as these are distinguishable from
+  // reg-name.
+}
+
+TEST_F(URLFunctionsTest, extractHostIPv6) {
+  const auto extractHost = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<std::string>("url_extract_host(c0)", url);
+  };
+
+  // 8 hex blocks.
+  EXPECT_EQ(
+      "[0123:4567:89ab:cdef:0123:4567:89ab:cdef]",
+      extractHost("http://[0123:4567:89ab:cdef:0123:4567:89ab:cdef]"));
+  // 6 hex blocks followed by an IPv4 address.
+  EXPECT_EQ(
+      "[0123:4567:89ab:cdef:0123:4567:0.1.8.9]",
+      extractHost("http://[0123:4567:89ab:cdef:0123:4567:0.1.8.9]"));
+  // compression followed by 7 hex blocks.
+  EXPECT_EQ(
+      "[::456:89a:cde:012:456:89a:cde]",
+      extractHost("http://[::456:89a:cde:012:456:89a:cde]"));
+  // compression followed by 5 hex blocks followed by an IPv4 address.
+  EXPECT_EQ(
+      "[::456:89a:cde:012:456:10.11.98.99]",
+      extractHost("http://[::456:89a:cde:012:456:10.11.98.99]"));
+  // 1 hex block flowed by a compression followed by 6 hex blocks.
+  EXPECT_EQ(
+      "[12::45:89:cd:01:45:89]", extractHost("http://[12::45:89:cd:01:45:89]"));
+  // 1 hex block flowed by a compression followed by 4 hex blocks followed by an
+  // IPv4 address.
+  EXPECT_EQ(
+      "[12::45:89:cd:01:254.237.150.100]",
+      extractHost("http://[12::45:89:cd:01:254.237.150.100]"));
+  // 7 hex blocks followed by a compression.
+  EXPECT_EQ("[0:4:8:c:0:4:8::]", extractHost("http://[0:4:8:c:0:4:8::]"));
+  // 5 hex blocks followed by a compression followed by an IPv4 address.
+  EXPECT_EQ(
+      "[0:4:8:c:0::255.249.199.99]",
+      extractHost("http://[0:4:8:c:0::255.249.199.99]"));
+  // Compression followed by an IPv4 address.
+  EXPECT_EQ("[::250.200.100.10]", extractHost("http://[::250.200.100.10]"));
+  // Just a compression.
+  EXPECT_EQ("[::]", extractHost("http://[::]"));
+
+  // Too many hex blocks.
+  EXPECT_EQ(
+      std::nullopt,
+      extractHost("http://[0123:4567:89ab:cdef:0123:4567:89ab:cdef:0123]"));
+  // Too many hex blocks with a compression.
+  EXPECT_EQ(
+      std::nullopt,
+      extractHost("http://[0123:4567:89ab:cdef:0123:4567:89ab::cdef]"));
+  // Too many hex blocks with an IPv4 address.
+  EXPECT_EQ(
+      std::nullopt,
+      extractHost(
+          "http://[0123:4567:89ab:cdef:0123:4567:89ab:250.200.100.10]"));
+  // Too few hex blocks.
+  EXPECT_EQ(
+      std::nullopt, extractHost("http://[0123:4567:89ab:cdef:0123:4567:89ab]"));
+  // Too few hex blocks with an IPv4 address.
+  EXPECT_EQ(
+      std::nullopt,
+      extractHost("http://[0123:4567:89ab:cdef:0123:250.200.100.10]"));
+  // End on a colon.
+  EXPECT_EQ(
+      std::nullopt,
+      extractHost("http://[0123:4567:89ab:cdef:0123:4567:89ab:cdef:]"));
+  // Hex blocks after an IPv4 address.
+  EXPECT_EQ(
+      std::nullopt,
+      extractHost("http://[0123:4567:89ab:cdef:250.200.100.10:89ab:cdef]"));
+  // Compression after an IPv4 address.
+  EXPECT_EQ(
+      std::nullopt,
+      extractHost("http://[0123:4567:89ab:cdef:250.200.100.10::]"));
+  // Two compressions.
+  EXPECT_EQ(std::nullopt, extractHost("http://[0123::4567::]"));
+  EXPECT_EQ(std::nullopt, extractHost("http://[::0123::]"));
+
+  // Invalid IPv4 addresses.
+  // Too many dec-octets.
+  EXPECT_EQ(std::nullopt, extractHost("http://[::255.249.199.99.10]"));
+  // Too few dec-octets.
+  EXPECT_EQ(std::nullopt, extractHost("http://[::250.200.100]"));
+  // Dec-octets outside of range
+  EXPECT_EQ(std::nullopt, extractHost("http://[::256.8.1.0]"));
+  // Negative dec-octet.
+  EXPECT_EQ(std::nullopt, extractHost("http://[::99.98.-11.10]"));
+  // Hex in dec-octet.
+  EXPECT_EQ(std::nullopt, extractHost("http://[::254.dae.150.100]"));
+}
+
+TEST_F(URLFunctionsTest, extractHostIPvFuture) {
+  const auto extractHost = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<std::string>("url_extract_host(c0)", url);
+  };
+
+  // Test minimal.
+  EXPECT_EQ("[v0.a]", extractHost("http://[v0.a]"));
+  // Test all valid characters.
+  EXPECT_EQ(
+      "[v0123456789abcdefABCDEF.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:]",
+      extractHost(
+          "http://[v0123456789abcdefABCDEF.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:]"));
+
+  // Missing v.
+  EXPECT_EQ(std::nullopt, extractHost("http://[0.a]"));
+  // Empty hex string.
+  EXPECT_EQ(std::nullopt, extractHost("http://[v.a]"));
+  // Invalid hex character.
+  EXPECT_EQ(std::nullopt, extractHost("http://[v0g.a]"));
+  // Missing period.
+  EXPECT_EQ(std::nullopt, extractHost("http://[v0a]"));
+  // Empty suffix.
+  EXPECT_EQ(std::nullopt, extractHost("http://[v0.]"));
+  // Invalid character in suffix.
+  EXPECT_EQ(std::nullopt, extractHost("http://[v0.a/]"));
+}
+
+TEST_F(URLFunctionsTest, extractHostRegName) {
+  const auto extractHost = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<std::string>("url_extract_host(c0)", url);
+  };
+
+  // Test minimal.
+  EXPECT_EQ("a", extractHost("http://a"));
+  // Test all valid characters.
+  EXPECT_EQ(
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=",
+      extractHost(
+          "http://abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;="));
+  // Test prefix is valid IPv4 address.
+  EXPECT_EQ(
+      "123.456.789.012.abcdefg", extractHost("http://123.456.789.012.abcdefg"));
+  // Test percent encoded.
+  EXPECT_EQ("a b", extractHost("http://a%20b"));
+
+  // Invalid character.
+  EXPECT_EQ(std::nullopt, extractHost("http://a b"));
 }
 
 TEST_F(URLFunctionsTest, extractPath) {
@@ -142,6 +380,77 @@ TEST_F(URLFunctionsTest, extractPath) {
   EXPECT_EQ("foo", extractPath("foo"));
   EXPECT_EQ(std::nullopt, extractPath("BAD URL!"));
   EXPECT_EQ("", extractPath("http://www.yahoo.com"));
+  // All valid characters.
+  EXPECT_EQ(
+      "/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:@",
+      extractPath(
+          "/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:@"));
+}
+
+TEST_F(URLFunctionsTest, extractPort) {
+  const auto extractPort = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<int64_t>("url_extract_port(c0)", url);
+  };
+
+  // 0-4 valid.
+  EXPECT_EQ(43210, extractPort("http://a:43210"));
+  // 5-9 valid.
+  EXPECT_EQ(98765, extractPort("http://a:98765"));
+
+  // Empty port.
+  EXPECT_EQ(std::nullopt, extractPort("http://a:"));
+  // Hex invalid.
+  EXPECT_EQ(std::nullopt, extractPort("http://a:deadbeef"));
+}
+
+TEST_F(URLFunctionsTest, extractHostWithUserInfo) {
+  const auto extractHost = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<std::string>("url_extract_host(c0)", url);
+  };
+
+  // Test extracting a host when user info is present.
+
+  // Test empty user info.
+  EXPECT_EQ("a", extractHost("http://@a"));
+  // Test all valid characters.
+  EXPECT_EQ(
+      "a",
+      extractHost(
+          "http://abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:%20@a"));
+  // Test with user info and port present.
+  EXPECT_EQ("a", extractHost("http://xyz@a:123"));
+}
+
+TEST_F(URLFunctionsTest, extractQuery) {
+  const auto extractQuery = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<std::string>("url_extract_query(c0)", url);
+  };
+
+  // Test empty query.
+  EXPECT_EQ("", extractQuery("http://www.yahoo.com?"));
+  // Test non-empty query.
+  EXPECT_EQ("a", extractQuery("http://www.yahoo.com?a"));
+  // Test all valid characters.
+  EXPECT_EQ(
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:@ []",
+      extractQuery(
+          "http://www.yahoo.com?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:@%20[]"));
+}
+
+TEST_F(URLFunctionsTest, extractFragment) {
+  const auto extractFragment = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<std::string>("url_extract_fragment(c0)", url);
+  };
+
+  // Test empty query.
+  EXPECT_EQ("", extractFragment("http://www.yahoo.com#"));
+  // Test non-empty query.
+  EXPECT_EQ("a", extractFragment("http://www.yahoo.com#a"));
+  // Test all valid characters.
+  EXPECT_EQ(
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:@ []",
+      extractFragment(
+          "http://www.yahoo.com#abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:@%20[]"));
 }
 
 TEST_F(URLFunctionsTest, extractParameter) {

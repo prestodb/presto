@@ -54,6 +54,7 @@ velox_add_library(
   TransformKeys.cpp
   TransformValues.cpp
   TypeOf.cpp
+  URIParser.cpp
   URLFunctions.cpp
   VectorArithmetic.cpp
   WidthBucketArray.cpp
