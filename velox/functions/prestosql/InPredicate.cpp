@@ -91,7 +91,8 @@ class VectorSetInPredicate : public exec::VectorFunction {
       if (arg->isNullAt(row)) {
         boolResult->setNull(row, true);
       } else {
-        const bool found = uniqueValues_.contains({arg.get(), row});
+        const bool found =
+            uniqueValues_.contains(VectorValue({arg.get(), row}));
         if (found) {
           if (arg->containsNullAt(row)) {
             boolResult->setNull(row, true);
