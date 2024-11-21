@@ -39,7 +39,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableWriterNode
+public final class TableWriterNode
         extends PlanNode
 {
     private final PlanNode source;
