@@ -2648,7 +2648,7 @@
                                 <configuration>
                                     <executable>ln</executable>
                                     <arguments>
-                                        <argument>-sT</argument>
+                                        <argument>-sfT</argument>
                                         <argument>${out-of-tree-build-root}/${project.groupId}:${project.artifactId}</argument>
                                         <argument>${project.build.directory}</argument>
                                     </arguments>
