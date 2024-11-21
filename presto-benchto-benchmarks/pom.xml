@@ -26,6 +26,7 @@
             <groupId>com.teradata.benchto</groupId>
             <artifactId>benchto-driver</artifactId>
             <version>0.4</version>
+            <!-- exclusions for cve fix -->
             <exclusions>
                 <exclusion>
                     <groupId>org.springframework</groupId>
