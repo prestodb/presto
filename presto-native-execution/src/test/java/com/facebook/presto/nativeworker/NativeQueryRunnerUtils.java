@@ -45,7 +45,6 @@ public class NativeQueryRunnerUtils
         return ImmutableMap.<String, String>builder()
                 .put("native-execution-enabled", "true")
                 .put("optimizer.optimize-hash-generation", "false")
-                .put("parse-decimal-literals-as-double", "true")
                 .put("regex-library", "RE2J")
                 .put("offset-clause-enabled", "true")
                 // By default, Presto will expand some functions into its SQL equivalent (e.g. array_duplicates()).

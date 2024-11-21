@@ -98,15 +98,26 @@ void updateVeloxConnectorConfigs(
     std::unordered_map<
         std::string,
         std::unordered_map<std::string, std::string>>& connectorConfigStrings) {
+  const auto& systemConfig = SystemConfig::instance();
   for (auto& entry : connectorConfigStrings) {
     auto& connectorConfig = entry.second;
-
-    // Do not retain cache if `node_selection_strategy` is explicitly set to
-    // `NO_PREFERENCE`.
+    // If queryDataCacheEnabledDefault is true, when `node_selection_strategy`
+    // is
+    //       not set                             retain cache
+    //       SOFT_AFFINITY                       retain cache
+    //       NO_PREFERENCE                       do not retain cache
+    // If queryDataCacheEnabledDefault is false, when `node_selection_strategy`
+    // is
+    //       not set                             do not retain cache
+    //       SOFT_AFFINITY                       retain cache
+    //       NO_PREFERENCE                       do not retain cache
+    connectorConfig.emplace(
+        connector::hive::HiveConfig::kCacheNoRetentionSession,
+        systemConfig->queryDataCacheEnabledDefault() ? "false" : "true");
     auto it = connectorConfig.find("node_selection_strategy");
-    if (it != connectorConfig.end() && it->second == "NO_PREFERENCE") {
-      connectorConfig.emplace(
-          connector::hive::HiveConfig::kCacheNoRetentionSession, "true");
+    if (it != connectorConfig.end()) {
+      connectorConfig[connector::hive::HiveConfig::kCacheNoRetentionSession] =
+          it->second == "SOFT_AFFINITY" ? "false" : "true";
     }
   }
 }

@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -82,7 +81,7 @@ public class DropFunctionTask
         }
         else {
             metadata.getFunctionAndTypeManager().dropFunction(
-                    qualifyObjectName(statement.getFunctionName()),
+                    metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver().qualifyObjectName(statement.getFunctionName()),
                     parameterTypes,
                     statement.isExists());
         }

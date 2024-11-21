@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <grpc.version>1.68.0</grpc.version>
     </properties>
 
     <dependencyManagement>
@@ -77,13 +78,13 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-context</artifactId>
-                <version>1.64.0</version>
+                <version>${grpc.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-protobuf-lite</artifactId>
-                <version>1.64.0</version>
+                <version>${grpc.version}</version>
             </dependency>
 
             <!-- Pinned version is required. -->
@@ -91,7 +92,7 @@
             <dependency>
                 <groupId>io.perfmark</groupId>
                 <artifactId>perfmark-api</artifactId>
-                <version>0.26.0</version>
+                <version>0.27.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
