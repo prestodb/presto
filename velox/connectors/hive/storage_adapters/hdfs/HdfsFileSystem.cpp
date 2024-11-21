@@ -31,7 +31,7 @@ class HdfsFileSystem::Impl {
       const HdfsServiceEndpoint& endpoint) {
     auto status = filesystems::arrow::io::internal::ConnectLibHdfs(&driver_);
     if (!status.ok()) {
-      LOG(ERROR) << "ConnectLibHdfs failed ";
+      LOG(ERROR) << "ConnectLibHdfs failed due to: " << status.ToString();
     }
 
     // connect to HDFS with the builder object
