@@ -1338,11 +1338,11 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT x, array_agg(date) OVER(ORDER BY x RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING), avg(number) OVER(ORDER BY x RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) " +
                         "FROM (VALUES " +
                         "(2, DATE '2222-01-01', 4.4), " +
-                        "(1, DATE '1111-01-01', 2.2), " +
+                        "(1, DATE '1999-01-01', 2.2), " +
                         "(3, DATE '3333-01-01', 6.6)) T(x, date, number)",
                 "VALUES " +
-                        "(1, ARRAY[DATE '1111-01-01', DATE '2222-01-01'], 3.3), " +
-                        "(2, ARRAY[DATE '1111-01-01', DATE '2222-01-01', DATE '3333-01-01'], 4.4), " +
+                        "(1, ARRAY[DATE '1999-01-01', DATE '2222-01-01'], 3.3), " +
+                        "(2, ARRAY[DATE '1999-01-01', DATE '2222-01-01', DATE '3333-01-01'], 4.4), " +
                         "(3, ARRAY[DATE '2222-01-01', DATE '3333-01-01'], 5.5)");
 
         assertQuery("SELECT x, array_agg(a) OVER(ORDER BY x RANGE BETWEEN 2 PRECEDING AND CURRENT ROW), array_agg(a) OVER(ORDER BY x RANGE BETWEEN CURRENT ROW AND 2 FOLLOWING) " +
@@ -1733,11 +1733,11 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT x, array_agg(date) OVER(ORDER BY x GROUPS BETWEEN 1 PRECEDING AND 1 PRECEDING), avg(number) OVER(ORDER BY x GROUPS BETWEEN 1 FOLLOWING AND 1 FOLLOWING) " +
                         "FROM (VALUES " +
                         "(2, DATE '2222-01-01', 4.4), " +
-                        "(1, DATE '1111-01-01', 2.2), " +
+                        "(1, DATE '1999-01-01', 2.2), " +
                         "(3, DATE '3333-01-01', 6.6)) T(x, date, number)",
                 "VALUES " +
                         "(1, null, 4.4), " +
-                        "(2, ARRAY[DATE '1111-01-01'], 6.6), " +
+                        "(2, ARRAY[DATE '1999-01-01'], 6.6), " +
                         "(3, ARRAY[DATE '2222-01-01'], null)");
 
         // three functions with different frame types
