@@ -1021,7 +1021,7 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a DESC NULLS LAST RANGE BETWEEN 1 PRECEDING AND 10 PRECEDING) " +
                         "FROM (VALUES 1, 2, 3, null, null, 2, 1, null, null) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null, " +
                         "null, " +
@@ -1034,7 +1034,7 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a DESC NULLS LAST RANGE BETWEEN 10 FOLLOWING AND 1 FOLLOWING) " +
                         "FROM (VALUES 1, 2, 3, null, null, 2, 1, null, null) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null, " +
                         "null, " +
@@ -1054,20 +1054,20 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a RANGE BETWEEN 1 FOLLOWING AND 2 FOLLOWING) " +
                         "FROM (VALUES 1.0, 1.1) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null");
 
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a NULLS LAST RANGE BETWEEN 1 FOLLOWING AND 2 FOLLOWING) " +
                         "FROM (VALUES 1.0, 1.1, null) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "ARRAY[null]");
 
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
                         "FROM (VALUES 1.0, 1.1) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null");
 
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a NULLS FIRST RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
@@ -1122,14 +1122,14 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a RANGE BETWEEN 1 FOLLOWING AND 2 FOLLOWING) " +
                         "FROM (VALUES 1, 1, 1) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null");
 
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
                         "FROM (VALUES 1, 1, 1) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null");
 
@@ -1428,7 +1428,7 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 2 FOLLOWING AND 1 FOLLOWING) " +
                         "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null, " +
                         "null, " +
@@ -1542,7 +1542,7 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN 90 PRECEDING AND 100 PRECEDING) " +
                         "FROM (VALUES 1, null, null, 2, 1) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null, " +
                         "null, " +
@@ -1551,7 +1551,7 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN 100 FOLLOWING AND 90 FOLLOWING) " +
                         "FROM (VALUES 1, null, null, 2, 1) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null, " +
                         "null, " +
@@ -1607,14 +1607,14 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 1 FOLLOWING AND 2 FOLLOWING) " +
                         "FROM (VALUES CAST(null AS integer), null, null) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null");
 
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
                         "FROM (VALUES CAST(null AS integer), null, null) T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null");
     }
@@ -1625,14 +1625,14 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 1 FOLLOWING AND 2 FOLLOWING) " +
                         "FROM (VALUES 'a', 'a', 'a') T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null");
 
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
                         "FROM (VALUES 'a', 'a', 'a') T(a)",
                 "VALUES " +
-                        "CAST(null AS array), " +
+                        "null, " +
                         "null, " +
                         "null");
 
