@@ -35,6 +35,7 @@ public final class JdbcColumnHandle
     private final Type columnType;
     private final boolean nullable;
     private final Optional<String> comment;
+    private final Optional<String> tableAlias;
 
     @JsonCreator
     public JdbcColumnHandle(
@@ -43,7 +44,8 @@ public final class JdbcColumnHandle
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("nullable") boolean nullable,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("tableAlias") Optional<String> tableAlias)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
@@ -51,6 +53,7 @@ public final class JdbcColumnHandle
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
+        this.tableAlias = requireNonNull(tableAlias, "tableAlias is null");
     }
 
     @JsonProperty
@@ -89,6 +92,12 @@ public final class JdbcColumnHandle
         return comment;
     }
 
+    @JsonProperty
+    public Optional<String> getTableAlias()
+    {
+        return tableAlias;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
@@ -120,13 +129,14 @@ public final class JdbcColumnHandle
         }
         JdbcColumnHandle o = (JdbcColumnHandle) obj;
         return Objects.equals(this.connectorId, o.connectorId) &&
-                Objects.equals(this.columnName, o.columnName);
+                Objects.equals(this.columnName, o.columnName) &&
+                Objects.equals(this.tableAlias, o.tableAlias);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, columnName);
+        return Objects.hash(connectorId, columnName, tableAlias);
     }
 
     @Override

@@ -736,6 +736,13 @@ public class PlanOptimizers
                         new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
                         new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))));
 
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                new GroupInnerJoinsByConnectorRuleSet(metadata, predicatePushDown).rules()));
+
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(
                 new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
@@ -783,13 +790,6 @@ public class PlanOptimizers
         // We do a single pass, and assign `statsEquivalentPlanNode` to each node.
         // After this step, nodes with same `statsEquivalentPlanNode` will share same history based statistics.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
-
-        builder.add(new IterativeOptimizer(
-                metadata,
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
-                new GroupInnerJoinsByConnectorRuleSet(metadata, predicatePushDown).rules()));
 
         builder.add(new IterativeOptimizer(
                 metadata,
