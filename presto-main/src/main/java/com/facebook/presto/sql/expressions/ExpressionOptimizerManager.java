@@ -20,6 +20,7 @@ import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.sql.planner.ExpressionOptimizerContext;
 import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -44,6 +45,7 @@ import static com.google.common.io.Files.getNameWithoutExtension;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionOptimizerManager
+        implements ExpressionOptimizerProvider
 {
     public static final String DEFAULT_EXPRESSION_OPTIMIZER_NAME = "default";
     private static final File EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY = new File("etc/expression-manager/");
@@ -114,6 +116,7 @@ public class ExpressionOptimizerManager
                 "ExpressionOptimizerFactory %s is already registered", name);
     }
 
+    @Override
     public ExpressionOptimizer getExpressionOptimizer(ConnectorSession connectorSession)
     {
         // TODO: Remove this check once we have a more appropriate abstraction for session properties retrieved from plugins

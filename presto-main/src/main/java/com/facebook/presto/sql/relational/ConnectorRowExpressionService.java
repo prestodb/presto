@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -28,20 +29,20 @@ public final class ConnectorRowExpressionService
         implements RowExpressionService
 {
     private final DomainTranslator domainTranslator;
-    private final ExpressionOptimizer expressionOptimizer;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
     private final PredicateCompiler predicateCompiler;
     private final DeterminismEvaluator determinismEvaluator;
     private final RowExpressionFormatter rowExpressionFormatter;
 
     public ConnectorRowExpressionService(
             DomainTranslator domainTranslator,
-            ExpressionOptimizer expressionOptimizer,
+            ExpressionOptimizerProvider expressionOptimizerProvider,
             PredicateCompiler predicateCompiler,
             DeterminismEvaluator determinismEvaluator,
             RowExpressionFormatter rowExpressionFormatter)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
-        this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
         this.predicateCompiler = requireNonNull(predicateCompiler, "predicateCompiler is null");
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
         this.rowExpressionFormatter = requireNonNull(rowExpressionFormatter, "rowExpressionFormatter is null");
@@ -54,9 +55,9 @@ public final class ConnectorRowExpressionService
     }
 
     @Override
-    public ExpressionOptimizer getExpressionOptimizer()
+    public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session)
     {
-        return expressionOptimizer;
+        return expressionOptimizerProvider.getExpressionOptimizer(session);
     }
 
     @Override
