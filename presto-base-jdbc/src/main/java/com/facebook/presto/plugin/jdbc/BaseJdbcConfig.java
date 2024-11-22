@@ -54,6 +54,7 @@ public class BaseJdbcConfig
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> listSchemasIgnoredSchemas = ImmutableSet.of("information_schema");
     private boolean caseSensitiveNameMatchingEnabled;
+    private boolean partialPredicatePushDown;
 
     @NotNull
     public String getConnectionUrl()
@@ -190,5 +191,17 @@ public class BaseJdbcConfig
         if (connectionUrl == null) {
             throw new ConfigurationException(ImmutableList.of(new Message("connection-url is required but was not provided")));
         }
+    }
+
+    public boolean isPartialPredicatePushDown()
+    {
+        return partialPredicatePushDown;
+    }
+
+    @Config("partial-predicate-push-down")
+    public BaseJdbcConfig setPartialPredicatePushDown(boolean partialPredicatePushDown)
+    {
+        this.partialPredicatePushDown = partialPredicatePushDown;
+        return this;
     }
 }
