@@ -298,21 +298,6 @@ public class PlanFragment
                 jsonRepresentation);
     }
 
-    public PlanFragment withSubPlan(PlanNode subPlan)
-    {
-        return new PlanFragment(
-                id,
-                subPlan,
-                variables,
-                partitioning,
-                tableScanSchedulingOrder,
-                partitioningScheme,
-                stageExecutionDescriptor,
-                outputTableWriterFragment,
-                statsAndCosts,
-                jsonRepresentation);
-    }
-
     @Override
     public String toString()
     {
