@@ -45,7 +45,7 @@ public class JdbcTableLayoutHandle
                 domain,
                 additionalPredicate,
                 toStringHelper("")
-                        .add("domains", domain.transform((columnHandle) -> ((JdbcColumnHandle) columnHandle).getColumnName()).toString(properties))
+                        .add("domains", domain.transform((columnHandle) -> ((JdbcColumnHandle) columnHandle).getTableAlias().orElse("") + ((JdbcColumnHandle) columnHandle).getColumnName()).toString(properties))
                         .add("additionalPredicate", additionalPredicate.map(JdbcExpression::getExpression).orElse("{}"))
                         .toString());
     }
