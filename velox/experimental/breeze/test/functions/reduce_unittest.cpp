@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <type_traits>
 
 #include "function_test.h"
 
@@ -112,6 +113,16 @@ std::vector<T> generate_bit_pattern_vector() {
 TYPED_TEST(FunctionTest, ReduceAddBitPatterns) {
   auto in = generate_bit_pattern_vector<TypeParam>();
   TypeParam out = 0;
+
+  // Clamp values for signed types to prevent overflow.
+  if (std::is_signed<TypeParam>::value) {
+    TypeParam in_size = static_cast<TypeParam>(in.size());
+    TypeParam min_value = std::numeric_limits<TypeParam>::min() / in_size;
+    TypeParam max_value = std::numeric_limits<TypeParam>::max() / in_size;
+    for (TypeParam& value : in) {
+      value = std::clamp(value, min_value, max_value);
+    }
+  }
 
   this->template BlockReduce<breeze::functions::ReduceOpAdd, 32, 2>(in, &out);
 
