@@ -350,7 +350,7 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 new RewriteConstantArrayContainsToInExpression(metadata.getFunctionAndTypeManager()).rules());
 
-        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser, featuresConfig.isNativeExecutionEnabled()));
+        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser, expressionOptimizerManager, featuresConfig.isNativeExecutionEnabled()));
         PlanOptimizer prefilterForLimitingAggregation = new StatsRecordingPlanOptimizer(optimizerStats, new PrefilterForLimitingAggregation(metadata, statsCalculator));
 
         builder.add(
@@ -731,7 +731,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments())),
-                new PushdownSubfields(metadata));
+                new PushdownSubfields(metadata, expressionOptimizerManager));
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
