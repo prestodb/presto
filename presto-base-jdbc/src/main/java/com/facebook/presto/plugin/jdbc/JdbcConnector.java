@@ -109,7 +109,7 @@ public class JdbcConnector
                 functionManager,
                 functionResolution,
                 rowExpressionService.getDeterminismEvaluator(),
-                rowExpressionService.getExpressionOptimizer());
+                rowExpressionService);
     }
 
     @Override
