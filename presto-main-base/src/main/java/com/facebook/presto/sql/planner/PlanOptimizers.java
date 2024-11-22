@@ -202,6 +202,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.LOGICAL;
 import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.PHYSICAL;
+import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.STRUCTURAL;
 
 public class PlanOptimizers
 {
@@ -728,7 +729,6 @@ public class PlanOptimizers
                 new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
                 projectionPushDown,
                 new PruneUnreferencedOutputs());
-
         // Pass after connector optimizer, as it relies on connector optimizer to identify empty input tables and convert them to empty ValuesNode
         builder.add(new SimplifyPlanWithEmptyInput(),
                 new PruneUnreferencedOutputs());
@@ -777,6 +777,9 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 new GroupInnerJoinsByConnectorRuleSet(metadata, predicatePushDown).rules()));
+        builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(STRUCTURAL)));
+        // GroupInnerJoinsByConnectorRuleSet pulls up filters, we need to push these down again
+        builder.add(predicatePushDown, simplifyRowExpressionOptimizer);
 
         builder.add(new IterativeOptimizer(
                 metadata,

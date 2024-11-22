@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -36,6 +37,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
@@ -54,6 +56,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestJdbcMetadata
 {
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
     private TestingDatabase database;
     private JdbcMetadata metadata;
     private JdbcMetadataCache jdbcMetadataCache;
@@ -66,7 +69,7 @@ public class TestJdbcMetadata
         database = new TestingDatabase();
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         jdbcMetadataCache = new JdbcMetadataCache(executor, database.getJdbcClient(), new JdbcMetadataCacheStats(), OptionalLong.of(0), OptionalLong.of(0), 100);
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false);
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, FUNCTION_AND_TYPE_MANAGER);
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -87,7 +90,7 @@ public class TestJdbcMetadata
     public void testGetTableHandle()
     {
         JdbcTableHandle tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
-        assertEquals(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers")), tableHandle);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"))).isEqualToIgnoringGivenFields(tableHandle, "tableAlias");
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("example", "unknown")));
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "numbers")));
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown")));
@@ -98,13 +101,13 @@ public class TestJdbcMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(SESSION, tableHandle), ImmutableMap.of(
-                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true, Optional.empty()),
-                "text_short", new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true, Optional.empty()),
-                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true, Optional.empty())));
+                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true, Optional.empty(), Optional.empty()),
+                "text_short", new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true, Optional.empty(), Optional.empty()),
+                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true, Optional.empty(), Optional.empty())));
 
         // unknown table
-        unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
-        unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "example", "unknown"));
+        unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown", Optional.empty(), Optional.empty()));
+        unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "example", "unknown", Optional.empty(), Optional.empty()));
     }
 
     private void unknownTableColumnHandle(JdbcTableHandle tableHandle)
@@ -137,9 +140,9 @@ public class TestJdbcMetadata
                 ColumnMetadata.builder().setName("va%ue").setType(BIGINT).build()));
 
         // unknown tables should produce null
-        unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
-        unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "example", "unknown"));
-        unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "unknown", "numbers"));
+        unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("u", "numbers"), null, "unknown", "unknown", Optional.empty(), Optional.empty()));
+        unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "example", "unknown", Optional.empty(), Optional.empty()));
+        unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "unknown", "numbers", Optional.empty(), Optional.empty()));
     }
 
     @Test
@@ -212,7 +215,7 @@ public class TestJdbcMetadata
     public void getColumnMetadata()
     {
         assertEquals(
-                metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", JDBC_VARCHAR, VARCHAR, true, Optional.empty())),
+                metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", JDBC_VARCHAR, VARCHAR, true, Optional.empty(), Optional.empty())),
                 ColumnMetadata.builder().setName("text").setType(VARCHAR).build());
     }
 
@@ -235,7 +238,7 @@ public class TestJdbcMetadata
         assertEquals(layout.getColumns().get(0), ColumnMetadata.builder().setName("text").setType(VARCHAR).build());
         assertEquals(layout.getColumns().get(1), ColumnMetadata.builder().setName("x").setType(VARCHAR).build());
 
-        JdbcColumnHandle columnHandle = new JdbcColumnHandle(CONNECTOR_ID, "x", JDBC_VARCHAR, VARCHAR, true, Optional.empty());
+        JdbcColumnHandle columnHandle = new JdbcColumnHandle(CONNECTOR_ID, "x", JDBC_VARCHAR, VARCHAR, true, Optional.empty(), Optional.empty());
         metadata.dropColumn(SESSION, handle, columnHandle);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getColumns().size(), 1);
@@ -261,7 +264,7 @@ public class TestJdbcMetadata
             assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
         }
 
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), true);
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), true, FUNCTION_AND_TYPE_MANAGER);
         metadata.dropTable(SESSION, tableHandle);
 
         try {

@@ -70,6 +70,12 @@ public class JdbcPlanOptimizerProvider
                 getFunctionTranslators()));
     }
 
+    @Override
+    public Set<ConnectorPlanOptimizer> getStructuralPlanOptimizers()
+    {
+        return ImmutableSet.of(new JdbcJoinPushdown());
+    }
+
     private Set<Class<?>> getFunctionTranslators()
     {
         return ImmutableSet.of(OperatorTranslators.class);

@@ -26,7 +26,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestJdbcSplit
 {
-    private final JdbcSplit split = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.empty());
+    private final JdbcSplit split = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.empty(), Optional.empty());
 
     @Test
     public void testAddresses()
@@ -35,7 +35,7 @@ public class TestJdbcSplit
         assertEquals(split.getAddresses(), ImmutableList.of());
         assertEquals(split.getNodeSelectionStrategy(), NO_PREFERENCE);
 
-        JdbcSplit jdbcSplit = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.empty());
+        JdbcSplit jdbcSplit = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.empty(), Optional.empty());
         assertEquals(jdbcSplit.getAddresses(), ImmutableList.of());
     }
 
