@@ -463,7 +463,7 @@ public class LocalQueryRunner
         expressionOptimizerManager = new ExpressionOptimizerManager(new PluginNodeManager(nodeManager, nodeInfo.getEnvironment()), getFunctionAndTypeManager());
 
         this.statsNormalizer = new StatsNormalizer();
-        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata);
+        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, expressionOptimizerManager);
         this.filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer);
         this.historyBasedPlanStatisticsManager = new HistoryBasedPlanStatisticsManager(objectMapper, createTestingSessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), featuresConfig, new NodeVersion("1"));
         this.fragmentStatsProvider = new FragmentStatsProvider();
@@ -498,6 +498,7 @@ public class LocalQueryRunner
                 pageSorter,
                 pageIndexerFactory,
                 transactionManager,
+                expressionOptimizerManager,
                 new RowExpressionDomainTranslator(metadata),
                 new RowExpressionPredicateCompiler(metadata),
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
