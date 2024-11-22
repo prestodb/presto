@@ -23,6 +23,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -78,13 +79,18 @@ import static java.util.Objects.requireNonNull;
 public class ScalarStatsCalculator
 {
     private final Metadata metadata;
-    private final ExpressionOptimizerManager expressionOptimizerManager;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
     @Inject
     public ScalarStatsCalculator(Metadata metadata, ExpressionOptimizerManager expressionOptimizerManager)
     {
+        this(metadata, (ExpressionOptimizerProvider) expressionOptimizerManager);
+    }
+
+    public ScalarStatsCalculator(Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)
+    {
         this.metadata = requireNonNull(metadata, "metadata can not be null");
-        this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionOptimizerManager can not be null");
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerManager can not be null");
     }
 
     @Deprecated
@@ -128,7 +134,7 @@ public class ScalarStatsCalculator
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
-            RowExpression value = expressionOptimizerManager.getExpressionOptimizer().optimize(call, OPTIMIZED, session);
+            RowExpression value = expressionOptimizerProvider.getExpressionOptimizer().optimize(call, OPTIMIZED, session);
 
             if (isNull(value)) {
                 return nullStatsEstimate();
