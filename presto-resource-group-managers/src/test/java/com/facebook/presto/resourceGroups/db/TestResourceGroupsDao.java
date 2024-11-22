@@ -61,7 +61,7 @@ public class TestResourceGroupsDao
 
     static H2ResourceGroupsDao setup(String prefix)
     {
-        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
+        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt() + ";NON_KEYWORDS=KEY,VALUE"); // key and value are reserved keywords in H2 2.x
         return new H2DaoProvider(config).get();
     }
 

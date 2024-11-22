@@ -40,7 +40,7 @@ public class TestDbSourceExactMatchSelector
     @BeforeClass
     public void setup()
     {
-        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_db-exact-match-selector" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
+        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_db-exact-match-selector" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt() + ";NON_KEYWORDS=KEY,VALUE"); // key and value are reserved keywords in H2 2.x
         dao = new H2DaoProvider(config).get();
         dao.createExactMatchSelectorsTable();
     }

@@ -66,7 +66,7 @@ public class IcebergRestTestUtil
         backingCatalog.setConf(hdfsEnvironment.getConfiguration(new HdfsContext(SESSION), new Path(location)));
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(URI, "jdbc:h2:mem:test_" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt())
+                .put(URI, "jdbc:h2:mem:test_" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt() + ";NON_KEYWORDS=KEY,VALUE") // key and value are reserved keywords in H2 2.x
                 .put(WAREHOUSE_LOCATION, location)
                 .put("jdbc.username", "user")
                 .put("jdbc.password", "password")

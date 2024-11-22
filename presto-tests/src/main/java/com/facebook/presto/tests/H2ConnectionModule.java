@@ -90,6 +90,6 @@ public class H2ConnectionModule
 
     public static String getJdbcUrl(String databaseName)
     {
-        return format("jdbc:h2:mem:test%s;MODE=MySQL;DATABASE_TO_LOWER=TRUE", databaseName);
+        return format("jdbc:h2:mem:test%s;MODE=MySQL;DATABASE_TO_LOWER=TRUE;NON_KEYWORDS=KEY,VALUE", databaseName); // key and value are reserved keywords in H2 2.x
     }
 }
