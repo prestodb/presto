@@ -495,6 +495,7 @@ public class LocalQueryRunner
                 pageSorter,
                 pageIndexerFactory,
                 transactionManager,
+                expressionOptimizerManager,
                 new RowExpressionDomainTranslator(metadata),
                 new RowExpressionPredicateCompiler(metadata),
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
