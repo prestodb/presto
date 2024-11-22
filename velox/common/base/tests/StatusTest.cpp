@@ -118,7 +118,7 @@ Status returnNotOk(Status s) {
   return Status::Invalid("invalid");
 }
 
-TEST(StatusTest, macros) {
+TEST(StatusTest, statusMacros) {
   ASSERT_EQ(returnIf(true), Status::Invalid("error"));
   ASSERT_EQ(returnIf(false), Status::OK());
 
@@ -152,6 +152,47 @@ TEST(StatusTest, expected) {
   result = modulo(10, 0);
   EXPECT_TRUE(result.hasError());
   EXPECT_EQ(result.error(), Status::UserError("division by zero"));
+}
+
+Expected<bool> returnUnexpectedIf(bool cond) {
+  VELOX_RETURN_UNEXPECTED_IF(cond, Status::Invalid("error"));
+  return true;
+}
+
+Expected<bool> returnUnexpected(const Expected<int>& expected) {
+  VELOX_RETURN_UNEXPECTED(expected);
+  return expected.value() == 0;
+}
+
+Expected<bool> returnUnexpectedNotOk(Status s) {
+  VELOX_RETURN_UNEXPECTED_NOT_OK(s);
+  return true;
+}
+
+TEST(StatusTest, expectedMacros) {
+  auto result = returnUnexpectedIf(true);
+  EXPECT_TRUE(result.hasError());
+  EXPECT_EQ(result.error(), Status::Invalid("error"));
+
+  result = returnUnexpectedIf(false);
+  EXPECT_TRUE(result.hasValue());
+  EXPECT_TRUE(result.value());
+
+  result = returnUnexpected(modulo(10, 0));
+  EXPECT_TRUE(result.hasError());
+  EXPECT_EQ(result.error(), Status::UserError("division by zero"));
+
+  result = returnUnexpected(modulo(10, 3));
+  EXPECT_TRUE(result.hasValue());
+  EXPECT_FALSE(result.value());
+
+  result = returnUnexpectedNotOk(Status::UserError("user"));
+  EXPECT_TRUE(result.hasError());
+  EXPECT_EQ(result.error(), Status::UserError("user"));
+
+  result = returnUnexpectedNotOk(Status::OK());
+  EXPECT_TRUE(result.hasValue());
+  EXPECT_TRUE(result.value());
 }
 
 } // namespace
