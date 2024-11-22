@@ -142,8 +142,10 @@ class BaseHashTable {
   struct JoinResultIterator {
     JoinResultIterator(
         std::vector<vector_size_t>&& _varSizeListColumns,
-        uint64_t _fixedSizeListColumnsSizeSum)
-        : varSizeListColumns(std::move(_varSizeListColumns)),
+        uint64_t _fixedSizeListColumnsSizeSum,
+        std::optional<uint64_t> _estimatedRowSize)
+        : estimatedRowSize(_estimatedRowSize),
+          varSizeListColumns(std::move(_varSizeListColumns)),
           fixedSizeListColumnsSizeSum(_fixedSizeListColumnsSizeSum) {}
 
     void reset(const HashLookup& lookup) {
@@ -157,6 +159,8 @@ class BaseHashTable {
       return !rows || lastRowIndex == rows->size();
     }
 
+    /// The row size estimation of the projected output columns, if applicable.
+    const std::optional<uint64_t> estimatedRowSize;
     /// The indexes of the build side projected columns that are variable sized.
     const std::vector<vector_size_t> varSizeListColumns;
     /// The per row total bytes of the build side projected columns that are
@@ -635,18 +639,6 @@ class HashTable : public BaseHashTable {
   /// purpose.
   void checkConsistency() const;
 
-  auto& testingOtherTables() const {
-    return otherTables_;
-  }
-
-  uint64_t testingRehashSize() const {
-    return rehashSize();
-  }
-
-  char** testingTable() const {
-    return table_;
-  }
-
   void extractColumn(
       folly::Range<char* const*> rows,
       int32_t columnIndex,
@@ -657,6 +649,18 @@ class HashTable : public BaseHashTable {
         rows_->columnAt(columnIndex),
         columnHasNulls_[columnIndex],
         result);
+  }
+
+  auto& testingOtherTables() const {
+    return otherTables_;
+  }
+
+  uint64_t testingRehashSize() const {
+    return rehashSize();
+  }
+
+  char** testingTable() const {
+    return table_;
   }
 
  private:

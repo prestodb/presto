@@ -292,6 +292,57 @@ void HashProbe::maybeSetupSpillInputReader(
   inputSpillPartitionSet_.erase(iter);
 }
 
+std::optional<uint64_t> HashProbe::estimatedRowSize(
+    const std::vector<vector_size_t>& varSizedColumns,
+    uint64_t totalFixedColumnsBytes) {
+  static const double kToleranceRatio = 10.0;
+  std::vector<RowColumn::Stats> varSizeListColumnsStats;
+  varSizeListColumnsStats.reserve(varSizedColumns.size());
+  for (uint32_t i = 0; i < varSizedColumns.size(); ++i) {
+    auto statsOpt = columnStats(varSizedColumns[i]);
+    if (!statsOpt.has_value()) {
+      return std::nullopt;
+    }
+    varSizeListColumnsStats.push_back(statsOpt.value());
+  }
+
+  uint64_t totalAvgBytes{totalFixedColumnsBytes};
+  uint64_t totalMaxBytes{totalFixedColumnsBytes};
+  for (const auto& stats : varSizeListColumnsStats) {
+    totalAvgBytes += stats.avgBytes();
+    totalMaxBytes += stats.maxBytes();
+  }
+  if (totalAvgBytes == 0) {
+    if (totalMaxBytes == 0) {
+      return 0;
+    }
+    // Return nullopt to prevent memory exploding in extreme size skew cases:
+    // e.g. 1 row very large and all other rows of size 0.
+    return std::nullopt;
+  }
+  if (totalMaxBytes / totalAvgBytes >= kToleranceRatio) {
+    return std::nullopt;
+  }
+  // Make the total per batch size to be bounded by 2x 'outputBatchSize_':
+  // worst case size = (outputBatchSize_ / estimated size) * totalMaxBytes
+  return (totalMaxBytes + totalAvgBytes) / 2;
+}
+
+std::optional<RowColumn::Stats> HashProbe::columnStats(
+    int32_t columnIndex) const {
+  std::vector<RowColumn::Stats> columnStats;
+  const auto rowContainers = table_->allRows();
+  for (const auto* rowContainer : rowContainers) {
+    VELOX_CHECK_NOT_NULL(rowContainer);
+    auto statsOpt = rowContainer->columnStats(columnIndex);
+    if (!statsOpt.has_value()) {
+      return std::nullopt;
+    }
+    columnStats.push_back(statsOpt.value());
+  }
+  return RowColumn::Stats::merge(columnStats);
+}
+
 void HashProbe::initializeResultIter() {
   VELOX_CHECK_NOT_NULL(table_);
   if (resultIter_ != nullptr) {
@@ -312,8 +363,14 @@ void HashProbe::initializeResultIter() {
       varSizeListColumns.push_back(column);
     }
   }
+
+  auto rowSizeEstimation =
+      estimatedRowSize(varSizeListColumns, fixedSizeListColumnsSizeSum);
+  // TODO: Make tolerance ratio configurable if needed.
   resultIter_ = std::make_unique<BaseHashTable::JoinResultIterator>(
-      std::move(varSizeListColumns), fixedSizeListColumnsSizeSum);
+      std::move(varSizeListColumns),
+      fixedSizeListColumnsSizeSum,
+      rowSizeEstimation);
 }
 
 void HashProbe::asyncWaitForHashTable() {
@@ -1987,5 +2044,4 @@ void HashProbe::clearBuffers() {
   operatorCtx_->execCtx()->vectorPool()->clear();
   filter_->clearCache();
 }
-
 } // namespace facebook::velox::exec

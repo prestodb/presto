@@ -18,10 +18,11 @@
 #include "velox/exec/OperatorUtils.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
-class HashPartitionFunctionTest : public test::VectorTestBase,
+class HashPartitionFunctionTest : public velox::test::VectorTestBase,
                                   public testing::Test {
  protected:
   static void SetUpTestCase() {

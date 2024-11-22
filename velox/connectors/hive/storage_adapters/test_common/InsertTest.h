@@ -28,7 +28,7 @@
 
 namespace facebook::velox::test {
 
-class InsertTest : public test::VectorTestBase {
+class InsertTest : public velox::test::VectorTestBase {
  public:
   void runInsertTest(
       std::string_view outputDirectory,

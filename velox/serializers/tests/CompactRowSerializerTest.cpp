@@ -24,7 +24,7 @@ namespace facebook::velox::serializer {
 namespace {
 
 class CompactRowSerializerTest : public ::testing::Test,
-                                 public test::VectorTestBase,
+                                 public velox::test::VectorTestBase,
                                  public testing::WithParamInterface<bool> {
  protected:
   static void SetUpTestCase() {

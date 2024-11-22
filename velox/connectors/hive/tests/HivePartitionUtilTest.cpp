@@ -21,12 +21,13 @@
 
 #include "gtest/gtest.h"
 
-using namespace facebook::velox::connector::hive;
+using namespace facebook;
 using namespace facebook::velox;
+using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::dwio::catalog::fbhive;
 
 class HivePartitionUtilTest : public ::testing::Test,
-                              public test::VectorTestBase {
+                              public velox::test::VectorTestBase {
  protected:
   template <typename T>
   VectorPtr makeDictionary(const std::vector<T>& data) {

@@ -22,6 +22,7 @@
 
 #include <folly/init/Init.h>
 
+using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 using namespace facebook::velox::dwio::common;
@@ -29,7 +30,8 @@ using namespace facebook::velox::parquet;
 
 using dwio::common::MemorySink;
 
-class E2EFilterTest : public E2EFilterTestBase, public test::VectorTestBase {
+class E2EFilterTest : public E2EFilterTestBase,
+                      public velox::test::VectorTestBase {
  protected:
   void SetUp() override {
     E2EFilterTestBase::SetUp();

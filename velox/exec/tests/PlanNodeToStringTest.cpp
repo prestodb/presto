@@ -23,12 +23,14 @@
 
 #include <gtest/gtest.h>
 
+using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::velox::common::test;
 
 using facebook::velox::exec::test::PlanBuilder;
 
-class PlanNodeToStringTest : public testing::Test, public test::VectorTestBase {
+class PlanNodeToStringTest : public testing::Test,
+                             public velox::test::VectorTestBase {
  public:
   PlanNodeToStringTest() {
     functions::prestosql::registerAllScalarFunctions();

@@ -23,7 +23,7 @@
 namespace facebook::velox::connector::hive {
 
 class PartitionIdGeneratorTest : public ::testing::Test,
-                                 public test::VectorTestBase {
+                                 public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});

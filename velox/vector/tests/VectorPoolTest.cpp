@@ -20,7 +20,8 @@
 
 namespace facebook::velox::test {
 
-class VectorPoolTest : public testing::Test, public test::VectorTestBase {
+class VectorPoolTest : public testing::Test,
+                       public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});

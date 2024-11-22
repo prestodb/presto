@@ -21,7 +21,7 @@ namespace facebook::velox::functions {
 namespace {
 
 class LambdaFunctionUtilTest : public testing::Test,
-                               public test::VectorTestBase {
+                               public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});

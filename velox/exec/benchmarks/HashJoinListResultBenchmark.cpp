@@ -435,7 +435,9 @@ class HashTableListJoinResultBenchmark : public VectorTestBase {
       }
     }
     return BaseHashTable::JoinResultIterator(
-        std::move(varSizeListColumns), fixedSizeListColumnsSizeSum);
+        std::move(varSizeListColumns),
+        fixedSizeListColumnsSizeSum,
+        std::nullopt);
   }
 
   // Hash probe and list join result.

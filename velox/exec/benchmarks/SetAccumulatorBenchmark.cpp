@@ -21,6 +21,7 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
@@ -28,7 +29,7 @@ namespace {
 
 // Adds 10M mostly unique values to a single SetAccumulator, then extracts
 // unique values from it.
-class SetAccumulatorBenchmark : public facebook::velox::test::VectorTestBase {
+class SetAccumulatorBenchmark : public velox::test::VectorTestBase {
  public:
   void setup() {
     VectorFuzzer::Options opts;

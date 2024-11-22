@@ -5564,27 +5564,42 @@ TEST_F(HashJoinTest, dynamicFilterOnPartitionKey) {
 }
 
 TEST_F(HashJoinTest, probeMemoryLimitOnBuildProjection) {
+  const uint64_t numBuildRows = 20;
   std::vector<RowVectorPtr> probeVectors =
       makeBatches(10, [&](int32_t /*unused*/) {
-        return makeRowVector(
-            {makeFlatVector<int32_t>(1'000, [](auto row) { return row % 5; })});
+        return makeRowVector({makeFlatVector<int32_t>(
+            1'000, [](auto row) { return row % 25; })});
       });
 
-  // Build side has 4KB + 4B per row.
   std::vector<RowVectorPtr> buildVectors =
       makeBatches(1, [&](int32_t /*unused*/) {
         return makeRowVector(
-            {"u_c0", "u_c1", {"u_c2"}},
-            {makeFlatVector<int32_t>({0, 1, 2}),
-             makeFlatVector<std::string>({
-                 std::string(4096, 'a'),
-                 std::string(4096, 'b'),
-                 std::string(4096, 'c'),
-             }),
-             makeFlatVector<std::string>({
-                 std::string(4096, 'd'),
-                 std::string(4096, 'e'),
-                 std::string(4096, 'f'),
+            {"u_c0", "u_c1", "u_c2", "u_c3", "u_c4"},
+            {makeFlatVector<int32_t>(
+                 numBuildRows, [](auto row) { return row; }),
+             makeFlatVector<std::string>(
+                 numBuildRows,
+                 [](auto /* row */) { return std::string(4096, 'a'); }),
+             makeFlatVector<std::string>(
+                 numBuildRows,
+                 [](auto /* row */) { return std::string(4096, 'a'); }),
+             makeFlatVector<std::string>(
+                 numBuildRows,
+                 [](auto row) {
+                   // Row that has too large of size variation.
+                   if (row == 0) {
+                     return std::string(4096, 'a');
+                   } else {
+                     return std::string(1, 'a');
+                   }
+                 }),
+             makeFlatVector<std::string>(numBuildRows, [](auto row) {
+               // Row that has tolerable size variation.
+               if (row == 0) {
+                 return std::string(4096, 'a');
+               } else {
+                 return std::string(256, 'a');
+               }
              })});
       });
 
@@ -5592,29 +5607,38 @@ TEST_F(HashJoinTest, probeMemoryLimitOnBuildProjection) {
   createDuckDbTable("u", {buildVectors});
 
   struct TestParam {
-    int32_t numVarSizeColumn;
+    std::vector<int32_t> varSizeColumns;
     int32_t numExpectedBatches;
     std::string referenceQuery;
     std::string debugString() const {
-      return fmt::format(
-          "numVarSizeColumn {}, numExpectedBatches {}, referenceQuery '{}'",
-          numVarSizeColumn,
-          numExpectedBatches,
-          referenceQuery);
+      std::stringstream ss;
+      ss << "varSizeColumns [";
+      for (const auto& columnIndex : varSizeColumns) {
+        ss << columnIndex << ", ";
+      }
+      ss << "] ";
+      ss << "numExpectedBatches " << numExpectedBatches << ", referenceQuery '"
+         << referenceQuery << "'";
+      return ss.str();
     }
   };
 
   std::vector<TestParam> testParams{
-      {0, 10, "SELECT t.c0 FROM t JOIN u ON t.c0 = u.u_c0"},
-      {1, 3000, "SELECT t.c0, u.u_c1 FROM t JOIN u ON t.c0 = u.u_c0"},
-      {2, 6000, "SELECT t.c0, u.u_c1, u.u_c2 FROM t JOIN u ON t.c0 = u.u_c0"}};
+      {{}, 10, "SELECT t.c0 FROM t JOIN u ON t.c0 = u.u_c0"},
+      {{1}, 4000, "SELECT t.c0, u.u_c1 FROM t JOIN u ON t.c0 = u.u_c0"},
+      {{1, 2},
+       8000,
+       "SELECT t.c0, u.u_c1, u.u_c2 FROM t JOIN u ON t.c0 = u.u_c0"},
+      {{3}, 210, "SELECT t.c0, u.u_c3 FROM t JOIN u ON t.c0 = u.u_c0"},
+      {{4}, 2670, "SELECT t.c0, u.u_c4 FROM t JOIN u ON t.c0 = u.u_c0"}};
+
   for (const auto& testParam : testParams) {
     SCOPED_TRACE(testParam.debugString());
     core::PlanNodeId joinNodeId;
     std::vector<std::string> outputLayout;
     outputLayout.push_back("c0");
-    for (int32_t i = 0; i < testParam.numVarSizeColumn; i++) {
-      outputLayout.push_back(fmt::format("u_c{}", i + 1));
+    for (int32_t i = 0; i < testParam.varSizeColumns.size(); i++) {
+      outputLayout.push_back(fmt::format("u_c{}", testParam.varSizeColumns[i]));
     }
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto plan = PlanBuilder(planNodeIdGenerator)

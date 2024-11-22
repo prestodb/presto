@@ -21,7 +21,8 @@ namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
-class MapAccumulatorTest : public testing::Test, public test::VectorTestBase {
+class MapAccumulatorTest : public testing::Test,
+                           public velox::test::VectorTestBase {
  protected:
  protected:
   static void SetUpTestCase() {

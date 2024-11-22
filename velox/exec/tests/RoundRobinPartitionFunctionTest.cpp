@@ -18,10 +18,11 @@
 #include "velox/vector/tests/utils/VectorMaker.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
-class RoundRobinPartitionFunctionTest : public test::VectorTestBase,
+class RoundRobinPartitionFunctionTest : public velox::test::VectorTestBase,
                                         public testing::Test {
  protected:
   static void SetUpTestCase() {
@@ -33,7 +34,7 @@ TEST_F(RoundRobinPartitionFunctionTest, basic) {
   exec::RoundRobinPartitionFunction partitionFunction(10);
 
   auto pool = memory::memoryManager()->addLeafPool();
-  test::VectorMaker vm(pool.get());
+  velox::test::VectorMaker vm(pool.get());
 
   auto data = vm.rowVector(ROW({}, {}), 1024);
   std::vector<uint32_t> partitions;

@@ -1064,6 +1064,7 @@ bool GroupingSet::getOutputWithSpill(
           false,
           false,
           false,
+          false,
           &pool_);
 
       initializeAggregates(aggregates_, *mergeRows_, false);
@@ -1278,6 +1279,7 @@ void GroupingSet::abandonPartialAggregation() {
       !ignoreNullKeys_,
       accumulators(true),
       std::vector<TypePtr>(),
+      false,
       false,
       false,
       false,

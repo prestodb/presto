@@ -19,6 +19,7 @@
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
+using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::test;
@@ -71,7 +72,7 @@ void benchmarkComputeValueIds(bool withNulls) {
   auto values = base.vectorMaker().flatVector<T>(
       size,
       [](vector_size_t row) { return row % 17; },
-      withNulls ? test::VectorMaker::nullEvery(7) : nullptr);
+      withNulls ? velox::test::VectorMaker::nullEvery(7) : nullptr);
 
   raw_vector<uint64_t> hashes(size);
   SelectivityVector rows(size);

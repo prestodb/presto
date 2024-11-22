@@ -25,7 +25,7 @@ namespace {
 
 using namespace facebook::velox::common;
 
-class ReaderTest : public testing::Test, public test::VectorTestBase {
+class ReaderTest : public testing::Test, public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});

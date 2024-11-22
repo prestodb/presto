@@ -27,7 +27,7 @@ namespace facebook::velox::functions::prestosql {
 namespace {
 
 class SimpleComparisonMatcherTest : public testing::Test,
-                                    public test::VectorTestBase {
+                                    public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});

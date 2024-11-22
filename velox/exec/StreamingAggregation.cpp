@@ -343,6 +343,7 @@ std::unique_ptr<RowContainer> StreamingAggregation::makeRowContainer(
       false,
       false,
       false,
+      false,
       pool());
 }
 

@@ -17,10 +17,12 @@
 #include "velox/exec/HashBitRange.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
-class HashRangeBitTest : public test::VectorTestBase, public testing::Test {
+class HashRangeBitTest : public velox::test::VectorTestBase,
+                         public testing::Test {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});

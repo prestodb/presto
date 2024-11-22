@@ -20,6 +20,7 @@
 #include "velox/type/tests/utils/CustomTypesForTesting.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::test;
@@ -48,7 +49,8 @@ class VectorHasherTest : public testing::Test, public VectorTestBase {
   template <typename T>
   void testComputeValueIds(bool withNulls) {
     vector_size_t size = 1'111;
-    auto isNullAt = withNulls ? test::VectorMaker::nullEvery(5) : nullptr;
+    auto isNullAt =
+        withNulls ? velox::test::VectorMaker::nullEvery(5) : nullptr;
 
     // values in the middle of the range
     auto vector = makeFlatVector<T>(
@@ -1123,7 +1125,7 @@ TEST_F(VectorHasherTest, customComparisonArray) {
            {259, 260, 261},
            {515, 516, 517},
            {std::nullopt}},
-          ARRAY(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())),
+          ARRAY(velox::test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())),
       // Different values that are equal mod 256 should hash to the same value.
       makeNullableArrayVector<int64_t>(
           {{0, 1, 2},
@@ -1133,7 +1135,7 @@ TEST_F(VectorHasherTest, customComparisonArray) {
            {3, 4, 5},
            {3, 4, 5},
            {std::nullopt}},
-          ARRAY(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())));
+          ARRAY(velox::test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())));
 }
 
 TEST_F(VectorHasherTest, customComparisonMap) {
@@ -1156,8 +1158,8 @@ TEST_F(VectorHasherTest, customComparisonMap) {
                {515, 615}, {516, 616}, {517, 617}},
            std::vector<std::pair<int64_t, std::optional<int64_t>>>{
                {0, std::nullopt}}},
-          MAP(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON(),
-              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())),
+          MAP(velox::test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON(),
+              velox::test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())),
       // Different values that are equal mod 256 should hash to the same value.
       makeNullableMapVector<int64_t, int64_t>(
           {std::vector<std::pair<int64_t, std::optional<int64_t>>>{
@@ -1174,8 +1176,8 @@ TEST_F(VectorHasherTest, customComparisonMap) {
                {3, 103}, {4, 104}, {5, 105}},
            std::vector<std::pair<int64_t, std::optional<int64_t>>>{
                {0, std::nullopt}}},
-          MAP(test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON(),
-              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())));
+          MAP(velox::test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON(),
+              velox::test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())));
 }
 
 TEST_F(VectorHasherTest, customComparisonRow) {
@@ -1187,11 +1189,11 @@ TEST_F(VectorHasherTest, customComparisonRow) {
           {"a"},
           {makeNullableFlatVector<int64_t>(
               {std::nullopt, 0, 1, 256, 257, 512, 513},
-              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())}),
+              velox::test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())}),
       // Different values that are equal mod 256 should hash to the same value.
       makeRowVector(
           {"a"},
           {makeNullableFlatVector<int64_t>(
               {std::nullopt, 0, 1, 0, 1, 0, 1},
-              test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())}));
+              velox::test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON())}));
 }

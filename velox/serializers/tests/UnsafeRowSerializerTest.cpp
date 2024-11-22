@@ -20,10 +20,11 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+using namespace facebook;
 using namespace facebook::velox;
 
 class UnsafeRowSerializerTest : public ::testing::Test,
-                                public test::VectorTestBase,
+                                public velox::test::VectorTestBase,
                                 public testing::WithParamInterface<bool> {
  protected:
   static void SetUpTestCase() {
