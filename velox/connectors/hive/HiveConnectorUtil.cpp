@@ -561,14 +561,25 @@ void configureReaderOptions(
   readerOptions.setMaxCoalesceDistance(hiveConfig->maxCoalescedDistanceBytes());
   readerOptions.setFileColumnNamesReadAsLowerCase(
       hiveConfig->isFileColumnNamesReadAsLowerCase(sessionProperties));
+  bool useColumnNamesForColumnMapping = false;
+  switch (hiveSplit->fileFormat) {
+    case dwio::common::FileFormat::DWRF:
+    case dwio::common::FileFormat::ORC: {
+      useColumnNamesForColumnMapping =
+          hiveConfig->isOrcUseColumnNames(sessionProperties);
+      break;
+    }
+    case dwio::common::FileFormat::PARQUET: {
+      useColumnNamesForColumnMapping =
+          hiveConfig->isParquetUseColumnNames(sessionProperties);
+      break;
+    }
+    default:
+      useColumnNamesForColumnMapping = false;
+  }
+
   readerOptions.setUseColumnNamesForColumnMapping(
-      (hiveSplit->fileFormat == dwio::common::FileFormat::DWRF ||
-       hiveSplit->fileFormat == dwio::common::FileFormat::ORC)
-          ? hiveConfig->isOrcUseColumnNames(sessionProperties)
-          : (hiveSplit->fileFormat == dwio::common::FileFormat::PARQUET)
-          ? hiveConfig->isParquetUseColumnNames(sessionProperties)
-          : false // or some default value if none of the conditions are met
-  );
+      useColumnNamesForColumnMapping);
   readerOptions.setFileSchema(fileSchema);
   readerOptions.setFooterEstimatedSize(hiveConfig->footerEstimatedSize());
   readerOptions.setFilePreloadThreshold(hiveConfig->filePreloadThreshold());

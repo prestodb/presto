@@ -36,17 +36,6 @@ bool isParquetReservedKeyword(
       ? true
       : false;
 }
-
-TypePtr getUpdatedTableSchema(
-    const TypePtr& tableSchema,
-    uint32_t i,
-    uint32_t parentSchemaIdx,
-    uint32_t curSchemaIdx,
-    std::string name) {
-  return (tableSchema == nullptr || (parentSchemaIdx == 0 && curSchemaIdx != 0))
-      ? tableSchema
-      : tableSchema->childAt(i);
-}
 } // namespace
 
 /// Metadata and options for reading Parquet.
@@ -132,7 +121,6 @@ class ReaderBase {
       uint32_t& columnIdx,
       const TypePtr& requestedType,
       const TypePtr& parentRequestedType,
-      const TypePtr& tableSchema,
       std::vector<std::string>& columnNames) const;
 
   TypePtr convertType(
@@ -266,7 +254,6 @@ void ReaderBase::initializeSchema() {
       columnIdx,
       options_.fileSchema(),
       nullptr,
-      options_.fileSchema(),
       columnNames);
   schema_ = createRowType(
       schemaWithId_->getChildren(), isFileColumnNamesReadAsLowerCase());
@@ -285,7 +272,6 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
     uint32_t& columnIdx,
     const TypePtr& requestedType,
     const TypePtr& parentRequestedType,
-    const TypePtr& tableSchema,
     std::vector<std::string>& columnNames) const {
   VELOX_CHECK(fileMetaData_ != nullptr);
   VELOX_CHECK_LT(schemaIdx, fileMetaData_->schema.size());
@@ -345,11 +331,23 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
       }
 
       TypePtr childRequestedType = nullptr;
+      bool followChild = true;
       if (requestedType && requestedType->isRow()) {
-        auto fileTypeIdx =
-            requestedType->asRow().getChildIdxIfExists(childName);
-        if (fileTypeIdx.has_value()) {
-          childRequestedType = requestedType->asRow().childAt(*fileTypeIdx);
+        auto requestedRowType =
+            std::dynamic_pointer_cast<const velox::RowType>(requestedType);
+        if (options_.useColumnNamesForColumnMapping()) {
+          auto fileTypeIdx = requestedRowType->getChildIdxIfExists(childName);
+          if (fileTypeIdx.has_value()) {
+            childRequestedType = requestedRowType->childAt(*fileTypeIdx);
+          }
+        } else {
+          // Handle schema evolution.
+          if (i < requestedRowType->size()) {
+            columnNames.push_back(requestedRowType->nameOf(i));
+            childRequestedType = requestedRowType->childAt(i);
+          } else {
+            followChild = false;
+          }
         }
       }
 
@@ -368,27 +366,19 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
         }
       }
 
-      if ((!options_.useColumnNamesForColumnMapping()) &&
-          (options_.fileSchema() != nullptr) &&
-          (tableSchema->kind() == TypeKind::ROW)) {
-        columnNames.push_back(
-            std::dynamic_pointer_cast<const velox::RowType>(tableSchema)
-                ->nameOf(i));
+      if (followChild) {
+        auto child = getParquetColumnInfo(
+            maxSchemaElementIdx,
+            maxRepeat,
+            maxDefine,
+            curSchemaIdx,
+            schemaIdx,
+            columnIdx,
+            childRequestedType,
+            requestedType,
+            columnNames);
+        children.push_back(std::move(child));
       }
-
-      auto child = getParquetColumnInfo(
-          maxSchemaElementIdx,
-          maxRepeat,
-          maxDefine,
-          curSchemaIdx,
-          schemaIdx,
-          columnIdx,
-          childRequestedType,
-          requestedType,
-          getUpdatedTableSchema(
-              tableSchema, i, parentSchemaIdx, curSchemaIdx, name),
-          columnNames);
-      children.push_back(std::move(child));
     }
     VELOX_CHECK(!children.empty());
     name = columnNames.at(curSchemaIdx);

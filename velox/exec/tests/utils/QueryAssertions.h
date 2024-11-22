@@ -286,7 +286,7 @@ velox::variant readSingleValue(
 /// floating-point column in each set. Verifying arbitrary result sets with
 /// epsilon comparison would require more advanced algorithms such as maximum
 /// bipartite matching. Hence we leave them as future work. Check out
-/// https://github.com/facebookincubator/velox/issues/3493 for more dicsussion.
+/// https://github.com/facebookincubator/velox/issues/3493 for more discussion.
 bool assertEqualResults(
     const std::vector<RowVectorPtr>& expected,
     const std::vector<RowVectorPtr>& actual);
