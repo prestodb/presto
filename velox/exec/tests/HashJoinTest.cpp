@@ -5925,10 +5925,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
 
   {
     memory::ScopedMemoryArbitrationContext ctx(op->pool());
-    op->pool()->reclaim(
+    uint64_t reclaimedBytes = task->pool()->reclaim(
         folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
         0,
         reclaimerStats_);
+    ASSERT_GT(reclaimedBytes, 0);
   }
   ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
   ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);

@@ -394,7 +394,7 @@ uint64_t HashJoinMemoryReclaimer::reclaim(
       if (!hasReclaimedFromBuild) {
         // We just need to reclaim from any one of the hash build operator.
         hasReclaimedFromBuild = true;
-        reclaimedBytes = child->reclaim(targetBytes, maxWaitMs, stats);
+        reclaimedBytes += child->reclaim(targetBytes, maxWaitMs, stats);
       }
       return !hasReclaimedFromProbe;
     }
@@ -403,7 +403,7 @@ uint64_t HashJoinMemoryReclaimer::reclaim(
       // The same as build operator, we only need to reclaim from any one of the
       // hash probe operator.
       hasReclaimedFromProbe = true;
-      reclaimedBytes = child->reclaim(targetBytes, maxWaitMs, stats);
+      reclaimedBytes += child->reclaim(targetBytes, maxWaitMs, stats);
     }
     return !hasReclaimedFromBuild;
   });
