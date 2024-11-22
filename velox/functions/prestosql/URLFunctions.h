@@ -146,7 +146,7 @@ FOLLY_ALWAYS_INLINE void urlUnescape(
     TOutString& output,
     const TInString& input) {
   auto inputSize = input.size();
-  output.reserve(inputSize);
+  output.resize(inputSize);
 
   auto outputBuffer = output.data();
   const char* p = input.data();
@@ -361,15 +361,20 @@ struct UrlExtractParameterFunction {
       static const boost::regex kQueryParamRegex(
           "(^|&)" // start of query or start of parameter "&"
           "([^=&]*)=?" // parameter name and "=" if value is expected
-          "([^=&]*)" // parameter value
+          "([^&]*)" // parameter value (allows "=" to appear)
           "(?=(&|$))" // forward reference, next should be end of query or
                       // start of next parameter
       );
 
+      StringView query = uri.query;
+      std::string unescapedQuery;
+      if (uri.queryHasEncoded) {
+        detail::urlUnescape(unescapedQuery, uri.query);
+        query = StringView(unescapedQuery);
+      }
+
       const boost::cregex_iterator begin(
-          uri.query.data(),
-          uri.query.data() + uri.query.size(),
-          kQueryParamRegex);
+          query.data(), query.data() + query.size(), kQueryParamRegex);
       boost::cregex_iterator end;
 
       for (auto it = begin; it != end; ++it) {
@@ -377,7 +382,7 @@ struct UrlExtractParameterFunction {
           auto key = detail::submatch((*it), 2);
           if (param.compare(key) == 0) {
             auto value = detail::submatch((*it), 3);
-            detail::urlUnescape(result, value);
+            result.copy_from(value);
             return true;
           }
         }

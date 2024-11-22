@@ -531,6 +531,24 @@ TEST_F(URLFunctionsTest, extractParameter) {
           "http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1", "k6"),
       std::nullopt);
   EXPECT_EQ(extractParam("foo", ""), std::nullopt);
+  EXPECT_EQ(
+      "",
+      extractParam(
+          "http://example.com/path1/p.php?k1=v1&k2=v2&k3%26k4=v4", "k3"));
+  EXPECT_EQ(
+      "v3",
+      extractParam(
+          "http://example.com/path1/p.php?k1=v1&k2=v2&k3=v3%26k4=v4", "k3"));
+  EXPECT_EQ(
+      "v3",
+      extractParam(
+          "http://example.com/path1/p.php?k1=v1&k2=v2&k3%3Dv3%26k4=v4", "k3"));
+  // Test "=" inside a parameter value.
+  EXPECT_EQ(
+      "v3.1=v3.2",
+      extractParam(
+          "http://example.com/path1/p.php?k1=v1&k2=v2&k3%3Dv3.1%3Dv3.2%26k4=v4",
+          "k3"));
 }
 
 TEST_F(URLFunctionsTest, urlEncode) {
