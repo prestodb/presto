@@ -37,6 +37,7 @@ public final class JdbcQueryRunner
     }
 
     private static final String TPCH_SCHEMA = "tpch";
+    private static final String JDBC = "jdbc";
 
     public static DistributedQueryRunner createJdbcQueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -49,7 +50,7 @@ public final class JdbcQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
+            queryRunner = new DistributedQueryRunner(createSession(JDBC), 3);
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -58,9 +59,9 @@ public final class JdbcQueryRunner
             createSchema(properties, "tpch");
 
             queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
-            queryRunner.createCatalog("jdbc", "base-jdbc", properties);
+            queryRunner.createCatalog(JDBC, "base-jdbc", properties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(JDBC), tables);
 
             return queryRunner;
         }
@@ -70,7 +71,7 @@ public final class JdbcQueryRunner
         }
     }
 
-    private static void createSchema(Map<String, String> properties, String schema)
+    public static void createSchema(Map<String, String> properties, String schema)
             throws SQLException
     {
         try (Connection connection = DriverManager.getConnection(properties.get("connection-url"));
@@ -79,10 +80,10 @@ public final class JdbcQueryRunner
         }
     }
 
-    public static Session createSession()
+    public static Session createSession(String catalog)
     {
         return testSessionBuilder()
-                .setCatalog("jdbc")
+                .setCatalog(catalog)
                 .setSchema(TPCH_SCHEMA)
                 .build();
     }
