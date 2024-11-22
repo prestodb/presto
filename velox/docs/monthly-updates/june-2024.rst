@@ -1,0 +1,147 @@
+****************
+June 2024 Update
+****************
+
+This month has **261** commits from **58** authors. Below are some of the highlights.
+
+Documentation
+=============
+
+* Document :doc:`Timestamp and Timezone Management </develop/timestamp>`.
+
+Core Library
+============
+
+* Add UUID Presto type.
+* Add options to configure saving data to SSD cache. :pr:`10056`
+* Add support for spill read ahead. :pr:`10008`
+* Fix Joins with filters on LazyVectors. :pr:`10045`
+* Fix incorrect results due to lazy evaluation of remaining filter. :pr:`10072`
+
+Presto Functions
+================
+
+* Add :func:`regexp_split`, :func:`regexp_replace`, :func:`to_milliseconds`,
+  :func:`from_iso8601_timestamp`, :func:`json_array_get`,
+  :func:`map_remove_null_values`, :func:`array_cum_sum`, :func:`normalize`,
+  :func:`inverse_normal_cdf`, :func:`lpad`, :func:`rpad`, :func:`fail`,
+  :func:`map_top_n_keys` functions.
+* Add support for TS_WITH_TZ +/- INTERVAL function.
+* Add support for INTERVAL input to :func:`year`, :func:`month`, :func:`hour`,
+  :func:`minute`, :func:`second`, :func:`millisecond`, comparison functions.
+* Add support for CAST(TIMESTAMP WITH TIMEZONE AS VARCHAR).
+* Add support for CAST(DATE AS TIMESTAMP WITH TIMEZONE).
+* Add support for CAST(TIMESTAMP WITH TIMEZONE AS DATE).
+* Add support for trailing spaces in CAST(VARCHAR as DATE).
+* Add support for negative array index, single-quoted keys, paths without leading "$"
+  JsonPath argument in JSON functions such as :func:`json_extract`.
+* Add support for DECIMAL in :func:`modulus` function.
+* Add support for DATETIME unit 'week' in :func:`date_add` and :func:`date_diff` functions.
+* Add support for TIMESTAMP input in :func:`to_iso8601` function.
+* Add support for variable pattern and replacement in :func:`regexp_replace` function.
+* Add support for INTERVAL and TIMESTAMP WITH TIMEZONE to between function.
+* Fix parsing of 'March' and 'MARCH' input in :func:`date_parse` function.
+* Add support for complex types to :func:`distinct_from`, :func:`array_distinct`,
+  :func:`histogram` functions.
+* Add support for VARBINARY to :func:`concat`, :func:`from_base64`, :func:`substr` functions.
+* Add support for REAL, DECIMAL to :func:`truncate` function.
+* Add support for :func:`from_unixtime(unixtime, hours, minutes)` function.
+* Add support for TIMESTAMP WITH TIME ZONE input to :func:`least`, :func:`greatest`, :func:`minus` functions.
+* Add support for BOOLEAN input to :func:`approx_most_frequent` function.
+* Fix :func:`json_array_contains` for NaN, Infinity, -Infinity arguments. :pr:`10023`
+* Fix :func:`min`, :func:`max` handling for NaN, Infinity, -Infinity arguments. :pr:`9931`
+
+Spark Functions
+===============
+
+* Add :spark:func:`log` function.
+* Add support for DECIMAL input to :spark:func:`greatest` and :spark:func:`least` functions.
+* Add support for complex types to :spark:func:`equalto` and :spark:func:`equalnullsafe` functions.
+* Add support for FLOAT and DOUBLE types to :spark:func:`mod` function.
+* Fix :spark:func:`in` for NaN inputs.
+
+Hive Connector
+==============
+
+* Add "cache.no_retention" session config to allow a query not retain data in the AsyncDataCache
+  and skip SSD Cache.
+* Add retry for S3 filesystem.
+* Add support for ORC file-format Reader.
+
+Performance and Correctness
+===========================
+
+* Add benchmark of casting string to double.
+* Add benchmark for Iceberg SplitReader.
+* Parallelize spilling by partitioning. :pr:`9938`
+* Optimize merge-join by using vectorization and conditional use of dictionary encoding. :pr:`9763`
+* SIMD-ize comparisons for DATE type.
+
+Build System
+============
+
+* Add support for Centos9 Stream + GCC12.
+* Update fbos deps to v2024.05.20.00.
+
+Credits
+=======
+::
+
+    56  Masha Basmanova <mbasmanova@meta.com>
+    20  Kevin Wilfong <kevinwilfong@meta.com>
+    17  Jimmy Lu <jimmylu@meta.com>
+    16  xiaoxmeng <xiaoxmeng@fb.com>
+    13  Deepak Majeti <deepak.majeti@ibm.com>
+     9  Pedro Eugenio Rocha Pedreira <pedroerp@meta.com>
+    11  Zac Wen <zacw@meta.com>
+     8  Bikramjeet Vig <bikramjeet@meta.com>
+     7  Ke <ke.404notfound@gmail.com>
+     7  Wei He <weihe@meta.com>
+     6  Jialiang Tan <jacob.jialiang.tan@gmail.com>
+     6  wypb <wyphao.2007@163.com>
+     5  Jacob Wujciak-Jens <jacob@wujciak.de>
+     5  PHILO-HE <feilong.he@intel.com>
+     5  zhli1142015 <zhli@microsoft.com>
+     4  Kevin Wilfong <kevinwilfong@fb.com>
+     4  Orri Erling <oerling@fb.com>
+     4  duanmeng <macduan@tencent.com>
+     4  yanngyoung <cindyyyang@tencent.com>
+     3  Jia Ke <ke.a.jia@intel.com>
+     3  Krishna Pai <kpai@fb.com>
+     3  Pramod <pramod@ahana.io>
+     3  Sandino Flores <sandino.flores.moreno@intel.com>
+     3  lingbin <lingbinlb@gmail.com>
+     3  mwish <maplewish117@gmail.com>
+     2  Andrii Rosa <andriirosa@fb.com>
+     2  Christian Zentgraf <kitgocz@gmail.com>
+     2  rui-mo <rui.mo@intel.com>
+     2  wypb <wjameswu@tencent.com>
+     1  Amit Dutta <adutta@meta.com>
+     1  Andrii Rosa <andriirosa@meta.com>
+     1  Ankita Victor <anvicto@microsoft.com>
+     1  Athmaja N <Athmaja.N@ibm.com>
+     1  Daniel Hunte <danielhunte@meta.com>
+     1  Daniel Jonathan Hunte <danielhunte@meta.com>
+     1  Deepashree Gandhi <deegandh@in.ibm.com>
+     1  Huameng (Michael) Jiang <huamengjiang@meta.com>
+     1  Jacob Khaliqi <jacobkhaliqi@gmail.com>
+     1  Jialiang Tan <jtan6@meta.com>
+     1  Kunal Kataria <kunalkataria@meta.com>
+     1  NEUpanning <emmning@163.com>
+     1  Pranjal Shankhdhar <pranjalssh@meta.com>
+     1  Pratik Joseph Dabre <pdabre12@gmail.com>
+     1  Reetika Agrawal <reetika.agrawal@ibm.com>
+     1  Yoav Helfman <ifdef@meta.com>
+     1  Zhenyuan Zhao <zzhao@meta.com>
+     1  aditi-pandit <Aditi.Pandit@ibm.com>
+     1  chenweiguo.vc <chenweiguo.vc@bytedance.com>
+     1  deepthydavis <deepthy.davis@ibm.com>
+     1  gaoyangxiaozhu <gyycoder@gmail.com>
+     1  joey.ljy <joey.ljy@alibaba-inc.com>
+     1  liangyongyuan <liangyongyuan@xiaomi.com>
+     1  lingbin <lingbin.lb@alibaba-inc.com>
+     1  rexan <rexan@apache.org>
+     1  soumyaduriseti <soumyaduriseti@ibm.com>
+     1  wjameswu <wjameswu@tencent.com>
+     1  yan ma <yan.ma@intel.com>
+     1  yangshijie.2024 <yangshijie.2024@bytedance.com>

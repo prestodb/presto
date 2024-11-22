@@ -53,7 +53,7 @@ This report is generated manually with the help of the following commands and te
 
 Command to get the list of contributors and their contribution count in a specific month.
 ```
-git log --since='June 1 2024' --until='June 30 2024' --pretty=format:"%an (%ae)" | sort | uniq -c | sort -r
+git shortlog -sen --since='June 1 2024' --until='June 30 2024'
 ```
 Command to get the list of contributions in a specific month.
 ```
