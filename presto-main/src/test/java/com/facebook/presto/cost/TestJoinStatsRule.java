@@ -18,8 +18,10 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinType;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -90,8 +92,10 @@ public class TestJoinStatsRule
 
     private static final MetadataManager METADATA = createTestMetadataManager();
     private static final StatsNormalizer NORMALIZER = new StatsNormalizer();
+
+    private static final ExpressionOptimizerProvider EXPRESSION_OPTIMIZER_PROVIDER = new InMemoryExpressionOptimizerProvider(METADATA);
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(
-            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA), NORMALIZER),
+            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, EXPRESSION_OPTIMIZER_PROVIDER), NORMALIZER),
             NORMALIZER,
             1.0);
 
