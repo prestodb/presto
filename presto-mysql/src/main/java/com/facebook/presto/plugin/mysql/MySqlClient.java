@@ -33,6 +33,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
@@ -235,6 +236,7 @@ public class MySqlClient
                 split.getCatalogName(),
                 split.getSchemaName(),
                 split.getTableName(),
+                ImmutableList.of(),
                 columnHandles,
                 columnExpressions,
                 split.getTupleDomain(),
