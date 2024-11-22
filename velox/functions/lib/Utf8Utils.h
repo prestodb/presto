@@ -45,12 +45,15 @@ namespace facebook::velox::functions {
 ///
 /// @param input Pointer to the first byte of the code point. Must not be null.
 /// @param size Number of available bytes. Must be greater than zero.
+/// @param codePoint Populated with the code point it refers to. This is only
+/// valid if the return value is positive.
 /// @return the length of the code point or negative the number of bytes in the
 /// invalid UTF-8 sequence.
 ///
 /// Adapted from tryGetCodePointAt in
 /// https://github.com/airlift/slice/blob/master/src/main/java/io/airlift/slice/SliceUtf8.java
-int32_t tryGetCharLength(const char* input, int64_t size);
+int32_t
+tryGetUtf8CharLength(const char* input, int64_t size, int32_t& codePoint);
 
 /// Return the length in byte of the next UTF-8 encoded character at the
 /// beginning of `string`. If the beginning of `string` is not valid UTF-8

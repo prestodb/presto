@@ -15,6 +15,8 @@
  */
 
 #include "velox/functions/prestosql/URIParser.h"
+#include "velox/external/utf8proc/utf8procImpl.h"
+#include "velox/functions/lib/Utf8Utils.h"
 
 namespace facebook::velox::functions {
 
@@ -44,6 +46,11 @@ Mask createMask(const std::vector<size_t>& values) {
 
   return mask;
 }
+
+bool test(const Mask& mask, char value) {
+  return value < mask.size() && mask.test(value);
+}
+
 // a-z or A-Z.
 const Mask kAlpha = createMask('a', 'z') | createMask('A', 'Z');
 // 0-9.
@@ -135,7 +142,8 @@ bool tryConsumePercentEncoded(const char* str, const size_t len, int32_t& pos) {
     return false;
   }
 
-  if (str[pos] != '%' || !kHex.test(str[pos + 1]) || !kHex.test(str[pos + 2])) {
+  if (str[pos] != '%' || !test(kHex, str[pos + 1]) ||
+      !test(kHex, str[pos + 2])) {
     return false;
   }
 
@@ -145,7 +153,8 @@ bool tryConsumePercentEncoded(const char* str, const size_t len, int32_t& pos) {
 }
 
 // Helper function that consumes as much of `str` from `pos` as possible where a
-// character passes mask or is part of a percent encoded character.
+// character passes mask, is part of a percent encoded character, or is an
+// allowed UTF-8 character.
 //
 // `pos` is updated to the first character in `str` that was not consumed and
 // `hasEncoded` is set to true if any percent encoded characters were
@@ -157,7 +166,7 @@ void consume(
     int32_t& pos,
     bool& hasEncoded) {
   while (pos < len) {
-    if (mask.test(str[pos])) {
+    if (test(mask, str[pos])) {
       pos++;
       continue;
     }
@@ -165,6 +174,29 @@ void consume(
     if (tryConsumePercentEncoded(str, len, pos)) {
       hasEncoded = true;
       continue;
+    }
+
+    // Masks cover all ASCII characters, check if this is an allowed UTF-8
+    // character.
+    if ((unsigned char)str[pos] > 127) {
+      // Get the UTF-8 code point.
+      int32_t codePoint;
+      auto valid = tryGetUtf8CharLength(str + pos, len - pos, codePoint);
+
+      // Check if it's a valid UTF-8 character.
+      // The range after ASCII characters up to 159 covers control characters
+      // which are not allowed.
+      if (valid > 0 && codePoint > 159) {
+        const auto category = utf8proc_get_property(codePoint)->category;
+        // White space characters are also not allowed. The range of categories
+        // excluded here are categories of white space.
+        if (category < UTF8PROC_CATEGORY_ZS ||
+            category > UTF8PROC_CATEGORY_ZP) {
+          // Increment over the whole (potentially multi-byte) character.
+          pos += valid;
+          continue;
+        }
+      }
     }
 
     break;
@@ -314,7 +346,7 @@ bool tryConsumeIPV6Address(const char* str, const size_t len, int32_t& pos) {
   while (posInAddress < len && numBytes < 16) {
     int32_t posInHex = posInAddress;
     for (int i = 0; i < 4; i++) {
-      if (posInHex == len || !kHex.test(str[posInHex])) {
+      if (posInHex == len || !test(kHex, str[posInHex])) {
         break;
       }
 
@@ -350,7 +382,7 @@ bool tryConsumeIPV6Address(const char* str, const size_t len, int32_t& pos) {
             posInAddress = posInHex + 2;
           }
         } else {
-          if (posInHex == len || !kHex.test(str[posInHex + 1])) {
+          if (posInHex == len || !test(kHex, str[posInHex + 1])) {
             // Peak ahead, we can't end on a single ':'.
             return false;
           }
@@ -392,7 +424,7 @@ bool tryConsumeIPVFuture(const char* str, const size_t len, int32_t& pos) {
   // Consume a string of hex digits.
   int32_t posInHex = posInAddress;
   while (posInHex < len) {
-    if (kHex.test(str[posInHex])) {
+    if (test(kHex, str[posInHex])) {
       posInHex++;
     } else {
       break;
@@ -416,7 +448,7 @@ bool tryConsumeIPVFuture(const char* str, const size_t len, int32_t& pos) {
 
   int32_t posInSuffix = posInAddress;
   while (posInSuffix < len) {
-    if (kIPVFutureSuffixOrUserInfo.test(str[posInSuffix])) {
+    if (test(kIPVFutureSuffixOrUserInfo, str[posInSuffix])) {
       posInSuffix++;
     } else {
       break;
@@ -467,7 +499,7 @@ void consumePort(const char* str, const size_t len, int32_t& pos, URI& uri) {
   int32_t posInPort = pos;
 
   while (posInPort < len) {
-    if (kNum.test(str[posInPort])) {
+    if (test(kNum, str[posInPort])) {
       posInPort++;
       continue;
     }
@@ -488,7 +520,7 @@ void consumeHost(const char* str, const size_t len, int32_t& pos, URI& uri) {
     int32_t posInIPV4Address = posInHost;
     if (tryConsumeIPV4Address(str, len, posInIPV4Address) &&
         (posInIPV4Address == len ||
-         kFollowingHost.test(str[posInIPV4Address]))) {
+         test(kFollowingHost, str[posInIPV4Address]))) {
       // reg-name and IPv4 addresses are hard to distinguish, a reg-name could
       // have a valid IPv4 address as a prefix, but treating that prefix as an
       // IPv4 address would make this URI invalid. We make sure that if we
@@ -551,14 +583,14 @@ bool tryConsumeScheme(
   int32_t posInScheme = pos;
 
   // The scheme must start with a letter.
-  if (posInScheme == len || !kAlpha.test(str[posInScheme])) {
+  if (posInScheme == len || !test(kAlpha, str[posInScheme])) {
     return false;
   }
 
   // Consume the first letter.
   posInScheme++;
 
-  while (posInScheme < len && kScheme.test(str[posInScheme])) {
+  while (posInScheme < len && test(kScheme, str[posInScheme])) {
     posInScheme++;
   }
 

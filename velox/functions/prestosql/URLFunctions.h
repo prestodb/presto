@@ -80,8 +80,9 @@ FOLLY_ALWAYS_INLINE void urlEscape(TOutString& output, const TInString& input) {
       outputBuffer[outIndex++] = '+';
       inputIndex++;
     } else {
-      const auto charLength =
-          tryGetCharLength(inputBuffer + inputIndex, inputSize - inputIndex);
+      int32_t codePoint;
+      const auto charLength = tryGetUtf8CharLength(
+          inputBuffer + inputIndex, inputSize - inputIndex, codePoint);
       if (charLength > 0) {
         for (int i = 0; i < charLength; ++i) {
           charEscape(inputBuffer[inputIndex + i], outputBuffer + outIndex);
@@ -93,11 +94,11 @@ FOLLY_ALWAYS_INLINE void urlEscape(TOutString& output, const TInString& input) {
         // According to the Unicode standard the "maximal subpart of an
         // ill-formed subsequence" is the longest code unit subsequenece that is
         // either well-formed or of length 1. A replacement character should be
-        // written for each of these.  In practice tryGetCharLength breaks most
-        // cases into maximal subparts, the exceptions are overlong encodings or
-        // subsequences outside the range of valid 4 byte sequences.  In both
-        // these cases we should just write out a replacement character for
-        // every byte in the sequence.
+        // written for each of these.  In practice tryGetUtf8CharLength breaks
+        // most cases into maximal subparts, the exceptions are overlong
+        // encodings or subsequences outside the range of valid 4 byte
+        // sequences.  In both these cases we should just write out a
+        // replacement character for every byte in the sequence.
         size_t replaceCharactersToWriteOut = 1;
         if (inputIndex < inputSize - 1) {
           bool isMultipleInvalidSequences =
@@ -108,13 +109,13 @@ FOLLY_ALWAYS_INLINE void urlEscape(TOutString& output, const TInString& input) {
               (inputBuffer[inputIndex] == '\xf0' &&
                (inputBuffer[inputIndex + 1] & 0xf0) == 0x80) ||
               // 0xf4 followed by a byte >= 0x90 looks valid to
-              // tryGetCharLength, but is actually outside the range of valid
-              // code points.
+              // tryGetUtf8CharLength, but is actually outside the range of
+              // valid code points.
               (inputBuffer[inputIndex] == '\xf4' &&
                (inputBuffer[inputIndex + 1] & 0xf0) != 0x80) ||
               // The bytes 0xf5-0xff, 0xc0, and 0xc1 look like the start of
-              // multi-byte code points to tryGetCharLength, but are not part of
-              // any valid code point.
+              // multi-byte code points to tryGetUtf8CharLength, but are not
+              // part of any valid code point.
               (unsigned char)inputBuffer[inputIndex] > 0xf4 ||
               inputBuffer[inputIndex] == '\xc0' ||
               inputBuffer[inputIndex] == '\xc1';

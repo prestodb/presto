@@ -81,10 +81,11 @@ struct Split {
     size_t pos = 0;
     int32_t count = 0;
     while (pos < end && count < limit) {
-      auto charLength = tryGetCharLength(start + pos, end - pos);
+      int32_t codePoint;
+      auto charLength = tryGetUtf8CharLength(start + pos, end - pos, codePoint);
       if (charLength <= 0) {
         // Invalid UTF-8 character, the length of the invalid
-        // character is the absolute value of result of `tryGetCharLength`.
+        // character is the absolute value of result of `tryGetUtf8CharLength`.
         charLength = -charLength;
       }
       result.add_item().setNoCopy(StringView(start + pos, charLength));
@@ -142,10 +143,13 @@ struct Split {
       // empty tail string at last, e.g., the result array for split('abc','d|')
       // is ["a","b","c",""].
       if (size == 0) {
-        auto charLength = tryGetCharLength(start + pos, end - pos);
+        int32_t codePoint;
+        auto charLength =
+            tryGetUtf8CharLength(start + pos, end - pos, codePoint);
         if (charLength <= 0) {
           // Invalid UTF-8 character, the length of the invalid
-          // character is the absolute value of result of `tryGetCharLength`.
+          // character is the absolute value of result of
+          // `tryGetUtf8CharLength`.
           charLength = -charLength;
         }
         offset += charLength;
