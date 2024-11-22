@@ -23,9 +23,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.OutputNode;
-import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
-import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableFinishNode;
@@ -91,10 +89,9 @@ public class PlanFragmenterUtils
             NodePartitioningManager nodePartitioningManager,
             Session session,
             boolean forceSingleNode,
-            WarningCollector warningCollector,
-            PartitioningHandle partitioningHandle)
+            WarningCollector warningCollector)
     {
-        subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan, partitioningHandle);
+        subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan);
         if (!forceSingleNode) {
             // grouped execution is not supported for SINGLE_DISTRIBUTION
             subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager);
@@ -197,12 +194,7 @@ public class PlanFragmenterUtils
         return root instanceof OutputNode && getOnlyElement(root.getSources()) instanceof TableFinishNode;
     }
 
-    private static SubPlan reassignPartitioningHandleIfNecessary(Metadata metadata, Session session, SubPlan subPlan, PartitioningHandle partitioningHandle)
-    {
-        return reassignPartitioningHandleIfNecessaryHelper(metadata, session, subPlan, partitioningHandle);
-    }
-
-    private static SubPlan reassignPartitioningHandleIfNecessaryHelper(Metadata metadata, Session session, SubPlan subPlan, PartitioningHandle newOutputPartitioningHandle)
+    private static SubPlan reassignPartitioningHandleIfNecessary(Metadata metadata, Session session, SubPlan subPlan)
     {
         PlanFragment fragment = subPlan.getFragment();
 
@@ -212,25 +204,13 @@ public class PlanFragmenterUtils
             PartitioningHandleReassigner partitioningHandleReassigner = new PartitioningHandleReassigner(fragment.getPartitioning(), metadata, session);
             newRoot = SimplePlanRewriter.rewriteWith(partitioningHandleReassigner, newRoot);
         }
-        PartitioningScheme outputPartitioningScheme = fragment.getPartitioningScheme();
-        Partitioning newOutputPartitioning = outputPartitioningScheme.getPartitioning();
-        if (outputPartitioningScheme.getPartitioning().getHandle().getConnectorId().isPresent()) {
-            // Do not replace the handle if the source's output handle is a system one, e.g. broadcast.
-            newOutputPartitioning = newOutputPartitioning.withAlternativePartitioningHandle(newOutputPartitioningHandle);
-        }
         PlanFragment newFragment = new PlanFragment(
                 fragment.getId(),
                 newRoot,
                 fragment.getVariables(),
                 fragment.getPartitioning(),
                 fragment.getTableScanSchedulingOrder(),
-                new PartitioningScheme(
-                        newOutputPartitioning,
-                        outputPartitioningScheme.getOutputLayout(),
-                        outputPartitioningScheme.getHashColumn(),
-                        outputPartitioningScheme.isReplicateNullsAndAny(),
-                        outputPartitioningScheme.getEncoding(),
-                        outputPartitioningScheme.getBucketToPartition()),
+                fragment.getPartitioningScheme(),
                 fragment.getStageExecutionDescriptor(),
                 fragment.isOutputTableWriterFragment(),
                 fragment.getStatsAndCosts(),
@@ -238,7 +218,7 @@ public class PlanFragmenterUtils
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
-            childrenBuilder.add(reassignPartitioningHandleIfNecessaryHelper(metadata, session, child, fragment.getPartitioning()));
+            childrenBuilder.add(reassignPartitioningHandleIfNecessary(metadata, session, child));
         }
         return new SubPlan(newFragment, childrenBuilder.build());
     }
