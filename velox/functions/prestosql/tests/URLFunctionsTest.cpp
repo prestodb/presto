@@ -612,6 +612,38 @@ TEST_F(URLFunctionsTest, urlDecode) {
       urlDecode("http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88"));
   EXPECT_EQ("~@:.-*_+ \u2603", urlDecode("%7E%40%3A.-*_%2B+%E2%98%83"));
   EXPECT_EQ("test", urlDecode("test"));
+  // Test a single byte invalid UTF-8 character.
+  EXPECT_EQ("te\xef\xbf\xbdst", urlDecode("te%88st"));
+  // Test a multi-byte invalid UTF-8 character. (If the first byte is between
+  // 0xe0 and 0xef, it should be a 3 byte character, but we only have 2 bytes
+  // here.)
+  EXPECT_EQ("te\xef\xbf\xbdst", urlDecode("te%e0%b8st"));
+  // Test an overlong 3 byte UTF-8 character
+  EXPECT_EQ("\xef\xbf\xbd\xef\xbf\xbd", urlDecode("%e0%94"));
+  // Test an overlong 3 byte UTF-8 character with a continuation byte.
+  EXPECT_EQ("\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd", urlDecode("%e0%94%83"));
+  // Test an overlong 4 byte UTF-8 character
+  EXPECT_EQ("\xef\xbf\xbd\xef\xbf\xbd", urlDecode("%f0%84"));
+  // Test an overlong 4 byte UTF-8 character with continuation bytes.
+  EXPECT_EQ(
+      "\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd",
+      urlDecode("%f0%84%90%90"));
+  // Test a 4 byte UTF-8 character outside the range of valid values.
+  EXPECT_EQ(
+      "\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd",
+      urlDecode("%fa%80%80%80"));
+  // Test the beginning of a 4 byte UTF-8 character followed by a
+  // non-continuation byte.
+  EXPECT_EQ("\xef\xbf\xbd\xef\xbf\xbd", urlDecode("%f0%e0"));
+  // Test the invalid byte 0xc0.
+  EXPECT_EQ("\xef\xbf\xbd\xef\xbf\xbd", urlDecode("%c0%83"));
+  // Test the invalid byte 0xc1.
+  EXPECT_EQ("\xef\xbf\xbd\xef\xbf\xbd", urlDecode("%c1%83"));
+  // Test a 4 byte UTF-8 character that looks valid, but is actually outside the
+  // range of valid values.
+  EXPECT_EQ(
+      "\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd",
+      urlDecode("%f4%92%83%83"));
 
   EXPECT_THROW(urlDecode("http%3A%2F%2"), VeloxUserError);
   EXPECT_THROW(urlDecode("http%3A%2F%"), VeloxUserError);

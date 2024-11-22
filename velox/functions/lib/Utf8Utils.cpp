@@ -18,10 +18,6 @@
 #include "velox/external/utf8proc/utf8procImpl.h"
 
 namespace facebook::velox::functions {
-namespace {
-
-// Returns the length of a UTF-8 character indicated by the first byte. Returns
-// -1 for invalid UTF-8 first byte.
 int firstByteCharLength(const char* u_input) {
   auto u = (const unsigned char*)u_input;
   unsigned char u0 = u[0];
@@ -58,8 +54,6 @@ int firstByteCharLength(const char* u_input) {
   // No unicode codepoint can be longer than 6 bytes.
   return -1;
 }
-
-} // namespace
 
 int32_t
 tryGetUtf8CharLength(const char* input, int64_t size, int32_t& codePoint) {

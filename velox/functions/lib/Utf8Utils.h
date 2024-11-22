@@ -82,4 +82,8 @@ FOLLY_ALWAYS_INLINE int validateAndGetNextUtf8Length(
   return -1;
 }
 
+/// Returns the length of a UTF-8 character indicated by the first byte. Returns
+/// -1 for invalid UTF-8 first byte.
+int firstByteCharLength(const char* u_input);
+
 } // namespace facebook::velox::functions
