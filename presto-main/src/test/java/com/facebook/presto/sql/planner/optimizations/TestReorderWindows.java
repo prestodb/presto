@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -322,7 +323,7 @@ public class TestReorderWindows
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
-                new PredicatePushDown(getMetadata(), getQueryRunner().getSqlParser(), false),
+                new PredicatePushDown(getMetadata(), getQueryRunner().getSqlParser(), new InMemoryExpressionOptimizerProvider(getMetadata()), false),
                 new IterativeOptimizer(
                         getMetadata(),
                         new RuleStatsRecorder(),

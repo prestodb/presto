@@ -328,7 +328,7 @@ public abstract class ParquetDereferencePushDown
             Map<RowExpression, Subfield> dereferenceToNestedColumnMap = extractDereferences(
                     baseColumnHandles,
                     session,
-                    rowExpressionService.getExpressionOptimizer(),
+                    rowExpressionService.getExpressionOptimizer(session),
                     new HashSet<>(project.getAssignments().getExpressions()));
             if (dereferenceToNestedColumnMap.isEmpty()) {
                 return visitPlan(project, context);

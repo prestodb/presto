@@ -57,6 +57,7 @@ import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
@@ -71,7 +72,6 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -111,11 +111,13 @@ public class PushdownSubfields
     public static final QualifiedObjectName ELEMENT_AT = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "element_at");
     public static final QualifiedObjectName CAST = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "$operator$cast");
     private final Metadata metadata;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
     private boolean isEnabledForTesting;
 
-    public PushdownSubfields(Metadata metadata)
+    public PushdownSubfields(Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
     }
 
     @Override
@@ -141,7 +143,7 @@ public class PushdownSubfields
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        Rewriter rewriter = new Rewriter(session, metadata);
+        Rewriter rewriter = new Rewriter(session, metadata, expressionOptimizerProvider);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new Rewriter.Context());
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -157,12 +159,13 @@ public class PushdownSubfields
         private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "arbitrary");
         private boolean planChanged;
 
-        public Rewriter(Session session, Metadata metadata)
+        public Rewriter(Session session, Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
             this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
-            this.expressionOptimizer = new RowExpressionOptimizer(metadata);
+            this.expressionOptimizer = expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession());
             this.subfieldExtractor = new SubfieldExtractor(
                     functionResolution,
                     expressionOptimizer,

@@ -154,7 +154,7 @@ public class IcebergPlanOptimizer
 
             //TODO we should optimize the filter expression
             DomainTranslator.ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
-                    .fromPredicate(session, filterPredicate, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session).toColumnExtractor());
+                    .fromPredicate(session, filterPredicate, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session).toColumnExtractor());
 
             // Only pushdown the range filters which apply to entire columns, because iceberg does not accept the filters on the subfields in nested structures
             TupleDomain<IcebergColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
@@ -167,7 +167,7 @@ public class IcebergPlanOptimizer
             Table icebergTable = getIcebergTable(metadata, session, tableHandle.getSchemaTableName());
 
             // Get predicate expression on subfield
-            SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session);
+            SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session);
             Map<String, Type> columnTypes = nameToColumnHandlesMapping.entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getKey(), entry -> entry.getValue().getType()));
             TupleDomain<RowExpression> subfieldTupleDomain = decomposedFilter.getTupleDomain()

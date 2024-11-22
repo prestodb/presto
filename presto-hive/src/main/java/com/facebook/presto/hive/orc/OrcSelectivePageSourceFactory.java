@@ -425,7 +425,7 @@ public class OrcSelectivePageSourceFactory
                 .forEach(column -> outputSubfields.put(column.getHiveColumnIndex(), new HashSet<>(column.getRequiredSubfields())));
 
         Map<Integer, Set<Subfield>> predicateSubfields = new HashMap<>();
-        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session);
+        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session);
         remainingPredicate.accept(
                 new RequiredSubfieldsExtractor(subfieldExtractor),
                 subfield -> predicateSubfields.computeIfAbsent(columnIndices.get(subfield.getRootName()), v -> new HashSet<>()).add(subfield));
