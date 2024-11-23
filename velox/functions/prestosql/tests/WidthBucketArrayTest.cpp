@@ -61,39 +61,51 @@ TEST_F(WidthBucketArrayTest, success) {
     assertEqualVectors(dictExpected, dictResult);
   };
 
-  {
-    binsVector = makeArrayVector<double>({{0.0, 2.0, 4.0}, {0.0}});
-    testWidthBucketArray(3.14, {2, 1});
-    testWidthBucketArray(kInf, {3, 1});
-    testWidthBucketArray(-1, {0, 0});
-  }
+  binsVector = makeArrayVector<double>({{0.0, 2.0, 4.0}, {0.0}});
+  testWidthBucketArray(3.14, {2, 1});
+  testWidthBucketArray(kInf, {3, 1});
+  testWidthBucketArray(-1, {0, 0});
 
-  {
-    binsVector = makeArrayVector<int64_t>({{0, 2, 4}, {0}});
-    testWidthBucketArray(3.14, {2, 1});
-    testWidthBucketArray(kInf, {3, 1});
-    testWidthBucketArray(-1, {0, 0});
-  }
+  binsVector = makeArrayVector<int64_t>({{0, 2, 4}, {0}});
+  testWidthBucketArray(3.14, {2, 1});
+  testWidthBucketArray(kInf, {3, 1});
+  testWidthBucketArray(-1, {0, 0});
+
+  // Cases we cannot catch due to the binary search algorithm.
+  binsVector = makeNullableArrayVector<double>(
+      {{0.0, std::nullopt, 2.0, 4.0},
+       {0.0, std::nullopt, 1.0, 2.0, 4.0},
+       {0.0, kInf, 1.0, 2.0, 4.0}});
+  testWidthBucketArray(3.14, {3, 4, 4});
 }
 
 TEST_F(WidthBucketArrayTest, failure) {
-  auto testFailure = [&](const double operand,
-                         const std::vector<std::vector<double>>& bins,
-                         const std::string& expected_message) {
-    auto binsVector = makeArrayVector<double>(bins);
-    VELOX_ASSERT_THROW(
-        evaluate<SimpleVector<int64_t>>(
-            "width_bucket(c0, c1)",
-            makeRowVector(
-                {makeConstant(operand, binsVector->size()), binsVector})),
-        expected_message);
-  };
+  auto testFailure =
+      [&](const double operand,
+          const std::vector<std::vector<std::optional<double>>>& bins,
+          const std::string& expected_message) {
+        auto binsVector = makeNullableArrayVector<double>(bins);
+        VELOX_ASSERT_THROW(
+            evaluate<SimpleVector<int64_t>>(
+                "width_bucket(c0, c1)",
+                makeRowVector(
+                    {makeConstant(operand, binsVector->size()), binsVector})),
+            expected_message);
+      };
 
   testFailure(0, {{}}, "Bins cannot be an empty array");
   testFailure(kNan, {{0}}, "Operand cannot be NaN");
-  testFailure(1, {{0, kInf}}, "Bin value must be finite");
+  testFailure(1, {{0, kInf}}, "Bin values must be finite");
   testFailure(1, {{0, kNan}}, "Bin values are not sorted in ascending order");
   testFailure(2, {{1, 0}}, "Bin values are not sorted in ascending order");
+  testFailure(
+      3.14, {{0, kInf, 10}}, "Bin values are not sorted in ascending order");
+  testFailure(
+      1.5, {{1.0, 2, 3, 2, 0}}, "Bin values are not sorted in ascending order");
+  testFailure(3.14, {{std::nullopt}}, "Bin values cannot be NULL");
+  testFailure(3.14, {{0.0, std::nullopt, 4.0}}, "Bin values cannot be NULL");
+  testFailure(
+      3.14, {{0.0, 2.0, 4.0, std::nullopt}}, "Bin values cannot be NULL");
 }
 
 TEST_F(WidthBucketArrayTest, successForConstantArray) {
@@ -120,9 +132,16 @@ TEST_F(WidthBucketArrayTest, successForConstantArray) {
   testWidthBucketArray(3.14, "ARRAY[0.0]", 1);
   testWidthBucketArray(kInf, "ARRAY[0.0]", 1);
   testWidthBucketArray(-1, "ARRAY[0.0]", 0);
+
+  // Cases we cannot catch due to the binary search algorithm.
+  // If the 'bins' vector has issues we simply fall back to the non-constant
+  // case.
+  testWidthBucketArray(3.14, "ARRAY[0.0, NULL, 2.0, 4.0]", 3);
+  testWidthBucketArray(3.14, "ARRAY[0.0, NULL, 1.0, 2.0, 4.0]", 4);
+  testWidthBucketArray(3.14, "ARRAY[0.0, Infinity(), 1.0, 2.0, 4.0]", 4);
 }
 
-TEST_F(WidthBucketArrayTest, failureForConstant) {
+TEST_F(WidthBucketArrayTest, failureForConstantArray) {
   auto testFailure = [&](const double operand,
                          const std::string& bins,
                          const std::string& expected_message) {
@@ -133,12 +152,20 @@ TEST_F(WidthBucketArrayTest, failureForConstant) {
         expected_message);
   };
 
-  // TODO: Add tests for empty bin and bins that contains infinity(), nan()
-  //       once corresponding casting and non-constant array literal element is
-  //       supported.
   testFailure(kNan, "ARRAY[0.0]", "Operand cannot be NaN");
   testFailure(
       2, "ARRAY[1.0, 0.0]", "Bin values are not sorted in ascending order");
+  testFailure(
+      3.14,
+      "ARRAY[0.0, Infinity(), 10.0]",
+      "Bin values are not sorted in ascending order");
+  testFailure(
+      1.5,
+      "ARRAY[1.0, 2.0, 3.0, 2.0, 0.0]",
+      "Bin values are not sorted in ascending order");
+  testFailure(3.14, "ARRAY[cast(NULL as double)]", "Bin values cannot be NULL");
+  testFailure(3.14, "ARRAY[0.0, NULL, 4.0]", "Bin values cannot be NULL");
+  testFailure(3.14, "ARRAY[0.0, 2.0, 4.0, NULL]", "Bin values cannot be NULL");
 }
 
 TEST_F(WidthBucketArrayTest, makeWidthBucketArrayNoThrow) {

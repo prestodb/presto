@@ -34,15 +34,22 @@ int64_t widthBucket(
   int lower = 0;
   int upper = binCount;
   while (lower < upper) {
-    VELOX_USER_CHECK_LE(
-        elementsHolder.valueAt<T>(offset + lower),
-        elementsHolder.valueAt<T>(offset + upper - 1),
+    const int index = (lower + upper) / 2;
+    VELOX_USER_CHECK(
+        !elementsHolder.isNullAt(lower) && !elementsHolder.isNullAt(index) &&
+            !elementsHolder.isNullAt(upper - 1),
+        "Bin values cannot be NULL");
+
+    const auto bin = elementsHolder.valueAt<T>(offset + index);
+    const auto lowerBin = elementsHolder.valueAt<T>(offset + lower);
+    const auto upperBin = elementsHolder.valueAt<T>(offset + upper - 1);
+    VELOX_USER_CHECK(
+        lowerBin <= bin && bin <= upperBin,
         "Bin values are not sorted in ascending order");
-
-    int index = (lower + upper) / 2;
-    auto bin = elementsHolder.valueAt<T>(offset + index);
-
-    VELOX_USER_CHECK(std::isfinite(bin), "Bin value must be finite");
+    VELOX_USER_CHECK(
+        std::isfinite(bin) && std::isfinite(lowerBin) &&
+            std::isfinite(upperBin),
+        "Bin values must be finite");
 
     if (operand < bin) {
       upper = index;
@@ -162,9 +169,9 @@ std::vector<double> toBinValues(
 
   for (int i = 0; i < size; i++) {
     VELOX_USER_CHECK(
-        !simpleVector->isNullAt(offset + i), "Bin value cannot be null");
+        !simpleVector->isNullAt(offset + i), "Bin values cannot be null");
     auto value = simpleVector->valueAt(offset + i);
-    VELOX_USER_CHECK(std::isfinite(value), "Bin value must be finite");
+    VELOX_USER_CHECK(std::isfinite(value), "Bin values must be finite");
     if (i > 0) {
       VELOX_USER_CHECK_GT(
           value,
