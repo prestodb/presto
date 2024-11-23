@@ -802,7 +802,6 @@ DEBUG_ONLY_TEST_P(TaskManagerTest, fecthFromArbitraryOutput) {
   const protocol::Duration longWait("10s");
   const auto maxSize = protocol::DataSize("1024MB");
   auto expiredRequestState = http::CallbackRequestHandlerState::create();
-  auto consumeCompleted = false;
   // Consume from destination 0 to simulate the case that the http request has
   // expired while destination has notify setup.
   auto expiredResultWait = taskManager_->getResults(
