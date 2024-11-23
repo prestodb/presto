@@ -32,6 +32,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -57,6 +58,7 @@ public class HiveCommonSessionProperties
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
     private static final String ORC_TINY_STRIPE_THRESHOLD = "orc_tiny_stripe_threshold";
     private static final String ORC_ZSTD_JNI_DECOMPRESSION_ENABLED = "orc_zstd_jni_decompression_enabled";
+    private static final String ORC_MAX_COALESCED_DISTANCE_BYTES = "orc_max_coalesced_distance_bytes";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_USE_COLUMN_NAMES = "parquet_use_column_names";
@@ -153,6 +155,11 @@ public class HiveCommonSessionProperties
                         "use JNI based zstd decompression for reading ORC files",
                         hiveCommonClientConfig.isZstdJniDecompressionEnabled(),
                         true),
+                longProperty(
+                        ORC_MAX_COALESCED_DISTANCE_BYTES,
+                        "Native Execution only. Coalesce reads if they are within this distance in bytes",
+                        512L << 10,
+                        false),
                 booleanProperty(
                         PARQUET_BATCH_READ_OPTIMIZATION_ENABLED,
                         "Is Parquet batch read optimization enabled",
@@ -255,6 +262,11 @@ public class HiveCommonSessionProperties
     public static boolean isOrcZstdJniDecompressionEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_ZSTD_JNI_DECOMPRESSION_ENABLED, Boolean.class);
+    }
+
+    public static long getOrcMaxCoalescedDistanceBytes(ConnectorSession session)
+    {
+        return session.getProperty(ORC_MAX_COALESCED_DISTANCE_BYTES, Long.class);
     }
 
     public static boolean isParquetBatchReadsEnabled(ConnectorSession session)
