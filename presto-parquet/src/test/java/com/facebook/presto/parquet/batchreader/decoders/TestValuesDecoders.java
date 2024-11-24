@@ -63,11 +63,6 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class TestValuesDecoders
 {
-
-    public abstract byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues);
-
-    public abstract byte[] generateDictionaryIdPage2048(int maxValue, List<Integer> addedValues);
-
     private static Int32ValuesDecoder int32Plain(byte[] pageBytes)
     {
         return new Int32PlainValuesDecoder(pageBytes, 0, pageBytes.length);
@@ -366,6 +361,10 @@ public abstract class TestValuesDecoders
             inputOffset += skipBatchSize;
         }
     }
+
+    public abstract byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues);
+
+    public abstract byte[] generateDictionaryIdPage2048(int maxValue, List<Integer> addedValues);
 
     @Test
     public void testInt32Plain()
@@ -775,7 +774,6 @@ public abstract class TestValuesDecoders
     public static class TestValueDecodersArbitrary
             extends TestValuesDecoders
     {
-
         public static final int ARBITRARY_VALUE = 237;
 
         @Override
@@ -806,7 +804,6 @@ public abstract class TestValuesDecoders
     public static class TestValueDecodersLowerBounded
             extends TestValuesDecoders
     {
-
         @Override
         public byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues)
         {
@@ -828,14 +825,6 @@ public abstract class TestValuesDecoders
     public static class TestValueDecodersUpperBounded
             extends TestValuesDecoders
     {
-
-        @Override
-        public byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues)
-        {
-            int positiveUpperBoundedInt = getPositiveUpperBoundedInt(valueSizeBits);
-            return TestParquetUtils.generatePlainValuesPage(valueCount, valueSizeBits, addedValues, Integer.MAX_VALUE, Long.MAX_VALUE, positiveUpperBoundedInt);
-        }
-
         private static int getPositiveUpperBoundedInt(int valueSizeBits)
         {
             int positiveUpperBoundedInt = Integer.MAX_VALUE;
@@ -846,6 +835,13 @@ public abstract class TestValuesDecoders
                 positiveUpperBoundedInt = 1572281175;
             }
             return positiveUpperBoundedInt;
+        }
+
+        @Override
+        public byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues)
+        {
+            int positiveUpperBoundedInt = getPositiveUpperBoundedInt(valueSizeBits);
+            return TestParquetUtils.generatePlainValuesPage(valueCount, valueSizeBits, addedValues, Integer.MAX_VALUE, Long.MAX_VALUE, positiveUpperBoundedInt);
         }
 
         @Override
