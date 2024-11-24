@@ -44,7 +44,6 @@ import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
 import io.airlift.slice.Slices;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
@@ -56,16 +55,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
-import static com.facebook.presto.parquet.batchreader.decoders.TestParquetUtils.generateDictionaryIdPage2048;
-import static com.facebook.presto.parquet.batchreader.decoders.TestParquetUtils.generatePlainValuesPage;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 import static org.testng.Assert.assertEquals;
 
-public class TestValuesDecoders
+public abstract class TestValuesDecoders
 {
+
+    public abstract byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues);
+
+    public abstract byte[] generateDictionaryIdPage2048(int maxValue, List<Integer> addedValues);
+
     private static Int32ValuesDecoder int32Plain(byte[] pageBytes)
     {
         return new Int32PlainValuesDecoder(pageBytes, 0, pageBytes.length);
@@ -365,20 +367,14 @@ public class TestValuesDecoders
         }
     }
 
-    @DataProvider(name = "testModes")
-    public TestMode[] getTestModes()
-    {
-        return TestMode.values();
-    }
-
-    @Test(dataProvider = "testModes")
-    public void testInt32Plain(TestMode testMode)
+    @Test
+    public void testInt32Plain()
             throws IOException
     {
         int valueCount = 2048;
         List<Object> expectedValues = new ArrayList<>();
 
-        byte[] pageBytes = generatePlainValuesPage(valueCount, 32, testMode, expectedValues);
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 32, expectedValues);
 
         int32BatchReadWithSkipHelper(valueCount, 0, valueCount, int32Plain(pageBytes), expectedValues); // read all values in one batch
         int32BatchReadWithSkipHelper(29, 0, valueCount, int32Plain(pageBytes), expectedValues);
@@ -390,8 +386,8 @@ public class TestValuesDecoders
         int32BatchReadWithSkipHelper(1024, 1024, valueCount, int32Plain(pageBytes), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testInt32RLEDictionary(TestMode testMode)
+    @Test
+    public void testInt32RLEDictionary()
             throws IOException
     {
         int valueCount = 2048;
@@ -399,8 +395,8 @@ public class TestValuesDecoders
         List<Object> dictionary = new ArrayList<>();
         List<Integer> dictionaryIds = new ArrayList<>();
 
-        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 32, testMode, dictionary);
-        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, testMode, dictionaryIds);
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 32, dictionary);
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, dictionaryIds);
 
         List<Object> expectedValues = new ArrayList<>();
         for (Integer dictionaryId : dictionaryIds) {
@@ -419,14 +415,14 @@ public class TestValuesDecoders
         int32BatchReadWithSkipHelper(1024, 1024, valueCount, int32Dictionary(dataPage, dictionarySize, integerDictionary), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testBinaryPlain(TestMode testMode)
+    @Test
+    public void testBinaryPlain()
             throws IOException
     {
         int valueCount = 2048;
         List<Object> expectedValues = new ArrayList<>();
 
-        byte[] pageBytes = generatePlainValuesPage(valueCount, -1, testMode, expectedValues);
+        byte[] pageBytes = generatePlainValuesPage(valueCount, -1, expectedValues);
 
         binaryBatchReadWithSkipHelper(valueCount, 0, valueCount, binaryPlain(pageBytes), expectedValues); // read all values in one batch
         binaryBatchReadWithSkipHelper(29, 0, valueCount, binaryPlain(pageBytes), expectedValues);
@@ -438,8 +434,8 @@ public class TestValuesDecoders
         binaryBatchReadWithSkipHelper(1024, 1024, valueCount, binaryPlain(pageBytes), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testBinaryRLEDictionary(TestMode testMode)
+    @Test
+    public void testBinaryRLEDictionary()
             throws IOException
     {
         int valueCount = 2048;
@@ -447,8 +443,8 @@ public class TestValuesDecoders
         List<Object> dictionary = new ArrayList<>();
         List<Integer> dictionaryIds = new ArrayList<>();
 
-        byte[] dictionaryPage = TestParquetUtils.generatePlainValuesPage(dictionarySize, -1, testMode, dictionary);
-        byte[] dataPage = TestParquetUtils.generateDictionaryIdPage2048(dictionarySize - 1, testMode, dictionaryIds);
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, -1, dictionary);
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, dictionaryIds);
 
         List<Object> expectedValues = new ArrayList<>();
         for (Integer dictionaryId : dictionaryIds) {
@@ -467,14 +463,14 @@ public class TestValuesDecoders
         binaryBatchReadWithSkipHelper(1024, 1024, valueCount, binaryDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testInt64Plain(TestMode testMode)
+    @Test
+    public void testInt64Plain()
             throws IOException
     {
         int valueCount = 2048;
         List<Object> expectedValues = new ArrayList<>();
 
-        byte[] pageBytes = generatePlainValuesPage(valueCount, 64, testMode, expectedValues);
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 64, expectedValues);
 
         int64BatchReadWithSkipHelper(valueCount, 0, valueCount, int64Plain(pageBytes), expectedValues); // read all values in one batch
         int64BatchReadWithSkipHelper(29, 0, valueCount, int64Plain(pageBytes), expectedValues);
@@ -496,8 +492,8 @@ public class TestValuesDecoders
         int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testInt64RLEDictionary(TestMode testMode)
+    @Test
+    public void testInt64RLEDictionary()
             throws IOException
     {
         int valueCount = 2048;
@@ -505,8 +501,8 @@ public class TestValuesDecoders
         List<Object> dictionary = new ArrayList<>();
         List<Integer> dictionaryIds = new ArrayList<>();
 
-        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 64, testMode, dictionary);
-        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, testMode, dictionaryIds);
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 64, dictionary);
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, dictionaryIds);
 
         List<Object> expectedValues = new ArrayList<>();
         for (Integer dictionaryId : dictionaryIds) {
@@ -535,14 +531,14 @@ public class TestValuesDecoders
         int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testTimestampPlain(TestMode testMode)
+    @Test
+    public void testTimestampPlain()
             throws IOException
     {
         int valueCount = 2048;
         List<Object> expectedValues = new ArrayList<>();
 
-        byte[] pageBytes = generatePlainValuesPage(valueCount, 96, testMode, expectedValues);
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 96, expectedValues);
 
         timestampBatchReadWithSkipHelper(valueCount, 0, valueCount, timestampPlain(pageBytes), expectedValues); // read all values in one batch
         timestampBatchReadWithSkipHelper(29, 0, valueCount, timestampPlain(pageBytes), expectedValues);
@@ -554,8 +550,8 @@ public class TestValuesDecoders
         timestampBatchReadWithSkipHelper(1024, 1024, valueCount, timestampPlain(pageBytes), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testTimestampRLEDictionary(TestMode testMode)
+    @Test
+    public void testTimestampRLEDictionary()
             throws IOException
     {
         int valueCount = 2048;
@@ -563,8 +559,8 @@ public class TestValuesDecoders
         List<Object> dictionary = new ArrayList<>();
         List<Integer> dictionaryIds = new ArrayList<>();
 
-        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 96, testMode, dictionary);
-        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, testMode, dictionaryIds);
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 96, dictionary);
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, dictionaryIds);
 
         List<Object> expectedValues = new ArrayList<>();
         for (Integer dictionaryId : dictionaryIds) {
@@ -583,13 +579,13 @@ public class TestValuesDecoders
         timestampBatchReadWithSkipHelper(1024, 1024, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testBooleanPlain(TestMode testMode)
+    @Test
+    public void testBooleanPlain()
     {
         int valueCount = 2048;
         List<Object> expectedValues = new ArrayList<>();
 
-        byte[] pageBytes = generatePlainValuesPage(valueCount, 1, testMode, expectedValues);
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 1, expectedValues);
 
         booleanBatchReadWithSkipHelper(valueCount, 0, valueCount, booleanPlain(pageBytes), expectedValues); // read all values in one batch
         booleanBatchReadWithSkipHelper(29, 0, valueCount, booleanPlain(pageBytes), expectedValues);
@@ -601,13 +597,13 @@ public class TestValuesDecoders
         booleanBatchReadWithSkipHelper(1024, 1024, valueCount, booleanPlain(pageBytes), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testBooleanRLE(TestMode testMode)
+    @Test
+    public void testBooleanRLE()
     {
         int valueCount = 2048;
         List<Integer> values = new ArrayList<>();
 
-        byte[] dataPage = generateDictionaryIdPage2048(1, testMode, values);
+        byte[] dataPage = generateDictionaryIdPage2048(1, values);
 
         List<Object> expectedValues = new ArrayList<>(values);
 
@@ -621,14 +617,14 @@ public class TestValuesDecoders
         booleanBatchReadWithSkipHelper(1024, 1024, valueCount, booleanRLE(dataPage), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testInt32ShortDecimalPlain(TestMode testMode)
+    @Test
+    public void testInt32ShortDecimalPlain()
             throws IOException
     {
         int valueCount = 2048;
         List<Object> expectedValues = new ArrayList<>();
 
-        byte[] pageBytes = generatePlainValuesPage(valueCount, 32, testMode, expectedValues);
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 32, expectedValues);
         int32ShortDecimalBatchReadWithSkipHelper(valueCount, 0, valueCount, int32ShortDecimalPlain(pageBytes), expectedValues); // read all values in one batch
         int32ShortDecimalBatchReadWithSkipHelper(29, 0, valueCount, int32ShortDecimalPlain(pageBytes), expectedValues);
         int32ShortDecimalBatchReadWithSkipHelper(89, 0, valueCount, int32ShortDecimalPlain(pageBytes), expectedValues);
@@ -639,14 +635,14 @@ public class TestValuesDecoders
         int32ShortDecimalBatchReadWithSkipHelper(1024, 1024, valueCount, int32ShortDecimalPlain(pageBytes), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testInt64ShortDecimalPlain(TestMode testMode)
+    @Test
+    public void testInt64ShortDecimalPlain()
             throws IOException
     {
         int valueCount = 2048;
         List<Object> expectedValues = new ArrayList<>();
 
-        byte[] pageBytes = generatePlainValuesPage(valueCount, 64, testMode, expectedValues);
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 64, expectedValues);
         int64ShortDecimalBatchReadWithSkipHelper(valueCount, 0, valueCount, int64ShortDecimalPlain(pageBytes), expectedValues); // read all values in one batch
         int64ShortDecimalBatchReadWithSkipHelper(29, 0, valueCount, int64ShortDecimalPlain(pageBytes), expectedValues);
         int64ShortDecimalBatchReadWithSkipHelper(89, 0, valueCount, int64ShortDecimalPlain(pageBytes), expectedValues);
@@ -657,8 +653,8 @@ public class TestValuesDecoders
         int64ShortDecimalBatchReadWithSkipHelper(1024, 1024, valueCount, int64ShortDecimalPlain(pageBytes), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testInt32ShortDecimalRLE(TestMode testMode)
+    @Test
+    public void testInt32ShortDecimalRLE()
             throws IOException
     {
         int valueCount = 2048;
@@ -666,8 +662,8 @@ public class TestValuesDecoders
         List<Object> dictionary = new ArrayList<>();
         List<Integer> dictionaryIds = new ArrayList<>();
 
-        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 32, testMode, dictionary);
-        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, testMode, dictionaryIds);
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 32, dictionary);
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, dictionaryIds);
 
         List<Object> expectedValues = new ArrayList<>();
         for (Integer dictionaryId : dictionaryIds) {
@@ -686,8 +682,8 @@ public class TestValuesDecoders
         int32ShortDecimalBatchReadWithSkipHelper(1024, 1024, valueCount, int32ShortDecimalRLE(dataPage, dictionarySize, integerDictionary), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testInt64ShortDecimalRLE(TestMode testMode)
+    @Test
+    public void testInt64ShortDecimalRLE()
             throws IOException
     {
         int valueCount = 2048;
@@ -695,8 +691,8 @@ public class TestValuesDecoders
         List<Object> dictionary = new ArrayList<>();
         List<Integer> dictionaryIds = new ArrayList<>();
 
-        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 64, testMode, dictionary);
-        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, testMode, dictionaryIds);
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 64, dictionary);
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, dictionaryIds);
 
         List<Object> expectedValues = new ArrayList<>();
         for (Integer dictionaryId : dictionaryIds) {
@@ -715,14 +711,14 @@ public class TestValuesDecoders
         int64ShortDecimalBatchReadWithSkipHelper(1024, 1024, valueCount, int64ShortDecimalRLE(dataPage, dictionarySize, longDictionary), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testUuidPlainPlain(TestMode testMode)
+    @Test
+    public void testUuidPlainPlain()
             throws IOException
     {
         int valueCount = 2048;
         List<Object> expectedValues = new ArrayList<>();
 
-        byte[] pageBytes = generatePlainValuesPage(valueCount, 128, testMode, expectedValues);
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 128, expectedValues);
         // page is read assuming in big endian, so we need to flip the bytes around when comparing read values
         expectedValues = expectedValues.stream()
                 .map(Long.class::cast)
@@ -740,8 +736,8 @@ public class TestValuesDecoders
         uuidBatchReadWithSkipHelper(1024, 1024, valueCount, uuidPlain(pageBytes), expectedValues);
     }
 
-    @Test(dataProvider = "testModes")
-    public void testUuidRLEDictionary(TestMode testMode)
+    @Test
+    public void testUuidRLEDictionary()
             throws IOException
     {
         int valueCount = 2048;
@@ -749,8 +745,8 @@ public class TestValuesDecoders
         List<Object> dictionary = new ArrayList<>();
         List<Integer> dictionaryIds = new ArrayList<>();
 
-        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 128, testMode, dictionary);
-        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, testMode, dictionaryIds);
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 128, dictionary);
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, dictionaryIds);
 
         List<Object> expectedValues = new ArrayList<>();
         for (Integer dictionaryId : dictionaryIds) {
@@ -774,5 +770,88 @@ public class TestValuesDecoders
         uuidBatchReadWithSkipHelper(256, 29, valueCount, uuidRle(dataPage, dictionarySize, binaryDictionary), expectedValues);
         uuidBatchReadWithSkipHelper(89, 29, valueCount, uuidRle(dataPage, dictionarySize, binaryDictionary), expectedValues);
         uuidBatchReadWithSkipHelper(1024, 1024, valueCount, uuidRle(dataPage, dictionarySize, binaryDictionary), expectedValues);
+    }
+
+    public static class TestValueDecodersArbitrary
+            extends TestValuesDecoders
+    {
+
+        public static final int ARBITRARY_VALUE = 237;
+
+        @Override
+        public byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues)
+        {
+            int positiveUpperBoundedInt = getPositiveUpperBoundedInt(valueSizeBits);
+            return TestParquetUtils.generatePlainValuesPage(valueCount, valueSizeBits, addedValues, ARBITRARY_VALUE, ARBITRARY_VALUE * (1L << 31), positiveUpperBoundedInt);
+        }
+
+        @Override
+        public byte[] generateDictionaryIdPage2048(int maxValue, List<Integer> addedValues)
+        {
+            return TestParquetUtils.generateDictionaryIdPage2048(maxValue, addedValues, ARBITRARY_VALUE % maxValue);
+        }
+
+        private int getPositiveUpperBoundedInt(int valueSizeBits)
+        {
+            if (valueSizeBits == 1) {
+                return ARBITRARY_VALUE % 2;
+            }
+            if (valueSizeBits == 96) {
+                return ARBITRARY_VALUE % 1572281176;
+            }
+            return ARBITRARY_VALUE;
+        }
+    }
+
+    public static class TestValueDecodersLowerBounded
+            extends TestValuesDecoders
+    {
+
+        @Override
+        public byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues)
+        {
+            return TestParquetUtils.generatePlainValuesPage(valueCount, valueSizeBits, addedValues, Integer.MIN_VALUE, 0L, getPositiveUpperBoundedInt());
+        }
+
+        private int getPositiveUpperBoundedInt()
+        {
+            return 0;
+        }
+
+        @Override
+        public byte[] generateDictionaryIdPage2048(int maxValue, List<Integer> addedValues)
+        {
+            return TestParquetUtils.generateDictionaryIdPage2048(maxValue, addedValues, getPositiveUpperBoundedInt());
+        }
+    }
+
+    public static class TestValueDecodersUpperBounded
+            extends TestValuesDecoders
+    {
+
+        @Override
+        public byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues)
+        {
+            int positiveUpperBoundedInt = getPositiveUpperBoundedInt(valueSizeBits);
+            return TestParquetUtils.generatePlainValuesPage(valueCount, valueSizeBits, addedValues, Integer.MAX_VALUE, Long.MAX_VALUE, positiveUpperBoundedInt);
+        }
+
+        private static int getPositiveUpperBoundedInt(int valueSizeBits)
+        {
+            int positiveUpperBoundedInt = Integer.MAX_VALUE;
+            if (valueSizeBits == 1) {
+                positiveUpperBoundedInt = 1;
+            }
+            if (valueSizeBits == 96) {
+                positiveUpperBoundedInt = 1572281175;
+            }
+            return positiveUpperBoundedInt;
+        }
+
+        @Override
+        public byte[] generateDictionaryIdPage2048(int maxValue, List<Integer> addedValues)
+        {
+            return TestParquetUtils.generateDictionaryIdPage2048(maxValue, addedValues, Math.abs(maxValue));
+        }
     }
 }

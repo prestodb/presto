@@ -78,16 +78,16 @@ public class TestParquetUtils
         }
     }
 
-    public static Iterator<Integer> fillValues(TestMode testMode, int numValues, int maxValue)
+    public static Iterator<Integer> fillValues(int numValues, int maxValue)
     {
         List<Integer> values = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
-            values.add(testMode.getPositiveUpperBoundedInt(maxValue));
+            values.add(maxValue);
         }
         return values.iterator();
     }
 
-    public static byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, TestMode testMode, List<Object> addedValues)
+    public static byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, List<Object> addedValues, int valueInt, long valueLong, int positiveUpperBoundedInt)
     {
         ValuesWriter writer;
 
@@ -101,9 +101,8 @@ public class TestParquetUtils
         switch (valueSizeBits) {
             case 1: {
                 for (int i = 0; i < valueCount; i++) {
-                    int value = testMode.getPositiveUpperBoundedInt(1);
-                    writer.writeInteger(value);
-                    addedValues.add(value);
+                    writer.writeInteger(positiveUpperBoundedInt);
+                    addedValues.add(positiveUpperBoundedInt);
                 }
                 break;
             }
@@ -118,23 +117,21 @@ public class TestParquetUtils
             }
             case 32: {
                 for (int i = 0; i < valueCount; i++) {
-                    int value = testMode.getInt();
-                    writer.writeInteger(value);
-                    addedValues.add(value);
+                    writer.writeInteger(valueInt);
+                    addedValues.add(valueInt);
                 }
                 break;
             }
             case 64: {
                 for (int i = 0; i < valueCount; i++) {
-                    long value = testMode.getLong();
-                    writer.writeLong(value);
-                    addedValues.add(value);
+                    writer.writeLong(valueLong);
+                    addedValues.add(valueLong);
                 }
                 break;
             }
             case 96: {
                 for (int i = 0; i < valueCount; i++) {
-                    long millisValue = testMode.getPositiveUpperBoundedInt(1572281175) * 1000L;
+                    long millisValue = positiveUpperBoundedInt * 1000L;
                     NanoTime nanoTime = NanoTimeUtils.getNanoTime(new Timestamp(millisValue), false);
                     writer.writeLong(nanoTime.getTimeOfDayNanos());
                     writer.writeInteger(nanoTime.getJulianDay());
@@ -144,11 +141,10 @@ public class TestParquetUtils
             }
             case 128:
                 for (int i = 0; i < valueCount; i++) {
-                    long value = testMode.getLong();
-                    writer.writeLong(value);
-                    addedValues.add(value);
-                    writer.writeLong(value);
-                    addedValues.add(value);
+                    writer.writeLong(valueLong);
+                    addedValues.add(valueLong);
+                    writer.writeLong(valueLong);
+                    addedValues.add(valueLong);
                 }
                 break;
             default:
@@ -163,19 +159,19 @@ public class TestParquetUtils
         }
     }
 
-    public static byte[] generateDictionaryIdPage2048(int maxValue, TestMode testMode, List<Integer> addedValues)
+    public static byte[] generateDictionaryIdPage2048(int maxValue, List<Integer> addedValues, int fillerValue)
     {
         RunLengthBitPackingHybridEncoder encoder = getDictionaryDataPageEncoder(maxValue);
 
         addDLRLEBlock(maxValue / 2, 50, encoder, addedValues);
-        addDLValues(fillValues(testMode, 457, maxValue), encoder, addedValues);
+        addDLValues(fillValues(457, fillerValue), encoder, addedValues);
         addDLRLEBlock(0, 37, encoder, addedValues);
-        addDLValues(fillValues(testMode, 186, maxValue), encoder, addedValues);
-        addDLValues(fillValues(testMode, 289, maxValue), encoder, addedValues);
+        addDLValues(fillValues(186, fillerValue), encoder, addedValues);
+        addDLValues(fillValues(289, fillerValue), encoder, addedValues);
         addDLRLEBlock(maxValue - 1, 76, encoder, addedValues);
-        addDLValues(fillValues(testMode, 789, maxValue), encoder, addedValues);
+        addDLValues(fillValues(789, fillerValue), encoder, addedValues);
         addDLRLEBlock(maxValue - 1, 137, encoder, addedValues);
-        addDLValues(fillValues(testMode, 27, maxValue), encoder, addedValues);
+        addDLValues(fillValues(27, fillerValue), encoder, addedValues);
 
         checkState(addedValues.size() == 2048);
 

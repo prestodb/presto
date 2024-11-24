@@ -40,13 +40,12 @@ public class TestFlatDefinitionLevelDecoder
     public void setup()
             throws IOException
     {
-        TestMode testMode = TestMode.ARBITRARY;
         RunLengthBitPackingHybridEncoder encoder = TestParquetUtils.getSimpleDLEncoder();
 
         addDLRLEBlock(1, 50, encoder, expectedValues);
-        addDLValues(fillValues(testMode, 457, 1), encoder, expectedValues);
+        addDLValues(fillValues(457, 1), encoder, expectedValues);
         addDLRLEBlock(0, 37, encoder, expectedValues);
-        addDLValues(fillValues(testMode, 186, 1), encoder, expectedValues);
+        addDLValues(fillValues(186, 1), encoder, expectedValues);
 
         valueCount = expectedValues.size();
         for (Integer value : expectedValues) {
