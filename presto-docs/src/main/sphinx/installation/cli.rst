@@ -16,7 +16,7 @@ Rename the JAR file to ``presto`` with the following command:
 
 .. code-block:: none
 
-    mv  presto-cli-0.286-executable.jar presto
+    mv  presto-cli-0.289-executable.jar presto
 
 Use ``chmod +x`` to make the renamed file executable:
 
