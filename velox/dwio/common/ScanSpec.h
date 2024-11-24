@@ -346,7 +346,7 @@ class ScanSpec {
     for (auto& child : children_) {
       // Only top level columns can have delta updates.
       if (child->deltaUpdate_) {
-        setDeltaUpdate(nullptr);
+        child->setDeltaUpdate(nullptr);
       }
     }
   }
