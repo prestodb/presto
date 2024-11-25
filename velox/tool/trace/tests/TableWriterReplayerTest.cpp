@@ -301,6 +301,7 @@ TEST_F(TableWriterReplayerTest, basic) {
                           task->taskId(),
                           "1",
                           "TableWriter",
+                          "",
                           traceOutputDir->getPath())
                           .run();
 
@@ -426,6 +427,7 @@ TEST_F(TableWriterReplayerTest, partitionWrite) {
       task->taskId(),
       tableWriteNodeId,
       "TableWriter",
+      "",
       traceOutputDir->getPath())
       .run();
   actualPartitionDirectories = getLeafSubdirectories(traceOutputDir->getPath());

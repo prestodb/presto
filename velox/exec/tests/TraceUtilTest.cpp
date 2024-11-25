@@ -196,7 +196,6 @@ TEST_F(TraceUtilTest, getDriverIds) {
   fs->mkdir(nodeTraceDir);
   const uint32_t pipelineId = 1;
   fs->mkdir(trace::getPipelineTraceDirectory(nodeTraceDir, pipelineId));
-  ASSERT_EQ(getNumDrivers(nodeTraceDir, pipelineId, fs), 0);
   ASSERT_TRUE(listDriverIds(nodeTraceDir, pipelineId, fs).empty());
   // create 3 drivers.
   const uint32_t driverId1 = 1;
@@ -205,7 +204,6 @@ TEST_F(TraceUtilTest, getDriverIds) {
   fs->mkdir(trace::getOpTraceDirectory(nodeTraceDir, pipelineId, driverId2));
   const uint32_t driverId3 = 3;
   fs->mkdir(trace::getOpTraceDirectory(nodeTraceDir, pipelineId, driverId3));
-  ASSERT_EQ(getNumDrivers(nodeTraceDir, pipelineId, fs), 3);
   auto driverIds = listDriverIds(nodeTraceDir, pipelineId, fs);
   ASSERT_EQ(driverIds.size(), 3);
   std::sort(driverIds.begin(), driverIds.end());
@@ -215,7 +213,9 @@ TEST_F(TraceUtilTest, getDriverIds) {
   // Bad driver id.
   const std::string BadDriverId = "badDriverId";
   fs->mkdir(fmt::format("{}/{}/{}", nodeTraceDir, pipelineId, BadDriverId));
-  ASSERT_ANY_THROW(getNumDrivers(nodeTraceDir, pipelineId, fs));
   ASSERT_ANY_THROW(listDriverIds(nodeTraceDir, pipelineId, fs));
+  ASSERT_EQ(std::vector<uint32_t>({1, 2, 4}), extractDriverIds("1,2,4"));
+  ASSERT_TRUE(extractDriverIds("").empty());
+  ASSERT_NE(std::vector<uint32_t>({1, 2}), extractDriverIds("1,2,4"));
 }
 } // namespace facebook::velox::exec::trace::test

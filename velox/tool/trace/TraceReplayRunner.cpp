@@ -70,7 +70,7 @@ DEFINE_string(
     "Specify the target task id, if empty, show the summary of all the traced "
     "query task.");
 DEFINE_string(node_id, "", "Specify the target node id.");
-DEFINE_int32(driver_id, -1, "Specify the target driver id.");
+DEFINE_string(driver_ids, "", "A comma-separated list of target driver ids");
 DEFINE_string(
     table_writer_output_dir,
     "",
@@ -298,6 +298,7 @@ TraceReplayRunner::createReplayer() const {
         FLAGS_task_id,
         FLAGS_node_id,
         traceNodeName,
+        FLAGS_driver_ids,
         FLAGS_table_writer_output_dir);
   } else if (traceNodeName == "Aggregation") {
     replayer = std::make_unique<tool::trace::AggregationReplayer>(
@@ -305,7 +306,8 @@ TraceReplayRunner::createReplayer() const {
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        traceNodeName);
+        traceNodeName,
+        FLAGS_driver_ids);
   } else if (traceNodeName == "PartitionedOutput") {
     replayer = std::make_unique<tool::trace::PartitionedOutputReplayer>(
         FLAGS_root_dir,
@@ -313,28 +315,32 @@ TraceReplayRunner::createReplayer() const {
         FLAGS_task_id,
         FLAGS_node_id,
         getVectorSerdeKind(),
-        traceNodeName);
+        traceNodeName,
+        FLAGS_driver_ids);
   } else if (traceNodeName == "TableScan") {
     replayer = std::make_unique<tool::trace::TableScanReplayer>(
         FLAGS_root_dir,
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        traceNodeName);
+        traceNodeName,
+        FLAGS_driver_ids);
   } else if (traceNodeName == "Filter" || traceNodeName == "Project") {
     replayer = std::make_unique<tool::trace::FilterProjectReplayer>(
         FLAGS_root_dir,
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        traceNodeName);
+        traceNodeName,
+        FLAGS_driver_ids);
   } else if (traceNodeName == "HashJoin") {
     replayer = std::make_unique<tool::trace::HashJoinReplayer>(
         FLAGS_root_dir,
         FLAGS_query_id,
         FLAGS_task_id,
         FLAGS_node_id,
-        traceNodeName);
+        traceNodeName,
+        FLAGS_driver_ids);
   } else {
     VELOX_UNSUPPORTED("Unsupported operator type: {}", traceNodeName);
   }

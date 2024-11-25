@@ -323,10 +323,14 @@ class PlanBuilder {
   /// @param traceNodeDir The trace directory for a given plan node.
   /// @param pipelineId The pipeline id for the traced operator instantiated
   /// from the given plan node.
+  /// @param driverIds The target driver ID list for replay. The replaying
+  /// operator uses its driver instance id as the list index to get the traced
+  /// driver id for replay.
   /// @param outputType The type of the tracing data.
   PlanBuilder& traceScan(
       const std::string& traceNodeDir,
       uint32_t pipelineId,
+      std::vector<uint32_t> driverIds,
       const RowTypePtr& outputType);
 
   /// Add an ExchangeNode.

@@ -33,7 +33,8 @@ OperatorReplayerBase::OperatorReplayerBase(
     std::string queryId,
     std::string taskId,
     std::string nodeId,
-    std::string operatorType)
+    std::string operatorType,
+    const std::string& driverIds)
     : queryId_(std::string(std::move(queryId))),
       taskId_(std::move(taskId)),
       nodeId_(std::move(nodeId)),
@@ -43,10 +44,12 @@ OperatorReplayerBase::OperatorReplayerBase(
       nodeTraceDir_(exec::trace::getNodeTraceDirectory(taskTraceDir_, nodeId_)),
       fs_(filesystems::getFileSystem(taskTraceDir_, nullptr)),
       pipelineIds_(exec::trace::listPipelineIds(nodeTraceDir_, fs_)),
-      maxDrivers_(exec::trace::getNumDrivers(
-          nodeTraceDir_,
-          pipelineIds_.front(),
-          fs_)) {
+      driverIds_(
+          driverIds.empty() ? exec::trace::listDriverIds(
+                                  nodeTraceDir_,
+                                  pipelineIds_.front(),
+                                  fs_)
+                            : exec::trace::extractDriverIds(driverIds)) {
   VELOX_USER_CHECK(!taskTraceDir_.empty());
   VELOX_USER_CHECK(!taskId_.empty());
   VELOX_USER_CHECK(!nodeId_.empty());
@@ -66,7 +69,7 @@ OperatorReplayerBase::OperatorReplayerBase(
 RowVectorPtr OperatorReplayerBase::run() {
   const auto restoredPlanNode = createPlan();
   return exec::test::AssertQueryBuilder(restoredPlanNode)
-      .maxDrivers(maxDrivers_)
+      .maxDrivers(driverIds_.size())
       .configs(queryConfigs_)
       .connectorSessionProperties(connectorConfigs_)
       .copyResults(memory::MemoryManager::getInstance()->tracePool());
@@ -87,6 +90,7 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() const {
       .traceScan(
           nodeTraceDir_,
           pipelineIds_.front(),
+          driverIds_,
           exec::trace::getDataType(planFragment_, nodeId_))
       .addNode(replayNodeFactory(replayNode))
       .planNode();

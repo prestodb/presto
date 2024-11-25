@@ -33,9 +33,14 @@ class TableScanReplayer final : public OperatorReplayerBase {
       const std::string& taskId,
       const std::string& nodeId,
       const std::string& operatorType,
-      const int32_t driverId = -1)
-      : OperatorReplayerBase(traceDir, queryId, taskId, nodeId, operatorType),
-        driverId_(driverId) {}
+      const std::string& driverIds)
+      : OperatorReplayerBase(
+            traceDir,
+            queryId,
+            taskId,
+            nodeId,
+            operatorType,
+            driverIds) {}
 
   RowVectorPtr run() override;
 
@@ -46,8 +51,6 @@ class TableScanReplayer final : public OperatorReplayerBase {
       const core::PlanNodePtr& /*source*/) const override;
 
   std::vector<exec::Split> getSplits() const;
-
-  const int32_t driverId_;
 };
 
 } // namespace facebook::velox::tool::trace

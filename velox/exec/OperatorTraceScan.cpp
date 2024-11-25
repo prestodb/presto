@@ -34,7 +34,7 @@ OperatorTraceScan::OperatorTraceScan(
       getOpTraceDirectory(
           traceScanNode->traceDir(),
           traceScanNode->pipelineId(),
-          driverCtx->driverId),
+          traceScanNode->driverIds().at(driverCtx->driverId)),
       traceScanNode->outputType(),
       memory::MemoryManager::getInstance()->tracePool());
 }

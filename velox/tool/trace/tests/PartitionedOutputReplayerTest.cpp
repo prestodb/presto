@@ -159,7 +159,8 @@ TEST_P(PartitionedOutputReplayerTest, defaultConsumer) {
                       originalTask->taskId(),
                       planNodeId,
                       GetParam(),
-                      "PartitionedOutput")
+                      "PartitionedOutput",
+                      "")
                       .run());
 }
 
@@ -251,6 +252,7 @@ TEST_P(PartitionedOutputReplayerTest, basic) {
           planNodeId,
           GetParam(),
           "PartitionedOutput",
+          "",
           [&](auto partition, auto page) {
             replayedPartitionedResults[partition].push_back(std::move(page));
           })

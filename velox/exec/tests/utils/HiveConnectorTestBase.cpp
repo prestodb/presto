@@ -109,9 +109,13 @@ void HiveConnectorTestBase::writeToFile(
   velox::dwrf::WriterOptions options;
   options.config = config;
   options.schema = schema;
-  auto localWriteFile = std::make_unique<LocalWriteFile>(filePath, true, false);
+  auto fs = filesystems::getFileSystem(filePath, {});
+  auto writeFile = fs->openFileForWrite(
+      filePath,
+      {.shouldCreateParentDirectories = true,
+       .shouldThrowOnFileAlreadyExists = false});
   auto sink = std::make_unique<dwio::common::WriteFileSink>(
-      std::move(localWriteFile), filePath);
+      std::move(writeFile), filePath);
   auto childPool = rootPool_->addAggregateChild("HiveConnectorTestBase.Writer");
   options.memoryPool = childPool.get();
   options.flushPolicyFactory = flushPolicyFactory;

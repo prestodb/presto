@@ -40,6 +40,7 @@ core::PlanNodePtr HashJoinReplayer::createPlanNode(
           .traceScan(
               nodeTraceDir_,
               pipelineIds_.at(1), // Build side
+              driverIds_,
               exec::trace::getDataType(planFragment_, nodeId_, 1))
           .planNode(),
       hashJoinNode->outputType());

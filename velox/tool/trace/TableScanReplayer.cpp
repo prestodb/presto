@@ -30,7 +30,7 @@ namespace facebook::velox::tool::trace {
 RowVectorPtr TableScanReplayer::run() {
   const auto plan = createPlan();
   return exec::test::AssertQueryBuilder(plan)
-      .maxDrivers(maxDrivers_)
+      .maxDrivers(driverIds_.size())
       .configs(queryConfigs_)
       .connectorSessionProperties(connectorConfigs_)
       .splits(getSplits())
@@ -52,14 +52,9 @@ core::PlanNodePtr TableScanReplayer::createPlanNode(
 
 std::vector<exec::Split> TableScanReplayer::getSplits() const {
   std::vector<std::string> splitInfoDirs;
-  if (driverId_ != -1) {
+  for (const auto driverId : driverIds_) {
     splitInfoDirs.push_back(exec::trace::getOpTraceDirectory(
-        nodeTraceDir_, pipelineIds_.front(), driverId_));
-  } else {
-    for (auto i = 0; i < maxDrivers_; ++i) {
-      splitInfoDirs.push_back(exec::trace::getOpTraceDirectory(
-          nodeTraceDir_, pipelineIds_.front(), i));
-    }
+        nodeTraceDir_, pipelineIds_.front(), driverId));
   }
   const auto splitStrs =
       exec::trace::OperatorTraceSplitReader(

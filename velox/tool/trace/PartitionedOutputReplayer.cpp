@@ -111,8 +111,15 @@ PartitionedOutputReplayer::PartitionedOutputReplayer(
     const std::string& nodeId,
     VectorSerde::Kind serdeKind,
     const std::string& operatorType,
+    const std::string& driverIds,
     const ConsumerCallBack& consumerCb)
-    : OperatorReplayerBase(traceDir, queryId, taskId, nodeId, operatorType),
+    : OperatorReplayerBase(
+          traceDir,
+          queryId,
+          taskId,
+          nodeId,
+          operatorType,
+          driverIds),
       originalNode_(dynamic_cast<const core::PartitionedOutputNode*>(
           core::PlanNode::findFirstNode(
               planFragment_.get(),
@@ -134,7 +141,7 @@ RowVectorPtr PartitionedOutputReplayer::run() {
       0,
       createQueryContext(queryConfigs_, executor_.get()),
       Task::ExecutionMode::kParallel);
-  task->start(maxDrivers_);
+  task->start(driverIds_.size());
 
   consumeAllData(
       bufferManager_,

@@ -22,10 +22,13 @@
 #include <folly/experimental/EventCount.h>
 
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/file/Utils.h"
+#include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/common/hyperloglog/SparseHll.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/PartitionFunction.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
@@ -35,10 +38,6 @@
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/tool/trace/HashJoinReplayer.h"
-
-#include "velox/common/file/Utils.h"
-#include "velox/exec/PlanNodeStats.h"
-
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -51,6 +50,7 @@ using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::common::hll;
+using namespace facebook::velox::tests::utils;
 
 namespace facebook::velox::tool::trace::test {
 class HashJoinReplayerTest : public HiveConnectorTestBase {
@@ -58,7 +58,7 @@ class HashJoinReplayerTest : public HiveConnectorTestBase {
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
     HiveConnectorTestBase::SetUpTestCase();
-    filesystems::registerLocalFileSystem();
+    registerFaultyFileSystem();
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();
     }
@@ -214,7 +214,8 @@ TEST_F(HashJoinReplayerTest, basic) {
       probeInput_,
       buildInput_);
   AssertQueryBuilder traceBuilder(tracePlanWithSplits.plan);
-  traceBuilder.config(core::QueryConfig::kQueryTraceEnabled, true)
+  traceBuilder.maxDrivers(4)
+      .config(core::QueryConfig::kQueryTraceEnabled, true)
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
@@ -232,9 +233,87 @@ TEST_F(HashJoinReplayerTest, basic) {
                                    task->queryCtx()->queryId(),
                                    task->taskId(),
                                    traceNodeId_,
-                                   "HashJoin")
+                                   "HashJoin",
+                                   "")
                                    .run();
   assertEqualResults({result}, {replayingResult});
+}
+
+TEST_F(HashJoinReplayerTest, partialDriverIds) {
+  const std::shared_ptr<TempDirectoryPath> testDir =
+      TempDirectoryPath::create(true);
+  const std::string tableDir =
+      fmt::format("{}/{}", testDir->getPath(), "table");
+  const auto planWithSplits = createPlan(
+      tableDir,
+      core::JoinType::kInner,
+      probeKeys_,
+      buildKeys_,
+      probeInput_,
+      buildInput_);
+  AssertQueryBuilder builder(planWithSplits.plan);
+  for (const auto& [planNodeId, nodeSplits] : planWithSplits.splits) {
+    builder.splits(planNodeId, nodeSplits);
+  }
+  const auto result = builder.copyResults(pool());
+
+  const auto traceRoot =
+      fmt::format("{}/{}/traceRoot/", testDir->getPath(), "basic");
+  std::shared_ptr<Task> task;
+  auto tracePlanWithSplits = createPlan(
+      tableDir,
+      core::JoinType::kInner,
+      probeKeys_,
+      buildKeys_,
+      probeInput_,
+      buildInput_);
+  AssertQueryBuilder traceBuilder(tracePlanWithSplits.plan);
+  traceBuilder.maxDrivers(4)
+      .config(core::QueryConfig::kQueryTraceEnabled, true)
+      .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+      .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
+      .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+      .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_);
+  for (const auto& [planNodeId, nodeSplits] : tracePlanWithSplits.splits) {
+    traceBuilder.splits(planNodeId, nodeSplits);
+  }
+  auto traceResult = traceBuilder.copyResults(pool(), task);
+
+  assertEqualResults({result}, {traceResult});
+
+  const auto taskId = task->taskId();
+  const auto taskTraceDir =
+      exec::trace::getTaskTraceDirectory(traceRoot, *task);
+  const auto opTraceDir =
+      exec::trace::getOpTraceDirectory(taskTraceDir, traceNodeId_, 0, 0);
+  const auto opTraceDataFile = exec::trace::getOpTraceInputFilePath(opTraceDir);
+  auto faultyFs = faultyFileSystem();
+  faultyFs->setFileInjectionHook([&](FaultFileOperation* op) {
+    if (op->type == FaultFileOperation::Type::kRead &&
+        op->path == opTraceDataFile) {
+      VELOX_FAIL("Read wrong data file {}", opTraceDataFile);
+    }
+  });
+
+  VELOX_ASSERT_THROW(
+      HashJoinReplayer(
+          traceRoot,
+          task->queryCtx()->queryId(),
+          task->taskId(),
+          traceNodeId_,
+          "HashJoin",
+          "0")
+          .run(),
+      "Read wrong data file");
+  HashJoinReplayer(
+      traceRoot,
+      task->queryCtx()->queryId(),
+      task->taskId(),
+      traceNodeId_,
+      "HashJoin",
+      "1,3")
+      .run();
+  faultyFs->clearFileFaultInjections();
 }
 
 DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashBuildSpill) {
@@ -307,7 +386,8 @@ DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashBuildSpill) {
                                    task->queryCtx()->queryId(),
                                    task->taskId(),
                                    traceNodeId_,
-                                   "HashJoin")
+                                   "HashJoin",
+                                   "")
                                    .run();
   assertEqualResults({result}, {replayingResult});
 }
@@ -386,7 +466,8 @@ DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashProbeSpill) {
                                    task->queryCtx()->queryId(),
                                    task->taskId(),
                                    traceNodeId_,
-                                   "HashJoin")
+                                   "HashJoin",
+                                   "")
                                    .run();
   assertEqualResults({result}, {replayingResult});
 }

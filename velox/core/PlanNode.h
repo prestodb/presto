@@ -321,10 +321,12 @@ class TraceScanNode final : public PlanNode {
       const PlanNodeId& id,
       const std::string& traceDir,
       uint32_t pipelineId,
+      std::vector<uint32_t> driverIds,
       const RowTypePtr& outputType)
       : PlanNode(id),
         traceDir_(traceDir),
         pipelineId_(pipelineId),
+        driverIds_(std::move(driverIds)),
         outputType_(outputType) {}
 
   const RowTypePtr& outputType() const override {
@@ -348,12 +350,17 @@ class TraceScanNode final : public PlanNode {
     return pipelineId_;
   }
 
+  std::vector<uint32_t> driverIds() const {
+    return driverIds_;
+  }
+
  private:
   void addDetails(std::stringstream& stream) const override;
 
   // Directory of traced data, which is $traceRoot/$taskId/$nodeId.
   const std::string traceDir_;
   const uint32_t pipelineId_;
+  const std::vector<uint32_t> driverIds_;
   const RowTypePtr outputType_;
 };
 

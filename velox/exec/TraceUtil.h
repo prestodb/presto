@@ -68,7 +68,7 @@ std::string getOpTraceDirectory(
 std::string getOpTraceDirectory(
     const std::string& nodeTraceDir,
     uint32_t pipelineId,
-    int driverId);
+    uint32_t driverId);
 
 /// Returns the file path for a given operator's traced input file.
 std::string getOpTraceInputFilePath(const std::string& opTraceDir);
@@ -122,13 +122,8 @@ std::vector<uint32_t> listDriverIds(
     uint32_t pipelineId,
     const std::shared_ptr<filesystems::FileSystem>& fs);
 
-/// Extracts the number of drivers by listing the number of sub-directors under
-/// the trace directory for a given pipeline. 'nodeTraceDir' is the trace
-/// directory of the plan node.
-size_t getNumDrivers(
-    const std::string& nodeTraceDir,
-    uint32_t pipelineId,
-    const std::shared_ptr<filesystems::FileSystem>& fs);
+/// Extracts the driver IDs from the comma-separated list of driver IDs string.
+std::vector<uint32_t> extractDriverIds(const std::string& driverIds);
 
 /// Extracts task ids of the query tracing by listing the query trace directory.
 /// 'traceDir' is the root trace directory. 'queryId' is the query id.
