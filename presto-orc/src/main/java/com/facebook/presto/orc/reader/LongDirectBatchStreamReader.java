@@ -162,7 +162,6 @@ public class LongDirectBatchStreamReader
         if (type instanceof TimeType) {
             long[] values = new long[nextBatchSize];
             dataStream.next(values, nextBatchSize);
-            maybeTransformValues(values, nextBatchSize);
             return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
         }
         if (type instanceof IntegerType || type instanceof DateType) {
@@ -195,8 +194,6 @@ public class LongDirectBatchStreamReader
         }
         throw new VerifyError("Unsupported type " + type);
     }
-
-    protected void maybeTransformValues(long[] values, int nextBatchSize) {}
 
     private Block longReadNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
