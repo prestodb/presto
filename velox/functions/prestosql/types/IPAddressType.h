@@ -28,6 +28,15 @@ constexpr int kIPV4ToV6FFIndex = 10;
 constexpr int kIPV4ToV6Index = 12;
 constexpr int kIPAddressBytes = 16;
 
+inline folly::ByteArray16 toIPv6ByteArray(const int128_t& ipAddr) {
+  folly::ByteArray16 bytes{{0}};
+  memcpy(bytes.data(), &ipAddr, sizeof(ipAddr));
+  // Reverse because the velox is always on little endian system
+  // and the byte array needs to be big endian (network byte order)
+  std::reverse(bytes.begin(), bytes.end());
+  return bytes;
+}
+
 inline folly::Expected<int128_t, folly::IPAddressFormatError>
 tryGetIPv6asInt128FromString(const std::string& ipAddressStr) {
   auto maybeIp = folly::IPAddress::tryFromString(ipAddressStr);
@@ -56,8 +65,8 @@ class IPAddressType : public HugeintType {
   }
 
   int32_t compare(const int128_t& left, const int128_t& right) const override {
-    const auto leftAddrBytes = toIPv6ByteArray(left);
-    const auto rightAddrBytes = toIPv6ByteArray(right);
+    const auto leftAddrBytes = ipaddress::toIPv6ByteArray(left);
+    const auto rightAddrBytes = ipaddress::toIPv6ByteArray(right);
     return memcmp(
         leftAddrBytes.begin(),
         rightAddrBytes.begin(),
@@ -86,16 +95,6 @@ class IPAddressType : public HugeintType {
     obj["name"] = "Type";
     obj["type"] = name();
     return obj;
-  }
-
- private:
-  static folly::ByteArray16 toIPv6ByteArray(const int128_t& ipAddr) {
-    folly::ByteArray16 bytes{{0}};
-    memcpy(bytes.data(), &ipAddr, sizeof(ipAddr));
-    // Reverse because the velox is always on little endian system
-    // and the byte array needs to be big endian (network byte order)
-    std::reverse(bytes.begin(), bytes.end());
-    return bytes;
   }
 };
 

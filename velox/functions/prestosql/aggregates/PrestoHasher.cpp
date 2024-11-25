@@ -21,11 +21,16 @@
 #include <xxhash.h>
 
 #include "velox/functions/lib/RowsTranslationUtil.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::aggregate {
 
 namespace {
+
+FOLLY_ALWAYS_INLINE uint64_t hashBuffer(const uint8_t* data, size_t size) {
+  return XXH64(data, size, 0);
+}
 
 template <typename T>
 FOLLY_ALWAYS_INLINE int64_t hashInteger(const T& value) {
@@ -171,7 +176,14 @@ FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::HUGEINT>(
     const SelectivityVector& rows,
     BufferPtr& hashes) {
   applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) {
+    auto type = vector_->base()->type();
     auto value = vector_->valueAt<int128_t>(row);
+
+    if (isIPAddressType(type)) {
+      auto byteArray = ipaddress::toIPv6ByteArray(value);
+      return hashBuffer(byteArray.data(), byteArray.size());
+    }
+
     // Presto Java UnscaledDecimal128 representation uses signed magnitude
     // representation. Only negative values differ in this representation.
     // The processing here is mainly for the convenience of hash computation.

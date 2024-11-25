@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/functions/prestosql/aggregates/PrestoHasher.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/tz/TimeZoneMap.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -430,4 +431,22 @@ TEST_F(PrestoHasherTest, timestampWithTimezone) {
       {-3461822077982309083, -3461822077982309083, -8497890125589769483, 0});
 }
 
+TEST_F(PrestoHasherTest, ipAddress) {
+  auto makeIpAdressFromString = [](const std::string& ipAddr) -> int128_t {
+    auto ret = ipaddress::tryGetIPv6asInt128FromString(ipAddr);
+    return ret.value();
+  };
+
+  auto ipAddresses = makeNullableFlatVector(
+      std::vector<std::optional<int128_t>>{
+          makeIpAdressFromString("2001:db8::ff00:42:8329"),
+          makeIpAdressFromString("192.168.1.1"),
+          makeIpAdressFromString("::ffff:1.2.3.4"),
+          std::nullopt},
+      IPADDRESS());
+
+  assertHash(
+      ipAddresses,
+      {-4694347089639306204, 2704428192845283049, -1632332718929005309, 0});
+}
 } // namespace facebook::velox::aggregate::test
