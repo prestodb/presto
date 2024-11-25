@@ -199,7 +199,6 @@ public final class SystemSessionProperties
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
     public static final String PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED = "pushdown_subfields_from_lambda_enabled";
-    public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
     public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
     public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
@@ -1063,11 +1062,6 @@ public final class SystemSessionProperties
                         PUSHDOWN_DEREFERENCE_ENABLED,
                         "Experimental: enable dereference pushdown",
                         featuresConfig.isPushdownDereferenceEnabled(),
-                        false),
-                booleanProperty(
-                        TABLE_WRITER_MERGE_OPERATOR_ENABLED,
-                        "Experimental: enable table writer merge operator",
-                        featuresConfig.isTableWriterMergeOperatorEnabled(),
                         false),
                 new PropertyMetadata<>(
                         INDEX_LOADER_TIMEOUT,
@@ -2513,11 +2507,6 @@ public final class SystemSessionProperties
     public static boolean isPushdownDereferenceEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_DEREFERENCE_ENABLED, Boolean.class);
-    }
-
-    public static boolean isTableWriterMergeOperatorEnabled(Session session)
-    {
-        return session.getSystemProperty(TABLE_WRITER_MERGE_OPERATOR_ENABLED, Boolean.class);
     }
 
     public static Duration getIndexLoaderTimeout(Session session)

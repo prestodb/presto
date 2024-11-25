@@ -92,7 +92,6 @@ public class TestPrestoNativeWriter
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty("scale_writers", "true")
-                .setSystemProperty("table_writer_merge_operator_enabled", "true")
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("task_partitioned_writer_count", "2")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
@@ -441,7 +440,6 @@ public class TestPrestoNativeWriter
     {
         return Session.builder(getSession())
                 .setSystemProperty("scale_writers", "true")
-                .setSystemProperty("table_writer_merge_operator_enabled", "true")
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("task_partitioned_writer_count", "2")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")

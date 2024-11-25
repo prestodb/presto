@@ -66,7 +66,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
-import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
@@ -327,52 +326,32 @@ public class TemporaryTableUtil
 
         // Disabled by default. Enable when the column statistics are essential for future runtime adaptive plan optimizations
         boolean enableStatsCollectionForTemporaryTable = SystemSessionProperties.isEnableStatsCollectionForTemporaryTable(session);
-
-        if (isTableWriterMergeOperatorEnabled(session)) {
-            StatisticAggregations.Parts localAggregations = splitIntoPartialAndIntermediate(aggregations.getPartialAggregation(), variableAllocator, metadata.getFunctionAndTypeManager());
-            tableWriterMerge = new TableWriterMergeNode(
-                    sourceLocation,
-                    idAllocator.getNextId(),
-                    gatheringExchange(
-                            idAllocator.getNextId(),
-                            LOCAL,
-                            new TableWriterNode(
-                                    sourceLocation,
-                                    idAllocator.getNextId(),
-                                    writerSource,
-                                    Optional.of(insertReference),
-                                    variableAllocator.newVariable("partialrows", BIGINT),
-                                    variableAllocator.newVariable("partialfragments", VARBINARY),
-                                    variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
-                                    outputs,
-                                    outputColumnNames,
-                                    outputNotNullColumnVariables,
-                                    Optional.of(partitioningScheme),
-                                    enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty(),
-                                    Optional.empty(),
-                                    Optional.of(Boolean.TRUE))),
-                    variableAllocator.newVariable("intermediaterows", BIGINT),
-                    variableAllocator.newVariable("intermediatefragments", VARBINARY),
-                    variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
-                    enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getIntermediateAggregation()) : Optional.empty());
-        }
-        else {
-            tableWriterMerge = new TableWriterNode(
-                    sourceLocation,
-                    idAllocator.getNextId(),
-                    writerSource,
-                    Optional.of(insertReference),
-                    variableAllocator.newVariable("partialrows", BIGINT),
-                    variableAllocator.newVariable("partialfragments", VARBINARY),
-                    variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
-                    outputs,
-                    outputColumnNames,
-                    outputNotNullColumnVariables,
-                    Optional.of(partitioningScheme),
-                    enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty(),
-                    Optional.empty(),
-                    Optional.of(Boolean.TRUE));
-        }
+        StatisticAggregations.Parts localAggregations = splitIntoPartialAndIntermediate(aggregations.getPartialAggregation(), variableAllocator, metadata.getFunctionAndTypeManager());
+        tableWriterMerge = new TableWriterMergeNode(
+                sourceLocation,
+                idAllocator.getNextId(),
+                gatheringExchange(
+                        idAllocator.getNextId(),
+                        LOCAL,
+                        new TableWriterNode(
+                                sourceLocation,
+                                idAllocator.getNextId(),
+                                writerSource,
+                                Optional.of(insertReference),
+                                variableAllocator.newVariable("partialrows", BIGINT),
+                                variableAllocator.newVariable("partialfragments", VARBINARY),
+                                variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
+                                outputs,
+                                outputColumnNames,
+                                outputNotNullColumnVariables,
+                                Optional.of(partitioningScheme),
+                                enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(Boolean.TRUE))),
+                variableAllocator.newVariable("intermediaterows", BIGINT),
+                variableAllocator.newVariable("intermediatefragments", VARBINARY),
+                variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
+                enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getIntermediateAggregation()) : Optional.empty());
 
         return new TableFinishNode(
                 sourceLocation,
