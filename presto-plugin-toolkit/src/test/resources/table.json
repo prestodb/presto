@@ -16,6 +16,12 @@
       "privileges": ["SELECT", "INSERT", "DELETE", "GRANT_SELECT"]
     },
     {
+      "user": "alice",
+      "schema": "aliceschema",
+      "table": "alicetable",
+      "privileges": ["OWNERSHIP"]
+    },
+    {
       "privileges": ["SELECT"]
     }
   ]

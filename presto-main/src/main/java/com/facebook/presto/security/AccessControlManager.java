@@ -338,6 +338,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetTableProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+        authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
+        authorizationCheck(() -> systemAccessControl.get().checkCanSetTableProperties(identity, context, toCatalogSchemaTableName(tableName)));
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanSetTableProperties(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName), properties));
+        }
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schema)
     {
         requireNonNull(identity, "identity is null");

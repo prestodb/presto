@@ -194,6 +194,10 @@ public class TestStatementBuilder
         printStatement("alter table foo rename to bar");
         printStatement("alter table a.b.c rename to d.e.f");
 
+        printStatement("alter table foo set properties (a='1')");
+        printStatement("alter table a.b.c set properties (a=true, b=123, c='x')");
+        printStatement("alter table if exists bar set properties (b='1')");
+
         printStatement("alter table a.b.c rename column x to y");
 
         printStatement("alter table a.b.c add column x bigint");

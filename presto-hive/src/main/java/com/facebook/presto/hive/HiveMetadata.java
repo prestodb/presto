@@ -2995,7 +2995,22 @@ public class HiveMetadata
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table);
         if (!hiveBucketHandle.isPresent()) {
-            return Optional.empty();
+            if (!isShufflePartitionedColumnsForTableWriteEnabled(session) || table.getPartitionColumns().isEmpty()) {
+                return Optional.empty();
+            }
+
+            // TODO: the shuffle partitioning could use a better hash function (instead of Hive bucket function)
+            HivePartitioningHandle partitioningHandle = createHiveCompatiblePartitioningHandle(
+                    SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE,
+                    table.getPartitionColumns().stream()
+                            .map(Column::getType)
+                            .collect(toList()),
+                    OptionalInt.empty());
+            List<String> partitionedBy = table.getPartitionColumns().stream()
+                    .map(Column::getName)
+                    .collect(toList());
+
+            return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionedBy));
         }
         HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty()
                 .orElseThrow(() -> new NoSuchElementException("Bucket property should be set"));
@@ -3032,40 +3047,6 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<ConnectorNewTableLayout> getPreferredShuffleLayoutForInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
-        MetastoreContext metastoreContext = getMetastoreContext(session);
-        Table table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table);
-        if (hiveBucketHandle.isPresent()) {
-            // For bucketed table, table partitioning (i.e. the bucketing scheme) should be respected,
-            // and there is no additional preferred shuffle partitioning
-            return Optional.empty();
-        }
-
-        if (!isShufflePartitionedColumnsForTableWriteEnabled(session) || table.getPartitionColumns().isEmpty()) {
-            return Optional.empty();
-        }
-
-        // TODO: the shuffle partitioning could use a better hash function (instead of Hive bucket function)
-        HivePartitioningHandle partitioningHandle = createHiveCompatiblePartitioningHandle(
-                SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE,
-                table.getPartitionColumns().stream()
-                        .map(Column::getType)
-                        .collect(toList()),
-                OptionalInt.empty());
-        List<String> partitionedBy = table.getPartitionColumns().stream()
-                .map(Column::getName)
-                .collect(toList());
-
-        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionedBy));
-    }
-
-    @Override
     public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         validatePartitionColumns(tableMetadata);
@@ -3073,7 +3054,27 @@ public class HiveMetadata
         validateCsvColumns(tableMetadata);
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
         if (!bucketProperty.isPresent()) {
-            return Optional.empty();
+            List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+            if (!isShufflePartitionedColumnsForTableWriteEnabled(session) || partitionedBy.isEmpty()) {
+                return Optional.empty();
+            }
+
+            List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+            Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
+            List<Column> partitionColumns = partitionedBy.stream()
+                    .map(columnHandlesByName::get)
+                    .map(columnHandle -> columnHandleToColumn(session, columnHandle))
+                    .collect(toList());
+
+            // TODO: the shuffle partitioning could use a better hash function (instead of Hive bucket function)
+            HivePartitioningHandle partitioningHandle = createHiveCompatiblePartitioningHandle(
+                    SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE,
+                    partitionColumns.stream()
+                            .map(Column::getType)
+                            .collect(toList()),
+                    OptionalInt.empty());
+
+            return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionedBy));
         }
         checkArgument(bucketProperty.get().getBucketFunctionType().equals(BucketFunctionType.HIVE_COMPATIBLE),
                 "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
@@ -3094,41 +3095,6 @@ public class HiveMetadata
                                 .collect(toImmutableList()),
                         OptionalInt.of(bucketProperty.get().getBucketCount())),
                 bucketedBy));
-    }
-
-    @Override
-    public Optional<ConnectorNewTableLayout> getPreferredShuffleLayoutForNewTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        validatePartitionColumns(tableMetadata);
-        validateBucketColumns(tableMetadata);
-        Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
-        if (bucketProperty.isPresent()) {
-            // For bucketed table, table partitioning (i.e. the bucketing scheme) should be respected,
-            // and there is no additional preferred shuffle partitioning
-            return Optional.empty();
-        }
-
-        List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
-        if (!isShufflePartitionedColumnsForTableWriteEnabled(session) || partitionedBy.isEmpty()) {
-            return Optional.empty();
-        }
-
-        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
-        Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
-        List<Column> partitionColumns = partitionedBy.stream()
-                .map(columnHandlesByName::get)
-                .map(columnHandle -> columnHandleToColumn(session, columnHandle))
-                .collect(toList());
-
-        // TODO: the shuffle partitioning could use a better hash function (instead of Hive bucket function)
-        HivePartitioningHandle partitioningHandle = createHiveCompatiblePartitioningHandle(
-                SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE,
-                partitionColumns.stream()
-                        .map(Column::getType)
-                        .collect(toList()),
-                OptionalInt.empty());
-
-        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionedBy));
     }
 
     @Override

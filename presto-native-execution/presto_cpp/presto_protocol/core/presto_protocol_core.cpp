@@ -685,7 +685,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<TableScanNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.TableWriterNode") {
+  if (type == ".TableWriterNode") {
     j = *std::static_pointer_cast<TableWriterNode>(p);
     return;
   }
@@ -837,7 +837,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.TableWriterNode") {
+  if (type == ".TableWriterNode") {
     std::shared_ptr<TableWriterNode> k = std::make_shared<TableWriterNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);

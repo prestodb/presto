@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.PrincipalSpecification;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,11 +41,13 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -54,6 +57,10 @@ import static java.util.Objects.requireNonNull;
 public final class MetadataUtil
 {
     private MetadataUtil() {}
+
+    public static final String likeTableCatalogError = "LIKE table catalog '%s' does not exist";
+    public static final String catalogError = "Catalog %s does not exist";
+    public static final String targetTableCatalogError = "Target catalog '%s' does not exist";
 
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
@@ -82,6 +89,18 @@ public final class MetadataUtil
     public static SchemaTableName toSchemaTableName(QualifiedObjectName qualifiedObjectName)
     {
         return new SchemaTableName(qualifiedObjectName.getSchemaName(), qualifiedObjectName.getObjectName());
+    }
+
+    public static ConnectorId getConnectorIdOrThrow(Session session, Metadata metadata, String catalogName)
+    {
+        return metadata.getCatalogHandle(session, catalogName)
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+    }
+
+    public static ConnectorId getConnectorIdOrThrow(Session session, Metadata metadata, String catalogName, Statement statement, String errorMsg)
+    {
+        return metadata.getCatalogHandle(session, catalogName)
+                .orElseThrow(() -> new SemanticException(MISSING_CATALOG, statement, errorMsg, catalogName));
     }
 
     public static String checkLowerCase(String value, String name)

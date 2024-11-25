@@ -141,6 +141,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -209,6 +210,7 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NO
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.SetProperties.Type.TABLE;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
@@ -455,6 +457,21 @@ class AstBuilder
     public Node visitRenameTable(SqlBaseParser.RenameTableContext context)
     {
         return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to), context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitSetTableProperties(SqlBaseParser.SetTablePropertiesContext context)
+    {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new SetProperties(getLocation(context),
+                TABLE,
+                getQualifiedName(context.tableName),
+                properties,
+                context.EXISTS() != null);
     }
 
     @Override

@@ -45,7 +45,9 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -71,8 +73,6 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.google.common.annotations.VisibleForTesting;
@@ -650,10 +650,6 @@ public class AddExchanges
             PlanWithProperties source = accept(node.getSource(), preferredProperties);
 
             Optional<PartitioningScheme> shufflePartitioningScheme = node.getTablePartitioningScheme();
-            if (!shufflePartitioningScheme.isPresent()) {
-                shufflePartitioningScheme = node.getPreferredShufflePartitioningScheme();
-            }
-
             if (!shufflePartitioningScheme.isPresent()) {
                 if (scaleWriters) {
                     shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));

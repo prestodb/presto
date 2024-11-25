@@ -25,6 +25,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -81,6 +82,12 @@ public class SystemTableAwareAccessControl
     public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         delegate.checkCanCreateTable(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        delegate.checkCanSetTableProperties(transactionHandle, identity, context, tableName, properties);
     }
 
     @Override

@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
@@ -212,6 +213,11 @@ public interface Metadata
     void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName);
 
     /**
+     * Set properties to the specified table.
+     */
+    void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties);
+
+    /**
      * Rename the specified column.
      */
     void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
@@ -240,9 +246,6 @@ public interface Metadata
 
     Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
-    @Experimental
-    Optional<NewTableLayout> getPreferredShuffleLayoutForNewTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
-
     /**
      * Begin the atomic creation of a table with data.
      */
@@ -254,9 +257,6 @@ public interface Metadata
     Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
-
-    @Experimental
-    Optional<NewTableLayout> getPreferredShuffleLayoutForInsert(Session session, TableHandle target);
 
     /**
      * Describes statistics that must be collected during a write.

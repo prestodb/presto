@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
@@ -39,7 +40,10 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
+import com.facebook.presto.spi.plan.StatisticAggregations;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -50,7 +54,6 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -60,11 +63,8 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.google.common.collect.ImmutableList;
@@ -727,11 +727,6 @@ public class PruneUnreferencedOutputs
                 partitioningScheme.getPartitioning().getVariableReferences().forEach(expectedInputs::add);
                 partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
             }
-            if (node.getPreferredShufflePartitioningScheme().isPresent()) {
-                PartitioningScheme partitioningScheme = node.getPreferredShufflePartitioningScheme().get();
-                partitioningScheme.getPartitioning().getVariableReferences().forEach(expectedInputs::add);
-                partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
-            }
             if (node.getStatisticsAggregation().isPresent()) {
                 StatisticAggregations aggregations = node.getStatisticsAggregation().get();
                 expectedInputs.addAll(aggregations.getGroupingVariables());
@@ -753,7 +748,6 @@ public class PruneUnreferencedOutputs
                     node.getColumnNames(),
                     node.getNotNullColumnVariables(),
                     node.getTablePartitioningScheme(),
-                    node.getPreferredShufflePartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getTaskCountIfScaledWriter(),
                     node.getIsTemporaryTableWriter());

@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
@@ -284,6 +285,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         throw new UnsupportedOperationException();
@@ -314,12 +321,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForNewTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
     {
         throw new UnsupportedOperationException();
@@ -333,12 +334,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForInsert(Session session, TableHandle target)
     {
         throw new UnsupportedOperationException();
     }

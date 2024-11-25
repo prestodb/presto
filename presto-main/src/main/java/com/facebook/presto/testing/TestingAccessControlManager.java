@@ -29,6 +29,7 @@ import javax.inject.Inject;
 import java.security.Principal;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -52,6 +53,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -73,6 +75,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_TABLE_PROPERTIES;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.TRUNCATE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
@@ -186,6 +189,18 @@ public class TestingAccessControlManager
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanRenameTable(transactionId, identity, context, tableName, newTableName);
+        }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), SET_TABLE_PROPERTIES)) {
+            denySetTableProperties(tableName.toString());
+        }
+
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetTableProperties(transactionId, identity, context, tableName, properties);
         }
     }
 
@@ -368,7 +383,7 @@ public class TestingAccessControlManager
         CREATE_TABLE, DROP_TABLE, RENAME_TABLE, INSERT_TABLE, DELETE_TABLE, TRUNCATE_TABLE, UPDATE_TABLE,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
         ADD_CONSTRAINT, DROP_CONSTRAINT,
-        CREATE_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
+        CREATE_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS, SET_TABLE_PROPERTIES,
         SET_SESSION
     }
 

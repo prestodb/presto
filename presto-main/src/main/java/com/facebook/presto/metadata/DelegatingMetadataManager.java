@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
@@ -238,6 +239,11 @@ public abstract class DelegatingMetadataManager
         delegate.renameTable(session, tableHandle, newTableName);
     }
 
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        delegate.setTableProperties(session, tableHandle, properties);
+    }
+
     @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
@@ -275,12 +281,6 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForNewTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
-    {
-        return delegate.getPreferredShuffleLayoutForNewTable(session, catalogName, tableMetadata);
-    }
-
-    @Override
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
     {
         return delegate.beginCreateTable(session, catalogName, tableMetadata, layout);
@@ -300,12 +300,6 @@ public abstract class DelegatingMetadataManager
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
     {
         return delegate.getInsertLayout(session, target);
-    }
-
-    @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForInsert(Session session, TableHandle target)
-    {
-        return delegate.getPreferredShuffleLayoutForInsert(session, target);
     }
 
     @Override
