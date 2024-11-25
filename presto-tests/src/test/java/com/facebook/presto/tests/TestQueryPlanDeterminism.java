@@ -216,6 +216,12 @@ public class TestQueryPlanDeterminism
     {
     }
 
+    @Test
+    public void testUse()
+    {
+        // USE statement is not supported
+    }
+
     @Override
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
