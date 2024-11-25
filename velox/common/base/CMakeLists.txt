@@ -34,6 +34,7 @@ velox_add_library(
   RawVector.cpp
   RuntimeMetrics.cpp
   SimdUtil.cpp
+  SkewedPartitionBalancer.cpp
   SpillConfig.cpp
   SpillStats.cpp
   StatsReporter.cpp

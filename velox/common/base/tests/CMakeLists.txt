@@ -30,6 +30,7 @@ add_executable(
   ScratchTest.cpp
   SemaphoreTest.cpp
   SimdUtilTest.cpp
+  SkewedPartitionBalancerTest.cpp
   SpillConfigTest.cpp
   SpillStatsTest.cpp
   StatsReporterTest.cpp
