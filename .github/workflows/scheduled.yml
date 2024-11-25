@@ -769,7 +769,7 @@ jobs:
             /tmp/server.log
 
 
-    presto-java-only-bias-function-expression-fuzzer-run:
+  presto-java-only-bias-function-expression-fuzzer-run:
     name: Biased Expression Fuzzer with Only Added/Updated Functions and Presto as source of truth
     needs: compile
     runs-on: ubuntu-latest
