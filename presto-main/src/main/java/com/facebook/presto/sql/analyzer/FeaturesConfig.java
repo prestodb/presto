@@ -58,7 +58,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "deprecated.legacy-join-using",
         "use-legacy-scheduler",
         "max-stage-retries",
-        "deprecated.group-by-uses-equal"})
+        "deprecated.group-by-uses-equal",
+        "experimental.table-writer-merge-operator-enabled"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -176,8 +177,6 @@ public class FeaturesConfig
 
     private boolean pushdownSubfieldsEnabled;
     private boolean pushdownSubfieldsFromLambdaEnabled;
-
-    private boolean tableWriterMergeOperatorEnabled = true;
 
     private Duration indexLoaderTimeout = new Duration(20, SECONDS);
 
@@ -1691,18 +1690,6 @@ public class FeaturesConfig
     public boolean isPushdownDereferenceEnabled()
     {
         return pushdownDereferenceEnabled;
-    }
-
-    public boolean isTableWriterMergeOperatorEnabled()
-    {
-        return tableWriterMergeOperatorEnabled;
-    }
-
-    @Config("experimental.table-writer-merge-operator-enabled")
-    public FeaturesConfig setTableWriterMergeOperatorEnabled(boolean tableWriterMergeOperatorEnabled)
-    {
-        this.tableWriterMergeOperatorEnabled = tableWriterMergeOperatorEnabled;
-        return this;
     }
 
     @Config("index-loader-timeout")

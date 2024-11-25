@@ -30,7 +30,6 @@ Presto C++ workers.
     optimizer.optimize-hash-generation=false
     regex-library=RE2J
     use-alternative-function-signatures=true
-    experimental.table-writer-merge-operator-enabled=false
 
 These Presto coordinator configuration properties are described here, in 
 alphabetical order. 
@@ -44,15 +43,6 @@ alphabetical order.
   least the time specified by this threshold.
   
   Set this property to ``0`` to disable canceling.
-
-``experimental.table-writer-merge-operator-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``boolean``
-* **Default value:** ``true``
-
-  Merge TableWriter output before sending to TableFinishOperator. This property must be set to 
-  ``false``. 
 
 ``native-execution-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
