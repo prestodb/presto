@@ -52,7 +52,6 @@ public class NativeQueryRunnerUtils
                 // To achieve that, we set inline-sql-functions to false.
                 .put("inline-sql-functions", "false")
                 .put("use-alternative-function-signatures", "true")
-                .put("experimental.table-writer-merge-operator-enabled", "false")
                 .build();
     }
 

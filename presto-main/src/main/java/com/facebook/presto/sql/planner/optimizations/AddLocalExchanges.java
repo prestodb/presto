@@ -74,7 +74,6 @@ import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
-import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
@@ -547,10 +546,6 @@ public class AddLocalExchanges
 
             if (!originalTableWriterNode.getTablePartitioningScheme().isPresent() && getTaskWriterCount(session) == 1) {
                 return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
-            }
-
-            if (!isTableWriterMergeOperatorEnabled(session)) {
-                return planAndEnforceChildren(originalTableWriterNode, fixedParallelism(), fixedParallelism());
             }
 
             Optional<StatisticAggregations.Parts> statisticAggregations = originalTableWriterNode
