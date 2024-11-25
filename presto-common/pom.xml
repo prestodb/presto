@@ -114,5 +114,10 @@
             <artifactId>drift-protocol</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 </project>

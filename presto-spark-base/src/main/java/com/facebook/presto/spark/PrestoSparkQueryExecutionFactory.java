@@ -111,6 +111,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
@@ -614,7 +615,7 @@ public class PrestoSparkQueryExecutionFactory
                 credentialsProviders,
                 authenticatorProviders);
 
-        SessionBuilder sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
+        SessionBuilder sessionBuilder = sessionSupplier.createSessionBuilder(queryId, Span.getInvalid(), Span.getInvalid(), sessionContext, warningCollectorFactory);
         sessionPropertyDefaults.applyDefaultProperties(sessionBuilder, Optional.empty(), Optional.empty());
 
         if (!executionStrategies.isEmpty()) {

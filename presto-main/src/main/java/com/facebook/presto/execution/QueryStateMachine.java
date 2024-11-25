@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
@@ -56,6 +57,10 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -67,6 +72,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -98,6 +104,7 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -262,6 +269,13 @@ public class QueryStateMachine
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 
+        Span querySpan = session.getQuerySpan();
+        Span rootSpan = session.getRootSpan();
+
+        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(querySpan)) {
+            querySpan.setAttribute("QUERY_TYPE", queryType.map(Enum::name).orElse("UNKNOWN"));
+        }
+
         QueryStateMachine queryStateMachine = new QueryStateMachine(
                 query,
                 preparedQuery,
@@ -278,8 +292,42 @@ public class QueryStateMachine
         queryStateMachine.addStateChangeListener(newState -> {
             QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
             // mark finished or failed transaction as inactive
+
+            if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(querySpan)) {
+                querySpan.addEvent("query_state", Attributes.of(AttributeKey.stringKey("EVENT_STATE"), newState.toString()));
+            }
             if (newState.isDone()) {
-                queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
+                try {
+                    queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
+
+                    queryStateMachine.getFailureInfo().ifPresent(
+                            failure -> {
+                                ErrorCode errorCode = requireNonNull(failure.getErrorCode());
+
+                                if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(querySpan)) {
+                                    querySpan.setStatus(StatusCode.ERROR, nullToEmpty(failure.getMessage()))
+                                            .recordException(failure.toException())
+                                            .setAttribute("ERROR_CODE", errorCode.getCode())
+                                            .setAttribute("ERROR_NAME", errorCode.getName())
+                                            .setAttribute("ERROR_TYPE", errorCode.getType().toString());
+                                }
+                            });
+
+                    queryStateMachine.getFailureInfo().orElseGet(() -> {
+                        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(querySpan)) {
+                            querySpan.setStatus(StatusCode.OK);
+                        }
+                        return null;
+                    });
+                }
+                finally {
+                    if (!Objects.isNull(querySpan)) {
+                        querySpan.end();
+                    }
+                    if (!Objects.isNull(rootSpan)) {
+                        rootSpan.end();
+                    }
+                }
             }
         });
         return queryStateMachine;

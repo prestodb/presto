@@ -39,6 +39,8 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -151,7 +153,9 @@ public final class SqlStageExecution
             ExecutorService executor,
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            Tracer tracer,
+            Span schedulerSpan)
     {
         requireNonNull(stageExecutionId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
@@ -165,7 +169,7 @@ public final class SqlStageExecution
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
                 session,
-                new StageExecutionStateMachine(stageExecutionId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
+                new StageExecutionStateMachine(stageExecutionId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty(), tracer, schedulerSpan),
                 fragment,
                 remoteTaskFactory,
                 nodeTaskMap,
@@ -537,7 +541,8 @@ public final class SqlStageExecution
                 nodeTaskMap.createTaskStatsTracker(node, taskId),
                 summarizeTaskInfo,
                 tableWriteInfo,
-                stateMachine);
+                stateMachine,
+                stateMachine.getStageSpan());
 
         completeSources.forEach(task::noMoreSplits);
 

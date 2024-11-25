@@ -63,6 +63,7 @@ import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.testing.TestingHandleResolver;
+import com.facebook.presto.testing.TestingOpenTelemetryManager;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
@@ -332,7 +333,7 @@ public class TestHttpRemoteTask
                 new NodeTaskMap.NodeStatsTracker(i -> {}, i -> {}, (age, i) -> {}),
                 true,
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
-                SchedulerStatsTracker.NOOP);
+                SchedulerStatsTracker.NOOP, null);
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, boolean useThriftEncoding)
@@ -423,7 +424,8 @@ public class TestHttpRemoteTask
                                 createTestMetadataManager(),
                                 new TestQueryManager(),
                                 new HandleResolver(),
-                                new ConnectorTypeSerdeManager(new ConnectorMetadataUpdateHandleJsonSerde()));
+                                new ConnectorTypeSerdeManager(new ConnectorMetadataUpdateHandleJsonSerde()),
+                                new TestingOpenTelemetryManager());
                     }
                 });
         Injector injector = app

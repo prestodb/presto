@@ -41,6 +41,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import io.airlift.units.DataSize;
+import io.opentelemetry.context.Context;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -128,7 +129,8 @@ public class TestHighMemoryTaskKiller
                 ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(), null);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         TaskContext taskContext = sqlTask.getTaskContext().get();

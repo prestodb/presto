@@ -15,7 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.Distribution;
-import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.TelemetryConfig;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ScheduleResult;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
@@ -23,6 +24,10 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -93,12 +98,16 @@ public class StageExecutionStateMachine
     private final AtomicLong currentTotalMemory = new AtomicLong();
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
+    private Span stageSpan;
+    private Tracer tracer;
 
     public StageExecutionStateMachine(
             StageExecutionId stageExecutionId,
             ExecutorService executor,
             SplitSchedulerStats schedulerStats,
-            boolean containsTableScans)
+            boolean containsTableScans,
+            Tracer tracer,
+            Span schedulerspan)
     {
         this.stageExecutionId = requireNonNull(stageExecutionId, "stageId is null");
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -108,6 +117,20 @@ public class StageExecutionStateMachine
         state.addStateChangeListener(state -> log.debug("Stage Execution %s is %s", stageExecutionId, state));
 
         finalInfo = new StateMachine<>("final stage execution " + stageExecutionId, executor, Optional.empty());
+
+        stageSpan = (!TelemetryConfig.getTracingEnabled()) ? null : tracer.spanBuilder(TracingEnum.STAGE.getName())
+                .setParent((schedulerspan != null) ? Context.current().with(schedulerspan) : Context.current())
+                .setAttribute("QUERY_ID", stageExecutionId.getStageId().getQueryId().toString())
+                .setAttribute("STAGE_ID", stageExecutionId.getStageId().toString())
+                .startSpan();
+
+        try (Scope scope = (TelemetryConfig.getTracingEnabled() && (stageSpan != null)) ? stageSpan.makeCurrent() : null) {
+            state.addStateChangeListener(state -> {
+                if ((stageSpan != null)) {
+                    stageSpan.end();
+                }
+            });
+        }
     }
 
     public StageExecutionId getStageExecutionId()
@@ -118,6 +141,11 @@ public class StageExecutionStateMachine
     public StageExecutionState getState()
     {
         return state.get();
+    }
+
+    public Span getStageSpan()
+    {
+        return stageSpan;
     }
 
     /**

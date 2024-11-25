@@ -51,7 +51,8 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.storage.TempStorageModule;
-import com.facebook.presto.tracing.TracerProviderManager;
+import com.facebook.presto.telemetry.TelemetryManager;
+import com.facebook.presto.telemetry.TelemetryModule;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
@@ -120,6 +121,7 @@ public class PrestoServer
                 new SmileModule(),
                 new JaxrsModule(true),
                 new MBeanModule(),
+                new TelemetryModule(),
                 new JmxModule(),
                 new JmxHttpModule(),
                 new LogJmxModule(),
@@ -164,6 +166,8 @@ public class PrestoServer
                     injector.getInstance(Announcer.class),
                     injector.getInstance(DriftServer.class));
 
+            injector.getInstance(TelemetryManager.class).loadConfiguredOpenTelemetry();
+            log.info("telemetry configs loaded");
             injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -176,7 +180,6 @@ public class PrestoServer
             injector.getInstance(QueryPrerequisitesManager.class).loadQueryPrerequisites();
             injector.getInstance(NodeTtlFetcherManager.class).loadNodeTtlFetcher();
             injector.getInstance(ClusterTtlProviderManager.class).loadClusterTtlProvider();
-            injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
             injector.getInstance(PlanCheckerProviderManager.class).loadPlanCheckerProviders();

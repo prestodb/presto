@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.buffer.BufferInfo;
@@ -35,16 +36,21 @@ import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.telemetry.TelemetryManager;
+import com.facebook.presto.testing.TestingOpenTelemetryManager;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -125,7 +131,8 @@ public class TestSqlTask
                 ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(), null);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -136,11 +143,62 @@ public class TestSqlTask
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(), null);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+    }
+
+    @Test
+    public void testSqlTaskUpdateTaskTracingEnabled() throws InterruptedException
+    {
+        TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
+        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
+        testingOpenTelemetryManager.createInstances();
+
+        SqlTask sqlTask = createInitialTask();
+        sqlTask.updateTask(TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT),
+                ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withNoMoreBufferIds(),
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(),
+                TelemetryManager.getTracer());
+
+        Thread.sleep(5000);
+        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+        assertTrue(!spans.isEmpty());
+        assertTrue(spans.stream().anyMatch(spanName -> "task".equals(spanName.getName())));
+
+        testingOpenTelemetryManager.clearSpanList();
+    }
+
+    @Test
+    public void testSqlTaskUpdateTaskTracingDisabled() throws InterruptedException
+    {
+        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
+        testingOpenTelemetryManager.createInstances();
+        TelemetryConfig.getTelemetryConfig().setTracingEnabled(false);
+
+        SqlTask sqlTask = createInitialTask();
+        sqlTask.updateTask(TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT),
+                ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withNoMoreBufferIds(),
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(),
+                TelemetryManager.getTracer());
+
+        Thread.sleep(5000);
+        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+        assertTrue(spans.isEmpty());
+        assertFalse(spans.stream().anyMatch(spanName -> "task".equals(spanName.getName())));
+
+        testingOpenTelemetryManager.clearSpanList();
     }
 
     @Test
@@ -153,7 +211,8 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(), null);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -203,7 +262,8 @@ public class TestSqlTask
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(), null);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
@@ -230,7 +290,8 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                Context.current(), null);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();

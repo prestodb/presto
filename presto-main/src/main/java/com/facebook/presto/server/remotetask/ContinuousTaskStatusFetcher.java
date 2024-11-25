@@ -24,6 +24,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.drift.transport.netty.codec.Protocol;
+import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStatus;
@@ -38,9 +39,15 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.propagation.TextMapPropagator;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -82,6 +89,8 @@ class ContinuousTaskStatusFetcher
     private final boolean binaryTransportEnabled;
     private final boolean thriftTransportEnabled;
     private final Protocol thriftProtocol;
+    private final Span remoteTaskSpan;
+    private final OpenTelemetry openTelemetry;
 
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
@@ -104,7 +113,9 @@ class ContinuousTaskStatusFetcher
             RemoteTaskStats stats,
             boolean binaryTransportEnabled,
             boolean thriftTransportEnabled,
-            Protocol thriftProtocol)
+            Protocol thriftProtocol,
+            Span remoteTaskSpan,
+            OpenTelemetry openTelemetry)
     {
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
@@ -123,6 +134,9 @@ class ContinuousTaskStatusFetcher
         this.binaryTransportEnabled = binaryTransportEnabled;
         this.thriftTransportEnabled = thriftTransportEnabled;
         this.thriftProtocol = requireNonNull(thriftProtocol, "thriftProtocol is null");
+
+        this.remoteTaskSpan = remoteTaskSpan;
+        this.openTelemetry = openTelemetry;
     }
 
     public synchronized void start()
@@ -180,6 +194,16 @@ class ContinuousTaskStatusFetcher
         else {
             requestBuilder = getJsonTransportBuilder(prepareGet());
             responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskStatus>) taskStatusCodec);
+        }
+
+        TextMapPropagator propagator = openTelemetry.getPropagators().getTextMapPropagator();
+        Map<String, String> headersMap = new HashMap<>();
+        Context context = (remoteTaskSpan != null) ? Context.current().with(remoteTaskSpan) : Context.current();
+        Context currentContext = (TelemetryConfig.getTracingEnabled()) ? context : null;
+        propagator.inject(currentContext, headersMap, Map::put);
+
+        for (Map.Entry<String, String> entry : headersMap.entrySet()) {
+            requestBuilder.addHeader(entry.getKey(), entry.getValue());
         }
 
         Request request = requestBuilder.setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())

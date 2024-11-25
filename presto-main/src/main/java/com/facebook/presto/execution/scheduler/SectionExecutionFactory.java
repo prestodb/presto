@@ -46,10 +46,13 @@ import com.facebook.presto.sql.planner.PlanFragmenterUtils;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.telemetry.TelemetryManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 
 import javax.inject.Inject;
 
@@ -106,6 +109,8 @@ public class SectionExecutionFactory
     private final NodeScheduler nodeScheduler;
     private final int splitBatchSize;
     private final boolean isEnableWorkerIsolation;
+    private Tracer tracer;
+    private final TelemetryManager openTelemetryManager;
 
     @Inject
     public SectionExecutionFactory(
@@ -117,7 +122,8 @@ public class SectionExecutionFactory
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
             NodeScheduler nodeScheduler,
-            QueryManagerConfig queryManagerConfig)
+            QueryManagerConfig queryManagerConfig,
+            TelemetryManager openTelemetryManager)
     {
         this(
                 metadata,
@@ -129,7 +135,8 @@ public class SectionExecutionFactory
                 schedulerStats,
                 nodeScheduler,
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize(),
-                queryManagerConfig.isEnableWorkerIsolation());
+                queryManagerConfig.isEnableWorkerIsolation(),
+                openTelemetryManager);
     }
 
     public SectionExecutionFactory(
@@ -142,7 +149,8 @@ public class SectionExecutionFactory
             SplitSchedulerStats schedulerStats,
             NodeScheduler nodeScheduler,
             int splitBatchSize,
-            boolean isEnableWorkerIsolation)
+            boolean isEnableWorkerIsolation,
+            TelemetryManager openTelemetryManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -154,6 +162,8 @@ public class SectionExecutionFactory
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.splitBatchSize = splitBatchSize;
         this.isEnableWorkerIsolation = isEnableWorkerIsolation;
+        this.openTelemetryManager = openTelemetryManager;
+        this.tracer = openTelemetryManager.getTracer();
     }
 
     /**
@@ -168,7 +178,9 @@ public class SectionExecutionFactory
             boolean summarizeTaskInfo,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
-            int attemptId)
+            int attemptId,
+            Tracer tracer,
+            Span schedulerSpan)
     {
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
@@ -184,7 +196,9 @@ public class SectionExecutionFactory
                 summarizeTaskInfo,
                 remoteTaskFactory,
                 splitSourceFactory,
-                attemptId);
+                attemptId,
+                tracer,
+                schedulerSpan);
         StageExecutionAndScheduler rootStage = getLast(sectionStages);
         rootStage.getStageExecution().setOutputBuffers(outputBuffers);
         return new SectionExecution(rootStage, sectionStages);
@@ -203,7 +217,9 @@ public class SectionExecutionFactory
             boolean summarizeTaskInfo,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
-            int attemptId)
+            int attemptId,
+            Tracer tracer,
+            Span schedulerSpan)
     {
         ImmutableList.Builder<StageExecutionAndScheduler> stageExecutionAndSchedulers = ImmutableList.builder();
 
@@ -219,7 +235,9 @@ public class SectionExecutionFactory
                 executor,
                 failureDetector,
                 schedulerStats,
-                tableWriteInfo);
+                tableWriteInfo,
+                tracer,
+                schedulerSpan);
 
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
         List<RemoteSourceNode> remoteSourceNodes = plan.getFragment().getRemoteSourceNodes();
@@ -238,7 +256,9 @@ public class SectionExecutionFactory
                     summarizeTaskInfo,
                     remoteTaskFactory,
                     splitSourceFactory,
-                    attemptId);
+                    attemptId,
+                    tracer,
+                    schedulerSpan);
             stageExecutionAndSchedulers.addAll(subTree);
             childStagesBuilder.add(getLast(subTree).getStageExecution());
         }

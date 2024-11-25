@@ -22,6 +22,8 @@ import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.collect.ImmutableMap;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -70,7 +72,7 @@ public class TestingEventListenerManager
     }
 
     @Override
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
+    public void splitCompleted(SplitCompletedEvent splitCompletedEvent, Context context, Tracer tracer)
     {
         if (configuredEventListener.get().isPresent()) {
             configuredEventListener.get().get().splitCompleted(splitCompletedEvent);

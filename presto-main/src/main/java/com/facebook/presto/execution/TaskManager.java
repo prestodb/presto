@@ -25,6 +25,8 @@ import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 
 import java.util.List;
 import java.util.Optional;
@@ -91,7 +93,9 @@ public interface TaskManager
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            Optional<TableWriteInfo> tableWriteInfo);
+            Optional<TableWriteInfo> tableWriteInfo,
+            Context context,
+            Tracer tracer);
 
     /**
      * Cancels a task.  If the task does not already exist, is is created and then

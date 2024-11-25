@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
+import io.opentelemetry.api.trace.Span;
 
 import static com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
 
@@ -35,5 +36,6 @@ public interface RemoteTaskFactory
             NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
-            SchedulerStatsTracker schedulerStatsTracker);
+            SchedulerStatsTracker schedulerStatsTracker,
+            Span stagespan);
 }
