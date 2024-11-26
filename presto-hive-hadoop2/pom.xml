@@ -82,7 +82,7 @@
 
         <dependency>
             <groupId>org.alluxio</groupId>
-            <artifactId>alluxio-shaded-client</artifactId>
+            <artifactId>alluxio-core-common</artifactId>
             <scope>runtime</scope>
         </dependency>
 
