@@ -40,6 +40,7 @@ Throttler::Config::Config(
     double _backoffScaleFactor,
     uint32_t _minLocalThrottledSignals,
     uint32_t _minGlobalThrottledSignals,
+    uint32_t _minNetworkThrottledSignals,
     uint32_t _maxCacheEntries,
     uint32_t _cacheTTLMs)
     : throttleEnabled(_throttleEnabled),
@@ -48,18 +49,20 @@ Throttler::Config::Config(
       backoffScaleFactor(_backoffScaleFactor),
       minLocalThrottledSignals(_minLocalThrottledSignals),
       minGlobalThrottledSignals(_minGlobalThrottledSignals),
+      minNetworkThrottledSignals(_minNetworkThrottledSignals),
       maxCacheEntries(_maxCacheEntries),
       cacheTTLMs(_cacheTTLMs) {}
 
 std::string Throttler::Config::toString() const {
   return fmt::format(
-      "throttleEnabled:{} minThrottleBackoffMs:{} maxThrottleBackoffMs:{} backoffScaleFactor:{} minLocalThrottledSignals:{} minGlobalThrottledSignals:{} maxCacheEntries:{} cacheTTLMs:{}",
+      "throttleEnabled:{} minThrottleBackoffMs:{} maxThrottleBackoffMs:{} backoffScaleFactor:{} minLocalThrottledSignals:{} minGlobalThrottledSignals:{} minNetworkThrottledSignals:{} maxCacheEntries:{} cacheTTLMs:{}",
       throttleEnabled,
       succinctMillis(minThrottleBackoffMs),
       succinctMillis(maxThrottleBackoffMs),
       backoffScaleFactor,
       minLocalThrottledSignals,
       minGlobalThrottledSignals,
+      minNetworkThrottledSignals,
       maxCacheEntries,
       succinctMillis(cacheTTLMs));
 };
@@ -72,6 +75,8 @@ std::string Throttler::signalTypeName(SignalType type) {
       return "Local";
     case SignalType::kGlobal:
       return "Global";
+    case SignalType::kNetwork:
+      return "Network";
     default:
       return fmt::format("Unknown Signal Type: {}", static_cast<int>(type));
   }
@@ -103,24 +108,21 @@ Throttler::Throttler(const Config& config)
       minThrottleBackoffDurationMs_(config.minThrottleBackoffMs),
       maxThrottleBackoffDurationMs_(config.maxThrottleBackoffMs),
       backoffScaleFactor_(config.backoffScaleFactor),
-      minLocalThrottledSignalsToBackoff_(config.minLocalThrottledSignals),
-      minGlobalThrottledSignalsToBackoff_(config.minGlobalThrottledSignals),
-      localThrottleCache_(
-          !throttleEnabled_
-              ? nullptr
-              : new ThrottleSignalFactory{std::make_unique<SimpleLRUCache<std::string, ThrottleSignal>>(
-                     config.maxCacheEntries,
-                     config.cacheTTLMs),
-                 std::unique_ptr<ThrottleSignalGenerator>{
-                     new ThrottleSignalGenerator{}}}),
-      globalThrottleCache_(
-          !throttleEnabled_
-              ? nullptr
-              : new ThrottleSignalFactory{std::make_unique<SimpleLRUCache<std::string, ThrottleSignal>>(
-                                              config.maxCacheEntries,
-                                              config.cacheTTLMs),
-                                          std::unique_ptr<ThrottleSignalGenerator>{
-                                              new ThrottleSignalGenerator{}}}) {
+      localThrottleCache_(maybeMakeThrottleSignalCache(
+          config.throttleEnabled,
+          config.minLocalThrottledSignals,
+          config.maxCacheEntries,
+          config.cacheTTLMs)),
+      globalThrottleCache_(maybeMakeThrottleSignalCache(
+          config.throttleEnabled,
+          config.minGlobalThrottledSignals,
+          config.maxCacheEntries,
+          config.cacheTTLMs)),
+      networkThrottleCache_(maybeMakeThrottleSignalCache(
+          config.throttleEnabled,
+          config.minNetworkThrottledSignals,
+          config.maxCacheEntries,
+          config.cacheTTLMs)) {
   LOG(INFO) << "IO throttler config: " << config.toString();
 }
 
@@ -149,12 +151,22 @@ void Throttler::updateThrottleStats(SignalType type, uint64_t backoffDelayMs) {
   stats_.backOffDelay.increment(backoffDelayMs);
   RECORD_HISTOGRAM_METRIC_VALUE(
       kMetricStorageThrottledDurationMs, backoffDelayMs);
-  if (type == SignalType::kLocal) {
-    ++stats_.localThrottled;
-    RECORD_METRIC_VALUE(kMetricStorageLocalThrottled);
-  } else {
-    ++stats_.globalThrottled;
-    RECORD_METRIC_VALUE(kMetricStorageGlobalThrottled);
+
+  switch (type) {
+    case SignalType::kLocal:
+      ++stats_.localThrottled;
+      RECORD_METRIC_VALUE(kMetricStorageLocalThrottled);
+      break;
+    case SignalType::kGlobal:
+      ++stats_.globalThrottled;
+      RECORD_METRIC_VALUE(kMetricStorageGlobalThrottled);
+      break;
+    case SignalType::kNetwork:
+      ++stats_.networkThrottled;
+      RECORD_METRIC_VALUE(kMetricStorageNetworkThrottled);
+      break;
+    default:
+      break;
   }
 }
 
@@ -163,48 +175,78 @@ void Throttler::updateThrottleCacheLocked(
     const std::string& cluster,
     const std::string& directory,
     CachedThrottleSignalPtr& localSignal,
-    CachedThrottleSignalPtr& globalSignal) {
+    CachedThrottleSignalPtr& globalSignal,
+    CachedThrottleSignalPtr& networkSignal) {
   VELOX_CHECK(throttleEnabled());
-
-  if (type == SignalType::kLocal) {
-    if (localSignal.get() == nullptr) {
-      localThrottleCache_->generate(localThrottleCacheKey(cluster, directory));
-    } else {
-      ++localSignal->count;
-    }
-  } else {
-    if (globalSignal.get() == nullptr) {
-      globalThrottleCache_->generate(cluster);
-    } else {
-      ++globalSignal->count;
-    }
-  }
+  switch (type) {
+    case SignalType::kLocal:
+      if (localSignal.get() == nullptr) {
+        localThrottleCache_.throttleCache->generate(
+            localThrottleCacheKey(cluster, directory));
+      } else {
+        ++localSignal->count;
+      }
+      return;
+    case SignalType::kGlobal:
+      if (globalSignal.get() == nullptr) {
+        globalThrottleCache_.throttleCache->generate(cluster);
+      } else {
+        ++globalSignal->count;
+      }
+      return;
+    case SignalType::kNetwork:
+      if (networkSignal.get() == nullptr) {
+        networkThrottleCache_.throttleCache->generate(cluster);
+      } else {
+        ++networkSignal->count;
+      }
+      return;
+    default:
+      VELOX_UNREACHABLE("Invalid type provided: {}", signalTypeName(type));
+  };
 }
 
 uint64_t Throttler::calculateBackoffDurationAndUpdateThrottleCache(
     SignalType type,
     const std::string& cluster,
-    const std::string& directoy) {
+    const std::string& directory) {
   std::lock_guard<std::mutex> l(mu_);
-  // Gets maximum count of local and global throttle signals in Cache.
-  auto localThrottleCachePtr =
-      localThrottleCache_->get(localThrottleCacheKey(cluster, directoy));
-  int64_t localThrottleCount =
+  // Gets maximum count of local, global, and network throttle signals in Cache.
+  auto localThrottleCachePtr = localThrottleCache_.throttleCache->get(
+      localThrottleCacheKey(cluster, directory));
+  const int64_t localThrottleCount =
       (localThrottleCachePtr.get() != nullptr ? localThrottleCachePtr->count
                                               : 0) +
-      (type == SignalType::kLocal ? 1 : 0) - minLocalThrottledSignalsToBackoff_;
-  auto globalThrottleCachePtr = globalThrottleCache_->get(cluster);
+      (type == SignalType::kLocal ? 1 : 0) -
+      localThrottleCache_.minThrottledSignalsToBackOff;
+
+  auto globalThrottleCachePtr =
+      globalThrottleCache_.throttleCache->get(cluster);
   const int64_t globalThrottleCount =
       (globalThrottleCachePtr.get() != nullptr ? globalThrottleCachePtr->count
                                                : 0) +
       (type == SignalType::kGlobal ? 1 : 0) -
-      minGlobalThrottledSignalsToBackoff_;
+      globalThrottleCache_.minThrottledSignalsToBackOff;
+
+  auto networkThrottleCachePtr =
+      networkThrottleCache_.throttleCache->get(cluster);
+  const int64_t networkThrottleCount =
+      (networkThrottleCachePtr.get() != nullptr ? networkThrottleCachePtr->count
+                                                : 0) +
+      (type == SignalType::kNetwork ? 1 : 0) -
+      networkThrottleCache_.minThrottledSignalsToBackOff;
+
   // Update throttling signal cache.
   updateThrottleCacheLocked(
-      type, cluster, directoy, localThrottleCachePtr, globalThrottleCachePtr);
+      type,
+      cluster,
+      directory,
+      localThrottleCachePtr,
+      globalThrottleCachePtr,
+      networkThrottleCachePtr);
 
-  const int64_t throttleAttempts =
-      std::max(localThrottleCount, globalThrottleCount);
+  const int64_t throttleAttempts = std::max(
+      networkThrottleCount, std::max(localThrottleCount, globalThrottleCount));
 
   // Calculates the delay with exponential backoff
   if (throttleAttempts <= 0) {
@@ -228,5 +270,22 @@ Throttler::ThrottleSignalGenerator::operator()(
     const std::string& /*unused*/,
     const void* /*unused*/) {
   return std::unique_ptr<ThrottleSignal>(new ThrottleSignal{1});
+}
+
+/* static */
+Throttler::ThrottleSignalCache Throttler::maybeMakeThrottleSignalCache(
+    bool enabled,
+    uint32_t minThrottledSignals,
+    uint32_t maxCacheEntries,
+    uint32_t cacheTTLMs) {
+  return {
+      .throttleCache = !enabled
+          ? nullptr
+          : std::make_unique<ThrottleSignalFactory>(
+                std::make_unique<SimpleLRUCache<std::string, ThrottleSignal>>(
+                    maxCacheEntries, cacheTTLMs),
+                std::make_unique<ThrottleSignalGenerator>()),
+      .minThrottledSignalsToBackOff = minThrottledSignals,
+  };
 }
 } // namespace facebook::velox::dwio::common

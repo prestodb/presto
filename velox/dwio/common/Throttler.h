@@ -51,6 +51,10 @@ class Throttler {
     /// backoff.
     uint32_t minGlobalThrottledSignals;
 
+    /// The minimum number of received network throttled signals before starting
+    /// backoff.
+    uint32_t minNetworkThrottledSignals;
+
     /// The maximum number of entries in the throttled signal cache. There is
     /// one cache for each throttle signal type. For local throttle signal
     /// cache, each cache entry corresponds to a unqiue file direcotry in a
@@ -68,6 +72,7 @@ class Throttler {
     static constexpr double kBackoffScaleFactorDefault{2.0};
     static constexpr uint32_t kMinLocalThrottledSignalsDefault{1'000};
     static constexpr uint32_t kMinGlobalThrottledSignalsDefault{100'000};
+    static constexpr uint32_t kMinNetworkThrottledSignal{1'000};
     static constexpr uint32_t kMaxCacheEntriesDefault{10'000};
     static constexpr uint32_t kCacheTTLMsDefault{3 * 60 * 1'000};
 
@@ -78,6 +83,7 @@ class Throttler {
         double backoffScaleFactor = kBackoffScaleFactorDefault,
         uint32_t minLocalThrottledSignals = kMinLocalThrottledSignalsDefault,
         uint32_t minGlobalThrottledSignals = kMinGlobalThrottledSignalsDefault,
+        uint32_t minNetworkThrottledSignals = kMinNetworkThrottledSignal,
         uint32_t maxCacheEntries = kMaxCacheEntriesDefault,
         uint32_t cacheTTLMs = kCacheTTLMsDefault);
 
@@ -88,6 +94,7 @@ class Throttler {
   struct Stats {
     std::atomic_uint64_t localThrottled{0};
     std::atomic_uint64_t globalThrottled{0};
+    std::atomic_uint64_t networkThrottled{0};
     /// Counts the backoff delay in milliseconds.
     io::IoCounter backOffDelay;
   };
@@ -104,6 +111,8 @@ class Throttler {
     kLocal,
     /// A cluster-wise throttled signal.
     kGlobal,
+    /// Network throttled signal.
+    kNetwork,
   };
   static std::string signalTypeName(SignalType type);
 
@@ -174,14 +183,26 @@ class Throttler {
   using ThrottleSignalFactory = facebook::velox::
       CachedFactory<std::string, ThrottleSignal, ThrottleSignalGenerator>;
 
+  struct ThrottleSignalCache {
+    std::unique_ptr<ThrottleSignalFactory> throttleCache;
+    uint32_t minThrottledSignalsToBackOff;
+  };
+
   void updateThrottleCacheLocked(
       SignalType type,
       const std::string& cluster,
       const std::string& directory,
       CachedThrottleSignalPtr& localSignal,
-      CachedThrottleSignalPtr& globalSignal);
+      CachedThrottleSignalPtr& globalSignal,
+      CachedThrottleSignalPtr& networkSignal);
 
   void updateThrottleStats(SignalType type, uint64_t backoffDelayMs);
+
+  static ThrottleSignalCache maybeMakeThrottleSignalCache(
+      bool enabled,
+      uint32_t minThrottledSignals,
+      uint32_t maxCacheEntries,
+      uint32_t cacheTTLMs);
 
   static const uint64_t kNoBackOffMs_{0};
 
@@ -189,10 +210,10 @@ class Throttler {
   const uint64_t minThrottleBackoffDurationMs_;
   const uint64_t maxThrottleBackoffDurationMs_;
   const double backoffScaleFactor_;
-  const uint32_t minLocalThrottledSignalsToBackoff_;
-  const uint32_t minGlobalThrottledSignalsToBackoff_;
-  const std::unique_ptr<ThrottleSignalFactory> localThrottleCache_;
-  const std::unique_ptr<ThrottleSignalFactory> globalThrottleCache_;
+
+  const ThrottleSignalCache localThrottleCache_;
+  const ThrottleSignalCache globalThrottleCache_;
+  const ThrottleSignalCache networkThrottleCache_;
 
   mutable std::mutex mu_;
 

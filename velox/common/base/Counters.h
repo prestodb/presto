@@ -357,4 +357,7 @@ constexpr folly::StringPiece kMetricStorageLocalThrottled{
 
 constexpr folly::StringPiece kMetricStorageGlobalThrottled{
     "velox.storage_global_throttled_count"};
+
+constexpr folly::StringPiece kMetricStorageNetworkThrottled{
+    "velox.storage_network_throttled_count"};
 } // namespace facebook::velox

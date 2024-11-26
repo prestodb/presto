@@ -435,7 +435,9 @@ Storage
    * - storage_global_throttled_count
      - Count
      - The number of times that storage IOs get throttled in a storage cluster.
-
+   * - storage_network_throttled_count
+     - Count
+     - The number of times that storage IOs get throttled in a storage cluster because of network.
 Spilling
 --------
 

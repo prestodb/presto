@@ -27,25 +27,31 @@ namespace {
 class ThrottlerTest : public testing::Test {
  protected:
   static Throttler::Config throttleConfig(uint32_t cacheTTLMs = 3'600 * 1'000) {
-    return Throttler::Config(true, 1, 4, 2.0, 10, 40, 4, cacheTTLMs);
+    return Throttler::Config(true, 1, 4, 2.0, 10, 40, 10, 4, cacheTTLMs);
   }
 
   void SetUp() override {
     Throttler::testingReset();
   }
+  static constexpr std::array<Throttler::SignalType, 3> kSignalTypes{
+      Throttler::SignalType::kLocal,
+      Throttler::SignalType::kGlobal,
+      Throttler::SignalType::kNetwork};
 };
 
 TEST_F(ThrottlerTest, config) {
   const auto config = throttleConfig();
   ASSERT_EQ(
       config.toString(),
-      "throttleEnabled:true minThrottleBackoffMs:1ms maxThrottleBackoffMs:4ms backoffScaleFactor:2 minLocalThrottledSignals:10 minGlobalThrottledSignals:40 maxCacheEntries:4 cacheTTLMs:1h 0m 0s");
+      "throttleEnabled:true minThrottleBackoffMs:1ms maxThrottleBackoffMs:4ms backoffScaleFactor:2 minLocalThrottledSignals:10 minGlobalThrottledSignals:40 minNetworkThrottledSignals:10 maxCacheEntries:4 cacheTTLMs:1h 0m 0s");
 }
 
 TEST_F(ThrottlerTest, signalType) {
   ASSERT_EQ(Throttler::signalTypeName(Throttler::SignalType::kLocal), "Local");
   ASSERT_EQ(
       Throttler::signalTypeName(Throttler::SignalType::kGlobal), "Global");
+  ASSERT_EQ(
+      Throttler::signalTypeName(Throttler::SignalType::kNetwork), "Network");
   ASSERT_EQ(Throttler::signalTypeName(Throttler::SignalType::kNone), "None");
   ASSERT_EQ(
       Throttler::signalTypeName(static_cast<Throttler::SignalType>(100)),
@@ -70,21 +76,17 @@ TEST_F(ThrottlerTest, throttleDisabled) {
   auto* instance = Throttler::instance();
   for (int i = 1; i <= 100; ++i) {
     ASSERT_EQ(
-        instance->throttleBackoff(
-            i % 2 ? Throttler::SignalType::kLocal
-                  : Throttler::SignalType::kGlobal,
-            cluster,
-            directory),
-        0);
+        instance->throttleBackoff(kSignalTypes[i % 3], cluster, directory), 0);
   }
   const auto& stats = instance->stats();
   ASSERT_EQ(stats.localThrottled, 0);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 0);
 }
 
 TEST_F(ThrottlerTest, noThrottlerSignal) {
-  Throttler::init(Throttler::Config(true, 100, 200, 2.0, 10, 1'000));
+  Throttler::init(Throttler::Config(true, 100, 200, 2.0, 10, 1'000, 10));
   const std::string cluster{"noThrottlerSignal"};
   const std::string directory{"noThrottlerSignal"};
   auto* instance = Throttler::instance();
@@ -97,14 +99,15 @@ TEST_F(ThrottlerTest, noThrottlerSignal) {
   const auto& stats = instance->stats();
   ASSERT_EQ(stats.localThrottled, 0);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 0);
 }
 
 TEST_F(ThrottlerTest, throttle) {
   const uint64_t minThrottleBackoffMs = 1'000;
   const uint64_t maxThrottleBackoffMs = 2'000;
-  for (const bool global : {true, false}) {
-    SCOPED_TRACE(fmt::format("global {}", global));
+  for (const auto signal : kSignalTypes) {
+    SCOPED_TRACE(fmt::format("signal: {}", Throttler::signalTypeName(signal)));
 
     Throttler::testingReset();
     Throttler::init(Throttler::Config(
@@ -112,37 +115,44 @@ TEST_F(ThrottlerTest, throttle) {
         minThrottleBackoffMs,
         maxThrottleBackoffMs,
         2.0,
-        global ? 1'0000 : 2,
-        global ? 2 : 1'0000));
+        signal == Throttler::SignalType::kLocal ? 2 : 1'000,
+        signal == Throttler::SignalType::kGlobal ? 2 : 1'000,
+        signal == Throttler::SignalType::kNetwork ? 2 : 1'000));
     auto* instance = Throttler::instance();
     const auto& stats = instance->stats();
     ASSERT_EQ(stats.localThrottled, 0);
     ASSERT_EQ(stats.globalThrottled, 0);
+    ASSERT_EQ(stats.networkThrottled, 0);
     ASSERT_EQ(stats.backOffDelay.count(), 0);
 
-    const Throttler::SignalType type =
-        global ? Throttler::SignalType::kGlobal : Throttler::SignalType::kLocal;
     const std::string cluster{"throttle"};
     const std::string directory{"throttle"};
-    ASSERT_EQ(instance->throttleBackoff(type, cluster, directory), 0);
-    ASSERT_EQ(instance->throttleBackoff(type, cluster, directory), 0);
+    ASSERT_EQ(instance->throttleBackoff(signal, cluster, directory), 0);
+    ASSERT_EQ(instance->throttleBackoff(signal, cluster, directory), 0);
 
     ASSERT_EQ(stats.localThrottled, 0);
     ASSERT_EQ(stats.globalThrottled, 0);
+    ASSERT_EQ(stats.networkThrottled, 0);
     ASSERT_EQ(stats.backOffDelay.count(), 0);
 
     uint64_t measuredBackOffMs{0};
     uint64_t firstBackoffMs{0};
     {
       MicrosecondTimer timer(&measuredBackOffMs);
-      firstBackoffMs = instance->throttleBackoff(type, cluster, directory);
+      firstBackoffMs = instance->throttleBackoff(signal, cluster, directory);
     }
     ASSERT_LE(firstBackoffMs, maxThrottleBackoffMs);
     ASSERT_GE(firstBackoffMs, minThrottleBackoffMs);
     ASSERT_GE(measuredBackOffMs, firstBackoffMs);
 
-    ASSERT_EQ(stats.localThrottled, global ? 0 : 1);
-    ASSERT_EQ(stats.globalThrottled, global ? 1 : 0);
+    ASSERT_EQ(
+        stats.localThrottled, signal == Throttler::SignalType::kLocal ? 1 : 0);
+    ASSERT_EQ(
+        stats.globalThrottled,
+        signal == Throttler::SignalType::kGlobal ? 1 : 0);
+    ASSERT_EQ(
+        stats.networkThrottled,
+        signal == Throttler::SignalType::kNetwork ? 1 : 0);
     ASSERT_EQ(stats.backOffDelay.count(), 1);
     ASSERT_EQ(stats.backOffDelay.sum(), firstBackoffMs);
 
@@ -150,15 +160,21 @@ TEST_F(ThrottlerTest, throttle) {
     uint64_t secondBackoffMs{0};
     {
       MicrosecondTimer timer(&measuredBackOffMs);
-      secondBackoffMs = instance->throttleBackoff(type, cluster, directory);
+      secondBackoffMs = instance->throttleBackoff(signal, cluster, directory);
     }
     ASSERT_LE(secondBackoffMs, maxThrottleBackoffMs);
     ASSERT_GE(secondBackoffMs, minThrottleBackoffMs);
     ASSERT_GE(measuredBackOffMs, secondBackoffMs);
     ASSERT_LT(firstBackoffMs, secondBackoffMs);
 
-    ASSERT_EQ(stats.localThrottled, global ? 0 : 2);
-    ASSERT_EQ(stats.globalThrottled, global ? 2 : 0);
+    ASSERT_EQ(
+        stats.localThrottled, signal == Throttler::SignalType::kLocal ? 2 : 0);
+    ASSERT_EQ(
+        stats.globalThrottled,
+        signal == Throttler::SignalType::kGlobal ? 2 : 0);
+    ASSERT_EQ(
+        stats.networkThrottled,
+        signal == Throttler::SignalType::kNetwork ? 2 : 0);
     ASSERT_EQ(stats.backOffDelay.count(), 2);
     ASSERT_EQ(stats.backOffDelay.sum(), firstBackoffMs + secondBackoffMs);
   }
@@ -167,42 +183,44 @@ TEST_F(ThrottlerTest, throttle) {
 TEST_F(ThrottlerTest, expire) {
   const uint64_t minThrottleBackoffMs = 1'00;
   const uint64_t maxThrottleBackoffMs = 2'00;
-  for (const bool global : {true, false}) {
-    SCOPED_TRACE(fmt::format("global {}", global));
+  for (const auto signal : kSignalTypes) {
+    SCOPED_TRACE(fmt::format("signal: {}", Throttler::signalTypeName(signal)));
     Throttler::testingReset();
     Throttler::init(Throttler::Config(
         true,
         minThrottleBackoffMs,
         maxThrottleBackoffMs,
         2.0,
-        global ? 1'0000 : 2,
-        global ? 2 : 1'0000,
+        signal == Throttler::SignalType::kLocal ? 2 : 1'000,
+        signal == Throttler::SignalType::kGlobal ? 2 : 1'000,
+        signal == Throttler::SignalType::kNetwork ? 2 : 1'000,
         1'000,
         1'000));
     auto* instance = Throttler::instance();
     const auto& stats = instance->stats();
     ASSERT_EQ(stats.localThrottled, 0);
     ASSERT_EQ(stats.globalThrottled, 0);
+    ASSERT_EQ(stats.networkThrottled, 0);
     ASSERT_EQ(stats.backOffDelay.count(), 0);
 
-    const Throttler::SignalType type =
-        global ? Throttler::SignalType::kGlobal : Throttler::SignalType::kLocal;
     const std::string cluster{"expire"};
     const std::string directory{"expire"};
-    ASSERT_EQ(instance->throttleBackoff(type, cluster, directory), 0);
-    ASSERT_EQ(instance->throttleBackoff(type, cluster, directory), 0);
+    ASSERT_EQ(instance->throttleBackoff(signal, cluster, directory), 0);
+    ASSERT_EQ(instance->throttleBackoff(signal, cluster, directory), 0);
 
     ASSERT_EQ(stats.localThrottled, 0);
     ASSERT_EQ(stats.globalThrottled, 0);
+    ASSERT_EQ(stats.networkThrottled, 0);
     ASSERT_EQ(stats.backOffDelay.count(), 0);
 
     std::this_thread::sleep_for(std::chrono::seconds(2)); // NOLINT
 
-    ASSERT_EQ(instance->throttleBackoff(type, cluster, directory), 0);
-    ASSERT_EQ(instance->throttleBackoff(type, cluster, directory), 0);
+    ASSERT_EQ(instance->throttleBackoff(signal, cluster, directory), 0);
+    ASSERT_EQ(instance->throttleBackoff(signal, cluster, directory), 0);
 
     ASSERT_EQ(stats.localThrottled, 0);
     ASSERT_EQ(stats.globalThrottled, 0);
+    ASSERT_EQ(stats.networkThrottled, 0);
     ASSERT_EQ(stats.backOffDelay.count(), 0);
   }
 }
@@ -216,6 +234,7 @@ TEST_F(ThrottlerTest, differentLocals) {
   const auto& stats = instance->stats();
   ASSERT_EQ(stats.localThrottled, 0);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 0);
 
   const std::string cluster1{"differentLocals1"};
@@ -231,6 +250,7 @@ TEST_F(ThrottlerTest, differentLocals) {
 
   ASSERT_EQ(stats.localThrottled, 0);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 0);
 
   const std::string directory2{"differentLocals2"};
@@ -245,6 +265,7 @@ TEST_F(ThrottlerTest, differentLocals) {
 
   ASSERT_EQ(stats.localThrottled, 0);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 0);
 
   const auto path1firstBackoffMs = instance->throttleBackoff(
@@ -254,6 +275,7 @@ TEST_F(ThrottlerTest, differentLocals) {
 
   ASSERT_EQ(stats.localThrottled, 1);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 1);
   ASSERT_EQ(stats.backOffDelay.sum(), path1firstBackoffMs);
 
@@ -264,6 +286,7 @@ TEST_F(ThrottlerTest, differentLocals) {
 
   ASSERT_EQ(stats.localThrottled, 2);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 2);
   ASSERT_EQ(
       stats.backOffDelay.sum(), path1firstBackoffMs + path2firstBackoffMs);
@@ -274,6 +297,7 @@ TEST_F(ThrottlerTest, differentLocals) {
 
   ASSERT_EQ(stats.localThrottled, 3);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 3);
   ASSERT_EQ(
       stats.backOffDelay.sum(),
@@ -285,6 +309,7 @@ TEST_F(ThrottlerTest, differentLocals) {
 
   ASSERT_EQ(stats.localThrottled, 4);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 4);
   ASSERT_EQ(
       stats.backOffDelay.sum(),
@@ -301,6 +326,7 @@ TEST_F(ThrottlerTest, differentGlobals) {
   const auto& stats = instance->stats();
   ASSERT_EQ(stats.localThrottled, 0);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 0);
 
   const std::string cluster1{"differentGlobals1"};
@@ -316,6 +342,7 @@ TEST_F(ThrottlerTest, differentGlobals) {
 
   ASSERT_EQ(stats.localThrottled, 0);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 0);
 
   const std::string cluster2{"differentGlobals2"};
@@ -331,6 +358,7 @@ TEST_F(ThrottlerTest, differentGlobals) {
 
   ASSERT_EQ(stats.localThrottled, 0);
   ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
   ASSERT_EQ(stats.backOffDelay.count(), 0);
 
   const auto path1firstBackoffMs = instance->throttleBackoff(
@@ -371,6 +399,105 @@ TEST_F(ThrottlerTest, differentGlobals) {
 
   ASSERT_EQ(stats.localThrottled, 0);
   ASSERT_EQ(stats.globalThrottled, 4);
+  ASSERT_EQ(stats.backOffDelay.count(), 4);
+  ASSERT_EQ(
+      stats.backOffDelay.sum(),
+      path1firstBackoffMs + path2firstBackoffMs + path1SecondBackoffMs +
+          path2SecondBackoffMs);
+}
+
+TEST_F(ThrottlerTest, differentNetworks) {
+  const uint64_t minThrottleBackoffMs = 1'000;
+  const uint64_t maxThrottleBackoffMs = 2'000;
+  Throttler::init(Throttler::Config(
+      true,
+      minThrottleBackoffMs,
+      maxThrottleBackoffMs,
+      2.0,
+      1'0000,
+      1'0000,
+      2));
+  auto* instance = Throttler::instance();
+  const auto& stats = instance->stats();
+  ASSERT_EQ(stats.localThrottled, 0);
+  ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
+  ASSERT_EQ(stats.backOffDelay.count(), 0);
+
+  const std::string cluster1{"differentNetworks1"};
+  const std::string directory1{"differentNetworks1"};
+  ASSERT_EQ(
+      instance->throttleBackoff(
+          Throttler::SignalType::kNetwork, cluster1, directory1),
+      0);
+  ASSERT_EQ(
+      instance->throttleBackoff(
+          Throttler::SignalType::kNetwork, cluster1, directory1),
+      0);
+
+  ASSERT_EQ(stats.localThrottled, 0);
+  ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
+  ASSERT_EQ(stats.backOffDelay.count(), 0);
+
+  const std::string cluster2{"differentNetworks2"};
+  const std::string directory2{"differentGlobals1"};
+  ASSERT_EQ(
+      instance->throttleBackoff(
+          Throttler::SignalType::kNetwork, cluster2, directory2),
+      0);
+  ASSERT_EQ(
+      instance->throttleBackoff(
+          Throttler::SignalType::kNetwork, cluster2, directory2),
+      0);
+
+  ASSERT_EQ(stats.localThrottled, 0);
+  ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 0);
+  ASSERT_EQ(stats.backOffDelay.count(), 0);
+
+  const auto path1firstBackoffMs = instance->throttleBackoff(
+      Throttler::SignalType::kNetwork, cluster1, directory1);
+  ASSERT_GT(path1firstBackoffMs, 0);
+  ASSERT_LT(path1firstBackoffMs, maxThrottleBackoffMs);
+
+  ASSERT_EQ(stats.localThrottled, 0);
+  ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 1);
+  ASSERT_EQ(stats.backOffDelay.count(), 1);
+  ASSERT_EQ(stats.backOffDelay.sum(), path1firstBackoffMs);
+
+  const auto path2firstBackoffMs = instance->throttleBackoff(
+      Throttler::SignalType::kNetwork, cluster2, directory2);
+  ASSERT_GT(path2firstBackoffMs, 0);
+  ASSERT_LT(path2firstBackoffMs, maxThrottleBackoffMs);
+
+  ASSERT_EQ(stats.localThrottled, 0);
+  ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 2);
+  ASSERT_EQ(stats.backOffDelay.count(), 2);
+  ASSERT_EQ(
+      stats.backOffDelay.sum(), path1firstBackoffMs + path2firstBackoffMs);
+
+  const auto path1SecondBackoffMs = instance->throttleBackoff(
+      Throttler::SignalType::kNetwork, cluster1, directory1);
+  ASSERT_EQ(path1SecondBackoffMs, maxThrottleBackoffMs);
+
+  ASSERT_EQ(stats.localThrottled, 0);
+  ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 3);
+  ASSERT_EQ(stats.backOffDelay.count(), 3);
+  ASSERT_EQ(
+      stats.backOffDelay.sum(),
+      path1firstBackoffMs + path2firstBackoffMs + path1SecondBackoffMs);
+
+  const auto path2SecondBackoffMs = instance->throttleBackoff(
+      Throttler::SignalType::kNetwork, cluster2, directory2);
+  ASSERT_EQ(path2SecondBackoffMs, maxThrottleBackoffMs);
+
+  ASSERT_EQ(stats.localThrottled, 0);
+  ASSERT_EQ(stats.globalThrottled, 0);
+  ASSERT_EQ(stats.networkThrottled, 4);
   ASSERT_EQ(stats.backOffDelay.count(), 4);
   ASSERT_EQ(
       stats.backOffDelay.sum(),
@@ -496,6 +623,7 @@ TEST_F(ThrottlerTest, fuzz) {
   const double backoffScaleFactor = 2.0;
   const uint32_t minLocalThrottledSignals = 10;
   const uint32_t minGlobalThrottledSignals = 20;
+  const uint32_t minNetworkThrottledSignals = 10;
   const uint32_t maxCacheEntries = 64;
   const uint32_t cacheTTLMs = 10;
   Throttler::testingReset();
@@ -506,6 +634,7 @@ TEST_F(ThrottlerTest, fuzz) {
       backoffScaleFactor,
       minLocalThrottledSignals,
       minGlobalThrottledSignals,
+      minNetworkThrottledSignals,
       maxCacheEntries,
       cacheTTLMs));
   auto* instance = Throttler::instance();
@@ -535,9 +664,7 @@ TEST_F(ThrottlerTest, fuzz) {
     threads.emplace_back([&]() {
       folly::Random::DefaultGenerator rng(seed);
       while (!stopped) {
-        const Throttler::SignalType type = folly::Random::oneIn(3)
-            ? Throttler::SignalType::kGlobal
-            : Throttler::SignalType::kLocal;
+        const auto type = kSignalTypes[folly::Random::rand32(0, 3)];
         const int directoryIndex = folly::Random::rand32(rng) % numDirectories;
         const int clusterIndex = directoryIndex % numClusters;
         instance->throttleBackoff(
