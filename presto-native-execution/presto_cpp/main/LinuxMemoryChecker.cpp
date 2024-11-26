@@ -49,6 +49,63 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
     LOG(INFO) << fmt::format("Changed to using memory stat file {}", statFile_);
   }
 
+  void start() {
+    // Set memMaxFile to "/sys/fs/cgroup/memory/memory.limit_in_bytes" for
+    // cgroup v1 or "sys/fs/cgroup/memory.max" for cgroup v2.
+    struct stat buffer;
+    std::string memMaxFile;
+    if ((stat(kCgroupV1MaxMemFilePath, &buffer) == 0)) {
+      memMaxFile = kCgroupV1MaxMemFilePath;
+    } else if ((stat(kCgroupV2MaxMemFilePath, &buffer) == 0)) {
+      memMaxFile = kCgroupV2MaxMemFilePath;
+    } else {
+      memMaxFile = "None";
+    }
+    LOG(INFO) << fmt::format("Checking {}", memMaxFile);
+
+    // Check system-memory-gb < system-mem-limit-gb < actual total memory
+    // capacity.
+
+    // For cgroup v1:
+    // Set actual total memory to be the smaller number between /proc/meminfo
+    // and memory.limit_in_bytes
+    int64_t actualTotalMemory = 0;
+    folly::gen::byLine("/proc/meminfo") |
+        [&](const folly::StringPiece& line) -> void {
+      if (actualTotalMemory == 0) {
+        actualTotalMemory = static_cast<int64_t>(
+            extractNumericConfigValueWithRegex(line, kMemTotalRegex) * 1024);
+      }
+      if (actualTotalMemory != 0) {
+        return;
+      }
+    };
+    if (memMaxFile != "None") {
+      folly::gen::byLine(memMaxFile.c_str()) |
+          [&](const folly::StringPiece& line) -> void {
+        if (line == "max") {
+          return;
+        }
+        actualTotalMemory =
+            std::min(actualTotalMemory, folly::to<int64_t>(line));
+        return;
+      };
+    }
+
+    VELOX_CHECK_LT(
+        config_.systemMemLimitBytes,
+        actualTotalMemory,
+        "system-mem-limit-gb is higher than the actual total memory capacity.");
+
+    auto* systemConfig = SystemConfig::instance();
+    if (config_.systemMemLimitBytes < systemConfig->systemMemoryGb()) {
+      LOG(WARNING) << "system-mem-limit-gb is smaller than system-memory-gb. "
+                   << "Expected: system-mem-limit-gb >= system-memory-gb.";
+    }
+
+    PeriodicMemoryChecker::start();
+  }
+
  protected:
   // Current memory calculation used is inactive_anon + active_anon
   // Our first attempt was using memInfo memTotal - memAvailable.
@@ -146,6 +203,9 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
   const boost::regex kMemTotalRegex{R"!(MemTotal:\s*(\d+)\s*kB)!"};
   const char* kCgroupV1Path = "/sys/fs/cgroup/memory/memory.stat";
   const char* kCgroupV2Path = "/sys/fs/cgroup/memory.stat";
+  const char* kCgroupV1MaxMemFilePath =
+      "/sys/fs/cgroup/memory/memory.limit_in_bytes";
+  const char* kCgroupV2MaxMemFilePath = "/sys/fs/cgroup/memory.max";
   std::string statFile_;
 
   size_t extractNumericConfigValueWithRegex(
