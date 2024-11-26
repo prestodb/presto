@@ -127,6 +127,11 @@ function install_azure-storage-sdk-cpp {
     cd $azure_core_dir
     cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
   )
+  # install azure-identity
+  (
+    cd sdk/identity/azure-identity
+    cmake_install -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=OFF
+  )
   # install azure-storage-common
   (
     cd sdk/storage/azure-storage-common
