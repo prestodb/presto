@@ -112,7 +112,7 @@ std::optional<common::SpillConfig> DriverCtx::makeSpillConfig(
   if (!queryConfig.spillEnabled()) {
     return std::nullopt;
   }
-  if (task->spillDirectory().empty()) {
+  if (task->spillDirectory().empty() && !task->hasCreateSpillDirectoryCb()) {
     return std::nullopt;
   }
   common::GetSpillDirectoryPathCB getSpillDirPathCb =

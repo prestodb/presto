@@ -309,6 +309,28 @@ TEST_P(LocalFileTest, readFileDestructor) {
   }
 }
 
+TEST_P(LocalFileTest, mkdirFailIfPresent) {
+  auto tempFolder = exec::test::TempDirectoryPath::create(useFaultyFs_);
+  std::string path = tempFolder->getPath();
+  auto localFs = filesystems::getFileSystem(path, nullptr);
+
+  path += "/level1/level2/level3";
+  EXPECT_FALSE(localFs->exists(path));
+  EXPECT_NO_THROW(localFs->mkdir(path));
+  EXPECT_TRUE(localFs->exists(path));
+
+  // Except that if we try to make the directory again,
+  // it will not fail.
+  EXPECT_NO_THROW(localFs->mkdir(path));
+
+  // We fail if the directory is already present
+  DirectoryOptions options;
+  options.failIfExists = true;
+  VELOX_ASSERT_THROW(
+      localFs->mkdir(path, options),
+      fmt::format("Directory: {} already exists", localFs->extractPath(path)));
+}
+
 TEST_P(LocalFileTest, mkdir) {
   auto tempFolder = exec::test::TempDirectoryPath::create(useFaultyFs_);
 

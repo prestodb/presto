@@ -163,10 +163,21 @@ class LocalFileSystem : public FileSystem {
     return filePaths;
   }
 
-  void mkdir(std::string_view path, const DirectoryOptions& /*options*/)
-      override {
+  void mkdir(std::string_view path, const DirectoryOptions& options) override {
     std::error_code ec;
-    std::filesystem::create_directories(path, ec);
+
+    const bool created = std::filesystem::create_directories(path, ec);
+    // This API is unlike POSIX for mkdir when the directory already exists
+    // because in POSIX, the error_code will return EEXIST, but in this API, the
+    // error_code will return 0. The indication for whether or not a directory
+    // is created is based on the return boolean of create_directories. A value
+    // of true indicates that the directory was created. Thus here, we check the
+    // underlying mkdir call is successful, and then check if the directory was
+    // created or not.
+    if (ec.value() == 0 && !created && options.failIfExists) {
+      VELOX_FAIL("Directory: {} already exists", path);
+    }
+
     VELOX_CHECK_EQ(
         0,
         ec.value(),

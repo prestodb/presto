@@ -81,6 +81,15 @@ class FaultyFileSystem : public FileSystem {
     executor_ = executor;
   }
 
+  /// Sets the hook for filesystem fault injection.
+  void setFilesystemInjectionHook(FileSystemFaultInjectionHook hook);
+
+  /// Setups to inject 'error' for a particular set of filesystem operation
+  /// types. Only operations inside 'opTypes' will be injected with 'error'.
+  void setFileSystemInjectionError(
+      std::exception_ptr error,
+      std::unordered_set<FaultFileSystemOperation::Type> opTypes = {});
+
   /// Setups hook for file fault injection.
   void setFileInjectionHook(FileFaultInjectionHook hook);
 
@@ -101,7 +110,33 @@ class FaultyFileSystem : public FileSystem {
   /// Clears the file fault injections.
   void clearFileFaultInjections();
 
+  /// Clears the filesystem fault injections.
+  void clearFileSystemInjections();
+
  private:
+  // Defines the per filesystem fault injection setup. Only one type of can be
+  // set at a time
+  struct FileSystemInjections {
+    // TODO: Support more flavors of fault injection
+    FileSystemFaultInjectionHook filesystemInjectionHook{nullptr};
+
+    std::exception_ptr directoryException{nullptr};
+
+    std::unordered_set<FaultFileSystemOperation::Type> opTypes{};
+
+    FileSystemInjections() = default;
+
+    FileSystemInjections(
+        std::exception_ptr exception,
+        std::unordered_set<FaultFileSystemOperation::Type> _opTypes)
+        : directoryException(std::move(exception)),
+          opTypes(std::move(_opTypes)) {}
+
+    explicit FileSystemInjections(
+        FileSystemFaultInjectionHook _filesystemInjectionHook)
+        : filesystemInjectionHook(std::move(_filesystemInjectionHook)) {}
+  };
+
   // Defines the file injection setup and only one type of injection can be set
   // at a time.
   struct FileInjections {
@@ -130,11 +165,15 @@ class FaultyFileSystem : public FileSystem {
           opTypes(std::move(_opTypes)) {}
   };
 
+  // Invoked to inject filesystem fault to 'op' if configured.
+  void maybeInjectFilesystemFault(FaultFileSystemOperation* op);
+
   // Invoked to inject file fault to 'op' if configured.
   void maybeInjectFileFault(FaultFileOperation* op);
 
   mutable std::mutex mu_;
   std::optional<FileInjections> fileInjections_;
+  std::optional<FileSystemInjections> fsInjections_;
   folly::Executor* executor_;
 };
 

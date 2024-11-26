@@ -116,12 +116,35 @@ void FaultyFileSystem::mkdir(
     std::string_view path,
     const DirectoryOptions& options) {
   const auto delegatedDirPath = extractPath(path);
-  getFileSystem(delegatedDirPath, config_)->mkdir(delegatedDirPath, options);
+  auto delegatedFs = getFileSystem(delegatedDirPath, config_);
+
+  auto op =
+      FaultFileSystemMkdirOperation(std::string(delegatedDirPath), options);
+  maybeInjectFilesystemFault(&op);
+  if (!op.delegate) {
+    return;
+  }
+
+  delegatedFs->mkdir(delegatedDirPath, options);
 }
 
 void FaultyFileSystem::rmdir(std::string_view path) {
   const auto delegatedDirPath = extractPath(path);
   getFileSystem(delegatedDirPath, config_)->rmdir(delegatedDirPath);
+}
+
+void FaultyFileSystem::setFilesystemInjectionHook(
+    FileSystemFaultInjectionHook hook) {
+  std::lock_guard<std::mutex> l(mu_);
+  fsInjections_ = FileSystemInjections(std::move(hook));
+}
+
+void FaultyFileSystem::setFileSystemInjectionError(
+    std::exception_ptr exception,
+    std::unordered_set<FaultFileSystemOperation::Type> opTypes) {
+  std::lock_guard<std::mutex> l(mu_);
+  fsInjections_ =
+      FileSystemInjections(std::move(exception), std::move(opTypes));
 }
 
 void FaultyFileSystem::setFileInjectionHook(
@@ -144,9 +167,40 @@ void FaultyFileSystem::setFileInjectionDelay(
   fileInjections_ = FileInjections(delayUs, std::move(opTypes));
 }
 
+void FaultyFileSystem::clearFileSystemInjections() {
+  std::lock_guard<std::mutex> l(mu_);
+  fsInjections_.reset();
+}
+
 void FaultyFileSystem::clearFileFaultInjections() {
   std::lock_guard<std::mutex> l(mu_);
   fileInjections_.reset();
+}
+
+void FaultyFileSystem::maybeInjectFilesystemFault(
+    FaultFileSystemOperation* op) {
+  {
+    std::lock_guard<std::mutex> l(mu_);
+    if (!fsInjections_.has_value()) {
+      return;
+    }
+
+    auto& injections = fsInjections_.value();
+    if (injections.filesystemInjectionHook != nullptr) {
+      injections.filesystemInjectionHook(op);
+      return;
+    }
+
+    if (!injections.opTypes.empty() &&
+        injections.opTypes.count(op->type) == 0) {
+      return;
+    }
+
+    if (injections.directoryException != nullptr) {
+      std::rethrow_exception(injections.directoryException);
+    }
+  }
+  return;
 }
 
 void FaultyFileSystem::maybeInjectFileFault(FaultFileOperation* op) {

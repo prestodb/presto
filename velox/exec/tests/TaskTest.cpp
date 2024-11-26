@@ -17,6 +17,7 @@
 #include "velox/exec/Task.h"
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/common/future/VeloxPromise.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/memory/SharedArbitrator.h"
@@ -1699,6 +1700,104 @@ TEST_F(TaskTest, driverCreationMemoryAllocationCheck) {
           badTask->start(1), "Unexpected memory pool allocations");
     }
   }
+}
+
+TEST_F(TaskTest, spillDirectoryCallback) {
+  // Marks the spill directory as not already created and ensures that the Task
+  // handles creating it on first use and eventually deleting it on destruction.
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row % 300; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+  core::PlanNodeId aggrNodeId;
+  const auto plan = PlanBuilder()
+                        .values({data})
+                        .singleAggregation({"c0"}, {"sum(c1)"}, {})
+                        .capturePlanNodeId(aggrNodeId)
+                        .planNode();
+  CursorParameters params;
+  params.planNode = plan;
+  params.queryCtx = core::QueryCtx::create(driverExecutor_.get());
+  params.queryCtx->testingOverrideConfigUnsafe(
+      {{core::QueryConfig::kSpillEnabled, "true"},
+       {core::QueryConfig::kAggregationSpillEnabled, "true"}});
+  params.maxDrivers = 1;
+
+  auto cursor = TaskCursor::create(params);
+
+  std::shared_ptr<Task> task = cursor->task();
+  auto tmpRootDir = exec::test::TempDirectoryPath::create();
+  auto tmpParentSpillDir = fmt::format(
+      "{}{}/parent_spill/",
+      tests::utils::FaultyFileSystem::scheme(),
+      tmpRootDir->getPath());
+  auto tmpSpillDir = fmt::format(
+      "{}{}/parent_spill/spill/",
+      tests::utils::FaultyFileSystem::scheme(),
+      tmpRootDir->getPath());
+
+  EXPECT_FALSE(task->hasCreateSpillDirectoryCb());
+
+  task->setCreateSpillDirectoryCb([tmpParentSpillDir, tmpSpillDir]() {
+    auto filesystem = filesystems::getFileSystem(tmpParentSpillDir, nullptr);
+    filesystems::DirectoryOptions options;
+    options.values.emplace(
+        filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
+        "dummy.config=123");
+    filesystem->mkdir(tmpParentSpillDir, options);
+    filesystem->mkdir(tmpSpillDir);
+    return tmpSpillDir;
+  });
+
+  EXPECT_TRUE(task->hasCreateSpillDirectoryCb());
+  auto fs = std::dynamic_pointer_cast<tests::utils::FaultyFileSystem>(
+      filesystems::getFileSystem(tmpParentSpillDir, nullptr));
+
+  fs->setFileSystemInjectionError(
+      std::make_exception_ptr(std::runtime_error("test exception")),
+      {tests::utils::FaultFileSystemOperation::Type::kMkdir});
+  // Test exception case
+  VELOX_ASSERT_THROW(task->getOrCreateSpillDirectory(), "test exception");
+  fs->clearFileSystemInjections();
+
+  // Test success case and assert on mkdir options.
+  bool parentDirectoryCreated = false;
+  bool spillDirectoryCreated = false;
+  tests::utils::FileSystemFaultInjectionHook hook = [&](auto* op) {
+    auto mkdirOp =
+        static_cast<tests::utils::FaultFileSystemMkdirOperation*>(op);
+    if (mkdirOp->path ==
+        fmt::format("{}/parent_spill/", tmpRootDir->getPath())) {
+      parentDirectoryCreated = true;
+      auto it = mkdirOp->options.values.find(
+          filesystems::DirectoryOptions::kMakeDirectoryConfig.toString());
+      EXPECT_TRUE(it != mkdirOp->options.values.end());
+      EXPECT_EQ(it->second, "dummy.config=123");
+    }
+    if (mkdirOp->path ==
+        fmt::format("{}/parent_spill/spill/", tmpRootDir->getPath())) {
+      spillDirectoryCreated = true;
+    }
+    return;
+  };
+
+  fs->setFilesystemInjectionHook(hook);
+
+  TestScopedSpillInjection scopedSpillInjection(100);
+
+  while (cursor->moveNext()) {
+  }
+
+  waitForTaskCompletion(task.get(), 5'000'000);
+
+  EXPECT_TRUE(parentDirectoryCreated);
+  EXPECT_TRUE(spillDirectoryCreated);
+  EXPECT_EQ(exec::TaskState::kFinished, task->state());
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  auto& stats = taskStats.at(aggrNodeId);
+  ASSERT_GT(stats.spilledRows, 0);
+  cursor.reset(); // ensure 'task' has no other shared pointer.
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
 
 TEST_F(TaskTest, spillDirectoryLifecycleManagement) {

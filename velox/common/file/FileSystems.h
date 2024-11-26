@@ -68,6 +68,12 @@ struct FileOptions {
 
 /// Defines directory options
 struct DirectoryOptions : FileOptions {
+  /// Whether to throw an error if the directory already exists.
+  /// For POSIX systems, this is equivalent to handling EEXIST.
+  ///
+  /// NOTE: This is only applicable for mkdir
+  bool failIfExists{false};
+
   /// This is similar to kFileCreateConfig
   static constexpr folly::StringPiece kMakeDirectoryConfig{
       "make-directory-config"};

@@ -103,6 +103,12 @@ class Task : public std::enable_shared_from_this<Task> {
     spillDirectoryCreated_ = alreadyCreated;
   }
 
+  void setCreateSpillDirectoryCb(
+      std::function<std::string()> spillDirectoryCallback) {
+    VELOX_CHECK_NULL(spillDirectoryCallback_);
+    spillDirectoryCallback_ = std::move(spillDirectoryCallback);
+  }
+
   std::string toString() const;
 
   folly::dynamic toJson() const;
@@ -644,6 +650,10 @@ class Task : public std::enable_shared_from_this<Task> {
     return spillDirectory_;
   }
 
+  bool hasCreateSpillDirectoryCb() const {
+    return spillDirectoryCallback_ != nullptr;
+  }
+
   /// Returns the spill directory path. Ensures that the spill directory is
   /// created before returning. Is thread safe. Returns an empty string if
   /// either the spill directory is not specified during task creation or the
@@ -1168,6 +1178,10 @@ class Task : public std::enable_shared_from_this<Task> {
   std::vector<ContinuePromise> resumePromises_;
   // Base spill directory for this task.
   std::string spillDirectory_;
+  // Spill directory callback for this task. This callback will be used to
+  // create the spill directory for this task. This callback returns
+  // a path that will be into spillDirectory_
+  std::function<std::string()> spillDirectoryCallback_;
 
   // Mutex to ensure only the first caller thread of 'getOrCreateSpillDirectory'
   // creates the directory.
