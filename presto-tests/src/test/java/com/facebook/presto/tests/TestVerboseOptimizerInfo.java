@@ -157,6 +157,12 @@ public class TestVerboseOptimizerInfo
     {
     }
 
+    @Test
+    public void testUse()
+    {
+        // USE statement is not supported
+    }
+
     private void checkOptimizerInfo(String explain, String optimizerType, List<String> optimizers)
     {
         checkOptimizerInfo(explain, optimizerType, optimizers, new ArrayList<>());
