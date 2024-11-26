@@ -370,7 +370,25 @@
                     <groupId>org.elasticsearch</groupId>
                     <artifactId>jna</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-core</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-core</artifactId>
+            <version>8.10.0</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-sandbox</artifactId>
+            <version>8.10.0</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 
@@ -383,6 +401,10 @@
                     <ignoredDependencies>
                         <ignoredDependency>org.yaml:snakeyaml:jar</ignoredDependency>
                     </ignoredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>org.apache.lucene:lucene-core:jar:8.10.0</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.apache.lucene:lucene-sandbox:jar:8.10.0</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
             <plugin>
