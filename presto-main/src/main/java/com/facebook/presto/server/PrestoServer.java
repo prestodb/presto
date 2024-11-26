@@ -30,6 +30,7 @@ import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
+import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
@@ -183,6 +184,7 @@ public class PrestoServer
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
             injector.getInstance(PlanCheckerProviderManager.class).loadPlanCheckerProviders();
             injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
+            injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

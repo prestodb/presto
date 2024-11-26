@@ -13,23 +13,49 @@
  */
 package com.facebook.presto;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spi.ClientRequestFilter;
+import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ClientRequestFilterManager
 {
-    private final List<ClientRequestFilter> clientRequestFilters = new CopyOnWriteArrayList<>();
+    private final List<ClientRequestFilterFactory> factories = new CopyOnWriteArrayList<>();
+    private volatile List<ClientRequestFilter> immutableFilters = ImmutableList.of();
+    private static final Logger log = Logger.get(PluginManager.class);
+
+    public void registerClientRequestFilterFactory(ClientRequestFilterFactory factory)
+    {
+        factories.add(factory);
+        loadClientRequestFilters();
+    }
+
+    public void loadClientRequestFilters()
+    {
+        ImmutableList<ClientRequestFilter> filters = factories.stream()
+                .map(factory -> {
+                    try {
+                        return factory.create(factory.getName());
+                    }
+                    catch (Exception e) {
+                        log.error(e, "Failed to create filter for factory '%s' of type '%s'",
+                                factory.getName(), factory.getClass().getName());
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(ImmutableList.toImmutableList());
+
+        immutableFilters = filters;
+    }
 
     public List<ClientRequestFilter> getClientRequestFilters()
     {
-        return ImmutableList.copyOf(clientRequestFilters);
-    }
-
-    public void registerClientRequestFilter(ClientRequestFilter clientRequestFilter)
-    {
-        clientRequestFilters.add(clientRequestFilter);
+        return immutableFilters;
     }
 }

@@ -28,7 +28,7 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
-import com.facebook.presto.spi.ClientRequestFilter;
+import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
@@ -360,9 +360,9 @@ public class PluginManager
             nodeStatusNotificationManager.addNodeStatusNotificationProviderFactory(nodeStatusNotificationProviderFactory);
         }
 
-        for (ClientRequestFilter clientRequestFilter : plugin.getClientRequestFilters()) {
-            log.info("Registering client request filter");
-            clientRequestFilterManager.registerClientRequestFilter(clientRequestFilter);
+        for (ClientRequestFilterFactory clientRequestFilterFactory : plugin.getClientRequestFilterFactories()) {
+            log.info("Registering client request filter factory");
+            clientRequestFilterManager.registerClientRequestFilterFactory(clientRequestFilterFactory);
         }
 
         for (PlanCheckerProviderFactory planCheckerProviderFactory : plugin.getPlanCheckerProviderFactories()) {

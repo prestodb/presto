@@ -19,6 +19,7 @@ import com.facebook.presto.server.security.AuthenticationFilter;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ClientRequestFilter;
+import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import org.testng.annotations.Test;
@@ -38,84 +39,79 @@ import static org.testng.Assert.assertEquals;
 
 public class TestClientRequestFilterPlugin
 {
-    private List<ClientRequestFilter> getClientRequestFilter()
+    static class GenericClientRequestFilterFactory
+            implements ClientRequestFilterFactory
     {
-        List<ClientRequestFilter> requestFilters = new ArrayList<>();
-        ClientRequestFilter customModifier = new ClientRequestFilter()
+        private final String name;
+        private final String headerName;
+        private final String headerValue;
+
+        public GenericClientRequestFilterFactory(String name, String headerName, String headerValue)
         {
-            @Override
-            public List<String> getHeaderNames()
-            {
-                return Collections.singletonList("ExpectedExtraHeader");
-            }
-            @Override
-            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
-            {
-                Map<String, String> headers = new HashMap<>();
-                headers.put("ExpectedExtraHeader", "ExpectedExtraValue");
-                return Optional.of(headers);
-            }
-        };
-        requestFilters.add(customModifier);
-        return requestFilters;
-    }
-
-    private List<ClientRequestFilter> getClientRequestFilterInBlockList()
-    {
-        List<ClientRequestFilter> requestFilters = new ArrayList<>();
-        ClientRequestFilter customModifier = new ClientRequestFilter()
-        {
-            @Override
-            public List<String> getHeaderNames()
-            {
-                return Collections.singletonList("X-Presto-Transaction-Id");
-            }
-            @Override
-            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
-            {
-                Map<String, String> headers = new HashMap<>();
-                headers.put("X-Presto-Transaction-Id", "CustomValue");
-                return Optional.of(headers);
-            }
-        };
-        requestFilters.add(customModifier);
-        return requestFilters;
-    }
-
-    private List<ClientRequestFilter> getClientRequestFilters()
-    {
-        List<ClientRequestFilter> requestFilters = new ArrayList<>();
-
-        class CustomHeaderFilter
-                implements ClientRequestFilter
-        {
-            private final String headerName;
-            private final String headerValue;
-
-            public CustomHeaderFilter(String headerName, String headerValue)
-            {
-                this.headerName = headerName;
-                this.headerValue = headerValue;
-            }
-
-            @Override
-            public List<String> getHeaderNames()
-            {
-                return Collections.singletonList(headerName);
-            }
-
-            @Override
-            public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
-            {
-                Map<String, String> headers = new HashMap<>();
-                headers.put(headerName, headerValue);
-                return Optional.of(headers);
-            }
+            this.name = name;
+            this.headerName = headerName;
+            this.headerValue = headerValue;
         }
-        requestFilters.add(new CustomHeaderFilter("ExpectedExtraValue", "ExpectedExtraHeader_1"));
-        requestFilters.add(new CustomHeaderFilter("ExpectedExtraValue", "ExpectedExtraHeader_2"));
 
-        return requestFilters;
+        @Override
+        public String getName()
+        {
+            return name;
+        }
+
+        @Override
+        public ClientRequestFilter create(String filterName)
+        {
+            return new ClientRequestFilter() {
+                @Override
+                public List<String> getHeaderNames()
+                {
+                    return Collections.singletonList(headerName);
+                }
+
+                @Override
+                public <T> Optional<Map<String, String>> getExtraHeaders(T additionalInfo)
+                {
+                    Map<String, String> headers = new HashMap<>();
+                    headers.put(headerName, headerValue);
+                    return Optional.of(headers);
+                }
+            };
+        }
+    }
+
+    private List<ClientRequestFilterFactory> getClientRequestFilterFactoryHandlesConflict()
+    {
+        return createFilterFactories(
+                new String[][] {
+                        {"Filter1", "ExpectedExtraValue", "ExpectedExtraHeader_1"},
+                        {"Filter2", "ExpectedExtraValue", "ExpectedExtraHeader_2"}
+                });
+    }
+
+    private List<ClientRequestFilterFactory> getClientRequestFilterFactory()
+    {
+        return createFilterFactories(
+                new String[][] {
+                        {"CustomModifier", "ExpectedExtraHeader", "ExpectedExtraValue"}
+                });
+    }
+
+    private List<ClientRequestFilterFactory> getClientRequestFilterInBlockList()
+    {
+        return createFilterFactories(
+                new String[][] {
+                        {"BlockListModifier", "X-Presto-Transaction-Id", "CustomValue"}
+                });
+    }
+
+    private List<ClientRequestFilterFactory> createFilterFactories(String[][] filterConfigs)
+    {
+        List<ClientRequestFilterFactory> factories = new ArrayList<>();
+        for (String[] config : filterConfigs) {
+            factories.add(new GenericClientRequestFilterFactory(config[0], config[1], config[2]));
+        }
+        return factories;
     }
 
     static class ConcreteHttpServletRequest
@@ -169,8 +165,8 @@ public class TestClientRequestFilterPlugin
     public void testCustomRequestFilterWithHeaders()
     {
         ConcreteHttpServletRequest request = createRequest();
-        List<ClientRequestFilter> requestFilters = getClientRequestFilter();
-        AuthenticationFilter filter = setupAuthenticationFilter(requestFilters);
+        List<ClientRequestFilterFactory> requestFilterFactory = getClientRequestFilterFactory();
+        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory);
         PrincipalStub testPrincipal = new PrincipalStub();
 
         HttpServletRequest wrappedRequest = filter.mergeExtraHeaders(request, testPrincipal);
@@ -186,8 +182,8 @@ public class TestClientRequestFilterPlugin
     public void testCustomRequestFilterWithHeadersInBlockList()
     {
         ConcreteHttpServletRequest request = createRequest();
-        List<ClientRequestFilter> requestFilters = getClientRequestFilterInBlockList();
-        AuthenticationFilter filter = setupAuthenticationFilter(requestFilters);
+        List<ClientRequestFilterFactory> requestFilterFactory = getClientRequestFilterInBlockList();
+        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory);
         PrincipalStub testPrincipal = new PrincipalStub();
 
         filter.mergeExtraHeaders(request, testPrincipal);
@@ -199,16 +195,16 @@ public class TestClientRequestFilterPlugin
     public void testCustomRequestFilterHandlesConflict()
     {
         ConcreteHttpServletRequest request = createRequest();
-        List<ClientRequestFilter> requestFilters = getClientRequestFilters();
-        AuthenticationFilter filter = setupAuthenticationFilter(requestFilters);
+        List<ClientRequestFilterFactory> requestFilterFactory = getClientRequestFilterFactoryHandlesConflict();
+        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory);
         PrincipalStub testPrincipal = new PrincipalStub();
 
         filter.mergeExtraHeaders(request, testPrincipal);
     }
 
-    private AuthenticationFilter setupAuthenticationFilter(List<ClientRequestFilter> requestFilters)
+    private AuthenticationFilter setupAuthenticationFilter(List<ClientRequestFilterFactory> requestFilterFactory)
     {
-        ClientRequestFilterManager clientRequestFilterManager = TestingPrestoServer.getClientRequestFilterManager(requestFilters);
+        ClientRequestFilterManager clientRequestFilterManager = TestingPrestoServer.getClientRequestFilterManager(requestFilterFactory);
 
         List<Authenticator> authenticators = createAuthenticators();
         SecurityConfig securityConfig = createSecurityConfig();

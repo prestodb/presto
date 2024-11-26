@@ -144,7 +144,7 @@ public interface Plugin
         return emptyList();
     }
 
-    default Iterable<ClientRequestFilter> getClientRequestFilters()
+    default Iterable<ClientRequestFilterFactory> getClientRequestFilterFactories()
     {
         return emptyList();
     }

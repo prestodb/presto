@@ -62,7 +62,7 @@ import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
-import com.facebook.presto.spi.ClientRequestFilter;
+import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.NodeManager;
@@ -866,10 +866,10 @@ public class TestingPrestoServer
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
 
-    public static ClientRequestFilterManager getClientRequestFilterManager(List<ClientRequestFilter> requestFilters)
+    public static ClientRequestFilterManager getClientRequestFilterManager(List<ClientRequestFilterFactory> requestFilterFactory)
     {
         ClientRequestFilterManager manager = new ClientRequestFilterManager();
-        requestFilters.forEach(manager::registerClientRequestFilter);
+        requestFilterFactory.forEach(manager::registerClientRequestFilterFactory);
         return manager;
     }
 }
