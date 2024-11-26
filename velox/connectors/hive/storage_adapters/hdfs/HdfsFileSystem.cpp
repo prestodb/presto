@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
-#include <mutex>
 #include "velox/common/config/Config.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h"

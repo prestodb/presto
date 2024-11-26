@@ -52,7 +52,6 @@ class HdfsReadFile final : public ReadFile {
   }
 
  private:
-  void preadInternal(uint64_t offset, uint64_t length, char* pos) const;
   void checkFileReadParameters(uint64_t offset, uint64_t length) const;
 
   class Impl;

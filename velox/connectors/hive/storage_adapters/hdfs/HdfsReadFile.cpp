@@ -15,7 +15,6 @@
  */
 
 #include "HdfsReadFile.h"
-#include <folly/synchronization/CallOnce.h>
 #include "velox/external/hdfs/ArrowHdfsInternal.h"
 
 namespace facebook::velox {
