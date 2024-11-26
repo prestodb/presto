@@ -146,13 +146,15 @@ The configuration properties of Presto C++ workers are described here, in alphab
 ^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
-* **Default value:** ``40``
+* **Default value:** ``57``
 
   Memory allocation limit enforced by an internal memory allocator. It consists of two parts:
   1) Memory used by the queries as specified in ``query-memory-gb``; 2) Memory used by the
   system, such as disk spilling and cache prefetch.
 
-  Set ``system-memory-gb`` to the available machine memory of the deployment.
+  Set ``system-memory-gb`` to about 90% of available machine memory of the deployment. 
+  This allows some buffer room to handle unaccounted memory in order to prevent out-of-memory conditions. 
+  The default value of 57 gb is calculated based on available machine memory of 64 gb.
 
 
 ``query-memory-gb``
@@ -321,11 +323,14 @@ server is under low memory pressure.
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
-* **Default value:** ``55``
+* **Default value:** ``60``
 
 Specifies the system memory limit that triggers the memory pushback or heap dump if
 the server memory usage is beyond this limit. A value of zero means no limit is set.
-This only applies if ``system-mem-pushback-enabled`` is ``true``.
+This only applies if ``system-mem-pushback-enabled`` is ``true``. 
+Set ``system-mem-limit-gb`` to be greater than or equal to system-memory-gb but not 
+higher than the available machine memory of the deployment. 
+The default value of 60 gb is calculated based on available machine memory of 64 gb.
 
 ``system-mem-shrink-gb``
 ^^^^^^^^^^^^^^^^^^^^^^^^
