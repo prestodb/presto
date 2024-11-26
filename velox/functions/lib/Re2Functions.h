@@ -428,6 +428,93 @@ std::shared_ptr<exec::VectorFunction> makeRegexpReplaceWithLambda(
 std::vector<std::shared_ptr<exec::FunctionSignature>>
 regexpReplaceWithLambdaSignatures();
 
+/// This function preprocesses an input pattern string to follow RE2 syntax.
+/// Java Pattern supports named capturing groups in the format
+/// (?<name>regex), but in RE2, this is written as (?P<name>regex), so we need
+/// to convert the former format to the latter.
+/// Presto https://prestodb.io/docs/current/functions/regexp.html
+/// Spark
+/// https://archive.apache.org/dist/spark/docs/3.5.2/api/sql/index.html#regexp_replace
+FOLLY_ALWAYS_INLINE std::string prepareRegexpReplacePattern(
+    const StringView& pattern) {
+  static const RE2 kRegex("[(][?]<([^>]*)>");
+
+  std::string newPattern = pattern.getString();
+  RE2::GlobalReplace(&newPattern, kRegex, R"((?P<\1>)");
+
+  return newPattern;
+}
+
+/// This function preprocesses an input replacement string to follow RE2 syntax
+/// for java.util.regex used by Presto and Spark. These are the replacements
+/// that are required.
+/// 1. RE2 replacement only supports group index capture, so we need to convert
+/// group name captures to group index captures.
+/// 2. Group index capture in java.util.regex replacement is '$N', while in RE2
+/// replacement it is '\N'. We need to convert it.
+/// 3. Replacement in RE2 only supports '\' followed by a digit or another '\',
+/// while java.util.regex will ignore '\' in replacements, so we need to
+/// unescape it.
+FOLLY_ALWAYS_INLINE std::string prepareRegexpReplaceReplacement(
+    const RE2& re,
+    const StringView& replacement) {
+  if (replacement.size() == 0) {
+    return std::string{};
+  }
+
+  auto newReplacement = replacement.getString();
+
+  static const RE2 kExtractRegex(R"(\${([^}]*)})");
+  VELOX_DCHECK(
+      kExtractRegex.ok(),
+      "Invalid regular expression {}: {}.",
+      R"(\${([^}]*)})",
+      kExtractRegex.error());
+
+  // If newReplacement contains a reference to a
+  // named capturing group ${name}, replace the name with its index.
+  re2::StringPiece groupName[2];
+  while (kExtractRegex.Match(
+      newReplacement,
+      0,
+      newReplacement.size(),
+      RE2::UNANCHORED,
+      groupName,
+      2)) {
+    auto groupIter = re.NamedCapturingGroups().find(groupName[1].as_string());
+    if (groupIter == re.NamedCapturingGroups().end()) {
+      VELOX_USER_FAIL(
+          "Invalid replacement sequence: unknown group {{ {} }}.",
+          groupName[1].as_string());
+    }
+
+    RE2::GlobalReplace(
+        &newReplacement,
+        fmt::format(R"(\${{{}}})", groupName[1].as_string()),
+        fmt::format("${}", groupIter->second));
+  }
+
+  // Convert references to numbered capturing groups from $g to \g.
+  static const RE2 kConvertRegex(R"(\$(\d+))");
+  VELOX_DCHECK(
+      kConvertRegex.ok(),
+      "Invalid regular expression {}: {}.",
+      R"(\$(\d+))",
+      kConvertRegex.error());
+  RE2::GlobalReplace(&newReplacement, kConvertRegex, R"(\\\1)");
+
+  // Un-escape character except digit or '\\'
+  static const RE2 kUnescapeRegex(R"(\\([^0-9\\]))");
+  VELOX_DCHECK(
+      kUnescapeRegex.ok(),
+      "Invalid regular expression {}: {}.",
+      R"(\\([^0-9\\]))",
+      kUnescapeRegex.error());
+  RE2::GlobalReplace(&newReplacement, kUnescapeRegex, R"(\1)");
+
+  return newReplacement;
+}
+
 } // namespace facebook::velox::functions
 
 template <>

@@ -92,7 +92,9 @@ See https://github.com/google/re2/wiki/Syntax for more information.
 .. spark:function:: regexp_replace(string, pattern, overwrite) -> varchar
 
     Replaces all substrings in ``string`` that match the regular expression ``pattern`` with the string ``overwrite``. If no match is found, the original string is returned as is.
-    There is a limit to the number of unique regexes to be compiled per function call, which is 20. If this limit is exceeded the function will throw an exception.
+    There is a limit to the number of unique regexes to be compiled per function call, which is 20. If this limit is exceeded the function will throw an exception. Capturing groups can be referenced in ``replacement`` using ``$g`` for a numbered group or ``${name}`` for a named group. A
+    dollar sign (``$``) may be included in the replacement by escaping it with a backslash (``\$``). If a backslash(``\``) is followed by any character other than a digit or another backslash(``\``) in the replacement, the preceding
+    backslash(``\``) will be ignored.
 
     Parameters:
 
@@ -107,12 +109,15 @@ See https://github.com/google/re2/wiki/Syntax for more information.
         SELECT regexp_replace('Hello, World!', 'l', 'L'); -- 'HeLLo, WorLd!'
         SELECT regexp_replace('300-300', '(\\d+)-(\\d+)', '400'); -- '400'
         SELECT regexp_replace('300-300', '(\\d+)', '400'); -- '400-400'
+        SELECT regexp_replace('[{}]', '\}\]', '\}'); -- '[{}'
 
 .. spark:function:: regexp_replace(string, pattern, overwrite, position) -> varchar
     :noindex:
 
     Replaces all substrings in ``string`` that match the regular expression ``pattern`` with the string ``overwrite`` starting from the specified ``position``.  If no match is found, the original string is returned as is. If the ``position`` is less than one, the function throws an exception. If ``position`` is greater than the length of ``string``, the function returns the original ``string`` without any modifications.
-    There is a limit to the number of unique regexes to be compiled per function call, which is 20. If this limit is exceeded the function will throw an exception.
+    There is a limit to the number of unique regexes to be compiled per function call, which is 20. If this limit is exceeded the function will throw an exception. Capturing groups can be referenced in ``replacement`` using ``$g`` for a numbered group or ``${name}`` for a named group. A
+    dollar sign (``$``) may be included in the replacement by escaping it with a backslash (``\$``). If a backslash(``\``) is followed by any character other than a digit or another backslash(``\``) in the replacement, the preceding
+    backslash(``\``) will be ignored.
 
     This function is 1-indexed, meaning the position of the first character is 1.
     Parameters:

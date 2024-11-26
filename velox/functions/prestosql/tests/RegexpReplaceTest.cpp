@@ -87,6 +87,8 @@ TEST_F(RegexpReplaceTest, withReplacement) {
   EXPECT_EQ(
       regexpReplace("123", "(?<digit>(?<nest>\\d))", ".${nest}"), ".1.2.3");
   EXPECT_EQ(regexpReplace(std::nullopt, "abc", "def"), std::nullopt);
+  EXPECT_EQ(regexpReplace("[{}]", "\\[\\{", "\\{"), "{}]");
+  EXPECT_EQ(regexpReplace("[{}]", "\\}\\]", "\\}"), "[{}");
 
   EXPECT_THROW(regexpReplace("123", "(?<d", "."), VeloxUserError);
   EXPECT_THROW(regexpReplace("123", R"((?''digit''\d))", "."), VeloxUserError);

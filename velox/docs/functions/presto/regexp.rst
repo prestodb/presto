@@ -91,9 +91,12 @@ limited to 20 different expressions per instance and thread of execution.
     ``pattern`` in ``string`` with ``replacement``. Capturing groups can be referenced in
     ``replacement`` using ``$g`` for a numbered group or ``${name}`` for a named group. A
     dollar sign (``$``) may be included in the replacement by escaping it with a
-    backslash (``\$``)::
+    backslash (``\$``). If a backslash(``\``) is followed by any character other
+    than a digit or another backslash(``\``) in the replacement, the preceding
+    backslash(``\``) will be ignored::
 
         SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 '); -- '3ca 3cb 14m'
+        SELECT regexp_replace('[{}]', '\}\]', '\}'); -- '[{}'
 
 .. function:: regexp_replace(string, pattern, function) -> varchar
 

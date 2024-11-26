@@ -22,17 +22,6 @@ namespace {
 
 using ::re2::RE2;
 
-template <typename T>
-re2::StringPiece toStringPiece(const T& string) {
-  return re2::StringPiece(string.data(), string.size());
-}
-
-void checkForBadPattern(const RE2& re) {
-  if (UNLIKELY(!re.ok())) {
-    VELOX_USER_FAIL("invalid regular expression:{}", re.error());
-  }
-}
-
 void ensureRegexIsConstant(
     const char* functionName,
     const VectorPtr& patternVector) {
@@ -56,6 +45,41 @@ struct RegexpReplaceFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   static constexpr bool is_default_ascii_behavior = true;
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& inputTypes,
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* str,
+      const arg_type<Varchar>* pattern,
+      const arg_type<Varchar>* replacement) {
+    initialize(inputTypes, config, str, pattern, replacement, nullptr);
+  }
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& /*config*/,
+      const arg_type<Varchar>* /*string*/,
+      const arg_type<Varchar>* pattern,
+      const arg_type<Varchar>* replacement,
+      const arg_type<int64_t>* /*position*/) {
+    if (pattern) {
+      const auto processedPattern = prepareRegexpReplacePattern(*pattern);
+      re_.emplace(processedPattern, RE2::Quiet);
+      VELOX_USER_CHECK(
+          re_->ok(),
+          "Invalid regular expression {}: {}.",
+          processedPattern,
+          re_->error());
+
+      if (replacement) {
+        // Only when both the 'replacement' and 'pattern' are constants can they
+        // be processed during initialization; otherwise, each row needs to be
+        // processed separately.
+        constantReplacement_ =
+            prepareRegexpReplaceReplacement(re_.value(), *replacement);
+      }
+    }
+  }
 
   void call(
       out_type<Varchar>& result,
@@ -130,35 +154,35 @@ struct RegexpReplaceFunction {
       const arg_type<Varchar>& pattern,
       const arg_type<Varchar>& replace,
       const arg_type<int64_t>& position) {
-    re2::RE2* patternRegex = getRegex(pattern.str());
-    re2::StringPiece replaceStringPiece = toStringPiece(replace);
+    auto& re = ensurePattern(pattern);
+    const auto& processedReplacement = constantReplacement_.has_value()
+        ? constantReplacement_.value()
+        : prepareRegexpReplaceReplacement(re, replace);
 
     std::string prefix(stringInput.data(), position);
     std::string targetString(
         stringInput.data() + position, stringInput.size() - position);
 
-    RE2::GlobalReplace(&targetString, *patternRegex, replaceStringPiece);
+    RE2::GlobalReplace(&targetString, re, processedReplacement);
     result = prefix + targetString;
   }
 
-  re2::RE2* getRegex(const std::string& pattern) {
-    auto it = cache_.find(pattern);
-    if (it != cache_.end()) {
-      return it->second.get();
+  RE2& ensurePattern(const arg_type<Varchar>& pattern) {
+    if (re_.has_value()) {
+      return re_.value();
     }
-    VELOX_USER_CHECK_LT(
-        cache_.size(),
-        kMaxCompiledRegexes,
-        "regexp_replace hit the maximum number of unique regexes: {}",
-        kMaxCompiledRegexes);
-    auto patternRegex = std::make_unique<re2::RE2>(pattern, re2::RE2::Quiet);
-    auto* rawPatternRegex = patternRegex.get();
-    checkForBadPattern(*rawPatternRegex);
-    cache_.emplace(pattern, std::move(patternRegex));
-    return rawPatternRegex;
+    auto processedPattern = prepareRegexpReplacePattern(pattern);
+    return *cache_.findOrCompile(StringView(processedPattern));
   }
 
-  folly::F14FastMap<std::string, std::unique_ptr<re2::RE2>> cache_;
+  // Used when pattern is constant.
+  std::optional<RE2> re_;
+
+  // Used when replacement is constant.
+  std::optional<std::string> constantReplacement_;
+
+  // Used when pattern is not constant.
+  detail::ReCache cache_;
 };
 
 } // namespace
