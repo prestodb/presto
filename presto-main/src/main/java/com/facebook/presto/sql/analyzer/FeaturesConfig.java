@@ -290,6 +290,7 @@ public class FeaturesConfig
 
     private boolean prestoSparkExecutionEnvironment;
     private boolean singleNodeExecutionEnabled;
+    private boolean nativeExecutionScaleWritersThreadsEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2873,6 +2874,18 @@ public class FeaturesConfig
     public FeaturesConfig setSingleNodeExecutionEnabled(boolean singleNodeExecutionEnabled)
     {
         this.singleNodeExecutionEnabled = singleNodeExecutionEnabled;
+        return this;
+    }
+
+    public boolean isNativeExecutionScaleWritersThreadsEnabled()
+    {
+        return nativeExecutionScaleWritersThreadsEnabled;
+    }
+
+    @Config("native-execution-scale-writer-threads-enabled")
+    public FeaturesConfig setNativeExecutionScaleWritersThreadsEnabled(boolean nativeExecutionScaleWritersThreadsEnabled)
+    {
+        this.nativeExecutionScaleWritersThreadsEnabled = nativeExecutionScaleWritersThreadsEnabled;
         return this;
     }
 }
