@@ -332,6 +332,7 @@ public final class SystemSessionProperties
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
+    public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1824,7 +1825,11 @@ public final class SystemSessionProperties
                         NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING,
                         "Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only",
                         queryManagerConfig.getMinColumnarEncodingChannelsToPreferRowWiseEncoding(),
-                        false));
+                        false),
+                booleanProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED,
+                        "Enable automatic scaling of writer threads",
+                        featuresConfig.isNativeExecutionScaleWritersThreadsEnabled(),
+                        !featuresConfig.isNativeExecutionEnabled()));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -3099,5 +3104,10 @@ public final class SystemSessionProperties
     public static int getMinColumnarEncodingChannelsToPreferRowWiseEncoding(Session session)
     {
         return session.getSystemProperty(NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING, Integer.class);
+    }
+
+    public static boolean isNativeExecutionScaleWritersThreadsEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED, Boolean.class);
     }
 }

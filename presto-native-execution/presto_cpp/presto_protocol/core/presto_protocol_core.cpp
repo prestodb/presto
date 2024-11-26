@@ -4830,6 +4830,13 @@ void to_json(json& j, const PartitioningScheme& p) {
       "replicateNullsAndAny");
   to_json_key(
       j,
+      "scaleWriters",
+      p.scaleWriters,
+      "PartitioningScheme",
+      "bool",
+      "scaleWriters");
+  to_json_key(
+      j,
       "encoding",
       p.encoding,
       "PartitioningScheme",
@@ -4873,6 +4880,13 @@ void from_json(const json& j, PartitioningScheme& p) {
       "PartitioningScheme",
       "bool",
       "replicateNullsAndAny");
+  from_json_key(
+      j,
+      "scaleWriters",
+      p.scaleWriters,
+      "PartitioningScheme",
+      "bool",
+      "scaleWriters");
   from_json_key(
       j,
       "encoding",
