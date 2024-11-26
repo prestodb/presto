@@ -327,9 +327,7 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT checksum(quantity_by_linenumber) FROM orders_ex");
         assertQuery("SELECT shipmode, checksum(extendedprice) FROM lineitem GROUP BY shipmode");
         assertQuery("SELECT checksum(from_unixtime(orderkey, '+01:00')) FROM lineitem WHERE orderkey < 20");
-
-        // https://github.com/prestodb/presto/issues/24130
-        //assertQuery("SELECT checksum(cast(v as ipaddress)) FROM (VALUES '192.168.1.1', NULL ) as t (v)");
+        assertQuery("SELECT checksum(cast(v as ipaddress)) FROM (VALUES '192.168.1.1', NULL ) as t (v)");
 
         // test DECIMAL data
         assertQuery("SELECT checksum(a), checksum(b) FROM (VALUES (DECIMAL '1.234', DECIMAL '611180549424.4633133')) AS t(a, b)");
