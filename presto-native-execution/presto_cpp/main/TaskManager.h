@@ -154,8 +154,10 @@ class TaskManager {
       std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const;
 
   /// Build directory path for spilling for the given task.
-  /// Always returns non-empty string.
-  static std::string buildTaskSpillDirectoryPath(
+  /// Always returns tuple of non-empty string containing the spill directory
+  /// and the date string directory, which is parent directory of task spill
+  /// directory.
+  static std::tuple<std::string, std::string> buildTaskSpillDirectoryPath(
       const std::string& baseSpillPath,
       const std::string& nodeIp,
       const std::string& nodeId,

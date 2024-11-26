@@ -207,6 +207,12 @@ class SessionProperties {
   static constexpr const char* kQueryTraceTaskRegExp =
       "native_query_trace_task_reg_exp";
 
+  /// Config used to create operator trace directory. This config is provided to
+  /// underlying file system and the config is free form. The form should be
+  /// defined by the underlying file system.
+  static constexpr const char* kOpTraceDirectoryCreateConfig =
+      "native_op_trace_directory_create_config";
+
   /// The maximum size in bytes for the task's buffered output. The buffer is
   /// shared among all drivers.
   static constexpr const char* kMaxOutputBufferSize =
