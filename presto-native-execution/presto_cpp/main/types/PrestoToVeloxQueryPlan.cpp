@@ -345,6 +345,7 @@ VectorSerde::Kind toVeloxSerdeKind(protocol::ExchangeEncoding encoding) {
 std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     const std::shared_ptr<const protocol::ExchangeNode>& node,
     core::LocalPartitionNode::Type type,
+    bool scaleWriters,
     const RowTypePtr& outputType,
     std::vector<core::PlanNodePtr>&& sourceNodes,
     const VeloxExprConverter& exprConverter) {
@@ -355,7 +356,7 @@ std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     return std::make_shared<core::LocalPartitionNode>(
         node->id,
         type,
-        false,
+        scaleWriters,
         std::make_shared<HashPartitionFunctionSpec>(outputType, keyChannels),
         std::move(sourceNodes));
   }
@@ -364,7 +365,7 @@ std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     return std::make_shared<core::LocalPartitionNode>(
         node->id,
         type,
-        false,
+        scaleWriters,
         std::make_shared<RoundRobinPartitionFunctionSpec>(),
         std::move(sourceNodes));
   }
@@ -433,12 +434,19 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     return core::LocalPartitionNode::gather(node->id, std::move(sourceNodes));
   }
 
-  auto connectorHandle =
-      node->partitioningScheme.partitioning.handle.connectorHandle;
+  const auto& partitioningScheme = node->partitioningScheme;
+  const auto& connectorHandle =
+      partitioningScheme.partitioning.handle.connectorHandle;
+  const bool scaleWriters = partitioningScheme.scaleWriters;
   if (std::dynamic_pointer_cast<protocol::SystemPartitioningHandle>(
           connectorHandle) != nullptr) {
     return buildLocalSystemPartitionNode(
-        node, type, outputType, std::move(sourceNodes), exprConverter_);
+        node,
+        type,
+        scaleWriters,
+        outputType,
+        std::move(sourceNodes),
+        exprConverter_);
   }
 
   auto partitionKeys = toFieldExprs(
@@ -459,7 +467,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   return std::make_shared<core::LocalPartitionNode>(
       node->id,
       type,
-      false,
+      scaleWriters,
       std::shared_ptr(std::move(spec)),
       std::move(sourceNodes));
 }
