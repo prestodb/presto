@@ -288,6 +288,7 @@ public class FeaturesConfig
     private int eagerPlanValidationThreadPoolSize = 20;
 
     private boolean prestoSparkExecutionEnvironment;
+    private boolean nativeExecutionScalePartitionedWritersThreadsEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2845,6 +2846,18 @@ public class FeaturesConfig
     public FeaturesConfig setPrestoSparkExecutionEnvironment(boolean prestoSparkExecutionEnvironment)
     {
         this.prestoSparkExecutionEnvironment = prestoSparkExecutionEnvironment;
+        return this;
+    }
+
+    public boolean isNativeExecutionScalePartitionedWritersThreadsEnabled()
+    {
+        return nativeExecutionScalePartitionedWritersThreadsEnabled;
+    }
+
+    @Config("native-execution-scale-partitioned-writer-threads-enabled")
+    public FeaturesConfig setNativeExecutionScalePartitionedWritersThreadsEnabled(boolean nativeExecutionScalePartitionedWritersThreadsEnabled)
+    {
+        this.nativeExecutionScalePartitionedWritersThreadsEnabled = nativeExecutionScalePartitionedWritersThreadsEnabled;
         return this;
     }
 }

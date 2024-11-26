@@ -252,7 +252,7 @@ public abstract class BasePlanFragmenter
     @Override
     public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
     {
-        if (node.getTablePartitioningScheme().isPresent()) {
+        if (node.isSingleWriterPerPartitionRequired()) {
             context.get().setDistribution(node.getTablePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
         }
         return context.defaultRewrite(node, context.get());
@@ -283,6 +283,7 @@ public abstract class BasePlanFragmenter
     private PlanNode createRemoteStreamingExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
     {
         checkArgument(exchange.getScope() == REMOTE_STREAMING, "Unexpected exchange scope: %s", exchange.getScope());
+        checkArgument(!exchange.getPartitioningScheme().isScaleWriters(), "task scaling for partitioned tables is not yet supported");
 
         PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
 
@@ -328,6 +329,8 @@ public abstract class BasePlanFragmenter
     {
         checkArgument(exchange.getType() == REPARTITION, "Unexpected exchange type: %s", exchange.getType());
         checkArgument(exchange.getScope() == REMOTE_MATERIALIZED, "Unexpected exchange scope: %s", exchange.getScope());
+
+        checkArgument(!exchange.getPartitioningScheme().isScaleWriters(), "task scaling for partitioned tables is not yet supported");
 
         PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
 
