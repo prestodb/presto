@@ -14,15 +14,31 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.SCALE_WRITERS;
+import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
+import static com.facebook.presto.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
+import static com.facebook.presto.SystemSessionProperties.TASK_WRITER_COUNT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.HiveSessionProperties.SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
@@ -36,9 +52,14 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestPrestoNativeWriter
         extends AbstractTestQueryFramework
@@ -303,7 +324,7 @@ public class TestPrestoNativeWriter
     }
 
     @Test
-    public void testScaleWriters()
+    public void testScaleWriterTasks()
     {
         Session session = buildSessionForTableWrite();
         String tmpTableName = generateRandomTableName();
@@ -319,6 +340,228 @@ public class TestPrestoNativeWriter
         long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
         assertThat(files).isBetween(2L, workers);
         dropTableIfExists(tmpTableName);
+    }
+
+    @Test
+    public void testScaleWriterThreads()
+    {
+        // no scaling for bucketed tables
+        testScaledWriters(
+                /*partitioned*/ true,
+                /*shufflePartitionedColumns*/ false,
+                /*bucketed*/ true,
+                /*scaleWriterTasks*/ true,
+                /*scaleWriterThreads*/ true,
+                plan -> {
+                    TableWriterNode tableWriteNode = searchFrom(plan.getRoot())
+                            .where(node -> node instanceof TableWriterNode)
+                            .findOnlyElement();
+                    ExchangeNode localExchange = (ExchangeNode) tableWriteNode.getSource();
+                    assertFalse(localExchange.getPartitioningScheme().isScaleWriters());
+                    ExchangeNode remoteExchange = (ExchangeNode) localExchange.getSources().get(0);
+                    assertFalse(remoteExchange.getPartitioningScheme().isScaleWriters());
+                });
+
+        // no scaling when shuffle_partitioned_columns_for_table_write is requested
+        testScaledWriters(
+                /*partitioned*/ true,
+                /*shufflePartitionedColumns*/ true,
+                /*bucketed*/ false,
+                /*scaleWriterTasks*/ true,
+                /*scaleWriterThreads*/ true,
+                plan -> {
+                    TableWriterNode tableWriteNode = searchFrom(plan.getRoot())
+                            .where(node -> node instanceof TableWriterNode)
+                            .findOnlyElement();
+                    ExchangeNode localExchange = (ExchangeNode) tableWriteNode.getSource();
+                    assertFalse(localExchange.getPartitioningScheme().isScaleWriters());
+                    ExchangeNode remoteExchange = (ExchangeNode) localExchange.getSources().get(0);
+                    assertFalse(remoteExchange.getPartitioningScheme().isScaleWriters());
+                });
+
+        // scale tasks and threads for partitioned tables if enabled
+        testScaledWriters(
+                /*partitioned*/ true,
+                /*shufflePartitionedColumns*/ false,
+                /*bucketed*/ false,
+                /*scaleWriterTasks*/ true,
+                /*scaleWriterThreads*/ true,
+                plan -> {
+                    TableWriterNode tableWriteNode = searchFrom(plan.getRoot())
+                            .where(node -> node instanceof TableWriterNode)
+                            .findOnlyElement();
+                    ExchangeNode localExchange = (ExchangeNode) tableWriteNode.getSource();
+                    assertTrue(localExchange.getPartitioningScheme().isScaleWriters());
+                    assertThat(localExchange.getPartitioningScheme().getPartitioning().getArguments())
+                            // single partitioning column
+                            .hasSize(1);
+                    assertThat(localExchange.getPartitioningScheme().getPartitioning().getHandle().getConnectorId())
+                            .isPresent();
+                    ExchangeNode remoteExchange = (ExchangeNode) localExchange.getSources().get(0);
+                    assertEquals(remoteExchange.getPartitioningScheme().getPartitioning().getHandle(), SCALED_WRITER_DISTRIBUTION);
+                });
+        testScaledWriters(
+                /*partitioned*/ true,
+                /*shufflePartitionedColumns*/ false,
+                /*bucketed*/ false,
+                /*scaleWriterTasks*/ true,
+                /*scaleWriterThreads*/ false,
+                plan -> {
+                    TableWriterNode tableWriteNode = searchFrom(plan.getRoot())
+                            .where(node -> node instanceof TableWriterNode)
+                            .findOnlyElement();
+                    ExchangeNode localExchange = (ExchangeNode) tableWriteNode.getSource();
+                    assertFalse(localExchange.getPartitioningScheme().isScaleWriters());
+                    assertEquals(localExchange.getPartitioningScheme().getPartitioning().getHandle(), FIXED_ARBITRARY_DISTRIBUTION);
+                    ExchangeNode remoteExchange = (ExchangeNode) localExchange.getSources().get(0);
+                    assertEquals(remoteExchange.getPartitioningScheme().getPartitioning().getHandle(), SCALED_WRITER_DISTRIBUTION);
+                });
+        testScaledWriters(
+                /*partitioned*/ true,
+                /*shufflePartitionedColumns*/ false,
+                /*bucketed*/ false,
+                /*scaleWriterTasks*/ false,
+                /*scaleWriterThreads*/ true,
+                plan -> {
+                    TableWriterNode tableWriteNode = searchFrom(plan.getRoot())
+                            .where(node -> node instanceof TableWriterNode)
+                            .findOnlyElement();
+                    ExchangeNode localExchange = (ExchangeNode) tableWriteNode.getSource();
+                    assertTrue(localExchange.getPartitioningScheme().isScaleWriters());
+                    assertThat(localExchange.getPartitioningScheme().getPartitioning().getArguments())
+                            // single partitioning column
+                            .hasSize(1);
+                });
+        testScaledWriters(
+                /*partitioned*/ true,
+                /*shufflePartitionedColumns*/ false,
+                /*bucketed*/ false,
+                /*scaleWriterTasks*/ false,
+                /*scaleWriterThreads*/ false,
+                plan -> {
+                    TableWriterNode tableWriteNode = searchFrom(plan.getRoot())
+                            .where(node -> node instanceof TableWriterNode)
+                            .findOnlyElement();
+                    ExchangeNode localExchange = (ExchangeNode) tableWriteNode.getSource();
+                    assertFalse(localExchange.getPartitioningScheme().isScaleWriters());
+                    assertEquals(localExchange.getPartitioningScheme().getPartitioning().getHandle(), FIXED_ARBITRARY_DISTRIBUTION);
+                });
+
+        // scale thread writers for non partitioned tables
+        testScaledWriters(
+                /*partitioned*/ false,
+                /*shufflePartitionedColumns*/ false,
+                /*bucketed*/ false,
+                /*scaleWriterTasks*/ true,
+                /*scaleWriterThreads*/ true,
+                plan -> {
+                    TableWriterNode tableWriteNode = searchFrom(plan.getRoot())
+                            .where(node -> node instanceof TableWriterNode)
+                            .findOnlyElement();
+                    ExchangeNode localExchange = (ExchangeNode) tableWriteNode.getSource();
+                    assertTrue(localExchange.getPartitioningScheme().isScaleWriters());
+                    assertEquals(localExchange.getPartitioningScheme().getPartitioning().getHandle(), FIXED_ARBITRARY_DISTRIBUTION);
+                    ExchangeNode remoteExchange = (ExchangeNode) localExchange.getSources().get(0);
+                    assertEquals(remoteExchange.getPartitioningScheme().getPartitioning().getHandle(), SCALED_WRITER_DISTRIBUTION);
+                });
+    }
+
+    private void testScaledWriters(
+            boolean partitioned,
+            boolean shufflePartitionedColumns,
+            boolean bucketed,
+            boolean scaleWriterTasks,
+            boolean scaleWriterThreads,
+            Consumer<Plan> planAssertion)
+    {
+        String tableName = generateRandomTableName();
+        OptionalLong bucketCount = OptionalLong.empty();
+        long partitionCount = 1;
+
+        Map<String, String> columns = new LinkedHashMap<>();
+        columns.put("orderkey", "BIGINT");
+        columns.put("custkey", "BIGINT");
+        columns.put("orderstatus", "VARCHAR");
+
+        List<String> properties = new ArrayList<>();
+        properties.add("format = 'DWRF'");
+        if (partitioned) {
+            properties.add("partitioned_by = ARRAY['orderstatus']");
+            partitionCount = 3;
+        }
+        if (bucketed) {
+            properties.add("bucketed_by = ARRAY['orderkey']");
+            bucketCount = OptionalLong.of(3);
+            properties.add("bucket_count = " + bucketCount.getAsLong());
+        }
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SCALE_WRITERS, scaleWriterTasks + "")
+                .setSystemProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED, scaleWriterThreads + "")
+                .setSystemProperty(TASK_WRITER_COUNT, "4")
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "8")
+                .setSystemProperty(TASK_CONCURRENCY, "16")
+                .setCatalogSessionProperty("hive", SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, shufflePartitionedColumns + "")
+                .build();
+
+        String createTable = format(
+                "CREATE TABLE %s (%s) WITH (%s)",
+                tableName,
+                Joiner.on(", ")
+                        .withKeyValueSeparator(" ")
+                        .join(columns),
+                Joiner.on(", ").join(properties));
+        assertUpdate(createTable);
+
+        long numberOfRowsInOrdersTable = (long) getQueryRunner().execute("SELECT count(*) FROM orders").getOnlyValue();
+
+        String insert = format(
+                "INSERT INTO %s SELECT %s FROM orders",
+                tableName,
+                Joiner.on(", ").join(columns.keySet()));
+        assertUpdate(session, insert, numberOfRowsInOrdersTable, planAssertion);
+        assertQuery(
+                format(
+                        "SELECT %s FROM %s",
+                        Joiner.on(", ").join(columns.keySet()),
+                        tableName),
+                format(
+                        "SELECT %s FROM orders",
+                        Joiner.on(", ").join(columns.keySet())));
+        assertFileCount(tableName, partitionCount, bucketCount);
+
+        assertUpdate(format("DROP TABLE %s", tableName));
+
+        tableName = generateRandomTableName();
+
+        String ctas = format(
+                "CREATE TABLE %s WITH (%s) AS SELECT %s FROM orders",
+                tableName,
+                Joiner.on(", ").join(properties),
+                Joiner.on(", ").join(columns.keySet()));
+        assertUpdate(session, ctas, numberOfRowsInOrdersTable, planAssertion);
+        assertQuery(
+                format(
+                        "SELECT %s FROM %s",
+                        Joiner.on(", ").join(columns.keySet()),
+                        tableName),
+                format(
+                        "SELECT %s FROM orders",
+                        Joiner.on(", ").join(columns.keySet())));
+        assertFileCount(tableName, partitionCount, bucketCount);
+
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    private void assertFileCount(String tableName, long partitionCount, OptionalLong bucketCount)
+    {
+        long actual = (long) computeActual(format("SELECT count(DISTINCT \"$path\") FROM %s", tableName)).getOnlyValue();
+        if (bucketCount.isPresent()) {
+            assertEquals(actual, bucketCount.getAsLong() * partitionCount);
+        }
+        else {
+            assertThat(actual).isGreaterThanOrEqualTo(partitionCount);
+        }
     }
 
     @Test

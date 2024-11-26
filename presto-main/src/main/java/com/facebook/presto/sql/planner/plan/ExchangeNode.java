@@ -192,6 +192,7 @@ public class ExchangeNode
                         child.getOutputVariables(),
                         hashColumn,
                         replicateNullsAndAny,
+                        false,
                         COLUMNAR,
                         Optional.empty()));
     }

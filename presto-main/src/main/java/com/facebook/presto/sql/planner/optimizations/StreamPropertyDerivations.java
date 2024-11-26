@@ -341,7 +341,9 @@ public final class StreamPropertyDerivations
                 case GATHER:
                     return StreamProperties.singleStream();
                 case REPARTITION:
-                    if (node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+                    if (node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
+                            // no strict partitioning guarantees when multiple writers per partitions are allows (scaled writers)
+                            node.getPartitioningScheme().isScaleWriters()) {
                         return new StreamProperties(FIXED, Optional.empty(), false);
                     }
                     checkArgument(

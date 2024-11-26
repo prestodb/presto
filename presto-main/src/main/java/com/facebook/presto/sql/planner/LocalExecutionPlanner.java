@@ -2680,7 +2680,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            if (node.getTablePartitioningScheme().isPresent()) {
+            if (node.isSingleWriterPerPartitionRequired()) {
                 context.setDriverInstanceCount(getTaskPartitionedWriterCount(session));
             }
             else {
@@ -3070,6 +3070,8 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation createLocalExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
+            checkArgument(!node.getPartitioningScheme().isScaleWriters(), "thread scaling for partitioned tables is only supported by native execution");
+
             int driverInstanceCount;
             if (node.getType() == ExchangeNode.Type.GATHER) {
                 driverInstanceCount = 1;
