@@ -28,7 +28,9 @@
 namespace facebook::velox::exec::trace {
 
 /// Creates a directory to store the query trace metdata and data.
-void createTraceDirectory(const std::string& traceDir);
+void createTraceDirectory(
+    const std::string& traceDir,
+    const std::string& directoryConfig = "");
 
 /// Returns the trace directory for a given query.
 std::string getQueryTraceDirectory(

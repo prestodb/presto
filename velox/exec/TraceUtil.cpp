@@ -37,13 +37,24 @@ std::string findLastPathNode(const std::string& path) {
 }
 } // namespace
 
-void createTraceDirectory(const std::string& traceDir) {
+void createTraceDirectory(
+    const std::string& traceDir,
+    const std::string& directoryConfig) {
   try {
     const auto fs = filesystems::getFileSystem(traceDir, nullptr);
     if (fs->exists(traceDir)) {
       fs->rmdir(traceDir);
     }
-    fs->mkdir(traceDir);
+
+    filesystems::DirectoryOptions options;
+    // If the trace directory config is set, we shall create the directory with
+    // the provided config.
+    if (!directoryConfig.empty()) {
+      options.values.emplace(
+          filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
+          directoryConfig);
+    }
+    fs->mkdir(traceDir, options);
   } catch (const std::exception& e) {
     VELOX_FAIL(
         "Failed to create trace directory '{}' with error: {}",

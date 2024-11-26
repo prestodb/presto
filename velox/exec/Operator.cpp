@@ -137,7 +137,9 @@ void Operator::maybeSetTracer() {
             << ", driver: " << driverId << ", task: " << taskId();
   const auto opTraceDirPath = trace::getOpTraceDirectory(
       traceConfig->queryTraceDir, planNodeId(), pipelineId, driverId);
-  trace::createTraceDirectory(opTraceDirPath);
+  trace::createTraceDirectory(
+      opTraceDirPath,
+      operatorCtx_->driverCtx()->queryConfig().opTraceDirectoryCreateConfig());
 
   if (operatorType() == "TableScan") {
     setupSplitTracer(opTraceDirPath);

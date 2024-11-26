@@ -20,6 +20,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/exec/Trace.h"
 #include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -31,6 +32,7 @@ class TraceUtilTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     filesystems::registerLocalFileSystem();
+    tests::utils::registerFaultyFileSystem();
   }
 };
 
@@ -217,5 +219,43 @@ TEST_F(TraceUtilTest, getDriverIds) {
   ASSERT_EQ(std::vector<uint32_t>({1, 2, 4}), extractDriverIds("1,2,4"));
   ASSERT_TRUE(extractDriverIds("").empty());
   ASSERT_NE(std::vector<uint32_t>({1, 2}), extractDriverIds("1,2,4"));
+}
+
+TEST_F(TraceUtilTest, createTraceDirectoryTest) {
+  auto tmpRootDir = exec::test::TempDirectoryPath::create();
+  auto tmpTraceDir = fmt::format(
+      "{}{}/trace",
+      tests::utils::FaultyFileSystem::scheme(),
+      tmpRootDir->getPath());
+  auto fs = std::dynamic_pointer_cast<tests::utils::FaultyFileSystem>(
+      filesystems::getFileSystem(tmpTraceDir, nullptr));
+
+  filesystems::DirectoryOptions expectedOptions;
+  constexpr auto traceDirConfig = "dummy.value=123";
+  expectedOptions.values.emplace(
+      filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
+      traceDirConfig);
+
+  bool createdTraceDir = false;
+  tests::utils::FileSystemFaultInjectionHook hook = [&](auto* op) {
+    auto mkdirOp =
+        static_cast<tests::utils::FaultFileSystemMkdirOperation*>(op);
+    if (mkdirOp->path == fmt::format("{}/trace", tmpRootDir->getPath())) {
+      createdTraceDir = true;
+      auto it = mkdirOp->options.values.find(
+          filesystems::DirectoryOptions::kMakeDirectoryConfig.toString());
+      EXPECT_TRUE(it != mkdirOp->options.values.end());
+      EXPECT_EQ(it->second, traceDirConfig);
+    }
+    return;
+  };
+  fs->setFilesystemInjectionHook(hook);
+
+  trace::createTraceDirectory(tmpTraceDir, traceDirConfig);
+  // Check that injection hook was called.
+  EXPECT_TRUE(createdTraceDir);
+  EXPECT_TRUE(fs->exists(tmpTraceDir));
+  fs->rmdir(tmpTraceDir);
+  EXPECT_FALSE(fs->exists(tmpTraceDir));
 }
 } // namespace facebook::velox::exec::trace::test
