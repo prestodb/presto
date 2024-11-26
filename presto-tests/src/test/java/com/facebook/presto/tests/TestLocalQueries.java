@@ -118,6 +118,12 @@ public class TestLocalQueries
     }
 
     @Test
+    public void testUse()
+    {
+        // USE statement is not supported
+    }
+
+    @Test
     public void testIOExplain()
     {
         String query = "SELECT * FROM orders";
