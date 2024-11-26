@@ -323,6 +323,11 @@ class AlwaysFalse final : public Filter {
     return false;
   }
 
+  bool testInt128Range(int128_t /*min*/, int128_t /*max*/, bool /*hasNull*/)
+      const final {
+    return false;
+  }
+
   bool testInt128(int128_t /* unused */) const final {
     return false;
   }
@@ -411,6 +416,11 @@ class AlwaysTrue final : public Filter {
     return true;
   }
 
+  bool testInt128Range(int128_t /*min*/, int128_t /*max*/, bool /*hasNull*/)
+      const final {
+    return true;
+  }
+
   bool testDoubleRange(double /*min*/, double /*max*/, bool /*hasNull*/)
       const final {
     return true;
@@ -491,6 +501,11 @@ class IsNull final : public Filter {
     return hasNull;
   }
 
+  bool testInt128Range(int128_t /*min*/, int128_t /*max*/, bool hasNull)
+      const final {
+    return hasNull;
+  }
+
   bool testDoubleRange(double /*min*/, double /*max*/, bool hasNull)
       const final {
     return hasNull;
@@ -566,6 +581,11 @@ class IsNotNull final : public Filter {
   }
 
   bool testInt64Range(int64_t /*min*/, int64_t /*max*/, bool /*hasNull*/)
+      const final {
+    return true;
+  }
+
+  bool testInt128Range(int128_t /*min*/, int128_t /*max*/, bool /*hasNull*/)
       const final {
     return true;
   }

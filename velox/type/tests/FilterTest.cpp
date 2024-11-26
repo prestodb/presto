@@ -33,6 +33,8 @@ using namespace facebook::velox::exec;
 TEST(FilterTest, alwaysFalse) {
   AlwaysFalse alwaysFalse;
   EXPECT_FALSE(alwaysFalse.testInt64(1));
+  EXPECT_FALSE(alwaysFalse.testInt128Range(0, 0, false));
+  EXPECT_FALSE(alwaysFalse.testInt128Range(0, 0, true));
   EXPECT_FALSE(alwaysFalse.testNonNull());
   EXPECT_FALSE(alwaysFalse.testNull());
 
@@ -44,6 +46,8 @@ TEST(FilterTest, alwaysFalse) {
 TEST(FilterTest, alwaysTrue) {
   AlwaysTrue alwaysTrue;
   EXPECT_TRUE(alwaysTrue.testInt64(1));
+  EXPECT_TRUE(alwaysTrue.testInt128Range(0, 0, false));
+  EXPECT_TRUE(alwaysTrue.testInt128Range(0, 0, true));
   EXPECT_TRUE(alwaysTrue.testNonNull());
   EXPECT_TRUE(alwaysTrue.testNull());
   xsimd::batch<int64_t> int64s(1);
@@ -66,6 +70,8 @@ TEST(FilterTest, isNotNull) {
   IsNotNull notNull;
   EXPECT_TRUE(notNull.testNonNull());
   EXPECT_TRUE(notNull.testInt64(10));
+  EXPECT_TRUE(notNull.testInt128Range(0, 0, false));
+  EXPECT_TRUE(notNull.testInt128Range(0, 0, true));
 
   EXPECT_FALSE(notNull.testNull());
 }
@@ -77,6 +83,8 @@ TEST(FilterTest, isNull) {
   EXPECT_FALSE(isNull.testNonNull());
   EXPECT_FALSE(isNull.testInt64(10));
   EXPECT_FALSE(isNull.testInt128(10));
+  EXPECT_FALSE(isNull.testInt128Range(0, 0, false));
+  EXPECT_TRUE(isNull.testInt128Range(0, 0, true));
 
   EXPECT_EQ("Filter(IsNull, deterministic, null allowed)", isNull.toString());
 }
