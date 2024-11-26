@@ -36,6 +36,8 @@ import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Joiner;
 import io.airlift.tpch.TpchTable;
+import org.h2.jdbc.JdbcArray;
+import org.h2.jdbc.JdbcResultSet;
 import org.intellij.lang.annotations.Language;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -375,14 +377,14 @@ public class H2QueryRunner
         Type elementType = arrayType.getElementType();
         if (elementType instanceof ArrayType) {
             return Arrays.stream(values)
-                    .map(v -> v == null ? null : newArrayList((Object[]) v))
+                    .map(v -> v == null ? null : newArrayList(getArrayObject((JdbcArray) v)))
                     .toArray();
         }
 
         if (elementType instanceof RowType) {
             RowType rowType = (RowType) elementType;
             return Arrays.stream(values)
-                    .map(v -> v == null ? null : newArrayList(mapRowValues(rowType, (Object[]) v)))
+                    .map(v -> v == null ? null : newArrayList(mapRowValues(rowType, getRowObject(rowType, (JdbcResultSet) v))))
                     .toArray();
         }
 
@@ -411,10 +413,15 @@ public class H2QueryRunner
     {
         int fieldCount = rowType.getFields().size();
         Object[] fields = new Object[fieldCount];
+
+        if (values.length == 1) {
+            values = getRowObject(rowType, (JdbcResultSet) values[0]);
+        }
+
         for (int j = 0; j < fieldCount; j++) {
             Type fieldType = rowType.getTypeParameters().get(j);
             if (fieldType instanceof RowType) {
-                fields[j] = newArrayList(mapRowValues((RowType) fieldType, (Object[]) values[j]));
+                fields[j] = newArrayList(mapRowValues((RowType) fieldType, getRowObject((RowType) fieldType, (JdbcResultSet) values[j])));
             }
             else {
                 fields[j] = values[j];
@@ -494,5 +501,34 @@ public class H2QueryRunner
         {
             throw new UnsupportedOperationException();
         }
+    }
+
+    private static Object[] getArrayObject(JdbcArray jdbcArray)
+    {
+        Object[] objectArray = null;
+        try {
+            objectArray = (Object[]) jdbcArray.getArray();
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return objectArray;
+    }
+
+    private static Object[] getRowObject(RowType rowType, JdbcResultSet jdbcResultSet)
+    {
+        int fieldCount = rowType.getFields().size();
+        Object[] objectArray = new Object[fieldCount];
+        try {
+            jdbcResultSet.next();
+            for (int i = 0; i < fieldCount; i++) {
+                // JdbcResultSet getObject index start from 1.
+                objectArray[i] = jdbcResultSet.getObject(i + 1);
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return objectArray;
     }
 }
