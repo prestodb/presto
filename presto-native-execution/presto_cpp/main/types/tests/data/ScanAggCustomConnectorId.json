@@ -266,6 +266,7 @@
       }
     ],
     "replicateNullsAndAny":false,
+    "scaleWriters": false,
     "encoding":"COLUMNAR",
     "bucketToPartition":[
       0

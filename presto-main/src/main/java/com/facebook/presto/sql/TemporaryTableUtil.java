@@ -288,6 +288,7 @@ public class TemporaryTableUtil
                 outputs,
                 Optional.empty(),
                 false,
+                false,
                 COLUMNAR,
                 Optional.empty());
 

@@ -228,6 +228,7 @@ public class PlanFragmenterUtils
                         outputPartitioningScheme.getOutputLayout(),
                         outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
+                        outputPartitioningScheme.isScaleWriters(),
                         outputPartitioningScheme.getEncoding(),
                         outputPartitioningScheme.getBucketToPartition()),
                 fragment.getStageExecutionDescriptor(),

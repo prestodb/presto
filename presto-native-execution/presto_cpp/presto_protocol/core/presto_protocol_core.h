@@ -1308,6 +1308,7 @@ struct PartitioningScheme {
   List<VariableReferenceExpression> outputLayout = {};
   std::shared_ptr<VariableReferenceExpression> hashColumn = {};
   bool replicateNullsAndAny = {};
+  bool scaleWriters = {};
   ExchangeEncoding encoding = {};
   std::shared_ptr<List<int>> bucketToPartition = {};
 };

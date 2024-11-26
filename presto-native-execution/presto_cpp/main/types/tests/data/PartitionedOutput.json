@@ -458,6 +458,7 @@
       }
     ],
     "replicateNullsAndAny":false,
+    "scaleWriters": false,
     "bucketToPartition":[
       0,
       1,
