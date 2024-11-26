@@ -2309,7 +2309,8 @@ void Task::onTaskCompletion() {
     }
 
     for (auto& listener : listeners) {
-      listener->onTaskCompletion(uuid_, taskId_, state, exception, stats);
+      listener->onTaskCompletion(
+          uuid_, taskId_, state, exception, stats, planFragment_);
     }
   });
 }

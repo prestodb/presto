@@ -1196,6 +1196,17 @@ class TaskListener {
       TaskState state,
       std::exception_ptr error,
       TaskStats stats) = 0;
+
+  // onTaskCompletion() overload for the case when we pass PlanFragment
+  virtual void onTaskCompletion(
+      const std::string& taskUuid,
+      const std::string& taskId,
+      TaskState state,
+      std::exception_ptr error,
+      const TaskStats& stats,
+      const core::PlanFragment& /*fragment*/) {
+    onTaskCompletion(taskUuid, taskId, state, error, stats);
+  }
 };
 
 /// Register a listener to be invoked on task completion. Returns true if
