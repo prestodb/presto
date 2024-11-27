@@ -14,6 +14,7 @@
 #pragma once
 
 #include <folly/Range.h>
+#include <string_view>
 
 // Here we have all the counters presto cpp worker would export.
 namespace facebook::presto {
