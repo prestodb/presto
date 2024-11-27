@@ -243,11 +243,15 @@ public final class MaterializedViewDefinition
         public TableColumn(
                 @JsonProperty("tableName") SchemaTableName tableName,
                 @JsonProperty("columnName") String columnName,
-                @JsonProperty("isDirectMapped") Optional<Boolean> isDirectMapped)
+                @JsonProperty("isDirectMapped") Optional<Boolean> isDirectMapped,
+                @JsonProperty("directMapped") Optional<Boolean> backportDirectMapped)
         {
             this.tableName = requireNonNull(tableName, "tableName is null");
             this.columnName = requireNonNull(columnName, "columnName is null");
-            this.isDirectMapped = requireNonNull(isDirectMapped, "isDirectMapped is null");
+            if (isDirectMapped.isPresent())
+                this.isDirectMapped = requireNonNull(isDirectMapped, "isDirectMapped is null");
+            else
+                this.isDirectMapped = requireNonNull(backportDirectMapped, "isDirectMapped is null");
         }
 
         public TableColumn(
@@ -255,7 +259,7 @@ public final class MaterializedViewDefinition
                 String columnName,
                 boolean isDirectMapped)
         {
-            this(tableName, columnName, Optional.of(isDirectMapped));
+            this(tableName, columnName, Optional.of(isDirectMapped), Optional.of(isDirectMapped));
         }
 
         @JsonProperty
