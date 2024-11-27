@@ -18,6 +18,7 @@ import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -55,8 +56,8 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
+import java.lang.management.ManagementFactory;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -76,6 +77,7 @@ import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -137,21 +139,49 @@ public class TaskResource
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-        Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
-        RuntimeStats runtimeStats = Optional.of(session.getRuntimeStats()).orElse(new RuntimeStats());
+        long startWallTime = System.nanoTime();
+        long startCpuTime = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
 
+        Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
+        RuntimeStats runtimeStats = session.getRuntimeStats();
+
+        runtimeStats.addMetricValue("sessionCreationOnWorkerCPUTimeNano", RuntimeUnit.NANO, max(0, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTime));
+        runtimeStats.addMetricValue("sessionCreationOnWorkerWallTimeNano", RuntimeUnit.NANO, max(0, System.nanoTime() - startWallTime));
+
+        long startUpdateTaskWallTime = System.nanoTime();
+        long startUpdateTaskCPUTime = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
         TaskInfo taskInfo = taskManager.updateTask(session,
                 taskId,
                 taskUpdateRequest.getFragment().map(planFragmentCodec::fromBytes),
                 taskUpdateRequest.getSources(),
                 taskUpdateRequest.getOutputIds(),
                 taskUpdateRequest.getTableWriteInfo());
+        runtimeStats.addMetricValue("taskUpdateOnWorkerCPUTimeNano", RuntimeUnit.NANO, max(0, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startUpdateTaskCPUTime));
+        runtimeStats.addMetricValue("taskUpdateOnWorkerWallTimeNano", RuntimeUnit.NANO, max(0, System.nanoTime() - startUpdateTaskWallTime));
+
+        TaskResourceUtils.recordTaskUpdateReceivedTimeNanos(session.getRuntimeStats(), ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTime, System.nanoTime() - startWallTime);
+
+        long startSummarizeWallTime = System.nanoTime();
+        long startSummarizeCPUTime = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
         }
+        runtimeStats.addMetricValue("taskInfoSummarizeOnWorkerCPUTimeNano", RuntimeUnit.NANO, max(0, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startSummarizeCPUTime));
+        runtimeStats.addMetricValue("taskInfoSummarizeOnWorkerWallTimeNano", RuntimeUnit.NANO, max(0, System.nanoTime() - startSummarizeWallTime));
 
-        return Response.ok().entity(taskInfo).build();
+        long responseGenerationWallTime = System.nanoTime();
+        long responseGenerationCPUTime = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
+        Response response = Response.ok().entity(taskInfo).build();
+        runtimeStats.addMetricValue("responseGenerationOnWorkerCPUTimeNano", RuntimeUnit.NANO, max(0, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - responseGenerationCPUTime));
+        runtimeStats.addMetricValue("responseGenerationOnWorkerWallTimeNano", RuntimeUnit.NANO, max(0, System.nanoTime() - responseGenerationWallTime));
+
+        runtimeStats.addMetricValue("createOrUpdateTaskOnWorkerCPUTimeNano", RuntimeUnit.NANO, max(0, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTime));
+        runtimeStats.addMetricValue("createOrUpdateTaskOnWorkerWallTimeNano", RuntimeUnit.NANO, max(0, System.nanoTime() - startWallTime));
+
+        //send task's runtime stats back
+        taskInfo.getStats().getRuntimeStats().mergeWith(runtimeStats);
+        return response;
     }
 
     @GET
