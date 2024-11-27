@@ -40,15 +40,15 @@ namespace {
 
 protocol::TaskState toPrestoTaskState(exec::TaskState state) {
   switch (state) {
-    case exec::TaskState::kRunning:
+    case exec::kRunning:
       return protocol::TaskState::RUNNING;
-    case exec::TaskState::kFinished:
+    case exec::kFinished:
       return protocol::TaskState::FINISHED;
-    case exec::TaskState::kCanceled:
+    case exec::kCanceled:
       return protocol::TaskState::CANCELED;
-    case exec::TaskState::kFailed:
+    case exec::kFailed:
       return protocol::TaskState::FAILED;
-    case exec::TaskState::kAborted:
+    case exec::kAborted:
       [[fallthrough]];
     default:
       return protocol::TaskState::ABORTED;
