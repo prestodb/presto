@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -22,16 +21,11 @@
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
-using namespace facebook::velox::common::testutil;
 
 class LocalPartitionTest : public HiveConnectorTestBase {
  protected:
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
-  }
-
-  void TearDown() override {
-    Operator::unregisterAllOperators();
   }
 
   template <typename T>
@@ -541,7 +535,7 @@ TEST_F(LocalPartitionTest, earlyCancelation) {
   }
 
   // Wait for task to transition to final state.
-  waitForTaskCompletion(task, exec::TaskState::kCanceled);
+  waitForTaskCompletion(task, exec::kCanceled);
 
   // Make sure there is only one reference to Task left, i.e. no Driver is
   // blocked forever.
@@ -577,7 +571,7 @@ TEST_F(LocalPartitionTest, producerError) {
   ASSERT_THROW(while (cursor->moveNext()) { ; }, VeloxException);
 
   // Wait for task to transition to failed state.
-  waitForTaskCompletion(task, exec::TaskState::kFailed);
+  waitForTaskCompletion(task, exec::kFailed);
 
   // Make sure there is only one reference to Task left, i.e. no Driver is
   // blocked forever.
@@ -642,260 +636,4 @@ TEST_F(LocalPartitionTest, unionAllLocalExchange) {
             "   SELECT * FROM (VALUES ('y')) as t2(c0)"
             ")");
   }
-}
-
-namespace {
-using BlockingCallback = std::function<BlockingReason(ContinueFuture*)>;
-using FinishCallback = std::function<void(bool)>;
-
-class BlockingNode : public core::PlanNode {
- public:
-  BlockingNode(const core::PlanNodeId& id, const core::PlanNodePtr& input)
-      : PlanNode(id), sources_{input} {}
-
-  const RowTypePtr& outputType() const override {
-    return sources_[0]->outputType();
-  }
-
-  const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
-    return sources_;
-  }
-
-  std::string_view name() const override {
-    return "BlockingNode";
-  }
-
- private:
-  void addDetails(std::stringstream& /* stream */) const override {}
-  std::vector<core::PlanNodePtr> sources_;
-};
-
-class BlockingOperator : public Operator {
- public:
-  BlockingOperator(
-      DriverCtx* ctx,
-      int32_t id,
-      const std::shared_ptr<const BlockingNode>& node,
-      const BlockingCallback& blockingCallback,
-      const FinishCallback& finishCallback)
-      : Operator(ctx, node->outputType(), id, node->id(), "BlockedNoFuture"),
-        blockingCallback_(blockingCallback),
-        finishCallback_(finishCallback) {}
-
-  bool needsInput() const override {
-    return !noMoreInput_ && !input_;
-  }
-
-  void addInput(RowVectorPtr input) override {
-    input_ = std::move(input);
-  }
-
-  RowVectorPtr getOutput() override {
-    return std::move(input_);
-  }
-
-  bool isFinished() override {
-    const bool finished = noMoreInput_ && input_ == nullptr;
-    finishCallback_(finished);
-    return finished;
-  }
-
-  BlockingReason isBlocked(ContinueFuture* future) override {
-    return blockingCallback_(future);
-  }
-
- private:
-  const BlockingCallback blockingCallback_;
-  const FinishCallback finishCallback_;
-};
-
-class BlockingNodeFactory : public Operator::PlanNodeTranslator {
- public:
-  explicit BlockingNodeFactory(
-      const BlockingCallback& blockingCallback,
-      const FinishCallback& finishCallback)
-      : blockingCallback_(blockingCallback), finishCallback_(finishCallback) {}
-
-  std::unique_ptr<Operator> toOperator(
-      DriverCtx* ctx,
-      int32_t id,
-      const core::PlanNodePtr& node) override {
-    return std::make_unique<BlockingOperator>(
-        ctx,
-        id,
-        std::dynamic_pointer_cast<const BlockingNode>(node),
-        blockingCallback_,
-        finishCallback_);
-  }
-
-  std::optional<uint32_t> maxDrivers(
-      const core::PlanNodePtr& /*unused*/) override {
-    return std::numeric_limits<uint32_t>::max();
-  }
-
- private:
-  const BlockingCallback blockingCallback_;
-  const FinishCallback finishCallback_;
-};
-} // namespace
-
-TEST_F(LocalPartitionTest, unionAllLocalExchangeWithInterDependency) {
-  const auto data1 = makeRowVector({"d0"}, {makeFlatVector<StringView>({"x"})});
-  const auto data2 = makeRowVector({"e0"}, {makeFlatVector<StringView>({"y"})});
-
-  for (bool serialExecutionMode : {false, true}) {
-    SCOPED_TRACE(fmt::format("serialExecutionMode {}", serialExecutionMode));
-    Operator::unregisterAllOperators();
-
-    std::mutex mutex;
-    std::vector<ContinuePromise> promises;
-    promises.reserve(2);
-    std::vector<ContinueFuture> futures;
-    futures.reserve(2);
-    for (int i = 0; i < 2; ++i) {
-      auto [blockPromise, blockFuture] = makeVeloxContinuePromiseContract(
-          "unionAllLocalExchangeWithInterDependency");
-      promises.push_back(std::move(blockPromise));
-      futures.push_back(std::move(blockFuture));
-    }
-
-    std::atomic_uint32_t numBlocks{0};
-    auto blockingCallback = [&](ContinueFuture* future) -> BlockingReason {
-      std::lock_guard<std::mutex> l(mutex);
-      if (numBlocks >= 2) {
-        return BlockingReason::kNotBlocked;
-      }
-      *future = std::move(futures[numBlocks]);
-      ++numBlocks;
-      return BlockingReason::kWaitForConsumer;
-    };
-
-    auto finishCallback = [&](bool finished) {
-      if (!finished) {
-        return;
-      }
-      std::lock_guard<std::mutex> l(mutex);
-      for (auto& promise : promises) {
-        if (!promise.isFulfilled()) {
-          promise.setValue();
-        }
-      }
-    };
-
-    Operator::registerOperator(std::make_unique<BlockingNodeFactory>(
-        std::move(blockingCallback), std::move(finishCallback)));
-
-    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    auto plan = PlanBuilder(planNodeIdGenerator)
-                    .localPartitionRoundRobin(
-                        {PlanBuilder(planNodeIdGenerator)
-                             .values({data1})
-                             .project({"d0 as c0"})
-                             .addNode([](const core::PlanNodeId& id,
-                                         const core::PlanNodePtr& input) {
-                               return std::make_shared<BlockingNode>(id, input);
-                             })
-                             .planNode(),
-                         PlanBuilder(planNodeIdGenerator)
-                             .values({data2})
-                             .project({"e0 as c0"})
-                             .addNode([](const core::PlanNodeId& id,
-                                         const core::PlanNodePtr& input) {
-                               return std::make_shared<BlockingNode>(id, input);
-                             })
-                             .planNode()})
-                    .project({"length(c0)"})
-                    .planNode();
-
-    auto thread = std::thread([&]() {
-      AssertQueryBuilder(duckDbQueryRunner_)
-          .serialExecution(serialExecutionMode)
-          .plan(std::move(plan))
-          .assertResults(
-              "SELECT length(c0) FROM ("
-              "   SELECT * FROM (VALUES ('x')) as t1(c0) UNION ALL "
-              "   SELECT * FROM (VALUES ('y')) as t2(c0)"
-              ")");
-    });
-
-    while (numBlocks != 2) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(10)); // NOLINT
-    }
-    promises[0].setValue();
-
-    thread.join();
-  }
-}
-
-TEST_F(
-    LocalPartitionTest,
-    taskErrorWithBlockedDriverFutureUnderSerializedExecutionMode) {
-  const auto data1 = makeRowVector({"d0"}, {makeFlatVector<StringView>({"x"})});
-  const auto data2 = makeRowVector({"e0"}, {makeFlatVector<StringView>({"y"})});
-
-  Operator::unregisterAllOperators();
-
-  std::mutex mutex;
-  auto contract = makeVeloxContinuePromiseContract(
-      "driverFutureErrorUnderSerializedExecutionMode");
-
-  std::atomic_uint32_t numBlocks{0};
-  auto blockingCallback = [&](ContinueFuture* future) -> BlockingReason {
-    std::lock_guard<std::mutex> l(mutex);
-    if (numBlocks++ > 0) {
-      return BlockingReason::kNotBlocked;
-    }
-    *future = std::move(contract.second);
-    return BlockingReason::kWaitForConsumer;
-  };
-
-  auto finishCallback = [&](bool /*unused*/) {};
-
-  Operator::registerOperator(std::make_unique<BlockingNodeFactory>(
-      std::move(blockingCallback), std::move(finishCallback)));
-
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  auto plan = PlanBuilder(planNodeIdGenerator)
-                  .localPartitionRoundRobin(
-                      {PlanBuilder(planNodeIdGenerator)
-                           .values({data1})
-                           .project({"d0 as c0"})
-                           .addNode([](const core::PlanNodeId& id,
-                                       const core::PlanNodePtr& input) {
-                             return std::make_shared<BlockingNode>(id, input);
-                           })
-                           .planNode(),
-                       PlanBuilder(planNodeIdGenerator)
-                           .values({data2})
-                           .project({"e0 as c0"})
-                           .addNode([](const core::PlanNodeId& id,
-                                       const core::PlanNodePtr& input) {
-                             return std::make_shared<BlockingNode>(id, input);
-                           })
-                           .planNode()})
-                  .project({"length(c0)"})
-                  .planNode();
-
-  auto thread = std::thread([&]() {
-    VELOX_ASSERT_THROW(
-        AssertQueryBuilder(duckDbQueryRunner_)
-            .serialExecution(true)
-            .plan(std::move(plan))
-            .assertResults(
-                "SELECT length(c0) FROM ("
-                "   SELECT * FROM (VALUES ('x')) as t1(c0) UNION ALL "
-                "   SELECT * FROM (VALUES ('y')) as t2(c0)"
-                ")"),
-        "");
-  });
-
-  while (numBlocks < 2) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1)); // NOLINT
-  }
-  std::this_thread::sleep_for(std::chrono::seconds(1)); // NOLINT
-
-  auto tasks = Task::getRunningTasks();
-  ASSERT_EQ(tasks.size(), 1);
-  tasks[0]->requestAbort().wait();
-  thread.join();
 }

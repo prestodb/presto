@@ -647,7 +647,9 @@ RowVectorPtr Task::next(ContinueFuture* future) {
   }
 
   VELOX_CHECK_EQ(
-      state_, TaskState::kRunning, "Task has already finished processing.");
+      static_cast<int>(state_),
+      static_cast<int>(kRunning),
+      "Task has already finished processing.");
 
   // On first call, create the drivers.
   if (driverFactories_.empty()) {
@@ -682,11 +684,6 @@ RowVectorPtr Task::next(ContinueFuture* future) {
     }
 
     drivers_ = std::move(drivers);
-    driverBlockingStates_.reserve(drivers_.size());
-    for (auto i = 0; i < drivers_.size(); ++i) {
-      driverBlockingStates_.emplace_back(
-          std::make_unique<DriverBlockingState>(drivers_[i].get()));
-    }
   }
 
   // Run drivers one at a time. If a driver blocks, continue running the other
@@ -701,10 +698,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
     int runnableDrivers = 0;
     int blockedDrivers = 0;
     for (auto i = 0; i < numDrivers; ++i) {
-      // Holds a reference to driver for access as async task terminate might
-      // remove drivers from 'drivers_' slot.
-      auto driver = getDriver(i);
-      if (driver == nullptr) {
+      if (drivers_[i] == nullptr) {
         // This driver has finished processing.
         continue;
       }
@@ -715,25 +709,16 @@ RowVectorPtr Task::next(ContinueFuture* future) {
         continue;
       }
 
-      ContinueFuture blockFuture = ContinueFuture::makeEmpty();
-      if (driverBlockingStates_[i]->blocked(&blockFuture)) {
-        VELOX_CHECK(blockFuture.valid());
-        futures[i] = std::move(blockFuture);
-        // This driver is still blocked.
-        ++blockedDrivers;
-        continue;
-      }
       ++runnableDrivers;
 
       ContinueFuture driverFuture = ContinueFuture::makeEmpty();
-      auto result = driver->next(&driverFuture);
-      if (result != nullptr) {
-        VELOX_CHECK(!driverFuture.valid());
+      auto result = drivers_[i]->next(&driverFuture);
+      if (result) {
         return result;
       }
 
       if (driverFuture.valid()) {
-        driverBlockingStates_[i]->setDriverFuture(driverFuture);
+        futures[i] = std::move(driverFuture);
       }
 
       if (error()) {
@@ -743,7 +728,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
 
     if (runnableDrivers == 0) {
       if (blockedDrivers > 0) {
-        if (future == nullptr) {
+        if (!future) {
           VELOX_FAIL(
               "Cannot make progress as all remaining drivers are blocked and user are not expected to wait.");
         } else {
@@ -753,18 +738,12 @@ RowVectorPtr Task::next(ContinueFuture* future) {
               notReadyFutures.emplace_back(std::move(continueFuture));
             }
           }
-          *future = folly::collectAny(std::move(notReadyFutures)).unit();
+          *future = folly::collectAll(std::move(notReadyFutures)).unit();
         }
       }
       return nullptr;
     }
   }
-}
-
-std::shared_ptr<Driver> Task::getDriver(uint32_t driverId) const {
-  VELOX_CHECK_LT(driverId, drivers_.size());
-  std::unique_lock<std::timed_mutex> l(mutex_);
-  return drivers_[driverId];
 }
 
 void Task::start(uint32_t maxDrivers, uint32_t concurrentSplitGroups) {
@@ -1501,7 +1480,7 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
   }
 
   if (allFinished) {
-    terminate(TaskState::kFinished);
+    terminate(kFinished);
   }
 }
 
@@ -3122,69 +3101,5 @@ void Task::MemoryReclaimer::abort(
     LOG(WARNING)
         << "Timeout waiting for task to complete during query memory aborting.";
   }
-}
-
-void Task::DriverBlockingState::setDriverFuture(ContinueFuture& driverFuture) {
-  VELOX_CHECK(!blocked_);
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(promises_.empty());
-    VELOX_CHECK_NULL(error_);
-    blocked_ = true;
-  }
-  std::move(driverFuture)
-      .via(&folly::InlineExecutor::instance())
-      .thenValue(
-          [&, driverHolder = driver_->shared_from_this()](auto&& /* unused */) {
-            std::vector<std::unique_ptr<ContinuePromise>> promises;
-            {
-              std::lock_guard<std::mutex> l(mutex_);
-              VELOX_CHECK(blocked_);
-              VELOX_CHECK_NULL(error_);
-              promises = std::move(promises_);
-              blocked_ = false;
-            }
-            for (auto& promise : promises) {
-              promise->setValue();
-            }
-          })
-      .thenError(
-          folly::tag_t<std::exception>{},
-          [&, driverHolder = driver_->shared_from_this()](
-              std::exception const& e) {
-            std::lock_guard<std::mutex> l(mutex_);
-            VELOX_CHECK(blocked_);
-            VELOX_CHECK_NULL(error_);
-            try {
-              VELOX_FAIL(
-                  "A driver future from task {} was realized with error: {}",
-                  driver_->task()->taskId(),
-                  e.what());
-            } catch (const VeloxException&) {
-              error_ = std::current_exception();
-            }
-            blocked_ = false;
-          });
-}
-
-bool Task::DriverBlockingState::blocked(ContinueFuture* future) {
-  VELOX_CHECK_NOT_NULL(future);
-  std::lock_guard<std::mutex> l(mutex_);
-  if (error_ != nullptr) {
-    std::rethrow_exception(error_);
-  }
-  if (!blocked_) {
-    VELOX_CHECK(promises_.empty());
-    return false;
-  }
-  auto [blockPromise, blockFuture] =
-      makeVeloxContinuePromiseContract(fmt::format(
-          "DriverBlockingState {} from task {}",
-          driver_->driverCtx()->driverId,
-          driver_->task()->taskId()));
-  *future = std::move(blockFuture);
-  promises_.emplace_back(
-      std::make_unique<ContinuePromise>(std::move(blockPromise)));
-  return true;
 }
 } // namespace facebook::velox::exec

@@ -1146,11 +1146,8 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kYield";
     case BlockingReason::kWaitForArbitration:
       return "kWaitForArbitration";
-    default:
-      break;
   }
-  VELOX_UNREACHABLE(
-      fmt::format("Unknown blocking reason {}", static_cast<int>(reason)));
+  VELOX_UNREACHABLE();
 }
 
 DriverThreadContext* driverThreadContext() {
