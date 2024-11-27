@@ -629,7 +629,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
   auto execTask = prestoTask->task;
   if (execTask) {
     auto state = execTask->state();
-    if (state == exec::TaskState::kRunning) {
+    if (state == exec::kRunning) {
       execTask->requestAbort();
     }
     prestoTask->info.stats.endTime =
@@ -881,13 +881,13 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
     for (;;) {
       if (prestoTask->taskStarted) {
         // If the task has finished, then send completion result.
-        if (prestoTask->task->state() == exec::TaskState::kFinished) {
+        if (prestoTask->task->state() == exec::kFinished) {
           promiseHolder->promise.setValue(createCompleteResult(token));
           return std::move(future).via(httpSrvCpuExecutor_);
         }
         // If task is not running let the request timeout. The task may have
         // failed at creation time and the coordinator hasn't yet caught up.
-        if (prestoTask->task->state() == exec::TaskState::kRunning) {
+        if (prestoTask->task->state() == exec::kRunning) {
           getData(
               promiseHolder,
               folly::to_weak_ptr(state),
@@ -1166,11 +1166,11 @@ int32_t TaskManager::yieldTasks(
 
 std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
   std::array<size_t, 5> res{0};
-  const auto taskMap = *taskMap_.rlock();
+  auto taskMap = taskMap_.rlock();
   numTasks = 0;
-  for (const auto& [_, task] : taskMap) {
-    if (task->task) {
-      ++res[static_cast<int>(task->task->state())];
+  for (const auto& pair : *taskMap) {
+    if (pair.second->task != nullptr) {
+      ++res[pair.second->task->state()];
       ++numTasks;
     }
   }
@@ -1180,8 +1180,8 @@ std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
 int64_t TaskManager::getBytesProcessed() const {
   const auto taskMap = *taskMap_.rlock();
   int64_t totalCount = 0;
-  for (const auto& [_, task] : taskMap) {
-    totalCount += task->info.stats.processedInputDataSizeInBytes;
+  for (const auto& pair : taskMap) {
+    totalCount += pair.second->info.stats.processedInputDataSizeInBytes;
   }
   return totalCount;
 }
@@ -1190,7 +1190,7 @@ void TaskManager::shutdown() {
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
-  while (taskNumbers[static_cast<int>(exec::TaskState::kRunning)] > 0) {
+  while (taskNumbers[velox::exec::TaskState::kRunning] > 0) {
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waited (" << seconds
         << " seconds so far) for 'Running' tasks to complete. " << numTasks
