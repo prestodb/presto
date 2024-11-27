@@ -324,6 +324,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
+    public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1824,6 +1825,10 @@ public final class SystemSessionProperties
                         NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING,
                         "Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only",
                         queryManagerConfig.getMinColumnarEncodingChannelsToPreferRowWiseEncoding(),
+                        false),
+                booleanProperty(ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID,
+                        "Whether or not to force exchange below GroupId",
+                        true,
                         false));
     }
 
@@ -3099,5 +3104,10 @@ public final class SystemSessionProperties
     public static int getMinColumnarEncodingChannelsToPreferRowWiseEncoding(Session session)
     {
         return session.getSystemProperty(NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING, Integer.class);
+    }
+
+    public static boolean isEnableForcedExchangeBelowGroupId(Session session)
+    {
+        return session.getSystemProperty(ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID, Boolean.class);
     }
 }
