@@ -399,7 +399,6 @@ public final class HiveSessionProperties
                         hiveClientConfig.isAdaptiveFilterReorderingEnabled(),
                         false),
                 booleanProperty(
-                       // HiveClientConfig = new HiveCommonSessionProperties()
                         ORC_USE_COLUMN_NAMES,
                         "Experimental: ORC: Access ORC columns using names from the file",
                         hiveClientConfig.isUseOrcColumnNames(),
