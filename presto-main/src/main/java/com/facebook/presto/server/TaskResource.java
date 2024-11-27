@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -54,7 +55,9 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
+import java.lang.management.ManagementFactory;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -135,7 +138,12 @@ public class TaskResource
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
+        long startWallTime = System.nanoTime();
+        long startCpuTime = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
+
         Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
+        RuntimeStats runtimeStats = Optional.of(session.getRuntimeStats()).orElse(new RuntimeStats());
+
         TaskInfo taskInfo = taskManager.updateTask(session,
                 taskId,
                 taskUpdateRequest.getFragment().map(planFragmentCodec::fromBytes),
@@ -146,8 +154,10 @@ public class TaskResource
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
         }
+        Response response = Response.ok().entity(taskInfo).build();
 
-        return Response.ok().entity(taskInfo).build();
+        TaskResourceUtils.recordTaskUpdateReceivedTimeNanos(runtimeStats, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTime, System.nanoTime() - startWallTime);
+        return response;
     }
 
     @GET

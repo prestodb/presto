@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.RuntimeMetricName;
+import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.HandleResolver;
@@ -522,5 +525,11 @@ public class TaskResourceUtils
         return metadataUpdateHandles.stream()
                 .map(e -> connectorTypeSerde.deserialize(handleResolver.getMetadataUpdateHandleClass(e.getId()), e.getBytes()))
                 .collect(toList());
+    }
+
+    public static void recordTaskUpdateReceivedTimeNanos(RuntimeStats runtimeStats, long cpuTimeNanos, long wallTimeNanos)
+    {
+        runtimeStats.addMetricValue(RuntimeMetricName.TASK_UPDATE_RECEIVED_CPU_TIME_NANOS, RuntimeUnit.NANO, cpuTimeNanos);
+        runtimeStats.addMetricValue(RuntimeMetricName.TASK_UPDATE_RECEIVED_WALL_TIME_NANOS, RuntimeUnit.NANO, wallTimeNanos);
     }
 }

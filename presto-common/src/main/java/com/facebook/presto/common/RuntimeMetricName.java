@@ -63,6 +63,8 @@ public class RuntimeMetricName
     // Blocked time for the operators due to waiting for inputs.
     public static final String TASK_BLOCKED_TIME_NANOS = "taskBlockedTimeNanos";
     public static final String TASK_UPDATE_DELIVERED_WALL_TIME_NANOS = "taskUpdateDeliveredWallTimeNanos";
+    public static final String TASK_UPDATE_RECEIVED_WALL_TIME_NANOS = "taskUpdateReceivedWallTimeNanos";
+    public static final String TASK_UPDATE_RECEIVED_CPU_TIME_NANOS = "taskUpdateReceivedCpuTimeNanos";
     public static final String TASK_UPDATE_SERIALIZED_CPU_TIME_NANOS = "taskUpdateSerializedCpuNanos";
     public static final String TASK_PLAN_SERIALIZED_CPU_TIME_NANOS = "taskPlanSerializedCpuNanos";
     // Time taken for a read call to storage
