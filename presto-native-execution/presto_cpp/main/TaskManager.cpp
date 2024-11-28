@@ -629,7 +629,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
   auto execTask = prestoTask->task;
   if (execTask) {
     auto state = execTask->state();
-    if (state == exec::kRunning) {
+    if (state == exec::TaskState::kRunning) {
       execTask->requestAbort();
     }
     prestoTask->info.stats.endTime =
@@ -881,13 +881,13 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
     for (;;) {
       if (prestoTask->taskStarted) {
         // If the task has finished, then send completion result.
-        if (prestoTask->task->state() == exec::kFinished) {
+        if (prestoTask->task->state() == exec::TaskState::kFinished) {
           promiseHolder->promise.setValue(createCompleteResult(token));
           return std::move(future).via(httpSrvCpuExecutor_);
         }
         // If task is not running let the request timeout. The task may have
         // failed at creation time and the coordinator hasn't yet caught up.
-        if (prestoTask->task->state() == exec::kRunning) {
+        if (prestoTask->task->state() == exec::TaskState::kRunning) {
           getData(
               promiseHolder,
               folly::to_weak_ptr(state),
@@ -1170,7 +1170,7 @@ std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
   numTasks = 0;
   for (const auto& pair : *taskMap) {
     if (pair.second->task != nullptr) {
-      ++res[pair.second->task->state()];
+      ++res[static_cast<int>(pair.second->task->state())];
       ++numTasks;
     }
   }
@@ -1190,7 +1190,7 @@ void TaskManager::shutdown() {
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
-  while (taskNumbers[velox::exec::TaskState::kRunning] > 0) {
+  while (taskNumbers[static_cast<int>(velox::exec::TaskState::kRunning)] > 0) {
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waited (" << seconds
         << " seconds so far) for 'Running' tasks to complete. " << numTasks

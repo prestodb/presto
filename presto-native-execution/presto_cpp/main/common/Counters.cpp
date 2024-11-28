@@ -72,8 +72,6 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterNumBlockedWaitForConnectorDrivers,
       facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterNumBlockedWaitForSpillDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumBlockedYieldDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
