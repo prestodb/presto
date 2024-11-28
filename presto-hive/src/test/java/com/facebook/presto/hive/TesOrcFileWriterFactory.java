@@ -91,7 +91,6 @@ public class TesOrcFileWriterFactory
     private static OrcWriterOptions getOrcWriterOptions(Properties serDe)
     {
         OrcFileWriterConfig orcFileWriterConfig = new OrcFileWriterConfig();
-        orcFileWriterConfig.setFlatMapWriterEnabled(true);
         OrcFileWriterFactory orcFileWriterFactory = getDefaultOrcFileWriterFactory(HIVE_CLIENT_CONFIG, METASTORE_CLIENT_CONFIG);
         HiveSessionProperties sessionProperties = new HiveSessionProperties(
                 new HiveClientConfig(),

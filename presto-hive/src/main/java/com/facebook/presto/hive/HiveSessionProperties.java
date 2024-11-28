@@ -207,8 +207,8 @@ public final class HiveSessionProperties
                         false),
                 booleanProperty(
                         ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED,
-                        "ORC: Enable flat map writer",
-                        orcFileWriterConfig.isFlatMapWriterEnabled(),
+                        "ORC: DEPRECATED Enable flat map writer",
+                        true,
                         true),
                 integerProperty(
                         ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL,
@@ -724,11 +724,6 @@ public final class HiveSessionProperties
     public static boolean isStringDictionarySortingEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_SORTING_ENABLED, Boolean.class);
-    }
-
-    public static boolean isFlatMapWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED, Boolean.class);
     }
 
     public static OptionalInt getCompressionLevel(ConnectorSession session)
