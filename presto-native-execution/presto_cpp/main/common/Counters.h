@@ -96,8 +96,6 @@ constexpr folly::StringPiece kCounterNumBlockedWaitForMemoryDrivers{
     "presto_cpp.num_blocked_wait_for_memory_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedWaitForConnectorDrivers{
     "presto_cpp.num_blocked_wait_for_connector_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForSpillDrivers{
-    "presto_cpp.num_blocked_wait_for_spill_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedYieldDrivers{
     "presto_cpp.num_blocked_yield_drivers"};
 constexpr folly::StringPiece kCounterNumStuckDrivers{
