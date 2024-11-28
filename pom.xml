@@ -207,6 +207,12 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>org.iq80.snappy</groupId>
+                <artifactId>snappy</artifactId>
+                <version>0.5</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-handler</artifactId>
                 <version>4.1.107.Final</version>
