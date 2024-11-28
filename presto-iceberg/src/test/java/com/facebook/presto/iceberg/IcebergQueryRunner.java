@@ -161,12 +161,32 @@ public final class IcebergQueryRunner
             boolean addStorageFormatToPath)
             throws Exception
     {
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, ImmutableMap.of(), format, createTpchTables, addJmxPlugin, nodeCount, externalWorkerLauncher, dataDirectory, addStorageFormatToPath);
+    }
+
+    public static DistributedQueryRunner createIcebergQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> extraConnectorProperties,
+            Map<String, String> extraSessionProperties,
+            FileFormat format,
+            boolean createTpchTables,
+            boolean addJmxPlugin,
+            OptionalInt nodeCount,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
+            Optional<Path> dataDirectory,
+            boolean addStorageFormatToPath)
+            throws Exception
+    {
         setupLogging();
 
-        Session session = testSessionBuilder()
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
-                .setSchema("tpch")
-                .build();
+                .setSchema("tpch");
+
+        for (Map.Entry<String, String> property : extraSessionProperties.entrySet()) {
+            sessionBuilder.setCatalogSessionProperty(ICEBERG_CATALOG, property.getKey(), property.getValue());
+        }
+        Session session = sessionBuilder.build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setExtraProperties(extraProperties)

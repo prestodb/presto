@@ -88,10 +88,10 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testTimestampWithTimeZone()
     {
-        assertQueryFails("CREATE TABLE test_timestamp_with_timezone (x timestamp with time zone)", "Iceberg column type timestamptz is not supported");
-        assertQueryFails("CREATE TABLE test_timestamp_with_timezone (x) AS SELECT TIMESTAMP '1969-12-01 00:00:00.000000 UTC'", "Iceberg column type timestamptz is not supported");
-        assertUpdate("CREATE TABLE test_timestamp_with_timezone (x timestamp)");
-        assertQueryFails("ALTER TABLE test_timestamp_with_timezone ADD COLUMN y timestamp with time zone", "Iceberg column type timestamptz is not supported");
+        assertQuerySucceeds("CREATE TABLE test_timestamp_with_timezone (x timestamp with time zone)");
+        dropTable(getSession(), "test_timestamp_with_timezone");
+        assertQuerySucceeds("CREATE TABLE test_timestamp_with_timezone (x) AS SELECT TIMESTAMP '1969-12-01 00:00:00.000000 UTC'");
+        assertQuerySucceeds("ALTER TABLE test_timestamp_with_timezone ADD COLUMN y timestamp with time zone");
         dropTable(getSession(), "test_timestamp_with_timezone");
     }
 

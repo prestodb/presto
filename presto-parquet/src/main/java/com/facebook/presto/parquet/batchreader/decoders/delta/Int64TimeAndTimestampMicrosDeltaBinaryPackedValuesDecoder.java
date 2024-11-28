@@ -20,6 +20,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 /**
@@ -34,11 +36,22 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
 
     private final DeltaBinaryPackingValuesReader innerReader;
 
-    public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
+    private final PackFunction packFunction;
+
+    private final boolean withTimezone;
+
+    public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream, boolean withTimezone)
             throws IOException
     {
         innerReader = new DeltaBinaryPackingValuesReader();
         innerReader.initFromPage(valueCount, bufferInputStream);
+        this.withTimezone = withTimezone;
+        if (withTimezone) {
+            this.packFunction = millis -> packDateTimeWithZone(millis, UTC_KEY);
+        }
+        else {
+            this.packFunction = millis -> millis;
+        }
     }
 
     @Override
@@ -46,7 +59,8 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
     {
         int endOffset = offset + length;
         for (int i = offset; i < endOffset; i++) {
-            values[i] = MICROSECONDS.toMillis(innerReader.readLong());
+            long curValue = MICROSECONDS.toMillis(innerReader.readLong());
+            values[i] = packFunction.pack(curValue);
         }
     }
 
@@ -64,5 +78,16 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
     {
         // Not counting innerReader since it's in another library.
         return INSTANCE_SIZE;
+    }
+
+    @Override
+    public boolean getWithTimezone()
+    {
+        return withTimezone;
+    }
+
+    private interface PackFunction
+    {
+        long pack(long millis);
     }
 }

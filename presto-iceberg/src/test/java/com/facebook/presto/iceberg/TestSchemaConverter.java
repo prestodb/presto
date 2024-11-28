@@ -92,7 +92,9 @@ public class TestSchemaConverter
                 prestoIcebergNestedField(9, "varchar", typeManager),
                 prestoIcebergNestedField(10, "varbinary", typeManager),
                 prestoIcebergNestedField(11, "row", typeManager),
-                prestoIcebergNestedField(12, "date", typeManager)));
+                prestoIcebergNestedField(12, "date", typeManager),
+                prestoIcebergNestedField(13, "timestamp", typeManager),
+                prestoIcebergNestedField(14, "timestamptz", typeManager)));
 
         Map<String, Integer> columnNameToIdMapping = getColumnNameToIdMapping();
 
@@ -114,11 +116,13 @@ public class TestSchemaConverter
         columnNameToIdMapping.put("varbinary", 10);
         columnNameToIdMapping.put("row", 11);
         columnNameToIdMapping.put("date", 12);
-        columnNameToIdMapping.put("array.element", 13);
-        columnNameToIdMapping.put("map.key", 14);
-        columnNameToIdMapping.put("map.value", 15);
-        columnNameToIdMapping.put("row.int", 16);
-        columnNameToIdMapping.put("row.varchar", 17);
+        columnNameToIdMapping.put("timestamp", 13);
+        columnNameToIdMapping.put("timestamptz", 14);
+        columnNameToIdMapping.put("array.element", 15);
+        columnNameToIdMapping.put("map.key", 16);
+        columnNameToIdMapping.put("map.value", 17);
+        columnNameToIdMapping.put("row.int", 18);
+        columnNameToIdMapping.put("row.varchar", 19);
 
         return columnNameToIdMapping;
     }
@@ -137,7 +141,9 @@ public class TestSchemaConverter
                 nestedField(9, "varchar"),
                 nestedField(10, "varbinary"),
                 nestedField(11, "row"),
-                nestedField(12, "date")));
+                nestedField(12, "date"),
+                nestedField(13, "timestamp"),
+                nestedField(14, "timestamptz")));
 
         Type schemaAsStruct = Types.StructType.of(fields);
         AtomicInteger nextFieldId = new AtomicInteger(1);

@@ -21,6 +21,8 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -34,10 +36,27 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
 
     private final LongDictionary dictionary;
 
-    public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
+    private final boolean withTimezone;
+
+    private final PackFunction packFunction;
+
+    public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary, boolean withTimezone)
     {
         super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;
+        this.withTimezone = withTimezone;
+
+        if (withTimezone) {
+            this.packFunction = millis -> packDateTimeWithZone(millis, UTC_KEY);
+        }
+        else {
+            this.packFunction = millis -> millis;
+        }
+    }
+
+    public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
+    {
+        this(bitWidth, inputStream, dictionary, false);
     }
 
     @Override
@@ -60,7 +79,7 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     final int rleValue = currentValue;
                     final long rleDictionaryValue = MICROSECONDS.toMillis(dictionary.decodeToLong(rleValue));
                     while (destinationIndex < endIndex) {
-                        values[destinationIndex++] = rleDictionaryValue;
+                        values[destinationIndex++] = packFunction.pack(rleDictionaryValue);
                     }
                     break;
                 }
@@ -69,7 +88,8 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     final LongDictionary localDictionary = dictionary;
                     for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
                         long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
-                        values[destinationIndex++] = MICROSECONDS.toMillis(dictionaryValue);
+                        long millisValue = MICROSECONDS.toMillis(dictionaryValue);
+                        values[destinationIndex++] = packFunction.pack(millisValue);
                     }
                     break;
                 }
@@ -109,5 +129,16 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) + sizeOf(currentBuffer);
+    }
+
+    @Override
+    public boolean getWithTimezone()
+    {
+        return withTimezone;
+    }
+
+    private interface PackFunction
+    {
+        long pack(long millis);
     }
 }
