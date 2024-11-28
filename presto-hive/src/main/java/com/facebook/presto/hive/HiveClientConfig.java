@@ -749,8 +749,6 @@ public class HiveClientConfig
         return this;
     }
 
-
-
     public double getOrcDefaultBloomFilterFpp()
     {
         return orcDefaultBloomFilterFpp;
