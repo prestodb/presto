@@ -10500,6 +10500,44 @@ void from_json(const json& j, TopNNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<RankingFunction, json> RankingFunction_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {RankingFunction::ROW_NUMBER, "ROW_NUMBER"},
+        {RankingFunction::RANK, "RANK"},
+        {RankingFunction::DENSE_RANK, "DENSE_RANK"}};
+void to_json(json& j, const RankingFunction& e) {
+  static_assert(
+      std::is_enum<RankingFunction>::value, "RankingFunction must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RankingFunction_enum_table),
+      std::end(RankingFunction_enum_table),
+      [e](const std::pair<RankingFunction, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(RankingFunction_enum_table))
+           ? it
+           : std::begin(RankingFunction_enum_table))
+          ->second;
+}
+void from_json(const json& j, RankingFunction& e) {
+  static_assert(
+      std::is_enum<RankingFunction>::value, "RankingFunction must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RankingFunction_enum_table),
+      std::end(RankingFunction_enum_table),
+      [&j](const std::pair<RankingFunction, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(RankingFunction_enum_table))
+           ? it
+           : std::begin(RankingFunction_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 TopNRowNumberNode::TopNRowNumberNode() noexcept {
   _type = "com.facebook.presto.sql.planner.plan.TopNRowNumberNode";
 }
@@ -10516,6 +10554,13 @@ void to_json(json& j, const TopNRowNumberNode& p) {
       "TopNRowNumberNode",
       "Specification",
       "specification");
+  to_json_key(
+      j,
+      "rankingType",
+      p.rankingType,
+      "TopNRowNumberNode",
+      "RankingFunction",
+      "rankingType");
   to_json_key(
       j,
       "rowNumberVariable",
@@ -10552,6 +10597,13 @@ void from_json(const json& j, TopNRowNumberNode& p) {
       "TopNRowNumberNode",
       "Specification",
       "specification");
+  from_json_key(
+      j,
+      "rankingType",
+      p.rankingType,
+      "TopNRowNumberNode",
+      "RankingFunction",
+      "rankingType");
   from_json_key(
       j,
       "rowNumberVariable",

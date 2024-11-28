@@ -495,6 +495,7 @@ public class PrestoNativeQueryRunnerUtils
                         // Write config file
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
+                                "native-execution-enabled=true" +
                                 "system-memory-gb=4%n" +
                                 "http-server.http.port=%d", discoveryUri, port);
 

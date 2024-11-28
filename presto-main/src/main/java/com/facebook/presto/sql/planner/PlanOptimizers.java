@@ -641,7 +641,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new SimplifyCountOverConstant(metadata.getFunctionAndTypeManager()))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
-                new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
+                new WindowFilterPushDown(metadata, featuresConfig.isNativeExecutionEnabled()), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 prefilterForLimitingAggregation,
                 new IterativeOptimizer(
                         metadata,

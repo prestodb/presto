@@ -387,7 +387,8 @@ public final class GraphvizPrinter
         {
             printNode(node,
                     "TopNRowNumber",
-                    format("partition by = %s|order by = %s|n = %s",
+                    format("function = %s; partition by = %s|order by = %s|n = %s",
+                            node.getRankingFunction(),
                             Joiner.on(", ").join(node.getPartitionBy()),
                             Joiner.on(", ").join(node.getOrderingScheme().getOrderByVariables()), node.getMaxRowCountPerPartition()),
                     NODE_COLORS.get(NodeType.WINDOW));
