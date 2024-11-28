@@ -103,9 +103,12 @@ class HiveConfig {
   /// The max coalesce bytes for a request.
   static constexpr const char* kMaxCoalescedBytes = "max-coalesced-bytes";
 
-  /// The max coalesce distance bytes for combining requests.
-  static constexpr const char* kMaxCoalescedDistanceBytes =
-      "max-coalesced-distance-bytes";
+  /// The max merge distance to combine read requests.
+  /// Note: The session property name differs from the constant name for
+  /// backward compatibility with Presto.
+  static constexpr const char* kMaxCoalescedDistance = "max-coalesced-distance";
+  static constexpr const char* kMaxCoalescedDistanceSession =
+      "orc_max_merge_distance";
 
   /// The number of prefetch rowgroups
   static constexpr const char* kPrefetchRowGroups = "prefetch-rowgroups";
@@ -236,7 +239,7 @@ class HiveConfig {
 
   int64_t maxCoalescedBytes() const;
 
-  int32_t maxCoalescedDistanceBytes() const;
+  int32_t maxCoalescedDistanceBytes(const config::ConfigBase* session) const;
 
   int32_t prefetchRowGroups() const;
 

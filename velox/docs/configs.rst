@@ -464,11 +464,11 @@ Each query can override the config by setting corresponding query session proper
      - integer
      - 128MB
      - Maximum size in bytes to coalesce requests to be fetched in a single request.
-   * - max-coalesced-distance-bytes
+   * - max-coalesced-distance
      -
      - integer
      - 512KB
-     - Maximum distance in bytes between chunks to be fetched that may be coalesced into a single request.
+     - Maximum distance in capacity units between chunks to be fetched that may be coalesced into a single request.
    * - load-quantum
      -
      - integer

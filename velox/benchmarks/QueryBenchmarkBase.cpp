@@ -178,7 +178,7 @@ void QueryBenchmarkBase::initialize() {
   auto configurationValues = std::unordered_map<std::string, std::string>();
   configurationValues[connector::hive::HiveConfig::kMaxCoalescedBytes] =
       std::to_string(FLAGS_max_coalesced_bytes);
-  configurationValues[connector::hive::HiveConfig::kMaxCoalescedDistanceBytes] =
+  configurationValues[connector::hive::HiveConfig::kMaxCoalescedDistance] =
       std::to_string(FLAGS_max_coalesced_distance_bytes);
   configurationValues[connector::hive::HiveConfig::kPrefetchRowGroups] =
       std::to_string(FLAGS_parquet_prefetch_rowgroups);

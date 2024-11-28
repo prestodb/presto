@@ -558,7 +558,8 @@ void configureReaderOptions(
   auto sessionProperties = connectorQueryCtx->sessionProperties();
   readerOptions.setLoadQuantum(hiveConfig->loadQuantum());
   readerOptions.setMaxCoalesceBytes(hiveConfig->maxCoalescedBytes());
-  readerOptions.setMaxCoalesceDistance(hiveConfig->maxCoalescedDistanceBytes());
+  readerOptions.setMaxCoalesceDistance(
+      hiveConfig->maxCoalescedDistanceBytes(sessionProperties));
   readerOptions.setFileColumnNamesReadAsLowerCase(
       hiveConfig->isFileColumnNamesReadAsLowerCase(sessionProperties));
   bool useColumnNamesForColumnMapping = false;
