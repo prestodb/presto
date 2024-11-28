@@ -133,6 +133,19 @@ bool ScanSpec::hasFilter() const {
   return false;
 }
 
+bool ScanSpec::hasFilterApplicableToConstant() const {
+  if (filter_) {
+    return true;
+  }
+  for (auto& child : children_) {
+    if (!child->isArrayElementOrMapEntry_ &&
+        child->hasFilterApplicableToConstant()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool ScanSpec::testNull() const {
   auto* filter = this->filter();
   if (filter && !filter->testNull()) {
@@ -368,9 +381,15 @@ std::string ScanSpec::toString() const {
     out << fieldName_;
     if (filter_) {
       out << " filter " << filter_->toString();
+      if (filterDisabled_) {
+        out << " disabled";
+      }
     }
     if (isConstant()) {
       out << " constant";
+    }
+    if (deltaUpdate_) {
+      out << " deltaUpdate_=" << deltaUpdate_;
     }
     if (!metadataFilters_.empty()) {
       out << " metadata_filters(" << metadataFilters_.size() << ")";
@@ -471,9 +490,9 @@ void filterSimpleVectorRows(
     Filter& filter,
     vector_size_t size,
     uint64_t* result) {
+  VELOX_CHECK(size == 0 || result);
   using T = typename TypeTraits<kKind>::NativeType;
   auto* simpleVector = vector.asChecked<SimpleVector<T>>();
-  VELOX_CHECK_NOT_NULL(simpleVector);
   bits::forEachSetBit(result, 0, size, [&](auto i) {
     if (simpleVector->isNullAt(i)) {
       if (!filter.testNull()) {
@@ -521,11 +540,8 @@ void filterRows(
 } // namespace
 
 void ScanSpec::applyFilter(const BaseVector& vector, uint64_t* result) const {
-  if (!hasFilter()) {
-    return;
-  }
-  if (auto* filter = this->filter()) {
-    filterRows(vector, *filter, vector.size(), result);
+  if (filter_) {
+    filterRows(vector, *filter_, vector.size(), result);
   }
   if (!vector.type()->isRow()) {
     // Filter on MAP or ARRAY children are pruning, and won't affect correctness

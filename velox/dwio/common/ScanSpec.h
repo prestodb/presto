@@ -258,6 +258,12 @@ class ScanSpec {
   // This may change as a result of runtime adaptation.
   bool hasFilter() const;
 
+  /// Similar as hasFilter() but also return true even there is a filter on
+  /// constant.  Used by delta updated columns because these columns will have
+  /// delta update on constants which makes them no longer constant.  This
+  /// method also ignores filterDisabled_.
+  bool hasFilterApplicableToConstant() const;
+
   /// Assume this field is read as null constant vector (usually due to missing
   /// field), check if any filter in the struct subtree would make the whole
   /// vector to be filtered out.  Return false when the whole vector should be
@@ -351,6 +357,9 @@ class ScanSpec {
     }
   }
 
+  /// Apply filter to the input `vector' and set the passed bits in `result'.
+  /// This method is used by non-selective reader and delta update, so it
+  /// ignores the filterDisabled_ state.
   void applyFilter(const BaseVector& vector, uint64_t* result) const;
 
   bool isFlatMapAsStruct() const {
