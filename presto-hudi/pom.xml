@@ -244,6 +244,7 @@
                         <ignoredClassPatterns>
                             <ignoredClassPattern>module-info</ignoredClassPattern>
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.*</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
                 </plugin>

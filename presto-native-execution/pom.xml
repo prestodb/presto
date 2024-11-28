@@ -277,6 +277,7 @@
                         <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
                         <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                         <ignoredClassPattern>org.roaringbitmap.*</ignoredClassPattern>
+                        <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>

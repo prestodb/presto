@@ -23,6 +23,10 @@
             <artifactId>presto-pinot-driver</artifactId>
             <exclusions>
                 <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-core</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>commons-io</groupId>
                     <artifactId>commons-io</artifactId>
                 </exclusion>
@@ -645,6 +649,12 @@
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-core</artifactId>
+            <version>8.10.0</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -682,6 +692,9 @@
                                     <ignoredDependency>io.grpc:::</ignoredDependency>
                                     <ignoredDependency>commons-codec:commons-codec::</ignoredDependency>
                                 </ignoredDependencies>
+                                <ignoredUnusedDeclaredDependencies>
+                                    <ignoredUnusedDeclaredDependency> org.apache.lucene:lucene-core:jar:8.10.0</ignoredUnusedDeclaredDependency>
+                                </ignoredUnusedDeclaredDependencies>
                             </configuration>
                         </execution>
                     </executions>
