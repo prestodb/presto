@@ -39,6 +39,7 @@ option(BUILD_OPENCL "Build OpenCL tests." OFF)
 option(BUILD_OPENMP "Build OpenMP tests." OFF)
 option(BUILD_METAL "Build Metal tests." OFF)
 option(BUILD_TRACING "Build tracing." ON)
+option(BUILD_GENERATE_TEST_FIXTURES "Generate test fixtures at build time." ON)
 
 if(NOT DEFINED PERFTEST_EXT_TYPES)
   set(PERFTEST_EXT_TYPES

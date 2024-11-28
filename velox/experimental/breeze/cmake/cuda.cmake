@@ -96,7 +96,7 @@ function(breeze_add_cuda_test target source)
     OUTPUT ${target}
     COMMAND
       ${NVCC_EXECUTABLE} -o ${target} ${target}.o ${arg_LIBS}
-      $<TARGET_FILE_DIR:gtest>/libgtest.a
+      $<TARGET_FILE_DIR:GTest::gtest>/libgtest.a
       $<TARGET_FILE_DIR:test_main>/libtest_main.a
       $<$<BOOL:${BUILD_TRACING}>:$<TARGET_FILE_DIR:perfetto>/libperfetto.a>
       ${ARCH_LINK_FLAGS}
@@ -107,8 +107,6 @@ function(breeze_add_cuda_test target source)
                PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/${target})
   gtest_discover_tests(${target}_TESTS TEST_PREFIX cuda: DISCOVERY_MODE
                                                          PRE_TEST)
-  install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${target}
-          DESTINATION ${CMAKE_INSTALL_BINDIR})
   if(DEFINED CUDA_EXPECTED_RESOURCE_USAGE_DIR)
     if(EXISTS "${CUDA_EXPECTED_RESOURCE_USAGE_DIR}/${target}-expected.txt")
       set(GET_RESOURCE_USAGE_CMDLINE

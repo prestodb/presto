@@ -30,3 +30,5 @@ function generate {
 
 generate openmp "algorithm" h
 generate openmp "function" h
+generate cuda "algorithm" cuh
+generate cuda "function" cuh

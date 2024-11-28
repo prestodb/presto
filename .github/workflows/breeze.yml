@@ -1,0 +1,114 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Breeze Linux Build
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "velox/experimental/breeze/**"
+      - "velox/external/perfetto/**"
+      - "CMake/**"
+      - "scripts/setup-ubuntu.sh"
+      - "scripts/setup-helper-functions.sh"
+      - ".github/workflows/breeze.yml"
+
+  pull_request:
+    paths:
+      - "velox/experimental/breeze/**"
+      - "velox/external/perfetto/**"
+      - "CMake/**"
+      - "scripts/setup-ubuntu.sh"
+      - "scripts/setup-helper-functions.sh"
+      - ".github/workflows/breeze.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu-debug:
+    runs-on: ubuntu-22.04
+    # prevent errors when forks ff their main branch
+    if: ${{ github.repository == 'facebookincubator/velox' }}
+    name: "Ubuntu debug"
+    defaults:
+      run:
+        shell: bash
+        working-directory: velox
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          path: velox
+
+      - name: Install Dependencies
+        run: |
+          source scripts/setup-ubuntu.sh && install_apt_deps
+
+      - name: Make Debug Build
+        env:
+          VELOX_DEPENDENCY_SOURCE: BUNDLED
+        # OpenMP build with asan+ubsan enabled
+        run: |
+          cmake -S velox/experimental/breeze -B _build-breeze/debug \
+                -DCMAKE_BUILD_TYPE=Asan \
+                -DCMAKE_CXX_FLAGS="-fsanitize=undefined" \
+                -DBUILD_GENERATE_TEST_FIXTURES=OFF \
+                -DBUILD_OPENMP=ON
+          cmake --build _build-breeze/debug -j 8
+
+      - name: Run Tests
+        run: |
+          cd _build-breeze/debug && ctest -j 8 --output-on-failure --no-tests=error
+
+  ubuntu-gpu-relwithdebinfo:
+    runs-on: 4-core-ubuntu-gpu-t4
+    # prevent errors when forks ff their main branch
+    if: ${{ github.repository == 'facebookincubator/velox' }}
+    name: "Ubuntu GPU debug"
+    env:
+      CUDA_VERSION: "12.2"
+    defaults:
+      run:
+        shell: bash
+        working-directory: velox
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          path: velox
+
+      - name: Install Dependencies
+        run: |
+          source scripts/setup-ubuntu.sh && install_apt_deps && install_cuda ${CUDA_VERSION}
+          sudo chmod 755 -R /usr/local/lib/python3.10/dist-packages
+
+      - name: Make RelWithDebInfo Build
+        run: |
+          cmake -S velox/experimental/breeze -B _build-breeze/relwithdebinfo \
+                -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                -DBUILD_GENERATE_TEST_FIXTURES=OFF \
+                -DBUILD_CUDA=ON \
+                -DCMAKE_NVCC_FLAGS="-arch=native"
+          cmake --build _build-breeze/relwithdebinfo -j 8
+
+      - name: Run Tests
+        run: |
+          cd _build-breeze/relwithdebinfo && ctest -j 8 --output-on-failure --no-tests=error

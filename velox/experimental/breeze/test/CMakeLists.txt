@@ -18,7 +18,7 @@
 
 include_directories(${CMAKE_SOURCE_DIR})
 
-cxx_library(test_main "${cxx_strict}" test_main.cpp)
+add_library(test_main test_main.cpp)
 target_link_libraries(
   test_main
   PUBLIC gtest $<$<BOOL:${BUILD_TRACING}>:perfetto>)
@@ -160,101 +160,103 @@ function(
 endfunction()
 
 function(breeze_add_unittests dir type)
-  if(BUILD_OPENCL)
-    generate_kernel(
-      ${type}_opencl_kernels_src
-      ${dir}
-      ${type}
-      "opencl"
-      "generated/${dir}/kernels-opencl.h")
-    generate_test_fixture(
-      ${type}_opencl_test_fixture_src
-      ${dir}
-      ${type}
-      "opencl"
-      "generated/${dir}/${type}_test-opencl.h")
-    set(_opencl_kernels_src ${type}_opencl_kernels_src)
-    set(_opencl_test_fixture_src ${type}_opencl_test_fixture_src)
-  endif()
-  if(BUILD_METAL)
-    generate_kernel(
-      ${type}_metal_kernels_src
-      ${dir}
-      ${type}
-      "metal"
-      "generated/${dir}/kernels-metal.h")
-    generate_test_fixture(
-      ${type}_metal_test_fixture_src
-      ${dir}
-      ${type}
-      "metal"
-      "generated/${dir}/${type}_test-metal.h")
-    set(_metal_kernels_src ${type}_metal_kernels_src)
-    set(_metal_test_fixture_src ${type}_metal_test_fixture_src)
-  endif()
-  if(BUILD_CUDA)
-    generate_kernel(
-      ${type}_cuda_kernels_src
-      ${dir}
-      ${type}
-      "cuda"
-      "generated/${dir}/kernels.cuh")
-    generate_test_fixture(
-      ${type}_cuda_test_fixture_src
-      ${dir}
-      ${type}
-      "cuda"
-      "generated/${dir}/${type}_test-cuda.cuh")
-    set(_cuda_kernels_src ${type}_cuda_kernels_src)
-    set(_cuda_test_fixture_src ${type}_cuda_test_fixture_src)
-  endif()
-  if(BUILD_HIP)
-    generate_kernel(
-      ${type}_hip_kernels_src
-      ${dir}
-      ${type}
-      "hip"
-      "generated/${dir}/kernels-hip.hpp")
-    generate_test_fixture(
-      ${type}_hip_test_fixture_src
-      ${dir}
-      ${type}
-      "hip"
-      "generated/${dir}/${type}_test-hip.hpp")
-    set(_hip_kernels_src ${type}_hip_kernels_src)
-    set(_hip_test_fixture_src ${type}_hip_test_fixture_src)
-  endif()
-  if(BUILD_SYCL)
-    generate_kernel(
-      ${type}_sycl_kernels_src
-      ${dir}
-      ${type}
-      "sycl"
-      "generated/${dir}/kernels-sycl.hpp")
-    generate_test_fixture(
-      ${type}_sycl_test_fixture_src
-      ${dir}
-      ${type}
-      "sycl"
-      "generated/${dir}/${type}_test-sycl.hpp")
-    set(_sycl_kernels_src ${type}_sycl_kernels_src)
-    set(_sycl_test_fixture_src ${type}_sycl_test_fixture_src)
-  endif()
-  if(BUILD_OPENMP)
-    generate_kernel(
-      ${type}_openmp_kernels_src
-      ${dir}
-      ${type}
-      "openmp"
-      "generated/${dir}/kernels-openmp.h")
-    generate_test_fixture(
-      ${type}_openmp_test_fixture_src
-      ${dir}
-      ${type}
-      "openmp"
-      "generated/${dir}/${type}_test-openmp.h")
-    set(_openmp_kernels_src ${type}_openmp_kernels_src)
-    set(_openmp_test_fixture_src ${type}_openmp_test_fixture_src)
+  if(BUILD_GENERATE_TEST_FIXTURES)
+    if(BUILD_OPENCL)
+      generate_kernel(
+        ${type}_opencl_kernels_src
+        ${dir}
+        ${type}
+        "opencl"
+        "generated/${dir}/kernels-opencl.h")
+      generate_test_fixture(
+        ${type}_opencl_test_fixture_src
+        ${dir}
+        ${type}
+        "opencl"
+        "generated/${dir}/${type}_test-opencl.h")
+      set(_opencl_kernels_src ${type}_opencl_kernels_src)
+      set(_opencl_test_fixture_src ${type}_opencl_test_fixture_src)
+    endif()
+    if(BUILD_METAL)
+      generate_kernel(
+        ${type}_metal_kernels_src
+        ${dir}
+        ${type}
+        "metal"
+        "generated/${dir}/kernels-metal.h")
+      generate_test_fixture(
+        ${type}_metal_test_fixture_src
+        ${dir}
+        ${type}
+        "metal"
+        "generated/${dir}/${type}_test-metal.h")
+      set(_metal_kernels_src ${type}_metal_kernels_src)
+      set(_metal_test_fixture_src ${type}_metal_test_fixture_src)
+    endif()
+    if(BUILD_CUDA)
+      generate_kernel(
+        ${type}_cuda_kernels_src
+        ${dir}
+        ${type}
+        "cuda"
+        "generated/${dir}/kernels-cuda.cuh")
+      generate_test_fixture(
+        ${type}_cuda_test_fixture_src
+        ${dir}
+        ${type}
+        "cuda"
+        "generated/${dir}/${type}_test-cuda.cuh")
+      set(_cuda_kernels_src ${type}_cuda_kernels_src)
+      set(_cuda_test_fixture_src ${type}_cuda_test_fixture_src)
+    endif()
+    if(BUILD_HIP)
+      generate_kernel(
+        ${type}_hip_kernels_src
+        ${dir}
+        ${type}
+        "hip"
+        "generated/${dir}/kernels-hip.hpp")
+      generate_test_fixture(
+        ${type}_hip_test_fixture_src
+        ${dir}
+        ${type}
+        "hip"
+        "generated/${dir}/${type}_test-hip.hpp")
+      set(_hip_kernels_src ${type}_hip_kernels_src)
+      set(_hip_test_fixture_src ${type}_hip_test_fixture_src)
+    endif()
+    if(BUILD_SYCL)
+      generate_kernel(
+        ${type}_sycl_kernels_src
+        ${dir}
+        ${type}
+        "sycl"
+        "generated/${dir}/kernels-sycl.hpp")
+      generate_test_fixture(
+        ${type}_sycl_test_fixture_src
+        ${dir}
+        ${type}
+        "sycl"
+        "generated/${dir}/${type}_test-sycl.hpp")
+      set(_sycl_kernels_src ${type}_sycl_kernels_src)
+      set(_sycl_test_fixture_src ${type}_sycl_test_fixture_src)
+    endif()
+    if(BUILD_OPENMP)
+      generate_kernel(
+        ${type}_openmp_kernels_src
+        ${dir}
+        ${type}
+        "openmp"
+        "generated/${dir}/kernels-openmp.h")
+      generate_test_fixture(
+        ${type}_openmp_test_fixture_src
+        ${dir}
+        ${type}
+        "openmp"
+        "generated/${dir}/${type}_test-openmp.h")
+      set(_openmp_kernels_src ${type}_openmp_kernels_src)
+      set(_openmp_test_fixture_src ${type}_openmp_test_fixture_src)
+    endif()
   endif()
   breeze_add_tests(
     ${dir}

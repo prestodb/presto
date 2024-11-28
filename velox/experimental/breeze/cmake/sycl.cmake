@@ -40,7 +40,7 @@ function(breeze_add_sycl_test target source)
     OUTPUT ${target}
     COMMAND
       ${SYCLCC_EXECUTABLE} -o ${target} ${target}.o
-      $<TARGET_FILE_DIR:gtest>/libgtest.a
+      $<TARGET_FILE_DIR:GTest::gtest>/libgtest.a
       $<TARGET_FILE_DIR:test_main>/libtest_main.a ${CMAKE_THREAD_LIBS_INIT}
       ${ARCH_LINK_FLAGS}
       $<$<BOOL:${BUILD_TRACING}>:$<TARGET_FILE_DIR:perfetto>/libperfetto.a>
@@ -51,6 +51,4 @@ function(breeze_add_sycl_test target source)
                PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/${target})
   gtest_discover_tests(${target}_TESTS TEST_PREFIX sycl: DISCOVERY_MODE
                                                          PRE_TEST)
-  install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${target}
-          DESTINATION ${CMAKE_INSTALL_BINDIR})
 endfunction()

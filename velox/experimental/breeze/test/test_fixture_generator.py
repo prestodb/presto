@@ -275,7 +275,7 @@ class CudaTestFixture(HipTestFixture):
     def includes(self, fixture_name):
         test_type = fixture_name.replace("Test", "").lower()
         return f"""
-            #include "test/generated/{test_type}s/kernels.cuh"
+            #include "test/generated/{test_type}s/kernels-cuda.cuh"
             #include "breeze/platforms/cuda.cuh"
             #include "test/platforms/cuda_test.cuh"
         """
