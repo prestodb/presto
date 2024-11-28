@@ -115,7 +115,7 @@ jobs:
           python setup.py sdist --dist-dir wheelhouse
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.12.1
+        uses: pypa/cibuildwheel@v2.22.0
         env:
           # required for preadv/pwritev
           MACOSX_DEPLOYMENT_TARGET: "11.0"
