@@ -134,7 +134,6 @@ public final class HiveSessionProperties
     public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
     public static final String SKIP_EMPTY_FILES = "skip_empty_files";
     public static final String LEGACY_TIMESTAMP_BUCKETING = "legacy_timestamp_bucketing";
-    private static final String ORC_USE_COLUMN_NAMES = "orc_use_column_names";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -397,11 +396,6 @@ public final class HiveSessionProperties
                         ADAPTIVE_FILTER_REORDERING_ENABLED,
                         "Experimental: enable adaptive filter reordering",
                         hiveClientConfig.isAdaptiveFilterReorderingEnabled(),
-                        false),
-                booleanProperty(
-                        ORC_USE_COLUMN_NAMES,
-                        "Experimental: ORC: Access ORC columns using names from the file",
-                        hiveClientConfig.isUseOrcColumnNames(),
                         false),
                 integerProperty(
                         VIRTUAL_BUCKET_COUNT,
@@ -1145,9 +1139,5 @@ public final class HiveSessionProperties
     public static boolean isLegacyTimestampBucketing(ConnectorSession session)
     {
         return session.getProperty(LEGACY_TIMESTAMP_BUCKETING, Boolean.class);
-    }
-    public static boolean isUseOrcColumnNames(ConnectorSession session)
-    {
-        return session.getProperty(ORC_USE_COLUMN_NAMES, Boolean.class);
     }
 }
