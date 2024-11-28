@@ -382,11 +382,12 @@ uint64_t HashJoinMemoryReclaimer::reclaim(
     uint64_t targetBytes,
     uint64_t maxWaitMs,
     memory::MemoryReclaimer::Stats& stats) {
+  const auto prevNodeReservedMemory = pool->reservedBytes();
+
   // The flags to track if we have reclaimed from both build and probe operators
   // under a hash join node.
   bool hasReclaimedFromBuild{false};
   bool hasReclaimedFromProbe{false};
-  uint64_t reclaimedBytes{0};
   pool->visitChildren([&](memory::MemoryPool* child) {
     VELOX_CHECK_EQ(child->kind(), memory::MemoryPool::Kind::kLeaf);
     const bool isBuild = isHashBuildMemoryPool(*child);
@@ -394,7 +395,7 @@ uint64_t HashJoinMemoryReclaimer::reclaim(
       if (!hasReclaimedFromBuild) {
         // We just need to reclaim from any one of the hash build operator.
         hasReclaimedFromBuild = true;
-        reclaimedBytes += child->reclaim(targetBytes, maxWaitMs, stats);
+        child->reclaim(targetBytes, maxWaitMs, stats);
       }
       return !hasReclaimedFromProbe;
     }
@@ -403,22 +404,25 @@ uint64_t HashJoinMemoryReclaimer::reclaim(
       // The same as build operator, we only need to reclaim from any one of the
       // hash probe operator.
       hasReclaimedFromProbe = true;
-      reclaimedBytes += child->reclaim(targetBytes, maxWaitMs, stats);
+      child->reclaim(targetBytes, maxWaitMs, stats);
     }
     return !hasReclaimedFromBuild;
   });
-  if (reclaimedBytes != 0) {
-    return reclaimedBytes;
+
+  auto currNodeReservedMemory = pool->reservedBytes();
+  VELOX_CHECK_LE(currNodeReservedMemory, prevNodeReservedMemory);
+  if (currNodeReservedMemory < prevNodeReservedMemory) {
+    return prevNodeReservedMemory - currNodeReservedMemory;
   }
+
   auto joinBridge = joinBridge_.lock();
   if (joinBridge == nullptr) {
-    return reclaimedBytes;
+    return 0;
   }
-  const auto oldNodeReservedMemory = pool->reservedBytes();
   joinBridge->reclaim();
-  const auto newNodeReservedMemory = pool->reservedBytes();
-  VELOX_CHECK_LE(newNodeReservedMemory, oldNodeReservedMemory);
-  return oldNodeReservedMemory - newNodeReservedMemory;
+  currNodeReservedMemory = pool->reservedBytes();
+  VELOX_CHECK_LE(currNodeReservedMemory, prevNodeReservedMemory);
+  return prevNodeReservedMemory - currNodeReservedMemory;
 }
 
 bool isHashBuildMemoryPool(const memory::MemoryPool& pool) {

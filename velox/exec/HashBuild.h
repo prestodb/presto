@@ -44,17 +44,14 @@ class HashBuild final : public Operator {
     /// The yield state that voluntarily yield cpu after running too long when
     /// processing input from spilled file.
     kYield = 2,
-    /// The state that waits for the pending group spill to finish. This state
-    /// only applies if disk spilling is enabled.
-    kWaitForSpill = 3,
     /// The state that waits for the hash tables to be merged together.
-    kWaitForBuild = 4,
+    kWaitForBuild = 3,
     /// The state that waits for the hash probe to finish before start to build
     /// the hash table for one of previously spilled partition. This state only
     /// applies if disk spilling is enabled.
-    kWaitForProbe = 5,
+    kWaitForProbe = 4,
     /// The finishing state.
-    kFinish = 6,
+    kFinish = 5,
   };
   static std::string stateName(State state);
 

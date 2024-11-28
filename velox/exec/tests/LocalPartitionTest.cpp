@@ -535,7 +535,7 @@ TEST_F(LocalPartitionTest, earlyCancelation) {
   }
 
   // Wait for task to transition to final state.
-  waitForTaskCompletion(task, exec::kCanceled);
+  waitForTaskCompletion(task, exec::TaskState::kCanceled);
 
   // Make sure there is only one reference to Task left, i.e. no Driver is
   // blocked forever.
@@ -571,7 +571,7 @@ TEST_F(LocalPartitionTest, producerError) {
   ASSERT_THROW(while (cursor->moveNext()) { ; }, VeloxException);
 
   // Wait for task to transition to failed state.
-  waitForTaskCompletion(task, exec::kFailed);
+  waitForTaskCompletion(task, exec::TaskState::kFailed);
 
   // Make sure there is only one reference to Task left, i.e. no Driver is
   // blocked forever.

@@ -27,8 +27,24 @@ class MergeSource;
 class MergeJoinSource;
 struct Split;
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+enum TaskState {
+  kRunning = 0,
+  kFinished = 1,
+  kCanceled = 2,
+  kAborted = 3,
+  kFailed = 4
+};
+#else
 /// Corresponds to Presto TaskState, needed for reporting query completion.
-enum TaskState { kRunning, kFinished, kCanceled, kAborted, kFailed };
+enum class TaskState : int {
+  kRunning = 0,
+  kFinished = 1,
+  kCanceled = 2,
+  kAborted = 3,
+  kFailed = 4
+};
+#endif
 
 std::string taskStateString(TaskState state);
 
@@ -139,3 +155,13 @@ struct SplitGroupState {
 };
 
 } // namespace facebook::velox::exec
+
+template <>
+struct fmt::formatter<facebook::velox::exec::TaskState>
+    : formatter<std::string> {
+  auto format(facebook::velox::exec::TaskState state, format_context& ctx)
+      const {
+    return formatter<std::string>::format(
+        facebook::velox::exec::taskStateString(state), ctx);
+  }
+};

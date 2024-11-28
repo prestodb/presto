@@ -205,6 +205,8 @@ enum class BlockingReason {
   kWaitForConnector,
   /// Build operator is blocked waiting for all its peers to stop to run group
   /// spill on all of them.
+  ///
+  /// TODO: remove this after Prestissimo is updated.
   kWaitForSpill,
   /// Some operators (like Table Scan) may run long loops and can 'voluntarily'
   /// exit them because Task requested to yield or stop or after a certain time.

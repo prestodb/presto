@@ -647,9 +647,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
   }
 
   VELOX_CHECK_EQ(
-      static_cast<int>(state_),
-      static_cast<int>(kRunning),
-      "Task has already finished processing.");
+      state_, TaskState::kRunning, "Task has already finished processing.");
 
   // On first call, create the drivers.
   if (driverFactories_.empty()) {
@@ -1480,7 +1478,7 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
   }
 
   if (allFinished) {
-    terminate(kFinished);
+    terminate(TaskState::kFinished);
   }
 }
 

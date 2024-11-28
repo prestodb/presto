@@ -1140,14 +1140,14 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kWaitForMemory";
     case BlockingReason::kWaitForConnector:
       return "kWaitForConnector";
-    case BlockingReason::kWaitForSpill:
-      return "kWaitForSpill";
     case BlockingReason::kYield:
       return "kYield";
     case BlockingReason::kWaitForArbitration:
       return "kWaitForArbitration";
+    default:
+      VELOX_UNREACHABLE(
+          fmt::format("Unknown blocking reason {}", static_cast<int>(reason)));
   }
-  VELOX_UNREACHABLE();
 }
 
 DriverThreadContext* driverThreadContext() {

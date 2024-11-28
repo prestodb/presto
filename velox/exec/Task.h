@@ -613,13 +613,13 @@ class Task : public std::enable_shared_from_this<Task> {
   /// realized when the last thread stops running for 'this'. This is used to
   /// mark cancellation by the user.
   ContinueFuture requestCancel() {
-    return terminate(kCanceled);
+    return terminate(TaskState::kCanceled);
   }
 
   /// Like requestCancel but sets end state to kAborted. This is for stopping
   /// Tasks due to failures of other parts of the query.
   ContinueFuture requestAbort() {
-    return terminate(kAborted);
+    return terminate(TaskState::kAborted);
   }
 
   void requestYield() {

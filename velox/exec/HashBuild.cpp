@@ -35,8 +35,6 @@ BlockingReason fromStateToBlockingReason(HashBuild::State state) {
       return BlockingReason::kNotBlocked;
     case HashBuild::State::kYield:
       return BlockingReason::kYield;
-    case HashBuild::State::kWaitForSpill:
-      return BlockingReason::kWaitForSpill;
     case HashBuild::State::kWaitForBuild:
       return BlockingReason::kWaitForJoinBuild;
     case HashBuild::State::kWaitForProbe:
@@ -944,13 +942,6 @@ BlockingReason HashBuild::isBlocked(ContinueFuture* future) {
       break;
     case State::kFinish:
       break;
-    case State::kWaitForSpill:
-      if (!future_.valid()) {
-        setRunning();
-        VELOX_CHECK_NOT_NULL(input_);
-        addInput(std::move(input_));
-      }
-      break;
     case State::kWaitForBuild:
       [[fallthrough]];
     case State::kWaitForProbe:
@@ -1003,8 +994,6 @@ void HashBuild::checkStateTransition(State state) {
       break;
     case State::kWaitForBuild:
       [[fallthrough]];
-    case State::kWaitForSpill:
-      [[fallthrough]];
     case State::kWaitForProbe:
       [[fallthrough]];
     case State::kFinish:
@@ -1022,8 +1011,6 @@ std::string HashBuild::stateName(State state) {
       return "RUNNING";
     case State::kYield:
       return "YIELD";
-    case State::kWaitForSpill:
-      return "WAIT_FOR_SPILL";
     case State::kWaitForBuild:
       return "WAIT_FOR_BUILD";
     case State::kWaitForProbe:
