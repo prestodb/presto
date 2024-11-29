@@ -20,7 +20,8 @@ using namespace facebook::velox;
 namespace facebook::presto {
 
 velox::exec::Split toVeloxSplit(
-    const presto::protocol::ScheduledSplit& scheduledSplit) {
+    const presto::protocol::ScheduledSplit& scheduledSplit,
+    const std::map<std::string, std::string>& extraCredentials) {
   const auto& connectorSplit = scheduledSplit.split.connectorSplit;
   const auto splitGroupId = scheduledSplit.split.lifespan.isgroup
       ? scheduledSplit.split.lifespan.groupid
@@ -40,7 +41,7 @@ velox::exec::Split toVeloxSplit(
 
   auto& connector = getPrestoToVeloxConnector(connectorSplit->_type);
   auto veloxSplit = connector.toVeloxSplit(
-      scheduledSplit.split.connectorId, connectorSplit.get());
+      scheduledSplit.split.connectorId, connectorSplit.get(), extraCredentials);
   return velox::exec::Split(std::move(veloxSplit), splitGroupId);
 }
 

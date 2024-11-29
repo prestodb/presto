@@ -13,15 +13,8 @@
  */
 #pragma once
 
-#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/exec/Split.h"
+namespace facebook::presto::connector {
 
-namespace facebook::presto {
+void registerAllPrestoConnectors();
 
-// Creates and returns exec::Split (with connector::ConnectorSplit inside) based
-// on the given protocol split.
-velox::exec::Split toVeloxSplit(
-    const presto::protocol::ScheduledSplit& scheduledSplit,
-    const std::map<std::string, std::string>& extraCredentials = {});
-
-} // namespace facebook::presto
+} // namespace facebook::presto::connector

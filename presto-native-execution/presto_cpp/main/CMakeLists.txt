@@ -83,14 +83,10 @@ target_link_libraries(
 # FBThrift libraries. The build issue is fixed by linking velox_hive_connector
 # dependencies first followed by FBThrift.
 target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra
-                      ${THRIFT_LIBRARY})
+                      ${THRIFT_LIBRARY} presto_connector)
 
 set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
                                                presto_link_job_pool)
-
-if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
-  target_link_libraries(presto_server_lib presto_flight_connector)
-endif()
 
 add_executable(presto_server PrestoMain.cpp)
 

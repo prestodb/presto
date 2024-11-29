@@ -26,6 +26,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/connectors/ConnectorRegistration.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -68,10 +69,6 @@
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
-#endif
-
-#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-#include "presto_cpp/main/connectors/arrow_flight/ArrowFlightConnector.h"
 #endif
 
 #ifdef __linux__
@@ -268,10 +265,6 @@ void PrestoServer::run() {
       std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
   registerPrestoToVeloxConnector(
       std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
-#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-  registerPrestoToVeloxConnector(
-      std::make_unique<ArrowPrestoToVeloxConnector>("arrow-flight"));
-#endif
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
   // Depending on where the operator or column is used, different prefixes can
@@ -283,6 +276,8 @@ void PrestoServer::run() {
       std::make_unique<SystemPrestoToVeloxConnector>("system"));
   registerPrestoToVeloxConnector(
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
+
+  presto::connector::registerAllPrestoConnectors();
 
   initializeVeloxMemory();
   initializeThreadPools();
@@ -1130,15 +1125,6 @@ void PrestoServer::registerConnectorFactories() {
     velox::connector::registerConnectorFactory(
         std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
   }
-#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-  if (!velox::connector::hasConnectorFactory(
-          presto::connector::arrow_flight::ArrowFlightConnectorFactory::
-              kArrowFlightConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<
-            presto::connector::arrow_flight::ArrowFlightConnectorFactory>());
-  }
-#endif
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(

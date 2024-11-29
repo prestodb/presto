@@ -29,10 +29,6 @@
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
 
-#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-#include "presto_cpp/main/connectors/arrow_flight/ArrowFlightConnector.h"
-#endif
-
 using namespace facebook::velox;
 
 using facebook::presto::protocol::TaskId;
@@ -572,20 +568,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     // Keep track of the max sequence for this batch of splits.
     long maxSplitSequenceId{-1};
     for (const auto& protocolSplit : source.splits) {
-      auto split = toVeloxSplit(protocolSplit);
+      auto split = toVeloxSplit(protocolSplit, extraCredentials);
       if (split.hasConnectorSplit()) {
-        // Since the extra credential data is coming from TaskUpdateRequest
-        // and not from the arrow protocol split, and since velox arrow split
-        // contains a field for extra credentials, the below code is required.
-#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-        auto arrowSplit =
-            dynamic_cast<presto::connector::arrow_flight::FlightSplit*>(
-                split.connectorSplit.get());
-        if (arrowSplit) {
-          arrowSplit->extraCredentials = extraCredentials;
-        }
-#endif
-
         maxSplitSequenceId =
             std::max(maxSplitSequenceId, protocolSplit.sequenceId);
         execTask->addSplitWithSequence(

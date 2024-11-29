@@ -33,5 +33,10 @@ add_custom_target(
 add_test(presto_flight_connector_test presto_flight_connector_test)
 
 target_link_libraries(
-  presto_flight_connector_test velox_exec_test_lib presto_flight_connector
-  gtest gtest_main presto_flight_connector_test_lib)
+  presto_flight_connector_test
+  velox_exec_test_lib
+  presto_flight_connector
+  gtest
+  gtest_main
+  presto_flight_connector_test_lib
+  presto_protocol)

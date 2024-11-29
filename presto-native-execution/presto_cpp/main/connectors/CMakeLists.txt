@@ -12,3 +12,9 @@
 if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
   add_subdirectory(arrow_flight)
 endif()
+
+add_library(presto_connector ConnectorRegistration.cpp)
+
+if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
+  target_link_libraries(presto_connector presto_flight_connector)
+endif()
