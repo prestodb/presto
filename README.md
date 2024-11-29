@@ -128,7 +128,6 @@ Check out [building instructions](https://github.com/prestodb/presto/tree/master
 <hr>
 </details>
 
-
 ## Contributing!
 
 Please refer to the [contribution guidelines](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md) to get started.
