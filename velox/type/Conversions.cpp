@@ -67,7 +67,7 @@ std::string_view trimWhiteSpace(const char* data, size_t length) {
   }
 
   // Trim whitespace from right side.
-  for (auto i = length - 1; i >= startIndex; i--) {
+  for (int i = length - 1; i >= startIndex; i--) {
     size = 0;
     auto isWhiteSpaceOrControlChar = false;
 
