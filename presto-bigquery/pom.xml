@@ -94,6 +94,24 @@
                 <artifactId>perfmark-api</artifactId>
                 <version>0.27.0</version>
             </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-auth</artifactId>
+                <version>1.64.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-alts</artifactId>
+                <version>1.64.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-grpclb</artifactId>
+                <version>1.64.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -353,6 +371,9 @@
                                 <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
                                 <exclude>javax.annotation:javax.annotation-api</exclude>
                                 <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                <exclude>com.google.auth:google-auth-library-oauth2-http</exclude>
+                                <exclude>com.google.auth:google-auth-library-credentials</exclude>
+                                <exclude>org.conscrypt:conscrypt-openjdk-uber</exclude>
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>
