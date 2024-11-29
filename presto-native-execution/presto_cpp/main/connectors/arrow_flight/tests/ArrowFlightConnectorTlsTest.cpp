@@ -66,7 +66,8 @@ class FlightConnectorTlsTestBase : public FlightWithServerTestBase {
                     .flightTableScan(velox::ROW({"id"}, {velox::BIGINT()}))
                     .planNode();
 
-    auto loc = std::vector<std::string>{"grpc+tls://localhost:5000"};
+    auto loc = std::vector<std::string>{
+        fmt::format("grpc+tls://{}:{}", CONNECT_HOST, LISTEN_PORT)};
     if (isPositiveTest) {
       AssertQueryBuilder(plan)
           .splits(makeSplits({"sample-data"}, loc))

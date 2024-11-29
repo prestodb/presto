@@ -26,9 +26,9 @@ velox::exec::test::PlanBuilder& FlightPlanBuilder::flightTableScan(
     bool createDefaultColumnHandles) {
   if (createDefaultColumnHandles) {
     for (const auto& name : outputType->names()) {
-      // provide unaliased defaults for unmapped columns
-      // emplace doesn't overwrite existing entries,
-      // so existing aliases are kept
+      // Provide unaliased defaults for unmapped columns.
+      // `emplace` won't modify the map if the key already exists,
+      // so existing aliases are kept.
       assignments.emplace(name, std::make_shared<FlightColumnHandle>(name));
     }
   }

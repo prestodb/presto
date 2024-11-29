@@ -151,8 +151,9 @@ class FlightConnectorTestDefaultServer : public FlightWithServerTestBase {
   FlightConnectorTestDefaultServer()
       : FlightWithServerTestBase(std::make_shared<velox::config::ConfigBase>(
             std::unordered_map<std::string, std::string>{
-                {FlightConfig::kDefaultServerHost, "localhost"},
-                {FlightConfig::kDefaultServerPort, "5000"}})) {}
+                {FlightConfig::kDefaultServerHost, CONNECT_HOST},
+                {FlightConfig::kDefaultServerPort,
+                 std::to_string(LISTEN_PORT)}})) {}
 };
 
 TEST_F(FlightConnectorTestDefaultServer, DataSourceTest) {

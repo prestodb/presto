@@ -17,6 +17,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "glog/logging.h"
 #include "gtest/gtest.h"
+
 #include "presto_cpp/main/connectors/arrow_flight/tests/utils/Utils.h"
 
 namespace {
@@ -28,7 +29,7 @@ class StaticFlightServerTest : public testing::Test {
  public:
   static void SetUpTestSuite() {
     server = std::make_unique<StaticFlightServer>();
-    ASSERT_OK_AND_ASSIGN(auto loc, Location::ForGrpcTcp("127.0.0.1", 5000));
+    ASSERT_OK_AND_ASSIGN(auto loc, Location::ForGrpcTcp("127.0.0.1", 0));
     ASSERT_OK(server->Init(FlightServerOptions(loc)));
   }
 
@@ -43,7 +44,8 @@ class StaticFlightServerTest : public testing::Test {
   }
 
   void SetUp() {
-    ASSERT_OK_AND_ASSIGN(auto loc, Location::ForGrpcTcp("localhost", 5000));
+    ASSERT_OK_AND_ASSIGN(
+        auto loc, Location::ForGrpcTcp("localhost", server->port()));
     ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(loc));
   }
 
@@ -68,12 +70,12 @@ TEST_F(StaticFlightServerTest, ServerTest) {
   ASSERT_RAISES(KeyError, client->DoGet(Ticket{"non-existent-table"}));
 
   ASSERT_OK_AND_ASSIGN(auto reader, client->DoGet(Ticket{"empty"}));
-  ASSERT_OK_AND_ASSIGN(auto got, reader->ToTable());
-  EXPECT_TRUE(got->Equals(*emptyTable));
+  ASSERT_OK_AND_ASSIGN(auto actual, reader->ToTable());
+  EXPECT_TRUE(actual->Equals(*emptyTable));
 
   ASSERT_OK_AND_ASSIGN(reader, client->DoGet(Ticket{"sample-data"}));
-  ASSERT_OK_AND_ASSIGN(got, reader->ToTable());
-  EXPECT_TRUE(got->Equals(*sampleTable));
+  ASSERT_OK_AND_ASSIGN(actual, reader->ToTable());
+  EXPECT_TRUE(actual->Equals(*sampleTable));
 
   server->removeTable("sample-data");
   ASSERT_RAISES(KeyError, client->DoGet(Ticket{"sample-data"}));

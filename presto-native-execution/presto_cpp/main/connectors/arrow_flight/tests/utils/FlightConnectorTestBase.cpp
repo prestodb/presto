@@ -81,8 +81,8 @@ FlightWithServerTestBase::createFlightServerOptions(
     std::string keyPath) {
   AFC_ASSIGN_OR_RAISE(
       auto loc,
-      isSecure ? Location::ForGrpcTls("localhost", 5000)
-               : Location::ForGrpcTcp("localhost", 5000));
+      isSecure ? Location::ForGrpcTls(BIND_HOST, LISTEN_PORT)
+               : Location::ForGrpcTcp(BIND_HOST, LISTEN_PORT));
   auto options = std::make_shared<FlightServerOptions>(loc);
   if (!isSecure)
     return options;

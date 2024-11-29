@@ -26,8 +26,9 @@ add_executable(
 set(DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data")
 
 add_custom_target(
-  copy_data ALL COMMAND ${CMAKE_COMMAND} -E copy_directory ${DATA_DIR}
-                        $<TARGET_FILE_DIR:presto_flight_connector_test>/data)
+  copy_flight_test_data ALL
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${DATA_DIR}
+          $<TARGET_FILE_DIR:presto_flight_connector_test>/data)
 
 add_test(presto_flight_connector_test presto_flight_connector_test)
 

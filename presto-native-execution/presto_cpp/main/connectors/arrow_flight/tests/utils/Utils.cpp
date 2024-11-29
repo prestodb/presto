@@ -85,7 +85,8 @@ std::shared_ptr<arrow::Table> makeArrowTable(
 
 std::string readFile(const std::string& path) {
   std::ifstream file(path);
-  VELOX_CHECK(file.is_open(), "Could not open file");
+  VELOX_CHECK(
+      file.is_open(), "Could not open file \"{}\": {}", path, strerror(errno));
   return std::string(
       (std::istreambuf_iterator<char>(file)),
       (std::istreambuf_iterator<char>()));

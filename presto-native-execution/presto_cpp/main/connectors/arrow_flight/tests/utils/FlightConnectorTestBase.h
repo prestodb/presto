@@ -46,6 +46,10 @@ class FlightConnectorTestBase : public velox::exec::test::OperatorTestBase {
 /// spawns a Flight server for testing
 class FlightWithServerTestBase : public FlightConnectorTestBase {
  public:
+  static constexpr const char* BIND_HOST = "127.0.0.1";
+  static constexpr const char* CONNECT_HOST = "localhost";
+  constexpr static int LISTEN_PORT = 5000;
+
   void SetUp() override;
 
   void TearDown() override;
@@ -54,7 +58,7 @@ class FlightWithServerTestBase : public FlightConnectorTestBase {
   std::vector<std::shared_ptr<velox::connector::ConnectorSplit>> makeSplits(
       std::initializer_list<std::string> tokens,
       std::vector<std::string> location = std::vector<std::string>{
-          "grpc://localhost:5000"});
+          fmt::format("grpc://{}:{}", CONNECT_HOST, LISTEN_PORT)});
 
   /// Add (or update) a table in the test flight server
   void updateTable(std::string name, std::shared_ptr<arrow::Table> table) {
