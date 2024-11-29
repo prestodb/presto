@@ -146,14 +146,6 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
         ssdCacheHelper_ =
             std::make_unique<test::SsdCacheTestHelper>(ssdCache.get());
         ASSERT_EQ(ssdCacheHelper_->numShards(), kNumSsdShards);
-        const auto sizeQuantum = kNumSsdShards * SsdFile::kRegionSize;
-        const auto maxNumRegions = static_cast<int32_t>(
-            bits::roundUp(config.maxBytes, sizeQuantum) / sizeQuantum);
-        for (int32_t i = 0; i < kNumSsdShards; ++i) {
-          ASSERT_EQ(
-              ssdCacheHelper_->writeFileSize(i),
-              maxNumRegions * SsdFile::kRegionSize);
-        }
       }
     }
 

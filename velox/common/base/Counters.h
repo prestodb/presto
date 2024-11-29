@@ -328,9 +328,6 @@ constexpr folly::StringPiece kMetricSsdCacheRegionsEvicted{
 constexpr folly::StringPiece kMetricSsdCacheRecoveredEntries{
     "velox.ssd_cache_recovered_entries"};
 
-constexpr folly::StringPiece kMetricLocalFileSpaceAllocationFailuresCount{
-    "velox.local_file_space_allocation_failures_count"};
-
 constexpr folly::StringPiece kMetricExchangeDataTimeMs{
     "velox.exchange_data_time_ms"};
 

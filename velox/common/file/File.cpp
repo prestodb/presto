@@ -15,9 +15,7 @@
  */
 
 #include "velox/common/file/File.h"
-#include "velox/common/base/Counters.h"
 #include "velox/common/base/Fs.h"
-#include "velox/common/base/StatsReporter.h"
 
 #include <fmt/format.h>
 #include <glog/logging.h>
@@ -379,25 +377,6 @@ void LocalWriteFile::write(
 void LocalWriteFile::truncate(int64_t newSize) {
   checkNotClosed(closed_);
   VELOX_CHECK_GE(newSize, 0, "New size cannot be negative.");
-#ifdef linux
-  if (newSize > size_) {
-    // Use fallocate to extend the file.
-    const auto ret = ::fallocate(fd_, 0, 0, newSize);
-    try {
-      VELOX_CHECK_EQ(
-          ret,
-          0,
-          "fallocate failed in LocalWriteFile::truncate: {}.",
-          folly::errnoStr(errno));
-      size_ = newSize;
-      return;
-    } catch (const std::exception& /*e*/) {
-      RECORD_METRIC_VALUE(kMetricLocalFileSpaceAllocationFailuresCount);
-    }
-  }
-#endif // linux
-
-  // Fallback to ftruncate.
   const auto ret = ::ftruncate(fd_, newSize);
   VELOX_CHECK_EQ(
       ret,

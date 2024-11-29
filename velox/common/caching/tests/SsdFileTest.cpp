@@ -93,12 +93,10 @@ class SsdFileTest : public testing::Test {
       bool checksumEnabled = false,
       bool checksumReadVerificationEnabled = false,
       bool disableFileCow = false) {
-    const auto maxNumRegions = static_cast<int32_t>(
-        bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize);
     SsdFile::Config config(
         fmt::format("{}/ssdtest", tempDirectory_->getPath()),
         0, // shardId
-        maxNumRegions,
+        bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize,
         checkpointIntervalBytes,
         disableFileCow,
         checksumEnabled,
@@ -107,9 +105,6 @@ class SsdFileTest : public testing::Test {
     if (ssdFile_ != nullptr) {
       ssdFileHelper_ =
           std::make_unique<test::SsdFileTestHelper>(ssdFile_.get());
-      ASSERT_EQ(
-          ssdFileHelper_->writeFileSize(),
-          maxNumRegions * ssdFile_->kRegionSize);
     }
   }
 
@@ -666,7 +661,7 @@ TEST_F(SsdFileTest, recoverFromCheckpointWithChecksum) {
       ASSERT_EQ(statsAfterRecover.entriesCached, stats.entriesCached);
     } else {
       ASSERT_EQ(statsAfterRecover.bytesCached, 0);
-      ASSERT_EQ(statsAfterRecover.regionsCached, 0);
+      ASSERT_EQ(statsAfterRecover.regionsCached, stats.regionsCached);
       ASSERT_EQ(statsAfterRecover.entriesCached, 0);
     }
 
