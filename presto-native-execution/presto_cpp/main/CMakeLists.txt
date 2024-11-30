@@ -49,6 +49,7 @@ target_link_libraries(
   presto_common
   presto_exception
   presto_function_metadata
+  presto_connector
   presto_http
   presto_operators
   velox_aggregates
@@ -83,7 +84,7 @@ target_link_libraries(
 # FBThrift libraries. The build issue is fixed by linking velox_hive_connector
 # dependencies first followed by FBThrift.
 target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra
-                      ${THRIFT_LIBRARY} presto_connector)
+                      ${THRIFT_LIBRARY})
 
 set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
                                                presto_link_job_pool)
