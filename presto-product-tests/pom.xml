@@ -147,6 +147,10 @@
                     <groupId>io.netty</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>io.dropwizard.metrics</groupId>
+                    <artifactId>metrics-core</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
