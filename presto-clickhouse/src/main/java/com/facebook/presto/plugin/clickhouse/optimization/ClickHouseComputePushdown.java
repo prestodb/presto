@@ -200,7 +200,8 @@ public class ClickHouseComputePushdown
                             ImmutableList.copyOf(assignments.keySet()),
                             assignments.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, (e) -> (ColumnHandle) (e.getValue()))),
                             tableScanNode.getCurrentConstraint(),
-                            tableScanNode.getEnforcedConstraint()));
+                            tableScanNode.getEnforcedConstraint(),
+                            tableScanNode.getCteMaterializationInfo()));
         }
 
         @Override
@@ -288,7 +289,8 @@ public class ClickHouseComputePushdown
                     oldTableScanNode.getOutputVariables(),
                     oldTableScanNode.getAssignments(),
                     oldTableScanNode.getCurrentConstraint(),
-                    oldTableScanNode.getEnforcedConstraint());
+                    oldTableScanNode.getEnforcedConstraint(),
+                    oldTableScanNode.getCteMaterializationInfo());
 
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newTableScanNode, node.getPredicate());
         }
