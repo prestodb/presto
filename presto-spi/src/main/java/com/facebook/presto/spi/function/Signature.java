@@ -169,6 +169,17 @@ public final class Signature
     }
 
     /*
+     * Canonical (normalized i.e. erased type size bounds) form of signature instance.
+     */
+    public Signature canonicalization()
+    {
+        return new Signature(this.name, this.kind, new TypeSignature(this.returnType.getBase(), emptyList()),
+                argumentTypes
+                        .stream()
+                        .map(argumentTypeSignature -> new TypeSignature(argumentTypeSignature.getBase(), emptyList())).collect(toList()));
+    }
+
+    /*
      * similar to T extends MyClass<?...>, if Java supported varargs wildcards
      */
     public static TypeVariableConstraint withVariadicBound(String name, String variadicBound)
