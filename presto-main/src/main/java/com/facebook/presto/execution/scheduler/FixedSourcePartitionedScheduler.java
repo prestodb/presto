@@ -74,6 +74,8 @@ public class FixedSourcePartitionedScheduler
 
     private final Queue<Integer> tasksToRecover = new ConcurrentLinkedQueue<>();
 
+    private final CTEMaterializationTracker cteMaterializationTracker;
+
     @GuardedBy("this")
     private boolean closed;
 
@@ -87,13 +89,15 @@ public class FixedSourcePartitionedScheduler
             int splitBatchSize,
             OptionalInt concurrentLifespansPerTask,
             NodeSelector nodeSelector,
-            List<ConnectorPartitionHandle> partitionHandles)
+            List<ConnectorPartitionHandle> partitionHandles,
+            CTEMaterializationTracker cteMaterializationTracker)
     {
         requireNonNull(stage, "stage is null");
         requireNonNull(splitSources, "splitSources is null");
         requireNonNull(bucketNodeMap, "bucketNodeMap is null");
         checkArgument(!requireNonNull(nodes, "nodes is null").isEmpty(), "nodes is empty");
         requireNonNull(partitionHandles, "partitionHandles is null");
+        this.cteMaterializationTracker = cteMaterializationTracker;
 
         this.stage = stage;
         this.nodes = ImmutableList.copyOf(nodes);
@@ -179,6 +183,29 @@ public class FixedSourcePartitionedScheduler
     {
         // schedule a task on every node in the distribution
         List<RemoteTask> newTasks = ImmutableList.of();
+
+        // CTE Materialization Check
+        if (stage.requiresMaterializedCTE()) {
+            List<ListenableFuture<?>> blocked = new ArrayList<>();
+            List<String> requiredCTEIds = stage.getRequiredCTEList();
+            for (String cteId : requiredCTEIds) {
+                ListenableFuture<Void> cteFuture = cteMaterializationTracker.getFutureForCTE(cteId);
+                if (!cteFuture.isDone()) {
+                    // Add CTE materialization future to the blocked list
+                    blocked.add(cteFuture);
+                }
+            }
+            // If any CTE is not materialized, return a blocked ScheduleResult
+            if (!blocked.isEmpty()) {
+                return ScheduleResult.blocked(
+                        false,
+                        newTasks,
+                        whenAnyComplete(blocked),
+                        BlockedReason.WAITING_FOR_CTE_MATERIALIZATION,
+                        0);
+            }
+        }
+        // schedule a task on every node in the distribution
         if (!scheduledTasks) {
             newTasks = Streams.mapWithIndex(
                     nodes.stream(),
@@ -191,9 +218,8 @@ public class FixedSourcePartitionedScheduler
             // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits
             stage.transitionToFinishedTaskScheduling();
         }
-
-        boolean allBlocked = true;
         List<ListenableFuture<?>> blocked = new ArrayList<>();
+        boolean allBlocked = true;
         BlockedReason blockedReason = BlockedReason.NO_ACTIVE_DRIVER_GROUP;
 
         if (groupedLifespanScheduler.isPresent()) {
