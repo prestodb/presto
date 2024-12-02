@@ -219,7 +219,8 @@ class RelationPlanner
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
         List<TableConstraint<ColumnHandle>> tableConstraints = metadata.getTableMetadata(session, handle).getMetadata().getTableConstraintsHolder().getTableConstraintsWithColumnHandles();
         context.incrementLeafNodes(session);
-        PlanNode root = new TableScanNode(getSourceLocation(node.getLocation()), idAllocator.getNextId(), handle, outputVariables, columns.build(), tableConstraints, TupleDomain.all(), TupleDomain.all());
+        PlanNode root = new TableScanNode(getSourceLocation(node.getLocation()), idAllocator.getNextId(), handle, outputVariables, columns.build(),
+                tableConstraints, TupleDomain.all(), TupleDomain.all(), Optional.empty());
 
         return new RelationPlan(root, scope, outputVariables);
     }
