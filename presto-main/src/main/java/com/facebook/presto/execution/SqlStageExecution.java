@@ -26,10 +26,15 @@ import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.CteMaterializationInfo;
 import com.facebook.presto.spi.plan.PlanFragmentId;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableFinishNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -60,8 +65,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxFailedTaskPercentage;
+import static com.facebook.presto.SystemSessionProperties.isEnhancedCTESchedulingEnabled;
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -557,7 +564,6 @@ public final class SqlStageExecution
             // stage finished while we were scheduling this task
             task.abort();
         }
-
         return task;
     }
 
@@ -592,6 +598,59 @@ public final class SqlStageExecution
         // Fetch the results from the buffer assigned to the task based on id
         String splitLocation = remoteSourceTaskLocation.toASCIIString() + "/results/" + taskId.getId();
         return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(new Location(splitLocation), remoteSourceTaskId));
+    }
+
+    private static String getCteIdFromSource(PlanNode source)
+    {
+        // Traverse the plan node tree to find a TableWriterNode with TemporaryTableInfo
+        return PlanNodeSearcher.searchFrom(source)
+                .where(planNode -> planNode instanceof TableFinishNode)
+                .findFirst()
+                .flatMap(planNode -> ((TableFinishNode) planNode).getCteMaterializationInfo())
+                .map(CteMaterializationInfo::getCteId)
+                .orElseThrow(() -> new IllegalStateException("TemporaryTableInfo has no CTE ID"));
+    }
+
+    public boolean isCTETableFinishStage()
+    {
+        return PlanNodeSearcher.searchFrom(planFragment.getRoot())
+                .where(planNode -> planNode instanceof TableFinishNode &&
+                        ((TableFinishNode) planNode).getCteMaterializationInfo().isPresent())
+                .findSingle()
+                .isPresent();
+    }
+
+    public String getCTEWriterId()
+    {
+        // Validate that this is a CTE TableFinish stage and return the associated CTE ID
+        if (!isCTETableFinishStage()) {
+            throw new IllegalStateException("This stage is not a CTE writer stage");
+        }
+        return getCteIdFromSource(planFragment.getRoot());
+    }
+
+    public boolean requiresMaterializedCTE()
+    {
+        if (!isEnhancedCTESchedulingEnabled(session)) {
+            return false;
+        }
+        // Search for TableScanNodes and check if they reference TemporaryTableInfo
+        return PlanNodeSearcher.searchFrom(planFragment.getRoot())
+                .where(planNode -> planNode instanceof TableScanNode)
+                .findAll().stream()
+                .anyMatch(planNode -> ((TableScanNode) planNode).getCteMaterializationInfo().isPresent());
+    }
+
+    public List<String> getRequiredCTEList()
+    {
+        // Collect all CTE IDs referenced by TableScanNodes with TemporaryTableInfo
+        return PlanNodeSearcher.searchFrom(planFragment.getRoot())
+                .where(planNode -> planNode instanceof TableScanNode)
+                .findAll().stream()
+                .map(planNode -> ((TableScanNode) planNode).getCteMaterializationInfo()
+                        .orElseThrow(() -> new IllegalStateException("TableScanNode has no TemporaryTableInfo")))
+                .map(CteMaterializationInfo::getCteId)
+                .collect(Collectors.toList());
     }
 
     private void updateTaskStatus(TaskId taskId, TaskStatus taskStatus)
