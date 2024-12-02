@@ -71,6 +71,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
@@ -385,6 +386,7 @@ public class TestingPrestoServer
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
             clusterStateProvider = null;
             planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
+            injector.getInstance(ExpressionOptimizerManager.class).loadExpressions();
         }
         else if (resourceManager) {
             dispatchManager = null;
@@ -702,6 +704,11 @@ public class TestingPrestoServer
     public ShutdownAction getShutdownAction()
     {
         return shutdownAction;
+    }
+
+    public ExpressionOptimizerManager getExpressionManager()
+    {
+        return injector.getInstance(ExpressionOptimizerManager.class);
     }
 
     public boolean isCoordinator()

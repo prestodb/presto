@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
+import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 
 import static java.util.Collections.emptyList;
 
@@ -33,6 +34,11 @@ public interface CoordinatorPlugin
     }
 
     default Iterable<WorkerSessionPropertyProviderFactory> getWorkerSessionPropertyProviderFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<ExpressionOptimizerFactory> getRowExpressionInterpreterServiceFactories()
     {
         return emptyList();
     }

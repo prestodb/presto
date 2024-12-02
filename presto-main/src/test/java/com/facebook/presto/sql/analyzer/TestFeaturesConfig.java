@@ -246,7 +246,8 @@ public class TestFeaturesConfig
                 .setInlineProjectionsOnValues(false)
                 .setEagerPlanValidationEnabled(false)
                 .setEagerPlanValidationThreadPoolSize(20)
-                .setPrestoSparkExecutionEnvironment(false));
+                .setPrestoSparkExecutionEnvironment(false)
+                .setDelegatingRowExpressionOptimizerEnabled(false));
     }
 
     @Test
@@ -442,6 +443,7 @@ public class TestFeaturesConfig
                 .put("eager-plan-validation-enabled", "true")
                 .put("eager-plan-validation-thread-pool-size", "2")
                 .put("presto-spark-execution-environment", "true")
+                .put("optimizer.delegating-row-expression-optimizer-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -634,7 +636,8 @@ public class TestFeaturesConfig
                 .setInlineProjectionsOnValues(true)
                 .setEagerPlanValidationEnabled(true)
                 .setEagerPlanValidationThreadPoolSize(2)
-                .setPrestoSparkExecutionEnvironment(true);
+                .setPrestoSparkExecutionEnvironment(true)
+                .setDelegatingRowExpressionOptimizerEnabled(true);
         assertFullMapping(properties, expected);
     }
 

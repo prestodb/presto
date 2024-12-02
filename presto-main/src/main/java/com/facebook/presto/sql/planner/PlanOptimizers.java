@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -219,7 +220,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ExpressionOptimizerManager expressionOptimizerManager)
     {
         this(metadata,
                 sqlParser,
@@ -234,7 +236,8 @@ public class PlanOptimizers
                 costComparator,
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig);
+                featuresConfig,
+                expressionOptimizerManager);
     }
 
     @PostConstruct
@@ -265,7 +268,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ExpressionOptimizerManager expressionOptimizerManager)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -320,7 +324,7 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.<Rule<?>>builder()
-                        .addAll(new SimplifyRowExpressions(metadata).rules())
+                        .addAll(new SimplifyRowExpressions(metadata, expressionOptimizerManager).rules())
                         .add(new PruneRedundantProjectionAssignments())
                         .build());
 
@@ -486,7 +490,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new InlineProjectionsOnValues(metadata.getFunctionAndTypeManager()))
-                                .addAll(new SimplifyRowExpressions(metadata).rules())
+                                .addAll(new SimplifyRowExpressions(metadata, expressionOptimizerManager).rules())
                                 .build()),
                 new IterativeOptimizer(
                         metadata,
@@ -845,7 +849,7 @@ public class PlanOptimizers
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
-            builder.add(new CteProjectionAndPredicatePushDown(metadata)); // must run before PhysicalCteOptimizer
+            builder.add(new CteProjectionAndPredicatePushDown(metadata, expressionOptimizerManager)); // must run before PhysicalCteOptimizer
             builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
         }

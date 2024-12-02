@@ -1475,6 +1475,16 @@ void PrestoServer::registerSidecarEndpoints() {
          proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(downstream, getFunctionsMetadata());
       });
+
+  rowExpressionOptimizer_ =
+      std::make_unique<expression::RowExpressionOptimizer>();
+  httpServer_->registerPost(
+      "/v1/expressions",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        return rowExpressionOptimizer_->optimize(message, body, downstream);
+      });
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {

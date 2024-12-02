@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.presto.session.sql.expressions.NativeExpressionOptimizerFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
+import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.google.common.collect.ImmutableList;
 
 public class NativeSidecarPlugin
@@ -25,5 +27,23 @@ public class NativeSidecarPlugin
     public Iterable<WorkerSessionPropertyProviderFactory> getWorkerSessionPropertyProviderFactories()
     {
         return ImmutableList.of(new NativeSystemSessionPropertyProviderFactory());
+    }
+    @Override
+    public Iterable<ExpressionOptimizerFactory> getRowExpressionInterpreterServiceFactories()
+    {
+        return ImmutableList.of(new NativeExpressionOptimizerFactory(getClassLoader()));
+    }
+
+    private static ClassLoader getClassLoader()
+    {
+        return firstNonNull(Thread.currentThread().getContextClassLoader(), NativeSidecarPlugin.class.getClassLoader());
+    }
+
+    private static ClassLoader firstNonNull(ClassLoader contextClassLoader, ClassLoader classLoader)
+    {
+        if (contextClassLoader != null) {
+            return contextClassLoader;
+        }
+        return classLoader;
     }
 }
