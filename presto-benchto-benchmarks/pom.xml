@@ -47,6 +47,10 @@
                     <groupId>org.springframework</groupId>
                     <artifactId>spring-beans</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.hibernate</groupId>
+                    <artifactId>hibernate-validator</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
