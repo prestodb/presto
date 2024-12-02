@@ -2389,7 +2389,7 @@
                     <version>0.5.1</version>
                 </plugin>
 
-<!--                 <plugin>
+                <plugin>
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <version>1.2.1</version>
@@ -2407,7 +2407,7 @@
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
-                </plugin> -->
+                </plugin>
 
             </plugins>
         </pluginManagement>
