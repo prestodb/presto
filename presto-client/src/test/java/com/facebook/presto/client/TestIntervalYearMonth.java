@@ -15,9 +15,9 @@ package com.facebook.presto.client;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.client.IntervalYearMonth.formatMonths;
-import static com.facebook.presto.client.IntervalYearMonth.parseMonths;
-import static com.facebook.presto.client.IntervalYearMonth.toMonths;
+import static com.facebook.presto.common.type.IntervalYearMonth.formatMonths;
+import static com.facebook.presto.common.type.IntervalYearMonth.parseMonths;
+import static com.facebook.presto.common.type.IntervalYearMonth.toMonths;
 import static org.testng.Assert.assertEquals;
 
 public class TestIntervalYearMonth

@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.common.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
-import static com.facebook.presto.client.IntervalDayTime.formatMillis;
-import static com.facebook.presto.client.IntervalDayTime.toMillis;
+import static com.facebook.presto.common.type.IntervalDayTime.formatMillis;
+import static com.facebook.presto.common.type.IntervalDayTime.toMillis;
 
 public class SqlIntervalDayTime
 {

@@ -11,13 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
-
-import com.facebook.presto.common.type.ParametricType;
-import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeParameter;
-import com.facebook.presto.common.type.VarcharType;
+package com.facebook.presto.common.type;
 
 import java.util.List;
 

@@ -22,8 +22,8 @@ import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.BigintOperators;
 
+import static com.facebook.presto.common.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.common.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
 @AggregationFunction("sum")
 public final class IntervalDayToSecondSumAggregation

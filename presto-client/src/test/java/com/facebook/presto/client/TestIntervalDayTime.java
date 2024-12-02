@@ -15,9 +15,9 @@ package com.facebook.presto.client;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.client.IntervalDayTime.formatMillis;
-import static com.facebook.presto.client.IntervalDayTime.parseMillis;
-import static com.facebook.presto.client.IntervalDayTime.toMillis;
+import static com.facebook.presto.common.type.IntervalDayTime.formatMillis;
+import static com.facebook.presto.common.type.IntervalDayTime.parseMillis;
+import static com.facebook.presto.common.type.IntervalDayTime.toMillis;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 

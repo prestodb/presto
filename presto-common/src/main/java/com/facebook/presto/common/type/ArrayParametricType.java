@@ -11,18 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
-
-import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.common.type.ParameterKind;
-import com.facebook.presto.common.type.ParametricType;
-import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeParameter;
+package com.facebook.presto.common.type;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static java.lang.String.format;
 
 public final class ArrayParametricType
         implements ParametricType
@@ -42,11 +36,11 @@ public final class ArrayParametricType
     @Override
     public Type createType(List<TypeParameter> parameters)
     {
-        checkArgument(parameters.size() == 1, "Array type expects exactly one type as a parameter, got %s", parameters);
+        checkArgument(parameters.size() == 1,
+                format("Array type expects exactly one type as a parameter, got %s", parameters));
         checkArgument(
                 parameters.get(0).getKind() == ParameterKind.TYPE,
-                "Array expects type as a parameter, got %s",
-                parameters);
+                format("Array expects type as a parameter, got %s", parameters));
         return new ArrayType(parameters.get(0).getType());
     }
 }

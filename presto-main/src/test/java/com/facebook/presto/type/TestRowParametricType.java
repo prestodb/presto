@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
+import com.facebook.presto.common.type.RowParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;

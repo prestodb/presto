@@ -15,8 +15,8 @@ package com.facebook.presto.jdbc;
 
 import java.util.Objects;
 
-import static com.facebook.presto.client.IntervalYearMonth.formatMonths;
-import static com.facebook.presto.client.IntervalYearMonth.toMonths;
+import static com.facebook.presto.common.type.IntervalYearMonth.formatMonths;
+import static com.facebook.presto.common.type.IntervalYearMonth.toMonths;
 
 public class PrestoIntervalYearMonth
         implements Comparable<PrestoIntervalYearMonth>

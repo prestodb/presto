@@ -11,19 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
-
-import com.facebook.presto.common.type.ParameterKind;
-import com.facebook.presto.common.type.ParametricType;
-import com.facebook.presto.common.type.RowFieldName;
-import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeParameter;
+package com.facebook.presto.common.type;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
 public final class RowParametricType
@@ -47,8 +40,7 @@ public final class RowParametricType
         checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
         checkArgument(
                 parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
-                "Expected only named types as a parameters, got %s",
-                parameters);
+                format("Expected only named types as a parameters, got %s", parameters));
 
         List<RowType.Field> fields = parameters.stream()
                 .map(TypeParameter::getNamedType)

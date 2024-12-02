@@ -15,8 +15,8 @@ package com.facebook.presto.jdbc;
 
 import java.util.Objects;
 
-import static com.facebook.presto.client.IntervalDayTime.formatMillis;
-import static com.facebook.presto.client.IntervalDayTime.toMillis;
+import static com.facebook.presto.common.type.IntervalDayTime.formatMillis;
+import static com.facebook.presto.common.type.IntervalDayTime.toMillis;
 
 public class PrestoIntervalDayTime
         implements Comparable<PrestoIntervalDayTime>
