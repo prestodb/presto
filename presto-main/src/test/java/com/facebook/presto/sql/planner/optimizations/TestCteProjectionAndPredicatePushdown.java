@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.Optimizer;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -144,7 +145,7 @@ public class TestCteProjectionAndPredicatePushdown
                                 new RemoveIdentityProjectionsBelowProjection(),
                                 new PruneRedundantProjectionAssignments())),
                 new PruneUnreferencedOutputs(),
-                new CteProjectionAndPredicatePushDown(metadata));
+                new CteProjectionAndPredicatePushDown(metadata, getQueryRunner().getExpressionManager(), new FeaturesConfig()));
         assertPlan(sql, getSession(), Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
     }
 
