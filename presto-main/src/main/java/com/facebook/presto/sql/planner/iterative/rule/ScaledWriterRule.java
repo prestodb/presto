@@ -79,7 +79,6 @@ public class ScaledWriterRule
                 node.getNotNullColumnVariables(),
                 node.getTablePartitioningScheme(),
                 node.getStatisticsAggregation(),
-                Optional.of(initialTaskNumber),
-                node.getIsTemporaryTableWriter()));
+                Optional.of(initialTaskNumber)));
     }
 }

@@ -184,7 +184,8 @@ public class PinotPlanOptimizer
                             ImmutableList.copyOf(assignments.keySet()),
                             assignments.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, (e) -> (ColumnHandle) (e.getValue()))),
                             tableScanNode.getCurrentConstraint(),
-                            tableScanNode.getEnforcedConstraint()));
+                            tableScanNode.getEnforcedConstraint(),
+                            tableScanNode.getCteMaterializationInfo()));
         }
 
         @Override
