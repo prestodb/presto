@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.ExecuteProcedureHandle;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayoutResult;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -105,6 +107,17 @@ public class TableWriteInfo
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refresh = (TableWriterNode.RefreshMaterializedViewReference) target;
                 return Optional.of(new ExecutionWriterTarget.RefreshMaterializedViewHandle(metadata.beginRefreshMaterializedView(session, refresh.getHandle()), refresh.getSchemaTableName()));
+            }
+            if (target instanceof CallDistributedProcedureTarget) {
+                CallDistributedProcedureTarget callDistributedProcedureTarget = (CallDistributedProcedureTarget) target;
+                return Optional.of(new ExecuteProcedureHandle(
+                        metadata.beginCallDistributedProcedure(
+                                session,
+                                callDistributedProcedureTarget.getProcedureName(),
+                                callDistributedProcedureTarget.getSourceHandle().orElse(null),
+                                callDistributedProcedureTarget.getProcedureArguments()),
+                        callDistributedProcedureTarget.getSchemaTableName(),
+                        callDistributedProcedureTarget.getProcedureName()));
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }

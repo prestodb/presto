@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
@@ -64,6 +65,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -144,7 +146,7 @@ public class MetadataManager
     private static final Logger log = Logger.get(MetadataManager.class);
 
     private final FunctionAndTypeManager functionAndTypeManager;
-    private final ProcedureRegistry procedures;
+    private final IProcedureRegistry procedures;
     private final JsonCodec<ViewDefinition> viewCodec;
     private final BlockEncodingSerde blockEncodingSerde;
     private final SessionPropertyManager sessionPropertyManager;
@@ -169,6 +171,30 @@ public class MetadataManager
             TransactionManager transactionManager)
     {
         this(
+                functionAndTypeManager,
+                blockEncodingSerde,
+                sessionPropertyManager,
+                schemaPropertyManager,
+                tablePropertyManager,
+                columnPropertyManager,
+                analyzePropertyManager,
+                transactionManager,
+                new ProcedureRegistry(functionAndTypeManager));
+    }
+
+    @VisibleForTesting
+    public MetadataManager(
+            FunctionAndTypeManager functionAndTypeManager,
+            BlockEncodingSerde blockEncodingSerde,
+            SessionPropertyManager sessionPropertyManager,
+            SchemaPropertyManager schemaPropertyManager,
+            TablePropertyManager tablePropertyManager,
+            ColumnPropertyManager columnPropertyManager,
+            AnalyzePropertyManager analyzePropertyManager,
+            TransactionManager transactionManager,
+            IProcedureRegistry procedureRegistry)
+    {
+        this(
                 createTestingViewCodec(functionAndTypeManager),
                 blockEncodingSerde,
                 sessionPropertyManager,
@@ -177,7 +203,8 @@ public class MetadataManager
                 columnPropertyManager,
                 analyzePropertyManager,
                 transactionManager,
-                functionAndTypeManager);
+                functionAndTypeManager,
+                procedureRegistry);
     }
 
     @Inject
@@ -190,7 +217,8 @@ public class MetadataManager
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
-            FunctionAndTypeManager functionAndTypeManager)
+            FunctionAndTypeManager functionAndTypeManager,
+            IProcedureRegistry procedureRegistry)
     {
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -201,7 +229,7 @@ public class MetadataManager
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
-        this.procedures = new ProcedureRegistry(functionAndTypeManager);
+        this.procedures = requireNonNull(procedureRegistry, "procedureRegistry is null");
 
         verifyComparableOrderableContract();
     }
@@ -248,6 +276,21 @@ public class MetadataManager
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager);
+    }
+
+    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, IProcedureRegistry procedureRegistry)
+    {
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
+        return new MetadataManager(
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
+                blockEncodingManager,
+                createTestingSessionPropertyManager(),
+                new SchemaPropertyManager(),
+                new TablePropertyManager(),
+                new ColumnPropertyManager(),
+                new AnalyzePropertyManager(),
+                transactionManager,
+                procedureRegistry);
     }
 
     @Override
@@ -916,6 +959,40 @@ public class MetadataManager
     }
 
     @Override
+    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
+
+        ConnectorTableLayoutHandle layout;
+        if (!tableHandle.getLayout().isPresent()) {
+            TableLayoutResult result = getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+            layout = result.getLayout().getLayoutHandle();
+        }
+        else {
+            layout = tableHandle.getLayout().get();
+        }
+
+        ConnectorDistributedProcedureHandle procedureHandle = catalogMetadata.getMetadata().beginCallDistributedProcedure(
+                session.toConnectorSession(connectorId),
+                procedureName,
+                layout,
+                arguments);
+        return new DistributedProcedureHandle(
+                tableHandle.getConnectorId(),
+                tableHandle.getTransaction(),
+                procedureHandle);
+    }
+
+    @Override
+    public void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments)
+    {
+        ConnectorId connectorId = procedureHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        metadata.finishCallDistributedProcedure(session.toConnectorSession(connectorId), procedureHandle.getConnectorHandle(), procedureName, fragments);
+    }
+
+    @Override
     public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
@@ -1280,7 +1357,7 @@ public class MetadataManager
     }
 
     @Override
-    public ProcedureRegistry getProcedureRegistry()
+    public IProcedureRegistry getProcedureRegistry()
     {
         return procedures;
     }

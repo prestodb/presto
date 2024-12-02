@@ -45,6 +45,7 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -332,6 +333,16 @@ public interface Metadata
     void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
+     * Begin call distributed procedure
+     */
+    DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments);
+
+    /**
+     * Finish call distributed procedure
+     */
+    void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments);
+
+    /**
      * Begin update query
      */
     TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
@@ -481,7 +492,7 @@ public interface Metadata
     // TODO: metadata should not provide FunctionAndTypeManager
     FunctionAndTypeManager getFunctionAndTypeManager();
 
-    ProcedureRegistry getProcedureRegistry();
+    IProcedureRegistry getProcedureRegistry();
 
     BlockEncodingSerde getBlockEncodingSerde();
 

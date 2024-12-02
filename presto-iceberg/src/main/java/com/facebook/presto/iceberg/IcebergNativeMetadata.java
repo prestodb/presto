@@ -30,6 +30,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,6 +93,7 @@ public class IcebergNativeMetadata
     public IcebergNativeMetadata(
             IcebergNativeCatalogFactory catalogFactory,
             TypeManager typeManager,
+            IProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
@@ -100,7 +102,7 @@ public class IcebergNativeMetadata
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
+        super(typeManager, procedureRegistry, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
@@ -294,14 +296,14 @@ public class IcebergNativeMetadata
         FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
 
         try {
-            transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
-                    toIcebergTableIdentifier(schemaTableName), schema, partitionSpec, populateTableProperties(tableMetadata, fileFormat, session));
+            transactionContext = new IcebergTransactionContext(Optional.empty(), catalogFactory.getCatalog(session).newCreateTableTransaction(
+                    toIcebergTableIdentifier(schemaTableName), schema, partitionSpec, populateTableProperties(tableMetadata, fileFormat, session)));
         }
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
 
-        Table icebergTable = transaction.table();
+        Table icebergTable = transactionContext.getTransaction().table();
         return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),

@@ -212,4 +212,32 @@ public class TestIcebergSmokeRest
 
         assertEquals(catalog.properties().get(OAUTH2_SERVER_URI), authEndpoint);
     }
+
+    @Test(dataProvider = "version_and_mode")
+    public void testMetadataDeleteOnTableAfterWholeRewriteDataFiles(String version, String mode)
+    {
+        if (version.equals("1")) {
+            // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
+            assertThatThrownBy(() -> super.testMetadataDeleteOnTableAfterWholeRewriteDataFiles(version, mode))
+                    .isInstanceOf(RuntimeException.class);
+        }
+        else {
+            // v2 succeeds
+            super.testMetadataDeleteOnTableAfterWholeRewriteDataFiles(version, mode);
+        }
+    }
+
+    @Test(dataProvider = "version_and_mode")
+    public void testMetadataDeleteOnTableAfterPartialRewriteDataFiles(String version, String mode)
+    {
+        if (version.equals("1")) {
+            // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
+            assertThatThrownBy(() -> super.testMetadataDeleteOnTableAfterPartialRewriteDataFiles(version, mode))
+                    .isInstanceOf(RuntimeException.class);
+        }
+        else {
+            // v2 succeeds
+            super.testMetadataDeleteOnTableAfterPartialRewriteDataFiles(version, mode);
+        }
+    }
 }

@@ -62,6 +62,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -399,6 +400,13 @@ public class PushdownSubfields
                     node.getTableConstraints(),
                     node.getCurrentConstraint(),
                     node.getEnforcedConstraint());
+        }
+
+        @Override
+        public PlanNode visitCallDistributedProcedure(CallDistributedProcedureNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.addAll(node.getColumns());
+            return context.defaultRewrite(node, context.get());
         }
 
         @Override

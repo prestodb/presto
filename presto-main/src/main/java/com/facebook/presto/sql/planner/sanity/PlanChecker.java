@@ -74,7 +74,8 @@ public final class PlanChecker
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
-                        new WarnOnScanWithoutPartitionPredicate(featuresConfig));
+                        new WarnOnScanWithoutPartitionPredicate(featuresConfig),
+                        new CallDistributedProcedureValidator());
         if (featuresConfig.isNativeExecutionEnabled() && (featuresConfig.isDisableTimeStampWithTimeZoneForNative() ||
                 featuresConfig.isDisableIPAddressForNative())) {
             builder.put(Stage.INTERMEDIATE, new CheckUnsupportedPrestissimoTypes(featuresConfig));
