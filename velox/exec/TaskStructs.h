@@ -27,15 +27,6 @@ class MergeSource;
 class MergeJoinSource;
 struct Split;
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-enum TaskState {
-  kRunning = 0,
-  kFinished = 1,
-  kCanceled = 2,
-  kAborted = 3,
-  kFailed = 4
-};
-#else
 /// Corresponds to Presto TaskState, needed for reporting query completion.
 enum class TaskState : int {
   kRunning = 0,
@@ -44,7 +35,6 @@ enum class TaskState : int {
   kAborted = 3,
   kFailed = 4
 };
-#endif
 
 std::string taskStateString(TaskState state);
 
