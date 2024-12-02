@@ -173,7 +173,8 @@ public class DruidPlanOptimizer
                             assignments.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, (e) -> (ColumnHandle) (e.getValue()))),
                             tableScanNode.getTableConstraints(),
                             tableScanNode.getCurrentConstraint(),
-                            tableScanNode.getEnforcedConstraint()));
+                            tableScanNode.getEnforcedConstraint(),
+                            tableScanNode.getCteMaterializationInfo()));
         }
 
         @Override
