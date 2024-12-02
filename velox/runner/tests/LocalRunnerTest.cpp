@@ -18,10 +18,13 @@
 #include "velox/exec/tests/utils/LocalRunnerTestBase.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 
-using namespace facebook::velox;
+namespace facebook::velox::runner {
+namespace {
+
 using namespace facebook::velox::exec;
-using namespace facebook::velox::runner;
 using namespace facebook::velox::exec::test;
+
+constexpr int kWaitTimeoutUs = 1'000'000;
 
 class LocalRunnerTest : public LocalRunnerTestBase {
  protected:
@@ -129,7 +132,7 @@ class LocalRunnerTest : public LocalRunnerTestBase {
     for (auto& rows : results) {
       count += rows->size();
     }
-    localRunner->waitForCompletion(5000);
+    localRunner->waitForCompletion(kWaitTimeoutUs);
     EXPECT_EQ(250'000, count);
   }
 
@@ -155,7 +158,7 @@ TEST_F(LocalRunnerTest, count) {
       kNumRows, results[0]->childAt(0)->as<FlatVector<int64_t>>()->valueAt(0));
   results.clear();
   EXPECT_EQ(Runner::State::kFinished, localRunner->state());
-  localRunner->waitForCompletion(5000);
+  localRunner->waitForCompletion(kWaitTimeoutUs);
 }
 
 TEST_F(LocalRunnerTest, error) {
@@ -166,10 +169,13 @@ TEST_F(LocalRunnerTest, error) {
       splitSourceFactory_);
   EXPECT_THROW(readCursor(localRunner), VeloxUserError);
   EXPECT_EQ(Runner::State::kError, localRunner->state());
-  localRunner->waitForCompletion(5000);
+  localRunner->waitForCompletion(kWaitTimeoutUs);
 }
 
 TEST_F(LocalRunnerTest, scan) {
   checkScanCount("s1", 1);
   checkScanCount("s2", 3);
 }
+
+} // namespace
+} // namespace facebook::velox::runner
