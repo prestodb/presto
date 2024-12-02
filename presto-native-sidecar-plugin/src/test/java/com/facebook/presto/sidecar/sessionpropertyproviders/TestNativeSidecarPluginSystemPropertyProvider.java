@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.sidecar.sessionpropertyproviders;
 
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.MaterializedResult;

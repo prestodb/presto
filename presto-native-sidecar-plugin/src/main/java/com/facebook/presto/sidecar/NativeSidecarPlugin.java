@@ -14,8 +14,10 @@
 package com.facebook.presto.sidecar;
 
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
+import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
+import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.google.common.collect.ImmutableList;
 
 public class NativeSidecarPlugin
@@ -25,5 +27,11 @@ public class NativeSidecarPlugin
     public Iterable<WorkerSessionPropertyProviderFactory> getWorkerSessionPropertyProviderFactories()
     {
         return ImmutableList.of(new NativeSystemSessionPropertyProviderFactory());
+    }
+
+    @Override
+    public Iterable<TypeManagerFactory> getTypeManagerFactories()
+    {
+        return ImmutableList.of(new NativeTypeManagerFactory());
     }
 }

@@ -48,6 +48,7 @@ import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
+import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
@@ -371,6 +372,11 @@ public class PluginManager
         for (WorkerSessionPropertyProviderFactory providerFactory : plugin.getWorkerSessionPropertyProviderFactories()) {
             log.info("Registering system session property provider factory %s", providerFactory.getName());
             metadata.getSessionPropertyManager().addSessionPropertyProviderFactory(providerFactory);
+        }
+
+        for (TypeManagerFactory typeManagerFactory : plugin.getTypeManagerFactories()) {
+            log.info("Registering type manager factory %s", typeManagerFactory.getName());
+            metadata.getFunctionAndTypeManager().addTypeManagerFactory(typeManagerFactory);
         }
     }
 
