@@ -35,6 +35,7 @@ import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteMaterializationInfo;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PartitioningScheme;
@@ -82,6 +83,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
 
 // Planner Util for creating temporary tables
@@ -99,7 +101,8 @@ public class TemporaryTableUtil
             TableHandle tableHandle,
             List<VariableReferenceExpression> outputVariables,
             Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
-            Optional<PartitioningMetadata> expectedPartitioningMetadata)
+            Optional<PartitioningMetadata> expectedPartitioningMetadata,
+            Optional<String> cteId)
     {
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         Map<VariableReferenceExpression, ColumnMetadata> outputColumns = outputVariables.stream()
@@ -126,11 +129,14 @@ public class TemporaryTableUtil
         return new TableScanNode(
                 sourceLocation,
                 idAllocator.getNextId(),
+                Optional.empty(),
                 selectedLayout.getLayout().getNewTableHandle(),
                 outputVariables,
                 assignments,
+                emptyList(),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                cteId.map(CteMaterializationInfo::new));
     }
 
     public static Map<VariableReferenceExpression, ColumnMetadata> assignTemporaryTableColumnNames(Collection<VariableReferenceExpression> outputVariables,
@@ -181,7 +187,8 @@ public class TemporaryTableUtil
             TableHandle tableHandle,
             List<VariableReferenceExpression> outputs,
             Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
-            VariableReferenceExpression outputVar)
+            VariableReferenceExpression outputVar,
+            Optional<String> cteId)
     {
         SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
         TableWriterNode.InsertReference insertReference = new TableWriterNode.InsertReference(tableHandle, schemaTableName);
@@ -215,7 +222,8 @@ public class TemporaryTableUtil
                 Optional.of(insertReference),
                 outputVar,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                cteId.map(CteMaterializationInfo::new));
     }
 
     public static TableFinishNode createTemporaryTableWriteWithExchanges(
@@ -353,7 +361,6 @@ public class TemporaryTableUtil
                 variableAllocator.newVariable("intermediatefragments", VARBINARY),
                 variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
                 enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getIntermediateAggregation()) : Optional.empty());
-
         return new TableFinishNode(
                 sourceLocation,
                 idAllocator.getNextId(),
@@ -364,7 +371,8 @@ public class TemporaryTableUtil
                 Optional.of(insertReference),
                 variableAllocator.newVariable("rows", BIGINT),
                 enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getFinalAggregation()) : Optional.empty(),
-                enableStatsCollectionForTemporaryTable ? Optional.of(statisticsResult.getDescriptor()) : Optional.empty());
+                enableStatsCollectionForTemporaryTable ? Optional.of(statisticsResult.getDescriptor()) : Optional.empty(),
+                Optional.empty());
     }
 
     public static StatisticAggregations.Parts splitIntoPartialAndFinal(StatisticAggregations statisticAggregations, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)

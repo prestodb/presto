@@ -257,6 +257,7 @@ public class PlanFragmenterUtils
                 .filter(node -> node instanceof TableWriterNode)
                 .map(node -> (TableWriterNode) node)
                 .filter(tableWriterNode -> !tableWriterNode.getIsTemporaryTableWriter().orElse(false))
+                .map(node -> (TableWriterNode) node)
                 .map(TableWriterNode::getId)
                 .collect(toImmutableSet());
     }
@@ -306,7 +307,8 @@ public class PlanFragmenterUtils
                     node.getOutputVariables(),
                     node.getAssignments(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(),
+                    node.getCteMaterializationInfo());
         }
     }
 
