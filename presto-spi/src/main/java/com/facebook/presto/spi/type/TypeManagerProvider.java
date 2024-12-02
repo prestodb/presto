@@ -11,13 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.function;
+package com.facebook.presto.spi.type;
 
+import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ExactTypeSignature;
+import com.facebook.presto.common.type.TypeSignature;
 
-public interface FunctionMetadataManager
+import java.util.Map;
+import java.util.Optional;
+
+public interface TypeManagerProvider
 {
-    FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
-    public Type instantiateParametricType(ExactTypeSignature exactSignature);
+    Optional<Type> getType(TypeSignature signature);
+
+    Map<String, ParametricType> getParametricTypes();
 }

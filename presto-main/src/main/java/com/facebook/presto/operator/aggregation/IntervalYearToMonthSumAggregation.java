@@ -22,8 +22,8 @@ import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.BigintOperators;
 
+import static com.facebook.presto.common.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.common.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
-import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 
 @AggregationFunction("sum")
 public final class IntervalYearToMonthSumAggregation

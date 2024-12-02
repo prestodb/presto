@@ -11,18 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
-
-import com.facebook.presto.common.type.FunctionType;
-import com.facebook.presto.common.type.ParameterKind;
-import com.facebook.presto.common.type.ParametricType;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeParameter;
+package com.facebook.presto.common.type;
 
 import java.util.List;
 
+import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.FunctionType.NAME;
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
 public final class FunctionParametricType
@@ -43,11 +38,10 @@ public final class FunctionParametricType
     @Override
     public Type createType(List<TypeParameter> parameters)
     {
-        checkArgument(parameters.size() >= 1, "Function type must have at least one parameter, got %s", parameters);
+        checkArgument(parameters.size() >= 1, format("Function type must have at least one parameter, got %s", parameters));
         checkArgument(
                 parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE),
-                "Expected only types as a parameters, got %s",
-                parameters);
+                format("Expected only types as a parameters, got %s", parameters));
         List<Type> types = parameters.stream().map(TypeParameter::getType).collect(toList());
 
         return new FunctionType(types.subList(0, types.size() - 1), types.get(types.size() - 1));

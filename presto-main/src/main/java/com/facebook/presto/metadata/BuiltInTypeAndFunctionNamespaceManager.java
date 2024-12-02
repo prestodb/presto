@@ -21,7 +21,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionResult;
-import com.facebook.presto.common.type.DistinctTypeInfo;
+import com.facebook.presto.common.type.DecimalParametricType;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.common.type.VarcharParametricType;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
 import com.facebook.presto.geospatial.BingTileFunctions;
 import com.facebook.presto.geospatial.BingTileOperators;
@@ -221,6 +222,7 @@ import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.ExactTypeSignature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
@@ -235,6 +237,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.spi.type.TypeManagerProvider;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.BigintOperators;
@@ -245,7 +248,6 @@ import com.facebook.presto.type.ColorOperators;
 import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DecimalOperators;
-import com.facebook.presto.type.DecimalParametricType;
 import com.facebook.presto.type.DoubleComparisonOperators;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.EnumCasts;
@@ -277,7 +279,6 @@ import com.facebook.presto.type.UuidOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharEnumOperators;
 import com.facebook.presto.type.VarcharOperators;
-import com.facebook.presto.type.VarcharParametricType;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogAggregationFunction;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogFunctions;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogOperators;
@@ -307,7 +308,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -315,14 +315,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.common.function.OperatorType.tryGetOperatorType;
+import static com.facebook.presto.common.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.common.type.BigintEnumParametricType.BIGINT_ENUM;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.DoubleType.OLD_NAN_DOUBLE;
+import static com.facebook.presto.common.type.FunctionParametricType.FUNCTION;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.common.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.common.type.IpAddressType.IPADDRESS;
+import static com.facebook.presto.common.type.IpPrefixType.IPPREFIX;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.KdbTreeType.KDB_TREE;
 import static com.facebook.presto.common.type.KllSketchParametricType.KLL_SKETCH;
@@ -330,6 +336,7 @@ import static com.facebook.presto.common.type.P4HyperLogLogType.P4_HYPER_LOG_LOG
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
 import static com.facebook.presto.common.type.RealType.OLD_NAN_REAL;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.RowParametricType.ROW;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TimeType.TIME;
@@ -463,7 +470,6 @@ import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
-import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -509,17 +515,11 @@ import static com.facebook.presto.type.DecimalSaturatedFloorCasts.TINYINT_TO_DEC
 import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DistinctTypeCasts.DISTINCT_TYPE_FROM_CAST;
 import static com.facebook.presto.type.DistinctTypeCasts.DISTINCT_TYPE_TO_CAST;
-import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.facebook.presto.type.IpAddressType.IPADDRESS;
-import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
-import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.SfmSketchType.SFM_SKETCH;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
@@ -535,7 +535,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class BuiltInTypeAndFunctionNamespaceManager
-        implements FunctionNamespaceManager<SqlFunction>
+        implements FunctionNamespaceManager<SqlFunction>, TypeManagerProvider
 {
     public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
     public static final String ID = "builtin";
@@ -1265,6 +1265,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
+    @Override
     public Optional<Type> getType(TypeSignature typeSignature)
     {
         Type type = types.get(typeSignature);
@@ -1299,12 +1300,19 @@ public class BuiltInTypeAndFunctionNamespaceManager
         parametricTypes.putIfAbsent(name, parametricType);
     }
 
-    public Collection<ParametricType> getParametricTypes()
+    @Override
+    public Map<String, ParametricType> getParametricTypes()
     {
-        return parametricTypes.values();
+        return parametricTypes;
     }
 
     private Type instantiateParametricType(ExactTypeSignature exactSignature)
+    {
+        return instantiateParametricType(exactSignature, functionAndTypeManager, parametricTypes);
+    }
+
+    public Type instantiateParametricType(ExactTypeSignature exactSignature,
+            FunctionAndTypeManager functionAndTypeManager, Map<String, ParametricType> parametricTypes)
     {
         TypeSignature signature = exactSignature.getTypeSignature();
         List<TypeParameter> parameters = new ArrayList<>();
@@ -1450,92 +1458,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
         public Collection<SqlFunction> get(QualifiedObjectName name)
         {
             return functions.get(name);
-        }
-    }
-
-    /**
-     * TypeSignature but has overridden equals(). Here, we compare exact signature of any underlying distinct
-     * types. Some distinct types may have extra information on their lazily loaded parents, and same parent
-     * information is compared in equals(). This is needed to cache types in parametricTypesCache.
-     */
-    private static class ExactTypeSignature
-    {
-        private final TypeSignature typeSignature;
-
-        public ExactTypeSignature(TypeSignature typeSignature)
-        {
-            this.typeSignature = typeSignature;
-        }
-
-        public TypeSignature getTypeSignature()
-        {
-            return typeSignature;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(typeSignature);
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            ExactTypeSignature other = (ExactTypeSignature) o;
-            return equals(typeSignature, other.typeSignature);
-        }
-
-        private static boolean equals(TypeSignature left, TypeSignature right)
-        {
-            if (!left.equals(right)) {
-                return false;
-            }
-
-            if (left.isDistinctType() && right.isDistinctType()) {
-                return equals(left.getDistinctTypeInfo(), right.getDistinctTypeInfo());
-            }
-            int index = 0;
-            for (TypeSignatureParameter leftParameter : left.getParameters()) {
-                TypeSignatureParameter rightParameter = right.getParameters().get(index++);
-                if (!leftParameter.getKind().equals(rightParameter.getKind())) {
-                    return false;
-                }
-
-                switch (leftParameter.getKind()) {
-                    case TYPE:
-                        if (!equals(leftParameter.getTypeSignature(), rightParameter.getTypeSignature())) {
-                            return false;
-                        }
-                        break;
-                    case NAMED_TYPE:
-                        if (!equals(leftParameter.getNamedTypeSignature().getTypeSignature(), rightParameter.getNamedTypeSignature().getTypeSignature())) {
-                            return false;
-                        }
-                        break;
-                    case DISTINCT_TYPE:
-                        if (!equals(leftParameter.getDistinctTypeInfo(), rightParameter.getDistinctTypeInfo())) {
-                            return false;
-                        }
-                        break;
-                }
-            }
-            return true;
-        }
-
-        private static boolean equals(DistinctTypeInfo left, DistinctTypeInfo right)
-        {
-            return Objects.equals(left.getName(), right.getName()) &&
-                    Objects.equals(left.getBaseType(), right.getBaseType()) &&
-                    Objects.equals(left.isOrderable(), right.isOrderable()) &&
-                    Objects.equals(left.getTopMostAncestor(), right.getTopMostAncestor()) &&
-                    Objects.equals(left.getOtherAncestors(), right.getOtherAncestors());
         }
     }
 

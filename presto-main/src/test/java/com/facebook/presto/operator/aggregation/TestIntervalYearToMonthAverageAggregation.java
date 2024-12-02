@@ -15,13 +15,13 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.SqlIntervalYearMonth;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.common.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.Math.round;
 import static java.lang.Math.toIntExact;
 

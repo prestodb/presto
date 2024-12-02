@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.type.SqlIntervalDayTime;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 

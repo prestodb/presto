@@ -22,7 +22,7 @@ import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.common.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.Math.round;
 
 @AggregationFunction("avg")

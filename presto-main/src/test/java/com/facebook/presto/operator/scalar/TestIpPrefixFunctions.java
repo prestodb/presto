@@ -19,8 +19,8 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.IpAddressType.IPADDRESS;
-import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
+import static com.facebook.presto.common.type.IpAddressType.IPADDRESS;
+import static com.facebook.presto.common.type.IpPrefixType.IPPREFIX;
 
 public class TestIpPrefixFunctions
         extends AbstractTestFunctions

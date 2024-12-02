@@ -15,8 +15,9 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.SqlIntervalYearMonth;
 
-import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.common.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 
 public class TestIntervalYearMonthType
         extends AbstractTestType

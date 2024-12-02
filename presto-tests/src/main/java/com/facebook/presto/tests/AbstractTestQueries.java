@@ -15,6 +15,8 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.type.SqlIntervalDayTime;
+import com.facebook.presto.common.type.SqlIntervalYearMonth;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.spi.PrestoException;
@@ -23,8 +25,6 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.type.SqlIntervalDayTime;
-import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

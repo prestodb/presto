@@ -11,19 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.InvalidFunctionArgumentException;
-import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.ParametricType;
-import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeParameter;
-import com.facebook.presto.spi.PrestoException;
 
 import java.util.List;
-
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public class DecimalParametricType
         implements ParametricType
@@ -52,7 +44,7 @@ public class DecimalParametricType
             }
         }
         catch (InvalidFunctionArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+            throw new InvalidFunctionArgumentException(e);
         }
     }
 }

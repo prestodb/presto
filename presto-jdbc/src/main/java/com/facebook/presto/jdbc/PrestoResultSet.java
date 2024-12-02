@@ -14,11 +14,11 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.Column;
-import com.facebook.presto.client.IntervalDayTime;
-import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.common.type.IntervalDayTime;
+import com.facebook.presto.common.type.IntervalYearMonth;
 import com.facebook.presto.jdbc.ColumnInfo.Nullable;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;

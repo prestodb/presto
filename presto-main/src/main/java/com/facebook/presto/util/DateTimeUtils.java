@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.client.IntervalDayTime;
-import com.facebook.presto.client.IntervalYearMonth;
+import com.facebook.presto.common.type.IntervalDayTime;
+import com.facebook.presto.common.type.IntervalYearMonth;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
