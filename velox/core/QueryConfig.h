@@ -423,6 +423,14 @@ class QueryConfig {
   static constexpr const char* kDebugDisableExpressionWithLazyInputs =
       "debug_disable_expression_with_lazy_inputs";
 
+  /// Fix the random seed used to create data structure used in
+  /// approx_percentile.  This makes the query result deterministic on single
+  /// node; multi-node partial aggregation is still subject to non-determinism
+  /// due to non-deterministic merge order.
+  static constexpr const char*
+      kDebugAggregationApproxPercentileFixedRandomSeed =
+          "debug_aggregation_approx_percentile_fixed_random_seed";
+
   /// Temporary flag to control whether selective Nimble reader should be used
   /// in this query or not.  Will be removed after the selective Nimble reader
   /// is fully rolled out.
@@ -447,6 +455,11 @@ class QueryConfig {
 
   bool debugDisableExpressionsWithLazyInputs() const {
     return get<bool>(kDebugDisableExpressionWithLazyInputs, false);
+  }
+
+  std::optional<uint32_t> debugAggregationApproxPercentileFixedRandomSeed()
+      const {
+    return get<uint32_t>(kDebugAggregationApproxPercentileFixedRandomSeed);
   }
 
   uint64_t queryMaxMemoryPerNode() const {

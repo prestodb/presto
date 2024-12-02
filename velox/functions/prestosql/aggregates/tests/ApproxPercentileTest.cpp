@@ -90,6 +90,9 @@ class ApproxPercentileTest : public AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     random::setSeed(0);
+    queryConfig_
+        [core::QueryConfig::kDebugAggregationApproxPercentileFixedRandomSeed] =
+            "0";
   }
 
   template <typename T>
@@ -142,12 +145,14 @@ class ApproxPercentileTest : public AggregationTestBase {
         {rows},
         {},
         {functionCall(false, weights.get(), percentile, accuracy, -1)},
-        expected);
+        expected,
+        queryConfig_);
     testAggregations(
         {rows},
         {},
         {functionCall(false, weights.get(), percentile, accuracy, 3)},
-        expectedArray);
+        expectedArray,
+        queryConfig_);
 
     // Companion functions of approx_percentile do not support test streaming
     // because intermediate results are KLL that has non-deterministic shape.
@@ -159,7 +164,8 @@ class ApproxPercentileTest : public AggregationTestBase {
         {functionCall(false, weights.get(), percentile, accuracy, -1)},
         {getArgTypes(values->type(), weights.get(), accuracy, -1)},
         {},
-        expected);
+        expected,
+        queryConfig_);
     testAggregationsWithCompanion(
         {rows},
         [](auto& /*builder*/) {},
@@ -167,7 +173,8 @@ class ApproxPercentileTest : public AggregationTestBase {
         {functionCall(false, weights.get(), percentile, accuracy, 3)},
         {getArgTypes(values->type(), weights.get(), accuracy, 3)},
         {},
-        expectedArray);
+        expectedArray,
+        queryConfig_);
   }
 
   template <typename T>
@@ -208,7 +215,8 @@ class ApproxPercentileTest : public AggregationTestBase {
         {rows},
         {"c0"},
         {functionCall(true, weights.get(), percentile, accuracy, -1)},
-        {expectedResult});
+        {expectedResult},
+        queryConfig_);
 
     // Companion functions of approx_percentile do not support test streaming
     // because intermediate results are KLL that has non-deterministic shape.
@@ -220,7 +228,8 @@ class ApproxPercentileTest : public AggregationTestBase {
         {functionCall(true, weights.get(), percentile, accuracy, -1)},
         {getArgTypes(values->type(), weights.get(), accuracy, -1)},
         {},
-        {expectedResult});
+        {expectedResult},
+        queryConfig_);
 
     {
       SCOPED_TRACE("Percentile array");
@@ -264,7 +273,8 @@ class ApproxPercentileTest : public AggregationTestBase {
           {rows},
           {"c0"},
           {functionCall(true, weights.get(), percentile, accuracy, 3)},
-          {expected});
+          {expected},
+          queryConfig_);
 
       // Companion functions of approx_percentile do not support test streaming
       // because intermediate results are KLL that has non-deterministic shape.
@@ -276,9 +286,13 @@ class ApproxPercentileTest : public AggregationTestBase {
           {functionCall(true, weights.get(), percentile, accuracy, 3)},
           {getArgTypes(values->type(), weights.get(), accuracy, 3)},
           {},
-          {expected});
+          {expected},
+          queryConfig_);
     }
   }
+
+ private:
+  std::unordered_map<std::string, std::string> queryConfig_;
 };
 
 TEST_F(ApproxPercentileTest, globalAgg) {

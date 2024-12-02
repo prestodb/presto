@@ -124,6 +124,10 @@ struct KllSketch {
     return n_;
   }
 
+  uint32_t k() const {
+    return k_;
+  }
+
   /// Calculate the size needed for serialization.
   size_t serializedByteSize() const;
 
