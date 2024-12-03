@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.connector.classloader;
 
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;

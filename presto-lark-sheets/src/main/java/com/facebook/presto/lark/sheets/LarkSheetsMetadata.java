@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.lark.sheets;
 
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.lark.sheets.api.LarkSheetsApi;
 import com.facebook.presto.lark.sheets.api.LarkSheetsSchema;
 import com.facebook.presto.lark.sheets.api.LarkSheetsSchemaStore;

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.kudu;
 
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;

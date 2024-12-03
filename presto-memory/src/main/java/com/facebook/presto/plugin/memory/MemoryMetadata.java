@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.memory;
 
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;

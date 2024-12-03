@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.memory;
 
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
