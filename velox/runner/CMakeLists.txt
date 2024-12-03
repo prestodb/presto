@@ -15,7 +15,12 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-velox_add_library(velox_local_runner LocalRunner.cpp LocalSchema.cpp Runner.cpp)
+velox_add_library(
+  velox_local_runner
+  LocalRunner.cpp
+  LocalSchema.cpp
+  MultiFragmentPlan.cpp
+  Runner.cpp)
 
 velox_link_libraries(
   velox_local_runner

@@ -14,25 +14,29 @@
  * limitations under the License.
  */
 
-#include "velox/runner/Runner.h"
+#include "velox/runner/MultiFragmentPlan.h"
 
 namespace facebook::velox::runner {
 
-// static
-std::string Runner::stateString(Runner::State state) {
-  switch (state) {
-    case Runner::State::kInitialized:
-      return "initialized";
-    case Runner::State::kRunning:
-      return "running";
-    case Runner::State::kCancelled:
-      return "cancelled";
-    case Runner::State::kError:
-      return "error";
-    case Runner::State::kFinished:
-      return "finished";
+std::string MultiFragmentPlan::toString() const {
+  std::stringstream out;
+  for (auto i = 0; i < fragments_.size(); ++i) {
+    out << fmt::format(
+        "Fragment {}: {} numWorkers={}:\n",
+        i,
+        fragments_[i].taskPrefix,
+        fragments_[i].width);
+    out << fragments_[i].fragment.planNode->toString(true, true) << std::endl;
+    if (!fragments_[i].inputStages.empty()) {
+      out << "Inputs: ";
+      for (auto& input : fragments_[i].inputStages) {
+        out << fmt::format(
+            " {} <- {} ", input.consumerNodeId, input.producerTaskPrefix);
+      }
+      out << std::endl;
+    }
   }
-  return fmt::format("invalid state {}", static_cast<int32_t>(state));
+  return out.str();
 }
 
 } // namespace facebook::velox::runner
