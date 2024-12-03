@@ -541,25 +541,27 @@ target_link_libraries(
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
 
-add_executable(velox_dwrf_int_encoder_benchmark IntEncoderBenchmark.cpp)
-target_link_libraries(
-  velox_dwrf_int_encoder_benchmark
-  velox_dwio_dwrf_common
-  velox_memory
-  velox_dwio_common_exception
-  Folly::folly
-  ${FOLLY_BENCHMARK})
+if(VELOX_ENABLE_BENCHMARKS)
+  add_executable(velox_dwrf_int_encoder_benchmark IntEncoderBenchmark.cpp)
+  target_link_libraries(
+    velox_dwrf_int_encoder_benchmark
+    velox_dwio_dwrf_common
+    velox_memory
+    velox_dwio_common_exception
+    Folly::folly
+    ${FOLLY_BENCHMARK})
 
-add_executable(velox_dwrf_float_column_writer_benchmark
-               FloatColumnWriterBenchmark.cpp)
-target_link_libraries(
-  velox_dwrf_float_column_writer_benchmark
-  velox_vector
-  velox_dwio_common_exception
-  velox_dwio_dwrf_writer
-  Folly::folly
-  ${FOLLY_BENCHMARK}
-  fmt::fmt)
+  add_executable(velox_dwrf_float_column_writer_benchmark
+                 FloatColumnWriterBenchmark.cpp)
+  target_link_libraries(
+    velox_dwrf_float_column_writer_benchmark
+    velox_vector
+    velox_dwio_common_exception
+    velox_dwio_dwrf_writer
+    Folly::folly
+    ${FOLLY_BENCHMARK}
+    fmt::fmt)
+endif()
 
 add_executable(velox_dwio_cache_test CacheInputTest.cpp
                                      DirectBufferedInputTest.cpp)

@@ -22,18 +22,20 @@ target_link_libraries(
   ${FOLLY_BENCHMARK}
   ${TEST_LINK_LIBS})
 
-add_executable(velox_dwio_iceberg_reader_benchmark
-               IcebergSplitReaderBenchmarkMain.cpp)
-target_link_libraries(
-  velox_dwio_iceberg_reader_benchmark
-  velox_dwio_iceberg_reader_benchmark_lib
-  velox_dwio_dwrf_proto
-  velox_exec_test_lib
-  velox_exec
-  velox_hive_connector
-  Folly::folly
-  ${FOLLY_BENCHMARK}
-  ${TEST_LINK_LIBS})
+if(VELOX_ENABLE_BENCHMARKS)
+  add_executable(velox_dwio_iceberg_reader_benchmark
+                 IcebergSplitReaderBenchmarkMain.cpp)
+  target_link_libraries(
+    velox_dwio_iceberg_reader_benchmark
+    velox_dwio_iceberg_reader_benchmark_lib
+    velox_dwio_dwrf_proto
+    velox_exec_test_lib
+    velox_exec
+    velox_hive_connector
+    Folly::folly
+    ${FOLLY_BENCHMARK}
+    ${TEST_LINK_LIBS})
+endif()
 
 if(NOT VELOX_DISABLE_GOOGLETEST)
 

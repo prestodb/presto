@@ -42,83 +42,85 @@ target_link_libraries(
   gflags::gflags
   glog::glog)
 
-add_executable(velox_filter_benchmark FilterBenchmark.cpp)
+if(VELOX_ENABLE_BENCHMARKS)
+  add_executable(velox_filter_benchmark FilterBenchmark.cpp)
 
-target_link_libraries(
-  velox_filter_benchmark
-  velox_type
-  velox_serialization
-  Folly::folly
-  ${FOLLY_BENCHMARK}
-  GTest::gtest
-  GTest::gtest_main
-  gflags::gflags
-  glog::glog)
+  target_link_libraries(
+    velox_filter_benchmark
+    velox_type
+    velox_serialization
+    Folly::folly
+    ${FOLLY_BENCHMARK}
+    GTest::gtest
+    GTest::gtest_main
+    gflags::gflags
+    glog::glog)
 
-add_executable(velox_negated_values_filter_benchmark
-               NegatedValuesFilterBenchmark.cpp)
+  add_executable(velox_negated_values_filter_benchmark
+                 NegatedValuesFilterBenchmark.cpp)
 
-target_link_libraries(
-  velox_negated_values_filter_benchmark
-  velox_type
-  velox_serialization
-  Folly::folly
-  ${FOLLY_BENCHMARK}
-  GTest::gtest
-  GTest::gtest_main
-  gflags::gflags
-  glog::glog)
+  target_link_libraries(
+    velox_negated_values_filter_benchmark
+    velox_type
+    velox_serialization
+    Folly::folly
+    ${FOLLY_BENCHMARK}
+    GTest::gtest
+    GTest::gtest_main
+    gflags::gflags
+    glog::glog)
 
-add_executable(velox_negated_bytes_values_benchmark
-               NegatedBytesValuesBenchmark.cpp)
+  add_executable(velox_negated_bytes_values_benchmark
+                 NegatedBytesValuesBenchmark.cpp)
 
-target_link_libraries(
-  velox_negated_bytes_values_benchmark
-  velox_type
-  velox_serialization
-  Folly::folly
-  ${FOLLY_BENCHMARK}
-  GTest::gtest
-  GTest::gtest_main
-  gflags::gflags
-  glog::glog)
+  target_link_libraries(
+    velox_negated_bytes_values_benchmark
+    velox_type
+    velox_serialization
+    Folly::folly
+    ${FOLLY_BENCHMARK}
+    GTest::gtest
+    GTest::gtest_main
+    gflags::gflags
+    glog::glog)
 
-add_executable(velox_negated_bigint_range_benchmark
-               NegatedBigintRangeBenchmark.cpp)
+  add_executable(velox_negated_bigint_range_benchmark
+                 NegatedBigintRangeBenchmark.cpp)
 
-target_link_libraries(
-  velox_negated_bigint_range_benchmark
-  velox_type
-  velox_serialization
-  Folly::folly
-  ${FOLLY_BENCHMARK}
-  GTest::gtest
-  GTest::gtest_main
-  gflags::gflags
-  glog::glog)
+  target_link_libraries(
+    velox_negated_bigint_range_benchmark
+    velox_type
+    velox_serialization
+    Folly::folly
+    ${FOLLY_BENCHMARK}
+    GTest::gtest
+    GTest::gtest_main
+    gflags::gflags
+    glog::glog)
 
-add_executable(velox_negated_bytes_range_benchmark
-               NegatedBytesRangeBenchmark.cpp)
+  add_executable(velox_negated_bytes_range_benchmark
+                 NegatedBytesRangeBenchmark.cpp)
 
-target_link_libraries(
-  velox_negated_bytes_range_benchmark
-  velox_type
-  velox_serialization
-  Folly::folly
-  ${FOLLY_BENCHMARK}
-  GTest::gtest
-  GTest::gtest_main
-  gflags::gflags
-  glog::glog)
+  target_link_libraries(
+    velox_negated_bytes_range_benchmark
+    velox_type
+    velox_serialization
+    Folly::folly
+    ${FOLLY_BENCHMARK}
+    GTest::gtest
+    GTest::gtest_main
+    gflags::gflags
+    glog::glog)
 
-add_executable(velox_string_view_benchmark StringViewBenchmark.cpp)
+  add_executable(velox_string_view_benchmark StringViewBenchmark.cpp)
 
-target_link_libraries(
-  velox_string_view_benchmark
-  velox_type
-  Folly::folly
-  ${FOLLY_BENCHMARK}
-  GTest::gtest
-  GTest::gtest_main
-  gflags::gflags
-  glog::glog)
+  target_link_libraries(
+    velox_string_view_benchmark
+    velox_type
+    Folly::folly
+    ${FOLLY_BENCHMARK}
+    GTest::gtest
+    GTest::gtest_main
+    gflags::gflags
+    glog::glog)
+endif()

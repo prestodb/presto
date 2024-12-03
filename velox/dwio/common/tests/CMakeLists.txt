@@ -75,39 +75,43 @@ target_link_libraries(
   fmt::fmt
   protobuf::libprotobuf)
 
-add_executable(velox_dwio_common_data_buffer_benchmark DataBufferBenchmark.cpp)
-
-target_link_libraries(
-  velox_dwio_common_data_buffer_benchmark
-  velox_dwio_common
-  velox_memory
-  velox_dwio_common_exception
-  Folly::folly
-  ${FOLLY_BENCHMARK})
-
-add_executable(velox_dwio_common_int_decoder_benchmark IntDecoderBenchmark.cpp)
-target_link_libraries(
-  velox_dwio_common_int_decoder_benchmark
-  velox_dwio_common_exception
-  velox_exception
-  velox_dwio_dwrf_common
-  Folly::folly
-  ${FOLLY_BENCHMARK})
-
-if(VELOX_ENABLE_ARROW AND VELOX_ENABLE_BENCHMARKS)
-  add_subdirectory(Lemire/FastPFor)
-  add_executable(velox_dwio_common_bitpack_decoder_benchmark
-                 BitPackDecoderBenchmark.cpp)
-
-  target_compile_options(velox_dwio_common_bitpack_decoder_benchmark
-                         PRIVATE -Wno-deprecated-declarations)
+if(VELOX_ENABLE_BENCHMARKS)
+  add_executable(velox_dwio_common_data_buffer_benchmark
+                 DataBufferBenchmark.cpp)
 
   target_link_libraries(
-    velox_dwio_common_bitpack_decoder_benchmark
+    velox_dwio_common_data_buffer_benchmark
     velox_dwio_common
-    arrow
-    velox_fastpforlib
-    duckdb_static
+    velox_memory
+    velox_dwio_common_exception
     Folly::folly
     ${FOLLY_BENCHMARK})
+
+  add_executable(velox_dwio_common_int_decoder_benchmark
+                 IntDecoderBenchmark.cpp)
+  target_link_libraries(
+    velox_dwio_common_int_decoder_benchmark
+    velox_dwio_common_exception
+    velox_exception
+    velox_dwio_dwrf_common
+    Folly::folly
+    ${FOLLY_BENCHMARK})
+
+  if(VELOX_ENABLE_ARROW)
+    add_subdirectory(Lemire/FastPFor)
+    add_executable(velox_dwio_common_bitpack_decoder_benchmark
+                   BitPackDecoderBenchmark.cpp)
+
+    target_compile_options(velox_dwio_common_bitpack_decoder_benchmark
+                           PRIVATE -Wno-deprecated-declarations)
+
+    target_link_libraries(
+      velox_dwio_common_bitpack_decoder_benchmark
+      velox_dwio_common
+      arrow
+      velox_fastpforlib
+      duckdb_static
+      Folly::folly
+      ${FOLLY_BENCHMARK})
+  endif()
 endif()

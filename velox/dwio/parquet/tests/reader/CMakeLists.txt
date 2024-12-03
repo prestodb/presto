@@ -46,10 +46,12 @@ target_link_libraries(
   ${FOLLY_BENCHMARK}
   Folly::folly)
 
-add_executable(velox_dwio_parquet_reader_benchmark
-               ParquetReaderBenchmarkMain.cpp)
-target_link_libraries(
-  velox_dwio_parquet_reader_benchmark velox_dwio_parquet_reader_benchmark_lib)
+if(VELOX_ENABLE_BENCHMARKS)
+  add_executable(velox_dwio_parquet_reader_benchmark
+                 ParquetReaderBenchmarkMain.cpp)
+  target_link_libraries(velox_dwio_parquet_reader_benchmark
+                        velox_dwio_parquet_reader_benchmark_lib)
+endif()
 
 add_executable(
   velox_dwio_parquet_reader_test
@@ -72,11 +74,13 @@ target_link_libraries(
   velox_dwio_parquet_structure_decoder_test velox_dwio_native_parquet_reader
   velox_link_libs ${TEST_LINK_LIBS})
 
-add_executable(velox_dwio_parquet_structure_decoder_benchmark
-               NestedStructureDecoderBenchmark.cpp)
-target_link_libraries(
-  velox_dwio_parquet_structure_decoder_benchmark
-  velox_dwio_native_parquet_reader Folly::folly ${FOLLY_BENCHMARK})
+if(VELOX_ENABLE_BENCHMARKS)
+  add_executable(velox_dwio_parquet_structure_decoder_benchmark
+                 NestedStructureDecoderBenchmark.cpp)
+  target_link_libraries(
+    velox_dwio_parquet_structure_decoder_benchmark
+    velox_dwio_native_parquet_reader Folly::folly ${FOLLY_BENCHMARK})
+endif()
 
 add_executable(velox_dwio_parquet_table_scan_test ParquetTableScanTest.cpp)
 add_test(

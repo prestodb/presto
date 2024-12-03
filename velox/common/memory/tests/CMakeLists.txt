@@ -53,15 +53,16 @@ target_link_libraries(
 
 gtest_add_tests(velox_memory_test "" AUTO)
 
-add_executable(velox_fragmentation_benchmark FragmentationBenchmark.cpp)
+if(VELOX_ENABLE_BENCHMARKS)
+  add_executable(velox_fragmentation_benchmark FragmentationBenchmark.cpp)
 
-target_link_libraries(
-  velox_fragmentation_benchmark
-  PRIVATE velox_memory Folly::folly gflags::gflags glog::glog)
+  target_link_libraries(
+    velox_fragmentation_benchmark PRIVATE velox_memory Folly::folly
+                                          gflags::gflags glog::glog)
 
-add_executable(velox_concurrent_allocation_benchmark
-               ConcurrentAllocationBenchmark.cpp)
+  add_executable(velox_concurrent_allocation_benchmark
+                 ConcurrentAllocationBenchmark.cpp)
 
-target_link_libraries(
-  velox_concurrent_allocation_benchmark
-  PRIVATE velox_memory velox_time)
+  target_link_libraries(velox_concurrent_allocation_benchmark
+                        PRIVATE velox_memory velox_time)
+endif()
