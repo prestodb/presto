@@ -295,10 +295,9 @@ const FilterTypePtr& ColumnSelector::process(const std::string& column, bool) {
     // when seeing this type of column, we require it has to exist
     const auto& node = findNode(pair.first);
     if (node->valid()) {
-      DWIO_ENSURE_EQ(
-          node->getKind(),
-          TypeKind::MAP,
-          "only support expression for map type currently: ",
+      DWIO_ENSURE(
+          node->getKind() == TypeKind::MAP || node->getKind() == TypeKind::ROW,
+          "only support expression for map or row type currently: ",
           column);
 
       // set expression for this node
