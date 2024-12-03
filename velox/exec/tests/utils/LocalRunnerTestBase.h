@@ -16,9 +16,7 @@
 
 #pragma once
 
-#include "velox/exec/ExchangeSource.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
-#include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/runner/LocalRunner.h"
 

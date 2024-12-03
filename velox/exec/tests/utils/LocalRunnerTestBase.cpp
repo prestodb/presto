@@ -15,6 +15,8 @@
  */
 
 #include "velox/exec/tests/utils/LocalRunnerTestBase.h"
+#include "velox/exec/tests/utils/LocalExchangeSource.h"
+
 namespace facebook::velox::exec::test {
 
 void LocalRunnerTestBase::SetUp() {
