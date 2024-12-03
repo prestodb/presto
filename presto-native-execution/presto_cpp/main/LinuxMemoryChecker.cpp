@@ -49,39 +49,65 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
     LOG(INFO) << fmt::format("Changed to using memory stat file {}", statFile_);
   }
 
+  void setMemMaxFile(std::string memMaxFile) {
+    memMaxFile_ = memMaxFile;
+    LOG(INFO) << fmt::format(
+        "Changed to using memory max file {}", memMaxFile_);
+  }
+
+  void setMemInfo(std::string memInfoFile) {
+    memInfoFile_ = memInfoFile;
+    LOG(INFO) << fmt::format("Changed to using meminfo file {}", memInfoFile_);
+  }
+
   void start() {
-    // Set memMaxFile to "/sys/fs/cgroup/memory/memory.limit_in_bytes" for
-    // cgroup v1 or "sys/fs/cgroup/memory.max" for cgroup v2.
+    // Set memMaxFile_ to:
+    // "/sys/fs/cgroup/memory/memory.limit_in_bytes" for cgroup v1
+    // or
+    // "/sys/fs/cgroup/memory.max" for cgroup v2.
     struct stat buffer;
-    std::string memMaxFile;
     if ((stat(kCgroupV1MaxMemFilePath, &buffer) == 0)) {
-      memMaxFile = kCgroupV1MaxMemFilePath;
+      memMaxFile_ = kCgroupV1MaxMemFilePath;
     } else if ((stat(kCgroupV2MaxMemFilePath, &buffer) == 0)) {
-      memMaxFile = kCgroupV2MaxMemFilePath;
+      memMaxFile_ = kCgroupV2MaxMemFilePath;
     } else {
-      memMaxFile = "None";
+      memMaxFile_ = "None";
     }
-    LOG(INFO) << fmt::format("Checking {}", memMaxFile);
+    LOG(INFO) << fmt::format("Checking {}", memMaxFile_);
 
     // Check system-memory-gb < system-mem-limit-gb < actual total memory
     // capacity.
+    VELOX_CHECK_LE(
+        config_.systemMemLimitBytes,
+        getActualTotalMemory(),
+        "system-mem-limit-gb is higher than the actual total memory capacity.");
 
-    // For cgroup v1:
+    auto* systemConfig = SystemConfig::instance();
+    if (config_.systemMemLimitBytes < systemConfig->systemMemoryGb()) {
+      LOG(WARNING) << "system-mem-limit-gb is smaller than system-memory-gb. "
+                   << "Expected: system-mem-limit-gb >= system-memory-gb.";
+    }
+
+    PeriodicMemoryChecker::start();
+  }
+
+  int64_t getActualTotalMemory() {
     // Set actual total memory to be the smaller number between /proc/meminfo
-    // and memory.limit_in_bytes
+    // and memMaxFile_.
     int64_t actualTotalMemory = 0;
-    folly::gen::byLine("/proc/meminfo") |
+    folly::gen::byLine(memInfoFile_.c_str()) |
         [&](const folly::StringPiece& line) -> void {
-      if (actualTotalMemory == 0) {
-        actualTotalMemory = static_cast<int64_t>(
-            extractNumericConfigValueWithRegex(line, kMemTotalRegex) * 1024);
-      }
       if (actualTotalMemory != 0) {
         return;
       }
+      actualTotalMemory = static_cast<int64_t>(
+          extractNumericConfigValueWithRegex(line, kMemTotalRegex) * 1024);
     };
-    if (memMaxFile != "None") {
-      folly::gen::byLine(memMaxFile.c_str()) |
+    // For cgroup v2, memory.max can contain a numeric value in bytes or string
+    // "max" which represents no value has been set. If memory.max contains
+    // "max", then we will use MemTotal from /proc/meminfo.
+    if (memMaxFile_ != "None") {
+      folly::gen::byLine(memMaxFile_.c_str()) |
           [&](const folly::StringPiece& line) -> void {
         if (line == "max") {
           return;
@@ -92,18 +118,7 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
       };
     }
 
-    VELOX_CHECK_LT(
-        config_.systemMemLimitBytes,
-        actualTotalMemory,
-        "system-mem-limit-gb is higher than the actual total memory capacity.");
-
-    auto* systemConfig = SystemConfig::instance();
-    if (config_.systemMemLimitBytes < systemConfig->systemMemoryGb()) {
-      LOG(WARNING) << "system-mem-limit-gb is smaller than system-memory-gb. "
-                   << "Expected: system-mem-limit-gb >= system-memory-gb.";
-    }
-
-    PeriodicMemoryChecker::start();
+    return actualTotalMemory;
   }
 
  protected:
@@ -140,6 +155,10 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
     if (statFile_ != "None") {
       folly::gen::byLine(statFile_.c_str()) |
           [&](const folly::StringPiece& line) -> void {
+        if (activeAnon != 0 && inactiveAnon != 0) {
+          return;
+        }
+
         if (inactiveAnon == 0) {
           inactiveAnon =
               extractNumericConfigValueWithRegex(line, kInactiveAnonRegex);
@@ -149,10 +168,6 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
           activeAnon =
               extractNumericConfigValueWithRegex(line, kActiveAnonRegex);
         }
-
-        if (activeAnon != 0 && inactiveAnon != 0) {
-          return;
-        }
       };
 
       // Unit is in bytes.
@@ -160,8 +175,12 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
     }
 
     // Last resort use host machine info.
-    folly::gen::byLine("/proc/meminfo") |
+    folly::gen::byLine(memInfoFile_.c_str()) |
         [&](const folly::StringPiece& line) -> void {
+      if (memAvailable != 0 && memTotal != 0) {
+        return;
+      }
+
       if (memAvailable == 0) {
         memAvailable =
             extractNumericConfigValueWithRegex(line, kMemAvailableRegex) * 1024;
@@ -170,10 +189,6 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
       if (memTotal == 0) {
         memTotal =
             extractNumericConfigValueWithRegex(line, kMemTotalRegex) * 1024;
-      }
-
-      if (memAvailable != 0 && memTotal != 0) {
-        return;
       }
     };
     // Unit is in bytes.
@@ -200,13 +215,15 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
   const boost::regex kInactiveAnonRegex{R"!(inactive_anon\s*(\d+)\s*)!"};
   const boost::regex kActiveAnonRegex{R"!(active_anon\s*(\d+)\s*)!"};
   const boost::regex kMemAvailableRegex{R"!(MemAvailable:\s*(\d+)\s*kB)!"};
-  const boost::regex kMemTotalRegex{R"!(MemTotal:\s*(\d+)\s*kB)!"};
+  const boost::regex kMemTotalRegex{R"!(MemTotal:\s*(\d+)\s+kB)!"};
   const char* kCgroupV1Path = "/sys/fs/cgroup/memory/memory.stat";
   const char* kCgroupV2Path = "/sys/fs/cgroup/memory.stat";
   const char* kCgroupV1MaxMemFilePath =
       "/sys/fs/cgroup/memory/memory.limit_in_bytes";
   const char* kCgroupV2MaxMemFilePath = "/sys/fs/cgroup/memory.max";
   std::string statFile_;
+  std::string memInfoFile_ = "/proc/meminfo";
+  std::string memMaxFile_;
 
   size_t extractNumericConfigValueWithRegex(
       const folly::StringPiece& line,
