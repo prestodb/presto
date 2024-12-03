@@ -284,8 +284,9 @@ target_link_libraries(
   velox_simple_aggregate
   velox_exec
   velox_functions_aggregates_test_lib
-  GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest)
+
+add_test(velox_simple_aggregate_test velox_simple_aggregate_test)
 
 if(VELOX_ENABLE_BENCHMARKS)
   add_library(velox_spiller_join_benchmark_base JoinSpillInputBenchmarkBase.cpp
