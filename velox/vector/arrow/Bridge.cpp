@@ -1875,7 +1875,19 @@ VectorPtr createLongDecimalVector(
     BufferPtr nulls,
     const int128_t* input,
     size_t length,
-    int64_t nullCount) {
+    int64_t nullCount,
+    WrapInBufferViewFunc wrapInBufferView) {
+  if ((reinterpret_cast<uintptr_t>(input) & 0xf) == 0) {
+    // If the input is already 16-byte aligned, copy is not needed.
+    return createFlatVector<TypeKind::HUGEINT>(
+        pool,
+        type,
+        nulls,
+        length,
+        wrapInBufferView(input, length * type->cppSizeInBytes()),
+        nullCount);
+  }
+
   auto values = AlignedBuffer::allocate<int128_t>(length, pool);
   auto rawValues = values->asMutable<int128_t>();
   memcpy(rawValues, input, length * sizeof(int128_t));
@@ -1985,7 +1997,8 @@ VectorPtr importFromArrowImpl(
         nulls,
         static_cast<const int128_t*>(arrowArray.buffers[1]),
         arrowArray.length,
-        arrowArray.null_count);
+        arrowArray.null_count,
+        wrapInBufferView);
   } else if (type->isRow()) {
     // Row/structs.
     return createRowVector(
