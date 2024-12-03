@@ -305,3 +305,13 @@ Use ``0`` to disable prefix-sort.
 
 Minimum number of rows to use prefix-sort.
 The default value has been derived using micro-benchmarking.
+
+``native_op_trace_directory_create_config``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+Native Execution only. Config used to create operator trace directory. This config is provided
+to underlying file system and the config is free form. The form should be defined by the
+underlying file system.
