@@ -134,6 +134,10 @@ class MergeExchangeSource : public MergeSource {
     client_->noMoreRemoteTasks();
   }
 
+  ~MergeExchangeSource() override {
+    close();
+  }
+
   BlockingReason next(RowVectorPtr& data, ContinueFuture* future) override {
     data.reset();
 

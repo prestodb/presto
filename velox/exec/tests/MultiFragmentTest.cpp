@@ -80,10 +80,12 @@ class MultiFragmentTest
       const core::PlanNodePtr& planNode,
       int destination = 0,
       Consumer consumer = nullptr,
-      int64_t maxMemory = memory::kMaxMemory) {
+      int64_t maxMemory = memory::kMaxMemory,
+      folly::Executor* executor = nullptr) {
     auto configCopy = configSettings_;
     auto queryCtx = core::QueryCtx::create(
-        executor_.get(), core::QueryConfig(std::move(configCopy)));
+        executor ? executor : executor_.get(),
+        core::QueryConfig(std::move(configCopy)));
     queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
         queryCtx->queryId(), maxMemory, MemoryReclaimer::create()));
     core::PlanFragment planFragment{planNode};
@@ -399,6 +401,90 @@ TEST_P(MultiFragmentTest, distributedTableScan) {
 
     ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }
+}
+
+// This test simulate the situation where an MergeExchange is aborted and
+// causing a Driver thread to hold on to additional references to Task, and a
+// deadlock at shutdown because of a tight loop inside the Driver thread.
+//
+// When the tasks correspond to a MergeExchange are aborted, we expect
+// gracefully exiting of the task itself, and all relevant resources are cleaned
+// up. What happens is that the tasks are aborted; however, the MergeExchange
+// operator's ExchangeClient's are never closed, so the Driver threads are stuck
+// in a tight request loop. This test ensures that after the Tasks have
+// successfully aborted, we're only left with the correct amount of references
+// to the Merge task.
+TEST_P(MultiFragmentTest, abortMergeExchange) {
+  setupSources(20, 1000);
+
+  std::vector<std::shared_ptr<Task>> tasks;
+
+  std::vector<std::shared_ptr<TempFilePath>> filePaths0(
+      filePaths_.begin(), filePaths_.begin() + 10);
+  std::vector<std::shared_ptr<TempFilePath>> filePaths1(
+      filePaths_.begin() + 10, filePaths_.end());
+
+  std::vector<std::vector<std::shared_ptr<TempFilePath>>> filePathsList = {
+      filePaths0, filePaths1};
+
+  std::vector<std::string> partialSortTaskIds;
+  RowTypePtr outputType;
+
+  core::PlanNodeId partitionNodeId;
+  auto executor = folly::CPUThreadPoolExecutor(4, 4);
+  for (int i = 0; i < 2; ++i) {
+    auto sortTaskId = makeTaskId("orderby", static_cast<int>(tasks.size()));
+    partialSortTaskIds.push_back(sortTaskId);
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto partialSortPlan =
+        PlanBuilder(planNodeIdGenerator)
+            .localMerge(
+                {"c0"},
+                {PlanBuilder(planNodeIdGenerator)
+                     .tableScan(rowType_)
+                     .orderBy({"c0"}, true)
+                     .planNode()})
+            .partitionedOutput({}, 1, /*outputLayout=*/{}, GetParam())
+            .capturePlanNodeId(partitionNodeId)
+            .planNode();
+
+    auto sortTask = makeTask(
+        sortTaskId,
+        partialSortPlan,
+        static_cast<int>(tasks.size()),
+        nullptr,
+        memory::kMaxMemory,
+        &executor);
+    tasks.push_back(sortTask);
+    sortTask->start(4);
+    addHiveSplits(sortTask, filePathsList[i]);
+    outputType = partialSortPlan->outputType();
+  }
+
+  auto finalSortTaskId = makeTaskId("orderby", static_cast<int>(tasks.size()));
+  core::PlanNodeId mergeExchangeId;
+  auto finalSortPlan =
+      PlanBuilder()
+          .mergeExchange(outputType, {"c0"}, GetParam())
+          .capturePlanNodeId(mergeExchangeId)
+          .partitionedOutput({}, 1, /*outputLayout=*/{}, GetParam())
+          .planNode();
+  auto mergeTask = makeTask(finalSortTaskId, finalSortPlan, 0);
+  tasks.push_back(mergeTask);
+  mergeTask->start(1);
+  addRemoteSplits(mergeTask, partialSortTaskIds);
+
+  for (auto& task : tasks) {
+    task->requestAbort();
+    ASSERT_TRUE(waitForTaskAborted(task.get())) << task->taskId();
+  }
+
+  // Ensure that the threads in the executor can gracefully join
+  executor.join();
+
+  // The references to mergeTask should be two, one for the local variable
+  // itself and one reference inside tasks variable.
+  EXPECT_EQ(mergeTask.use_count(), 2);
 }
 
 TEST_P(MultiFragmentTest, mergeExchange) {

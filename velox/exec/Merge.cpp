@@ -366,6 +366,9 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
 }
 
 void MergeExchange::close() {
+  for (auto& source : sources_) {
+    source->close();
+  }
   Operator::close();
   stats_.wlock()->addRuntimeStat(
       Operator::kShuffleSerdeKind,
