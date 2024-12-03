@@ -29,6 +29,7 @@
 #include "velox/exec/GroupingSet.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Values.h"
+#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -2266,7 +2267,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
             ASSERT_TRUE(reclaimable);
             ASSERT_GT(reclaimableBytes, 0);
             auto* driver = op->testingOperatorCtx()->driver();
-            SuspendedSection suspendedSection(driver);
+            TestSuspendedSection suspendedSection(driver);
             testWait.notify();
             driverWait.wait(driverWaitKey);
           })));
@@ -2383,7 +2384,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
                 ASSERT_EQ(reclaimableBytes, 0);
               }
               auto* driver = op->testingOperatorCtx()->driver();
-              SuspendedSection suspendedSection(driver);
+              TestSuspendedSection suspendedSection(driver);
               testWait.notify();
               driverWait.wait(driverWaitKey);
             })));
@@ -3107,7 +3108,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyInput) {
             task->pool()->root(), 0);
         {
           MemoryReclaimer::Stats stats;
-          SuspendedSection suspendedSection(driver);
+          TestSuspendedSection suspendedSection(driver);
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
           ASSERT_GE(stats.reclaimExecTimeUs, 0);
@@ -3177,7 +3178,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
             task->pool()->root(), 0);
         {
           MemoryReclaimer::Stats stats;
-          SuspendedSection suspendedSection(driver);
+          TestSuspendedSection suspendedSection(driver);
           memory::ScopedMemoryArbitrationContext ctx(op->pool());
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);

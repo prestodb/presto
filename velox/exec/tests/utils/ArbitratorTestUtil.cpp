@@ -374,4 +374,19 @@ QueryTestResult runWriteTask(
   }
   return result;
 }
+
+TestSuspendedSection::TestSuspendedSection(Driver* driver) : driver_(driver) {
+  if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
+    VELOX_FAIL("Terminate detected when entering suspended section");
+  }
+}
+
+TestSuspendedSection::~TestSuspendedSection() {
+  if (driver_->task()->leaveSuspended(driver_->state()) != StopReason::kNone) {
+    LOG(WARNING)
+        << "Terminate detected when leaving suspended section for driver "
+        << driver_->driverCtx()->driverId << " from task "
+        << driver_->task()->taskId();
+  }
+}
 } // namespace facebook::velox::exec::test

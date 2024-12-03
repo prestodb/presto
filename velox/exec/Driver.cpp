@@ -1101,21 +1101,6 @@ StopReason Driver::blockDriver(
   return StopReason::kBlock;
 }
 
-SuspendedSection::SuspendedSection(Driver* driver) : driver_(driver) {
-  if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
-    VELOX_FAIL("Terminate detected when entering suspended section");
-  }
-}
-
-SuspendedSection::~SuspendedSection() {
-  if (driver_->task()->leaveSuspended(driver_->state()) != StopReason::kNone) {
-    LOG(WARNING)
-        << "Terminate detected when leaving suspended section for driver "
-        << driver_->driverCtx()->driverId << " from task "
-        << driver_->task()->taskId();
-  }
-}
-
 std::string Driver::label() const {
   return fmt::format("<Driver {}:{}>", task()->taskId(), ctx_->driverId);
 }

@@ -30,7 +30,6 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/PlanNode.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/HashAggregation.h"
 #include "velox/exec/PlanNodeStats.h"
@@ -469,7 +468,7 @@ DEBUG_ONLY_TEST_P(
           }
         }
         auto* driver = op->testingOperatorCtx()->driver();
-        SuspendedSection suspendedSection(driver);
+        TestSuspendedSection suspendedSection(driver);
         arbitrationWait.await([&]() { return !arbitrationWaitFlag.load(); });
       })));
 

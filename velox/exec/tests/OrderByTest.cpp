@@ -746,7 +746,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
             ASSERT_TRUE(reclaimable);
             ASSERT_GT(reclaimableBytes, 0);
             auto* driver = op->testingOperatorCtx()->driver();
-            SuspendedSection suspendedSection(driver);
+            TestSuspendedSection suspendedSection(driver);
             testWait.notify();
             driverWait.wait(driverWaitKey);
           })));
@@ -866,7 +866,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringAllocation) {
                 ASSERT_EQ(reclaimableBytes, 0);
               }
               auto* driver = op->testingOperatorCtx()->driver();
-              SuspendedSection suspendedSection(driver);
+              TestSuspendedSection suspendedSection(driver);
               testWait.notify();
               driverWait.wait(driverWaitKey);
             })));
@@ -1308,7 +1308,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromOrderBy) {
           return;
         }
         auto* driver = op->testingOperatorCtx()->driver();
-        SuspendedSection suspendedSection(driver);
+        TestSuspendedSection suspendedSection(driver);
         memory::testingRunArbitration();
       })));
 

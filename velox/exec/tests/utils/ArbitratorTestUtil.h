@@ -85,6 +85,24 @@ struct TestAllocation {
   }
 };
 
+/// Begins and ends a section where a thread is running but not counted in its
+/// Task. Using this, a Driver thread can for example stop its own Task. For
+/// arbitrating memory overbooking, the contending threads go suspended and each
+/// in turn enters a global critical section. When running the arbitration
+/// strategy, a thread can stop and restart Tasks, including its own. When a
+/// Task is stopped, its drivers are blocked or suspended and the strategy
+/// thread can alter the Task's memory including spilling or killing the whole
+/// Task. Other threads waiting to run the arbitration, are in a suspended state
+/// which also means that they are instantaneously killable or spillable.
+class TestSuspendedSection {
+ public:
+  explicit TestSuspendedSection(Driver* driver);
+  ~TestSuspendedSection();
+
+ private:
+  Driver* driver_;
+};
+
 std::shared_ptr<core::QueryCtx> newQueryCtx(
     facebook::velox::memory::MemoryManager* memoryManager,
     folly::Executor* executor,

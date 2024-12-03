@@ -23,6 +23,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Values.h"
+#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
@@ -689,7 +690,7 @@ class TestingPauser : public Operator {
       return nullptr;
     }
     {
-      SuspendedSection noCancel(operatorCtx_->driver());
+      TestSuspendedSection noCancel(operatorCtx_->driver());
       sleep(1);
       if (counter_ % 7 == 0) {
         // Every 7th time, stop and resume other Tasks. This operation is
@@ -1693,17 +1694,18 @@ TEST_F(OpCallStatusTest, basic) {
   waitForAllTasksToBeDeleted();
 };
 
-// This test verifies that SuspendedSection dtor won't throw with a terminated
-// task. Otherwise, it might cause server crash in production use case.
+// This test verifies that TestSuspendedSection dtor won't throw with a
+// terminated task. Otherwise, it might cause server crash in production use
+// case.
 DEBUG_ONLY_TEST_F(DriverTest, suspendedSectionLeaveWithTerminatedTask) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Values::getOutput",
       std::function<void(const exec::Values*)>([&](const exec::Values* values) {
         auto* driver = values->testingOperatorCtx()->driver();
-        SuspendedSection suspendedSection(driver);
+        TestSuspendedSection suspendedSection(driver);
         {
           ASSERT_TRUE(driver->state().suspended());
-          SuspendedSection suspendedSection(driver);
+          TestSuspendedSection suspendedSection(driver);
           ASSERT_TRUE(driver->state().suspended());
           values->testingOperatorCtx()->task()->requestAbort();
         }
@@ -1720,19 +1722,19 @@ DEBUG_ONLY_TEST_F(DriverTest, recursiveSuspensionCheck) {
       std::function<void(const exec::Values*)>([&](const exec::Values* values) {
         auto* driver = values->testingOperatorCtx()->driver();
         {
-          SuspendedSection suspendedSection1(driver);
+          TestSuspendedSection suspendedSection1(driver);
           ASSERT_TRUE(driver->state().suspended());
-          SuspendedSection suspendedSection2(driver);
+          TestSuspendedSection suspendedSection2(driver);
           ASSERT_TRUE(driver->state().suspended());
           {
             ASSERT_TRUE(driver->state().suspended());
-            SuspendedSection suspendedSection(driver);
+            TestSuspendedSection suspendedSection(driver);
             ASSERT_TRUE(driver->state().suspended());
           }
           ASSERT_TRUE(driver->state().suspended());
         }
         ASSERT_FALSE(driver->state().suspended());
-        SuspendedSection suspendedSection(driver);
+        TestSuspendedSection suspendedSection(driver);
         ASSERT_TRUE(driver->state().suspended());
       }));
 
@@ -1742,14 +1744,14 @@ DEBUG_ONLY_TEST_F(DriverTest, recursiveSuspensionCheck) {
 
 DEBUG_ONLY_TEST_F(DriverTest, recursiveSuspensionThrow) {
   auto suspendDriverFn = [&](Driver* driver) {
-    SuspendedSection suspendedSection(driver);
+    TestSuspendedSection suspendedSection(driver);
   };
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Values::getOutput",
       std::function<void(const exec::Values*)>([&](const exec::Values* values) {
         auto* driver = values->testingOperatorCtx()->driver();
         {
-          SuspendedSection suspendedSection(driver);
+          TestSuspendedSection suspendedSection(driver);
           ASSERT_TRUE(driver->state().suspended());
           values->testingOperatorCtx()->task()->requestAbort();
           {
