@@ -76,6 +76,10 @@ struct PlanNodeStats {
   /// Sum of output bytes for all corresponding operators.
   uint64_t outputBytes{0};
 
+  // Sum of CPU, scheduled and wall times for isBLocked call for all
+  // corresponding operators.
+  CpuWallTiming isBlockedTiming;
+
   // Sum of CPU, scheduled and wall times for addInput call for all
   // corresponding operators.
   CpuWallTiming addInputTiming;

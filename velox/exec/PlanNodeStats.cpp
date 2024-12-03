@@ -45,6 +45,7 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   outputBytes += stats.outputBytes;
   outputVectors += stats.outputVectors;
 
+  isBlockedTiming.add(stats.isBlockedTiming);
   addInputTiming.add(stats.addInputTiming);
   getOutputTiming.add(stats.getOutputTiming);
   finishTiming.add(stats.finishTiming);
@@ -126,9 +127,10 @@ std::string PlanNodeStats::toString(bool includeInputStats) const {
         << folly::join(',', dynamicFilterStats.producerNodeIds);
   }
 
-  out << ", CPU breakdown: I/O/F "
+  out << ", CPU breakdown: B/I/O/F "
       << fmt::format(
-             "({}/{}/{})",
+             "({}/{}/{}/{})",
+             succinctNanos(isBlockedTiming.cpuNanos),
              succinctNanos(addInputTiming.cpuNanos),
              succinctNanos(getOutputTiming.cpuNanos),
              succinctNanos(finishTiming.cpuNanos));
@@ -173,6 +175,7 @@ folly::dynamic toPlanStatsJson(const facebook::velox::exec::TaskStats& stats) {
       stat["outputRows"] = operatorStat.second->outputRows;
       stat["outputVectors"] = operatorStat.second->outputVectors;
       stat["outputBytes"] = operatorStat.second->outputBytes;
+      stat["isBlockedTiming"] = operatorStat.second->isBlockedTiming.toString();
       stat["addInputTiming"] = operatorStat.second->addInputTiming.toString();
       stat["getOutputTiming"] = operatorStat.second->getOutputTiming.toString();
       stat["finishTiming"] = operatorStat.second->finishTiming.toString();
