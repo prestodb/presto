@@ -904,9 +904,7 @@ int32_t parseFromPattern(
       int count = 0;
       while (cur < end && cur < startPos + maxDigitConsume &&
              characterIsDigit(*cur)) {
-        if (count < 3) {
-          number = number * 10 + (*cur - '0');
-        }
+        number = number * 10 + (*cur - '0');
         ++cur;
         ++count;
       }

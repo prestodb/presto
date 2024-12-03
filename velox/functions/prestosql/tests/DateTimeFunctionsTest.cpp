@@ -3185,6 +3185,42 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestampWithTimezone) {
           "2023-03-11 00:00:00 America/Los_Angeles"));
 }
 
+TEST_F(DateTimeFunctionsTest, parseDatetimeRoundtrip) {
+  const auto parseDatetimeRoundTrip =
+      [&](const std::optional<std::string>& input,
+          const std::optional<std::string>& format) {
+        return evaluateOnce<std::string>(
+            "cast(parse_datetime(c0, c1) as varchar)", input, format);
+      };
+
+  EXPECT_EQ(
+      "2024-01-20 01:00:30.127 UTC",
+      parseDatetimeRoundTrip(
+          "2024-01-20 01:00:30.12700", "yyyy-MM-dd HH:mm:ss.SSSSS"));
+  EXPECT_EQ(
+      "2024-01-20 01:00:30.459 UTC",
+      parseDatetimeRoundTrip(
+          "2024-01-20 01:00:30.45900000", "yyyy-MM-dd HH:mm:ss.SSSSSSSS"));
+  EXPECT_EQ(
+      "2024-01-20 01:00:30.617 UTC",
+      parseDatetimeRoundTrip(
+          "2024-01-20 01:00:30.6170", "yyyy-MM-dd HH:mm:ss.SSSSSSSS"));
+
+  EXPECT_EQ(
+      "2024-01-20 01:00:30.127 UTC",
+      parseDatetimeRoundTrip(
+          "2024-01-20 01:00:30.127149", "yyyy-MM-dd HH:mm:ss.SSSSSS"));
+  EXPECT_EQ(
+      "2024-01-20 01:00:30.127 UTC",
+      parseDatetimeRoundTrip(
+          "2024-01-20 01:00:30.127941", "yyyy-MM-dd HH:mm:ss.SSSSSS"));
+
+  VELOX_ASSERT_THROW(
+      parseDatetimeRoundTrip(
+          "2024-01-20 01:00:30.6170", "yyyy-MM-dd HH:mm:ss.SSS"),
+      "Invalid date format");
+}
+
 TEST_F(DateTimeFunctionsTest, parseDatetime) {
   const auto parseDatetime = [&](const std::optional<std::string>& input,
                                  const std::optional<std::string>& format) {
