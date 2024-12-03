@@ -681,12 +681,42 @@ These semantics are similar to the `Apache Hadoop-Aws module <https://hadoop.apa
      - Type
      - Default Value
      - Description
+   * - fs.azure.account.auth.type.<storage-account>.dfs.core.windows.net
+     - string
+     - SharedKey
+     - Specifies the authentication mechanism to use for Azure storage accounts. 
+       **Allowed values:** "SharedKey", "OAuth", "SAS".
+       "SharedKey": Uses the storage account name and key for authentication.
+       "OAuth": Utilizes OAuth tokens for secure authentication.
+       "SAS": Employs Shared Access Signatures for granular access control.
    * - fs.azure.account.key.<storage-account>.dfs.core.windows.net
      - string
      -
-     -  The credentials to access the specific Azure Blob Storage account, replace <storage-account> with the name of your Azure Storage account.
-        This property aligns with how Spark configures Azure account key credentials for accessing Azure storage, by setting this property multiple
-        times with different storage account names, you can access multiple Azure storage accounts.
+     - The credentials to access the specific Azure Blob Storage account, replace <storage-account> with the name of your Azure Storage account.
+       This property aligns with how Spark configures Azure account key credentials for accessing Azure storage, by setting this property multiple
+       times with different storage account names, you can access multiple Azure storage accounts.
+   * - fs.azure.sas.fixed.token.<storage-account>.dfs.core.windows.net
+     - string
+     -
+     - Specifies a fixed SAS (Shared Access Signature) token for accessing Azure storage.
+       This token provides scoped and time-limited access to specific resources.
+       Use this property when a pre-generated SAS token is used for authentication.
+   * - fs.azure.account.oauth2.client.id.<storage-account>.dfs.core.windows.net
+     - string
+     -
+     - Specifies the client ID of the Azure AD application used for OAuth 2.0 authentication.
+       This client ID is required when using OAuth as the authentication type.
+   * - fs.azure.account.oauth2.client.secret.<storage-account>.dfs.core.windows.net
+     - string
+     -
+     - Specifies the client secret of the Azure AD application used for OAuth 2.0 authentication.
+       This secret is required in conjunction with the client ID to authenticate the application.
+   * - fs.azure.account.oauth2.client.endpoint.<storage-account>.dfs.core.windows.net
+     - string
+     -
+     - Specifies the OAuth 2.0 token endpoint URL for the Azure AD application.  
+       This endpoint is used to acquire access tokens for authenticating with Azure storage.
+       The URL follows the format: `https://login.microsoftonline.com/<tenant-id>/oauth2/token`.
 
 Presto-specific Configuration
 -----------------------------

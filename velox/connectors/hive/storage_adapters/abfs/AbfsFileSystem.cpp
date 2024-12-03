@@ -16,7 +16,6 @@
 
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsFileSystem.h"
 
-#include <azure/storage/blobs/blob_client.hpp>
 #include <fmt/format.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <glog/logging.h>
@@ -27,7 +26,6 @@
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsWriteFile.h"
 
 namespace facebook::velox::filesystems {
-using namespace Azure::Storage::Blobs;
 
 class AbfsReadFile::Impl {
   constexpr static uint64_t kNaturalReadSize = 4 << 20; // 4M
@@ -35,11 +33,9 @@ class AbfsReadFile::Impl {
 
  public:
   explicit Impl(std::string_view path, const config::ConfigBase& config) {
-    auto account = AbfsConfig(path, config);
-    filePath_ = account.filePath();
-    fileClient_ =
-        std::make_unique<BlobClient>(BlobClient::CreateFromConnectionString(
-            account.connectionString(), account.fileSystem(), filePath_));
+    auto abfsConfig = AbfsConfig(path, config);
+    filePath_ = abfsConfig.filePath();
+    fileClient_ = abfsConfig.getReadFileClient();
   }
 
   void initialize(const FileOptions& options) {
@@ -59,7 +55,6 @@ class AbfsReadFile::Impl {
     } catch (Azure::Storage::StorageException& e) {
       throwStorageExceptionWithOperationDetails("GetProperties", filePath_, e);
     }
-
     VELOX_CHECK_GE(length_, 0);
   }
 
@@ -141,7 +136,6 @@ class AbfsReadFile::Impl {
 
     Azure::Storage::Blobs::DownloadBlobOptions blob;
     blob.Range = range;
-
     auto response = fileClient_->Download(blob);
     response.Value.BodyStream->ReadToCount(
         reinterpret_cast<uint8_t*>(position), length);

@@ -15,11 +15,8 @@
  */
 
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsWriteFile.h"
-#include <azure/storage/files/datalake.hpp>
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsConfig.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsUtil.h"
-
-using namespace Azure::Storage::Files::DataLake;
 
 namespace facebook::velox::filesystems {
 class DataLakeFileClientWrapper final : public AzureDataLakeFileClient {
@@ -31,7 +28,8 @@ class DataLakeFileClientWrapper final : public AzureDataLakeFileClient {
     client_->Create();
   }
 
-  Models::PathProperties getProperties() override {
+  Azure::Storage::Files::DataLake::Models::PathProperties getProperties()
+      override {
     return client_->GetProperties().Value;
   }
 
@@ -120,16 +118,11 @@ class AbfsWriteFile::Impl {
 AbfsWriteFile::AbfsWriteFile(
     std::string_view path,
     const config::ConfigBase& config) {
-  auto abfsAccount = AbfsConfig(path, config);
-  std::unique_ptr<AzureDataLakeFileClient> client =
+  auto abfsConfig = AbfsConfig(path, config);
+  std::unique_ptr<AzureDataLakeFileClient> clientWrapper =
       std::make_unique<DataLakeFileClientWrapper>(
-          std::make_unique<DataLakeFileClient>(
-              DataLakeFileClient::CreateFromConnectionString(
-                  abfsAccount.connectionString(),
-                  abfsAccount.fileSystem(),
-                  abfsAccount.filePath())));
-
-  impl_ = std::make_unique<Impl>(path, client);
+          abfsConfig.getWriteFileClient());
+  impl_ = std::make_unique<Impl>(path, clientWrapper);
 }
 
 AbfsWriteFile::AbfsWriteFile(

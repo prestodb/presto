@@ -254,6 +254,7 @@ if(VELOX_ENABLE_ABFS)
   endif()
   # files-datalake is built on blobs
   find_package(azure-storage-files-datalake-cpp CONFIG REQUIRED)
+  find_package(azure-identity-cpp CONFIG REQUIRED)
   add_definitions(-DVELOX_ENABLE_ABFS)
 endif()
 

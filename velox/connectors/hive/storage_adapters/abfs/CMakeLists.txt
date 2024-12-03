@@ -30,6 +30,7 @@ if(VELOX_ENABLE_ABFS)
            velox_core
            velox_hive_config
            velox_dwio_common_exception
+           Azure::azure-identity
            Azure::azure-storage-blobs
            Azure::azure-storage-files-datalake
            Folly::folly
