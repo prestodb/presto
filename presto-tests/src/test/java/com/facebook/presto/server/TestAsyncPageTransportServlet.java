@@ -34,6 +34,7 @@ public class TestAsyncPageTransportServlet
         TaskId taskId;
         OutputBufferId bufferId;
         String requestURI;
+        HttpServletRequest request;
         long token;
 
         void parse(String uri) throws IOException
@@ -50,6 +51,7 @@ public class TestAsyncPageTransportServlet
             this.taskId = taskId;
             this.bufferId = bufferId;
             this.token = token;
+            this.request = request;
         }
 
         @Override
@@ -78,6 +80,13 @@ public class TestAsyncPageTransportServlet
         assertEquals("0.1.2.3.4", servlet.taskId.toString());
         assertEquals("456", servlet.bufferId.toString());
         assertEquals(789, servlet.token);
+    }
+
+    @Test
+    public void testSanitization()
+    {
+        TestServlet servlet = parse("/v1/task/async/0.1.2.3.4/results/456/789");
+        // verify this.request here
     }
 
     @Test (expectedExceptions = { IllegalArgumentException.class })
