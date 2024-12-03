@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/functions/lib/tests/SliceTestBase.h"
-#include "velox/functions/sparksql/Register.h"
+#include "velox/functions/sparksql/registration/Register.h"
 
 namespace facebook::velox::functions::sparksql::test {
 

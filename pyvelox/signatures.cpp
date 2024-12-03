@@ -19,8 +19,8 @@
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/functions/sparksql/Register.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
+#include "velox/functions/sparksql/registration/Register.h"
 
 namespace facebook::velox::py {
 

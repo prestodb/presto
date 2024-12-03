@@ -15,7 +15,7 @@
  */
 
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
-#include "velox/functions/sparksql/Register.h"
+#include "velox/functions/sparksql/registration/Register.h"
 #include "velox/parse/TypeResolver.h"
 
 using namespace facebook::velox;

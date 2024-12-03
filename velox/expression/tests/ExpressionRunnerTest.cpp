@@ -27,7 +27,7 @@
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/functions/sparksql/Register.h"
+#include "velox/functions/sparksql/registration/Register.h"
 #include "velox/vector/VectorSaver.h"
 
 using namespace facebook::velox;

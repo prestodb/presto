@@ -13,10 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
-
-#include <string>
+#include "velox/functions/lib/Re2Functions.h"
+#include "velox/functions/lib/RegistrationHelpers.h"
+#include "velox/functions/sparksql/RegexFunctions.h"
 
 namespace facebook::velox::functions::sparksql {
-void registerArithmeticFunctions(const std::string& prefix);
+
+void registerRegexpFunctions(const std::string& prefix) {
+  exec::registerStatefulVectorFunction(
+      prefix + "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
+  exec::registerStatefulVectorFunction(
+      prefix + "regexp_extract_all",
+      re2ExtractAllSignatures(),
+      makeRe2ExtractAll);
+  exec::registerStatefulVectorFunction(
+      prefix + "rlike", re2SearchSignatures(), makeRLike);
+  exec::registerStatefulVectorFunction(
+      prefix + "like", likeSignatures(), makeLike);
+  registerRegexpReplace(prefix);
+}
+
 } // namespace facebook::velox::functions::sparksql

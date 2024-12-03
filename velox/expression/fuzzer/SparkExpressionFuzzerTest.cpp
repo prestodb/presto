@@ -24,12 +24,12 @@
 
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/fuzzer/FuzzerRunner.h"
-#include "velox/functions/sparksql/Register.h"
 #include "velox/functions/sparksql/fuzzer/AddSubtractArgGenerator.h"
 #include "velox/functions/sparksql/fuzzer/DivideArgGenerator.h"
 #include "velox/functions/sparksql/fuzzer/MakeTimestampArgGenerator.h"
 #include "velox/functions/sparksql/fuzzer/MultiplyArgGenerator.h"
 #include "velox/functions/sparksql/fuzzer/UnscaledValueArgGenerator.h"
+#include "velox/functions/sparksql/registration/Register.h"
 
 using namespace facebook::velox::functions::sparksql::fuzzer;
 using facebook::velox::fuzzer::ArgGenerator;

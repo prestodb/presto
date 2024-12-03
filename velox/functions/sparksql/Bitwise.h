@@ -15,12 +15,115 @@
  */
 #pragma once
 
-#include <string>
 #include "velox/functions/Macros.h"
-#include "velox/functions/lib/RegistrationHelpers.h"
 
 namespace facebook::velox::functions::sparksql {
 
-void registerBitwiseFunctions(const std::string& prefix);
+template <typename T>
+struct BitwiseAndFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a, TInput b) {
+    result = a & b;
+  }
+};
+
+template <typename T>
+struct BitwiseOrFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a, TInput b) {
+    result = a | b;
+  }
+};
+
+template <typename T>
+struct BitwiseXorFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a, TInput b) {
+    result = a ^ b;
+  }
+};
+
+template <typename T>
+struct BitwiseNotFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = ~a;
+  }
+};
+
+template <typename T>
+struct ShiftLeftFunction {
+  template <typename TInput1, typename TInput2>
+  FOLLY_ALWAYS_INLINE void call(TInput1& result, TInput1 a, TInput2 b) {
+    if constexpr (std::is_same_v<TInput1, int32_t>) {
+      if (b < 0) {
+        b = b % 32 + 32;
+      }
+      if (b >= 32) {
+        b = b % 32;
+      }
+    }
+    if constexpr (std::is_same_v<TInput1, int64_t>) {
+      if (b < 0) {
+        b = b % 64 + 64;
+      }
+      if (b >= 64) {
+        b = b % 64;
+      }
+    }
+    result = a << b;
+  }
+};
+
+template <typename T>
+struct ShiftRightFunction {
+  template <typename TInput1, typename TInput2>
+  FOLLY_ALWAYS_INLINE void call(TInput1& result, TInput1 a, TInput2 b) {
+    if constexpr (std::is_same_v<TInput1, int32_t>) {
+      if (b < 0) {
+        b = b % 32 + 32;
+      }
+      if (b >= 32) {
+        b = b % 32;
+      }
+    }
+    if constexpr (std::is_same_v<TInput1, int64_t>) {
+      if (b < 0) {
+        b = b % 64 + 64;
+      }
+      if (b >= 64) {
+        b = b % 64;
+      }
+    }
+    result = a >> b;
+  }
+};
+
+template <typename T>
+struct BitCountFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(int32_t& result, TInput num) {
+    constexpr int kMaxBits = sizeof(TInput) * CHAR_BIT;
+    auto value = static_cast<uint64_t>(num);
+    result = bits::countBits(&value, 0, kMaxBits);
+  }
+};
+
+template <typename T>
+struct BitGetFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(int8_t& result, TInput num, int32_t pos) {
+    constexpr int kMaxBits = sizeof(TInput) * CHAR_BIT;
+    VELOX_USER_CHECK_GE(
+        pos,
+        0,
+        "The value of 'pos' argument must be greater than or equal to zero.");
+    VELOX_USER_CHECK_LT(
+        pos,
+        kMaxBits,
+        "The value of 'pos' argument must not exceed the number of bits in 'x' - 1.");
+    result = (num >> pos) & 1;
+  }
+};
 
 } // namespace facebook::velox::functions::sparksql

@@ -17,8 +17,8 @@
 #include <gflags/gflags.h>
 #include "velox/exec/Aggregate.h"
 #include "velox/functions/CoverageUtil.h"
-#include "velox/functions/sparksql/Register.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
+#include "velox/functions/sparksql/registration/Register.h"
 #include "velox/functions/sparksql/window/WindowFunctionsRegistration.h"
 
 DEFINE_bool(all, false, "Generate coverage map for all Spark functions");

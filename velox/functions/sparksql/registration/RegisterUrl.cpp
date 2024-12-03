@@ -13,10 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
-
-#include <string>
+#include "velox/functions/lib/RegistrationHelpers.h"
+#include "velox/functions/prestosql/URLFunctions.h"
 
 namespace facebook::velox::functions::sparksql {
-void registerCompareFunctions(const std::string& prefix);
+
+void registerUrlFunctions(const std::string& prefix) {
+  registerFunction<UrlEncodeFunction, Varchar, Varchar>(
+      {prefix + "url_encode"});
+  registerFunction<UrlDecodeFunction, Varchar, Varchar>(
+      {prefix + "url_decode"});
+}
+
 } // namespace facebook::velox::functions::sparksql

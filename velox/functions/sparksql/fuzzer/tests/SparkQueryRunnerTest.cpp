@@ -21,9 +21,9 @@
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/functions/sparksql/Register.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
 #include "velox/functions/sparksql/fuzzer/SparkQueryRunner.h"
+#include "velox/functions/sparksql/registration/Register.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 

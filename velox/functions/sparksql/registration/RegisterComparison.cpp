@@ -13,14 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/sparksql/RegisterCompare.h"
-
+#include "velox/functions/lib/IsNull.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/sparksql/Comparisons.h"
+#include "velox/functions/sparksql/LeastGreatest.h"
 
-namespace facebook::velox::functions::sparksql {
+namespace facebook::velox::functions {
+void registerSparkCompareFunctions(const std::string& prefix) {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_not, prefix + "not");
+  registerIsNullFunction(prefix + "isnull");
+  registerIsNotNullFunction(prefix + "isnotnull");
+}
 
+namespace sparksql {
 void registerCompareFunctions(const std::string& prefix) {
+  registerSparkCompareFunctions(prefix);
   exec::registerStatefulVectorFunction(
       prefix + "equalto", comparisonSignatures(), makeEqualTo);
   registerFunction<EqualToFunction, bool, Generic<T1>, Generic<T1>>(
@@ -31,6 +38,11 @@ void registerCompareFunctions(const std::string& prefix) {
       prefix + "greaterthan", comparisonSignatures(), makeGreaterThan);
   exec::registerStatefulVectorFunction(
       prefix + "lessthanorequal", comparisonSignatures(), makeLessThanOrEqual);
+  exec::registerStatefulVectorFunction(
+      prefix + "least",
+      leastSignatures(),
+      makeLeast,
+      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
   exec::registerStatefulVectorFunction(
       prefix + "greaterthanorequal",
       comparisonSignatures(),
@@ -43,6 +55,11 @@ void registerCompareFunctions(const std::string& prefix) {
       exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
   registerFunction<EqualNullSafeFunction, bool, Generic<T1>, Generic<T1>>(
       {prefix + "equalnullsafe"});
+  exec::registerStatefulVectorFunction(
+      prefix + "greatest",
+      greatestSignatures(),
+      makeGreatest,
+      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
   registerFunction<BetweenFunction, bool, int8_t, int8_t, int8_t>(
       {prefix + "between"});
   registerFunction<BetweenFunction, bool, int16_t, int16_t, int16_t>(
@@ -69,5 +86,5 @@ void registerCompareFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_decimal_neq, prefix + "decimal_notequalto");
 }
-
-} // namespace facebook::velox::functions::sparksql
+} // namespace sparksql
+} // namespace facebook::velox::functions

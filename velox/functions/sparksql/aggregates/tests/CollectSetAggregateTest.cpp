@@ -15,8 +15,8 @@
  */
 
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
-#include "velox/functions/sparksql/Register.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
+#include "velox/functions/sparksql/registration/Register.h"
 
 using namespace facebook::velox::functions::aggregate::test;
 

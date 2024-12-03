@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/functions/sparksql/Register.h"
+#include "velox/functions/sparksql/registration/Register.h"
 
 #include <gtest/gtest.h>
 

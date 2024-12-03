@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
 
 namespace facebook::velox::functions::sparksql {

@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/sparksql/RegisterArithmetic.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Arithmetic.h"
 #include "velox/functions/sparksql/Arithmetic.h"
@@ -22,31 +21,7 @@
 
 namespace facebook::velox::functions::sparksql {
 
-void registerRandFunctions(const std::string& prefix) {
-  registerFunction<RandFunction, double>({prefix + "rand", prefix + "random"});
-  registerFunction<RandFunction, double, Constant<int32_t>>(
-      {prefix + "rand", prefix + "random"});
-  registerFunction<RandFunction, double, Constant<int64_t>>(
-      {prefix + "rand", prefix + "random"});
-}
-
-void registerArithmeticFunctions(const std::string& prefix) {
-  // Operators.
-  registerBinaryNumeric<PlusFunction>({prefix + "add"});
-  registerBinaryNumeric<MinusFunction>({prefix + "subtract"});
-  registerBinaryNumeric<MultiplyFunction>({prefix + "multiply"});
-  registerFunction<DivideFunction, double, double, double>({prefix + "divide"});
-  registerBinaryNumeric<RemainderFunction>({prefix + "remainder"});
-  registerUnaryNumeric<UnaryMinusFunction>({prefix + "unaryminus"});
-  registerFunction<
-      UnaryMinusFunction,
-      LongDecimal<P1, S1>,
-      LongDecimal<P1, S1>>({prefix + "unaryminus"});
-  registerFunction<
-      UnaryMinusFunction,
-      ShortDecimal<P1, S1>,
-      ShortDecimal<P1, S1>>({prefix + "unaryminus"});
-  // Math functions.
+void registerMathFunctions(const std::string& prefix) {
   registerUnaryNumeric<AbsFunction>({prefix + "abs"});
   registerFunction<
       DecimalAbsFunction,
@@ -112,7 +87,27 @@ void registerArithmeticFunctions(const std::string& prefix) {
       double,
       double,
       int64_t>({prefix + "width_bucket"});
-  registerRandFunctions(prefix);
+  registerFunction<RandFunction, double>({prefix + "rand", prefix + "random"});
+  registerFunction<RandFunction, double, Constant<int32_t>>(
+      {prefix + "rand", prefix + "random"});
+  registerFunction<RandFunction, double, Constant<int64_t>>(
+      {prefix + "rand", prefix + "random"});
+
+  // Operators.
+  registerBinaryNumeric<PlusFunction>({prefix + "add"});
+  registerBinaryNumeric<MinusFunction>({prefix + "subtract"});
+  registerBinaryNumeric<MultiplyFunction>({prefix + "multiply"});
+  registerFunction<DivideFunction, double, double, double>({prefix + "divide"});
+  registerBinaryNumeric<RemainderFunction>({prefix + "remainder"});
+  registerUnaryNumeric<UnaryMinusFunction>({prefix + "unaryminus"});
+  registerFunction<
+      UnaryMinusFunction,
+      LongDecimal<P1, S1>,
+      LongDecimal<P1, S1>>({prefix + "unaryminus"});
+  registerFunction<
+      UnaryMinusFunction,
+      ShortDecimal<P1, S1>,
+      ShortDecimal<P1, S1>>({prefix + "unaryminus"});
 
   registerDecimalAdd(prefix);
   registerDecimalSubtract(prefix);

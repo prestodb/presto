@@ -18,7 +18,7 @@
 #include <folly/init/Init.h>
 
 #include "velox/benchmarks/ExpressionBenchmarkBuilder.h"
-#include "velox/functions/sparksql/Register.h"
+#include "velox/functions/sparksql/registration/Register.h"
 
 using namespace facebook;
 
