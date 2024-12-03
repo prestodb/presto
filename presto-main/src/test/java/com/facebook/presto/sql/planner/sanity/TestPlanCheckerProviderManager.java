@@ -20,7 +20,6 @@ import com.facebook.presto.spi.plan.PlanCheckerProviderContext;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
-import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -41,7 +40,7 @@ public class TestPlanCheckerProviderManager
                 .setPlanCheckerConfigurationDir(new File("src/test/resources/plan-checkers"));
         PlanCheckerProviderManager planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(JsonCodec.jsonCodec(SimplePlanFragment.class)), planCheckerProviderManagerConfig);
         planCheckerProviderManager.addPlanCheckerProviderFactory(new TestingPlanCheckerProviderFactory());
-        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager());
+        planCheckerProviderManager.loadPlanCheckerProviders();
         assertEquals(planCheckerProviderManager.getPlanCheckerProviders(), ImmutableList.of(TESTING_PLAN_CHECKER_PROVIDER));
     }
 
@@ -52,7 +51,7 @@ public class TestPlanCheckerProviderManager
         PlanCheckerProviderManagerConfig planCheckerProviderManagerConfig = new PlanCheckerProviderManagerConfig()
                 .setPlanCheckerConfigurationDir(new File("src/test/resources/plan-checkers"));
         PlanCheckerProviderManager planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(JsonCodec.jsonCodec(SimplePlanFragment.class)), planCheckerProviderManagerConfig);
-        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager());
+        planCheckerProviderManager.loadPlanCheckerProviders();
     }
 
     public static class TestingPlanCheckerProviderFactory
