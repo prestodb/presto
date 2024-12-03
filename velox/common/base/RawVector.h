@@ -20,17 +20,22 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/SimdUtil.h"
 
+#include <type_traits>
+
 namespace facebook::velox {
 
 /// Class template similar to std::vector with no default construction and a
 /// SIMD load worth of padding below and above the data. The idea is that one
 /// can access the data at full SIMD width at both ends.
+///
+/// `T` should name a trivially copyable and trivially destructible type.
 template <typename T>
 class raw_vector {
  public:
-  raw_vector() {
-    static_assert(std::is_trivially_destructible<T>::value);
-  }
+  static_assert(
+      std::is_trivially_destructible_v<T> && std::is_trivially_copyable_v<T>);
+
+  raw_vector() = default;
 
   explicit raw_vector(int32_t size) {
     resize(size);
@@ -92,7 +97,7 @@ class raw_vector {
     return data_[index];
   }
 
-  T operator[](int32_t index) const {
+  const T& operator[](int32_t index) const {
     return data_[index];
   }
 
