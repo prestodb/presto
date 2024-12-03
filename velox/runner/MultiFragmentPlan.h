@@ -84,7 +84,9 @@ class MultiFragmentPlan {
     return options_;
   }
 
-  std::string toString() const;
+  /// @param detailed If true, includes details of each plan node. Otherwise,
+  /// only node types are included.
+  std::string toString(bool detailed = true) const;
 
  private:
   const std::vector<ExecutableFragment> fragments_;

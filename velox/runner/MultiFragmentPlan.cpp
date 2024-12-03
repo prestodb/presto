@@ -18,7 +18,7 @@
 
 namespace facebook::velox::runner {
 
-std::string MultiFragmentPlan::toString() const {
+std::string MultiFragmentPlan::toString(bool detailed) const {
   std::stringstream out;
   for (auto i = 0; i < fragments_.size(); ++i) {
     out << fmt::format(
@@ -26,7 +26,8 @@ std::string MultiFragmentPlan::toString() const {
         i,
         fragments_[i].taskPrefix,
         fragments_[i].width);
-    out << fragments_[i].fragment.planNode->toString(true, true) << std::endl;
+    out << fragments_[i].fragment.planNode->toString(detailed, true)
+        << std::endl;
     if (!fragments_[i].inputStages.empty()) {
       out << "Inputs: ";
       for (auto& input : fragments_[i].inputStages) {
