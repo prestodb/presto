@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/exec/Task.h"
+#include "velox/core/PlanFragment.h"
 
 namespace facebook::velox::runner {
 
