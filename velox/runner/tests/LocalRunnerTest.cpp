@@ -24,7 +24,7 @@ namespace {
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
-constexpr int kWaitTimeoutUs = 1'000'000;
+constexpr int kWaitTimeoutUs = 500'000;
 
 class LocalRunnerTest : public LocalRunnerTestBase {
  protected:
@@ -69,6 +69,12 @@ class LocalRunnerTest : public LocalRunnerTestBase {
     // Creates the data and schema from 'testTables_'. These are created on the
     // first test fixture initialization.
     LocalRunnerTestBase::SetUpTestCase();
+  }
+
+  std::shared_ptr<memory::MemoryPool> makeRootPool(const std::string& queryId) {
+    static std::atomic_uint64_t poolId{0};
+    return memory::memoryManager()->addRootPool(
+        fmt::format("{}_{}", queryId, poolId++));
   }
 
   // Returns a plan with a table scan. This is a single stage if 'numWorkers' is
@@ -122,10 +128,9 @@ class LocalRunnerTest : public LocalRunnerTestBase {
 
   void checkScanCount(const std::string& id, int32_t numWorkers) {
     auto scan = makeScanPlan(id, numWorkers);
+    auto rootPool = makeRootPool(id);
     auto localRunner = std::make_shared<LocalRunner>(
-        std::move(scan),
-        makeQueryCtx("q1", rootPool_.get()),
-        splitSourceFactory_);
+        std::move(scan), makeQueryCtx(id, rootPool.get()), splitSourceFactory_);
     auto results = readCursor(localRunner);
 
     int32_t count = 0;
@@ -146,10 +151,10 @@ class LocalRunnerTest : public LocalRunnerTestBase {
 
 TEST_F(LocalRunnerTest, count) {
   auto join = makeJoinPlan();
+  const std::string id = "q1";
+  auto rootPool = makeRootPool(id);
   auto localRunner = std::make_shared<LocalRunner>(
-      std::move(join),
-      makeQueryCtx("q1", rootPool_.get()),
-      splitSourceFactory_);
+      std::move(join), makeQueryCtx(id, rootPool.get()), splitSourceFactory_);
   auto results = readCursor(localRunner);
   auto stats = localRunner->stats();
   EXPECT_EQ(1, results.size());
@@ -163,10 +168,10 @@ TEST_F(LocalRunnerTest, count) {
 
 TEST_F(LocalRunnerTest, error) {
   auto join = makeJoinPlan("if (c0 = 111, c0 / 0, c0 + 1) as c0");
+  const std::string id = "q1";
+  auto rootPool = makeRootPool(id);
   auto localRunner = std::make_shared<LocalRunner>(
-      std::move(join),
-      makeQueryCtx("q1", rootPool_.get()),
-      splitSourceFactory_);
+      std::move(join), makeQueryCtx(id, rootPool.get()), splitSourceFactory_);
   EXPECT_THROW(readCursor(localRunner), VeloxUserError);
   EXPECT_EQ(Runner::State::kError, localRunner->state());
   localRunner->waitForCompletion(kWaitTimeoutUs);
