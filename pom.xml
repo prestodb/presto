@@ -2764,6 +2764,20 @@
                     --add-opens java.base/java.util.regex=ALL-UNNAMED
                     --add-opens java.base/jdk.internal.loader=ALL-UNNAMED
                     --add-opens java.base/sun.security.action=ALL-UNNAMED
+                    --add-opens java.base/sun.security.util=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.module=ALL-UNNAMED
+                    --add-opens java.base/java.lang.module=ALL-UNNAMED
+                    --add-opens java.base/java.util.jar=ALL-UNNAMED
+                    --add-opens java.base/java.util.zip=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.util.jar=ALL-UNNAMED
+                    --add-opens java.base/sun.reflect.annotation=ALL-UNNAMED
+                    --add-opens java.base/sun.nio.fs=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.ref=ALL-UNNAMED
+                    --add-opens java.base/java.nio.charset=ALL-UNNAMED
+                    --add-opens java.base/java.nio.file.attribute=ALL-UNNAMED
+                    --add-opens java.base/java.lang.invoke=ALL-UNNAMED
+                    --add-opens java.base/sun.net.www.protocol.jar=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.perf=ALL-UNNAMED
                 </air.test.jvm.additional-arguments>
             </properties>
         </profile>
