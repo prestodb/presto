@@ -25,23 +25,36 @@ using namespace velox;
 
 class ConfigTest : public testing::Test {
  protected:
-  void setUpConfigFilePath() {
+  void SetUp() override {
     velox::filesystems::registerLocalFileSystem();
+    setUpConfigFilePath();
+  }
 
+  void TearDown() override {
+    cleanupConfigFilePath();
+  }
+
+  void setUpConfigFilePath() {
     char path[] = "/tmp/velox_system_config_test_XXXXXX";
     const char* tempDirectoryPath = mkdtemp(path);
     if (tempDirectoryPath == nullptr) {
       throw std::logic_error("Cannot open temp directory");
     }
-    configFilePath = tempDirectoryPath;
-    configFilePath += "/config.properties";
+    configFilePath_ = tempDirectoryPath;
+    configFilePath_ += "/config.properties";
+  }
+
+  void cleanupConfigFilePath() {
+    auto fileSystem = filesystems::getFileSystem(configFilePath_, nullptr);
+    auto dirPath = std::filesystem::path(configFilePath_).parent_path();
+    fileSystem->rmdir(dirPath.string());
   }
 
   void writeDefaultConfigFile(bool isMutable) {
-    auto fileSystem = filesystems::getFileSystem(configFilePath, nullptr);
-    auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
+    auto fileSystem = filesystems::getFileSystem(configFilePath_, nullptr);
+    auto sysConfigFile = fileSystem->openFileForWrite(configFilePath_);
     sysConfigFile->append(
-        fmt::format("{}={}\n", SystemConfig::kPrestoVersion, prestoVersion));
+        fmt::format("{}={}\n", SystemConfig::kPrestoVersion, kPrestoVersion_));
     sysConfigFile->append(
         fmt::format("{}=11kB\n", SystemConfig::kQueryMaxMemoryPerNode));
     if (isMutable) {
@@ -52,8 +65,8 @@ class ConfigTest : public testing::Test {
   }
 
   void writeConfigFile(const std::string& config) {
-    auto fileSystem = filesystems::getFileSystem(configFilePath, nullptr);
-    auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
+    auto fileSystem = filesystems::getFileSystem(configFilePath_, nullptr);
+    auto sysConfigFile = fileSystem->openFileForWrite(configFilePath_);
     sysConfigFile->append(config);
     sysConfigFile->close();
   }
@@ -65,40 +78,41 @@ class ConfigTest : public testing::Test {
         std::make_unique<config::ConfigBase>(std::move(properties)));
   }
 
-  std::string configFilePath;
-  const std::string prestoVersion{"SystemConfigTest1"};
-  const std::string prestoVersion2{"SystemConfigTest2"};
+  std::string configFilePath_;
+  const std::string_view kPrestoVersion_{"SystemConfigTest1"};
+  const std::string_view kPrestoVersion2_{"SystemConfigTest2"};
 };
 
 TEST_F(ConfigTest, defaultSystemConfig) {
-  setUpConfigFilePath();
   writeDefaultConfigFile(false);
   auto systemConfig = SystemConfig::instance();
-  systemConfig->initialize(configFilePath);
+  systemConfig->initialize(configFilePath_);
 
   ASSERT_FALSE(systemConfig->mutableConfig());
-  ASSERT_EQ(prestoVersion, systemConfig->prestoVersion());
+  ASSERT_EQ(kPrestoVersion_, systemConfig->prestoVersion());
   ASSERT_EQ(11 << 10, systemConfig->queryMaxMemoryPerNode());
   ASSERT_THROW(
       systemConfig->setValue(
-          std::string(SystemConfig::kPrestoVersion), prestoVersion2),
+          std::string(SystemConfig::kPrestoVersion),
+          std::string(kPrestoVersion2_)),
       VeloxException);
 }
 
 TEST_F(ConfigTest, mutableSystemConfig) {
-  setUpConfigFilePath();
   writeDefaultConfigFile(true);
   auto systemConfig = SystemConfig::instance();
-  systemConfig->initialize(configFilePath);
+  systemConfig->initialize(configFilePath_);
 
   ASSERT_TRUE(systemConfig->mutableConfig());
-  ASSERT_EQ(prestoVersion, systemConfig->prestoVersion());
+  ASSERT_EQ(kPrestoVersion_, systemConfig->prestoVersion());
   ASSERT_EQ(
-      prestoVersion,
+      kPrestoVersion_,
       systemConfig
-          ->setValue(std::string(SystemConfig::kPrestoVersion), prestoVersion2)
+          ->setValue(
+              std::string(SystemConfig::kPrestoVersion),
+              std::string(kPrestoVersion2_))
           .value());
-  ASSERT_EQ(prestoVersion2, systemConfig->prestoVersion());
+  ASSERT_EQ(kPrestoVersion2_, systemConfig->prestoVersion());
   ASSERT_EQ(
       "11kB",
       systemConfig
@@ -206,7 +220,6 @@ TEST_F(ConfigTest, remoteFunctionServer) {
 }
 
 TEST_F(ConfigTest, parseValid) {
-  setUpConfigFilePath();
   writeConfigFile(
       "#comment\n"
       "#a comment with space\n"
@@ -220,7 +233,7 @@ TEST_F(ConfigTest, parseValid) {
       "key1= value with space\n"
       "key2=value=with=key=word\n"
       "emptyvaluekey=");
-  auto configMap = presto::util::readConfig(configFilePath);
+  auto configMap = presto::util::readConfig(configFilePath_);
   ASSERT_EQ(configMap.size(), 6);
 
   std::unordered_map<std::string, std::string> expected{
@@ -237,10 +250,11 @@ TEST_F(ConfigTest, parseInvalid) {
   auto testInvalid = [this](
                          const std::string& fileContent,
                          const std::string& expectedErrorMsg) {
+    cleanupConfigFilePath();
     setUpConfigFilePath();
     writeConfigFile(fileContent);
     VELOX_ASSERT_THROW(
-        presto::util::readConfig(configFilePath), expectedErrorMsg);
+        presto::util::readConfig(configFilePath_), expectedErrorMsg);
   };
   testInvalid(
       "noequalsign\n", "No '=' sign found for property pair 'noequalsign'");
@@ -253,6 +267,47 @@ TEST_F(ConfigTest, optionalNodeId) {
   // Same value must be returned.
   EXPECT_EQ(nodeId, config.nodeId());
   EXPECT_EQ(nodeId, config.nodeId());
+}
+
+TEST_F(ConfigTest, readConfigEnvVarTest) {
+  const std::string kEnvVarName = "PRESTO_READ_CONFIG_TEST_VAR";
+  const std::string kEmptyEnvVarName = "PRESTO_READ_CONFIG_TEST_EMPTY_VAR";
+
+  const std::string kPlainTextKey = "plain-text";
+  const std::string kPlainTextValue = "plain-text-value";
+
+  const std::string kEnvVarKey = "env-var";
+  const std::string kEnvVarValue = "env-var-value";
+
+  // Keys to test invalid environment variable values.
+  const std::string kEnvVarKey2 = "env-var2";
+  const std::string kEnvVarKey3 = "env-var3";
+  const std::string kNoEnvVarKey = "no-env-var";
+  const std::string kEmptyEnvVarKey = "empty-env-var";
+
+  writeConfigFile(
+      fmt::format("{}={}\n", kPlainTextKey, kPlainTextValue) +
+      fmt::format("{}=${{{}}}\n", kEnvVarKey, kEnvVarName) +
+      fmt::format("{}=${{{}\n", kEnvVarKey2, kEnvVarName) +
+      fmt::format("{}={}}}\n", kEnvVarKey3, kEnvVarName) +
+      fmt::format("{}=${{}}\n", kNoEnvVarKey) +
+      fmt::format("{}=${{{}}}\n", kEmptyEnvVarKey, kEmptyEnvVarName));
+
+  setenv(kEnvVarName.c_str(), kEnvVarValue.c_str(), 1);
+  setenv(kEmptyEnvVarName.c_str(), "", 1);
+
+  auto properties = presto::util::readConfig(configFilePath_);
+  std::unordered_map<std::string, std::string> expected{
+      {kPlainTextKey, kPlainTextValue},
+      {kEnvVarKey, kEnvVarValue},
+      {kEnvVarKey2, "${PRESTO_READ_CONFIG_TEST_VAR"},
+      {kEnvVarKey3, "PRESTO_READ_CONFIG_TEST_VAR}"},
+      {kNoEnvVarKey, "${}"},
+      {kEmptyEnvVarKey, ""}};
+  ASSERT_EQ(properties, expected);
+
+  unsetenv(kEnvVarName.c_str());
+  unsetenv(kEmptyEnvVarName.c_str());
 }
 
 } // namespace facebook::presto::test
