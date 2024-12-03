@@ -50,7 +50,7 @@ class OperatorReplayerBase {
       const core::PlanNodeId& nodeId,
       const core::PlanNodePtr& source) const = 0;
 
-  core::PlanNodePtr createPlan() const;
+  core::PlanNodePtr createPlan();
 
   const std::string queryId_;
   const std::string taskId_;
@@ -68,6 +68,9 @@ class OperatorReplayerBase {
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
       connectorConfigs_;
   core::PlanNodePtr planFragment_;
+  core::PlanNodeId replayPlanNodeId_;
+
+  void printStats(const std::shared_ptr<exec::Task>& task) const;
 
  private:
   std::function<core::PlanNodePtr(std::string, core::PlanNodePtr)>

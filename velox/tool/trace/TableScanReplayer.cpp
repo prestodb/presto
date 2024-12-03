@@ -28,13 +28,17 @@ using namespace facebook::velox::exec::test;
 namespace facebook::velox::tool::trace {
 
 RowVectorPtr TableScanReplayer::run() {
+  std::shared_ptr<exec::Task> task;
   const auto plan = createPlan();
-  return exec::test::AssertQueryBuilder(plan)
-      .maxDrivers(driverIds_.size())
-      .configs(queryConfigs_)
-      .connectorSessionProperties(connectorConfigs_)
-      .splits(getSplits())
-      .copyResults(memory::MemoryManager::getInstance()->tracePool());
+  const auto result =
+      exec::test::AssertQueryBuilder(plan)
+          .maxDrivers(driverIds_.size())
+          .configs(queryConfigs_)
+          .connectorSessionProperties(connectorConfigs_)
+          .splits(getSplits())
+          .copyResults(memory::MemoryManager::getInstance()->tracePool(), task);
+  printStats(task);
+  return result;
 }
 
 core::PlanNodePtr TableScanReplayer::createPlanNode(

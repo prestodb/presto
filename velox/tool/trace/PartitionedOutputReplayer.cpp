@@ -135,7 +135,7 @@ PartitionedOutputReplayer::PartitionedOutputReplayer(
 }
 
 RowVectorPtr PartitionedOutputReplayer::run() {
-  auto task = Task::create(
+  const auto task = Task::create(
       "local://partitioned-output-replayer",
       core::PlanFragment{createPlan()},
       0,
@@ -150,6 +150,7 @@ RowVectorPtr PartitionedOutputReplayer::run() {
       executor_.get(),
       consumerExecutor_.get(),
       consumerCb_);
+  printStats(task);
   return nullptr;
 }
 

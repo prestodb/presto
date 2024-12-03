@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "velox/core/PlanNode.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/TaskTraceReader.h"
 #include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -67,15 +68,19 @@ OperatorReplayerBase::OperatorReplayerBase(
 }
 
 RowVectorPtr OperatorReplayerBase::run() {
+  std::shared_ptr<exec::Task> task;
   const auto restoredPlanNode = createPlan();
-  return exec::test::AssertQueryBuilder(restoredPlanNode)
-      .maxDrivers(driverIds_.size())
-      .configs(queryConfigs_)
-      .connectorSessionProperties(connectorConfigs_)
-      .copyResults(memory::MemoryManager::getInstance()->tracePool());
+  const auto result =
+      exec::test::AssertQueryBuilder(restoredPlanNode)
+          .maxDrivers(driverIds_.size())
+          .configs(queryConfigs_)
+          .connectorSessionProperties(connectorConfigs_)
+          .copyResults(memory::MemoryManager::getInstance()->tracePool(), task);
+  printStats(task);
+  return result;
 }
 
-core::PlanNodePtr OperatorReplayerBase::createPlan() const {
+core::PlanNodePtr OperatorReplayerBase::createPlan() {
   const auto* replayNode = core::PlanNode::findFirstNode(
       planFragment_.get(),
       [this](const core::PlanNode* node) { return node->id() == nodeId_; });
@@ -83,6 +88,7 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() const {
   if (replayNode->name() == "TableScan") {
     return exec::test::PlanBuilder()
         .addNode(replayNodeFactory(replayNode))
+        .capturePlanNodeId(replayPlanNodeId_)
         .planNode();
   }
 
@@ -93,6 +99,7 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() const {
           driverIds_,
           exec::trace::getDataType(planFragment_, nodeId_))
       .addNode(replayNodeFactory(replayNode))
+      .capturePlanNodeId(replayPlanNodeId_)
       .planNode();
 }
 
@@ -102,5 +109,16 @@ OperatorReplayerBase::replayNodeFactory(const core::PlanNode* node) const {
              const core::PlanNodePtr& source) -> core::PlanNodePtr {
     return createPlanNode(node, nodeId, source);
   };
+}
+
+void OperatorReplayerBase::printStats(
+    const std::shared_ptr<exec::Task>& task) const {
+  const auto planStats = exec::toPlanStats(task->taskStats());
+  const auto& stats = planStats.at(replayPlanNodeId_);
+  for (const auto& [name, operatorStats] : stats.operatorStats) {
+    LOG(INFO) << "Stats of replaying operator " << name << " : "
+              << operatorStats->toString();
+  }
+  LOG(INFO) << "Memory usage: " << task->pool()->treeMemoryUsage(false);
 }
 } // namespace facebook::velox::tool::trace
