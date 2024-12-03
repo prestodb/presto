@@ -43,7 +43,9 @@ class FlightConnectorTestBase : public velox::exec::test::OperatorTestBase {
 };
 
 /// Creates and registers an arrow flight connector and
-/// spawns a Flight server for testing
+/// spawns a Flight server for testing.
+/// Initially there is no data in the Flight server,
+/// tests should call FlightWithServerTestBase::updateTables to populate it.
 class FlightWithServerTestBase : public FlightConnectorTestBase {
  public:
   static constexpr const char* BIND_HOST = "127.0.0.1";
@@ -56,8 +58,8 @@ class FlightWithServerTestBase : public FlightConnectorTestBase {
 
   /// Convenience method which creates splits for the test flight server
   std::vector<std::shared_ptr<velox::connector::ConnectorSplit>> makeSplits(
-      std::initializer_list<std::string> tokens,
-      std::vector<std::string> location = std::vector<std::string>{
+      const std::initializer_list<std::string>& tokens,
+      const std::vector<std::string>& location = std::vector<std::string>{
           fmt::format("grpc://{}:{}", CONNECT_HOST, LISTEN_PORT)});
 
   /// Add (or update) a table in the test flight server
@@ -81,8 +83,8 @@ class FlightWithServerTestBase : public FlightConnectorTestBase {
 
   std::shared_ptr<arrow::flight::FlightServerOptions> createFlightServerOptions(
       bool isSecure = false,
-      std::string certPath = "",
-      std::string keyPath = "");
+      const std::string& certPath = "",
+      const std::string& keyPath = "");
 
  private:
   std::unique_ptr<StaticFlightServer> server_;

@@ -25,7 +25,7 @@ class FlightPlanBuilder : public velox::exec::test::PlanBuilder {
   /// @param createDefaultColumnHandles If true, generate column handles for
   /// for the columns which don't have an entry in assignments
   velox::exec::test::PlanBuilder& flightTableScan(
-      velox::RowTypePtr outputType,
+      const velox::RowTypePtr& outputType,
       std::unordered_map<
           std::string,
           std::shared_ptr<velox::connector::ColumnHandle>> assignments = {},

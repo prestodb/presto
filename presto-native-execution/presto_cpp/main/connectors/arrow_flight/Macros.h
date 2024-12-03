@@ -39,7 +39,7 @@
   AFC_ASSIGN_OR_RAISE_IMPL(             \
       ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, rexpr);
 
-/// Raise a Velox exception if epr doesn't return an OK result,
+/// Raise a Velox exception if rexpr doesn't return an OK result,
 /// else unwrap the value and return it.
 /// `std::move`s its right hand operand.
 #define AFC_RETURN_OR_RAISE(rexpr)                 \

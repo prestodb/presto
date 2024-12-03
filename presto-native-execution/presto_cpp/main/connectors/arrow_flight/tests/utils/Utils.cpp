@@ -58,16 +58,12 @@ std::shared_ptr<arrow::Array> makeBooleanArray(
 auto makeRecordBatch(
     const std::vector<std::string>& names,
     const arrow::ArrayVector& arrays) {
-  VELOX_CHECK(names.size() == arrays.size());
+  VELOX_CHECK_EQ(names.size(), arrays.size());
 
   auto nrows = (arrays.size() > 0) ? (arrays[0]->length()) : 0;
-  for (auto& array : arrays) {
-    VELOX_CHECK(array->length() == nrows);
-  }
-
   arrow::FieldVector fields{};
   for (int i = 0; i < arrays.size(); i++) {
-    VELOX_CHECK(arrays[i]->length() == nrows);
+    VELOX_CHECK_EQ(arrays[i]->length(), nrows);
     fields.push_back(
         std::make_shared<arrow::Field>(names[i], arrays[i]->type()));
   }

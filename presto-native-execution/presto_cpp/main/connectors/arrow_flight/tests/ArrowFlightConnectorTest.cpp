@@ -45,7 +45,7 @@ static const std::string kFlightConnectorId = "test-flight";
 
 class FlightConnectorTest : public FlightWithServerTestBase {};
 
-TEST_F(FlightConnectorTest, InvalidSplitTest) {
+TEST_F(FlightConnectorTest, invalidSplitTest) {
   auto plan = FlightPlanBuilder()
                   .flightTableScan(velox::ROW({{"id", velox::BIGINT()}}))
                   .planNode();
@@ -57,7 +57,7 @@ TEST_F(FlightConnectorTest, InvalidSplitTest) {
       "Server replied with error");
 }
 
-TEST_F(FlightConnectorTest, DataSourceCreationTest) {
+TEST_F(FlightConnectorTest, dataSourceCreationTest) {
   // missing columnHandle test
   auto plan =
       FlightPlanBuilder()
@@ -74,7 +74,7 @@ TEST_F(FlightConnectorTest, DataSourceCreationTest) {
       "missing columnHandle for column 'value'");
 }
 
-TEST_F(FlightConnectorTest, DataSourceTest) {
+TEST_F(FlightConnectorTest, dataSourceTest) {
   updateTable(
       "sample-data",
       makeArrowTable(
@@ -156,7 +156,7 @@ class FlightConnectorTestDefaultServer : public FlightWithServerTestBase {
                  std::to_string(LISTEN_PORT)}})) {}
 };
 
-TEST_F(FlightConnectorTestDefaultServer, DataSourceTest) {
+TEST_F(FlightConnectorTestDefaultServer, dataSourceTest) {
   updateTable(
       "sample-data",
       makeArrowTable(

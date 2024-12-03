@@ -162,10 +162,9 @@ class ArrowFlightConnectorFactory : public velox::connector::ConnectorFactory {
 
   ArrowFlightConnectorFactory() : ConnectorFactory(kArrowFlightConnectorName) {}
 
-  explicit ArrowFlightConnectorFactory(const char* name)
-      : ConnectorFactory{name} {}
-
-  ArrowFlightConnectorFactory(const char* name, const char* authenticatorName)
+  explicit ArrowFlightConnectorFactory(
+      const char* name,
+      const char* authenticatorName = nullptr)
       : ConnectorFactory{name}, authenticatorName_{authenticatorName} {}
 
   std::shared_ptr<velox::connector::Connector> newConnector(

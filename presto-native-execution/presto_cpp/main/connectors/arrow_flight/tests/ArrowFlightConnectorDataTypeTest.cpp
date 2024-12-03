@@ -46,7 +46,7 @@ static const std::string kFlightConnectorId = "test-flight";
 
 class FlightConnectorDataTypeTest : public FlightWithServerTestBase {};
 
-TEST_F(FlightConnectorDataTypeTest, BooleanType) {
+TEST_F(FlightConnectorDataTypeTest, booleanType) {
   updateTable(
       "sample-data",
       makeArrowTable(
@@ -64,7 +64,7 @@ TEST_F(FlightConnectorDataTypeTest, BooleanType) {
       .assertResults(makeRowVector({boolVec}));
 }
 
-TEST_F(FlightConnectorDataTypeTest, IntType) {
+TEST_F(FlightConnectorDataTypeTest, intType) {
   updateTable(
       "sample-data",
       makeArrowTable(
@@ -115,7 +115,7 @@ TEST_F(FlightConnectorDataTypeTest, IntType) {
           makeRowVector({tinyintVec, smallintVec, integerVec, bigintVec}));
 }
 
-TEST_F(FlightConnectorDataTypeTest, RealType) {
+TEST_F(FlightConnectorDataTypeTest, realType) {
   updateTable(
       "sample-data",
       makeArrowTable(
@@ -153,7 +153,7 @@ TEST_F(FlightConnectorDataTypeTest, RealType) {
       .assertResults(makeRowVector({realVec, doubleVec}));
 }
 
-TEST_F(FlightConnectorDataTypeTest, VarcharType) {
+TEST_F(FlightConnectorDataTypeTest, varcharType) {
   updateTable(
       "sample-data",
       makeArrowTable(
@@ -174,7 +174,7 @@ TEST_F(FlightConnectorDataTypeTest, VarcharType) {
       .assertResults(makeRowVector({vec}));
 }
 
-TEST_F(FlightConnectorDataTypeTest, TimestampType) {
+TEST_F(FlightConnectorDataTypeTest, timestampType) {
   auto timestampValues =
       std::vector<int64_t>{1622538000, 1622541600, 1622545200};
 
@@ -227,7 +227,7 @@ TEST_F(FlightConnectorDataTypeTest, TimestampType) {
           {timestampSecCol, timestampMilliCol, timestampMicroCol}));
 }
 
-TEST_F(FlightConnectorDataTypeTest, DateDayType) {
+TEST_F(FlightConnectorDataTypeTest, dateDayType) {
   std::vector<int32_t> datesDay = {18748, 18749, 18750}; // Days since epoch
   std::vector<int64_t> datesMilli = {
       1622538000000, 1622541600000, 1622545200000}; // Milliseconds since epoch
@@ -262,7 +262,7 @@ TEST_F(FlightConnectorDataTypeTest, DateDayType) {
       "Unable to convert 'tdm' ArrowSchema format type to Velox");
 }
 
-TEST_F(FlightConnectorDataTypeTest, DecimalType) {
+TEST_F(FlightConnectorDataTypeTest, decimalType) {
   std::vector<int64_t> decimalValuesBigInt = {
       123456789012345678,
       -123456789012345678,
@@ -286,7 +286,7 @@ TEST_F(FlightConnectorDataTypeTest, DecimalType) {
       .assertResults(makeRowVector({decimalVecBigInt}));
 }
 
-TEST_F(FlightConnectorDataTypeTest, GeneralTest) {
+TEST_F(FlightConnectorDataTypeTest, allTypes) {
   auto timestampValues =
       std::vector<int64_t>{1622550000, 1622553600, 1622557200};
 

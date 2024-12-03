@@ -16,7 +16,7 @@
 
 namespace facebook::presto::connector::arrow_flight::test {
 
-TEST(FlightConfigTest, DefaultConfig) {
+TEST(FlightConfigTest, defaultConfig) {
   auto rawConfig = std::make_shared<velox::config::ConfigBase>(
       std::move(std::unordered_map<std::string, std::string>{}));
   auto config = FlightConfig(rawConfig);
@@ -28,7 +28,7 @@ TEST(FlightConfigTest, DefaultConfig) {
   ASSERT_EQ(config.serverSslCertificate(), folly::none);
 }
 
-TEST(FlightConfigTest, OverrideConfig) {
+TEST(FlightConfigTest, overrideConfig) {
   std::unordered_map<std::string, std::string> configMap = {
       {FlightConfig::kAuthenticatorName, "my-authenticator"},
       {FlightConfig::kDefaultServerHost, "my-server-host"},

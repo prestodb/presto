@@ -48,8 +48,8 @@ class FlightConnectorTlsTestBase : public FlightWithServerTestBase {
             std::move(config),
             createFlightServerOptions(
                 true, /* isSecure */
-                "./data/server.crt",
-                "./data/server.key")) {}
+                "./data/tls_certs/server.crt",
+                "./data/tls_certs/server.key")) {}
 
   void executeTest(bool isPositiveTest = true) {
     updateTable(
@@ -88,10 +88,11 @@ class FlightConnectorTlsTest : public FlightConnectorTlsTestBase {
       : FlightConnectorTlsTestBase(std::make_shared<velox::config::ConfigBase>(
             std::unordered_map<std::string, std::string>{
                 {FlightConfig::kServerVerify, "true"},
-                {FlightConfig::kServerSslCertificate, "./data/ca.crt"}})) {}
+                {FlightConfig::kServerSslCertificate,
+                 "./data/tls_certs/ca.crt"}})) {}
 };
 
-TEST_F(FlightConnectorTlsTest, TlsTest) {
+TEST_F(FlightConnectorTlsTest, tlsTest) {
   executeTest();
 }
 
@@ -104,7 +105,7 @@ class FlightConnectorTlsNoCertValidationTest
                 {FlightConfig::kServerVerify, "false"}})) {}
 };
 
-TEST_F(FlightConnectorTlsNoCertValidationTest, TlsNoCertValidationTest) {
+TEST_F(FlightConnectorTlsNoCertValidationTest, tlsNoCertValidationTest) {
   executeTest();
 }
 
@@ -116,7 +117,7 @@ class FlightConnectorTlsNoCertTest : public FlightConnectorTlsTestBase {
                 {FlightConfig::kServerVerify, "true"}})) {}
 };
 
-TEST_F(FlightConnectorTlsNoCertTest, TlsNoCertTest) {
+TEST_F(FlightConnectorTlsNoCertTest, tlsNoCertTest) {
   executeTest(false /* isPositiveTest */);
 }
 

@@ -55,7 +55,7 @@ class StaticFlightServerTest : public testing::Test {
 
 std::unique_ptr<StaticFlightServer> StaticFlightServerTest::server;
 
-TEST_F(StaticFlightServerTest, ServerTest) {
+TEST_F(StaticFlightServerTest, basicTest) {
   auto sampleTable = makeArrowTable(
       {"id", "value"},
       {makeNumericArray<arrow::UInt32Type>({1, 2}),

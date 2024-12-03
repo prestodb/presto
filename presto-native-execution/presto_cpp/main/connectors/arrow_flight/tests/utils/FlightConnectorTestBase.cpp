@@ -49,9 +49,6 @@ void FlightConnectorTestBase::TearDown() {
 void FlightWithServerTestBase::SetUp() {
   FlightConnectorTestBase::SetUp();
 
-  // spawn a StaticFlightServer for testing
-  // initially there is no data in the Flight server,
-  // tests should call FlightWithServerTestBase::updateTables to populate it
   server_ = std::make_unique<StaticFlightServer>();
   ASSERT_OK(server_->Init(*options_));
 }
@@ -63,13 +60,13 @@ void FlightWithServerTestBase::TearDown() {
 
 std::vector<std::shared_ptr<connector::ConnectorSplit>>
 FlightWithServerTestBase::makeSplits(
-    std::initializer_list<std::string> tickets,
-    std::vector<std::string> location) {
+    const std::initializer_list<std::string>& tickets,
+    const std::vector<std::string>& location) {
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
   splits.reserve(tickets.size());
   for (auto& ticket : tickets) {
-    splits.push_back(std::make_shared<FlightSplit>(
-        kFlightConnectorId, std::move(ticket), location));
+    splits.push_back(
+        std::make_shared<FlightSplit>(kFlightConnectorId, ticket, location));
   }
   return splits;
 }
@@ -77,8 +74,8 @@ FlightWithServerTestBase::makeSplits(
 std::shared_ptr<FlightServerOptions>
 FlightWithServerTestBase::createFlightServerOptions(
     bool isSecure,
-    std::string certPath,
-    std::string keyPath) {
+    const std::string& certPath,
+    const std::string& keyPath) {
   AFC_ASSIGN_OR_RAISE(
       auto loc,
       isSecure ? Location::ForGrpcTls(BIND_HOST, LISTEN_PORT)

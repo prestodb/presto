@@ -23,12 +23,12 @@ add_executable(
   ArrowFlightConnectorTest.cpp ArrowFlightConnectorTlsTest.cpp
   ArrowFlightConnectorDataTypeTest.cpp FlightConfigTest.cpp)
 
-set(DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data")
+set(DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data/tls_certs")
 
 add_custom_target(
   copy_flight_test_data ALL
   COMMAND ${CMAKE_COMMAND} -E copy_directory ${DATA_DIR}
-          $<TARGET_FILE_DIR:presto_flight_connector_test>/data)
+          $<TARGET_FILE_DIR:presto_flight_connector_test>/data/tls_certs)
 
 add_test(presto_flight_connector_test presto_flight_connector_test)
 

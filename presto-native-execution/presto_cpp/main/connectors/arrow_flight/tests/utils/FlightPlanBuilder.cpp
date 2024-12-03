@@ -19,7 +19,7 @@ namespace facebook::presto::connector::arrow_flight::test {
 static const std::string kFlightConnectorId = "test-flight";
 
 velox::exec::test::PlanBuilder& FlightPlanBuilder::flightTableScan(
-    velox::RowTypePtr outputType,
+    const velox::RowTypePtr& outputType,
     std::unordered_map<
         std::string,
         std::shared_ptr<velox::connector::ColumnHandle>> assignments,
@@ -35,7 +35,7 @@ velox::exec::test::PlanBuilder& FlightPlanBuilder::flightTableScan(
 
   return startTableScan()
       .tableHandle(std::make_shared<FlightTableHandle>(kFlightConnectorId))
-      .outputType(std::move(outputType))
+      .outputType(outputType)
       .assignments(std::move(assignments))
       .endTableScan();
 }
