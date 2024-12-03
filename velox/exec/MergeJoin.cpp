@@ -782,7 +782,7 @@ RowVectorPtr MergeJoin::getOutput() {
               }
             }
             rightIndex_ = firstNonNullIndex;
-            if (rightIndex_ == rightInput_->size()) {
+            if (finishedRightBatch()) {
               // Ran out of rows on the right side.
               rightInput_ = nullptr;
             }
@@ -884,12 +884,11 @@ RowVectorPtr MergeJoin::doGetOutput() {
             return std::move(output_);
           }
           addOutputRowForLeftJoin(input_, index_);
-
           ++index_;
-          if (index_ == input_->size()) {
-            // Ran out of rows on the left side.
+
+          if (finishedLeftBatch()) {
             input_ = nullptr;
-            return nullptr;
+            return produceOutput();
           }
         }
       }
@@ -911,11 +910,10 @@ RowVectorPtr MergeJoin::doGetOutput() {
           if (outputSize_ == outputBatchSize_) {
             return std::move(output_);
           }
-
           addOutputRowForRightJoin(rightInput_, rightIndex_);
 
           ++rightIndex_;
-          if (rightIndex_ == rightInput_->size()) {
+          if (finishedRightBatch()) {
             // Ran out of rows on the right side.
             rightInput_ = nullptr;
             return nullptr;
@@ -940,12 +938,11 @@ RowVectorPtr MergeJoin::doGetOutput() {
             return std::move(output_);
           }
           addOutputRowForLeftJoin(input_, index_);
-
           ++index_;
-          if (index_ == input_->size()) {
-            // Ran out of rows on the left side.
+
+          if (finishedLeftBatch()) {
             input_ = nullptr;
-            return nullptr;
+            return produceOutput();
           }
         }
       }
@@ -1021,10 +1018,9 @@ RowVectorPtr MergeJoin::doGetOutput() {
         index_ = firstNonNull(input_, leftKeys_, index_ + 1);
       }
 
-      if (index_ == input_->size()) {
-        // Ran out of rows on the left side.
+      if (finishedLeftBatch()) {
         input_ = nullptr;
-        return nullptr;
+        return produceOutput();
       }
       compareResult = compare();
     }
@@ -1042,17 +1038,15 @@ RowVectorPtr MergeJoin::doGetOutput() {
         if (outputSize_ == outputBatchSize_) {
           return std::move(output_);
         }
-
         addOutputRowForRightJoin(rightInput_, rightIndex_);
         ++rightIndex_;
       } else {
         rightIndex_ = firstNonNull(rightInput_, rightKeys_, rightIndex_ + 1);
       }
 
-      if (rightIndex_ == rightInput_->size()) {
-        // Ran out of rows on the right side.
+      if (finishedRightBatch()) {
         rightInput_ = nullptr;
-        return nullptr;
+        return produceOutput();
       }
       compareResult = compare();
     }
@@ -1105,7 +1099,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
         rightIndex_ = firstNonNull(rightInput_, rightKeys_, endRightIndex);
       }
 
-      if (rightIndex_ == rightInput_->size()) {
+      if (finishedRightBatch()) {
         // Ran out of rows on the right side.
         rightInput_ = nullptr;
       }

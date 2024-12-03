@@ -231,6 +231,26 @@ class MergeJoin : public Operator {
       const RowVectorPtr& right,
       vector_size_t rightIndex);
 
+  /// If all rows from the current left batch have been processed.
+  bool finishedLeftBatch() const {
+    return index_ == input_->size();
+  }
+
+  /// If all rows from the current right batch have been processed.
+  bool finishedRightBatch() const {
+    return rightIndex_ == rightInput_->size();
+  }
+
+  /// Properly resizes and produces the current output vector if one is
+  /// available.
+  RowVectorPtr produceOutput() {
+    if (output_) {
+      output_->resize(outputSize_);
+      return std::move(output_);
+    }
+    return nullptr;
+  }
+
   /// Evaluates join filter on 'filterInput_' and returns 'output' that contains
   /// a subset of rows on which the filter passed. Returns nullptr if no rows
   /// passed the filter.
