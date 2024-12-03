@@ -285,6 +285,8 @@ public class FeaturesConfig
     private boolean isInlineProjectionsOnValuesEnabled;
 
     private boolean eagerPlanValidationEnabled;
+
+    private boolean setExcludeInvalidWorkerSessionProperties;
     private int eagerPlanValidationThreadPoolSize = 20;
 
     private boolean prestoSparkExecutionEnvironment;
@@ -2846,5 +2848,18 @@ public class FeaturesConfig
     {
         this.prestoSparkExecutionEnvironment = prestoSparkExecutionEnvironment;
         return this;
+    }
+
+    @Config("exclude-invalid-worker-session-properties")
+    @ConfigDescription("Exclude worker session properties from invalid clusters")
+    public FeaturesConfig setExcludeInvalidWorkerSessionProperties(boolean setExcludeInvalidWorkerSessionProperties)
+    {
+        this.setExcludeInvalidWorkerSessionProperties = setExcludeInvalidWorkerSessionProperties;
+        return this;
+    }
+
+    public boolean isExcludeInvalidWorkerSessionProperties()
+    {
+        return this.setExcludeInvalidWorkerSessionProperties;
     }
 }
