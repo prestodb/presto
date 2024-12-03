@@ -120,6 +120,7 @@ public class QueryStateInfoResource
                             excludeResourceGroupPathInfo,
                             queryTextSizeLimit == null ? OptionalInt.empty() : OptionalInt.of(queryTextSizeLimit)))
                     .collect(toImmutableList());
+            executor.shutdown();
 
             asyncResponse.resume(Response.ok(queryStateInfos).build());
         }
