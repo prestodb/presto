@@ -225,7 +225,8 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveFileRenamer(),
                 columnConverterProvider,
                 new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(config));
+                new HiveTableWritabilityChecker(config),
+                new HiveCommonClientConfig());
 
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(

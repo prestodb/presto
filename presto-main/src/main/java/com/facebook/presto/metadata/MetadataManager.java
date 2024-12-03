@@ -604,7 +604,7 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.createSchema(session.toConnectorSession(connectorId), schema, properties);
+        metadata.createSchema(session.toConnectorSession(connectorId), schema.getSchemaName(), properties);
     }
 
     @Override

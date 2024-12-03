@@ -357,10 +357,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.createSchema(session, catalogSchemaName, properties);
+            delegate.createSchema(session, schemaName, properties);
         }
     }
 

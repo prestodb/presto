@@ -136,7 +136,6 @@ abstract class AbstractPropertyManager
                 }
             }
         }
-
         return properties.build();
     }
 

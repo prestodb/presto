@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -38,6 +39,7 @@ public class IcebergHiveMetadataFactory
     final RowExpressionService rowExpressionService;
     final NodeVersion nodeVersion;
     final FilterStatsCalculatorService filterStatsCalculatorService;
+    final String catalogName;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -48,7 +50,8 @@ public class IcebergHiveMetadataFactory
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
-            FilterStatsCalculatorService filterStatsCalculatorService)
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            HiveCommonClientConfig commonConfig)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -58,10 +61,12 @@ public class IcebergHiveMetadataFactory
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        requireNonNull(commonConfig, "config is null");
+        this.catalogName = commonConfig.getCatalogName();
     }
 
     public ConnectorMetadata create()
     {
-        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService);
+        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, catalogName);
     }
 }

@@ -96,12 +96,6 @@ public class Database
         return parameters;
     }
 
-    @JsonProperty
-    public Optional<String> getCatalogName()
-    {
-        return catalogName;
-    }
-
     public static Builder builder()
     {
         return new Builder();
@@ -110,6 +104,12 @@ public class Database
     public static Builder builder(Database database)
     {
         return new Builder(database);
+    }
+
+    @JsonProperty
+    public Optional<String> getCatalogName()
+    {
+        return catalogName;
     }
 
     public static class Builder

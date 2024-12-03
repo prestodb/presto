@@ -14,7 +14,6 @@
 package com.facebook.presto.plugin.clickhouse;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -263,9 +262,9 @@ public class ClickHouseMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        clickHouseClient.createSchema(ClickHouseIdentity.from(session), catalogSchemaName.getSchemaName(), properties);
+        clickHouseClient.createSchema(ClickHouseIdentity.from(session), schemaName, properties);
     }
 
     @Override

@@ -219,9 +219,9 @@ public class KuduMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        clientSession.createSchema(catalogSchemaName.getSchemaName());
+        clientSession.createSchema(schemaName);
     }
 
     @Override

@@ -14,7 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -152,6 +151,7 @@ public class IcebergHiveMetadata
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
 
     private final FilterStatsCalculatorService filterStatsCalculatorService;
+    private final String catalogName;
 
     public IcebergHiveMetadata(
             ExtendedHiveMetastore metastore,
@@ -161,12 +161,14 @@ public class IcebergHiveMetadata
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
-            FilterStatsCalculatorService filterStatsCalculatorService)
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            String catalogName)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.catalogName = catalogName;
     }
 
     public ExtendedHiveMetastore getMetastore()
@@ -218,9 +220,8 @@ public class IcebergHiveMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        String schemaName = catalogSchemaName.getSchemaName();
         Optional<String> location = getSchemaLocation(properties).map(uri -> {
             try {
                 hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(uri));
@@ -236,7 +237,7 @@ public class IcebergHiveMetadata
                 .setLocation(location)
                 .setOwnerType(USER)
                 .setOwnerName(session.getUser())
-                .setCatalogName(Optional.of(catalogSchemaName.getCatalogName()))
+                .setCatalogName(Optional.ofNullable(catalogName))
                 .build();
 
         MetastoreContext metastoreContext = getMetastoreContext(session);

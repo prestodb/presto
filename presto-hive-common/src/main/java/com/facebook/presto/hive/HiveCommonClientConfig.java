@@ -46,6 +46,7 @@ public class HiveCommonClientConfig
     private boolean readNullMaskedParquetEncryptedValueEnabled;
     private boolean useParquetColumnNames;
     private boolean zstdJniDecompressionEnabled;
+    private String catalogName;
 
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
@@ -282,6 +283,19 @@ public class HiveCommonClientConfig
     public HiveCommonClientConfig setZstdJniDecompressionEnabled(boolean zstdJniDecompressionEnabled)
     {
         this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
+        return this;
+    }
+
+    public String getCatalogName()
+    {
+        return catalogName;
+    }
+
+    @Config("hive.metastore.catalog.name")
+    @ConfigDescription("Metastore catalog name")
+    public HiveCommonClientConfig setCatalogName(String catalogName)
+    {
+        this.catalogName = catalogName;
         return this;
     }
 }

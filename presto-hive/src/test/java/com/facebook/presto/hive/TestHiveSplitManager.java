@@ -147,6 +147,7 @@ public class TestHiveSplitManager
     private static final Table TEST_TABLE = createTestTable(VIEW_STORAGE_FORMAT, ImmutableMap.of());
 
     private ListeningExecutorService executor;
+    private static final String TEST_CATALOG_NAME = "hive";
 
     @BeforeClass
     public void setUp()
@@ -532,7 +533,8 @@ public class TestHiveSplitManager
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(false));
+                new HiveTableWritabilityChecker(false),
+                TEST_CATALOG_NAME);
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),
@@ -679,7 +681,8 @@ public class TestHiveSplitManager
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(false));
+                new HiveTableWritabilityChecker(false),
+                TEST_CATALOG_NAME);
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),

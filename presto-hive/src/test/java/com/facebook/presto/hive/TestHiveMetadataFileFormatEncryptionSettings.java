@@ -92,6 +92,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
 {
     private static final String TEST_SERVER_VERSION = "test_version";
     private static final String TEST_DB_NAME = "test_db";
+    private static final String TEST_CATALOG_NAME = "hive";
     private static final JsonCodec<PartitionUpdate> PARTITION_CODEC = jsonCodec(PartitionUpdate.class);
     private static final ConnectorSession SESSION = new TestingConnectorSession(
             new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties(),
@@ -141,7 +142,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(HDFS_ENVIRONMENT, HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(false));
+                new HiveTableWritabilityChecker(false),
+                TEST_CATALOG_NAME);
 
         metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
                 .setDatabaseName(TEST_DB_NAME)

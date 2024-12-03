@@ -81,6 +81,7 @@ public class TestHiveCommitHandleOutput
 {
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
+    private static final String TEST_CATALOG_NAME = "hive";
 
     private static final Map<String, Object> testTableProperties;
     private static ConnectorTableMetadata testTableMetadata;
@@ -260,7 +261,8 @@ public class TestHiveCommitHandleOutput
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(false));
+                new HiveTableWritabilityChecker(false),
+                TEST_CATALOG_NAME);
         return hiveMetadataFactory.get();
     }
 

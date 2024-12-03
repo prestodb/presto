@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -80,9 +79,8 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
+    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        String schemaName = catalogSchemaName.getSchemaName();
         if (schemas.contains(schemaName)) {
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
         }

@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -429,6 +428,7 @@ public class HiveMetadata
     private final HivePartitionStats hivePartitionStats;
     private final HiveFileRenamer hiveFileRenamer;
     private final TableWritabilityChecker tableWritabilityChecker;
+    private final String catalogName;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -455,7 +455,8 @@ public class HiveMetadata
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
             HiveFileRenamer hiveFileRenamer,
-            TableWritabilityChecker tableWritabilityChecker)
+            TableWritabilityChecker tableWritabilityChecker,
+            String catalogName)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -483,6 +484,7 @@ public class HiveMetadata
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
         this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
         this.tableWritabilityChecker = requireNonNull(tableWritabilityChecker, "tableWritabilityChecker is null");
+        this.catalogName = catalogName;
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -930,9 +932,8 @@ public class HiveMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, CatalogSchemaName catalogSchemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        String schemaName = catalogSchemaName.getSchemaName();
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
                 hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(locationUri));
@@ -948,7 +949,7 @@ public class HiveMetadata
                 .setLocation(location)
                 .setOwnerType(USER)
                 .setOwnerName(session.getUser())
-                .setCatalogName(Optional.of(catalogSchemaName.getCatalogName()))
+                .setCatalogName(Optional.ofNullable(catalogName))
                 .build();
 
         metastore.createDatabase(getMetastoreContext(session), database);
