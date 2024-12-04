@@ -178,7 +178,7 @@ std::string StackTrace::translateFrame(void* addressPtr, bool /*lineNumbers*/) {
   return folly::fibers::runInMainContext(
       [addressPtr]() { return translateFrameImpl(addressPtr); });
 #else
-  (void)addressPtr;
+  static_cast<void>(addressPtr);
   return std::string{};
 #endif
 }

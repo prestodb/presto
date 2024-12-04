@@ -35,7 +35,7 @@ double toBytesPerCapacityUnit(CapacityUnit unit) {
     case CapacityUnit::PETABYTE:
       return exp2(50);
     default:
-      VELOX_USER_FAIL("Invalid capacity unit '{}'", (int)unit);
+      VELOX_USER_FAIL("Invalid capacity unit '{}'", static_cast<int>(unit));
   }
 }
 

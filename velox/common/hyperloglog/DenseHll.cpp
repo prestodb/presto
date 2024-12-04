@@ -155,7 +155,7 @@ void DenseHll::insert(int32_t index, int8_t value) {
   }
 
   if (delta > kMaxDelta) {
-    int8_t overflow = (int8_t)(delta - kMaxDelta);
+    int8_t overflow = static_cast<int8_t>(delta - kMaxDelta);
 
     int overflowEntry = findOverflowEntry(index);
     if (overflowEntry != -1) {
@@ -287,11 +287,11 @@ void DenseHll::setDelta(int32_t index, int8_t value) {
   int slot = index >> 1;
 
   // Clear the old value.
-  int8_t clearMask = (int8_t)(kBucketMask << shiftForBucket(index));
+  int8_t clearMask = static_cast<int8_t>(kBucketMask << shiftForBucket(index));
   deltas_[slot] &= ~clearMask;
 
   // Set the new value.
-  int8_t setMask = (int8_t)(value << shiftForBucket(index));
+  int8_t setMask = static_cast<int8_t>(value << shiftForBucket(index));
   deltas_[slot] |= setMask;
 }
 
@@ -619,7 +619,7 @@ int32_t DenseHll::mergeWithSimd(const HllView& other, int8_t newBaseline) {
   const auto baselineBatch = xsimd::broadcast(baseline_);
   const auto otherBaselineBatch = xsimd::broadcast(other.baseline);
   const auto newBaselineBatch = xsimd::broadcast(newBaseline);
-  const auto zeroBatch = xsimd::broadcast((int8_t)0);
+  const auto zeroBatch = xsimd::broadcast(static_cast<int8_t>(0));
 
   // SIMD doesn't support 4-bit integers. The smallest integer is 8-bit.
   // We are going to use 2 SIMD registers to process a batch of values.

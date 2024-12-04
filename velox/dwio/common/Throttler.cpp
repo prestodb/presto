@@ -261,7 +261,9 @@ uint64_t Throttler::calculateBackoffDurationAndUpdateThrottleCache(
   return std::min(
       backoffDelayMs +
           boost::random::uniform_int_distribution<uint64_t>(
-              1, std::max<uint64_t>(1, (uint64_t)(backoffDelayMs * 0.1)))(rng_),
+              1,
+              std::max<uint64_t>(
+                  1, static_cast<uint64_t>(backoffDelayMs * 0.1)))(rng_),
       maxThrottleBackoffDurationMs_);
 }
 

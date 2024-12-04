@@ -26,7 +26,7 @@ std::vector<ByteRange> byteRangesFromIOBuf(folly::IOBuf* iobuf) {
   auto* current = iobuf;
   do {
     byteRanges.push_back(
-        {current->writableData(), (int32_t)current->length(), 0});
+        {current->writableData(), static_cast<int32_t>(current->length()), 0});
     current = current->next();
   } while (current != iobuf);
   return byteRanges;
@@ -255,7 +255,7 @@ void ByteOutputStream::appendBits(
 }
 
 void ByteOutputStream::appendStringView(StringView value) {
-  appendStringView((std::string_view)value);
+  appendStringView(static_cast<std::string_view>(value));
 }
 
 void ByteOutputStream::appendStringView(std::string_view value) {
