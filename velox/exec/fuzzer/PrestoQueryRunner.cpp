@@ -67,7 +67,7 @@ std::unique_ptr<ByteInputStream> toByteStream(const std::string& input) {
   std::vector<ByteRange> ranges;
   ranges.push_back(
       {reinterpret_cast<uint8_t*>(const_cast<char*>(input.data())),
-       (int32_t)input.length(),
+       static_cast<int32_t>(input.length()),
        0});
   return std::make_unique<BufferInputStream>(std::move(ranges));
 }

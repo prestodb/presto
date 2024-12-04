@@ -327,7 +327,7 @@ void updateKRowsOffsetsColumn(
   const int precedingFactor = isKPreceding ? -1 : 1;
   for (auto i = 0; i < numRows; ++i) {
     const auto startValue =
-        (int64_t)(startRow + i) + precedingFactor * offsets[i];
+        static_cast<int64_t>(startRow + i) + precedingFactor * offsets[i];
     if (startValue < INT32_MIN) {
       // Same as the handling of startValue < INT32_MIN in
       // updateKRowsFrameBounds.
@@ -352,8 +352,8 @@ void Window::updateKRowsFrameBounds(
     vector_size_t* rawFrameBounds) {
   if (frameArg.index == kConstantChannel) {
     const auto constantOffset = frameArg.constant.value();
-    const auto startValue =
-        (int64_t)startRow + (isKPreceding ? -constantOffset : constantOffset);
+    const auto startValue = static_cast<int64_t>(startRow) +
+        (isKPreceding ? -constantOffset : constantOffset);
 
     if (isKPreceding) {
       if (startValue < INT32_MIN) {
@@ -375,7 +375,7 @@ void Window::updateKRowsFrameBounds(
     // KFollowing.
     // The start index that overflow happens.
     int32_t overflowStart;
-    if (startValue > (int64_t)INT32_MAX) {
+    if (startValue > static_cast<int64_t>(INT32_MAX)) {
       overflowStart = 0;
     } else {
       overflowStart = INT32_MAX - startValue + 1;

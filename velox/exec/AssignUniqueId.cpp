@@ -37,7 +37,7 @@ AssignUniqueId::AssignUniqueId(
       uniqueTaskId,
       kTaskUniqueIdLimit,
       "Unique 24-bit ID specified for AssignUniqueId exceeds the limit");
-  uniqueValueMask_ = ((int64_t)uniqueTaskId) << 40;
+  uniqueValueMask_ = static_cast<int64_t>(uniqueTaskId) << 40;
 
   const auto numColumns = planNode->outputType()->size();
   identityProjections_.reserve(numColumns - 1);
@@ -93,7 +93,8 @@ void AssignUniqueId::generateIdColumn(vector_size_t size) {
 
     const auto numAvailableIds =
         std::min(maxRowIdCounterValue_ - rowIdCounter_, kRowIdsPerRequest);
-    const auto end = (int32_t)std::min((int64_t)size, start + numAvailableIds);
+    const vector_size_t end =
+        std::min(static_cast<int64_t>(size), start + numAvailableIds);
     VELOX_CHECK_EQ(
         (rowIdCounter_ + (end - start)) & uniqueValueMask_,
         0,

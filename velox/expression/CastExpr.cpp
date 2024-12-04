@@ -95,7 +95,7 @@ Status detail::parseDecimalComponents(
     }
     // Make sure all chars after sign are digits, as as folly::tryTo allows
     // leading and trailing whitespaces.
-    for (auto i = (size_t)withSign; i < size - pos; ++i) {
+    for (auto i = static_cast<size_t>(withSign); i < size - pos; ++i) {
       if (!std::isdigit(s[pos + i])) {
         return Status::UserError(
             "Non-digit character '{}' is not allowed in the exponent part.",

@@ -212,7 +212,7 @@ RowVectorPtr TableWriter::getOutput() {
   // 1. Set rows column.
   FlatVectorPtr<int64_t> writtenRowsVector =
       BaseVector::create<FlatVector<int64_t>>(BIGINT(), numOutputRows, pool());
-  writtenRowsVector->set(0, (int64_t)numWrittenRows_);
+  writtenRowsVector->set(0, static_cast<int64_t>(numWrittenRows_));
   for (int idx = 1; idx < numOutputRows; ++idx) {
     writtenRowsVector->setNull(idx, true);
   }

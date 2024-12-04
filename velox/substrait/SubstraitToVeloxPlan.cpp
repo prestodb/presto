@@ -345,8 +345,8 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   } else {
     return std::make_shared<core::LimitNode>(
         nextPlanNodeId(),
-        (int32_t)fetchRel.offset(),
-        (int32_t)fetchRel.count(),
+        static_cast<int32_t>(fetchRel.offset()),
+        static_cast<int32_t>(fetchRel.count()),
         false /*isPartial*/,
         childNode);
   }

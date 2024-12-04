@@ -183,8 +183,8 @@ char** AggregateCompanionAdapter::ExtractFunction::allocateGroups(
     memory::AllocationPool& allocationPool,
     const SelectivityVector& rows,
     uint64_t offsetInGroup) const {
-  auto* groups =
-      (char**)allocationPool.allocateFixed(sizeof(char*) * rows.end());
+  auto* groups = reinterpret_cast<char**>(
+      allocationPool.allocateFixed(sizeof(char*) * rows.end()));
 
   auto size = fn_->accumulatorFixedWidthSize();
   auto alignment = fn_->accumulatorAlignmentSize();

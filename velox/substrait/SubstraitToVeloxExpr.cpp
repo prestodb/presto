@@ -110,7 +110,7 @@ void setLiteralValue(
     }
   } else if (vector->type()->isDate()) {
     auto dateVector = vector->template asFlatVector<int32_t>();
-    dateVector->set(index, int(literal.date()));
+    dateVector->set(index, static_cast<int32_t>(literal.date()));
   } else {
     vector->set(index, getLiteralValue<T>(literal));
   }
@@ -247,7 +247,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     }
     case ::substrait::Expression_Literal::LiteralTypeCase::kDate:
       return std::make_shared<core::ConstantTypedExpr>(
-          DATE(), variant(int(substraitLit.date())));
+          DATE(), variant(static_cast<int32_t>(substraitLit.date())));
     default:
       VELOX_NYI(
           "Substrait conversion not supported for type case '{}'", typeCase);

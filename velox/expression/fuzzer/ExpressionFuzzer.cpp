@@ -583,19 +583,21 @@ ExpressionFuzzer::ExpressionFuzzer(
   LOG(INFO) << fmt::format(
       "Functions with at least one supported signature: {} ({:.2f}%)",
       supportedFunctions_.size(),
-      (double)supportedFunctions_.size() / totalFunctions * 100);
+      static_cast<double>(supportedFunctions_.size()) / totalFunctions * 100);
   LOG(INFO) << fmt::format(
       "Functions with no supported signature: {} ({:.2f}%)",
       unsupportedFunctions,
-      (double)unsupportedFunctions / totalFunctions * 100);
+      static_cast<double>(unsupportedFunctions) / totalFunctions * 100);
   LOG(INFO) << fmt::format(
       "Supported function signatures: {} ({:.2f}%)",
       supportedFunctionSignatures,
-      (double)supportedFunctionSignatures / totalFunctionSignatures * 100);
+      static_cast<double>(supportedFunctionSignatures) /
+          totalFunctionSignatures * 100);
   LOG(INFO) << fmt::format(
       "Unsupported function signatures: {} ({:.2f}%)",
       unsupportedFunctionSignatures,
-      (double)unsupportedFunctionSignatures / totalFunctionSignatures * 100);
+      static_cast<double>(unsupportedFunctionSignatures) /
+          totalFunctionSignatures * 100);
 
   getTicketsForFunctions();
 

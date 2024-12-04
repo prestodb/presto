@@ -369,7 +369,7 @@ bool SortWindowBuild::hasNextPartition() {
   }
 
   return partitionStartRows_.size() > 0 &&
-      currentPartition_ < int(partitionStartRows_.size() - 2);
+      currentPartition_ < static_cast<int>(partitionStartRows_.size() - 2);
 }
 
 } // namespace facebook::velox::exec

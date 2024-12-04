@@ -777,7 +777,7 @@ std::string OutputBuffer::toStringLocked() const {
 }
 
 double OutputBuffer::getUtilization() const {
-  return bufferedBytes_ / (double)maxSize_;
+  return bufferedBytes_ / static_cast<double>(maxSize_);
 }
 
 bool OutputBuffer::isOverutilized() const {

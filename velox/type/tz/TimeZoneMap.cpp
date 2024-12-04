@@ -250,9 +250,9 @@ void validateRangeImpl(time_point<TDuration> timePoint) {
     // VeloxRuntimeError to avoid it being suppressed by TRY().
     VELOX_FAIL_UNSUPPORTED_INPUT_UNCATCHABLE(
         "Timepoint is outside of supported year range: [{}, {}], got {}",
-        (int)kMinYear,
-        (int)kMaxYear,
-        (int)year);
+        static_cast<int>(kMinYear),
+        static_cast<int>(kMaxYear),
+        static_cast<int>(year));
   }
 }
 
