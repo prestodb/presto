@@ -262,6 +262,10 @@
                     <groupId>io.netty</groupId>
                     <artifactId>netty-transport-native-epoll</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.webjars</groupId>
+                    <artifactId>swagger-ui</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
