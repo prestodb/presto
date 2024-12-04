@@ -108,7 +108,7 @@ public class GatherAndMergeWindows
             return pullWindowNodeAboveProjects(captures.get(childCapture), projects)
                     .flatMap(newChild -> manipulateAdjacentWindowNodes(parent, newChild, context))
                     .map(Result::ofPlanNode)
-                    .orElse(Result.empty());
+                    .orElseGet(Result::empty);
         }
 
         protected abstract Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context);

@@ -280,7 +280,8 @@ public class DeltaMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        List<String> schemaNames = schemaName.<List<String>>map(ImmutableList::of).orElse(listSchemaNames(session));
+        List<String> schemaNames = schemaName.<List<String>>map(ImmutableList::of)
+                .orElseGet(() -> listSchemaNames(session));
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schema : schemaNames) {
             for (String tableName : metastore.getAllTables(metastoreContext(session), schema).orElse(emptyList())) {

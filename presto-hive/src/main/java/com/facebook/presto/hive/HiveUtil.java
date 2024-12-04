@@ -1237,8 +1237,9 @@ public final class HiveUtil
                 TypeSignatureParameter typeSignatureParameter = parameters.get(i);
                 checkArgument(typeSignatureParameter.isNamedTypeSignature(), "unexpected row type signature parameter: %s", typeSignatureParameter);
                 NamedTypeSignature namedTypeSignature = typeSignatureParameter.getNamedTypeSignature();
+                int parameterIdx = i;
                 updatedParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(
-                        Optional.of(namedTypeSignature.getFieldName().orElse(new RowFieldName("_field_" + i, false))),
+                        Optional.of(namedTypeSignature.getFieldName().orElseGet(() -> new RowFieldName("_field_" + parameterIdx, false))),
                         translateHiveUnsupportedTypeSignatureForTemporaryTable(namedTypeSignature.getTypeSignature()))));
             }
             return new TypeSignature(StandardTypes.ROW, updatedParameters.build());

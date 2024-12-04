@@ -673,7 +673,7 @@ public final class SqlToRowExpressionTranslator
 
             arguments.add(defaultValue
                     .map((value) -> process(value, context))
-                    .orElse(constantNull(operand.getSourceLocation(), returnType)));
+                    .orElseGet(() -> constantNull(operand.getSourceLocation(), returnType)));
 
             return specialForm(SWITCH, returnType, arguments.build());
         }

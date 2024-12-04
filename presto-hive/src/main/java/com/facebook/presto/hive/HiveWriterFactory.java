@@ -401,7 +401,7 @@ public class HiveWriterFactory
             hiveFileWriter = sortingFileWriterFactory.get().createSortingFileWriter(
                     path,
                     hiveFileWriter,
-                    bucketNumber.orElse(abs(path.hashCode() % 1024)),
+                    bucketNumber.orElseGet(() -> abs(path.hashCode() % 1024)),
                     writerParameters.getWriteInfo().getTempPath());
         }
 

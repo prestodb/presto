@@ -169,7 +169,7 @@ public class IcebergRestCatalogFactory
                             .setIdentity(session.getUser())
                             .setCredentials(credentials.build())
                             .setProperties(properties);
-                }).orElse(builder(session).setSessionId(randomUUID().toString()));
+                }).orElseGet(() -> builder(session).setSessionId(randomUUID().toString()));
         return sessionContextBuilder.build();
     }
 

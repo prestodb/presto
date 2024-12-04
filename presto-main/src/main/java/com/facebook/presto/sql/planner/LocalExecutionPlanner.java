@@ -2735,7 +2735,7 @@ public class LocalExecutionPlanner
                         // turns PARTIAL aggregation into INTERMEDIATE.
                         Optional.empty(),
                         true);
-            }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
+            }).orElseGet(() -> new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             List<Integer> inputChannels = node.getColumns().stream()
                     .map(source::variableToChannel)
@@ -2836,7 +2836,7 @@ public class LocalExecutionPlanner
                         200,
                         Optional.empty(),
                         true);
-            }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
+            }).orElseGet(() -> new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             OperatorFactory operatorFactory = new TableWriterMergeOperatorFactory(
                     context.getNextOperatorId(),
@@ -2892,12 +2892,12 @@ public class LocalExecutionPlanner
                         // final aggregation ignores partial pre-aggregation memory limit
                         Optional.empty(),
                         true);
-            }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
+            }).orElseGet(() -> new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             Map<VariableReferenceExpression, Integer> aggregationOutput = outputMapping.build();
             StatisticAggregationsDescriptor<Integer> descriptor = node.getStatisticsAggregationDescriptor()
                     .map(desc -> desc.map(aggregationOutput::get))
-                    .orElse(StatisticAggregationsDescriptor.empty());
+                    .orElseGet(StatisticAggregationsDescriptor::empty);
 
             ExecutionWriterTarget writerTarget = context.getTableWriteInfo().getWriterTarget().orElseThrow(() -> new VerifyException("writerTarget is absent"));
 

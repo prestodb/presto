@@ -182,7 +182,7 @@ public class IcebergEqualityDeleteAsJoin
             TupleDomain<IcebergColumnHandle> predicate = icebergTableLayoutHandle
                     .map(IcebergTableLayoutHandle::getValidPredicate)
                     .map(IcebergUtil::getNonMetadataColumnConstraints)
-                    .orElse(TupleDomain.all());
+                    .orElseGet(TupleDomain::all);
 
             // Collect info about each unique delete schema to join by
             ImmutableMap<Set<Integer>, DeleteSetInfo> deleteSchemas = collectDeleteInformation(icebergTable, predicate, tableName.getSnapshotId().get());

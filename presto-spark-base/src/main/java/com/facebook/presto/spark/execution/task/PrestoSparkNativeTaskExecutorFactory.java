@@ -398,7 +398,7 @@ public class PrestoSparkNativeTaskExecutorFactory
             RuntimeException failure = taskInfo.getTaskStatus().getFailures().stream()
                     .findFirst()
                     .map(ExecutionFailureInfo::toException)
-                    .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
+                    .orElseGet(() -> new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
             throw failure;
         }
 
