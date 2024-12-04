@@ -111,7 +111,7 @@ public class MaterializedViewInformationExtractor
             if (key instanceof FunctionCall && !singleColumn.getAlias().isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, singleColumn, "Derived field in materialized view must have an alias");
             }
-            baseToViewColumnMap.put(key, singleColumn.getAlias().orElse(new Identifier(key.toString())));
+            baseToViewColumnMap.put(key, singleColumn.getAlias().orElseGet(() -> new Identifier(key.toString())));
         }
 
         private void addGroupBy(GroupingElement groupingElement)

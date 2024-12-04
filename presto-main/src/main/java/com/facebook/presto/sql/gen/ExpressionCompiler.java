@@ -207,7 +207,7 @@ public class ExpressionCompiler
     {
         // create filter and project page iterator class
         try {
-            return compileProcessor(sqlFunctionProperties, filter.orElse(constant(true, BOOLEAN)), projections, bodyCompiler, superType);
+            return compileProcessor(sqlFunctionProperties, filter.orElseGet(() -> constant(true, BOOLEAN)), projections, bodyCompiler, superType);
         }
         catch (CompilationException e) {
             throw new PrestoException(COMPILER_ERROR, e.getCause());

@@ -42,7 +42,7 @@ public class PlanNodeMatcher
 
         Match<?> propertyMatch = resolvedValue
                 .map(value -> match(withPattern.getPattern(), value, captures))
-                .orElse(Match.empty());
+                .orElseGet(Match::empty);
         return propertyMatch.map(ignored -> (T) object);
     }
 }

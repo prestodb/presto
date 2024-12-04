@@ -48,13 +48,13 @@ public class PruneSemiJoinFilteringSourceColumns
     {
         Set<VariableReferenceExpression> requiredFilteringSourceInputs = Streams.concat(
                         Stream.of(semiJoinNode.getFilteringSourceJoinVariable()),
-                        semiJoinNode.getFilteringSourceHashVariable().map(Stream::of).orElse(Stream.empty()))
+                        semiJoinNode.getFilteringSourceHashVariable().map(Stream::of).orElseGet(Stream::empty))
                 .collect(toImmutableSet());
 
         return restrictOutputs(context.getIdAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs)
                 .map(newFilteringSource ->
                         semiJoinNode.replaceChildren(ImmutableList.of(semiJoinNode.getSource(), newFilteringSource)))
                 .map(Result::ofPlanNode)
-                .orElse(Result.empty());
+                .orElseGet(Result::empty);
     }
 }

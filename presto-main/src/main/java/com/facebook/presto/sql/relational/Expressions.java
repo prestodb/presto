@@ -200,7 +200,7 @@ public final class Expressions
         arguments.addAll(whenClauses);
 
         arguments.add(defaultValue
-                .orElse(constantNull(operand.getSourceLocation(), returnType)));
+                .orElseGet(() -> constantNull(operand.getSourceLocation(), returnType)));
 
         return specialForm(SWITCH, returnType, arguments.build());
     }

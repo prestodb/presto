@@ -113,7 +113,7 @@ public final class BytecodeExpressionAssertions
             System.out.println(tree);
         }
 
-        ClassLoader classLoader = parentClassLoader.orElse(BytecodeExpressionAssertions.class.getClassLoader());
+        ClassLoader classLoader = parentClassLoader.orElseGet(BytecodeExpressionAssertions.class::getClassLoader);
 
         return classGenerator(classLoader)
                 .defineClass(classDefinition, Object.class)

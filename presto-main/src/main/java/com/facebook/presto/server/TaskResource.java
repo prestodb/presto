@@ -314,7 +314,7 @@ public class TaskResource
                             .build();
                 })
                 .findFirst()
-                .orElse(Response.status(Response.Status.NOT_FOUND).build());
+                .orElseGet(Response.status(Response.Status.NOT_FOUND)::build);
     }
 
     @HEAD

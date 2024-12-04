@@ -817,7 +817,7 @@ public abstract class AbstractPrestoSparkQueryExecution
             }
         }
 
-        Class outputType = outputTypeOptional.orElse(getOutputType(subPlan));
+        Class outputType = outputTypeOptional.orElseGet(() -> getOutputType(subPlan));
         JavaPairRDD<MutablePartitionId, T> rdd = rddFactory.createSparkRdd(
                 sparkContext,
                 session,

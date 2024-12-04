@@ -45,6 +45,6 @@ public class PruneOutputColumns
                 outputNode,
                 ImmutableSet.copyOf(outputNode.getOutputVariables()))
                 .map(Result::ofPlanNode)
-                .orElse(Result.empty());
+                .orElseGet(Result::empty);
     }
 }

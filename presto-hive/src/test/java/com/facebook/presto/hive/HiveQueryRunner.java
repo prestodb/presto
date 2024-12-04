@@ -218,7 +218,7 @@ public final class HiveQueryRunner
             queryRunner.createCatalog("tpchstandard", "tpch", tpchProperties);
 
             ExtendedHiveMetastore metastore;
-            metastore = externalMetastore.orElse(getFileHiveMetastore(queryRunner));
+            metastore = externalMetastore.orElseGet(() -> getFileHiveMetastore(queryRunner));
 
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
 

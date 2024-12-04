@@ -299,7 +299,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getTotalCpuTime)
-                .orElse(new Duration(0, MILLISECONDS));
+                .orElseGet(() -> new Duration(0, MILLISECONDS));
     }
 
     @Override
@@ -307,7 +307,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getTotalMemoryReservation)
-                .orElse(new DataSize(0, BYTE));
+                .orElseGet(() -> new DataSize(0, BYTE));
     }
 
     @Override
@@ -315,7 +315,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getUserMemoryReservation)
-                .orElse(new DataSize(0, BYTE));
+                .orElseGet(() -> new DataSize(0, BYTE));
     }
 
     public int getRunningTaskCount()
@@ -328,7 +328,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getBasicQueryInfo)
-                .orElse(stateMachine.getBasicQueryInfo(Optional.empty()));
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.empty()));
     }
 
     @Override

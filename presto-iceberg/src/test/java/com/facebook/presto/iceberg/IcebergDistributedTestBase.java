@@ -1064,7 +1064,7 @@ public abstract class IcebergDistributedTestBase
                 handle,
                 new ArrayList<>(columns
                         .map(columnSet -> Maps.filterKeys(resolver.getColumnHandles(handle), columnSet::contains))
-                        .orElse(resolver.getColumnHandles(handle)).values()),
+                        .orElseGet(() -> resolver.getColumnHandles(handle)).values()),
                 Constraint.alwaysTrue());
     }
 

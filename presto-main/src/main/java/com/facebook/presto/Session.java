@@ -845,7 +845,8 @@ public final class Session
                     Optional.ofNullable(userAgent),
                     Optional.ofNullable(clientInfo),
                     clientTags,
-                    Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
+                    Optional.ofNullable(resourceEstimates)
+                            .orElseGet(new ResourceEstimateBuilder()::build),
                     startTime,
                     systemProperties,
                     connectorProperties,
