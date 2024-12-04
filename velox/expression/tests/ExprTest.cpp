@@ -4902,7 +4902,6 @@ TEST_F(ExprTest, disableMemoization) {
       makeIndices(2 * flatSize, [&](auto row) { return row % flatSize; }),
       2 * flatSize,
       flatInput);
-  auto dictSize = dictInput->size();
   auto inputRow = makeRowVector({dictInput});
 
   auto exprSet = compileExpression("c0 + 1", asRowType(inputRow->type()));

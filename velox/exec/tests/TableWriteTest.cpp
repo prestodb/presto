@@ -2118,7 +2118,6 @@ TEST_P(PartitionedTableWriterTest, singlePartition) {
 }
 
 TEST_P(PartitionedWithoutBucketTableWriterTest, fromSinglePartitionToMultiple) {
-  const int32_t numBatches = 1;
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), BIGINT()});
   setDataTypes(rowType);
   std::vector<std::string> partitionKeys = {"c0"};
@@ -2865,8 +2864,6 @@ TEST_P(AllTableWriterTest, columnStatsDataTypes) {
   const auto countStatsVector =
       result->childAt(nextColumnStatsIndex++)->asFlatVector<int64_t>();
   ASSERT_EQ(countStatsVector->valueAt(0), 1000);
-  const auto countIfStatsVector =
-      result->childAt(nextColumnStatsIndex++)->asFlatVector<int64_t>();
   ASSERT_EQ(countStatsVector->valueAt(0), 1000);
   const auto countMapStatsVector =
       result->childAt(nextColumnStatsIndex++)->asFlatVector<int64_t>();
@@ -2933,13 +2930,10 @@ TEST_P(AllTableWriterTest, columnStats) {
   auto result = AssertQueryBuilder(plan).copyResults(pool());
   auto rowVector = result->childAt(0)->asFlatVector<int64_t>();
   auto fragmentVector = result->childAt(1)->asFlatVector<StringView>();
-  auto commitContextVector = result->childAt(2)->asFlatVector<StringView>();
   auto columnStatsVector =
       result->childAt(3 + partitionedBy_.size())->asFlatVector<int64_t>();
 
-  const int64_t expectedRows = 10 * 100;
   std::vector<std::string> writeFiles;
-  int64_t numRows{0};
 
   // For partitioned, expected result is as follows:
   // Row     Fragment           Context       partition           c1_min_value
@@ -3043,13 +3037,10 @@ TEST_P(AllTableWriterTest, columnStatsWithTableWriteMerge) {
   auto result = AssertQueryBuilder(finalPlan).copyResults(pool());
   auto rowVector = result->childAt(0)->asFlatVector<int64_t>();
   auto fragmentVector = result->childAt(1)->asFlatVector<StringView>();
-  auto commitContextVector = result->childAt(2)->asFlatVector<StringView>();
   auto columnStatsVector =
       result->childAt(3 + partitionedBy_.size())->asFlatVector<int64_t>();
 
-  const int64_t expectedRows = 10 * 100;
   std::vector<std::string> writeFiles;
-  int64_t numRows{0};
 
   // For partitioned, expected result is as follows:
   // Row     Fragment           Context       partition           c1_min_value
@@ -4175,7 +4166,6 @@ DEBUG_ONLY_TEST_F(
 }
 
 DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableFileWriteError) {
-  const uint64_t memoryCapacity = 32 * MB;
   VectorFuzzer::Options options;
   const int batchSize = 1'000;
   options.vectorSize = batchSize;
@@ -4192,7 +4182,6 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableFileWriteError) {
 
   auto queryPool = memory::memoryManager()->addRootPool(
       "tableFileWriteError", kQueryMemoryCapacity);
-  auto* arbitrator = memory::memoryManager()->arbitrator();
   auto queryCtx = core::QueryCtx::create(
       executor_.get(), QueryConfig{{}}, {}, nullptr, std::move(queryPool));
   ASSERT_EQ(queryCtx->pool()->capacity(), kQueryMemoryCapacity);
@@ -4248,7 +4237,6 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableFileWriteError) {
 }
 
 DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteSpillUseMoreMemory) {
-  const uint64_t memoryCapacity = 256 * MB;
   // Create a large number of vectors to trigger writer spill.
   fuzzerOpts_.vectorSize = 1000;
   fuzzerOpts_.stringLength = 2048;
@@ -4274,7 +4262,6 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteSpillUseMoreMemory) {
       fakeLeafPool->allocate(fakeAllocationSize),
       fakeAllocationSize};
 
-  void* allocatedBuffer;
   TestAllocation injectedWriterAllocation;
   SCOPED_TESTVALUE_SET(
       "facebook::velox::dwrf::Writer::flushInternal",
@@ -4348,7 +4335,6 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteReclaimOnClose) {
     numRows += vectors.back()->size();
   }
 
-  auto* arbitrator = memory::memoryManager()->arbitrator();
   auto queryPool = memory::memoryManager()->addRootPool(
       "tableWriteSpillUseMoreMemory", kQueryMemoryCapacity);
   auto queryCtx = core::QueryCtx::create(

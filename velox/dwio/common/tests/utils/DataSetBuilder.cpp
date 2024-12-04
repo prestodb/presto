@@ -254,7 +254,6 @@ DataSetBuilder& DataSetBuilder::makeMapStringValues(
     auto keyKind = map->type()->childAt(0)->kind();
     auto valueKind = map->type()->childAt(1)->kind();
     auto offsets = map->rawOffsets();
-    auto sizes = map->rawSizes();
     int32_t offsetIndex = 0;
     auto mapSize = map->size();
     auto getNextOffset = [&]() {

@@ -309,9 +309,6 @@ TEST_F(VectorCompareTest, compareNullAsIndeterminateSimpleOfComplex) {
 
   // Test equality with nulls.
   {
-    CompareFlags equalityFlags = CompareFlags::equality(
-        CompareFlags::NullHandlingMode::kNullAsIndeterminate);
-
     // Constat vector.
     testCompare(
         constantVectorNull, 0, constantVectorOne, 1, kEquality, kIndeterminate);

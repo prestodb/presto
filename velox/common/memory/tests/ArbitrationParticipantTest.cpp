@@ -1370,7 +1370,6 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, reclaimLock) {
   auto task = createTask(kMemoryCapacity);
   const auto config = arbitrationConfig();
   auto participant = ArbitrationParticipant::create(10, task->pool(), &config);
-  const uint64_t allocatedBytes = 32 * MB;
   for (int i = 0; i < 32; ++i) {
     task->allocate(MB);
   }

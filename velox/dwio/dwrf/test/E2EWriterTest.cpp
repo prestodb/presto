@@ -1960,7 +1960,6 @@ TEST_F(E2EWriterTest, memoryReclaimAfterClose) {
     VELOX_ASSERT_THROW(writer->flush(), "Writer is not running");
 
     memory::MemoryReclaimer::Stats stats;
-    const auto oldCapacity = writerPool->capacity();
     writerPool->reclaim(1L << 30, 0, stats);
     if (testData.abort || !testData.canReclaim) {
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);

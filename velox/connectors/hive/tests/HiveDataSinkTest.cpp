@@ -976,7 +976,6 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, sortWriterAbortDuringFinish) {
     dataSink->appendData(vector);
   }
 
-  std::atomic_int injectCount{0};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::dwrf::Writer::write",
       std::function<void(dwrf::Writer*)>([&](dwrf::Writer* /*unused*/) {

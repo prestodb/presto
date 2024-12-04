@@ -53,7 +53,6 @@ TEST_F(AllocationPoolTest, hugePages) {
   allocationPool->setHugePageThreshold(128 << 10);
   int32_t counter = 0;
   for (;;) {
-    int32_t usedKB = 0;
     allocationPool->newRun(32 << 10);
     // Initial allocations round up to 64K
     EXPECT_EQ(1, allocationPool->numRanges());

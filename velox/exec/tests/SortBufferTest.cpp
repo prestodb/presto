@@ -503,7 +503,6 @@ DEBUG_ONLY_TEST_P(SortBufferTest, spillDuringInput) {
   const std::shared_ptr<memory::MemoryPool> fuzzerPool =
       memory::memoryManager()->addLeafPool("spillDuringInput");
   VectorFuzzer fuzzer({.vectorSize = 1024}, fuzzerPool.get());
-  uint64_t totalNumInput{0};
 
   ASSERT_EQ(memory::spillMemoryPool()->stats().usedBytes, 0);
   const auto peakSpillMemoryUsage =
@@ -555,7 +554,6 @@ DEBUG_ONLY_TEST_P(SortBufferTest, spillDuringOutput) {
   const std::shared_ptr<memory::MemoryPool> fuzzerPool =
       memory::memoryManager()->addLeafPool("spillDuringOutput");
   VectorFuzzer fuzzer({.vectorSize = 1024}, fuzzerPool.get());
-  uint64_t totalNumInput{0};
 
   ASSERT_EQ(memory::spillMemoryPool()->stats().usedBytes, 0);
   const auto peakSpillMemoryUsage =

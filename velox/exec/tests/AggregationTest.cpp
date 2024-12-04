@@ -1012,7 +1012,6 @@ TEST_F(AggregationTest, largeValueRangeArray) {
 
 TEST_F(AggregationTest, partialAggregationMemoryLimitIncrease) {
   constexpr int64_t kGB = 1 << 30;
-  constexpr int64_t kB = 1 << 10;
   auto vectors = {
       makeRowVector({makeFlatVector<int32_t>(
           100, [](auto row) { return row; }, nullEvery(5))}),
@@ -1104,7 +1103,6 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
 
   constexpr int64_t kGB = 1 << 30;
   const int64_t kMaxPartialMemoryUsage = 1 * kGB;
-  const int64_t kMaxUserMemoryUsage = 2 * kMaxPartialMemoryUsage;
   // Make sure partial aggregation runs out of memory after first batch.
   CursorParameters params;
   params.queryCtx = core::QueryCtx::create(executor_.get());

@@ -231,7 +231,6 @@ TEST_P(E2EReaderTest, SharedDictionaryFlatmapReadAsStruct) {
         ASSERT_TRUE(resultTypeRow.childAt(col)->isMap());
         ASSERT_EQ(batchRow->childAt(col)->typeKind(), TypeKind::MAP);
         auto& resultTypeChild = resultTypeRow.childAt(col)->as<TypeKind::MAP>();
-        auto* batchRowChild = batchRow->childAt(col)->as<MapVector>();
         ASSERT_EQ(
             resultTypeChild.keyType()->kind(), schemaChild.keyType()->kind());
         ASSERT_EQ(

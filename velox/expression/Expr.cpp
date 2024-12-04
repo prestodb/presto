@@ -993,7 +993,7 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
   // its a shared subexpression.
   const auto& rowsToPeel =
       context.isFinalSelection() ? rows : *context.finalSelection();
-  auto numFields = context.row()->childrenSize();
+  [[maybe_unused]] auto numFields = context.row()->childrenSize();
   std::vector<VectorPtr> vectorsToPeel;
   vectorsToPeel.reserve(distinctFields_.size());
   for (auto* field : distinctFields_) {
