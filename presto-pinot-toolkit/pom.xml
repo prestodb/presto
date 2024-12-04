@@ -314,10 +314,6 @@
                     <groupId>com.fasterxml.jackson.dataformat</groupId>
                     <artifactId>jackson-dataformat-yaml</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.webjars</groupId>
-                    <artifactId>swagger-ui</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
