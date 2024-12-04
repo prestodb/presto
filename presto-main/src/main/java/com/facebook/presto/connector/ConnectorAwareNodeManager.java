@@ -48,6 +48,7 @@ public class ConnectorAwareNodeManager
         return ImmutableSet.<Node>builder()
                 .addAll(getWorkerNodes())
                 .addAll(nodeManager.getCoordinators())
+                .addAll(nodeManager.getCoordinatorSidecars())
                 .build();
     }
 

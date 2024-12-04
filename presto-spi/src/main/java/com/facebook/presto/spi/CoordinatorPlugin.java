@@ -14,16 +14,15 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
 
 import static java.util.Collections.emptyList;
 
 /**
- * Introduces a new {@link CoordinatorPlugin} interface for native C++ clusters.
- * Certain elements of the {@link Plugin} SPI are not used in Prestissimo deployments, or may result in inconsistencies.
- * The {@link CoordinatorPlugin} includes only the interfaces relevant to native C++ clusters and
- * is a successor to {@link Plugin} and will eventually replace it.
- * It contains only interfaces that are valid and used in a coordinator.
+ * The {@link CoordinatorPlugin} interface allows for plugins to provide additional functionality
+ * specifically for a coordinator in a Presto cluster. This is a successor to {@link Plugin} for
+ * coordinator specific plugins and will eventually replace it.
  */
 public interface CoordinatorPlugin
 {
@@ -33,6 +32,11 @@ public interface CoordinatorPlugin
     }
 
     default Iterable<WorkerSessionPropertyProviderFactory> getWorkerSessionPropertyProviderFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<PlanCheckerProviderFactory> getPlanCheckerProviderFactories()
     {
         return emptyList();
     }

@@ -7351,6 +7351,111 @@ void from_json(const json& j, PipelineStats& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 
+void to_json(json& j, const PlanConversionFailureInfo& p) {
+  j = json::object();
+  to_json_key(j, "type", p.type, "PlanConversionFailureInfo", "String", "type");
+  to_json_key(
+      j,
+      "message",
+      p.message,
+      "PlanConversionFailureInfo",
+      "String",
+      "message");
+  to_json_key(
+      j,
+      "cause",
+      p.cause,
+      "PlanConversionFailureInfo",
+      "PlanConversionFailureInfo",
+      "cause");
+  to_json_key(
+      j,
+      "suppressed",
+      p.suppressed,
+      "PlanConversionFailureInfo",
+      "List<PlanConversionFailureInfo>",
+      "suppressed");
+  to_json_key(
+      j,
+      "stack",
+      p.stack,
+      "PlanConversionFailureInfo",
+      "List<String>",
+      "stack");
+  to_json_key(
+      j,
+      "errorCode",
+      p.errorCode,
+      "PlanConversionFailureInfo",
+      "ErrorCode",
+      "errorCode");
+}
+
+void from_json(const json& j, PlanConversionFailureInfo& p) {
+  from_json_key(
+      j, "type", p.type, "PlanConversionFailureInfo", "String", "type");
+  from_json_key(
+      j,
+      "message",
+      p.message,
+      "PlanConversionFailureInfo",
+      "String",
+      "message");
+  from_json_key(
+      j,
+      "cause",
+      p.cause,
+      "PlanConversionFailureInfo",
+      "PlanConversionFailureInfo",
+      "cause");
+  from_json_key(
+      j,
+      "suppressed",
+      p.suppressed,
+      "PlanConversionFailureInfo",
+      "List<PlanConversionFailureInfo>",
+      "suppressed");
+  from_json_key(
+      j,
+      "stack",
+      p.stack,
+      "PlanConversionFailureInfo",
+      "List<String>",
+      "stack");
+  from_json_key(
+      j,
+      "errorCode",
+      p.errorCode,
+      "PlanConversionFailureInfo",
+      "ErrorCode",
+      "errorCode");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const PlanConversionResponse& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "failures",
+      p.failures,
+      "PlanConversionResponse",
+      "List<PlanConversionFailureInfo>",
+      "failures");
+}
+
+void from_json(const json& j, PlanConversionResponse& p) {
+  from_json_key(
+      j,
+      "failures",
+      p.failures,
+      "PlanConversionResponse",
+      "List<PlanConversionFailureInfo>",
+      "failures");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
 void to_json(json& j, const PlanCostEstimate& p) {
   j = json::object();
   to_json_key(j, "cpuCost", p.cpuCost, "PlanCostEstimate", "double", "cpuCost");

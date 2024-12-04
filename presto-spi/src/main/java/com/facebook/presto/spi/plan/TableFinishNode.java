@@ -29,7 +29,7 @@ import static com.facebook.presto.common.Utils.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableFinishNode
+public final class TableFinishNode
         extends PlanNode
 {
     private final PlanNode source;

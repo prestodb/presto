@@ -68,7 +68,7 @@ public class SimplifySortWithConstantInput
                 return Result.ofPlanNode(projectNode);
             }
             OrderingScheme orderExcludeConstantVariable = new OrderingScheme(newOrderBy);
-            return Result.ofPlanNode(new SortNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), projectNode, orderExcludeConstantVariable, node.isPartial()));
+            return Result.ofPlanNode(new SortNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), projectNode, orderExcludeConstantVariable, node.isPartial(), node.getPartitionBy()));
         }
         return Result.empty();
     }

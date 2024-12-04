@@ -59,6 +59,7 @@ public class IcebergRestCatalogFactory
     private final IcebergRestConfig catalogConfig;
     private final NodeVersion nodeVersion;
     private final String catalogName;
+    private final boolean nestedNamespaceEnabled;
 
     @Inject
     public IcebergRestCatalogFactory(
@@ -73,6 +74,7 @@ public class IcebergRestCatalogFactory
         this.catalogConfig = requireNonNull(catalogConfig, "catalogConfig is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
+        this.nestedNamespaceEnabled = catalogConfig.isNestedNamespaceEnabled();
     }
 
     @Override
@@ -133,6 +135,12 @@ public class IcebergRestCatalogFactory
                 .ifPresent(type -> properties.put(CatalogProperties.USER, session.getUser()));
 
         return properties.build();
+    }
+
+    @Override
+    public boolean isNestedNamespaceEnabled()
+    {
+        return this.nestedNamespaceEnabled;
     }
 
     protected SessionContext convertSession(ConnectorSession session)

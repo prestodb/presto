@@ -25,22 +25,7 @@ void sendOkResponse(proxygen::ResponseHandler* downstream) {
 }
 
 void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body) {
-  // nlohmann::json throws when it finds invalid UTF-8 characters. In that case
-  // the server will crash. We handle such situation here and generate body
-  // replacing the faulty UTF-8 sequences.
-  std::string messageBody;
-  try {
-    messageBody = body.dump();
-  } catch (const std::exception& e) {
-    messageBody =
-        body.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
-    LOG(WARNING) << "Failed to serialize json to string. "
-                    "Will retry with 'replace' option. "
-                    "Json Dump:\n"
-                 << messageBody;
-  }
-
-  sendOkResponse(downstream, messageBody);
+  sendResponse(downstream, body, http::kHttpOk);
 }
 
 void sendOkResponse(
@@ -72,6 +57,33 @@ void sendErrorResponse(
   proxygen::ResponseBuilder(downstream)
       .status(status, "")
       .body(error)
+      .sendWithEOM();
+}
+
+void sendResponse(
+    proxygen::ResponseHandler* downstream,
+    const json& body,
+    uint16_t status) {
+  // nlohmann::json throws when it finds invalid UTF-8 characters. In that case
+  // the server will crash. We handle such situation here and generate body
+  // replacing the faulty UTF-8 sequences.
+  std::string messageBody;
+  try {
+    messageBody = body.dump();
+  } catch (const std::exception& e) {
+    messageBody =
+        body.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
+    LOG(WARNING) << "Failed to serialize json to string. "
+                    "Will retry with 'replace' option. "
+                    "Json Dump:\n"
+                 << messageBody;
+  }
+
+  proxygen::ResponseBuilder(downstream)
+      .status(status, "")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
+      .body(messageBody)
       .sendWithEOM();
 }
 

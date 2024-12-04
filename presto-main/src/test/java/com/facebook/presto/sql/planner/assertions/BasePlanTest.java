@@ -91,7 +91,7 @@ public class BasePlanTest
         return objectMapper;
     }
 
-    private static ObjectMapper createObjectMapper()
+    protected static ObjectMapper createObjectMapper()
     {
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();

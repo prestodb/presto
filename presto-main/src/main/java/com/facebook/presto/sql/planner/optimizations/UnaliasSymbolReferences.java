@@ -448,7 +448,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
         {
-            return new DeleteNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalize(node.getRowId()), node.getOutputVariables());
+            return new DeleteNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalize(node.getRowId()), node.getOutputVariables(), node.getInputDistribution());
         }
 
         @Override
@@ -563,7 +563,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new SortNode(node.getSourceLocation(), node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()), node.isPartial());
+            return new SortNode(node.getSourceLocation(), node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()), node.isPartial(), node.getPartitionBy());
         }
 
         @Override

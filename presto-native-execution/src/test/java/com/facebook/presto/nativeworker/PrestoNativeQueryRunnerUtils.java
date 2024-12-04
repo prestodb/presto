@@ -334,6 +334,9 @@ public class PrestoNativeQueryRunnerUtils
                 .put("hive.allow-drop-table", "true")
                 .build();
 
+        ImmutableMap.Builder<String, String> coordinatorProperties = ImmutableMap.builder();
+        coordinatorProperties.put("native-execution-enabled", "true");
+
         // Make query runner with external workers for tests
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(),
@@ -344,7 +347,7 @@ public class PrestoNativeQueryRunnerUtils
                         .putAll(getNativeWorkerSystemProperties())
                         .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : ImmutableMap.of())
                         .build(),
-                ImmutableMap.of(),
+                coordinatorProperties.build(),
                 "legacy",
                 hiveProperties,
                 workerCount,
