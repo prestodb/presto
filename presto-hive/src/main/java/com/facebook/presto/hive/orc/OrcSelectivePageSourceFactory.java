@@ -285,7 +285,7 @@ public class OrcSelectivePageSourceFactory
 
         boolean supplyRowIDs = selectedColumns.stream().anyMatch(column -> HiveColumnHandle.isRowIdColumnHandle(column));
         checkArgument(!supplyRowIDs || rowIDPartitionComponent.isPresent(), "rowIDPartitionComponent required when supplying row IDs");
-        byte[] partitionID = rowIDPartitionComponent.orElse(new byte[0]);
+        byte[] partitionID = rowIDPartitionComponent.orElseGet(() -> new byte[0]);
         String rowGroupId = path.getName();
 
         DataSize maxMergeDistance = getOrcMaxMergeDistance(session);
