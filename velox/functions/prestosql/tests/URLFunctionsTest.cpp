@@ -648,6 +648,7 @@ TEST_F(URLFunctionsTest, urlDecode) {
   EXPECT_THROW(urlDecode("http%3A%2F%2"), VeloxUserError);
   EXPECT_THROW(urlDecode("http%3A%2F%"), VeloxUserError);
   EXPECT_THROW(urlDecode("http%3A%2F%2H"), VeloxUserError);
+  EXPECT_THROW(urlDecode("%-1"), VeloxUserError);
 }
 
 } // namespace
