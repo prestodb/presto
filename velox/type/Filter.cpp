@@ -991,8 +991,8 @@ FilterPtr HugeintValuesUsingHashTable::create(const folly::dynamic& obj) {
 }
 
 HugeintValuesUsingHashTable::HugeintValuesUsingHashTable(
-    const int128_t min,
-    const int128_t max,
+    const int128_t& min,
+    const int128_t& max,
     const std::vector<int128_t>& values,
     const bool nullAllowed)
     : Filter(true, nullAllowed, FilterKind::kHugeintValuesUsingHashTable),
@@ -1005,7 +1005,7 @@ HugeintValuesUsingHashTable::HugeintValuesUsingHashTable(
   }
 }
 
-bool HugeintValuesUsingHashTable::testInt128(int128_t value) const {
+bool HugeintValuesUsingHashTable::testInt128(const int128_t& value) const {
   return values_.contains(value);
 }
 
@@ -1469,7 +1469,7 @@ bool MultiRange::testBytes(const char* value, int32_t length) const {
   return false;
 }
 
-bool MultiRange::testTimestamp(Timestamp timestamp) const {
+bool MultiRange::testTimestamp(const Timestamp& timestamp) const {
   for (const auto& filter : filters_) {
     if (filter->testTimestamp(timestamp)) {
       return true;

@@ -23,7 +23,7 @@ namespace facebook::velox::parquet {
 namespace {
 
 // Range filter for Parquet Int96 Timestamp.
-class ParquetInt96TimestampRange : public common::TimestampRange {
+class ParquetInt96TimestampRange final : public common::TimestampRange {
  public:
   // @param lower Lower end of the range, inclusive.
   // @param upper Upper end of the range, inclusive.
@@ -36,7 +36,7 @@ class ParquetInt96TimestampRange : public common::TimestampRange {
 
   // Int96 is read as int128_t value and converted to Timestamp by extracting
   // days and nanos.
-  bool testInt128(int128_t value) const final override {
+  bool testInt128(const int128_t& value) const final {
     const int32_t days = static_cast<int32_t>(value >> 64);
     const uint64_t nanos = value & ((((1ULL << 63) - 1ULL) << 1) + 1);
     const auto ts = Timestamp::fromDaysAndNanos(days, nanos);
