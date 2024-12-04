@@ -27,12 +27,15 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.Serialization;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Key;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
@@ -388,8 +391,9 @@ public class TestQueues
         AtomicBoolean triggerValidationFailure = new AtomicBoolean();
 
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.installPlugin(new TestingPlanCheckerProviderPlugin(triggerValidationFailure));
-        queryRunner.getPlanCheckerProviderManager().loadPlanCheckerProviders();
+        queryRunner.installCoordinatorPlugin(new TestingPlanCheckerProviderPlugin(triggerValidationFailure));
+        PlanCheckerProviderManager planCheckerProviderManager = queryRunner.getCoordinator().getInstance(Key.get(PlanCheckerProviderManager.class));
+        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager());
         queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_eager_plan_validation.json")));
 
         Session.SessionBuilder builder = testSessionBuilder()

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.plan.PlanChecker;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanCheckerProviderContext;
@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestingPlanCheckerProviderPlugin
-        implements Plugin, PlanCheckerProviderFactory, PlanCheckerProvider
+        implements CoordinatorPlugin, PlanCheckerProviderFactory, PlanCheckerProvider
 {
     private final AtomicBoolean triggerValidationFailure;
 

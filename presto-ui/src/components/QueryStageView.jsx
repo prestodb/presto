@@ -334,45 +334,14 @@ function StageOperatorGraph({ id, stage }) {
 
     const detailContainer = React.useRef(null);
 
-    const computeOperatorMap = () => {
-        const operatorMap = new Map();
-        stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
-            if (!operatorMap.has(operator.planNodeId)) {
-                operatorMap.set(operator.planNodeId, [])
-            }
-
-            operatorMap.get(operator.planNodeId).push(operator);
-        });
-
-        return operatorMap;
-    };
-
-    const computeOperatorGraphs = (planNode, operatorMap) => {
-        const sources = getChildren(planNode);
-        const sourceResults = new Map();
-        sources.forEach(source => {
-            const sourceResult = computeOperatorGraphs(source, operatorMap);
-            sourceResult.forEach((operator, pipelineId) => {
-                if (sourceResults.has(pipelineId)) {
-                    console.error("Multiple sources for ", planNode['@type'], " had the same pipeline ID");
-                    return sourceResults;
-                }
-                sourceResults.set(pipelineId, operator);
-            });
-        });
-
-        let nodeOperators = operatorMap.get(planNode.id);
-        if (!nodeOperators || nodeOperators.length === 0) {
-            return sourceResults;
-        }
-
+    const computeOperatorGraphs = () => {
         const pipelineOperators = new Map();
-        nodeOperators.forEach(operator => {
+        stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
             if (!pipelineOperators.has(operator.pipelineId)) {
                 pipelineOperators.set(operator.pipelineId, []);
             }
             pipelineOperators.get(operator.pipelineId).push(operator);
-        });
+         });
 
         const result = new Map();
         pipelineOperators.forEach((pipelineOperators, pipelineId) => {
@@ -380,13 +349,6 @@ function StageOperatorGraph({ id, stage }) {
             const linkedOperators = pipelineOperators.map(a => Object.assign({}, a)).sort((a, b) => a.operatorId - b.operatorId);
             const sinkOperator = linkedOperators[linkedOperators.length - 1];
             const sourceOperator = linkedOperators[0];
-
-            if (sourceResults.has(pipelineId)) {
-                const pipelineChildResult = sourceResults.get(pipelineId);
-                if (pipelineChildResult) {
-                    sourceOperator.child = pipelineChildResult;
-                }
-            }
 
             // chain operators at this level
             let currentOperator = sourceOperator;
@@ -398,12 +360,6 @@ function StageOperatorGraph({ id, stage }) {
             result.set(pipelineId, sinkOperator);
         });
 
-        sourceResults.forEach((operator, pipelineId) => {
-            if (!result.has(pipelineId)) {
-                result.set(pipelineId, operator);
-            }
-        });
-
         return result;
     };
 
@@ -411,8 +367,8 @@ function StageOperatorGraph({ id, stage }) {
         if (!stage) {
             return;
         }
-        const operatorMap = computeOperatorMap();
-        const operatorGraphs = computeOperatorGraphs(stage.plan.root, operatorMap);
+
+        const operatorGraphs = computeOperatorGraphs();
 
         const graph = initializeGraph();
         operatorGraphs.forEach((operator, pipelineId) => {

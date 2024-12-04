@@ -146,7 +146,7 @@ public final class IcebergQueryRunner
             Optional<Path> dataDirectory)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, externalWorkerLauncher, dataDirectory, false);
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, externalWorkerLauncher, dataDirectory, false, Optional.empty());
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(
@@ -161,11 +161,27 @@ public final class IcebergQueryRunner
             boolean addStorageFormatToPath)
             throws Exception
     {
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, externalWorkerLauncher, dataDirectory, addStorageFormatToPath, Optional.empty());
+    }
+
+    public static DistributedQueryRunner createIcebergQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> extraConnectorProperties,
+            FileFormat format,
+            boolean createTpchTables,
+            boolean addJmxPlugin,
+            OptionalInt nodeCount,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
+            Optional<Path> dataDirectory,
+            boolean addStorageFormatToPath,
+            Optional<String> schemaName)
+            throws Exception
+    {
         setupLogging();
 
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
-                .setSchema("tpch")
+                .setSchema(schemaName.orElse("tpch"))
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)

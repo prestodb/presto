@@ -105,11 +105,13 @@ void updateVeloxConnectorConfigs(
     // is
     //       not set                             retain cache
     //       SOFT_AFFINITY                       retain cache
+    //       HARD_AFFINITY                       retain cache
     //       NO_PREFERENCE                       do not retain cache
     // If queryDataCacheEnabledDefault is false, when `node_selection_strategy`
     // is
     //       not set                             do not retain cache
     //       SOFT_AFFINITY                       retain cache
+    //       HARD_AFFINITY                       retain cache
     //       NO_PREFERENCE                       do not retain cache
     connectorConfig.emplace(
         connector::hive::HiveConfig::kCacheNoRetentionSession,
@@ -117,7 +119,9 @@ void updateVeloxConnectorConfigs(
     auto it = connectorConfig.find("node_selection_strategy");
     if (it != connectorConfig.end()) {
       connectorConfig[connector::hive::HiveConfig::kCacheNoRetentionSession] =
-          it->second == "SOFT_AFFINITY" ? "false" : "true";
+          (it->second != "SOFT_AFFINITY" && it->second != "HARD_AFFINITY")
+          ? "true"
+          : "false";
     }
   }
 }

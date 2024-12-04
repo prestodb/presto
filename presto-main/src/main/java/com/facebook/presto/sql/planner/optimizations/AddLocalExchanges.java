@@ -22,6 +22,7 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -191,6 +192,30 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, StreamPreferredProperties parentPreferences)
         {
+            if (!node.getPartitionBy().isEmpty()) {
+                return planSortWithPartition(node, parentPreferences);
+            }
+            return planSortWithoutPartition(node, parentPreferences);
+        }
+
+        private PlanWithProperties planSortWithPartition(SortNode node, StreamPreferredProperties parentPreferences)
+        {
+            checkArgument(!node.getPartitionBy().isEmpty());
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputVariables())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(node.getPartitionBy());
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+
+            SortNode result = new SortNode(node.getSourceLocation(), idAllocator.getNextId(), child.getNode(), node.getOrderingScheme(), node.isPartial(), node.getPartitionBy());
+
+            return deriveProperties(result, child.getProperties());
+        }
+
+        private PlanWithProperties planSortWithoutPartition(SortNode node, StreamPreferredProperties parentPreferences)
+        {
+            checkArgument(node.getPartitionBy().isEmpty());
             // Remove sort if the child is already sorted and in a single stream
             // TODO: extract to its own optimization after AddLocalExchanges once the
             // constraint optimization framework is in a better state to be extended
@@ -431,6 +456,31 @@ public class AddLocalExchanges
                     node.getHashVariable(),
                     prePartitionedInputs,
                     preSortedOrderPrefix);
+
+            return deriveProperties(result, child.getProperties());
+        }
+
+        @Override
+        public PlanWithProperties visitDelete(DeleteNode node, StreamPreferredProperties parentPreferences)
+        {
+            if (!node.getInputDistribution().isPresent()) {
+                return visitPlan(node, parentPreferences);
+            }
+            DeleteNode.InputDistribution inputDistribution = node.getInputDistribution().get();
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputVariables())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(inputDistribution.getPartitionBy());
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+            DeleteNode result = new DeleteNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    node.getStatsEquivalentPlanNode(),
+                    child.getNode(),
+                    node.getRowId(),
+                    node.getOutputVariables(),
+                    node.getInputDistribution());
 
             return deriveProperties(result, child.getProperties());
         }

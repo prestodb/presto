@@ -221,13 +221,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
             httpSrvCpuExecutor_,
             [this, &body, taskId, createOrUpdateFunc]() {
               const auto startProcessCpuTimeNs = util::getProcessCpuTimeNs();
-
-              // TODO Avoid copy
-              std::ostringstream oss;
-              for (auto& buf : body) {
-                oss << std::string((const char*)buf->data(), buf->length());
-              }
-              std::string updateJson = oss.str();
+              std::string updateJson = util::extractMessageBody(body);
 
               std::unique_ptr<protocol::TaskInfo> taskInfo;
               try {

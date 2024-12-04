@@ -4,9 +4,9 @@ Presto C++ Configuration Properties
 
 This section describes Presto C++ configuration properties.
 
-The following is not a complete list of all configuration properties, 
-and does not include any connector-specific catalog configuration properties 
-or session properties. 
+The following is not a complete list of all configuration properties,
+and does not include any connector-specific catalog configuration properties
+or session properties.
 
 For information on catalog configuration properties, see :doc:`Connectors </connector/>`.
 
@@ -20,9 +20,9 @@ For information on Presto C++ session properties, see :doc:`properties-session`.
 Coordinator Properties
 ----------------------
 
-Set the following configuration properties for the Presto coordinator exactly 
-as they are shown in this code block to enable the Presto coordinator's use of 
-Presto C++ workers. 
+Set the following configuration properties for the Presto coordinator exactly
+as they are shown in this code block to enable the Presto coordinator's use of
+Presto C++ workers.
 
 .. code-block:: none
 
@@ -31,17 +31,17 @@ Presto C++ workers.
     regex-library=RE2J
     use-alternative-function-signatures=true
 
-These Presto coordinator configuration properties are described here, in 
-alphabetical order. 
+These Presto coordinator configuration properties are described here, in
+alphabetical order.
 
 ``driver.cancel-tasks-with-stuck-operators-threshold-ms``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``string``
 * **Default value:** ``240000`` (40 minutes)
 
-  Cancels any task when at least one operator has been stuck for at 
+  Cancels any task when at least one operator has been stuck for at
   least the time specified by this threshold.
-  
+
   Set this property to ``0`` to disable canceling.
 
 ``native-execution-enabled``
@@ -50,7 +50,7 @@ alphabetical order.
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-  This property is required when running Presto C++ workers because of 
+  This property is required when running Presto C++ workers because of
   underlying differences in behavior from Java workers.
 
 ``optimizer.optimize-hash-generation``
@@ -59,9 +59,9 @@ alphabetical order.
 * **Type:** ``boolean``
 * **Default value:** ``true``
 
-  Set this property to ``false`` when running Presto C++ workers.  
-  Velox does not support optimized hash generation, instead using a HashTable 
-  with adaptive runtime optimizations that does not use extra hash fields. 
+  Set this property to ``false`` when running Presto C++ workers.
+  Velox does not support optimized hash generation, instead using a HashTable
+  with adaptive runtime optimizations that does not use extra hash fields.
 
 ``regex-library``
 ^^^^^^^^^^^^^^^^^
@@ -78,17 +78,17 @@ alphabetical order.
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-  Some aggregation functions use generic intermediate types which are 
-  not compatible with Velox aggregation function intermediate types. One  
-  example function is ``approx_distinct``, whose intermediate type is 
-  ``VARBINARY``. 
-  This property provides function signatures for built-in aggregation 
+  Some aggregation functions use generic intermediate types which are
+  not compatible with Velox aggregation function intermediate types. One
+  example function is ``approx_distinct``, whose intermediate type is
+  ``VARBINARY``.
+  This property provides function signatures for built-in aggregation
   functions which are compatible with Velox.
 
 Worker Properties
 -----------------
 
-The configuration properties of Presto C++ workers are described here, in alphabetical order. 
+The configuration properties of Presto C++ workers are described here, in alphabetical order.
 
 ``async-cache-persistence-interval``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -292,8 +292,8 @@ The configuration properties of Presto C++ workers are described here, in alphab
 Memory Checker Properties
 -------------------------
 
-The LinuxMemoryChecker extends from PeriodicMemoryChecker and is used for Linux systems only. 
-The LinuxMemoryChecker can be enabled by setting the CMake flag ``PRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER``. 
+The LinuxMemoryChecker extends from PeriodicMemoryChecker and is used for Linux systems only.
+The LinuxMemoryChecker can be enabled by setting the CMake flag ``PRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER``.
 The following properties for PeriodicMemoryChecker are as follows:
 
 ``system-mem-pushback-enabled``
@@ -312,7 +312,7 @@ server is under low memory pressure.
 * **Default value:** ``55``
 
 Specifies the system memory limit that triggers the memory pushback or heap dump if
-the server memory usage is beyond this limit. A value of zero means no limit is set. 
+the server memory usage is beyond this limit. A value of zero means no limit is set.
 This only applies if ``system-mem-pushback-enabled`` is ``true``.
 
 ``system-mem-shrink-gb``
@@ -323,3 +323,34 @@ This only applies if ``system-mem-pushback-enabled`` is ``true``.
 
 Specifies the amount of memory to shrink when the memory pushback is
 triggered. This only applies if ``system-mem-pushback-enabled`` is ``true``.
+
+Environment Variables As Values For Worker Properties
+-----------------------------------------------------
+
+This section applies to worker configurations in the ``config.properties`` file
+and catalog property files only.
+
+The value in a key-value pair can reference an environment variable by using
+a leading `$` followed by enclosing the environment variable name in brackets (`{}`).
+
+``key=${ENV_VAR_NAME}``
+
+The environment variable name must match exactly with the defined variable.
+
+This allows a worker to read sensitive data such as access keys from an
+environment variable rather than having the actual value hard coded in a configuration
+file on disk, improving the security of deployments.
+
+For example, consider the hive connector's ``hive.s3.aws-access-key`` property.
+This is sensitive data and can be stored in an environment variable such as
+``AWS_S3_ACCESS_KEY`` which is set to the actual access key value.
+
+One mechanism is to create a preload library that is injected at the time
+presto_server is started that decrypts encrypted secrets and sets environment
+variables specific to the presto_server process. These can then be referenced
+in the properties.
+
+Once decrypted the preloaded library sets the ``AWS_S3_ACCESS_KEY``
+environment variable which then can be accessed by providing it in the catalog properties:
+
+``hive.s3.aws-access-key=${AWS_S3_ACCESS_KEY}``

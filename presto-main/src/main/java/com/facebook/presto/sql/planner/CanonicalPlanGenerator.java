@@ -751,7 +751,8 @@ public class CanonicalPlanGenerator
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 getCanonicalOrderingScheme(node.getOrderingScheme(), context.getExpressions()),
-                node.isPartial());
+                node.isPartial(),
+                node.getPartitionBy());
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }

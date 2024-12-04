@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerProviderFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.CoordinatorPlugin;
+import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
 import com.google.common.collect.ImmutableList;
 
@@ -25,5 +27,20 @@ public class NativeSidecarPlugin
     public Iterable<WorkerSessionPropertyProviderFactory> getWorkerSessionPropertyProviderFactories()
     {
         return ImmutableList.of(new NativeSystemSessionPropertyProviderFactory());
+    }
+
+    @Override
+    public Iterable<PlanCheckerProviderFactory> getPlanCheckerProviderFactories()
+    {
+        return ImmutableList.of(new NativePlanCheckerProviderFactory(getClassLoader()));
+    }
+
+    private static ClassLoader getClassLoader()
+    {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if (classLoader == null) {
+            classLoader = NativeSidecarPlugin.class.getClassLoader();
+        }
+        return classLoader;
     }
 }

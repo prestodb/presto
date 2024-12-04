@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -56,6 +57,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.lang.management.ManagementFactory;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -140,6 +142,8 @@ public class TaskResource
         long startCpuTimeUpdateTask = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
 
         Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
+        RuntimeStats runtimeStats = Optional.of(session.getRuntimeStats()).orElse(new RuntimeStats());
+
         TaskInfo taskInfo = taskManager.updateTask(session,
                 taskId,
                 taskUpdateRequest.getFragment().map(planFragmentCodec::fromBytes),

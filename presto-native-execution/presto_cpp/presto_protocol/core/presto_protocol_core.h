@@ -1754,6 +1754,25 @@ void to_json(json& j, const PipelineStats& p);
 void from_json(const json& j, PipelineStats& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct PlanConversionFailureInfo {
+  String type = {};
+  String message = {};
+  std::shared_ptr<PlanConversionFailureInfo> cause = {};
+  List<PlanConversionFailureInfo> suppressed = {};
+  List<String> stack = {};
+  ErrorCode errorCode = {};
+};
+void to_json(json& j, const PlanConversionFailureInfo& p);
+void from_json(const json& j, PlanConversionFailureInfo& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct PlanConversionResponse {
+  List<PlanConversionFailureInfo> failures = {};
+};
+void to_json(json& j, const PlanConversionResponse& p);
+void from_json(const json& j, PlanConversionResponse& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct PlanCostEstimate {
   double cpuCost = {};
   double maxMemory = {};
