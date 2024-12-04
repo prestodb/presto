@@ -44,6 +44,8 @@ struct PlanNodeStats {
   PlanNodeStats(PlanNodeStats&&) = default;
   PlanNodeStats& operator=(PlanNodeStats&&) = default;
 
+  PlanNodeStats& operator+=(const PlanNodeStats&);
+
   /// Sum of input rows for all corresponding operators. Useful primarily for
   /// leaf plan nodes or plan nodes that correspond to a single operator type.
   uint64_t inputRows{0};
