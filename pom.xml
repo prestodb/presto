@@ -2015,23 +2015,11 @@
                 <version>${dep.lucene.version}</version>
             </dependency>
 
-<!--            <dependency>-->
-<!--                <groupId>org.apache.lucene</groupId>-->
-<!--                <artifactId>lucene-core</artifactId>-->
-<!--                <version>${dep.lucene.version}</version>-->
-<!--            </dependency>-->
-
             <dependency>
                 <groupId>org.apache.lucene</groupId>
                 <artifactId>lucene-queryparser</artifactId>
                 <version>${dep.lucene.version}</version>
             </dependency>
-
-<!--            <dependency>-->
-<!--                <groupId>org.apache.lucene</groupId>-->
-<!--                <artifactId>lucene-sandbox</artifactId>-->
-<!--                <version>${dep.lucene.version}</version>-->
-<!--            </dependency>-->
 
             <dependency>
                 <groupId>org.locationtech.jts</groupId>
@@ -2320,13 +2308,7 @@
                         <ignoredClassPatterns combine.children="append">
                             <!-- Duplicate class is being brought in by commons-io & log4j-api -->
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
-                            <!-- Ignore duplicate classes related to lucene-core and ranger-apache -->
-<!--                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.analysis.tokenattributes.CharTermAttributeImpl</ignoredClassPattern>-->
-<!--                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.document.*</ignoredClassPattern>-->
-<!--                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.index.*</ignoredClassPattern>-->
-<!--                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.search.TopFieldCollector</ignoredClassPattern>-->
-<!--                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.store.DataInput</ignoredClassPattern>-->
-<!--                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.*</ignoredClassPattern>-->
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.*</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
                 </plugin>
