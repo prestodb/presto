@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/connectors/arrow_flight/tests/utils/StaticFlightServer.h"
+#include "presto_cpp/main/connectors/arrow_flight/tests/utils/TestFlightServer.h"
 #include "arrow/api.h"
 #include "arrow/flight/api.h"
 #include "arrow/testing/gtest_util.h"
@@ -25,10 +25,10 @@ namespace {
 using namespace facebook::presto::connector::arrow_flight::test;
 using namespace arrow::flight;
 
-class StaticFlightServerTest : public testing::Test {
+class TestFlightServerTest : public testing::Test {
  public:
   static void SetUpTestSuite() {
-    server = std::make_unique<StaticFlightServer>();
+    server = std::make_unique<TestFlightServer>();
     ASSERT_OK_AND_ASSIGN(auto loc, Location::ForGrpcTcp("127.0.0.1", 0));
     ASSERT_OK(server->Init(FlightServerOptions(loc)));
   }
@@ -50,12 +50,12 @@ class StaticFlightServerTest : public testing::Test {
   }
 
   std::unique_ptr<FlightClient> client;
-  static std::unique_ptr<StaticFlightServer> server;
+  static std::unique_ptr<TestFlightServer> server;
 };
 
-std::unique_ptr<StaticFlightServer> StaticFlightServerTest::server;
+std::unique_ptr<TestFlightServer> TestFlightServerTest::server;
 
-TEST_F(StaticFlightServerTest, basicTest) {
+TEST_F(TestFlightServerTest, basicTest) {
   auto sampleTable = makeArrowTable(
       {"id", "value"},
       {makeNumericArray<arrow::UInt32Type>({1, 2}),

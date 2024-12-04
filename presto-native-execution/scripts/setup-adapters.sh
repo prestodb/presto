@@ -84,7 +84,7 @@ function install_arrow_flight {
   install_abseil
   install_grpc
 
-  wget_and_untar https://archive.apache.org/dist/arrow/arrow-${ARROW_VERSION}/apache-arrow-${ARROW_VERSION}.tar.gz arrow
+  wget_and_untar https://github.com/apache/arrow/archive/apache-arrow-${ARROW_VERSION}.tar.gz arrow
   cmake_install_dir arrow/cpp \
     -DARROW_FLIGHT=ON \
     -DARROW_BUILD_BENCHMARKS=ON \

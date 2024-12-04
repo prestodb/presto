@@ -100,9 +100,9 @@ class FlightDataSource : public velox::connector::DataSource {
 
  private:
   /// Convert an arrow record batch to Velox RowVector.
-  /// Process only those columns that are present in outputType_
+  /// Process only those columns that are present in outputType_.
   velox::RowVectorPtr projectOutputColumns(
-      std::shared_ptr<arrow::RecordBatch> input);
+      const std::shared_ptr<arrow::RecordBatch>& input);
 
   velox::RowTypePtr outputType_;
   std::vector<std::string> columnMapping_;
@@ -110,7 +110,7 @@ class FlightDataSource : public velox::connector::DataSource {
   uint64_t completedRows_ = 0;
   uint64_t completedBytes_ = 0;
   std::shared_ptr<auth::Authenticator> authenticator_;
-  velox::memory::MemoryPool* pool_;
+  velox::memory::MemoryPool* const pool_;
   const std::shared_ptr<FlightConfig> flightConfig_;
   const std::shared_ptr<arrow::flight::FlightClientOptions> clientOpts_;
   const std::optional<arrow::flight::Location> defaultLocation_;
@@ -126,12 +126,11 @@ class ArrowFlightConnector : public velox::connector::Connector {
         flightConfig_{std::make_shared<FlightConfig>(config)},
         clientOpts_{initClientOpts(flightConfig_)},
         defaultLocation_{getDefaultLocation(flightConfig_)},
-        authenticator_{
-            // auth::getAuthenticatorFactory(config_->authenticatorName())
-            auth::getAuthenticatorFactory(
-                authenticatorName ? authenticatorName
-                                  : flightConfig_->authenticatorName())
-                ->newAuthenticator(config)} {}
+        authenticator_{auth::getAuthenticatorFactory(
+                           authenticatorName
+                               ? authenticatorName
+                               : flightConfig_->authenticatorName())
+                           ->newAuthenticator(config)} {}
 
   std::unique_ptr<velox::connector::DataSource> createDataSource(
       const velox::RowTypePtr& outputType,

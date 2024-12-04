@@ -19,7 +19,7 @@
 #include "presto_cpp/main/connectors/arrow_flight/Macros.h"
 #include "presto_cpp/main/connectors/arrow_flight/tests/utils/FlightConnectorTestBase.h"
 #include "presto_cpp/main/connectors/arrow_flight/tests/utils/FlightPlanBuilder.h"
-#include "presto_cpp/main/connectors/arrow_flight/tests/utils/StaticFlightServer.h"
+#include "presto_cpp/main/connectors/arrow_flight/tests/utils/TestFlightServer.h"
 #include "presto_cpp/main/connectors/arrow_flight/tests/utils/Utils.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/config/Config.h"
@@ -64,7 +64,7 @@ TEST_F(FlightConnectorDataTypeTest, booleanType) {
       .assertResults(makeRowVector({boolVec}));
 }
 
-TEST_F(FlightConnectorDataTypeTest, intType) {
+TEST_F(FlightConnectorDataTypeTest, integerTypes) {
   updateTable(
       "sample-data",
       makeArrowTable(

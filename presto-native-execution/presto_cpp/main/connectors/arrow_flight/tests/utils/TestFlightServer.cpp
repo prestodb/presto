@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/connectors/arrow_flight/tests/utils/StaticFlightServer.h"
+#include "presto_cpp/main/connectors/arrow_flight/tests/utils/TestFlightServer.h"
 
 namespace facebook::presto::connector::arrow_flight::test {
 
 using namespace arrow::flight;
 
-arrow::Status StaticFlightServer::DoGet(
+arrow::Status TestFlightServer::DoGet(
     const ServerCallContext& context,
     const Ticket& request,
     std::unique_ptr<FlightDataStream>* stream) {

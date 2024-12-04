@@ -11,7 +11,7 @@
 # limitations under the License.
 add_library(
   presto_flight_connector_test_lib
-  StaticFlightServer.cpp FlightConnectorTestBase.cpp Utils.cpp
+  TestFlightServer.cpp FlightConnectorTestBase.cpp Utils.cpp
   FlightPlanBuilder.cpp)
 
 target_link_libraries(

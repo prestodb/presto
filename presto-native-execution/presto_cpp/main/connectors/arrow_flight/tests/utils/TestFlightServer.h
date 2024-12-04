@@ -24,9 +24,9 @@ namespace facebook::presto::connector::arrow_flight::test {
 /// Normally, the tickets would be obtained by calling GetFlightInfo,
 /// but since this is done by the coordinator this part is omitted.
 /// Instead, the ticket is simply the name of the table to fetch.
-class StaticFlightServer : public arrow::flight::FlightServerBase {
+class TestFlightServer : public arrow::flight::FlightServerBase {
  public:
-  explicit StaticFlightServer() {};
+  explicit TestFlightServer() {};
 
   void updateTable(std::string name, std::shared_ptr<arrow::Table> table) {
     tables_.emplace(std::move(name), std::move(table));

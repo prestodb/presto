@@ -49,7 +49,7 @@ void FlightConnectorTestBase::TearDown() {
 void FlightWithServerTestBase::SetUp() {
   FlightConnectorTestBase::SetUp();
 
-  server_ = std::make_unique<StaticFlightServer>();
+  server_ = std::make_unique<TestFlightServer>();
   ASSERT_OK(server_->Init(*options_));
 }
 

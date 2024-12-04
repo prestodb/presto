@@ -24,8 +24,8 @@ using namespace arrow::flight;
 using namespace velox;
 using namespace velox::connector;
 
-// wrapper for CallOptions which doesn't add any members variables
-// but provides a write-only interface for adding call headers
+// Wrapper for CallOptions which does not add any member variables,
+// but provides a write-only interface for adding call headers.
 class CallOptionsAddHeaders : public FlightCallOptions, public AddCallHeaders {
  public:
   void AddHeader(const std::string& key, const std::string& value) override {
@@ -148,13 +148,13 @@ std::optional<RowVectorPtr> FlightDataSource::next(
   AFC_ASSIGN_OR_RAISE(auto chunk, currentReader_->Next());
   auto recordBatch = std::move(chunk).data;
 
-  // null values in the chunk indicates that the Flight stream is complete
+  // Null values in the chunk indicates that the Flight stream is complete.
   if (!recordBatch) {
     currentReader_ = nullptr;
     return nullptr;
   }
 
-  // extract only required columns from the record batch as a velox RowVector
+  // Extract only required columns from the record batch as a velox RowVector.
   auto output = projectOutputColumns(recordBatch);
 
   completedRows_ += output->size();
@@ -163,11 +163,11 @@ std::optional<RowVectorPtr> FlightDataSource::next(
 }
 
 RowVectorPtr FlightDataSource::projectOutputColumns(
-    std::shared_ptr<arrow::RecordBatch> input) {
+    const std::shared_ptr<arrow::RecordBatch>& input) {
   std::vector<VectorPtr> children;
   children.reserve(columnMapping_.size());
 
-  // extract and convert desired columns in the correct order
+  // Extract and convert desired columns in the correct order.
   for (auto name : columnMapping_) {
     auto column = input->GetColumnByName(name);
     VELOX_CHECK_NOT_NULL(column, "column with name '{}' not found", name);

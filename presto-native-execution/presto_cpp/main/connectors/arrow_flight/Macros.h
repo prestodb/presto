@@ -15,11 +15,11 @@
 
 #include "velox/common/base/Exceptions.h"
 
-// macros for dealing with arrow::Status and arrow::Result objects
-// and converting them to velox exceptions
+// Macros for dealing with arrow::Status and arrow::Result objects
+// and converting them to velox exceptions.
 
 /// Raise a Velox exception if status is not OK.
-/// Counterpart of ARROW_RETURN_NOT_OK
+/// Counterpart of ARROW_RETURN_NOT_OK.
 #define AFC_RAISE_NOT_OK(status)                                      \
   do {                                                                \
     ::arrow::Status __s = ::arrow::internal::GenericToStatus(status); \
@@ -34,7 +34,7 @@
 /// Raise a Velox exception if expr doesn't return an OK result,
 /// else unwrap the value and assign it to `lhs`.
 /// `std::move`s its right hand operand.
-/// Counterpart of ARROW_ASSIGN_OR_RAISE
+/// Counterpart of ARROW_ASSIGN_OR_RAISE.
 #define AFC_ASSIGN_OR_RAISE(lhs, rexpr) \
   AFC_ASSIGN_OR_RAISE_IMPL(             \
       ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, rexpr);

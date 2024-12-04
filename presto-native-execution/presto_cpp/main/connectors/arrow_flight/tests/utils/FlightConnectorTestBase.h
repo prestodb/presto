@@ -14,7 +14,7 @@
 #pragma once
 
 #include "arrow/flight/api.h"
-#include "presto_cpp/main/connectors/arrow_flight/tests/utils/StaticFlightServer.h"
+#include "presto_cpp/main/connectors/arrow_flight/tests/utils/TestFlightServer.h"
 #include "velox/common/config/Config.h"
 #include "velox/connectors/Connector.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
@@ -32,7 +32,7 @@ class FlightConnectorTestBase : public velox::exec::test::OperatorTestBase {
  protected:
   explicit FlightConnectorTestBase(
       std::shared_ptr<velox::config::ConfigBase> config)
-      : config_{config} {}
+      : config_{std::move(config)} {}
 
   FlightConnectorTestBase()
       : config_{std::make_shared<velox::config::ConfigBase>(
@@ -87,7 +87,7 @@ class FlightWithServerTestBase : public FlightConnectorTestBase {
       const std::string& keyPath = "");
 
  private:
-  std::unique_ptr<StaticFlightServer> server_;
+  std::unique_ptr<TestFlightServer> server_;
   std::shared_ptr<arrow::flight::FlightServerOptions> options_;
 };
 

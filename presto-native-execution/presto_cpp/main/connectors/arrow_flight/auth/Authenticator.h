@@ -35,9 +35,11 @@ class Authenticator {
 class AuthenticatorFactory {
  public:
   AuthenticatorFactory(std::string_view name) : name_{name} {}
+
   const std::string& name() const {
     return name_;
   }
+
   virtual std::shared_ptr<Authenticator> newAuthenticator(
       const std::shared_ptr<const velox::config::ConfigBase> config) = 0;
 
@@ -47,6 +49,7 @@ class AuthenticatorFactory {
 
 bool registerAuthenticatorFactory(
     std::shared_ptr<AuthenticatorFactory> factory);
+
 std::shared_ptr<AuthenticatorFactory> getAuthenticatorFactory(
     const std::string& name);
 
@@ -67,9 +70,12 @@ class NoOpAuthenticator : public Authenticator {
 class NoOpAuthenticatorFactory : public AuthenticatorFactory {
  public:
   static constexpr const std::string_view kNoOpAuthenticatorName{"none"};
+
   NoOpAuthenticatorFactory() : AuthenticatorFactory{kNoOpAuthenticatorName} {}
+
   NoOpAuthenticatorFactory(std::string_view name)
       : AuthenticatorFactory{name} {}
+
   std::shared_ptr<Authenticator> newAuthenticator(
       const std::shared_ptr<const velox::config::ConfigBase> config) override {
     return std::make_shared<NoOpAuthenticator>();
