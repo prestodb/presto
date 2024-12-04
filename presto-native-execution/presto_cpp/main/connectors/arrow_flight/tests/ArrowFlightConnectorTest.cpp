@@ -119,7 +119,7 @@ TEST_F(FlightConnectorTest, dataSourceTest) {
       AssertQueryBuilder(plan)
           .splits(makeSplits({"sample-data"}, std::vector<std::string>{}))
           .assertResults(makeRowVector({idVec, valueVec})),
-      "Server Hostname not given");
+      "default host or port is missing");
 
   // column alias test
   plan =

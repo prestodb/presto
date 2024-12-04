@@ -67,7 +67,10 @@ class FlightDataSource : public velox::connector::DataSource {
           std::shared_ptr<velox::connector::ColumnHandle>>& columnHandles,
       std::shared_ptr<auth::Authenticator> authenticator,
       velox::memory::MemoryPool* pool,
-      const std::shared_ptr<FlightConfig>& flightConfig);
+      const std::shared_ptr<FlightConfig>& flightConfig,
+      const std::shared_ptr<arrow::flight::FlightClientOptions>& clientOpts,
+      const std::optional<arrow::flight::Location> defaultLocation =
+          std::nullopt);
 
   void addSplit(
       std::shared_ptr<velox::connector::ConnectorSplit> split) override;
@@ -109,6 +112,8 @@ class FlightDataSource : public velox::connector::DataSource {
   std::shared_ptr<auth::Authenticator> authenticator_;
   velox::memory::MemoryPool* pool_;
   const std::shared_ptr<FlightConfig> flightConfig_;
+  const std::shared_ptr<arrow::flight::FlightClientOptions> clientOpts_;
+  const std::optional<arrow::flight::Location> defaultLocation_;
 };
 
 class ArrowFlightConnector : public velox::connector::Connector {
@@ -119,6 +124,8 @@ class ArrowFlightConnector : public velox::connector::Connector {
       const char* authenticatorName = nullptr)
       : Connector{id},
         flightConfig_{std::make_shared<FlightConfig>(config)},
+        clientOpts_{initClientOpts(flightConfig_)},
+        defaultLocation_{getDefaultLocation(flightConfig_)},
         authenticator_{
             // auth::getAuthenticatorFactory(config_->authenticatorName())
             auth::getAuthenticatorFactory(
@@ -139,7 +146,9 @@ class ArrowFlightConnector : public velox::connector::Connector {
         columnHandles,
         authenticator_,
         ctx->memoryPool(),
-        flightConfig_);
+        flightConfig_,
+        clientOpts_,
+        defaultLocation_);
   }
 
   std::unique_ptr<velox::connector::DataSink> createDataSink(
@@ -152,7 +161,17 @@ class ArrowFlightConnector : public velox::connector::Connector {
   }
 
  private:
+  // Returns the default location specified in the FlightConfig.
+  // Returns nullopt if either host or port is missing.
+  static std::optional<arrow::flight::Location> getDefaultLocation(
+      const std::shared_ptr<FlightConfig>& config);
+
+  static std::shared_ptr<arrow::flight::FlightClientOptions> initClientOpts(
+      const std::shared_ptr<FlightConfig>& config);
+
   const std::shared_ptr<FlightConfig> flightConfig_;
+  const std::shared_ptr<arrow::flight::FlightClientOptions> clientOpts_;
+  const std::optional<arrow::flight::Location> defaultLocation_;
   const std::shared_ptr<auth::Authenticator> authenticator_;
 };
 

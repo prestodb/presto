@@ -33,17 +33,55 @@ class CallOptionsAddHeaders : public FlightCallOptions, public AddCallHeaders {
   }
 };
 
+std::optional<Location> ArrowFlightConnector::getDefaultLocation(
+    const std::shared_ptr<FlightConfig>& config) {
+  auto defaultHost = config->defaultServerHostname();
+  auto defaultPort = config->defaultServerPort();
+  if (!defaultHost.has_value() || !defaultPort.has_value()) {
+    return std::nullopt;
+  }
+
+  bool defaultSslEnabled = config->defaultServerSslEnabled();
+  AFC_RETURN_OR_RAISE(
+      defaultSslEnabled
+          ? Location::ForGrpcTls(defaultHost.value(), defaultPort.value())
+          : Location::ForGrpcTcp(defaultHost.value(), defaultPort.value()));
+}
+
+std::shared_ptr<arrow::flight::FlightClientOptions>
+ArrowFlightConnector::initClientOpts(
+    const std::shared_ptr<FlightConfig>& config) {
+  auto clientOpts = std::make_shared<FlightClientOptions>();
+  clientOpts->disable_server_verification = !config->serverVerify();
+
+  auto certPath = config->serverSslCertificate();
+  if (certPath.hasValue()) {
+    std::ifstream file(certPath.value());
+    VELOX_CHECK(file.is_open(), "Could not open TLS certificate");
+    std::string cert(
+        (std::istreambuf_iterator<char>(file)),
+        (std::istreambuf_iterator<char>()));
+    clientOpts->tls_root_certs = cert;
+  }
+
+  return clientOpts;
+}
+
 FlightDataSource::FlightDataSource(
     const RowTypePtr& outputType,
     const std::unordered_map<std::string, std::shared_ptr<ColumnHandle>>&
         columnHandles,
     std::shared_ptr<auth::Authenticator> authenticator,
     memory::MemoryPool* pool,
-    const std::shared_ptr<FlightConfig>& flightConfig)
+    const std::shared_ptr<FlightConfig>& flightConfig,
+    const std::shared_ptr<arrow::flight::FlightClientOptions>& clientOpts,
+    const std::optional<arrow::flight::Location> defaultLocation)
     : outputType_{outputType},
       authenticator_{authenticator},
       pool_{pool},
-      flightConfig_(flightConfig) {
+      flightConfig_{flightConfig},
+      clientOpts_{clientOpts},
+      defaultLocation_{defaultLocation} {
   // columnMapping_ contains the real column names in the expected order.
   // This is later used by projectOutputColumns to filter out unecessary
   // columns from the fetched chunk.
@@ -75,32 +113,17 @@ void FlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   if (locs.size() > 0) {
     AFC_ASSIGN_OR_RAISE(loc, Location::Parse(locs[0]));
   } else {
-    auto defaultHost = flightConfig_->defaultServerHostname();
-    auto defaultPort = flightConfig_->defaultServerPort();
-    VELOX_CHECK(defaultHost.has_value(), "Server Hostname not given");
-    VELOX_CHECK(defaultPort.has_value(), "Server Port not given");
-
-    bool defaultSslEnabled = flightConfig_->defaultServerSslEnabled();
-    AFC_ASSIGN_OR_RAISE(
-        loc,
-        defaultSslEnabled
-            ? Location::ForGrpcTls(defaultHost.value(), defaultPort.value())
-            : Location::ForGrpcTcp(defaultHost.value(), defaultPort.value()));
+    VELOX_CHECK(
+        defaultLocation_.has_value(),
+        "Split has empty Location list, but default host or port is missing");
+    loc = defaultLocation_.value();
   }
 
-  FlightClientOptions clientOpts{
-      .disable_server_verification{!flightConfig_->serverVerify()}};
-  auto certPath = flightConfig_->serverSslCertificate();
-  if (certPath.hasValue()) {
-    std::ifstream file(certPath.value());
-    VELOX_CHECK(file.is_open(), "Could not open TLS certificate");
-    std::string cert(
-        (std::istreambuf_iterator<char>(file)),
-        (std::istreambuf_iterator<char>()));
-    clientOpts.tls_root_certs = cert;
-  }
-
-  AFC_ASSIGN_OR_RAISE(auto client, FlightClient::Connect(loc, clientOpts));
+  clientOpts_ ? *clientOpts_ : FlightClientOptions{};
+  AFC_ASSIGN_OR_RAISE(
+      auto client,
+      FlightClient::Connect(
+          loc, clientOpts_ ? *clientOpts_ : FlightClientOptions{}));
 
   CallOptionsAddHeaders callOptsAddHeaders{};
   FlightCallOptions& callOpts = callOptsAddHeaders;
