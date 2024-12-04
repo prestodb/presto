@@ -193,7 +193,7 @@ Whether async data cache is enabled.
 If ``true``, SSD cache is enabled by default and is disabled only if
 ``node_selection_strategy`` is present and set to ``NO_PREFERENCE``.
 Otherwise, SSD cache is disabled by default and is enabled if
-``node_selection_strategy`` is present and set to ``SOFT_AFFINITY``.
+``node_selection_strategy`` is present and set to ``SOFT_AFFINITY`` or ``HARD_AFFINITY``.
 
 ``async-cache-ssd-gb``
 ^^^^^^^^^^^^^^^^^^^^^^
