@@ -17,12 +17,12 @@
 #pragma once
 
 #include <boost/random/uniform_01.hpp>
-#include <random>
 
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/fuzzer/GeneratorSpec.h"
+#include "velox/vector/fuzzer/Utils.h"
 
 namespace facebook::velox {
 
@@ -140,12 +140,7 @@ class VectorFuzzer {
 
     /// Control the precision of timestamps generated. By default generate using
     /// nanoseconds precision.
-    enum class TimestampPrecision : int8_t {
-      kNanoSeconds = 0,
-      kMicroSeconds = 1,
-      kMilliSeconds = 2,
-      kSeconds = 3,
-    };
+    using TimestampPrecision = FuzzerTimestampPrecision;
     TimestampPrecision timestampPrecision{TimestampPrecision::kNanoSeconds};
 
     /// If true, fuzz() will randomly generate lazy vectors and fuzzInputRow()

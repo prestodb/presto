@@ -23,6 +23,13 @@ namespace facebook::velox {
 
 using FuzzerGenerator = std::mt19937;
 
+enum class FuzzerTimestampPrecision : int8_t {
+  kNanoSeconds = 0,
+  kMicroSeconds = 1,
+  kMilliSeconds = 2,
+  kSeconds = 3,
+};
+
 namespace generator_spec_utils {
 
 bool coinToss(FuzzerGenerator& rng, double threshold);
