@@ -28,6 +28,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCoercionPolicy;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.HiveEncryptionInformationProvider;
 import com.facebook.presto.hive.HiveFileRenamer;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
