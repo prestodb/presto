@@ -90,7 +90,8 @@ public class IcebergSplitManager
         if (table.getIcebergTableName().getTableType() == CHANGELOG) {
             // if the snapshot isn't specified, grab the oldest available version of the table
             long fromSnapshot = table.getIcebergTableName().getSnapshotId().orElseGet(() -> SnapshotUtil.oldestAncestor(icebergTable).snapshotId());
-            long toSnapshot = table.getIcebergTableName().getChangelogEndSnapshot().orElse(icebergTable.currentSnapshot().snapshotId());
+            long toSnapshot = table.getIcebergTableName().getChangelogEndSnapshot()
+                    .orElseGet(icebergTable.currentSnapshot()::snapshotId);
             IncrementalChangelogScan scan = icebergTable.newIncrementalChangelogScan()
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);

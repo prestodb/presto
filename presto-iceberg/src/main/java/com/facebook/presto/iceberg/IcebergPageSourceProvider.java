@@ -282,7 +282,7 @@ public class IcebergPageSourceProvider
                     .map(type -> new MessageType(fileSchema.getName(), type))
                     .reduce(MessageType::union);
 
-            MessageType requestedSchema = messageType.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
+            MessageType requestedSchema = messageType.orElseGet(() -> new MessageType(fileSchema.getName(), ImmutableList.of()));
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
