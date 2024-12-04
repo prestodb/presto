@@ -27,6 +27,6 @@ namespace facebook::presto {
 protocol::PlanConversionResponse prestoToVeloxPlanConversion(
     const std::string& planFragmentJson,
     velox::memory::MemoryPool* pool,
-    const VeloxPlanValidator* planValidator);
+    VeloxPlanValidator* planValidator);
 
 } // namespace facebook::presto
