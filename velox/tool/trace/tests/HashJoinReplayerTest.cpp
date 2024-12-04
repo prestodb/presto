@@ -289,22 +289,25 @@ TEST_F(HashJoinReplayerTest, partialDriverIds) {
   const auto opTraceDataFile = exec::trace::getOpTraceInputFilePath(opTraceDir);
   auto faultyFs = faultyFileSystem();
   faultyFs->setFileInjectionHook([&](FaultFileOperation* op) {
-    if (op->type == FaultFileOperation::Type::kRead &&
+    if ((op->type == FaultFileOperation::Type::kRead ||
+         op->type == FaultFileOperation::Type::kReadv) &&
         op->path == opTraceDataFile) {
       VELOX_FAIL("Read wrong data file {}", opTraceDataFile);
     }
   });
 
-  VELOX_ASSERT_THROW(
-      HashJoinReplayer(
-          traceRoot,
-          task->queryCtx()->queryId(),
-          task->taskId(),
-          traceNodeId_,
-          "HashJoin",
-          "0")
-          .run(),
-      "Read wrong data file");
+  if (faultyFs->openFileForRead(opTraceDataFile)->size() > 0) {
+    VELOX_ASSERT_THROW(
+        HashJoinReplayer(
+            traceRoot,
+            task->queryCtx()->queryId(),
+            task->taskId(),
+            traceNodeId_,
+            "HashJoin",
+            "0")
+            .run(),
+        "Read wrong data file");
+  }
   HashJoinReplayer(
       traceRoot,
       task->queryCtx()->queryId(),
