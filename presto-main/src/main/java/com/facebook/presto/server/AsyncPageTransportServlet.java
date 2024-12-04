@@ -43,6 +43,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -128,14 +129,24 @@ public class AsyncPageTransportServlet
         OutputBufferId bufferId = null;
         long token = 0;
 
-        String sanitizedRequestURI = requestURI.replaceAll("[\\r\\n]", "");
+        Enumeration<String> headerNames = request.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = request.getHeader(headerName);
+            if (headerName.contains("\r") || headerName.contains("\n")) {
+                throw new IllegalArgumentException(format("Invalid header name: %s", headerName));
+            }
+            if (headerValue.contains("\r") || headerValue.contains("\n")) {
+                throw new IllegalArgumentException(format("Invalid header value: %s", headerValue));
+            }
+        }
 
         int previousIndex = -1;
         for (int part = 0; part < 8; part++) {
             int nextIndex = requestURI.indexOf('/', previousIndex + 1);
 
             if (nextIndex == -1 && part != 7 || nextIndex != -1 && part == 7) {
-                reportFailure(response, format("Unexpected URI for task result request in async mode: %s", sanitizedRequestURI));
+                reportFailure(response, format("Unexpected URI for task result request in async mode: %s", requestURI));
                 return;
             }
 
@@ -154,7 +165,7 @@ public class AsyncPageTransportServlet
             previousIndex = nextIndex;
         }
         // This is sent forward instead of returned to avoid allocations
-        processRequest(sanitizedRequestURI, taskId, bufferId, token, request, response);
+        processRequest(requestURI, taskId, bufferId, token, request, response);
     }
 
     protected void processRequest(
