@@ -46,13 +46,16 @@ template <typename DeviceType, typename HostType, bool False = false>
 void PrepareArgs(DeviceType* d_param, HostType& param) {
   if constexpr (std::is_pointer_v<DeviceType>) {
     using BaseType = std::remove_pointer_t<DeviceType>;
-    static_assert(std::is_arithmetic_v<BaseType>);
-    static_assert(
-        std::is_same_v<std::remove_const_t<HostType>, std::vector<BaseType>>);
-    // Allocate and initialize device pointers
-    hipMalloc((void**)d_param, sizeof(BaseType) * param.size());
-    hipMemcpy(*d_param, param.data(), sizeof(BaseType) * param.size(),
-              hipMemcpyHostToDevice);
+    *d_param = nullptr;
+    if constexpr (!std::is_same_v<BaseType, breeze::utils::NullType>) {
+      static_assert(std::is_arithmetic_v<BaseType>);
+      static_assert(
+          std::is_same_v<std::remove_const_t<HostType>, std::vector<BaseType>>);
+      // Allocate and initialize device pointers
+      hipMalloc((void**)d_param, sizeof(BaseType) * param.size());
+      hipMemcpy(*d_param, param.data(), sizeof(BaseType) * param.size(),
+                hipMemcpyHostToDevice);
+    }
   } else if constexpr (std::is_arithmetic_v<DeviceType>) {
     static_assert(std::is_arithmetic_v<HostType>);
     *d_param = param;
@@ -65,14 +68,16 @@ template <typename DeviceType, typename HostType, bool False = false>
 void FinishArgs(HostType& param, DeviceType d_param) {
   if constexpr (std::is_pointer_v<DeviceType>) {
     using BaseType = std::remove_pointer_t<DeviceType>;
-    static_assert(std::is_arithmetic_v<BaseType>);
-    static_assert(
-        std::is_same_v<std::remove_const_t<HostType>, std::vector<BaseType>>);
-    if constexpr (!std::is_const_v<HostType>) {
-      hipMemcpy(param.data(), d_param, sizeof(BaseType) * param.size(),
-                hipMemcpyDeviceToHost);
+    if constexpr (!std::is_same_v<BaseType, breeze::utils::NullType>) {
+      static_assert(std::is_arithmetic_v<BaseType>);
+      static_assert(
+          std::is_same_v<std::remove_const_t<HostType>, std::vector<BaseType>>);
+      if constexpr (!std::is_const_v<HostType>) {
+        hipMemcpy(param.data(), d_param, sizeof(BaseType) * param.size(),
+                  hipMemcpyDeviceToHost);
+      }
+      hipFree(d_param);
     }
-    hipFree(d_param);
   } else if constexpr (std::is_arithmetic_v<DeviceType>) {
     static_assert(std::is_arithmetic_v<HostType>);
     // Nothing to do here. Arithmetic types neither need to be cleaned up nor
@@ -96,9 +101,12 @@ void FinishArgs(HostType& param, DeviceType d_param) {
 template <int BLOCK_THREADS, typename... Params>
 void HipTestLaunch(int num_blocks, void (*kernel)(Params...),
                    ToHostType<Params>... params) {
-  static_assert(((std::is_arithmetic_v<Params> ||
-                  std::is_arithmetic_v<std::remove_pointer_t<Params>>) &&
-                 ...));
+  static_assert(
+      ((std::is_same_v<std::remove_const_t<std::remove_pointer_t<Params>>,
+                       breeze::utils::NullType> ||
+        std::is_arithmetic_v<Params> ||
+        std::is_arithmetic_v<std::remove_pointer_t<Params>>) &&
+       ...));
 
   // This lambda (which is immediately evaluated) allows us to get a parameter
   // pack for the local variables that will hold the data pointers for the

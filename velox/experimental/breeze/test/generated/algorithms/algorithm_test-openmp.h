@@ -82,21 +82,22 @@ class AlgorithmTest : public ::testing::Test {
         in.data(), out.data(), in.size());
   }
 
-  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS>
-  void RadixSort(const std::vector<T>& in,
+  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS, typename U>
+  void RadixSort(const std::vector<T>& in_keys, const std::vector<U>& in_values,
                  const std::vector<unsigned>& in_offsets, int start_bit,
-                 int num_pass_bits, std::vector<T>& out,
-                 std::vector<int>& next_block_idx,
+                 int num_pass_bits, std::vector<T>& out_keys,
+                 std::vector<U>& out_values, std::vector<int>& next_block_idx,
                  std::vector<unsigned>& blocks, int num_blocks) {
     using PlatformT =
         OpenMPPlatform<BLOCK_THREADS, /*WARP_THREADS=*/BLOCK_THREADS>;
     using SharedMemType = typename breeze::algorithms::DeviceRadixSort<
-        PlatformT, ITEMS_PER_THREAD, RADIX_BITS, T>::Scratch;
+        PlatformT, ITEMS_PER_THREAD, RADIX_BITS, T, U>::Scratch;
     OpenMPTestLaunch<BLOCK_THREADS, SharedMemType>(
         num_blocks,
-        &kernels::RadixSort<BLOCK_THREADS, ITEMS_PER_THREAD, RADIX_BITS, T,
+        &kernels::RadixSort<BLOCK_THREADS, ITEMS_PER_THREAD, RADIX_BITS, T, U,
                             SharedMemType>,
-        in.data(), in_offsets.data(), &start_bit, &num_pass_bits, out.data(),
-        next_block_idx.data(), blocks.data(), in.size());
+        in_keys.data(), in_values.data(), in_offsets.data(), &start_bit,
+        &num_pass_bits, out_keys.data(), out_values.data(),
+        next_block_idx.data(), blocks.data(), in_keys.size());
   }
 };

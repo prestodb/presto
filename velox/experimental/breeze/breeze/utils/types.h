@@ -186,7 +186,11 @@ enum DataArrangement {
   WARP_STRIPED,
 };
 
-class EmptySlice {};
+class NullType {};
+
+class EmptySlice {
+  using data_type = NullType;
+};
 
 ATTR EmptySlice constexpr make_empty_slice() { return EmptySlice{}; }
 

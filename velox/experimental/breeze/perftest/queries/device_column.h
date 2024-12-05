@@ -40,26 +40,21 @@ class device_column : public utils::device_vector<T, Allocator> {
 template <typename T, typename Allocator = utils::device_allocator<T>>
 class device_column_buffered {
   typedef typename Allocator::template rebind<T*>::other PtrAllocator;
-  typedef typename Allocator::template rebind<int>::other SelectorAllocator;
 
  public:
   explicit device_column_buffered(const Allocator& allocator = Allocator())
       : buffers_{device_column<T, Allocator>(allocator),
                  device_column<T, Allocator>(allocator)},
-        ptrs_(
-            utils::device_vector<T*, PtrAllocator>(2, PtrAllocator(allocator))),
-        selector_(utils::device_vector<int, SelectorAllocator>(
-            1, SelectorAllocator(allocator))) {
+        ptrs_(utils::device_vector<T*, PtrAllocator>(2,
+                                                     PtrAllocator(allocator))) {
     UpdatePtrs();
   }
   explicit device_column_buffered(utils::size_type size,
                                   const Allocator& allocator = Allocator())
       : buffers_{device_column<T, Allocator>(size, allocator),
                  device_column<T, Allocator>(size, allocator)},
-        ptrs_(
-            utils::device_vector<T*, PtrAllocator>(2, PtrAllocator(allocator))),
-        selector_(utils::device_vector<int, SelectorAllocator>(
-            1, SelectorAllocator(allocator))) {
+        ptrs_(utils::device_vector<T*, PtrAllocator>(2,
+                                                     PtrAllocator(allocator))) {
     UpdatePtrs();
   }
 
@@ -71,7 +66,6 @@ class device_column_buffered {
   size_t size() const { return buffers_[0].size(); }
   device_column<T, Allocator>& buffer(int index) { return buffers_[index]; }
   utils::device_vector<T*, PtrAllocator>& ptrs() { return ptrs_; }
-  utils::device_vector<int, SelectorAllocator>& selector() { return selector_; }
 
  private:
   void UpdatePtrs() {
@@ -81,7 +75,6 @@ class device_column_buffered {
 
   device_column<T, Allocator> buffers_[2];
   utils::device_vector<T*, PtrAllocator> ptrs_;
-  utils::device_vector<int, SelectorAllocator> selector_;
 };
 
 }  // namespace breeze

@@ -25,11 +25,13 @@
 // kernel specializations
 
 using namespace breeze::functions;
+using namespace breeze::utils;
 
 #define _C(X, Y) X##Y
 #define C(X, Y) _C(X, Y)
 
 #define NAME(F, T, BT, IPT) C(block_, F##_##T##_##BT##x##IPT)
+#define NAME2(F, T, U, BT, IPT) C(block_, F##_##U##_##T##_##BT##x##IPT)
 
 #define GEN_LOAD(T)                                                  \
   kernel void NAME(load, T, 4, 2)(const global T *in, global T *out, \
@@ -202,13 +204,22 @@ GEN_SCAN(add)
 GEN_RADIX_RANK(int, 64, 2, 6)
 GEN_RADIX_RANK(uint, 64, 2, 6)
 
-#define GEN_RADIX_SORT(T, BT, IPT, RB)                                  \
-  kernel void NAME(radix_sort, T, BT, IPT##x##RB)(                      \
-      const global T *in, global T *out, const global int *num_items) { \
-    using PlatformT = OpenCLPlatform<BT, WARP_THREADS>;                 \
-    local BlockRadixSort<PlatformT, IPT, RB, T>::Scratch scratch;       \
-    block_radix_sort<BT, IPT, RB>(in, out, &scratch, *num_items);       \
+#define null_value_type NullType
+#define uint_value_type uint
+
+#define GEN_RADIX_SORT(KT, VT, BT, IPT, RB)                                 \
+  kernel void NAME2(radix_sort, KT, VT, BT, IPT##x##RB)(                    \
+      const global KT *in_keys, const global VT##_value_type *in_values,    \
+      global KT *out_keys, global VT##_value_type *out_values,              \
+      const global int *num_items) {                                        \
+    using PlatformT = OpenCLPlatform<BT, WARP_THREADS>;                     \
+    local BlockRadixSort<PlatformT, IPT, RB, KT, VT##_value_type>::Scratch  \
+        scratch;                                                            \
+    block_radix_sort<BT, IPT, RB>(in_keys, in_values, out_keys, out_values, \
+                                  &scratch, *num_items);                    \
   }
 
-GEN_RADIX_SORT(int, 64, 2, 6)
-GEN_RADIX_SORT(uint, 64, 2, 6)
+GEN_RADIX_SORT(int, null, 64, 2, 6)
+GEN_RADIX_SORT(int, uint, 64, 2, 6)
+GEN_RADIX_SORT(uint, null, 64, 2, 6)
+GEN_RADIX_SORT(uint, uint, 64, 2, 6)

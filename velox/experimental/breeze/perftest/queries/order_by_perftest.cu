@@ -140,9 +140,9 @@ __global__ __launch_bounds__(BLOCK_THREADS) void UpdateBufferSelectors(
 }
 
 template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS, typename T,
-          typename U, typename BlockT>
+          typename OffsetT, typename BlockT>
 __global__ __launch_bounds__(BLOCK_THREADS) void RadixSort(
-    const int* in_buffer_selectors, const U* in_offsets, int start_bit,
+    const int* in_buffer_selectors, const OffsetT* in_offsets, int start_bit,
     int num_pass_bits, T* buffers[2], int* next_block_idx, BlockT* blocks,
     int num_items) {
   using namespace algorithms;
@@ -150,8 +150,10 @@ __global__ __launch_bounds__(BLOCK_THREADS) void RadixSort(
 
   CudaPlatform<BLOCK_THREADS, CUDA_WARP_THREADS> p;
   using RadixSortT =
-      DeviceRadixSort<decltype(p), ITEMS_PER_THREAD, RADIX_BITS, T>;
-  __shared__ typename RadixSortT::Scratch scratch;
+      DeviceRadixSort<decltype(p), ITEMS_PER_THREAD, RADIX_BITS, T, NullType>;
+  extern __shared__ char radix_sort_scratch[];
+  auto scratch =
+      reinterpret_cast<typename RadixSortT::Scratch*>(radix_sort_scratch);
 
   // load buffer selectors
   int current_selector = in_buffer_selectors[0];
@@ -161,18 +163,53 @@ __global__ __launch_bounds__(BLOCK_THREADS) void RadixSort(
   if (current_selector != alternate_selector) {
     const T* in = buffers[current_selector];
     T* out = buffers[alternate_selector];
-
     RadixSortT::template Sort<BlockT>(
-        p, make_slice<GLOBAL>(in), make_slice<GLOBAL>(in_offsets), start_bit,
-        num_pass_bits, make_slice<GLOBAL>(out),
+        p, make_slice<GLOBAL>(in), make_empty_slice(),
+        make_slice<GLOBAL>(in_offsets), start_bit, num_pass_bits,
+        make_slice<GLOBAL>(out), make_empty_slice(),
         make_slice<GLOBAL>(next_block_idx), make_slice<GLOBAL>(blocks),
-        make_slice(&scratch).template reinterpret<SHARED>(), num_items);
+        make_slice(scratch).template reinterpret<SHARED>(), num_items);
+  }
+}
+
+template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS, typename T,
+          typename U, typename OffsetT, typename BlockT>
+__global__ __launch_bounds__(BLOCK_THREADS) void RadixSort(
+    const int* in_buffer_selectors, const OffsetT* in_offsets, int start_bit,
+    int num_pass_bits, T* key_buffers[2], U* value_buffers[2],
+    int* next_block_idx, BlockT* blocks, int num_items) {
+  using namespace algorithms;
+  using namespace utils;
+
+  CudaPlatform<BLOCK_THREADS, CUDA_WARP_THREADS> p;
+  using RadixSortT =
+      DeviceRadixSort<decltype(p), ITEMS_PER_THREAD, RADIX_BITS, T, U>;
+  extern __shared__ char radix_sort_scratch[];
+  auto scratch =
+      reinterpret_cast<typename RadixSortT::Scratch*>(radix_sort_scratch);
+
+  // load buffer selectors
+  int current_selector = in_buffer_selectors[0];
+  int alternate_selector = in_buffer_selectors[1];
+
+  // sorting pass is only needed if input and output selectors are different
+  if (current_selector != alternate_selector) {
+    const T* in_keys = key_buffers[current_selector];
+    const U* in_values = value_buffers[current_selector];
+    T* out_keys = key_buffers[alternate_selector];
+    U* out_values = value_buffers[alternate_selector];
+    RadixSortT::template Sort<BlockT>(
+        p, make_slice<GLOBAL>(in_keys), make_slice<GLOBAL>(in_values),
+        make_slice<GLOBAL>(in_offsets), start_bit, num_pass_bits,
+        make_slice<GLOBAL>(out_keys), make_slice<GLOBAL>(out_values),
+        make_slice<GLOBAL>(next_block_idx), make_slice<GLOBAL>(blocks),
+        make_slice(scratch).template reinterpret<SHARED>(), num_items);
   }
 }
 
 }  // namespace kernels
 
-using OrderByConfig = PerfTestArrayConfig<11>;
+using OrderByConfig = PerfTestArrayConfig<16>;
 
 const OrderByConfig kConfig = {{
     {"num_key_rows", "400000"},
@@ -186,6 +223,11 @@ const OrderByConfig kConfig = {{
     {"key_random_stride_short", "10"},
     {"key_random_stride_grande", "100000"},
     {"key_random_stride_venti", "100000"},
+    {"num_value_rows", "400000"},
+    {"num_value_rows_short", "6400"},
+    {"num_value_rows_grande", "6400000"},
+    {"num_value_rows_venti", "64000000"},
+    {"value_generate_method", "SEQUENCE"},
 }};
 
 template <typename TypeParam>
@@ -236,29 +278,38 @@ struct OrderByTestType {
            std::to_string(RADIX_BITS);
   }
 
-  static size_t GlobalMemoryLoads(size_t num_keys) {
+  static size_t GlobalMemoryLoads(size_t num_keys, size_t kv_size) {
     int num_histogram_blocks =
         (num_keys + HISTOGRAM_TILE_ITEMS - 1) / HISTOGRAM_TILE_ITEMS;
     // count each atomic add as 1 load + 1 store
     int num_atomic_loads = HISTOGRAM_SIZE * num_histogram_blocks;
     // 1N global memory loads for histogram + 1N for each sorting pass
-    return (num_keys * (1ll + NUM_PASSES)) * sizeof(key_type) +
+    return (num_keys * (1ll + NUM_PASSES)) * kv_size +
            num_atomic_loads * sizeof(unsigned);
   }
 
-  static size_t GlobalMemoryStores(size_t num_keys) {
+  static size_t GlobalMemoryStores(size_t num_keys, size_t kv_size) {
     int num_histogram_blocks =
         (num_keys + HISTOGRAM_TILE_ITEMS - 1) / HISTOGRAM_TILE_ITEMS;
     // count the store of each atomic add
     int num_atomic_stores = HISTOGRAM_SIZE * num_histogram_blocks;
     // 1N global memory stores for each sorting pass
-    return (num_keys * NUM_PASSES) * sizeof(key_type) +
+    return (num_keys * NUM_PASSES) * kv_size +
            num_atomic_stores * sizeof(unsigned);
   }
 
-  template <typename Allocator>
-  static void SortKeys(device_column_buffered<key_type>& keys,
-                       const Allocator& allocator) {
+  template <typename ValueT>
+  static constexpr int SortSharedMemorySize() {
+    return sizeof(typename algorithms::DeviceRadixSort<
+                  CudaPlatform<BLOCK_THREADS, kernels::CUDA_WARP_THREADS>,
+                  ITEMS_PER_THREAD, RADIX_BITS, key_type, ValueT>::Scratch);
+  }
+
+  template <typename ValueT, typename Allocator>
+  static void Sort(device_column_buffered<key_type>& keys,
+                   device_column_buffered<ValueT>& values,
+                   utils::device_vector<int>& kv_selector,
+                   const Allocator& allocator) {
     using namespace utils;
 
     // constant size temporary storage that needs to be zero initialized
@@ -296,10 +347,16 @@ struct OrderByTestType {
     cudaMemsetAsync(temp_storage.data(), 0, sizeof(TempStorage));
     cudaMemsetAsync(blocks.data(), 0, sizeof(unsigned) * blocks.size());
 
+    cudaFuncSetAttribute(
+        &kernels::RadixSort<BLOCK_THREADS, ITEMS_PER_THREAD, RADIX_BITS,
+                            key_type, ValueT, unsigned, unsigned>,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
+        SortSharedMemorySize<ValueT>());
+
     kernels::BuildRadixSortHistogram<BLOCK_THREADS, HISTOGRAM_ITEMS_PER_THREAD,
                                      HISTOGRAM_TILE_SIZE, RADIX_BITS>
         <<<num_histogram_blocks, BLOCK_THREADS>>>(
-            keys.ptrs().data(), keys.selector().data(),
+            keys.ptrs().data(), kv_selector.data(),
             temp_storage.data()->histogram, keys.size());
 
     // exclusive scan of histogram and set buffer advancements
@@ -314,7 +371,7 @@ struct OrderByTestType {
         /*BLOCK_THREADS=*/1,
         /*ITEMS_PER_THREAD=*/NUM_PASSES>
         <<</*num_blocks=*/1, /*BLOCK_THREADS=*/1>>>(buffer_advancements.data(),
-                                                    keys.selector().data(),
+                                                    kv_selector.data(),
                                                     buffer_selectors.data());
 
     // start from lsb and loop until no bits are left
@@ -331,10 +388,10 @@ struct OrderByTestType {
 
       // radix sorting pass
       kernels::RadixSort<BLOCK_THREADS, ITEMS_PER_THREAD, RADIX_BITS>
-          <<<num_blocks, BLOCK_THREADS>>>(
+          <<<num_blocks, BLOCK_THREADS, SortSharedMemorySize<ValueT>()>>>(
               pass_buffer_selectors, pass_offsets, start_bit, num_pass_bits,
-              keys.ptrs().data(), pass_next_block_idx, pass_blocks,
-              keys.size());
+              keys.ptrs().data(), values.ptrs().data(), pass_next_block_idx,
+              pass_blocks, keys.size());
 
       // advance start bit for next pass
       start_bit += RADIX_BITS;
@@ -360,16 +417,28 @@ TYPED_TEST(OrderByPerfTest, SelectKeysOrderByKeys) {
   using key_type = typename TypeParam::key_type;
   using indices_type = utils::size_type;
 
+  constexpr int kSortSharedMemorySize =
+      TypeParam::template SortSharedMemorySize<utils::NullType>();
+  if (kSortSharedMemorySize > this->MaxSharedMemory() &&
+      !getenv("GTEST_ALSO_RUN_SKIPPED_TESTS")) {
+    GTEST_SKIP() << "skipping test that requires too much shared memory: "
+                 << kSortSharedMemorySize << " > " << this->MaxSharedMemory();
+  }
+
   auto items = this->template GetConfigColumn<key_type>("key");
   ASSERT_NE(items.size(), 0u);
 
   auto check_result = this->GetConfigValue("check_result", true);
   auto result_file = this->GetConfigValue("result_file", std::string());
 
-  device_column_buffered<key_type> d_items(items.size());
   int input_selector = 0;
+  utils::device_vector<int> kv_selector(1);
+  kv_selector.copy_from_host(&input_selector, 1);
+
+  device_column_buffered<key_type> d_items(items.size());
   d_items.buffer(input_selector).copy_from_host(items.data(), items.size());
-  d_items.selector().copy_from_host(&input_selector, 1);
+
+  device_column_buffered<utils::NullType> d_ignored_values;
 
   auto free_list = std::make_shared<
       caching_device_allocator<utils::size_type>::free_list_type>();
@@ -379,14 +448,18 @@ TYPED_TEST(OrderByPerfTest, SelectKeysOrderByKeys) {
   this->set_element_count(items.size());
   this->set_element_size(sizeof(key_type));
   this->set_elements_per_thread(TypeParam::launch_params::ITEMS_PER_THREAD);
-  this->set_global_memory_loads(TypeParam::GlobalMemoryLoads(items.size()));
-  this->set_global_memory_stores(TypeParam::GlobalMemoryStores(items.size()));
+  this->set_global_memory_loads(
+      TypeParam::GlobalMemoryLoads(items.size(), sizeof(key_type)));
+  this->set_global_memory_stores(
+      TypeParam::GlobalMemoryStores(items.size(), sizeof(key_type)));
 
-  this->Measure(kConfig, [&]() { TypeParam::SortKeys(d_items, allocator); });
+  this->Measure(kConfig, [&]() {
+    TypeParam::Sort(d_items, d_ignored_values, kv_selector, allocator);
+  });
 
   if (check_result) {
     int output_selector;
-    d_items.selector().copy_to_host(&output_selector, 1);
+    kv_selector.copy_to_host(&output_selector, 1);
     std::vector<key_type> h_sorted_items(items.size());
     d_items.buffer(output_selector)
         .copy_to_host(h_sorted_items.data(), items.size());
@@ -398,7 +471,7 @@ TYPED_TEST(OrderByPerfTest, SelectKeysOrderByKeys) {
 
   if (!result_file.empty()) {
     int output_selector;
-    d_items.selector().copy_to_host(&output_selector, 1);
+    kv_selector.copy_to_host(&output_selector, 1);
     std::vector<key_type> h_sorted_items(items.size());
     d_items.buffer(output_selector)
         .copy_to_host(h_sorted_items.data(), items.size());
@@ -410,6 +483,97 @@ TYPED_TEST(OrderByPerfTest, SelectKeysOrderByKeys) {
     result_out << "sorted_item" << std::endl;
     for (size_t i = 0; i < h_sorted_items.size(); ++i) {
       result_out << h_sorted_items[i] << std::endl;
+    }
+    result_out.close();
+  }
+
+  for (auto entry : *free_list) {
+    cudaFree(entry.second);
+  }
+}
+
+TYPED_TEST(OrderByPerfTest, SelectValuesOrderByKeys) {
+  using key_type = typename TypeParam::key_type;
+  using value_type = unsigned;
+  using indices_type = utils::size_type;
+
+  constexpr int kSortSharedMemorySize =
+      TypeParam::template SortSharedMemorySize<value_type>();
+  if (kSortSharedMemorySize > this->MaxSharedMemory() &&
+      !getenv("GTEST_ALSO_RUN_SKIPPED_TESTS")) {
+    GTEST_SKIP() << "skipping test that requires too much shared memory: "
+                 << kSortSharedMemorySize << " > " << this->MaxSharedMemory();
+  }
+
+  auto keys = this->template GetConfigColumn<key_type>("key");
+  ASSERT_NE(keys.size(), 0u);
+
+  auto values = this->template GetConfigColumn<value_type>("value");
+  ASSERT_EQ(keys.size(), values.size());
+
+  auto check_result = this->GetConfigValue("check_result", true);
+  auto result_file = this->GetConfigValue("result_file", std::string());
+
+  int input_selector = 0;
+  utils::device_vector<int> kv_selector(1);
+  kv_selector.copy_from_host(&input_selector, 1);
+
+  device_column_buffered<key_type> d_keys(keys.size());
+  d_keys.buffer(input_selector).copy_from_host(keys.data(), keys.size());
+
+  device_column_buffered<value_type> d_values(values.size());
+  d_values.buffer(input_selector).copy_from_host(values.data(), values.size());
+
+  auto free_list = std::make_shared<
+      caching_device_allocator<utils::size_type>::free_list_type>();
+  caching_device_allocator<utils::size_type> allocator(free_list);
+
+  // provide throughput information
+  constexpr size_t kKVSize = sizeof(key_type) + sizeof(value_type);
+  this->set_element_count(keys.size());
+  this->set_element_size(kKVSize);
+  this->set_elements_per_thread(TypeParam::launch_params::ITEMS_PER_THREAD);
+  this->set_global_memory_loads(
+      TypeParam::GlobalMemoryLoads(keys.size(), kKVSize));
+  this->set_global_memory_stores(
+      TypeParam::GlobalMemoryStores(keys.size(), kKVSize));
+
+  this->Measure(kConfig, [&]() {
+    TypeParam::Sort(d_keys, d_values, kv_selector, allocator);
+  });
+
+  if (check_result) {
+    int output_selector;
+    kv_selector.copy_to_host(&output_selector, 1);
+    std::vector<value_type> h_sorted_values(values.size());
+    d_values.buffer(output_selector)
+        .copy_to_host(h_sorted_values.data(), values.size());
+    std::vector<unsigned> indices(keys.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::stable_sort(
+        indices.begin(), indices.end(),
+        [&keys](unsigned a, unsigned b) { return keys[a] < keys[b]; });
+    std::vector<value_type> expected_sorted_values(values.size());
+    for (size_t i = 0; i < indices.size(); ++i) {
+      expected_sorted_values[i] = values[indices[i]];
+    }
+    EXPECT_EQ(expected_sorted_values, h_sorted_values);
+  }
+
+  if (!result_file.empty()) {
+    int output_selector;
+    kv_selector.copy_to_host(&output_selector, 1);
+    std::vector<value_type> h_sorted_values(values.size());
+    d_values.buffer(output_selector)
+        .copy_to_host(h_sorted_values.data(), values.size());
+
+    std::ofstream result_out;
+    result_out.open(result_file);
+    ASSERT_TRUE(result_out.is_open())
+        << "failed to open result file: " << result_file;
+    result_out << "sorted_item" << std::endl;
+    for (size_t i = 0; i < h_sorted_values.size(); ++i) {
+      result_out << h_sorted_values[i] << std::endl;
     }
     result_out.close();
   }

@@ -63,12 +63,13 @@ class AlgorithmTest : public ::testing::Test {
   void RadixSortHistogram(USE_AS_SIZE const std::vector<T>& in,
                           std::vector<unsigned>& out,
                           BLOCK_COUNT int num_blocks);
-  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS>
+  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS, typename U>
   SHARED_MEM_TYPE(
-      "typename breeze::algorithms::DeviceRadixSort<PlatformT, ITEMS_PER_THREAD, RADIX_BITS, T>::Scratch")
-  void RadixSort(USE_AS_SIZE const std::vector<T>& in,
+      "typename breeze::algorithms::DeviceRadixSort<PlatformT, ITEMS_PER_THREAD, RADIX_BITS, T, U>::Scratch")
+  void RadixSort(USE_AS_SIZE const std::vector<T>& in_keys,
+                 const std::vector<U>& in_values,
                  const std::vector<unsigned>& in_offsets, int start_bit,
-                 int num_pass_bits, std::vector<T>& out,
-                 std::vector<int>& next_block_idx,
+                 int num_pass_bits, std::vector<T>& out_keys,
+                 std::vector<U>& out_values, std::vector<int>& next_block_idx,
                  std::vector<unsigned>& blocks, BLOCK_COUNT int num_blocks);
 };

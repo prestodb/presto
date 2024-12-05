@@ -236,29 +236,59 @@ void BlockRadixRank(const T* in, int* out, int num_items) {
       breeze::utils::make_slice<breeze::utils::GLOBAL>(out), num_items);
 }
 
-template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS, typename T>
+template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS,
+          typename KeyT, typename ValueT>
 PLATFORM("p")
 SHARED_MEM(
-    "typename breeze::functions::BlockRadixSort<PlatformT, ITEMS_PER_THREAD, RADIX_BITS, T>::Scratch",
+    "typename breeze::functions::BlockRadixSort<PlatformT, ITEMS_PER_THREAD, RADIX_BITS, KeyT, ValueT>::Scratch",
     "scratch")
-void BlockRadixSort(const T* in, T* out, int num_items) {
-  T items[ITEMS_PER_THREAD];
+void BlockRadixSort(const KeyT* keys_in, const ValueT* values_in,
+                    KeyT* keys_out, ValueT* values_out, int num_items) {
+  KeyT keys[ITEMS_PER_THREAD];
   breeze::functions::BlockLoad<BLOCK_THREADS, ITEMS_PER_THREAD>(
-      p, breeze::utils::make_slice<breeze::utils::GLOBAL>(in),
+      p, breeze::utils::make_slice<breeze::utils::GLOBAL>(keys_in),
       breeze::utils::make_slice<breeze::utils::THREAD,
-                                breeze::utils::WARP_STRIPED>(items),
+                                breeze::utils::WARP_STRIPED>(keys),
       num_items);
-  breeze::functions::
-      BlockRadixSort<PlatformT, ITEMS_PER_THREAD, RADIX_BITS, T>::Sort(
-          p,
-          breeze::utils::make_slice<breeze::utils::THREAD,
-                                    breeze::utils::WARP_STRIPED>(items),
-          breeze::utils::make_slice<breeze::utils::SHARED>(scratch), num_items);
+  if constexpr (breeze::utils::IsDifferent<ValueT,
+                                           breeze::utils::NullType>::VALUE) {
+    ValueT values[ITEMS_PER_THREAD];
+    breeze::functions::BlockLoad<BLOCK_THREADS, ITEMS_PER_THREAD>(
+        p, breeze::utils::make_slice<breeze::utils::GLOBAL>(values_in),
+        breeze::utils::make_slice<breeze::utils::THREAD,
+                                  breeze::utils::WARP_STRIPED>(values),
+        num_items);
+    breeze::functions::BlockRadixSort<PlatformT, ITEMS_PER_THREAD, RADIX_BITS,
+                                      KeyT, ValueT>::
+        Sort(p,
+             breeze::utils::make_slice<breeze::utils::THREAD,
+                                       breeze::utils::WARP_STRIPED>(keys),
+             breeze::utils::make_slice<breeze::utils::THREAD,
+                                       breeze::utils::WARP_STRIPED>(values),
+             breeze::utils::make_slice<breeze::utils::SHARED>(scratch),
+             num_items);
+    breeze::functions::BlockStore<BLOCK_THREADS, ITEMS_PER_THREAD>(
+        p,
+        breeze::utils::make_slice<breeze::utils::THREAD,
+                                  breeze::utils::WARP_STRIPED>(values),
+        breeze::utils::make_slice<breeze::utils::GLOBAL>(values_out),
+        num_items);
+  } else {
+    breeze::functions::BlockRadixSort<
+        PlatformT, ITEMS_PER_THREAD, RADIX_BITS, KeyT,
+        ValueT>::Sort(p,
+                      breeze::utils::make_slice<breeze::utils::THREAD,
+                                                breeze::utils::WARP_STRIPED>(
+                          keys),
+                      breeze::utils::make_empty_slice(),
+                      breeze::utils::make_slice<breeze::utils::SHARED>(scratch),
+                      num_items);
+  }
   breeze::functions::BlockStore<BLOCK_THREADS, ITEMS_PER_THREAD>(
       p,
       breeze::utils::make_slice<breeze::utils::THREAD,
-                                breeze::utils::WARP_STRIPED>(items),
-      breeze::utils::make_slice<breeze::utils::GLOBAL>(out), num_items);
+                                breeze::utils::WARP_STRIPED>(keys),
+      breeze::utils::make_slice<breeze::utils::GLOBAL>(keys_out), num_items);
 }
 
 }  // namespace kernels

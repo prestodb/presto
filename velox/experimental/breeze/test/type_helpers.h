@@ -143,6 +143,18 @@ struct TypeToStr<breeze::functions::ScanOpAdd> {
   using type = typename MakeTypeString<value>::type;
 };
 
+namespace breeze {
+namespace utils {
+class NullType {};
+}  // namespace utils
+}  // namespace breeze
+
+template <>
+struct TypeToStr<breeze::utils::NullType> {
+  constexpr static const char value[] = "null";
+  using type = typename MakeTypeString<value>::type;
+};
+
 // Helpers for constructing the compute kernel's name. Kernels are named
 // according to the format: {op_name}_{types}_{N}x...x{M}
 // where the numeric instance shape (BLOCK_THREADS, ITEMS_PER_THREAD, etc.)

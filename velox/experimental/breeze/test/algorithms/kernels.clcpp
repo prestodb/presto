@@ -27,11 +27,13 @@ enum { OPENCL_WARP_THREADS = 32 };
 // kernel specializations
 
 using namespace breeze::algorithms;
+using namespace breeze::utils;
 
 #define _C(X, Y) X##Y
 #define C(X, Y) _C(X, Y)
 
 #define NAME(F, T, BT, IPT) C(, F##_##T##_##BT##x##IPT)
+#define NAME2(F, T, U, BT, IPT) C(, F##_##U##_##T##_##BT##x##IPT)
 
 #define add_reduce_op ReduceOpAdd
 #define min_reduce_op ReduceOpMin
@@ -87,17 +89,25 @@ GEN_SCAN(add)
 GEN_RADIX_SORT_HISTOGRAM(int)
 GEN_RADIX_SORT_HISTOGRAM(uint)
 
-#define GEN_RADIX_SORT(T, BT, IPT, RB)                                     \
-  kernel void NAME(radix_sort, T, BT, IPT##x##RB)(                         \
-      const global T *in, const global uint *in_offsets,                   \
-      const global int *start_bit, const global int *num_pass_bits,        \
-      global T *out, global int *next_block_idx, global uint *blocks,      \
-      const global int *num_items) {                                       \
-    using PlatformT = OpenCLPlatform<BT, WARP_THREADS>;                    \
-    local DeviceRadixSort<PlatformT, IPT, RB, T>::Scratch scratch;         \
-    radix_sort<BT, IPT, RB>(in, in_offsets, start_bit, num_pass_bits, out, \
-                            next_block_idx, blocks, &scratch, *num_items); \
+#define null_value_type NullType
+#define uint_value_type uint
+
+#define GEN_RADIX_SORT(KT, VT, BT, IPT, RB)                                 \
+  kernel void NAME2(radix_sort, KT, VT, BT, IPT##x##RB)(                    \
+      const global KT *in_keys, const global VT##_value_type *in_values,    \
+      const global uint *in_offsets, const global int *start_bit,           \
+      const global int *num_pass_bits, global KT *out_keys,                 \
+      global VT##_value_type *out_values, global int *next_block_idx,       \
+      global uint *blocks, const global int *num_items) {                   \
+    using PlatformT = OpenCLPlatform<BT, WARP_THREADS>;                     \
+    local DeviceRadixSort<PlatformT, IPT, RB, KT, VT##_value_type>::Scratch \
+        scratch;                                                            \
+    radix_sort<BT, IPT, RB>(in_keys, in_values, in_offsets, start_bit,      \
+                            num_pass_bits, out_keys, out_values,            \
+                            next_block_idx, blocks, &scratch, *num_items);  \
   }
 
-GEN_RADIX_SORT(int, 64, 2, 6)
-GEN_RADIX_SORT(uint, 64, 2, 6)
+GEN_RADIX_SORT(int, null, 64, 2, 6)
+GEN_RADIX_SORT(int, uint, 64, 2, 6)
+GEN_RADIX_SORT(uint, null, 64, 2, 6)
+GEN_RADIX_SORT(uint, uint, 64, 2, 6)

@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <numeric>
 #include <vector>
 
 #include "function_test.h"
@@ -133,9 +134,11 @@ TYPED_TEST(FunctionTest, RadixSort) {
 
   std::vector<TypeParam> in(std::begin(src), std::end(src));
   std::vector<TypeParam> out(in.size(), 0);
+  std::vector<breeze::utils::NullType> ignored_values(1);
 
   this->template BlockRadixSort<kBlockThreads, kItemsPerThread,
-                                /*RADIX_BITS=*/6>(in, out);
+                                /*RADIX_BITS=*/6>(in, ignored_values, out,
+                                                  ignored_values);
 
   std::vector<TypeParam> expected_out(std::begin(src), std::end(src));
   std::sort(expected_out.begin(), expected_out.end());
@@ -169,11 +172,65 @@ TYPED_TEST(FunctionTest, RadixSortFewItems) {
 
   std::vector<TypeParam> in(std::begin(src), std::end(src));
   std::vector<TypeParam> out(in.size(), 0);
+  std::vector<breeze::utils::NullType> ignored_values(1);
 
   this->template BlockRadixSort<kBlockThreads, kItemsPerThread,
-                                /*RADIX_BITS=*/6>(in, out);
+                                /*RADIX_BITS=*/6>(in, ignored_values, out,
+                                                  ignored_values);
 
   std::vector<TypeParam> expected_out(std::begin(src), std::end(src));
   std::sort(expected_out.begin(), expected_out.end());
   EXPECT_EQ(expected_out, out);
+}
+
+TYPED_TEST(FunctionTest, RadixSortKeyValues) {
+  TypeParam src[] = {
+      664706,   7283945,  30790572, 41729031, 58086583, 99033166, 74066752,
+      45600109, 99632667, 211279,   42680291, 22703047, 30319982, 43100887,
+      96460159, 23257400, 96962715, 23316382, 59789810, 83194959, 53381293,
+      75827488, 57636843, 7184743,  35077319, 90816367, 42193643, 71989577,
+      91960720, 93369958, 9942200,  33961178, 86249484, 24723473, 51741384,
+      90450193, 506337,   92942655, 13791692, 13393639, 2123526,  87280105,
+      5494602,  89002308, 59231705, 72124268, 19717164, 1739645,  72234512,
+      99367836, 5659995,  15269072, 35403527, 27060867, 85559139, 55826479,
+      20806132, 19143775, 35216845, 27517682, 33106917, 13119302, 87001443,
+      4807604,  2298219,  70229144, 80304195, 99099492, 5169670,  6172249,
+      11836730, 8306124,  90557875, 41075067, 31225392, 37125881, 89649595,
+      38678961, 67589395, 42879775, 3166326,  97228718, 88207584, 5133002,
+      1255209,  54025139, 76626674, 48367350, 34868803, 73110392, 43917250,
+      92579856, 68656933, 50150510, 35412933, 11936379, 14453176, 80852691,
+      31102111, 53472193, 93216884, 3662856,  29557058, 59115812, 81359416,
+      79202507, 71443030, 32010919, 39815613, 51592724, 81950730, 11887642,
+      31923420, 71171896, 17266095, 2759356,  51851856, 65395926, 21122781,
+      30208203, 87656369, 96618376, 22171167, 42230319, 71720531, 12640665,
+      58437611, 13449056};
+
+  // flip the sign of every other item if test type is signed
+  if (std::is_signed<TypeParam>::value) {
+    for (size_t i = 0; i < sizeof(src) / sizeof(TypeParam); i += 2) {
+      src[i] = -src[i];
+    }
+  }
+
+  std::vector<TypeParam> in_keys(std::begin(src), std::end(src));
+  std::vector<unsigned> indices(in_keys.size());
+  std::iota(indices.begin(), indices.end(), 0);
+  std::vector<TypeParam> out_keys(in_keys.size(), 0);
+  std::vector<unsigned> out_values(in_keys.size(), 0);
+
+  this->template BlockRadixSort<kBlockThreads, kItemsPerThread,
+                                /*RADIX_BITS=*/6>(in_keys, indices, out_keys,
+                                                  out_values);
+
+  std::vector<unsigned> sorted_indices = indices;
+  std::sort(sorted_indices.begin(), sorted_indices.end(),
+            [&src](unsigned a, unsigned b) { return src[a] < src[b]; });
+  std::vector<TypeParam> expected_out_keys(in_keys.size());
+  std::vector<unsigned> expected_out_values(in_keys.size());
+  for (size_t i = 0; i < sorted_indices.size(); ++i) {
+    expected_out_keys[i] = in_keys[sorted_indices[i]];
+    expected_out_values[i] = indices[sorted_indices[i]];
+  }
+  EXPECT_EQ(expected_out_keys, out_keys);
+  EXPECT_EQ(expected_out_values, out_values);
 }

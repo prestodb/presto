@@ -157,10 +157,11 @@ TYPED_TEST(AlgorithmTest, RadixSort) {
   int num_blocks = (in.size() + kBlockItems - 1) / kBlockItems;
   std::vector<int> next_block_idx(1);
   std::vector<unsigned> blocks(num_blocks * kNumBins);
+  std::vector<breeze::utils::NullType> ignored_values(1);
 
   this->template RadixSort<kBlockThreads, kItemsPerThread, kRadixBits>(
-      in, in_offsets, kStartBit, kRadixBits, out, next_block_idx, blocks,
-      num_blocks);
+      in, ignored_values, in_offsets, kStartBit, kRadixBits, out,
+      ignored_values, next_block_idx, blocks, num_blocks);
 
   std::vector<TypeParam> expected_result = in;
   std::stable_sort(
@@ -171,4 +172,58 @@ TYPED_TEST(AlgorithmTest, RadixSort) {
                extract_bits(to_bit_ordered(b), start_bit, num_pass_bits);
       });
   EXPECT_EQ(expected_result, out);
+}
+
+TYPED_TEST(AlgorithmTest, RadixSortKeyValues) {
+  constexpr int kBlockItems = kBlockThreads * kItemsPerThread;
+  constexpr int kRadixBits = 6;
+  constexpr int kStartBit = 0;
+  constexpr int kNumBins = 1 << kRadixBits;
+
+  std::vector<TypeParam> in_keys(400, 0);
+  std::iota(in_keys.begin(), in_keys.end(),
+            std::is_signed<TypeParam>::value ? -199 : 1);
+  static std::minstd_rand rng;
+  std::shuffle(in_keys.begin(), in_keys.end(), rng);
+
+  std::vector<unsigned> in_histogram(kNumBins);
+  for (const auto& value : in_keys) {
+    int bin = extract_bits(to_bit_ordered(value), kStartBit, kRadixBits);
+    in_histogram[bin] += 1u;
+  }
+  unsigned sum = 0;
+  std::vector<unsigned> in_offsets(kNumBins);
+  for (size_t i = 0; i < kNumBins; ++i) {
+    in_offsets[i] = sum;
+    sum += in_histogram[i];
+  }
+  std::vector<unsigned> indices(in_keys.size());
+  std::iota(indices.begin(), indices.end(), 0);
+  std::vector<TypeParam> out_keys(in_keys.size(), 0);
+  std::vector<unsigned> out_values(in_keys.size(), 0);
+  int num_blocks = (in_keys.size() + kBlockItems - 1) / kBlockItems;
+  std::vector<int> next_block_idx(1);
+  std::vector<unsigned> blocks(num_blocks * kNumBins);
+
+  this->template RadixSort<kBlockThreads, kItemsPerThread, kRadixBits>(
+      in_keys, indices, in_offsets, kStartBit, kRadixBits, out_keys, out_values,
+      next_block_idx, blocks, num_blocks);
+
+  std::vector<unsigned> sorted_indices = indices;
+  std::stable_sort(sorted_indices.begin(), sorted_indices.end(),
+                   [&in_keys, start_bit = kStartBit,
+                    num_pass_bits = kRadixBits](unsigned a, unsigned b) {
+                     return extract_bits(to_bit_ordered(in_keys[a]), start_bit,
+                                         num_pass_bits) <
+                            extract_bits(to_bit_ordered(in_keys[b]), start_bit,
+                                         num_pass_bits);
+                   });
+  std::vector<TypeParam> expected_out_keys(in_keys.size());
+  std::vector<unsigned> expected_out_values(in_keys.size());
+  for (size_t i = 0; i < sorted_indices.size(); ++i) {
+    expected_out_keys[i] = in_keys[sorted_indices[i]];
+    expected_out_values[i] = indices[sorted_indices[i]];
+  }
+  EXPECT_EQ(expected_out_keys, out_keys);
+  EXPECT_EQ(expected_out_values, out_values);
 }

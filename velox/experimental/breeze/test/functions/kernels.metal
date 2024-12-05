@@ -25,11 +25,13 @@
 // kernel specializations
 
 using namespace breeze::functions;
+using namespace breeze::utils;
 
 #define _C(X, Y) X##Y
 #define C(X, Y) _C(X, Y)
 
 #define NAME(F, T, BT, IPT) C(block_, F##_##T##_##BT##x##IPT)
+#define NAME2(F, T, U, BT, IPT) C(block_, F##_##U##_##T##_##BT##x##IPT)
 
 #define GEN_LOAD(T)                                                          \
   kernel void NAME(load, T, 4, 2)(                                           \
@@ -235,15 +237,25 @@ GEN_SCAN(add)
 GEN_RADIX_RANK(int, 64, 2, 6)
 GEN_RADIX_RANK(uint, 64, 2, 6)
 
-#define GEN_RADIX_SORT(T, BT, IPT, RB)                                    \
-  kernel void NAME(radix_sort, T, BT, IPT##x##RB)(                        \
-      const device T *in [[buffer(0)]], device T *out [[buffer(1)]],      \
-      const device int *num_items [[buffer(2)]],                          \
-      uint thread_idx [[thread_index_in_threadgroup]]) {                  \
-    MetalPlatform<BT, WARP_THREADS> p{thread_idx, 0};                     \
-    threadgroup BlockRadixSort<decltype(p), IPT, RB, T>::Scratch scratch; \
-    block_radix_sort<BT, IPT, RB>(p, in, out, &scratch, *num_items);      \
+#define null_value_type NullType
+#define uint_value_type uint
+
+#define GEN_RADIX_SORT(KT, VT, BT, IPT, RB)                                    \
+  kernel void NAME2(radix_sort, KT, VT, BT, IPT##x##RB)(                       \
+      const device KT *in_keys [[buffer(0)]],                                  \
+      const device VT##_value_type *in_values [[buffer(1)]],                   \
+      device KT *out_keys [[buffer(2)]],                                       \
+      device VT##_value_type *out_values [[buffer(3)]],                        \
+      const device int *num_items [[buffer(4)]],                               \
+      uint thread_idx [[thread_index_in_threadgroup]]) {                       \
+    MetalPlatform<BT, WARP_THREADS> p{thread_idx, 0};                          \
+    threadgroup BlockRadixSort<decltype(p), IPT, RB, KT,                       \
+                               VT##_value_type>::Scratch scratch;              \
+    block_radix_sort<BT, IPT, RB>(p, in_keys, in_values, out_keys, out_values, \
+                                  &scratch, *num_items);                       \
   }
 
-GEN_RADIX_SORT(int, 64, 2, 6)
-GEN_RADIX_SORT(uint, 64, 2, 6)
+GEN_RADIX_SORT(int, null, 64, 2, 6)
+GEN_RADIX_SORT(int, uint, 64, 2, 6)
+GEN_RADIX_SORT(uint, null, 64, 2, 6)
+GEN_RADIX_SORT(uint, uint, 64, 2, 6)

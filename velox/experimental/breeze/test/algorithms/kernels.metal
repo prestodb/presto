@@ -25,11 +25,13 @@
 // kernel specializations
 
 using namespace breeze::algorithms;
+using namespace breeze::utils;
 
 #define _C(X, Y) X##Y
 #define C(X, Y) _C(X, Y)
 
 #define NAME(F, T, BT, IPT) C(, F##_##T##_##BT##x##IPT)
+#define NAME2(F, T, U, BT, IPT) C(, F##_##U##_##T##_##BT##x##IPT)
 
 #define add_reduce_op ReduceOpAdd
 #define min_reduce_op ReduceOpMin
@@ -97,22 +99,32 @@ GEN_SCAN(add)
 GEN_RADIX_SORT_HISTOGRAM(int)
 GEN_RADIX_SORT_HISTOGRAM(uint)
 
-#define GEN_RADIX_SORT(T, BT, IPT, RB)                                        \
-  kernel void NAME(radix_sort, T, BT, IPT##x##RB)(                            \
-      const device T *in [[buffer(0)]],                                       \
-      const device uint *in_offsets [[buffer(1)]],                            \
-      const device int *start_bit [[buffer(2)]],                              \
-      const device int *num_pass_bits [[buffer(3)]],                          \
-      device T *out [[buffer(4)]], device int *next_block_idx [[buffer(5)]],  \
-      device uint *blocks [[buffer(6)]],                                      \
-      const device int *num_items [[buffer(7)]],                              \
-      uint thread_idx [[thread_index_in_threadgroup]],                        \
-      uint block_idx [[threadgroup_position_in_grid]]) {                      \
-    MetalPlatform<BT, WARP_THREADS> p{thread_idx, block_idx};                 \
-    threadgroup DeviceRadixSort<decltype(p), IPT, RB, T>::Scratch scratch;    \
-    radix_sort<BT, IPT, RB>(p, in, in_offsets, start_bit, num_pass_bits, out, \
-                            next_block_idx, blocks, &scratch, *num_items);    \
+#define null_value_type NullType
+#define uint_value_type uint
+
+#define GEN_RADIX_SORT(KT, VT, BT, IPT, RB)                                \
+  kernel void NAME2(radix_sort, KT, VT, BT, IPT##x##RB)(                   \
+      const device KT *in_keys [[buffer(0)]],                              \
+      const device VT##_value_type *in_values [[buffer(1)]],               \
+      const device uint *in_offsets [[buffer(2)]],                         \
+      const device int *start_bit [[buffer(3)]],                           \
+      const device int *num_pass_bits [[buffer(4)]],                       \
+      device KT *out_keys [[buffer(5)]],                                   \
+      device VT##_value_type *out_values [[buffer(6)]],                    \
+      device int *next_block_idx [[buffer(7)]],                            \
+      device uint *blocks [[buffer(8)]],                                   \
+      const device int *num_items [[buffer(9)]],                           \
+      uint thread_idx [[thread_index_in_threadgroup]],                     \
+      uint block_idx [[threadgroup_position_in_grid]]) {                   \
+    MetalPlatform<BT, WARP_THREADS> p{thread_idx, block_idx};              \
+    threadgroup DeviceRadixSort<decltype(p), IPT, RB, KT,                  \
+                                VT##_value_type>::Scratch scratch;         \
+    radix_sort<BT, IPT, RB>(p, in_keys, in_values, in_offsets, start_bit,  \
+                            num_pass_bits, out_keys, out_values,           \
+                            next_block_idx, blocks, &scratch, *num_items); \
   }
 
-GEN_RADIX_SORT(int, 64, 2, 6)
-GEN_RADIX_SORT(uint, 64, 2, 6)
+GEN_RADIX_SORT(int, null, 64, 2, 6)
+GEN_RADIX_SORT(int, uint, 64, 2, 6)
+GEN_RADIX_SORT(uint, null, 64, 2, 6)
+GEN_RADIX_SORT(uint, uint, 64, 2, 6)

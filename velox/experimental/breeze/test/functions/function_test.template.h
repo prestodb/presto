@@ -86,9 +86,10 @@ class FunctionTest : public ::testing::Test {
       "typename breeze::functions::BlockRadixRank<PlatformT, ITEMS_PER_THREAD, RADIX_BITS>::Scratch")
   void BlockRadixRank(USE_AS_SIZE const std::vector<T>& in,
                       std::vector<int>& out);
-  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS>
+  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS, typename U>
   SHARED_MEM_TYPE(
-      "typename breeze::functions::BlockRadixSort<PlatformT, ITEMS_PER_THREAD, RADIX_BITS, T>::Scratch")
-  void BlockRadixSort(USE_AS_SIZE const std::vector<T>& in,
-                      std::vector<T>& out);
+      "typename breeze::functions::BlockRadixSort<PlatformT, ITEMS_PER_THREAD, RADIX_BITS, T, U>::Scratch")
+  void BlockRadixSort(USE_AS_SIZE const std::vector<T>& keys_in,
+                      const std::vector<U>& values_in, std::vector<T>& keys_out,
+                      std::vector<U>& values_out);
 };

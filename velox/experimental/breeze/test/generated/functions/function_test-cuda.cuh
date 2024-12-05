@@ -149,12 +149,14 @@ class FunctionTest : public ::testing::Test {
         in, out, in.size());
   }
 
-  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS>
-  void BlockRadixSort(const std::vector<T>& in, std::vector<T>& out) {
+  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS, typename U>
+  void BlockRadixSort(const std::vector<T>& keys_in,
+                      const std::vector<U>& values_in, std::vector<T>& keys_out,
+                      std::vector<U>& values_out) {
     CudaTestLaunch<BLOCK_THREADS>(
         /*num_blocks=*/1,
-        &kernels::BlockRadixSort<BLOCK_THREADS, ITEMS_PER_THREAD, RADIX_BITS,
-                                 T>,
-        in, out, in.size());
+        &kernels::BlockRadixSort<BLOCK_THREADS, ITEMS_PER_THREAD, RADIX_BITS, T,
+                                 U>,
+        keys_in, values_in, keys_out, values_out, keys_in.size());
   }
 };

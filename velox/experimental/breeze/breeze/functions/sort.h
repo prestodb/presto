@@ -269,12 +269,13 @@ struct BlockRadixRank {
   }
 };
 
-template <typename PlatformT, int ITEMS_PER_THREAD, int RADIX_BITS, typename T>
+template <typename PlatformT, int ITEMS_PER_THREAD, int RADIX_BITS,
+          typename KeyT, typename ValueT>
 struct BlockRadixSort {
   enum {
     BLOCK_THREADS = PlatformT::BLOCK_THREADS,
     WARP_THREADS = PlatformT::WARP_THREADS,
-    END_BIT = sizeof(T) * /*BITS_PER_BYTE=*/8,
+    END_BIT = sizeof(KeyT) * /*BITS_PER_BYTE=*/8,
     NUM_PASSES = utils::DivideAndRoundUp<END_BIT, RADIX_BITS>::VALUE,
     NUM_BINS = 1 << RADIX_BITS,
     BINS_PER_THREAD = utils::DivideAndRoundUp<NUM_BINS, BLOCK_THREADS>::VALUE,
@@ -284,21 +285,27 @@ struct BlockRadixSort {
     union {
       typename BlockRadixRank<PlatformT, ITEMS_PER_THREAD, RADIX_BITS>::Scratch
           rank;
-      T scatter[BLOCK_THREADS * ITEMS_PER_THREAD];
+      struct {
+        union {
+          KeyT keys[BLOCK_THREADS * ITEMS_PER_THREAD];
+          ValueT values[BLOCK_THREADS * ITEMS_PER_THREAD];
+        };
+      } scatter;
     };
   };
 
-  template <typename ItemSlice, typename ScratchSlice>
-  static ATTR void Sort(PlatformT p, ItemSlice items, ScratchSlice scratch) {
+  template <typename KeySlice, typename ValueSlice, typename ScratchSlice>
+  static ATTR void Sort(PlatformT p, KeySlice keys, ValueSlice values,
+                        ScratchSlice scratch) {
     using namespace utils;
 
     static_assert(IsSame<typename ScratchSlice::data_type, Scratch>::VALUE,
                   "incorrect scratch type");
 
-    // convert items to bit ordered representation if needed
+    // convert keys to bit ordered representation if needed
 #pragma unroll
     for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
-      items[i] = RadixSortTraits<T>::to_bit_ordered(items[i]);
+      keys[i] = RadixSortTraits<KeyT>::to_bit_ordered(keys[i]);
     }
 
     // start from LSB and loop until no bits are left
@@ -307,36 +314,49 @@ struct BlockRadixSort {
       int start_bit = i * RADIX_BITS;
       int num_pass_bits = p.min(RADIX_BITS, END_BIT - start_bit);
 
-      // determine stable rank for each item
+      // determine stable rank for each key
       int ranks[ITEMS_PER_THREAD];
       BlockRadixRank<PlatformT, ITEMS_PER_THREAD, RADIX_BITS>::Rank(
-          p, make_bitfield_extractor(items, start_bit, num_pass_bits),
-          make_slice<THREAD, ItemSlice::ARRANGEMENT>(ranks),
+          p, make_bitfield_extractor(keys, start_bit, num_pass_bits),
+          make_slice<THREAD, KeySlice::ARRANGEMENT>(ranks),
           make_slice<SHARED>(&scratch->rank));
       p.syncthreads();
 
-      // scatter items by storing them in shared memory using ranks
+      // scatter keys by storing them in scratch using ranks
       BlockStoreAt<BLOCK_THREADS, ITEMS_PER_THREAD>(
-          p, items, make_slice<THREAD, ItemSlice::ARRANGEMENT>(ranks),
-          make_slice<SHARED>(scratch->scatter));
+          p, keys, make_slice<THREAD, KeySlice::ARRANGEMENT>(ranks),
+          make_slice<SHARED>(scratch->scatter.keys));
       p.syncthreads();
 
-      // load scattered items
+      // load scattered keys
       BlockLoad<BLOCK_THREADS, ITEMS_PER_THREAD>(
-          p, make_slice<SHARED>(scratch->scatter), items);
+          p, make_slice<SHARED>(scratch->scatter.keys), keys);
       p.syncthreads();
+
+      if constexpr (IsDifferent<ValueT, NullType>::VALUE) {
+        // scatter values by storing them in scratch using ranks
+        BlockStoreAt<BLOCK_THREADS, ITEMS_PER_THREAD>(
+            p, values, make_slice<THREAD, KeySlice::ARRANGEMENT>(ranks),
+            make_slice<SHARED>(scratch->scatter.values));
+        p.syncthreads();
+
+        // load scattered values
+        BlockLoad<BLOCK_THREADS, ITEMS_PER_THREAD>(
+            p, make_slice<SHARED>(scratch->scatter.values), values);
+        p.syncthreads();
+      }
     }
 
-    // convert items back to original representation
+    // convert keys back to original representation
 #pragma unroll
     for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
-      items[i] = RadixSortTraits<T>::from_bit_ordered(items[i]);
+      keys[i] = RadixSortTraits<KeyT>::from_bit_ordered(keys[i]);
     }
   }
 
-  template <typename ItemSlice, typename ScratchSlice>
-  static ATTR void Sort(PlatformT p, ItemSlice items, ScratchSlice scratch,
-                        int num_items) {
+  template <typename KeySlice, typename ValueSlice, typename ScratchSlice>
+  static ATTR void Sort(PlatformT p, KeySlice keys, ValueSlice values,
+                        ScratchSlice scratch, int num_items) {
     using namespace utils;
 
     enum {
@@ -345,31 +365,59 @@ struct BlockRadixSort {
 
     static_assert((BLOCK_THREADS % WARP_THREADS) == 0,
                   "BLOCK_THREADS must be a multiple of WARP_THREADS");
-    static_assert(ItemSlice::ARRANGEMENT == WARP_STRIPED,
+    static_assert(KeySlice::ARRANGEMENT == WARP_STRIPED,
                   "input must have warp-striped arrangement");
 
     int thread_offset = p.warp_idx() * WARP_ITEMS + p.lane_idx();
 
-    // pad items with values that have all bits set
-    T padded_items[ITEMS_PER_THREAD];
+    // pad keys with values that have all bits set
+    KeyT padded_keys[ITEMS_PER_THREAD];
 #pragma unroll
     for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
-      padded_items[i] = NumericLimits<T>::max();
+      padded_keys[i] = NumericLimits<KeyT>::max();
     }
 #pragma unroll
     for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
       if (thread_offset + (i * WARP_THREADS) < num_items) {
-        padded_items[i] = items[i];
+        padded_keys[i] = keys[i];
       }
     }
 
-    Sort(p, make_slice<THREAD, WARP_STRIPED>(padded_items), scratch);
+    if constexpr (IsDifferent<ValueT, NullType>::VALUE) {
+      static_assert(ValueSlice::ARRANGEMENT == WARP_STRIPED,
+                    "input must have warp-striped arrangement");
 
-    // copy valid items back
+      ValueT padded_values[ITEMS_PER_THREAD];
+#pragma unroll
+      for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+        padded_values[i] = static_cast<ValueT>(0);
+      }
+#pragma unroll
+      for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+        if (thread_offset + (i * WARP_THREADS) < num_items) {
+          padded_values[i] = values[i];
+        }
+      }
+
+      Sort(p, make_slice<THREAD, WARP_STRIPED>(padded_keys),
+           make_slice<THREAD, WARP_STRIPED>(padded_values), scratch);
+
+      // copy valid values back
+#pragma unroll
+      for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+        if (thread_offset + (i * WARP_THREADS) < num_items) {
+          values[i] = padded_values[i];
+        }
+      }
+    } else {
+      Sort(p, make_slice<THREAD, WARP_STRIPED>(padded_keys), values, scratch);
+    }
+
+    // copy valid keys back
 #pragma unroll
     for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
       if (thread_offset + (i * WARP_THREADS) < num_items) {
-        items[i] = padded_items[i];
+        keys[i] = padded_keys[i];
       }
     }
   }

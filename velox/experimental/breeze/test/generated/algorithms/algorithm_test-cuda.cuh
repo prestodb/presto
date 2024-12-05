@@ -71,18 +71,18 @@ class AlgorithmTest : public ::testing::Test {
         in, out, in.size());
   }
 
-  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS>
-  void RadixSort(const std::vector<T>& in,
+  template <int BLOCK_THREADS, int ITEMS_PER_THREAD, int RADIX_BITS, typename U>
+  void RadixSort(const std::vector<T>& in_keys, const std::vector<U>& in_values,
                  const std::vector<unsigned>& in_offsets, int start_bit,
-                 int num_pass_bits, std::vector<T>& out,
-                 std::vector<int>& next_block_idx,
+                 int num_pass_bits, std::vector<T>& out_keys,
+                 std::vector<U>& out_values, std::vector<int>& next_block_idx,
                  std::vector<unsigned>& blocks, int num_blocks) {
     const std::vector<int> vec_start_bit(1, start_bit);
     const std::vector<int> vec_num_pass_bits(1, num_pass_bits);
     CudaTestLaunch<BLOCK_THREADS>(
         num_blocks,
-        &kernels::RadixSort<BLOCK_THREADS, ITEMS_PER_THREAD, RADIX_BITS, T>, in,
-        in_offsets, vec_start_bit, vec_num_pass_bits, out, next_block_idx,
-        blocks, in.size());
+        &kernels::RadixSort<BLOCK_THREADS, ITEMS_PER_THREAD, RADIX_BITS, T, U>,
+        in_keys, in_values, in_offsets, vec_start_bit, vec_num_pass_bits,
+        out_keys, out_values, next_block_idx, blocks, in_keys.size());
   }
 };
