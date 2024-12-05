@@ -1506,8 +1506,10 @@ struct JsonBasedUdfFunctionMetadata {
   TypeSignature outputType = {};
   List<TypeSignature> paramTypes = {};
   String schema = {};
+  bool variableArity = {};
   RoutineCharacteristics routineCharacteristics = {};
   std::shared_ptr<AggregationFunctionMetadata> aggregateMetadata = {};
+  std::shared_ptr<List<TypeVariableConstraint>> typeVariableConstraints = {};
 };
 void to_json(json& j, const JsonBasedUdfFunctionMetadata& p);
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p);
