@@ -467,6 +467,11 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
+  const std::shared_ptr<LocalExchangeMemoryManager>&
+  getLocalExchangeMemoryManager(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
+
   void setError(const std::exception_ptr& exception);
 
   void setError(const std::string& message);

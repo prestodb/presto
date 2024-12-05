@@ -104,6 +104,17 @@ These stats are reported only by TableWriter operator
    * - earlyFlushedRawBytes
      - bytes
      - Number of bytes pre-maturely flushed from file writers because of memory reclaiming.
+   * - rebalanceTriggers
+     -
+     - The number of times that we triggers the rebalance of table partitions
+       for a non-bucketed partition table.
+   * - scaledPartitions
+     -
+     - The number of times that we scale a partition processing for a
+       non-bucketed partition table.
+   * - scaledWriters
+     -
+     - The number of times that we scale writers for a non-partitioned table.
 
 Spilling
 --------

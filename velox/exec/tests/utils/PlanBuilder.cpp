@@ -1175,6 +1175,7 @@ RowTypePtr rename(
 core::PlanNodePtr createLocalPartitionNode(
     const core::PlanNodeId& planNodeId,
     const std::vector<core::TypedExprPtr>& keys,
+    bool scaleWriter,
     const std::vector<core::PlanNodePtr>& sources,
     memory::MemoryPool* pool) {
   auto partitionFunctionFactory =
@@ -1183,6 +1184,7 @@ core::PlanNodePtr createLocalPartitionNode(
       planNodeId,
       keys.empty() ? core::LocalPartitionNode::Type::kGather
                    : core::LocalPartitionNode::Type::kRepartition,
+      scaleWriter,
       partitionFunctionFactory,
       sources);
 }
@@ -1271,7 +1273,11 @@ PlanBuilder& PlanBuilder::localPartition(
     const std::vector<core::PlanNodePtr>& sources) {
   VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
   planNode_ = createLocalPartitionNode(
-      nextPlanNodeId(), exprs(keys, sources[0]->outputType()), sources, pool_);
+      nextPlanNodeId(),
+      exprs(keys, sources[0]->outputType()),
+      /*scaleWriter=*/false,
+      sources,
+      pool_);
   return *this;
 }
 
@@ -1279,6 +1285,18 @@ PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
   planNode_ = createLocalPartitionNode(
       nextPlanNodeId(),
       exprs(keys, planNode_->outputType()),
+      /*scaleWriter=*/false,
+      {planNode_},
+      pool_);
+  return *this;
+}
+
+PlanBuilder& PlanBuilder::scaleWriterlocalPartition(
+    const std::vector<std::string>& keys) {
+  planNode_ = createLocalPartitionNode(
+      nextPlanNodeId(),
+      exprs(keys, planNode_->outputType()),
+      /*scaleWriter=*/true,
       {planNode_},
       pool_);
   return *this;
@@ -1294,6 +1312,7 @@ PlanBuilder& PlanBuilder::localPartition(
   planNode_ = std::make_shared<core::LocalPartitionNode>(
       nextPlanNodeId(),
       core::LocalPartitionNode::Type::kRepartition,
+      /*scaleWriter=*/false,
       std::move(hivePartitionFunctionFactory),
       std::vector<core::PlanNodePtr>{planNode_});
   return *this;
@@ -1316,6 +1335,7 @@ PlanBuilder& PlanBuilder::localPartitionByBucket(
   planNode_ = std::make_shared<core::LocalPartitionNode>(
       nextPlanNodeId(),
       core::LocalPartitionNode::Type::kRepartition,
+      /*scaleWriter=*/false,
       std::move(hivePartitionFunctionFactory),
       std::vector<core::PlanNodePtr>{planNode_});
   return *this;
@@ -1324,10 +1344,12 @@ PlanBuilder& PlanBuilder::localPartitionByBucket(
 namespace {
 core::PlanNodePtr createLocalPartitionRoundRobinNode(
     const core::PlanNodeId& planNodeId,
+    bool scaleWriter,
     const std::vector<core::PlanNodePtr>& sources) {
   return std::make_shared<core::LocalPartitionNode>(
       planNodeId,
       core::LocalPartitionNode::Type::kRepartition,
+      scaleWriter,
       std::make_shared<RoundRobinPartitionFunctionSpec>(),
       sources);
 }
@@ -1337,12 +1359,20 @@ PlanBuilder& PlanBuilder::localPartitionRoundRobin(
     const std::vector<core::PlanNodePtr>& sources) {
   VELOX_CHECK_NULL(
       planNode_, "localPartitionRoundRobin() must be the first call");
-  planNode_ = createLocalPartitionRoundRobinNode(nextPlanNodeId(), sources);
+  planNode_ = createLocalPartitionRoundRobinNode(
+      nextPlanNodeId(), /*scaleWriter=*/false, sources);
   return *this;
 }
 
 PlanBuilder& PlanBuilder::localPartitionRoundRobin() {
-  planNode_ = createLocalPartitionRoundRobinNode(nextPlanNodeId(), {planNode_});
+  planNode_ = createLocalPartitionRoundRobinNode(
+      nextPlanNodeId(), /*scaleWriter=*/false, {planNode_});
+  return *this;
+}
+
+PlanBuilder& PlanBuilder::scaleWriterlocalPartitionRoundRobin() {
+  planNode_ = createLocalPartitionRoundRobinNode(
+      nextPlanNodeId(), /*scaleWriter=*/true, {planNode_});
   return *this;
 }
 
@@ -1399,6 +1429,7 @@ PlanBuilder& PlanBuilder::localPartitionRoundRobinRow() {
   planNode_ = std::make_shared<core::LocalPartitionNode>(
       nextPlanNodeId(),
       core::LocalPartitionNode::Type::kRepartition,
+      /*scaleWriter=*/false,
       std::make_shared<RoundRobinRowPartitionFunctionSpec>(),
       std::vector<core::PlanNodePtr>{planNode_});
   return *this;

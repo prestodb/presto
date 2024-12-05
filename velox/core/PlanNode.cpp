@@ -1998,11 +1998,15 @@ void LocalPartitionNode::addDetails(std::stringstream& stream) const {
   if (type_ != Type::kGather) {
     stream << " " << partitionFunctionSpec_->toString();
   }
+  if (scaleWriter_) {
+    stream << " scaleWriter";
+  }
 }
 
 folly::dynamic LocalPartitionNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["type"] = typeName(type_);
+  obj["scaleWriter"] = scaleWriter_;
   obj["partitionFunctionSpec"] = partitionFunctionSpec_->serialize();
   return obj;
 }
@@ -2014,6 +2018,7 @@ PlanNodePtr LocalPartitionNode::create(
   return std::make_shared<LocalPartitionNode>(
       deserializePlanNodeId(obj),
       typeFromName(obj["type"].asString()),
+      obj["scaleWriter"].asBool(),
       ISerializable::deserialize<PartitionFunctionSpec>(
           obj["partitionFunctionSpec"]),
       deserializeSources(obj, context));

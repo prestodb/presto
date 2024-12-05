@@ -35,6 +35,9 @@ class AssertQueryBuilder {
   /// Change requested number of drivers. Default is 1.
   AssertQueryBuilder& maxDrivers(int32_t maxDrivers);
 
+  /// Change the query memory pool capacity. Default has no limit
+  AssertQueryBuilder& maxQueryCapacity(int64_t maxCapacity);
+
   /// Change task's 'destination', the partition number assigned to the task.
   /// Default is 0.
   AssertQueryBuilder& destination(int32_t destination);

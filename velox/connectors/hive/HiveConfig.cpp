@@ -64,7 +64,7 @@ uint32_t HiveConfig::maxPartitionsPerWriters(
     const config::ConfigBase* session) const {
   return session->get<uint32_t>(
       kMaxPartitionsPerWritersSession,
-      config_->get<uint32_t>(kMaxPartitionsPerWriters, 100));
+      config_->get<uint32_t>(kMaxPartitionsPerWriters, 128));
 }
 
 bool HiveConfig::immutablePartitions() const {

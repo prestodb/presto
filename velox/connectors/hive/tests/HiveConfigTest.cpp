@@ -31,7 +31,7 @@ TEST(HiveConfigTest, defaultConfig) {
       hiveConfig.insertExistingPartitionsBehavior(emptySession.get()),
       facebook::velox::connector::hive::HiveConfig::
           InsertExistingPartitionsBehavior::kError);
-  ASSERT_EQ(hiveConfig.maxPartitionsPerWriters(emptySession.get()), 100);
+  ASSERT_EQ(hiveConfig.maxPartitionsPerWriters(emptySession.get()), 128);
   ASSERT_EQ(hiveConfig.immutablePartitions(), false);
   ASSERT_EQ(hiveConfig.gcsEndpoint(), "");
   ASSERT_EQ(hiveConfig.gcsCredentialsPath(), "");
@@ -172,7 +172,7 @@ TEST(HiveConfigTest, overrideSession) {
       hiveConfig.insertExistingPartitionsBehavior(session.get()),
       facebook::velox::connector::hive::HiveConfig::
           InsertExistingPartitionsBehavior::kOverwrite);
-  ASSERT_EQ(hiveConfig.maxPartitionsPerWriters(session.get()), 100);
+  ASSERT_EQ(hiveConfig.maxPartitionsPerWriters(session.get()), 128);
   ASSERT_EQ(hiveConfig.immutablePartitions(), false);
   ASSERT_EQ(hiveConfig.gcsEndpoint(), "");
   ASSERT_EQ(hiveConfig.gcsCredentialsPath(), "");

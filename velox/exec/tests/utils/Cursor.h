@@ -28,23 +28,26 @@ bool waitForTaskDriversToFinish(
     exec::Task* task,
     uint64_t maxWaitMicros = 1'000'000);
 
-// Parameters for initializing a TaskCursor or RowCursor.
+/// Parameters for initializing a TaskCursor or RowCursor.
 struct CursorParameters {
-  // Root node of the plan tree
+  /// Root node of the plan tree
   std::shared_ptr<const core::PlanNode> planNode;
 
-  int32_t destination = 0;
+  int32_t destination{0};
 
-  // Maximum number of drivers per pipeline.
-  int32_t maxDrivers = 1;
+  /// Maximum number of drivers per pipeline.
+  int32_t maxDrivers{1};
 
-  // Maximum number of split groups processed concurrently.
-  int32_t numConcurrentSplitGroups = 1;
+  /// The max capacity of the query memory pool.
+  int64_t maxQueryCapacity{memory::kMaxMemory};
 
-  // Optional, created if not present.
+  /// Maximum number of split groups processed concurrently.
+  int32_t numConcurrentSplitGroups{1};
+
+  /// Optional, created if not present.
   std::shared_ptr<core::QueryCtx> queryCtx;
 
-  uint64_t bufferedBytes = 512 * 1024;
+  uint64_t bufferedBytes{512 * 1024};
 
   /// Ungrouped (by default) or grouped (bucketed) execution.
   core::ExecutionStrategy executionStrategy{
@@ -57,17 +60,18 @@ struct CursorParameters {
   /// ungrouped execution.
   int numSplitGroups{1};
 
-  /// Spilling directory, if not empty, then the task's spilling directory would
-  /// be built from it.
+  /// Spilling directory, if not empty, then the task's spilling directory
+  /// would be built from it.
   std::string spillDirectory;
 
   bool copyResult = true;
 
-  /// If true, use serial execution mode. Use parallel execution mode otherwise.
+  /// If true, use serial execution mode. Use parallel execution mode
+  /// otherwise.
   bool serialExecution = false;
 
-  /// If both 'queryConfigs' and 'queryCtx' are specified, the configurations in
-  /// 'queryCtx' will be overridden by 'queryConfig'.
+  /// If both 'queryConfigs' and 'queryCtx' are specified, the configurations
+  /// in 'queryCtx' will be overridden by 'queryConfig'.
   std::unordered_map<std::string, std::string> queryConfigs;
 };
 

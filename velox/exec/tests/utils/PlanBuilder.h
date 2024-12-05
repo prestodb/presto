@@ -872,6 +872,14 @@ class PlanBuilder {
   /// current plan node).
   PlanBuilder& localPartitionRoundRobin();
 
+  /// A convenience method to add a LocalPartitionNode for scale writer with
+  /// hash partitioning.
+  PlanBuilder& scaleWriterlocalPartition(const std::vector<std::string>& keys);
+
+  /// A convenience method to add a LocalPartitionNode for scale writer with
+  /// round-robin partitioning.
+  PlanBuilder& scaleWriterlocalPartitionRoundRobin();
+
   /// Add a LocalPartitionNode to partition the input using row-wise
   /// round-robin. Number of partitions is determined at runtime based on
   /// parallelism of the downstream pipeline.

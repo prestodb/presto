@@ -228,6 +228,20 @@ TEST_F(PlanNodeSerdeTest, localPartition) {
   testSerde(plan);
 }
 
+TEST_F(PlanNodeSerdeTest, scaleWriterlocalPartition) {
+  auto plan = PlanBuilder()
+                  .values({data_})
+                  .scaleWriterlocalPartition(std::vector<std::string>{"c0"})
+                  .planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder()
+             .values({data_})
+             .scaleWriterlocalPartitionRoundRobin()
+             .planNode();
+  testSerde(plan);
+}
+
 TEST_F(PlanNodeSerdeTest, limit) {
   auto plan = PlanBuilder().values({data_}).limit(0, 10, true).planNode();
   testSerde(plan);

@@ -2587,6 +2587,22 @@ Task::getLocalExchangeQueues(
   return it->second.queues;
 }
 
+const std::shared_ptr<LocalExchangeMemoryManager>&
+Task::getLocalExchangeMemoryManager(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId) {
+  auto& splitGroupState = splitGroupStates_[splitGroupId];
+
+  auto it = splitGroupState.localExchanges.find(planNodeId);
+  VELOX_CHECK(
+      it != splitGroupState.localExchanges.end(),
+      "Incorrect local exchange ID {} for group {}, task {}",
+      planNodeId,
+      splitGroupId,
+      taskId());
+  return it->second.memoryManager;
+}
+
 void Task::setError(const std::exception_ptr& exception) {
   TestValue::adjust("facebook::velox::exec::Task::setError", this);
   {

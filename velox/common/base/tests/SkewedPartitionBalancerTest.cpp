@@ -320,7 +320,7 @@ TEST_F(SkewedPartitionRebalancerTest, error) {
   auto balancer = createBalancer(32, 4, 128, 256);
   VELOX_ASSERT_THROW(balancer->addProcessedBytes(0), "");
   VELOX_ASSERT_THROW(balancer->addPartitionRowCount(32, 4), "");
-  VELOX_ASSERT_THROW(balancer->addPartitionRowCount(0, 0), "");
+  balancer->addPartitionRowCount(0, 0);
   VELOX_ASSERT_THROW(createBalancer(0, 4, 128, 256), "");
   VELOX_ASSERT_THROW(createBalancer(0, 4, 0, 0), "");
 }

@@ -60,7 +60,6 @@ class SkewedPartitionRebalancer {
   /// processed bytes of a partition.
   void addPartitionRowCount(uint32_t partition, uint32_t numRows) {
     VELOX_CHECK_LT(partition, partitionCount_);
-    VELOX_CHECK_GT(numRows, 0);
     partitionRowCount_[partition] += numRows;
   }
 

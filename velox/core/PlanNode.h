@@ -735,8 +735,8 @@ class TableWriteNode : public PlanNode {
         hasPartitioningScheme_(hasPartitioningScheme),
         outputType_(std::move(outputType)),
         commitStrategy_(commitStrategy) {
-    VELOX_USER_CHECK_EQ(columns->size(), columnNames.size());
-    for (const auto& column : columns->names()) {
+    VELOX_USER_CHECK_EQ(columns_->size(), columnNames_.size());
+    for (const auto& column : columns_->names()) {
       VELOX_USER_CHECK(
           source->outputType()->containsChild(column),
           "Column {} not found in TableWriter input: {}",
@@ -1184,13 +1184,31 @@ class LocalPartitionNode : public PlanNode {
 
   static Type typeFromName(const std::string& name);
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   LocalPartitionNode(
       const PlanNodeId& id,
       Type type,
       PartitionFunctionSpecPtr partitionFunctionSpec,
       std::vector<PlanNodePtr> sources)
+      : LocalPartitionNode(
+            id,
+            std::move(type),
+            /*scaleWriter=*/false,
+            std::move(partitionFunctionSpec),
+            std::move(sources)) {}
+#endif
+
+  /// If 'scaleWriter' is true, the local partition is used to scale the table
+  /// writer prcessing.
+  LocalPartitionNode(
+      const PlanNodeId& id,
+      Type type,
+      bool scaleWriter,
+      PartitionFunctionSpecPtr partitionFunctionSpec,
+      std::vector<PlanNodePtr> sources)
       : PlanNode(id),
         type_{type},
+        scaleWriter_(scaleWriter),
         sources_{std::move(sources)},
         partitionFunctionSpec_{std::move(partitionFunctionSpec)} {
     VELOX_USER_CHECK_GT(
@@ -1215,8 +1233,14 @@ class LocalPartitionNode : public PlanNode {
     return std::make_shared<LocalPartitionNode>(
         id,
         Type::kGather,
+        /*scaleWriter=*/false,
         std::make_shared<GatherPartitionFunctionSpec>(),
         std::move(sources));
+  }
+
+  /// Returns true if this is for table writer scaling.
+  bool scaleWriter() const {
+    return scaleWriter_;
   }
 
   Type type() const {
@@ -1247,6 +1271,7 @@ class LocalPartitionNode : public PlanNode {
   void addDetails(std::stringstream& stream) const override;
 
   const Type type_;
+  const bool scaleWriter_;
   const std::vector<PlanNodePtr> sources_;
   const PartitionFunctionSpecPtr partitionFunctionSpec_;
 };

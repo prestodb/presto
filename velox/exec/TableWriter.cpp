@@ -272,8 +272,10 @@ void TableWriter::updateStats(const connector::DataSink::Stats& stats) {
       VELOX_CHECK(stats.spillStats.empty());
       return;
     }
-    lockedStats->addRuntimeStat(
-        "numWrittenFiles", RuntimeCounter(stats.numWrittenFiles));
+    if (stats.numWrittenFiles != 0) {
+      lockedStats->addRuntimeStat(
+          "numWrittenFiles", RuntimeCounter(stats.numWrittenFiles));
+    }
     lockedStats->addRuntimeStat(
         "writeIOTime",
         RuntimeCounter(
