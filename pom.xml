@@ -58,6 +58,7 @@
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.tempto.version>1.53</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
+        <dep.lucene.version>8.10.0</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.13</dep.logback.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
@@ -2035,13 +2036,19 @@
             <dependency>
                 <groupId>org.apache.lucene</groupId>
                 <artifactId>lucene-analyzers-common</artifactId>
-                <version>7.2.1</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.lucene</groupId>
-                        <artifactId>lucene-core</artifactId>
-                    </exclusion>
-                </exclusions>
+                <version>${dep.lucene.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.lucene</groupId>
+                <artifactId>lucene-core</artifactId>
+                <version>${dep.lucene.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.lucene</groupId>
+                <artifactId>lucene-queryparser</artifactId>
+                <version>${dep.lucene.version}</version>
             </dependency>
 
             <dependency>
@@ -2339,6 +2346,29 @@
                         <ignoredClassPatterns combine.children="append">
                             <!-- Duplicate class is being brought in by commons-io & log4j-api -->
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                            <!-- Ignore duplicate classes related to lucene-core and ranger-apache -->
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.analysis.tokenattributes.CharTermAttributeImpl</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.document.DoubleRange</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.document.FloatRange</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.document.IntRange</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.document.LongRange</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.index.BitsSlice</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.index.CodecReader</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.index.MergeReaderWrapper</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.index.PointValues</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.search.TopFieldCollector</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.store.DataInput</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.BytesRef</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.BytesRefArray</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.CharsRef</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.IntsRef</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.LongsRef</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.StringHelper</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.automaton.Automaton</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.bkd.BKDRadixSelector</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.bkd.BKDReader</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.bkd.BKDWriter</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.util.bkd.HeapPointWriter</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
                 </plugin>
