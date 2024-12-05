@@ -289,6 +289,7 @@ public class FeaturesConfig
     private int eagerPlanValidationThreadPoolSize = 20;
 
     private boolean prestoSparkExecutionEnvironment;
+    private boolean singleNodeExecutionEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2859,6 +2860,19 @@ public class FeaturesConfig
     public FeaturesConfig setPrestoSparkExecutionEnvironment(boolean prestoSparkExecutionEnvironment)
     {
         this.prestoSparkExecutionEnvironment = prestoSparkExecutionEnvironment;
+        return this;
+    }
+
+    public boolean isSingleNodeExecutionEnabled()
+    {
+        return singleNodeExecutionEnabled;
+    }
+
+    @Config("single-node-execution-enabled")
+    @ConfigDescription("Enable single node execution")
+    public FeaturesConfig setSingleNodeExecutionEnabled(boolean singleNodeExecutionEnabled)
+    {
+        this.singleNodeExecutionEnabled = singleNodeExecutionEnabled;
         return this;
     }
 }
