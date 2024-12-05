@@ -2025,6 +2025,7 @@ struct SortNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   OrderingScheme orderingScheme = {};
   bool isPartial = {};
+  List<VariableReferenceExpression> partitionBy = {};
 
   SortNode() noexcept;
 };
