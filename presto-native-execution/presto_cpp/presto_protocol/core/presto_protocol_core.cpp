@@ -8690,6 +8690,13 @@ void to_json(json& j, const SortNode& p) {
       "OrderingScheme",
       "orderingScheme");
   to_json_key(j, "isPartial", p.isPartial, "SortNode", "bool", "isPartial");
+  to_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "SortNode",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
 }
 
 void from_json(const json& j, SortNode& p) {
@@ -8704,6 +8711,13 @@ void from_json(const json& j, SortNode& p) {
       "OrderingScheme",
       "orderingScheme");
   from_json_key(j, "isPartial", p.isPartial, "SortNode", "bool", "isPartial");
+  from_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "SortNode",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
