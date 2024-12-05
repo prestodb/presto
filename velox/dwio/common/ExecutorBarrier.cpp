@@ -17,6 +17,7 @@
 #include "velox/dwio/common/ExecutorBarrier.h"
 
 namespace facebook::velox::dwio::common {
+
 namespace {
 
 class BarrierElement {
@@ -71,11 +72,11 @@ auto ExecutorBarrier::wrapMethod(folly::Func f) {
 }
 
 void ExecutorBarrier::add(folly::Func f) {
-  executor_->add(wrapMethod(std::move(f)));
+  executor_.add(wrapMethod(std::move(f)));
 }
 
 void ExecutorBarrier::addWithPriority(folly::Func f, int8_t priority) {
-  executor_->addWithPriority(wrapMethod(std::move(f)), priority);
+  executor_.addWithPriority(wrapMethod(std::move(f)), priority);
 }
 
 } // namespace facebook::velox::dwio::common

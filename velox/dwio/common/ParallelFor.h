@@ -36,7 +36,7 @@ namespace facebook::velox::dwio::common {
 class ParallelFor {
  public:
   ParallelFor(
-      folly::Executor::KeepAlive<> executor,
+      folly::Executor* executor,
       size_t from, // start index
       size_t to, // past end index
       // number of threads.
@@ -53,7 +53,7 @@ class ParallelFor {
 
  private:
   std::shared_ptr<folly::Executor> owned_;
-  folly::Executor::KeepAlive<> executor_;
+  folly::Executor* executor_;
   std::vector<std::pair<size_t, size_t>> ranges_;
 };
 

@@ -26,7 +26,7 @@ TEST(ExecutorBarrierTest, GetNumPriorities) {
   const uint8_t kNumPriorities = 5;
   auto executor =
       std::make_shared<folly::CPUThreadPoolExecutor>(10, kNumPriorities);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
   EXPECT_EQ(barrier->getNumPriorities(), kNumPriorities);
 }
 
@@ -41,7 +41,7 @@ TEST(ExecutorBarrierTest, CanOwn) {
 
 TEST(ExecutorBarrierTest, CanAwaitMultipleTimes) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
   for (int time = 0, multipleTimes = 10; time < multipleTimes; ++time) {
     barrier->waitAll();
   }
@@ -49,7 +49,7 @@ TEST(ExecutorBarrierTest, CanAwaitMultipleTimes) {
 
 TEST(ExecutorBarrierTest, AddCanBeReused) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   std::atomic<int> count{0};
@@ -68,7 +68,7 @@ TEST(ExecutorBarrierTest, AddCanBeReused) {
 
 TEST(ExecutorBarrierTest, AddWithPriorityCanBeReused) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   const int8_t kPriority = 4;
@@ -88,7 +88,7 @@ TEST(ExecutorBarrierTest, AddWithPriorityCanBeReused) {
 
 TEST(ExecutorBarrierTest, AddCanBeReusedAfterException) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   std::atomic<int> count{0};
@@ -110,7 +110,7 @@ TEST(ExecutorBarrierTest, AddCanBeReusedAfterException) {
 
 TEST(ExecutorBarrierTest, AddWithPriorityCanBeReusedAfterException) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   const int8_t kPriority = 4;
@@ -135,7 +135,7 @@ TEST(ExecutorBarrierTest, AddWithPriorityCanBeReusedAfterException) {
 
 TEST(ExecutorBarrierTest, Add) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   std::atomic<int> count{0};
@@ -148,7 +148,7 @@ TEST(ExecutorBarrierTest, Add) {
 
 TEST(ExecutorBarrierTest, AddWithPriority) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   const int8_t kPriority = 4;
@@ -162,7 +162,7 @@ TEST(ExecutorBarrierTest, AddWithPriority) {
 
 TEST(ExecutorBarrierTest, AddCanIgnore) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   for (int i = 0; i < kCalls; ++i) {
@@ -173,7 +173,7 @@ TEST(ExecutorBarrierTest, AddCanIgnore) {
 
 TEST(ExecutorBarrierTest, AddWithPriorityCanIgnore) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   for (int i = 0; i < kCalls; ++i) {
@@ -187,7 +187,7 @@ TEST(ExecutorBarrierTest, DestructorDoesntThrow) {
   std::atomic<int> count{0};
   {
     auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-    auto barrier = std::make_shared<ExecutorBarrier>(executor);
+    auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
     for (int i = 0; i < kCalls; ++i) {
       barrier->add([shouldThrow = (i == 0), &count]() {
@@ -203,7 +203,7 @@ TEST(ExecutorBarrierTest, DestructorDoesntThrow) {
 
 TEST(ExecutorBarrierTest, AddException) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   std::atomic<int> count{0};
@@ -221,7 +221,7 @@ TEST(ExecutorBarrierTest, AddException) {
 
 TEST(ExecutorBarrierTest, AddWithPriorityException) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   const int8_t kPriority = 4;
@@ -242,7 +242,7 @@ TEST(ExecutorBarrierTest, AddWithPriorityException) {
 
 TEST(ExecutorBarrierTest, AddNonStdException) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   std::atomic<int> count{0};
@@ -261,7 +261,7 @@ TEST(ExecutorBarrierTest, AddNonStdException) {
 
 TEST(ExecutorBarrierTest, AddWithPriorityNonStdException) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   const int8_t kPriority = 4;
@@ -283,7 +283,7 @@ TEST(ExecutorBarrierTest, AddWithPriorityNonStdException) {
 
 TEST(ExecutorBarrierTest, AddExceptions) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   std::atomic<int> count{0};
@@ -299,7 +299,7 @@ TEST(ExecutorBarrierTest, AddExceptions) {
 
 TEST(ExecutorBarrierTest, AddWithPriorityExceptions) {
   auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(10);
-  auto barrier = std::make_shared<ExecutorBarrier>(executor);
+  auto barrier = std::make_shared<ExecutorBarrier>(*executor);
 
   const int kCalls = 30;
   const int8_t kPriority = 4;
