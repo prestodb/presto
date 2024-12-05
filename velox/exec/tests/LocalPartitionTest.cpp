@@ -17,6 +17,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -26,6 +27,7 @@ class LocalPartitionTest : public HiveConnectorTestBase {
  protected:
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
+    window::prestosql::registerAllWindowFunctions();
   }
 
   template <typename T>
@@ -147,6 +149,38 @@ TEST_F(LocalPartitionTest, gather) {
 
   task = queryBuilder.assertResults("SELECT 300, -71, 152");
   verifyExchangeSourceOperatorStats(task, 300, 3, 1);
+}
+
+TEST_F(LocalPartitionTest, gatherPreserveInputOrderWithSerialExecutionMode) {
+  const std::vector<RowVectorPtr> vectors = {
+      makeRowVector({makeFlatVector<int64_t>({10, 20})}),
+      makeRowVector({makeFlatVector<int64_t>({30, 40})}),
+      makeRowVector({makeFlatVector<int64_t>({50, 60})}),
+      makeRowVector({makeFlatVector<int64_t>({70, 80})}),
+      makeRowVector({makeFlatVector<int64_t>({90, 100})}),
+      makeRowVector({makeFlatVector<int64_t>({110, 120})})};
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+
+  auto valuesNode = [&](const std::vector<int>& indices) {
+    std::vector<RowVectorPtr> values;
+    for (const auto& index : indices) {
+      values.push_back(vectors[index]);
+    }
+    return PlanBuilder(planNodeIdGenerator).values(values).planNode();
+  };
+
+  auto op =
+      PlanBuilder(planNodeIdGenerator)
+          .localPartition(
+              {}, {valuesNode({0, 1, 2}), valuesNode({3}), valuesNode({4, 5})})
+          .window({"row_number() over () as r"})
+          .planNode();
+
+  AssertQueryBuilder(op, duckDbQueryRunner_)
+      .serialExecution(true)
+      .assertResults(
+          "VALUES (10, 1), (20, 2), (30, 3), (40, 4), (50, 5), (60, 6), (70, 7), (80, 8), (90, 9), (100, 10), (110, 11), (120, 12)");
 }
 
 TEST_F(LocalPartitionTest, partition) {
