@@ -32,13 +32,22 @@ constexpr int kIPPrefixBytes = 17;
 constexpr auto kIpRowIndex = "ip";
 constexpr auto kIpPrefixRowIndex = "prefix";
 
-namespace {
-auto splitIpSlashCidr(folly::StringPiece ipSlashCidr) {
-  folly::small_vector<folly::StringPiece, 2> vec;
-  folly::split('/', ipSlashCidr, vec);
-  return vec;
+inline folly::Expected<int8_t, Status> tryIpPrefixLengthFromIPAddressType(
+    const int128_t& intIpAddr) {
+  folly::ByteArray16 addrBytes = {0};
+  memcpy(&addrBytes, &intIpAddr, sizeof(intIpAddr));
+  std::reverse(addrBytes.begin(), addrBytes.end());
+  auto tryV6Addr = folly::IPAddressV6::tryFromBinary(addrBytes);
+  if (tryV6Addr.hasError()) {
+    return folly::makeUnexpected(
+        threadSkipErrorDetails()
+            ? Status::UserError()
+            : Status::UserError("Received invalid ip address"));
+  }
+
+  return tryV6Addr.value().isIPv4Mapped() ? ipaddress::kIPV4Bits
+                                          : ipaddress::kIPV6Bits;
 }
-} // namespace
 
 inline folly::Expected<std::pair<int128_t, int8_t>, Status>
 tryParseIpPrefixString(folly::StringPiece ipprefixString) {

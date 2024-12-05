@@ -16,7 +16,6 @@
 #include <folly/small_vector.h>
 
 #include "velox/expression/CastExpr.h"
-#include "velox/expression/VectorWriters.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 
 namespace facebook::velox {
@@ -29,6 +28,8 @@ class IPPrefixCastOperator : public exec::CastOperator {
     switch (other->kind()) {
       case TypeKind::VARCHAR:
         return true;
+      case TypeKind::HUGEINT:
+        return isIPAddressType(other);
       default:
         return false;
     }
@@ -38,6 +39,8 @@ class IPPrefixCastOperator : public exec::CastOperator {
     switch (other->kind()) {
       case TypeKind::VARCHAR:
         return true;
+      case TypeKind::HUGEINT:
+        return isIPAddressType(other);
       default:
         return false;
     }
@@ -53,6 +56,12 @@ class IPPrefixCastOperator : public exec::CastOperator {
     switch (input.typeKind()) {
       case TypeKind::VARCHAR:
         return castFromString(input, context, rows, *result);
+      case TypeKind::HUGEINT: {
+        if (isIPAddressType(input.type())) {
+          return castFromIpAddress(input, context, rows, *result);
+        }
+        [[fallthrough]];
+      }
       default:
         VELOX_NYI(
             "Cast from {} to IPPrefix not yet supported",
@@ -85,7 +94,6 @@ class IPPrefixCastOperator : public exec::CastOperator {
       BaseVector& result) {
     auto* flatResult = result.as<FlatVector<StringView>>();
     auto rowVector = input.as<RowVector>();
-    auto rowType = rowVector->type();
     const auto* ipaddr = rowVector->childAt(ipaddress::kIpRowIndex)
                              ->as<SimpleVector<int128_t>>();
     const auto* prefix = rowVector->childAt(ipaddress::kIpPrefixRowIndex)
@@ -120,29 +128,55 @@ class IPPrefixCastOperator : public exec::CastOperator {
     });
   }
 
+  static void castFromIpAddress(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      BaseVector& result) {
+    auto* rowVectorResult = result.as<RowVector>();
+    auto intIpAddrVec =
+        rowVectorResult->childAt(0)->asChecked<FlatVector<int128_t>>();
+    auto intPrefixVec =
+        rowVectorResult->childAt(1)->asChecked<FlatVector<int8_t>>();
+    DecodedVector decoded(input, rows);
+
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
+      auto intIpAddr = decoded.valueAt<int128_t>(row);
+      const auto tryPrefixLength =
+          ipaddress::tryIpPrefixLengthFromIPAddressType(intIpAddr);
+      if (FOLLY_UNLIKELY(tryPrefixLength.hasError())) {
+        context.setStatus(row, std::move(tryPrefixLength.error()));
+        return;
+      }
+      intIpAddrVec->set(row, intIpAddr);
+      intPrefixVec->set(row, tryPrefixLength.value());
+    });
+  }
+
   static void castFromString(
       const BaseVector& input,
       exec::EvalCtx& context,
       const SelectivityVector& rows,
       BaseVector& result) {
     auto* rowVectorResult = result.as<RowVector>();
-    const auto* ipPrefixStrings = input.as<SimpleVector<StringView>>();
+    auto intIpAddrVec =
+        rowVectorResult->childAt(0)->asChecked<FlatVector<int128_t>>();
+    auto intPrefixVec =
+        rowVectorResult->childAt(1)->asChecked<FlatVector<int8_t>>();
+
+    DecodedVector decoded(input, rows);
 
     context.applyToSelectedNoThrow(rows, [&](auto row) {
-      auto ipAddressStringView = ipPrefixStrings->valueAt(row);
+      auto ipAddressStringView = decoded.valueAt<StringView>(row);
       auto tryIpPrefix = ipaddress::tryParseIpPrefixString(ipAddressStringView);
       if (tryIpPrefix.hasError()) {
         context.setStatus(row, std::move(tryIpPrefix.error()));
+        return;
       }
 
       const auto& ipPrefix = tryIpPrefix.value();
-      auto writer = exec::VectorWriter<Row<int128_t, int8_t>>();
-      writer.init(*rowVectorResult);
-      writer.setOffset(row);
-      auto& rowWriter = writer.current();
-      rowWriter.get_writer_at<0>() = ipPrefix.first;
-      rowWriter.get_writer_at<1>() = ipPrefix.second;
-      writer.commit();
+      intIpAddrVec->set(row, ipPrefix.first);
+      intPrefixVec->set(row, ipPrefix.second);
     });
   }
 };

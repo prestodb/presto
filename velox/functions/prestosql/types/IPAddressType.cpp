@@ -16,6 +16,8 @@
 
 #include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/expression/CastExpr.h"
+#include "velox/expression/VectorWriters.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 
 namespace facebook::velox {
 
@@ -28,6 +30,11 @@ class IPAddressCastOperator : public exec::CastOperator {
       case TypeKind::VARBINARY:
       case TypeKind::VARCHAR:
         return true;
+      case TypeKind::ROW:
+        if (isIPPrefixType(other)) {
+          return true;
+        }
+        [[fallthrough]];
       default:
         return false;
     }
@@ -38,6 +45,11 @@ class IPAddressCastOperator : public exec::CastOperator {
       case TypeKind::VARBINARY:
       case TypeKind::VARCHAR:
         return true;
+      case TypeKind::ROW:
+        if (isIPPrefixType(other)) {
+          return true;
+        }
+        [[fallthrough]];
       default:
         return false;
     }
@@ -55,6 +67,9 @@ class IPAddressCastOperator : public exec::CastOperator {
       castFromString(input, context, rows, *result);
     } else if (input.typeKind() == TypeKind::VARBINARY) {
       castFromVarbinary(input, context, rows, *result);
+    } else if (
+        input.typeKind() == TypeKind::ROW && isIPPrefixType(input.type())) {
+      castFromIPPrefix(input, context, rows, *result);
     } else {
       VELOX_UNSUPPORTED(
           "Cast from {} to IPAddress not supported", resultType->toString());
@@ -73,6 +88,9 @@ class IPAddressCastOperator : public exec::CastOperator {
       castToString(input, context, rows, *result);
     } else if (resultType->kind() == TypeKind::VARBINARY) {
       castToVarbinary(input, context, rows, *result);
+    } else if (
+        resultType->kind() == TypeKind::ROW && isIPPrefixType(resultType)) {
+      castToIPPrefix(input, context, rows, *result);
     } else {
       VELOX_UNSUPPORTED(
           "Cast from IPAddress to {} not supported", resultType->toString());
@@ -153,6 +171,46 @@ class IPAddressCastOperator : public exec::CastOperator {
       memcpy(result.data(), &addrBytes, ipaddress::kIPAddressBytes);
       result.finalize();
     });
+  }
+
+  static void castToIPPrefix(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      BaseVector& result) {
+    auto* rowVectorResult = result.as<RowVector>();
+    auto intIpAddrVec =
+        rowVectorResult->childAt(0)->asChecked<FlatVector<int128_t>>();
+    auto intPrefixVec =
+        rowVectorResult->childAt(1)->asChecked<FlatVector<int8_t>>();
+
+    DecodedVector decoded(input, rows);
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
+      const auto ipAddrVal = decoded.valueAt<int128_t>(row);
+      const auto tryPrefixLength =
+          ipaddress::tryIpPrefixLengthFromIPAddressType(ipAddrVal);
+      if (FOLLY_UNLIKELY(tryPrefixLength.hasError())) {
+        context.setStatus(row, std::move(tryPrefixLength).error());
+        return;
+      }
+
+      intIpAddrVec->set(row, ipAddrVal);
+      intPrefixVec->set(row, tryPrefixLength.value());
+    });
+  }
+
+  static void castFromIPPrefix(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      BaseVector& result) {
+    auto* flatResult = result.as<FlatVector<int128_t>>();
+    const auto* ipprefix = input.as<RowVector>();
+    const auto* ipaddr = ipprefix->childAt(ipaddress::kIpRowIndex)
+                             ->asChecked<SimpleVector<int128_t>>();
+
+    context.applyToSelectedNoThrow(
+        rows, [&](auto row) { flatResult->set(row, ipaddr->valueAt(row)); });
   }
 
   static void castFromVarbinary(

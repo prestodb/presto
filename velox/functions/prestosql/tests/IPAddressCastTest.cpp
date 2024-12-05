@@ -43,6 +43,13 @@ class IPAddressCastTest : public functions::test::FunctionBaseTest {
         input);
     return result;
   }
+
+  auto castToIPPrefixAndBackToIpVarchar(
+      const std::optional<std::string>& input) {
+    return evaluateOnce<std::string>(
+        "cast(cast(cast(cast(cast(cast(c0 as ipaddress) as ipprefix) as varchar) as ipprefix) as ipaddress)  as varchar)",
+        input);
+  }
 };
 
 int128_t stringToInt128(const std::string& value) {
@@ -51,6 +58,24 @@ int128_t stringToInt128(const std::string& value) {
     res = res * 10 + c - '0';
   }
   return res;
+}
+
+TEST_F(IPAddressCastTest, castToIPPrefix) {
+  EXPECT_EQ(castToIPPrefixAndBackToIpVarchar("1.2.3.4"), "1.2.3.4");
+  EXPECT_EQ(castToIPPrefixAndBackToIpVarchar("::ffff:1.2.3.4"), "1.2.3.4");
+  EXPECT_EQ(castToIPPrefixAndBackToIpVarchar("::ffff:102:304"), "1.2.3.4");
+  EXPECT_EQ(castToIPPrefixAndBackToIpVarchar("192.168.0.0"), "192.168.0.0");
+  EXPECT_EQ(
+      castToIPPrefixAndBackToIpVarchar(
+          "2001:0db8:0000:0000:0000:ff00:0042:8329"),
+      "2001:db8::ff00:42:8329");
+  EXPECT_EQ(
+      castToIPPrefixAndBackToIpVarchar("2001:db8:0:0:1:0:0:1"),
+      "2001:db8::1:0:0:1");
+  EXPECT_EQ(castToIPPrefixAndBackToIpVarchar("::1"), "::1");
+  EXPECT_EQ(
+      castToIPPrefixAndBackToIpVarchar("2001:db8::ff00:42:8329"),
+      "2001:db8::ff00:42:8329");
 }
 
 TEST_F(IPAddressCastTest, castToVarchar) {
