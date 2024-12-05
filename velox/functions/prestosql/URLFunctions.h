@@ -163,14 +163,15 @@ FOLLY_ALWAYS_INLINE char decodeByte(const char* p, const char* end) {
     char* endptr;
     auto val = strtol(buf, &endptr, 16);
 
-    if (endptr != buf + 2) {
-      VELOX_USER_FAIL("Illegal hex characters in escape (%) pattern: {}", buf);
-    }
+    VELOX_USER_CHECK(
+        endptr == buf + 2 && !std::isspace(buf[0]) && !std::isspace(buf[1]),
+        "Illegal hex characters in escape (%) pattern: {}",
+        buf);
 
-    if (val < 0) {
-      VELOX_USER_FAIL(
-          "Illegal hex characters in escape (%) pattern - negative value");
-    }
+    VELOX_USER_CHECK_GE(
+        val,
+        0,
+        "Illegal hex characters in escape (%) pattern - negative value");
 
     return val;
   } else {
