@@ -1001,6 +1001,8 @@ class Task : public std::enable_shared_from_this<Task> {
   // trace enabled.
   void maybeInitTrace();
 
+  std::shared_ptr<Driver> getDriver(uint32_t driverId) const;
+
   // Universally unique identifier of the task. Used to identify the task when
   // calling TaskListener.
   const std::string uuid_;
@@ -1072,6 +1074,39 @@ class Task : public std::enable_shared_from_this<Task> {
 
   std::vector<std::unique_ptr<DriverFactory>> driverFactories_;
   std::vector<std::shared_ptr<Driver>> drivers_;
+
+  // Tracks the blocking state for each driver under serialized execution mode.
+  class DriverBlockingState {
+   public:
+    explicit DriverBlockingState(const Driver* driver) : driver_(driver) {
+      VELOX_CHECK_NOT_NULL(driver_);
+    }
+
+    /// Sets driver future by setting the continuation callback via inline
+    /// executor.
+    void setDriverFuture(ContinueFuture& diverFuture);
+
+    /// Indicates if the associated driver is blocked or not. If blocked,
+    /// 'future' is set which becomes realized when the driver is unblocked.
+    ///
+    /// NOTE: the function throws if the driver has encountered error.
+    bool blocked(ContinueFuture* future);
+
+   private:
+    const Driver* const driver_;
+
+    mutable std::mutex mutex_;
+    // Indicates if the associated driver is blocked or not.
+    bool blocked_{false};
+    // Sets the driver future error if not null.
+    std::exception_ptr error_{nullptr};
+    // Promises to fulfill when the driver is unblocked.
+    std::vector<std::unique_ptr<ContinuePromise>> promises_;
+  };
+
+  // Tracks the driver blocking state under serialized execution mode.
+  std::vector<std::unique_ptr<DriverBlockingState>> driverBlockingStates_;
+
   // When Drivers are closed by the Task, there is a chance that race and/or
   // bugs can cause such Drivers to be held forever, in turn holding a pointer
   // to the Task making it a zombie Tasks. This vector is used to keep track of
