@@ -77,9 +77,9 @@ DEFINE_int64(
     128 << 20,
     "Maximum size of single coalesced IO");
 
-DEFINE_int32(
+DEFINE_string(
     max_coalesced_distance_bytes,
-    512 << 10,
+    "512kB",
     "Maximum distance in bytes in which coalesce will combine requests");
 
 DEFINE_int32(
@@ -179,7 +179,7 @@ void QueryBenchmarkBase::initialize() {
   configurationValues[connector::hive::HiveConfig::kMaxCoalescedBytes] =
       std::to_string(FLAGS_max_coalesced_bytes);
   configurationValues[connector::hive::HiveConfig::kMaxCoalescedDistance] =
-      std::to_string(FLAGS_max_coalesced_distance_bytes);
+      FLAGS_max_coalesced_distance_bytes;
   configurationValues[connector::hive::HiveConfig::kPrefetchRowGroups] =
       std::to_string(FLAGS_parquet_prefetch_rowgroups);
   auto properties = std::make_shared<const config::ConfigBase>(
