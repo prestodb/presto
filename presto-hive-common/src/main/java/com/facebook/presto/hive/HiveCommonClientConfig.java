@@ -292,7 +292,7 @@ public class HiveCommonClientConfig
     }
 
     @Config("hive.metastore.catalog.name")
-    @ConfigDescription("Metastore catalog name")
+    @ConfigDescription("Specified property to store the metastore catalog name.")
     public HiveCommonClientConfig setCatalogName(String catalogName)
     {
         this.catalogName = catalogName;
