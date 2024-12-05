@@ -70,7 +70,7 @@ public class TestFileBasedSystemAccessControl
     private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
     private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
-    private static final AccessControlContext context = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
+    private static final AccessControlContext context = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty());
     @Test
     public void testCanSetUserOperations() throws IOException
     {
@@ -342,6 +342,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of());
                     accessControlManager.checkCanInsertIntoTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanDeleteFromTable(transactionId, alice, context, aliceTable);
+                    accessControlManager.checkCanSetTableProperties(transactionId, alice, context, aliceTable, ImmutableMap.of());
                     accessControlManager.checkCanAddColumns(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanRenameColumn(transactionId, alice, context, aliceTable);
                 });
@@ -383,6 +384,10 @@ public class TestFileBasedSystemAccessControl
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanDeleteFromTable(transactionId, alice, context, aliceTable);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanSetTableProperties(transactionId, alice, context, aliceTable, ImmutableMap.of());
         }));
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {

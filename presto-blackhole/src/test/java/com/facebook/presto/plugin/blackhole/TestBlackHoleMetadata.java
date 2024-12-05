@@ -30,7 +30,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestBlackHoleMetadata
@@ -68,8 +67,8 @@ public class TestBlackHoleMetadata
         metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
         List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
-        assertTrue(tables.size() == 1, "Expected only one table.");
-        assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
+        assertEquals(tables.size(), 1, "Expected only one table.");
+        assertEquals(tables.get(0).getTableName(), "temp_table", "Expected table with name 'temp_table'");
     }
 
     @Test
@@ -82,7 +81,7 @@ public class TestBlackHoleMetadata
         }
         catch (PrestoException ex) {
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
-            assertTrue(ex.getMessage().equals("Schema schema1 not found"));
+            assertEquals(ex.getMessage(), "Schema schema1 not found");
         }
     }
 

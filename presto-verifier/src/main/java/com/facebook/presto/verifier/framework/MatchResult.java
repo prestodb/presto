@@ -23,5 +23,7 @@ public interface MatchResult
 
     boolean isMismatchPossiblyCausedByNonDeterminism();
 
+    boolean isMismatchPossiblyCausedByReuseOutdatedTable();
+
     String getReport();
 }

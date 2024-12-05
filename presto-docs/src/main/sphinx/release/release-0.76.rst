@@ -61,7 +61,7 @@ General Changes
 ---------------
 
 * Fix hang in verifier when an exception occurs.
-* Fix :func:`chr` function to work with Unicode code points instead of ASCII code points.
+* Fix :func:`!chr` function to work with Unicode code points instead of ASCII code points.
 * The JDBC driver no longer hangs the JVM on shutdown (all threads are daemon threads).
 * Fix incorrect parsing of function arguments.
 * The bytecode compiler now caches generated code for join and group byqueries,

@@ -17,11 +17,16 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.OptimizedTypedSet;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlParameter;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 
 public final class ArrayIntersectFunction
 {
@@ -33,6 +38,7 @@ public final class ArrayIntersectFunction
     @SqlType("array(E)")
     public static Block intersect(
             @TypeParameter("E") Type type,
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {
@@ -48,7 +54,7 @@ public final class ArrayIntersectFunction
             return rightArray;
         }
 
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, rightPositionCount);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, elementIsDistinctFrom, rightPositionCount);
         typedSet.union(rightArray);
         typedSet.intersect(leftArray);
 
@@ -62,6 +68,6 @@ public final class ArrayIntersectFunction
     @SqlType("array<T>")
     public static String arrayIntersectArray()
     {
-        return "RETURN reduce(input, null, (s, x) -> IF((s IS NULL), x, array_intersect(s, x)), (s) -> s)";
+        return "RETURN reduce(input, IF((cardinality(input) = 0), ARRAY[], input[1]), (s, x) -> array_intersect(s, x), (s) -> s)";
     }
 }

@@ -30,6 +30,7 @@ std::string announcementBody(
     const std::string& nodeVersion,
     const std::string& environment,
     const std::string& nodeLocation,
+    const bool sidecar,
     const std::vector<std::string>& connectorIds) {
   std::string id =
       boost::lexical_cast<std::string>(boost::uuids::random_generator()());
@@ -46,6 +47,7 @@ std::string announcementBody(
          {"properties",
           {{"node_version", nodeVersion},
            {"coordinator", false},
+           {"sidecar", sidecar},
            {"connectorIds", folly::join(',', connectorIds)},
            {uriScheme,
             fmt::format("{}://{}:{}", uriScheme, address, port)}}}}}}};
@@ -79,6 +81,7 @@ Announcer::Announcer(
     const std::string& environment,
     const std::string& nodeId,
     const std::string& nodeLocation,
+    const bool sidecar,
     const std::vector<std::string>& connectorIds,
     const uint64_t maxFrequencyMs,
     folly::SSLContextPtr sslContext)
@@ -96,6 +99,7 @@ Announcer::Announcer(
           nodeVersion,
           environment,
           nodeLocation,
+          sidecar,
           connectorIds)),
       announcementRequest_(
           announcementRequest(address, port, nodeId, announcementBody_)) {}

@@ -30,6 +30,7 @@ add_library(
   ServerOperation.cpp
   SignalHandler.cpp
   SystemConnector.cpp
+  SessionProperties.cpp
   TaskManager.cpp
   TaskResource.cpp
   PeriodicHeartbeatManager.cpp
@@ -46,8 +47,10 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_protocol>
   presto_common
   presto_exception
+  presto_function_metadata
   presto_http
   presto_operators
+  presto_velox_conversion
   velox_aggregates
   velox_caching
   velox_common_base
@@ -107,4 +110,32 @@ set_property(TARGET presto_server PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
+endif()
+
+if(PRESTO_STATS_REPORTER_TYPE)
+  add_compile_definitions(PRESTO_STATS_REPORTER_TYPE)
+  if(PRESTO_STATS_REPORTER_TYPE STREQUAL "PROMETHEUS")
+    add_subdirectory(runtime-metrics)
+    target_link_libraries(presto_server presto_prometheus_reporter)
+  else()
+    message(
+      FATAL_ERROR
+        "${PRESTO_STATS_REPORTER_TYPE} is not a valid stats reporter name")
+  endif()
+endif()
+
+if(PRESTO_MEMORY_CHECKER_TYPE)
+  add_compile_definitions(PRESTO_MEMORY_CHECKER_TYPE)
+  # Check if the current platform is Linux and the memory checker type is
+  # LINUX_MEMORY_CHECKER.
+  if(UNIX
+     AND NOT APPLE
+     AND (PRESTO_MEMORY_CHECKER_TYPE STREQUAL "LINUX_MEMORY_CHECKER"))
+    add_library(presto_linux_memory_checker OBJECT LinuxMemoryChecker.cpp)
+    target_link_libraries(presto_server presto_linux_memory_checker)
+  else()
+    message(
+      FATAL_ERROR
+        "${PRESTO_MEMORY_CHECKER_TYPE} is not a valid memory checker name")
+  endif()
 endif()

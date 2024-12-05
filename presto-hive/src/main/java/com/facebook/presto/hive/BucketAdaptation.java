@@ -22,14 +22,22 @@ public class BucketAdaptation
     private final int tableBucketCount;
     private final int partitionBucketCount;
     private final int bucketToKeep;
+    private final boolean useLegacyTimestampBucketing;
 
-    public BucketAdaptation(int[] bucketColumnIndices, List<HiveType> bucketColumnHiveTypes, int tableBucketCount, int partitionBucketCount, int bucketToKeep)
+    public BucketAdaptation(
+            int[] bucketColumnIndices,
+            List<HiveType> bucketColumnHiveTypes,
+            int tableBucketCount,
+            int partitionBucketCount,
+            int bucketToKeep,
+            boolean useLegacyTimestampBucketing)
     {
         this.bucketColumnIndices = bucketColumnIndices;
         this.bucketColumnHiveTypes = bucketColumnHiveTypes;
         this.tableBucketCount = tableBucketCount;
         this.partitionBucketCount = partitionBucketCount;
         this.bucketToKeep = bucketToKeep;
+        this.useLegacyTimestampBucketing = useLegacyTimestampBucketing;
     }
 
     public int[] getBucketColumnIndices()
@@ -55,5 +63,10 @@ public class BucketAdaptation
     public int getBucketToKeep()
     {
         return bucketToKeep;
+    }
+
+    public boolean useLegacyTimestampBucketing()
+    {
+        return useLegacyTimestampBucketing;
     }
 }

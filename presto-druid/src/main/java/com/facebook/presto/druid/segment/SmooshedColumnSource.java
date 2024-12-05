@@ -82,7 +82,7 @@ public class SmooshedColumnSource
             BufferedReader in = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(metadata)));
             String line = in.readLine();
             if (line == null) {
-                throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, format("Malformed metadata file: first line should be version,maxChunkSize,numChunks, got null."));
+                throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, "Malformed metadata file: first line should be version,maxChunkSize,numChunks, got null.");
             }
 
             String[] splits = line.split(",");

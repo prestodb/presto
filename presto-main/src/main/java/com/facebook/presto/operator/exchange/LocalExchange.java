@@ -24,7 +24,7 @@ import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
-import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.google.common.collect.ImmutableList;
@@ -180,7 +180,7 @@ public class LocalExchange
 
         BucketFunction bucketFunction = partitioningProvider.getBucketFunction(
                 partitioning.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioning.getConnectorId().get()),
                 partitioning.getConnectorHandle(),
                 partitioningChannelTypes,
                 bucketCount);

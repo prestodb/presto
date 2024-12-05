@@ -399,7 +399,7 @@ public class ScalarStatsCalculator
                     session,
                     types,
                     emptyMap(),
-                    node -> new IllegalStateException("Unexpected node: %s" + node),
+                    node -> new IllegalStateException("Unexpected node: " + node),
                     WarningCollector.NOOP,
                     false);
             expressionAnalyzer.analyze(expression, Scope.create());

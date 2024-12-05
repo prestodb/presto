@@ -14,19 +14,24 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.type.BigintOperators;
 import org.testng.annotations.Test;
+
+import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.block.BlockAssertions.createEmptyBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
+import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static org.testng.Assert.fail;
 
 public class TestOptimizedTypedSet
 {
-    private static final String FUNCTION_NAME = "optimized_typed_set_test";
     private static final int POSITIONS_PER_PAGE = 100;
+    private static final MethodHandle BIGINT_DISTINCT_METHOD_HANDLE = methodHandle(BigintOperators.BigintDistinctFromOperator.class, "isDistinctFrom", long.class, boolean.class, long.class, boolean.class);
 
     @Test
     public void testConstructor()
@@ -34,7 +39,7 @@ public class TestOptimizedTypedSet
         for (int i = -2; i <= -1; i++) {
             try {
                 //noinspection ResultOfObjectAllocationIgnored
-                new OptimizedTypedSet(BIGINT, 2, i);
+                new OptimizedTypedSet(BIGINT, Optional.of(BIGINT_DISTINCT_METHOD_HANDLE), 2, i);
                 fail("Should throw exception if expectedSize < 0");
             }
             catch (IllegalArgumentException e) {
@@ -44,7 +49,7 @@ public class TestOptimizedTypedSet
 
         try {
             //noinspection ResultOfObjectAllocationIgnored
-            new OptimizedTypedSet(null, -1, 1);
+            new OptimizedTypedSet(null, Optional.of(BIGINT_DISTINCT_METHOD_HANDLE), -1, 1);
             fail("Should throw exception if expectedBlockCount is negative");
         }
         catch (NullPointerException | IllegalArgumentException e) {
@@ -53,7 +58,7 @@ public class TestOptimizedTypedSet
 
         try {
             //noinspection ResultOfObjectAllocationIgnored
-            new OptimizedTypedSet(null, 2, 1);
+            new OptimizedTypedSet(null, Optional.of(BIGINT_DISTINCT_METHOD_HANDLE), 2, 1);
             fail("Should throw exception if type is null");
         }
         catch (NullPointerException | IllegalArgumentException e) {
@@ -64,7 +69,7 @@ public class TestOptimizedTypedSet
     @Test
     public void testUnionWithDistinctValues()
     {
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, POSITIONS_PER_PAGE + 1);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, BIGINT_DISTINCT_METHOD_HANDLE, POSITIONS_PER_PAGE + 1);
 
         Block block = createLongSequenceBlock(0, POSITIONS_PER_PAGE / 2);
         testUnion(typedSet, block, block);
@@ -80,7 +85,7 @@ public class TestOptimizedTypedSet
     @Test
     public void testUnionWithRepeatingValues()
     {
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, POSITIONS_PER_PAGE);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, BIGINT_DISTINCT_METHOD_HANDLE, POSITIONS_PER_PAGE);
 
         Block block = createLongRepeatBlock(0, POSITIONS_PER_PAGE);
         Block expectedBlock = createLongRepeatBlock(0, 1);
@@ -95,14 +100,14 @@ public class TestOptimizedTypedSet
     @Test
     public void testIntersectWithEmptySet()
     {
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, POSITIONS_PER_PAGE);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, BIGINT_DISTINCT_METHOD_HANDLE, POSITIONS_PER_PAGE);
         testIntersect(typedSet, createLongSequenceBlock(0, POSITIONS_PER_PAGE - 1).appendNull(), createEmptyBlock(BIGINT));
     }
 
     @Test
     public void testIntersectWithDistinctValues()
     {
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, POSITIONS_PER_PAGE);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, BIGINT_DISTINCT_METHOD_HANDLE, POSITIONS_PER_PAGE);
 
         Block block = createLongSequenceBlock(0, POSITIONS_PER_PAGE - 1).appendNull();
         typedSet.union(block);
@@ -119,7 +124,7 @@ public class TestOptimizedTypedSet
     @Test
     public void testIntersectWithNonDistinctValues()
     {
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, POSITIONS_PER_PAGE);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, BIGINT_DISTINCT_METHOD_HANDLE, POSITIONS_PER_PAGE);
 
         Block block = createLongSequenceBlock(0, POSITIONS_PER_PAGE - 1).appendNull();
         typedSet.union(block);
@@ -137,7 +142,7 @@ public class TestOptimizedTypedSet
     @Test
     public void testExceptWithDistinctValues()
     {
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, POSITIONS_PER_PAGE);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, BIGINT_DISTINCT_METHOD_HANDLE, POSITIONS_PER_PAGE);
 
         Block block = createLongSequenceBlock(0, POSITIONS_PER_PAGE - 1).appendNull();
         typedSet.union(block);
@@ -149,7 +154,7 @@ public class TestOptimizedTypedSet
     @Test
     public void testExceptWithRepeatingValues()
     {
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, POSITIONS_PER_PAGE);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, BIGINT_DISTINCT_METHOD_HANDLE, POSITIONS_PER_PAGE);
 
         Block block = createLongRepeatBlock(0, POSITIONS_PER_PAGE - 1).appendNull();
         testExcept(typedSet, block, createLongSequenceBlock(0, 1).appendNull());
@@ -158,7 +163,7 @@ public class TestOptimizedTypedSet
     @Test
     public void testMultipleOperations()
     {
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, POSITIONS_PER_PAGE + 1);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, BIGINT_DISTINCT_METHOD_HANDLE, POSITIONS_PER_PAGE + 1);
 
         Block block = createLongSequenceBlock(0, POSITIONS_PER_PAGE / 2).appendNull();
 
@@ -176,7 +181,7 @@ public class TestOptimizedTypedSet
     @Test
     public void testNulls()
     {
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, POSITIONS_PER_PAGE + 1);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(BIGINT, BIGINT_DISTINCT_METHOD_HANDLE, POSITIONS_PER_PAGE + 1);
 
         // Empty block
         Block emptyBlock = createLongSequenceBlock(0, 0);

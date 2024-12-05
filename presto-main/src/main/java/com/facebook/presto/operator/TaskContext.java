@@ -29,9 +29,9 @@ import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -717,7 +717,7 @@ public class TaskContext
             return Optional.empty();
         }
 
-        if (context.getOperatorType().equals(HashBuilderOperator.class.getSimpleName())) {
+        if (context.getOperatorType().equals(HashBuilderOperator.OPERATOR_TYPE)) {
             Optional<JoinNode> planNode = findPlanNode(context.getPlanNodeId(), JoinNode.class);
             if (!planNode.isPresent()) {
                 return Optional.empty();
@@ -729,8 +729,8 @@ public class TaskContext
             return Optional.of(info);
         }
 
-        if (context.getOperatorType().equals(HashAggregationOperator.class.getSimpleName()) ||
-                context.getOperatorType().equals(AggregationOperator.class.getSimpleName())) {
+        if (context.getOperatorType().equals(HashAggregationOperator.OPERATOR_TYPE) ||
+                context.getOperatorType().equals(AggregationOperator.OPERATOR_TYPE)) {
             Optional<AggregationNode> planNode = findPlanNode(context.getPlanNodeId(), AggregationNode.class);
             if (!planNode.isPresent()) {
                 return Optional.empty();

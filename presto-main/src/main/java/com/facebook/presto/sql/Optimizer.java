@@ -27,9 +27,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -37,16 +38,11 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
-import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
-import com.google.common.base.Splitter;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.getOptimizersToEnableVerboseRuntimeStats;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
 import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
@@ -55,6 +51,8 @@ import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_PLANNING_TIMEOUT;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
+import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.getOptimizerNameForLog;
+import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.trackOptimizerRuntime;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -69,7 +67,6 @@ public class Optimizer
     private final PlanChecker planChecker;
     private final Session session;
     private final Metadata metadata;
-    private final SqlParser sqlParser;
     private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final WarningCollector warningCollector;
@@ -82,7 +79,6 @@ public class Optimizer
             Metadata metadata,
             List<PlanOptimizer> planOptimizers,
             PlanChecker planChecker,
-            SqlParser sqlParser,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
@@ -94,7 +90,6 @@ public class Optimizer
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -105,7 +100,7 @@ public class Optimizer
 
     public Plan validateAndOptimizePlan(PlanNode root, PlanStage stage)
     {
-        planChecker.validateIntermediatePlan(root, session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
+        planChecker.validateIntermediatePlan(root, session, metadata, warningCollector);
 
         boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
@@ -128,21 +123,11 @@ public class Optimizer
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            planChecker.validateFinalPlan(root, session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
+            planChecker.validateFinalPlan(root, session, metadata, warningCollector);
         }
 
         TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
         return new Plan(root, types, computeStats(root, types));
-    }
-
-    private boolean trackOptimizerRuntime(Session session, PlanOptimizer optimizer)
-    {
-        String optimizerString = getOptimizersToEnableVerboseRuntimeStats(session);
-        if (optimizerString.isEmpty()) {
-            return false;
-        }
-        List<String> optimizers = Splitter.on(",").trimResults().splitToList(optimizerString);
-        return optimizers.contains(getOptimizerNameForLog(optimizer));
     }
 
     private StatsAndCosts computeStats(PlanNode root, TypeProvider types)
@@ -168,8 +153,8 @@ public class Optimizer
         boolean isTriggered = planOptimizerResult.isOptimizerTriggered();
         boolean isApplicable =
                 isTriggered ||
-                !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
-                        optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                        !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
+                                optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
         boolean isCostBased = isTriggered && optimizer.isCostBased(session);
         String statsSource = optimizer.getStatsSource();
 
@@ -183,14 +168,5 @@ public class Optimizer
             String newNodeStr = PlannerUtils.getPlanString(planOptimizerResult.getPlanNode(), session, types, metadata, false);
             session.getOptimizerResultCollector().addOptimizerResult(optimizerName, oldNodeStr, newNodeStr);
         }
-    }
-
-    private String getOptimizerNameForLog(PlanOptimizer optimizer)
-    {
-        String optimizerName = optimizer.getClass().getSimpleName();
-        if (optimizer instanceof StatsRecordingPlanOptimizer) {
-            optimizerName = format("%s:%s", optimizerName, ((StatsRecordingPlanOptimizer) optimizer).getDelegate().getClass().getSimpleName());
-        }
-        return optimizerName;
     }
 }

@@ -283,7 +283,7 @@ public class TestPrestoSparkHttpClient
                 TestingSession.testSessionBuilder().build(),
                 createInitialEmptyOutputBuffers(PARTITIONED)))
                 .isInstanceOf(PrestoException.class)
-                .hasMessageContaining("500: Internal Server Error");
+                .hasMessageContaining("500");
     }
 
     @Test
@@ -802,7 +802,7 @@ public class TestPrestoSparkHttpClient
         }
         assertThatThrownBy(taskInfoFetcher::getTaskInfo)
                 .isInstanceOf(PrestoException.class)
-                .hasMessageContaining("500: Internal Server Error");
+                .hasMessageContaining("500");
     }
 
     @Test
@@ -1155,7 +1155,6 @@ public class TestPrestoSparkHttpClient
                 headers.put(HeaderName.of(CONTENT_TYPE), String.valueOf(MediaType.create("application", "json")));
                 return new TestingResponse(
                         httpStatus.code(),
-                        httpStatus.toString(),
                         headers,
                         new ByteArrayInputStream(serverInfoCodec.toBytes(serverInfo)));
             }
@@ -1199,7 +1198,6 @@ public class TestPrestoSparkHttpClient
                 headers.put(HeaderName.of(CONTENT_TYPE), PRESTO_PAGES_TYPE.toString());
                 return new TestingResponse(
                         httpStatus.code(),
-                        httpStatus.toString(),
                         headers,
                         slicedOutput.slice().getInput());
             }
@@ -1237,7 +1235,6 @@ public class TestPrestoSparkHttpClient
                         "dummy-node").withTaskStatus(createTaskStatusDone(location));
                 return new TestingResponse(
                         httpStatus.code(),
-                        httpStatus.toString(),
                         headers,
                         new ByteArrayInputStream(taskInfoCodec.toBytes(taskInfo)));
             }
@@ -1290,25 +1287,21 @@ public class TestPrestoSparkHttpClient
             implements Response
     {
         private final int statusCode;
-        private final String statusMessage;
         private final ListMultimap<HeaderName, String> headers;
         private InputStream inputStream;
 
         private TestingResponse()
         {
             this.statusCode = HttpStatus.OK.code();
-            this.statusMessage = HttpStatus.OK.toString();
             this.headers = ArrayListMultimap.create();
         }
 
         private TestingResponse(
                 int statusCode,
-                String statusMessage,
                 ListMultimap<HeaderName, String> headers,
                 InputStream inputStream)
         {
             this.statusCode = statusCode;
-            this.statusMessage = statusMessage;
             this.headers = headers;
             this.inputStream = inputStream;
         }
@@ -1317,12 +1310,6 @@ public class TestPrestoSparkHttpClient
         public int getStatusCode()
         {
             return statusCode;
-        }
-
-        @Override
-        public String getStatusMessage()
-        {
-            return statusMessage;
         }
 
         @Override

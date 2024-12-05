@@ -1,0 +1,20 @@
+openapi: 3.0.0
+info:
+  title: Presto session properties API
+  description: API for retrieving session properties in Presto.
+  version: "1"
+servers:
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
+paths:
+  /v1/properties/session:
+    get:
+      summary: Returns the list of session properties.
+      description: This endpoint retrieves the supported session properties list from a Prestissimo cluster.
+      responses:
+        '200':
+          description: List of session properties.
+          content:
+            application/json:
+              schema:
+                $ref: './schemas.yaml/#/components/schemas/SessionPropertyMetadata'

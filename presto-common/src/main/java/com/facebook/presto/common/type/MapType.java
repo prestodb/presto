@@ -174,19 +174,19 @@ public class MapType
         private final Block block;
         private final int position;
 
-        public KeyWrapper(Type type, Block block, int position)
+        KeyWrapper(Type type, Block block, int position)
         {
             this.type = type;
             this.block = block;
             this.position = position;
         }
 
-        public Block getBlock()
+        Block getBlock()
         {
             return this.block;
         }
 
-        public int getPosition()
+        int getPosition()
         {
             return this.position;
         }

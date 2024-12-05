@@ -58,7 +58,7 @@ The above properties are described below:
   The unique identifier for this installation of Presto. This must be
   unique for every node. This identifier should remain consistent across
   reboots or upgrades of Presto. If running multiple installations of
-  Presto on a single machine (i.e. multiple nodes on the same machine),
+  Presto on a single machine (that is, multiple nodes on the same machine),
   each installation must have a unique identifier.
 
 * ``node.data-dir``:
@@ -140,11 +140,11 @@ will function as both a coordinator and worker, use this configuration:
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
-If single coordinator is not sufficient, disaggregated coordinator setup can be used which supports multiple coordinator using below minimal configuration:
+If a single coordinator is not sufficient, use a disaggregated coordinator setup which supports multiple coordinators using the following minimal configuration:
 
 * ``Resource Manager``
 
-Minimum 1 resource manager is needed for a cluster and more can be added in to the cluster with each behaving as primary.
+At least one resource manager is needed for a cluster, and more can be added to the cluster with each behaving as a primary.
 
 .. code-block:: none
 
@@ -162,7 +162,7 @@ Minimum 1 resource manager is needed for a cluster and more can be added in to t
 
 * ``Coordinator``
 
-Cluster supports pool of coordinators. Each coordinator will run subset of queries in a cluster.
+A cluster can have a pool of coordinators. Each coordinator will run a subset of queries in the cluster.
 
 .. code-block:: none
 
@@ -176,7 +176,7 @@ Cluster supports pool of coordinators. Each coordinator will run subset of queri
 
 * ``Worker``
 
-Cluster supports pool of workers. They send their heartbeats to resource manager.
+A cluster can have a pool of workers. They send their heartbeats to the resource manager.
 
 .. code-block:: none
 
@@ -201,7 +201,7 @@ These properties require some explanation:
   Allow scheduling work on the coordinator.
   For larger clusters, processing work on the coordinator
   can impact query performance because the machine's resources are not
-  available for the critical task of scheduling, managing and monitoring
+  available for the critical task of scheduling, managing, and monitoring
   query execution.
 
 * ``http-server.http.port``:
@@ -235,7 +235,7 @@ The following flags can help one tune the disaggregated coordinator cluster’s 
 
   Configure coordinator to wait for the next resource group update before allowing more queries to run on any given resource group, if running queries reached the configured limit.
 
-  Default value is 1.0. It means once any resource group is running its max allowed queries, the coordinator has to wait for an update from the resource manager before allowing new queries to run on the given resource group. To achieve stronger consistency, reduce the percentage to lower value.
+  The default value is 1.0. It means once any resource group is running its max allowed queries, the coordinator has to wait for an update from the resource manager before allowing new queries to run on the given resource group. To achieve stronger consistency, reduce the percentage to a lower value.
 
 * ``resource-group-runtimeinfo-refresh-interval (default: 100 ms)``
 
@@ -265,10 +265,10 @@ For example, consider the following log levels file:
 
     com.facebook.presto=INFO
 
-This would set the minimum level to ``INFO`` for both
+This sets the minimum level to ``INFO`` for both
 ``com.facebook.presto.server`` and ``com.facebook.presto.hive``.
-The default minimum level is ``INFO``
-(thus the above example does not actually change anything).
+The default minimum level is ``INFO``.
+(Thus the above example does not actually change anything)
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 
 .. _catalog_properties:
@@ -280,7 +280,7 @@ Presto accesses data via *connectors*, which are mounted in catalogs.
 The connector provides all of the schemas and tables inside of the catalog.
 For example, the Hive connector maps each Hive database to a schema,
 so if the Hive connector is mounted as the ``hive`` catalog, and Hive
-contains a table ``clicks`` in database ``web``, that table would be accessed
+contains a table ``clicks`` in the database ``web``, that table is accessed
 in Presto as ``hive.web.clicks``.
 
 Catalogs are registered by creating a catalog properties file
@@ -347,7 +347,7 @@ Download and extract the binary tarball of Hive.
 For example, download and untar `apache-hive-<VERSION>-bin.tar.gz <https://downloads.apache.org/hive>`_ .
 
 You only need to launch Hive Metastore to serve Presto catalog information such as table schema and partition location.
-If it is the first time to launch the Hive Metastore, prepare corresponding configuration files and environment, also initialize a new Metastore:
+If it is the first time to launch the Hive Metastore, prepare the corresponding configuration files and environment. Also initialize a new Metastore:
 
 .. code-block:: console
 
@@ -359,7 +359,7 @@ If it is the first time to launch the Hive Metastore, prepare corresponding conf
 If you want to access AWS S3, append the following lines in ``conf/hive-env.sh``.
 Hive needs the corresponding jars to access files with ``s3a://`` addresses, and AWS credentials as well to access an S3 bucket (even it is public).
 These jars can be found in Hadoop distribution (e.g., under ``${HADOOP_HOME}/share/hadoop/tools/lib/``),
-or download from `maven central repository <https://repo1.maven.org/>`_.
+or downloaded from `maven central repository <https://repo1.maven.org/>`_.
 
 .. code-block:: bash
 
@@ -475,7 +475,7 @@ The files are:
     └── node.properties      # Node-specific configuration properties
 
 The four files directly under ``etc`` are documented above (using the single-node Coordinator configuration for ``config.properties``).
-The file called ``etc/catalog/tpch.properties`` is used to defined the ``tpch`` catalog.  Each connector has their own set
+The file called ``etc/catalog/tpch.properties`` is used to defined the ``tpch`` catalog.  Each connector has its own set
 of configuration properties that are specific to the connector.
 You can find a connector's configuration properties documented along with the connector.  The TPCH connector has no special
 configuration, so we just specify the name of the connector for the catalog, also ``tpch``.

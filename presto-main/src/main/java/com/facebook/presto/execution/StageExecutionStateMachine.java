@@ -15,7 +15,9 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.scheduler.ScheduleResult;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.TaskStats;
@@ -36,6 +38,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.RuntimeMetricName.GET_SPLITS_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.SCAN_STAGE_SCHEDULER_BLOCKED_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.SCAN_STAGE_SCHEDULER_CPU_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.SCAN_STAGE_SCHEDULER_WALL_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.SCHEDULER_BLOCKED_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.SCHEDULER_CPU_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.SCHEDULER_WALL_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.TASK_PLAN_SERIALIZED_CPU_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.TASK_UPDATE_DELIVERED_WALL_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.TASK_UPDATE_SERIALIZED_CPU_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.execution.StageExecutionState.ABORTED;
 import static com.facebook.presto.execution.StageExecutionState.CANCELED;
 import static com.facebook.presto.execution.StageExecutionState.FAILED;
@@ -59,6 +72,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class StageExecutionStateMachine
+        implements SchedulerStatsTracker
 {
     private static final Logger log = Logger.get(StageExecutionStateMachine.class);
 
@@ -77,6 +91,8 @@ public class StageExecutionStateMachine
     private final AtomicLong peakNodeTotalMemory = new AtomicLong();
     private final AtomicLong currentUserMemory = new AtomicLong();
     private final AtomicLong currentTotalMemory = new AtomicLong();
+
+    private final RuntimeStats runtimeStats = new RuntimeStats();
 
     public StageExecutionStateMachine(
             StageExecutionId stageExecutionId,
@@ -341,6 +357,7 @@ public class StageExecutionStateMachine
                 taskInfos,
                 schedulingComplete.get(),
                 getSplitDistribution.snapshot(),
+                runtimeStats,
                 succinctBytes(peakUserMemory.get()),
                 succinctBytes(peakNodeTotalMemory.get()),
                 finishedLifespans,
@@ -352,6 +369,49 @@ public class StageExecutionStateMachine
         long elapsedNanos = System.nanoTime() - startNanos;
         getSplitDistribution.add(elapsedNanos);
         scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
+        runtimeStats.addMetricValue(GET_SPLITS_TIME_NANOS, NANO, elapsedNanos);
+    }
+
+    public void recordSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
+    {
+        runtimeStats.addMetricValue(SCHEDULER_CPU_TIME_NANOS, NANO, max(cpuTimeNanos, 0));
+        runtimeStats.addMetricValue(SCHEDULER_WALL_TIME_NANOS, NANO, max(wallTimeNanos, 0));
+    }
+
+    public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
+    {
+        requireNonNull(reason, "reason is null");
+        runtimeStats.addMetricValue(SCHEDULER_BLOCKED_TIME_NANOS + "-" + reason, NANO, max(nanos, 0));
+    }
+
+    public void recordLeafStageSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
+    {
+        runtimeStats.addMetricValue(SCAN_STAGE_SCHEDULER_CPU_TIME_NANOS, NANO, max(cpuTimeNanos, 0));
+        runtimeStats.addMetricValue(SCAN_STAGE_SCHEDULER_WALL_TIME_NANOS, NANO, max(wallTimeNanos, 0));
+    }
+
+    public void recordLeafStageSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
+    {
+        requireNonNull(reason, "reason is null");
+        runtimeStats.addMetricValue(SCAN_STAGE_SCHEDULER_BLOCKED_TIME_NANOS + "-" + reason, NANO, max(nanos, 0));
+    }
+
+    @Override
+    public void recordTaskUpdateDeliveredTime(long nanos)
+    {
+        runtimeStats.addMetricValue(TASK_UPDATE_DELIVERED_WALL_TIME_NANOS, NANO, max(nanos, 0));
+    }
+
+    @Override
+    public void recordTaskUpdateSerializedCpuTime(long nanos)
+    {
+        runtimeStats.addMetricValue(TASK_UPDATE_SERIALIZED_CPU_TIME_NANOS, NANO, max(nanos, 0));
+    }
+
+    @Override
+    public void recordTaskPlanSerializedCpuTime(long nanos)
+    {
+        runtimeStats.addMetricValue(TASK_PLAN_SERIALIZED_CPU_TIME_NANOS, NANO, max(nanos, 0));
     }
 
     @Override

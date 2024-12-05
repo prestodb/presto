@@ -20,7 +20,6 @@ import com.facebook.presto.memory.TestingMemoryContext;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spiller.TestingSpillContext;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -247,7 +246,7 @@ public class TestSpillableGroupedTopNBuilder
                 Optional.empty(),
                 1,
                 false,
-                new JoinCompiler(createTestMetadataManager(), new FeaturesConfig()),
+                new JoinCompiler(createTestMetadataManager()),
                 () -> memoryWaitingFuture.getFuture().isDone());
 
         LocalMemoryContext userMemoryContext = new TestingMemoryContext(200L);
@@ -335,7 +334,7 @@ public class TestSpillableGroupedTopNBuilder
                 Optional.empty(),
                 1,
                 false,
-                new JoinCompiler(createTestMetadataManager(), new FeaturesConfig()),
+                new JoinCompiler(createTestMetadataManager()),
                 NOOP);
     }
 

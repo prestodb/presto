@@ -70,6 +70,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
+import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.RESUBMITTED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
@@ -204,7 +205,7 @@ public class VerificationManager
         Verification newVerification = verificationFactory.get(sourceQuery, Optional.of(newContext), snapshotQueryConsumer, snapshotQueries);
         completionService.submit(newVerification::run);
         queriesSubmitted.addAndGet(1);
-        log.info("Verification %s failed, resubmitted for verification (%s/%s)", sourceQuery.getName(), newContext.getResubmissionCount(), verificationResubmissionLimit);
+        log.info("Resubmitted %s for verification (%s/%s)", sourceQuery.getName(), newContext.getResubmissionCount(), verificationResubmissionLimit);
     }
 
     @VisibleForTesting
@@ -221,6 +222,8 @@ public class VerificationManager
                         sourceQuery.getName(),
                         sourceQuery.getQuery(CONTROL),
                         sourceQuery.getQuery(TEST),
+                        sourceQuery.getQueryId(CONTROL),
+                        sourceQuery.getQueryId(TEST),
                         sourceQuery.getControlConfiguration().applyOverrides(controlOverrides),
                         sourceQuery.getTestConfiguration().applyOverrides(testOverrides)))
                 .collect(toImmutableList());
@@ -354,26 +357,25 @@ public class VerificationManager
                 VerificationResult result = completionService.take().get();
                 Optional<VerifierQueryEvent> event = result.getEvent();
                 completed++;
-                if (!event.isPresent()) {
-                    statusCount.compute(SKIPPED, (status, count) -> count == null ? 1 : count + 1);
-                }
-                else {
+                if (event.isPresent()) {
                     statusCount.compute(EventStatus.valueOf(event.get().getStatus()), (status, count) -> count == null ? 1 : count + 1);
                     postEvent(event.get());
                 }
 
                 if (result.shouldResubmit()) {
+                    statusCount.compute(RESUBMITTED, (status, count) -> count == null ? 1 : count + 1);
                     resubmit(result.getVerification());
                 }
 
                 double progress = ((double) completed) / queriesSubmitted.get() * 100;
-                if (progress - lastProgress > 0.5 || completed == queriesSubmitted.get()) {
+                if (progress - lastProgress > 0.2 || completed == queriesSubmitted.get()) {
                     log.info(
-                            "Progress: %s succeeded, %s skipped, %s resolved, %s failed, %.2f%% done",
+                            "Progress: %s succeeded, %s skipped, %s resolved, %s failed, %s resubmitted, %.2f%% done",
                             statusCount.getOrDefault(SUCCEEDED, 0),
                             statusCount.getOrDefault(SKIPPED, 0),
                             statusCount.getOrDefault(FAILED_RESOLVED, 0),
                             statusCount.getOrDefault(FAILED, 0),
+                            statusCount.getOrDefault(RESUBMITTED, 0),
                             progress);
                     lastProgress = progress;
                 }

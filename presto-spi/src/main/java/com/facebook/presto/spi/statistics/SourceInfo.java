@@ -19,7 +19,26 @@ package com.facebook.presto.spi.statistics;
  */
 public abstract class SourceInfo
 {
-    public abstract boolean isConfident();
+    public enum ConfidenceLevel
+    {
+        LOW(0),
+        HIGH(1),
+        FACT(2);
+
+        private final int confidenceOrdinal;
+
+        ConfidenceLevel(int confidenceOrdinal)
+        {
+            this.confidenceOrdinal = confidenceOrdinal;
+        }
+
+        public int getConfidenceOrdinal()
+        {
+            return confidenceOrdinal;
+        }
+    }
+
+    public abstract ConfidenceLevel confidenceLevel();
 
     /**
      * Whether to estimate size of plan output using variable statistics.

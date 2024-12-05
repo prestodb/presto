@@ -22,8 +22,6 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 
@@ -44,7 +42,7 @@ public final class WarnOnScanWithoutPartitionPredicate
     }
 
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         for (TableScanNode scan : searchFrom(plan)
                 .where(TableScanNode.class::isInstance)

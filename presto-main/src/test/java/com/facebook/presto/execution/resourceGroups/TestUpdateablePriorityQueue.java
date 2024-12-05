@@ -44,7 +44,7 @@ public class TestUpdateablePriorityQueue
     @Test
     public void testStochasticPriorityQueue()
     {
-        assertTrue(populateAndExtract(new StochasticPriorityQueue<>()).size() == 3);
+        assertEquals(populateAndExtract(new StochasticPriorityQueue<>()).size(), 3);
     }
 
     @Test

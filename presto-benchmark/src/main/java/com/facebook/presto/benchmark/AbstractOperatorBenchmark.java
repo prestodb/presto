@@ -177,7 +177,7 @@ public abstract class AbstractOperatorBenchmark
             public Operator createOperator(DriverContext driverContext)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, "BenchmarkSource");
-                ConnectorPageSource pageSource = localQueryRunner.getPageSourceManager().createPageSource(session, split, tableHandle.withDynamicFilter(TupleDomain::all), columnHandles);
+                ConnectorPageSource pageSource = localQueryRunner.getPageSourceManager().createPageSource(session, split, tableHandle.withDynamicFilter(TupleDomain::all), columnHandles, operatorContext.getRuntimeStats());
                 return new PageSourceOperator(pageSource, operatorContext);
             }
 

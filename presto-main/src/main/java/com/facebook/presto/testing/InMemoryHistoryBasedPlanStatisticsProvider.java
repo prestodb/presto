@@ -25,6 +25,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class InMemoryHistoryBasedPlanStatisticsProvider
@@ -77,6 +78,16 @@ public class InMemoryHistoryBasedPlanStatisticsProvider
         }
         catch (InterruptedException e) {
             throw new AssertionError("Query events could not be processed in time");
+        }
+    }
+
+    public void noProcessQueryEvents()
+    {
+        try {
+            assertFalse(semaphore.tryAcquire(10, TimeUnit.SECONDS));
+        }
+        catch (InterruptedException e) {
+            throw new AssertionError("Expect no history statistics to be written");
         }
     }
 

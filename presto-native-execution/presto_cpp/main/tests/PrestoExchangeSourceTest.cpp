@@ -20,7 +20,6 @@
 #include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -312,9 +311,9 @@ class Producer {
 std::string toString(exec::SerializedPage* page) {
   auto input = page->prepareStreamForDeserialize();
 
-  auto numBytes = input.read<int32_t>();
+  auto numBytes = input->read<int32_t>();
   char data[numBytes + 1];
-  input.readBytes(data, numBytes);
+  input->readBytes(data, numBytes);
   data[numBytes] = '\0';
   return std::string(data);
 }
@@ -380,6 +379,7 @@ std::string makeProducerUri(
 
 struct Params {
   bool useHttps;
+  bool enableBufferCopy;
   bool immediateBufferTransfer;
   int exchangeCpuThreadPoolSize;
   int exchangeIoThreadPoolSize;
@@ -410,6 +410,9 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
     SystemConfig::instance()->setValue(
         std::string(SystemConfig::kExchangeImmediateBufferTransfer),
         GetParam().immediateBufferTransfer ? "true" : "false");
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kExchangeEnableBufferCopy),
+        GetParam().enableBufferCopy ? "true" : "false");
     const std::string keyPath = getCertsPath("client_ca.pem");
     const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
     sslContext_ = facebook::presto::util::createSSLContext(keyPath, ciphers);
@@ -439,7 +442,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         pool != nullptr ? pool : pool_.get(),
         exchangeCpuExecutor_.get(),
         exchangeIoExecutor_.get(),
-        &connectionPools_,
+        &connectionPool_,
         useHttps ? sslContext_ : nullptr);
   }
 
@@ -456,7 +459,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_;
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_;
-  ConnectionPools connectionPools_;
+  http::HttpClientConnectionPool connectionPool_;
   folly::SSLContextPtr sslContext_;
 };
 
@@ -507,10 +510,10 @@ TEST_P(PrestoExchangeSourceTest, basic) {
   serverWrapper.stop();
   EXPECT_EQ(pool_->usedBytes(), 0);
 
-  const auto stats = exchangeSource->stats();
+  const auto stats = exchangeSource->metrics();
   ASSERT_EQ(stats.size(), 2);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), pages.size());
-  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, pages.size());
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, totalBytes(pages));
 }
 
 TEST_P(PrestoExchangeSourceTest, retryState) {
@@ -633,10 +636,10 @@ TEST_P(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
   serverWrapper.stop();
   EXPECT_EQ(pool_->usedBytes(), 0);
 
-  const auto stats = exchangeSource->stats();
+  const auto stats = exchangeSource->metrics();
   ASSERT_EQ(stats.size(), 2);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), 0);
-  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), 0);
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, 0);
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, 0);
 }
 
 TEST_P(PrestoExchangeSourceTest, slowProducer) {
@@ -675,10 +678,10 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   serverWrapper.stop();
   EXPECT_EQ(pool_->usedBytes(), 0);
 
-  const auto stats = exchangeSource->stats();
+  const auto stats = exchangeSource->metrics();
   ASSERT_EQ(stats.size(), 2);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), pages.size());
-  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, pages.size());
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, totalBytes(pages));
 }
 
 DEBUG_ONLY_TEST_P(
@@ -693,6 +696,7 @@ DEBUG_ONLY_TEST_P(
       std::function<void(const PrestoExchangeSource*)>(
           ([&](const auto* prestoExchangeSource) {
             allCloseCheckPassed = true;
+            closeWait.notifyAll();
           })));
   SCOPED_TESTVALUE_SET(
       "facebook::presto::PrestoExchangeSource::handleDataResponse",
@@ -736,8 +740,9 @@ DEBUG_ONLY_TEST_P(
   // all resources have been cleaned up, so explicitly waiting is the only way
   // to allow the execution of background processing. We expect the test to not
   // crash.
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  EXPECT_TRUE(codePointHit);
+  while (!codePointHit) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
   serverWrapper.stop();
 }
 
@@ -772,6 +777,13 @@ DEBUG_ONLY_TEST_P(
     exceedingMemoryCapacityForHttpResponse) {
   const int64_t memoryCapBytes = 1L << 30;
   const bool useHttps = GetParam().useHttps;
+  const bool enableBufferCopy = GetParam().enableBufferCopy;
+  if (!enableBufferCopy) {
+    // There is no data copy in http response handling in !enableBufferCopy
+    // mode.
+    return;
+  }
+  const bool immediateBufferTransfer = GetParam().immediateBufferTransfer;
 
   for (bool persistentError : {false, true}) {
     SCOPED_TRACE(fmt::format("persistentError: {}", persistentError));
@@ -823,7 +835,7 @@ DEBUG_ONLY_TEST_P(
       ASSERT_EQ(toString(receivedPage.get()), payload);
     }
     producer->noMoreData();
-    if (GetParam().immediateBufferTransfer) {
+    if (immediateBufferTransfer) {
       // Verify that we have retried on memory allocation failure of the http
       // response data other than just failing the query.
       ASSERT_GE(exchangeSource->testingFailedAttempts(), 1);
@@ -833,7 +845,9 @@ DEBUG_ONLY_TEST_P(
 }
 
 TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
-  const bool immediateBufferTransfer = GetParam().immediateBufferTransfer;
+  const bool enableBufferCopy = GetParam().enableBufferCopy;
+  const bool immediateBufferTransfer =
+      GetParam().immediateBufferTransfer && enableBufferCopy;
   std::vector<bool> resetPeaks = {false, true};
   for (const auto resetPeak : resetPeaks) {
     SCOPED_TRACE(fmt::format("resetPeak {}", resetPeak));
@@ -862,25 +876,32 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     auto smallPage = waitForNextPage(queue);
     if (immediateBufferTransfer) {
       ASSERT_EQ(leafPool->stats().numAllocs, 2);
+    } else if (!enableBufferCopy) {
+      ASSERT_EQ(leafPool->stats().numAllocs, 0);
+    } else {
+      ASSERT_EQ(leafPool->stats().numAllocs, 1);
     }
     int64_t currMemoryBytes;
     int64_t peakMemoryBytes;
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2)
-                                : smallPayload.size() + 4,
-        currMemoryBytes);
+    if (immediateBufferTransfer) {
+      ASSERT_EQ(
+          currMemoryBytes,
+          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+              (1 + 2));
+      ASSERT_EQ(
+          peakMemoryBytes,
+          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+              (1 + 2));
+    } else if (!enableBufferCopy) {
+      ASSERT_GE(currMemoryBytes, smallPayload.size());
+      ASSERT_GE(peakMemoryBytes, smallPayload.size());
+    } else {
+      ASSERT_EQ(currMemoryBytes, smallPayload.size() + 4);
+      ASSERT_EQ(peakMemoryBytes, smallPayload.size() + 4);
+    }
 
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2)
-                                : smallPayload.size() + 4,
-        peakMemoryBytes);
     int64_t oldCurrMemoryBytes = currMemoryBytes;
-
     if (resetPeak) {
       PrestoExchangeSource::resetPeakMemoryUsage();
       PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
@@ -893,12 +914,7 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     ASSERT_EQ(0, currMemoryBytes);
 
     if (!resetPeak) {
-      ASSERT_EQ(
-          immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                        pool_->sizeClasses().front()) *
-                  (1 + 2)
-                                  : smallPayload.size() + 4,
-          peakMemoryBytes);
+      ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
       oldCurrMemoryBytes = currMemoryBytes;
@@ -916,21 +932,22 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
 
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
 
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2 + 4 + 8 + 16 + 16)
-                                : largePayload.size() + 4,
-        currMemoryBytes);
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2 + 4 + 8 + 16 + 16)
-                                : largePayload.size() + 4,
-        peakMemoryBytes);
-    oldCurrMemoryBytes = currMemoryBytes;
+    if (immediateBufferTransfer) {
+      ASSERT_EQ(
+          currMemoryBytes,
+          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+              (1 + 2 + 4 + 8 + 16 + 16));
+      ASSERT_EQ(peakMemoryBytes, currMemoryBytes);
+    } else if (!enableBufferCopy) {
+      ASSERT_GE(currMemoryBytes, largePayload.size());
+      ASSERT_GE(peakMemoryBytes, largePayload.size());
+    } else {
+      ASSERT_EQ(currMemoryBytes, largePayload.size() + 4);
+      ASSERT_EQ(peakMemoryBytes, currMemoryBytes);
+    }
 
     if (resetPeak) {
+      oldCurrMemoryBytes = currMemoryBytes;
       PrestoExchangeSource::resetPeakMemoryUsage();
       PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
       ASSERT_EQ(oldCurrMemoryBytes, currMemoryBytes);
@@ -940,20 +957,18 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     largePage.reset();
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(0, currMemoryBytes);
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2 + 4 + 8 + 16 + 16)
-                                : largePayload.size() + 4,
-        peakMemoryBytes);
 
     if (!resetPeak) {
-      ASSERT_EQ(
-          immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                        pool_->sizeClasses().front()) *
-                  (1 + 2 + 4 + 8 + 16 + 16)
-                                  : largePayload.size() + 4,
-          peakMemoryBytes);
+      if (immediateBufferTransfer) {
+        ASSERT_EQ(
+            peakMemoryBytes,
+            memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+                (1 + 2 + 4 + 8 + 16 + 16));
+      } else if (!enableBufferCopy) {
+        ASSERT_GE(peakMemoryBytes, largePayload.size());
+      } else {
+        ASSERT_EQ(peakMemoryBytes, largePayload.size() + 4);
+      }
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
       oldCurrMemoryBytes = currMemoryBytes;
@@ -970,9 +985,13 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(0, currMemoryBytes);
     if (!resetPeak) {
-      ASSERT_EQ(
-          immediateBufferTransfer ? 192512 : largePayload.size() + 4,
-          peakMemoryBytes);
+      if (immediateBufferTransfer) {
+        ASSERT_EQ(peakMemoryBytes, 192512);
+      } else if (!enableBufferCopy) {
+        ASSERT_GE(peakMemoryBytes, largePayload.size());
+      } else {
+        ASSERT_EQ(peakMemoryBytes, largePayload.size() + 4);
+      }
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
       oldCurrMemoryBytes = currMemoryBytes;
@@ -1019,11 +1038,19 @@ INSTANTIATE_TEST_CASE_P(
     PrestoExchangeSourceTest,
     PrestoExchangeSourceTest,
     ::testing::Values(
-        Params{true, true, 1, 1},
-        Params{true, false, 1, 1},
-        Params{false, true, 1, 1},
-        Params{false, false, 1, 1},
-        Params{true, true, 2, 10},
-        Params{true, false, 2, 10},
-        Params{false, true, 2, 10},
-        Params{false, false, 2, 10}));
+        Params{true, true, true, 1, 1},
+        Params{true, true, false, 1, 1},
+        Params{false, true, true, 1, 1},
+        Params{false, true, false, 1, 1},
+        Params{true, true, true, 2, 10},
+        Params{true, true, false, 2, 10},
+        Params{false, true, true, 2, 10},
+        Params{false, true, false, 2, 10},
+        Params{true, false, true, 1, 1},
+        Params{true, false, false, 1, 1},
+        Params{false, false, true, 1, 1},
+        Params{false, false, false, 1, 1},
+        Params{true, false, true, 2, 10},
+        Params{true, false, false, 2, 10},
+        Params{false, false, true, 2, 10},
+        Params{false, false, false, 2, 10}));

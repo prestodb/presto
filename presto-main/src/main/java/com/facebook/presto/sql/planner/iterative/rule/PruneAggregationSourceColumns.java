@@ -60,7 +60,7 @@ public class PruneAggregationSourceColumns
     private static Stream<VariableReferenceExpression> getAggregationInputs(AggregationNode.Aggregation aggregation, TypeProvider types)
     {
         return Streams.concat(
-                AggregationNodeUtils.extractAggregationUniqueVariables(aggregation, types).stream(),
+                AggregationNodeUtils.extractAggregationUniqueVariables(aggregation).stream(),
                 aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
     }
 }

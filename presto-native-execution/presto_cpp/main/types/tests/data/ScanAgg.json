@@ -320,6 +320,7 @@
       }
     ],
     "replicateNullsAndAny":false,
+    "encoding":"COLUMNAR",
     "bucketToPartition":[
       0
     ]

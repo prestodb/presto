@@ -120,6 +120,7 @@ import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -1623,6 +1624,20 @@ public class TestSqlParser
     }
 
     @Test
+    public void testSetProperties()
+    {
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))), false));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=true)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new BooleanLiteral("true"))), false));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123"))), false));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123, bar=456)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar"), new LongLiteral("456"))), false));
+        assertStatement("ALTER TABLE a SET PROPERTIES (\" s p a c e \"='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar"))), false));
+
+        assertInvalidStatement("ALTER TABLE a SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
+        assertStatement("ALTER TABLE IF EXISTS b SET PROPERTIES (foo=12345)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("b"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("12345"))), true));
+        assertInvalidStatement("ALTER TABLE IF EXISTS b SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
+    }
+
+    @Test
     public void testRenameColumn()
     {
         assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), false, false));
@@ -1956,6 +1971,18 @@ public class TestSqlParser
     }
 
     @Test
+    public void testNoWith()
+    {
+        assertStatement("SELECT * FROM t",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("t"))));
+
+        assertInvalidStatement("SELECT * FROM my_table ORDER BY column1, column2 OFFSET 5 ROWS LIMIT \"\"", ".*mismatched input.*");
+        assertInvalidStatement("\"\"", ".*mismatched input.*");
+    }
+
+    @Test
     public void testImplicitJoin()
     {
         assertStatement("SELECT * FROM a, b",
@@ -2016,6 +2043,20 @@ public class TestSqlParser
     }
 
     @Test
+    public void testExplainAnalyzeFormatJson()
+    {
+        assertStatement("EXPLAIN ANALYZE (format JSON) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of(new ExplainFormat(ExplainFormat.Type.JSON))));
+    }
+
+    @Test
+    public void testExplainAnalyzeFormatJsonTypeDistributed()
+    {
+        assertStatement("EXPLAIN ANALYZE (format JSON, type DISTRIBUTED) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of(new ExplainFormat(ExplainFormat.Type.JSON), new ExplainType(ExplainType.Type.DISTRIBUTED))));
+    }
+
+    @Test
     public void testExplainAnalyzeVerbose()
     {
         assertStatement("EXPLAIN ANALYZE VERBOSE SELECT * FROM t",
@@ -2027,6 +2068,13 @@ public class TestSqlParser
     {
         assertStatement("EXPLAIN ANALYZE VERBOSE (type DISTRIBUTED) SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
+    }
+
+    @Test
+    public void testExplainAnalyzeVerboseFormatJson()
+    {
+        assertStatement("EXPLAIN ANALYZE VERBOSE (format JSON) SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of(new ExplainFormat(ExplainFormat.Type.JSON))));
     }
 
     @Test
@@ -3111,6 +3159,18 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty()));
 
+        assertStatement("SELECT * FROM table1 FOR VERSION AS OF 'branch-name'",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new StringLiteral("branch-name"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
         assertStatement("SELECT * FROM table1 FOR SYSTEM_VERSION AS OF 8772871542276440693",
                 simpleQuery(
                         selectList(new AllColumns()),
@@ -3128,6 +3188,18 @@ public class TestSqlParser
                         selectList(new AllColumns()),
                         new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
                                 new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("8772871542276440693"))),
+                        Optional.of(new ComparisonExpression(EQUAL, new Identifier("c1"), new LongLiteral("100"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR VERSION AS OF 'branch-name' WHERE (c1 = 100)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new StringLiteral("branch-name"))),
                         Optional.of(new ComparisonExpression(EQUAL, new Identifier("c1"), new LongLiteral("100"))),
                         Optional.empty(),
                         Optional.empty(),

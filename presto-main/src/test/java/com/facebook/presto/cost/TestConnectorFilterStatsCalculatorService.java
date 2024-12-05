@@ -98,20 +98,20 @@ public class TestConnectorFilterStatsCalculatorService
         TableStatistics filteredToZeroStatistics = TableStatistics.builder()
                 .setRowCount(Estimate.zero())
                 .setTotalSize(Estimate.zero())
-                .setColumnStatistics(xColumn, new ColumnStatistics(Estimate.of(1.0), Estimate.zero(), Estimate.zero(), Optional.empty()))
+                .setColumnStatistics(xColumn, new ColumnStatistics(Estimate.of(1.0), Estimate.zero(), Estimate.zero(), Optional.empty(), Optional.empty()))
                 .build();
         assertPredicate("false", originalTableStatistics, filteredToZeroStatistics);
 
         TableStatistics filteredStatistics = TableStatistics.builder()
                 .setRowCount(Estimate.of(37.5))
                 .setTotalSize(Estimate.of(300))
-                .setColumnStatistics(xColumn, new ColumnStatistics(Estimate.zero(), Estimate.of(20), Estimate.unknown(), Optional.of(new DoubleRange(-10, 0))))
+                .setColumnStatistics(xColumn, new ColumnStatistics(Estimate.zero(), Estimate.of(20), Estimate.unknown(), Optional.of(new DoubleRange(-10, 0)), Optional.empty()))
                 .build();
         assertPredicate("x < 0", originalTableStatistics, filteredStatistics);
 
         TableStatistics filteredStatisticsWithoutTotalSize = TableStatistics.builder()
                 .setRowCount(Estimate.of(37.5))
-                .setColumnStatistics(xColumn, new ColumnStatistics(Estimate.zero(), Estimate.of(20), Estimate.unknown(), Optional.of(new DoubleRange(-10, 0))))
+                .setColumnStatistics(xColumn, new ColumnStatistics(Estimate.zero(), Estimate.of(20), Estimate.unknown(), Optional.of(new DoubleRange(-10, 0)), Optional.empty()))
                 .build();
         assertPredicate("x < 0", originalTableStatisticsWithoutTotalSize, filteredStatisticsWithoutTotalSize);
     }

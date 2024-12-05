@@ -53,12 +53,11 @@ public class QueryInfo
     private final String bucketChecksumQuery;
     private final String jsonPlan;
     private final String outputTableName;
-
+    private final boolean isReuseTable;
     private final Double cpuTimeSecs;
     private final Double wallTimeSecs;
     private final Long peakTotalMemoryBytes;
     private final Long peakTaskTotalMemoryBytes;
-
     private final String extraStats;
 
     public QueryInfo(
@@ -79,7 +78,8 @@ public class QueryInfo
             Optional<String> bucketChecksumQuery,
             Optional<String> jsonPlan,
             Optional<QueryActionStats> queryActionStats,
-            Optional<String> outputTableName)
+            Optional<String> outputTableName,
+            boolean isReuseTable)
     {
         Optional<QueryStats> stats = queryActionStats.flatMap(QueryActionStats::getQueryStats);
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -105,6 +105,7 @@ public class QueryInfo
         this.peakTaskTotalMemoryBytes = stats.map(QueryStats::getPeakTaskTotalMemoryBytes).orElse(null);
         this.extraStats = queryActionStats.flatMap(QueryActionStats::getExtraStats).orElse(null);
         this.outputTableName = outputTableName.orElse(null);
+        this.isReuseTable = isReuseTable;
     }
 
     private static double millisToSeconds(long millis)
@@ -221,6 +222,12 @@ public class QueryInfo
     }
 
     @EventField
+    public boolean getIsReuseTable()
+    {
+        return isReuseTable;
+    }
+
+    @EventField
     public Double getCpuTimeSecs()
     {
         return cpuTimeSecs;
@@ -279,6 +286,7 @@ public class QueryInfo
         private Optional<String> jsonPlan = Optional.empty();
         private Optional<QueryActionStats> queryActionStats = Optional.empty();
         private Optional<String> outputTableName = Optional.empty();
+        private boolean isReuseTable;
 
         private Builder(
                 String catalog,
@@ -376,6 +384,12 @@ public class QueryInfo
             return this;
         }
 
+        public Builder setIsReuseTable(boolean isReuseTable)
+        {
+            this.isReuseTable = isReuseTable;
+            return this;
+        }
+
         public QueryInfo build()
         {
             return new QueryInfo(
@@ -396,7 +410,8 @@ public class QueryInfo
                     bucketChecksumQuery,
                     jsonPlan,
                     queryActionStats,
-                    outputTableName);
+                    outputTableName,
+                    isReuseTable);
         }
     }
 }

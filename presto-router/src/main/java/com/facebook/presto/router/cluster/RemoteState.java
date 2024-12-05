@@ -91,7 +91,7 @@ public abstract class RemoteState
                             handleResponse(result.getValue());
                         }
                         if (result.getStatusCode() != OK.code()) {
-                            log.warn("Error fetching node state from %s returned status %d: %s", remoteUri, result.getStatusCode(), result.getStatusMessage());
+                            log.warn("Error fetching node state from %s returned status %d", remoteUri, result.getStatusCode());
                             return;
                         }
                     }

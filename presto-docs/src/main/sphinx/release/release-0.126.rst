@@ -11,7 +11,7 @@ General Changes
 * Fix occasional query planning failure due to a bug in the projection
   push down optimizer.
 * Fix a parsing issue when expressions contain the form ``POSITION(x in (y))``.
-* Add a new version of :func:`approx_percentile` that takes an ``accuracy``
+* Add a new version of :func:`!approx_percentile` that takes an ``accuracy``
   parameter.
 * Allow specifying columns names in :doc:`/sql/insert` queries.
 * Add ``field_length`` table property to blackhole connector to control the

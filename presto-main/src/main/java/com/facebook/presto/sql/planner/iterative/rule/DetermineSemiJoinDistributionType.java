@@ -36,10 +36,10 @@ import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 
@@ -51,10 +51,10 @@ import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTab
 import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinDistributionTypeEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
+import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
 import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
-import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;

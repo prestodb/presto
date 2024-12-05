@@ -36,6 +36,7 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -227,6 +228,12 @@ public final class ThriftQueryRunner
         public ConnectorPlanOptimizerManager getPlanOptimizerManager()
         {
             return source.getPlanOptimizerManager();
+        }
+
+        @Override
+        public PlanCheckerProviderManager getPlanCheckerProviderManager()
+        {
+            return source.getPlanCheckerProviderManager();
         }
 
         @Override

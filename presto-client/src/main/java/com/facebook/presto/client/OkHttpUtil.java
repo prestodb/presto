@@ -41,6 +41,7 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
@@ -136,6 +137,41 @@ public final class OkHttpUtil
     private static InetSocketAddress toUnresolvedAddress(HostAndPort address)
     {
         return InetSocketAddress.createUnresolved(address.getHost(), address.getPort());
+    }
+
+    public static void setupInsecureSsl(OkHttpClient.Builder clientBuilder)
+    {
+        try {
+            X509TrustManager trustAllCerts = new X509TrustManager()
+            {
+                @Override
+                public void checkClientTrusted(X509Certificate[] chain, String authType)
+                {
+                    throw new UnsupportedOperationException("checkClientTrusted should not be called");
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] chain, String authType)
+                {
+                    // skip validation of server certificate
+                }
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers()
+                {
+                    return new X509Certificate[0];
+                }
+            };
+
+            SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, new TrustManager[] {trustAllCerts}, new SecureRandom());
+
+            clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), trustAllCerts);
+            clientBuilder.hostnameVerifier((hostname, session) -> true);
+        }
+        catch (GeneralSecurityException e) {
+            throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+        }
     }
 
     public static void setupSsl(

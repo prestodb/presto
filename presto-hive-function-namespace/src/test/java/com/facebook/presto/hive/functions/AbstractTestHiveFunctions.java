@@ -108,7 +108,7 @@ public abstract class AbstractTestHiveFunctions
             for (int j = 0; j < numColumns; j++) {
                 Object actual = rows.get(i).getField(j);
                 Object expected = cols[j].values[i];
-                if (cols[j].type == DOUBLE) {
+                if (cols[j].type.equals(DOUBLE)) {
                     assertEquals(((Number) actual).doubleValue(), ((double) expected), 0.000001);
                 }
                 else {

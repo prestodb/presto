@@ -21,13 +21,17 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -35,10 +39,6 @@ import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
@@ -60,6 +60,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
@@ -176,10 +177,10 @@ public class EffectivePredicateExtractor
                     .collect(toImmutableList());
 
             return pullExpressionThroughVariables(logicalRowExpressions.combineConjuncts(
-                    ImmutableList.<RowExpression>builder()
-                            .addAll(projectionEqualities)
-                            .add(underlyingPredicate)
-                            .build()),
+                            ImmutableList.<RowExpression>builder()
+                                    .addAll(projectionEqualities)
+                                    .add(underlyingPredicate)
+                                    .build()),
                     node.getOutputVariables());
         }
 
@@ -358,10 +359,10 @@ public class EffectivePredicateExtractor
                         .collect(toImmutableList());
 
                 sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughVariables(logicalRowExpressions.combineConjuncts(
-                        ImmutableList.<RowExpression>builder()
-                                .addAll(equalities)
-                                .add(underlyingPredicate)
-                                .build()),
+                                ImmutableList.<RowExpression>builder()
+                                        .addAll(equalities)
+                                        .add(underlyingPredicate)
+                                        .build()),
                         node.getOutputVariables()))));
             }
 
@@ -418,15 +419,21 @@ public class EffectivePredicateExtractor
             for (RowExpression conjunct : new EqualityInference.Builder(functionManger).nonInferableConjuncts(expression)) {
                 if (determinismEvaluator.isDeterministic(conjunct)) {
                     RowExpression rewritten = equalityInference.rewriteExpression(conjunct, in(variables));
-                    if (rewritten != null) {
+                    if (rewritten != null && (hasVariableReferences(rewritten) || rewritten.equals(FALSE_CONSTANT))) {
                         effectiveConjuncts.add(rewritten);
                     }
+                    // If equality inference has reduced the predicate to an expression referring to only constants, it does not make sense to pull this predicate up
                 }
             }
 
             effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(in(variables)).getScopeEqualities());
 
             return logicalRowExpressions.combineConjuncts(effectiveConjuncts.build());
+        }
+
+        private static boolean hasVariableReferences(RowExpression rowExpression)
+        {
+            return !VariablesExtractor.extractUnique(rowExpression).isEmpty();
         }
     }
 }

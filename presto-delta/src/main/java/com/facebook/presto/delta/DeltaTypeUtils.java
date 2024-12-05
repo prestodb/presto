@@ -26,22 +26,22 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
-import io.delta.standalone.types.ArrayType;
-import io.delta.standalone.types.BinaryType;
-import io.delta.standalone.types.BooleanType;
-import io.delta.standalone.types.ByteType;
-import io.delta.standalone.types.DataType;
-import io.delta.standalone.types.DateType;
-import io.delta.standalone.types.DecimalType;
-import io.delta.standalone.types.DoubleType;
-import io.delta.standalone.types.FloatType;
-import io.delta.standalone.types.IntegerType;
-import io.delta.standalone.types.LongType;
-import io.delta.standalone.types.MapType;
-import io.delta.standalone.types.ShortType;
-import io.delta.standalone.types.StringType;
-import io.delta.standalone.types.StructType;
-import io.delta.standalone.types.TimestampType;
+import io.delta.kernel.types.ArrayType;
+import io.delta.kernel.types.BinaryType;
+import io.delta.kernel.types.BooleanType;
+import io.delta.kernel.types.ByteType;
+import io.delta.kernel.types.DataType;
+import io.delta.kernel.types.DateType;
+import io.delta.kernel.types.DecimalType;
+import io.delta.kernel.types.DoubleType;
+import io.delta.kernel.types.FloatType;
+import io.delta.kernel.types.IntegerType;
+import io.delta.kernel.types.LongType;
+import io.delta.kernel.types.MapType;
+import io.delta.kernel.types.ShortType;
+import io.delta.kernel.types.StringType;
+import io.delta.kernel.types.StructType;
+import io.delta.kernel.types.TimestampType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -50,7 +50,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.Arrays;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -95,7 +94,7 @@ public class DeltaTypeUtils
      * @param tableName  Used in error messages when an unsupported data type is encountered.
      * @param columnName Used in error messages when an unsupported data type is encountered.
      * @param deltaType  Data type to convert
-     * @return
+     * @return a {@link TypeSignature} containing the equivalent Presto type
      */
     public static TypeSignature convertDeltaDataTypePrestoDataType(SchemaTableName tableName, String columnName, DataType deltaType)
     {
@@ -104,7 +103,7 @@ public class DeltaTypeUtils
         if (deltaType instanceof StructType) {
             StructType deltaStructType = (StructType) deltaType;
             ImmutableList.Builder<TypeSignatureParameter> typeSignatureBuilder = ImmutableList.builder();
-            Arrays.stream(deltaStructType.getFields())
+            deltaStructType.fields()
                     .forEach(field -> {
                         String rowFieldName = field.getName().toLowerCase(Locale.US);
                         TypeSignature rowFieldType = convertDeltaDataTypePrestoDataType(
@@ -236,6 +235,6 @@ public class DeltaTypeUtils
         }
 
         throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
-                format("Column '%s' in Delta table %s contains unsupported data type: %s", columnName, tableName, deltaType.getCatalogString()));
+                format("Column '%s' in Delta table %s contains unsupported data type: %s", columnName, tableName, deltaType.toString()));
     }
 }

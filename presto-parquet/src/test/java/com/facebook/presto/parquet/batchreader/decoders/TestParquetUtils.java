@@ -144,6 +144,16 @@ public class TestParquetUtils
                 }
                 break;
             }
+            case 128:
+                for (int i = 0; i < valueCount; i++) {
+                    long value = random.nextLong();
+                    writer.writeLong(value);
+                    addedValues.add(value);
+                    value = random.nextLong();
+                    writer.writeLong(value);
+                    addedValues.add(value);
+                }
+                break;
             default:
                 throw new IllegalArgumentException("invalid value size (expected: 4, 8 or 12)");
         }

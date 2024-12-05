@@ -93,7 +93,11 @@ def preprocess_file(filename):
 def add_field(
     current_class, filename, field_name, field_type, config, lang, classes, depends
 ):
-    if filename in config.EnumMap and field_type in config.EnumMap[filename]:
+    if (
+        "EnumMap" in config
+        and filename in config.EnumMap
+        and field_type in config.EnumMap[filename]
+    ):
         field_type = config.EnumMap[filename][field_type]
 
     field_flag = {}
@@ -142,10 +146,21 @@ def add_field(
 
 
 def add_extra(class_name, fileroot, config, lang, classes, depends):
-    if class_name in config.ExtraFields:
+    if "ExtraFields" in config and class_name in config.ExtraFields:
         for type, name in config.ExtraFields[class_name].items():
             add_field(class_name, fileroot, name, type, config, lang, classes, depends)
         classes[class_name].fields[-1].last = True
+    if "UpdateFields" in config and class_name in config.UpdateFields:
+        for type, name in config.UpdateFields[class_name].items():
+            update_field(class_name, name, type, classes)
+
+
+def update_field(class_name, name, type, classes):
+    # Find the existing field and replace its type
+    for field in classes[class_name].fields:
+        if field.field_name == name:
+            field.field_text = type
+            break
 
 
 def member_name(name):
@@ -202,7 +217,11 @@ def process_file(filepath, config, lang, subclasses, classes, depends):
         if match:
             current_enum = fields[2]
 
-            if fileroot in config.EnumMap and current_enum in config.EnumMap[fileroot]:
+            if (
+                "EnumMap" in config
+                and fileroot in config.EnumMap
+                and current_enum in config.EnumMap[fileroot]
+            ):
                 current_enum = config.EnumMap[fileroot][current_enum]
 
             classes[current_enum].class_name = current_enum
@@ -305,7 +324,7 @@ def parse_args():
         help="output language type map",
     )
 
-    parser.add_argument("files", metavar="FILES", nargs="+", help="files to process")
+    parser.add_argument("files", metavar="FILES", nargs="*", help="files to process")
 
     return parser.parse_args()
 
@@ -367,7 +386,8 @@ def main():
     comment = "// This file is generated DO NOT EDIT @" + "generated"
     result = [{"comment": comment}]
     result += [classes[name] for name in depends if name in classes]
-    result += [classes[name] for name in config.AddToOutput]
+    if "AddToOutput" in config:
+        result += [classes[name] for name in config.AddToOutput]
 
     if args.json:
         print(util.to_json(result))

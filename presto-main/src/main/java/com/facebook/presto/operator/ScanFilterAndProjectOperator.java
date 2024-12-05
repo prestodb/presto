@@ -247,7 +247,7 @@ public class ScanFilterAndProjectOperator
         }
 
         if (!finishing && pageSource == null && cursor == null) {
-            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, dynamicFilterSupplier.map(table::withDynamicFilter).orElse(table), columns);
+            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, dynamicFilterSupplier.map(table::withDynamicFilter).orElse(table), columns, operatorContext.getRuntimeStats());
             if (source instanceof RecordPageSource) {
                 cursor = ((RecordPageSource) source).getCursor();
             }

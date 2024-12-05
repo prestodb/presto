@@ -25,6 +25,7 @@
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
+#include "presto_cpp/main/types/VeloxPlanValidator.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
@@ -120,6 +121,10 @@ class PrestoServer {
 
   virtual void stopAdditionalPeriodicTasks(){};
 
+  virtual void addMemoryCheckerPeriodicTask();
+
+  virtual void stopMemoryCheckerPeriodicTask();
+
   virtual void initializeCoordinatorDiscoverer();
 
   virtual std::shared_ptr<velox::exec::TaskListener> getTaskListener();
@@ -135,7 +140,13 @@ class PrestoServer {
 
   /// Invoked to register the required dwio data sinks which are used by
   /// connectors.
-  virtual void registerFileSinks() {}
+  virtual void registerFileSinks();
+
+  virtual void registerFileReadersAndWriters();
+
+  virtual void unregisterFileReadersAndWriters();
+
+  virtual void registerConnectorFactories();
 
   /// Invoked by presto shutdown procedure to unregister connectors.
   virtual void unregisterConnectors();
@@ -151,6 +162,8 @@ class PrestoServer {
   virtual void registerVectorSerdes();
 
   virtual void registerFileSystems();
+
+  virtual void unregisterFileSystems();
 
   virtual void registerMemoryArbitrators();
 
@@ -170,7 +183,12 @@ class PrestoServer {
   virtual std::string getBaseSpillDirectory() const;
 
   /// Invoked to enable stats reporting and register counters.
-  virtual void enableRuntimeMetricReporting();
+  virtual void enableWorkerStatsReporting();
+
+  /// Invoked to initialize Presto to Velox plan validator.
+  virtual void initVeloxPlanValidator();
+
+  VeloxPlanValidator* getVeloxPlanValidator();
 
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
@@ -193,6 +211,10 @@ class PrestoServer {
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
+  void handleGracefulShutdown(
+      const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+      proxygen::ResponseHandler* downstream);
+
   protocol::NodeStatus fetchNodeStatus();
 
   void populateMemAndCPUInfo();
@@ -201,6 +223,8 @@ class PrestoServer {
   void yieldTasks();
 
   void registerSystemConnector();
+
+  void registerSidecarEndpoints();
 
   std::unique_ptr<velox::cache::SsdCache> setupSsdCache();
 
@@ -215,10 +239,13 @@ class PrestoServer {
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
   // Executor for exchange data over http.
-  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpIoExecutor_;
+
+  // Executor for exchange request processing.
+  std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeHttpCpuExecutor_;
 
   // Executor for HTTP request dispatching
-  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIOExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIoExecutor_;
 
   // Executor for HTTP request processing after dispatching
   std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
@@ -229,7 +256,9 @@ class PrestoServer {
   // Executor for spilling.
   std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
 
-  std::unique_ptr<ConnectionPools> exchangeSourceConnectionPools_;
+  std::shared_ptr<VeloxPlanValidator> planValidator_;
+
+  std::unique_ptr<http::HttpClientConnectionPool> exchangeSourceConnectionPool_;
 
   // If not null,  the instance of AsyncDataCache used for in-memory file cache.
   std::shared_ptr<velox::cache::AsyncDataCache> cache_;
@@ -239,6 +268,7 @@ class PrestoServer {
   std::unique_ptr<Announcer> announcer_;
   std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
   std::shared_ptr<velox::memory::MemoryPool> pool_;
+  std::shared_ptr<velox::memory::MemoryPool> nativeWorkerPool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::atomic<NodeState> nodeState_{NodeState::kActive};

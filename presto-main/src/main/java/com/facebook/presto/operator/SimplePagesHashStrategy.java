@@ -47,7 +47,6 @@ public class SimplePagesHashStrategy
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
     private final Optional<Integer> sortChannel;
-    private final boolean groupByUsesEqualTo;
     private final List<MethodHandle> distinctFromMethodHandles;
 
     public SimplePagesHashStrategy(
@@ -57,8 +56,7 @@ public class SimplePagesHashStrategy
             List<Integer> hashChannels,
             OptionalInt precomputedHashChannel,
             Optional<Integer> sortChannel,
-            FunctionAndTypeManager functionAndTypeManager,
-            boolean groupByUsesEqualTo)
+            FunctionAndTypeManager functionAndTypeManager)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
@@ -74,7 +72,6 @@ public class SimplePagesHashStrategy
         }
         this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
         requireNonNull(functionAndTypeManager, "functionManager is null");
-        this.groupByUsesEqualTo = groupByUsesEqualTo;
         ImmutableList.Builder<MethodHandle> distinctFromMethodHandlesBuilder = ImmutableList.builder();
         for (Type type : types) {
             distinctFromMethodHandlesBuilder.add(
@@ -206,9 +203,6 @@ public class SimplePagesHashStrategy
     @Override
     public boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels)
     {
-        if (groupByUsesEqualTo) {
-            return positionEqualsRow(leftBlockIndex, leftPosition, rightPosition, page, rightChannels);
-        }
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);

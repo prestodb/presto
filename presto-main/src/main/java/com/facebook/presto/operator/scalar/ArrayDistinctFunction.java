@@ -18,14 +18,20 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.type.TypeUtils;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.util.Failures.internalError;
+import static com.google.common.base.Defaults.defaultValue;
 
 @ScalarFunction("array_distinct")
 @Description("Remove duplicate values from the given array")
@@ -35,7 +41,10 @@ public final class ArrayDistinctFunction
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public static Block distinct(@TypeParameter("E") Type type, @SqlType("array(E)") Block array)
+    public static Block distinct(
+            @TypeParameter("E") Type type,
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
+            @SqlType("array(E)") Block array)
     {
         int arrayLength = array.getPositionCount();
         if (arrayLength < 2) {
@@ -43,15 +52,24 @@ public final class ArrayDistinctFunction
         }
 
         if (arrayLength == 2) {
-            if (TypeUtils.positionEqualsPosition(type, array, 0, array, 1)) {
-                return array.getSingleValueBlock(0);
+            boolean firstValueNull = array.isNull(0);
+            Object firstValue = firstValueNull ? defaultValue(type.getJavaType()) : readNativeValue(type, array, 0);
+            boolean secondValueNull = array.isNull(1);
+            Object secondValue = secondValueNull ? defaultValue(type.getJavaType()) : readNativeValue(type, array, 1);
+            boolean distinct;
+            try {
+                distinct = (boolean) elementIsDistinctFrom.invoke(firstValue, firstValueNull, secondValue, secondValueNull);
             }
-            else {
+            catch (Throwable t) {
+                throw internalError(t);
+            }
+            if (distinct) {
                 return array;
             }
+            return array.getSingleValueBlock(0);
         }
 
-        TypedSet typedSet = new TypedSet(type, arrayLength, "array_distinct");
+        TypedSet typedSet = new TypedSet(type, elementIsDistinctFrom, array.getPositionCount(), "array_distinct");
         BlockBuilder distinctElementBlockBuilder;
 
         if (array.mayHaveNull()) {

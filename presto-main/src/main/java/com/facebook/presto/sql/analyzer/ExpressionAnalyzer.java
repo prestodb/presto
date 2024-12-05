@@ -47,6 +47,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.DenyAllAccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -151,12 +152,12 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isNonNullConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteralType;
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.getResolvedLambdaArguments;
@@ -208,6 +209,7 @@ public class ExpressionAnalyzer
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
 
     private final FunctionAndTypeResolver functionAndTypeResolver;
+    private final FunctionResolution functionResolution;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
@@ -260,6 +262,7 @@ public class ExpressionAnalyzer
             Map<NodeRef<Expression>, Type> outerScopeSymbolTypes)
     {
         this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
+        this.functionResolution = new FunctionResolution(functionAndTypeResolver);
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
@@ -601,7 +604,16 @@ public class ExpressionAnalyzer
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
             OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
-            return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
+            Type outputType = getOperator(context, node, operatorType, node.getLeft(), node.getRight());
+            // this needs to be checked after the call to getOperator(), because that's where the argument types get analyzed
+            if (sqlFunctionProperties.shouldWarnOnCommonNanPatterns() &&
+                    (TypeUtils.isApproximateNumericType(getExpressionType(node.getLeft())) || TypeUtils.isApproximateNumericType(getExpressionType(node.getRight())))) {
+                warningCollector.add(new PrestoWarning(
+                        SEMANTIC_WARNING,
+                        "Comparison operations involving DOUBLE or REAL types may include NaNs in the input. " +
+                                "Consider filtering out NaN values from your comparison input using the is_nan() function."));
+            }
+            return outputType;
         }
 
         @Override
@@ -732,7 +744,17 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, StackableAstVisitorContext<Context> context)
         {
-            return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
+            Type returnType = getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
+            if (sqlFunctionProperties.shouldWarnOnCommonNanPatterns() &&
+                    node.getOperator() == ArithmeticBinaryExpression.Operator.DIVIDE &&
+                    TypeUtils.isApproximateNumericType(returnType) &&
+                    !isConstant(node.getLeft()) &&
+                    !isConstant(node.getRight())) {
+                warningCollector.add(new PrestoWarning(SEMANTIC_WARNING,
+                        "Division operations on DOUBLE/REAL types may produce NaNs or infinities if there are zeros in the denominator. " +
+                                "Consider checking the denominator of your division operation for zeros."));
+            }
+            return returnType;
         }
 
         @Override
@@ -844,7 +866,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDoubleLiteral(DoubleLiteral node, StackableAstVisitorContext<Context> context)
         {
-            return setExpressionType(node, DOUBLE);
+            return setExpressionType(node, functionAndTypeResolver.getType(DOUBLE.getTypeSignature()));
         }
 
         @Override
@@ -1093,6 +1115,13 @@ public class ExpressionAnalyzer
                     if (!sortKeyType.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
                     }
+                }
+            }
+
+            if (node.isIgnoreNulls() && node.getWindow().isPresent()) {
+                if (!functionResolution.isWindowValueFunction(function)) {
+                    String warningMessage = createWarningMessage(node, "IGNORE NULLS is not used for aggregate and ranking window functions. This will cause queries to fail in future versions.");
+                    warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, warningMessage));
                 }
             }
 
@@ -1796,7 +1825,11 @@ public class ExpressionAnalyzer
             FunctionAndTypeResolver functionAndTypeResolver)
     {
         try {
-            return functionAndTypeResolver.resolveFunction(sessionFunctions, transactionId, qualifyObjectName(node.getName()), argumentTypes);
+            return functionAndTypeResolver.resolveFunction(
+                    sessionFunctions,
+                    transactionId,
+                    functionAndTypeResolver.qualifyObjectName(node.getName()),
+                    argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {

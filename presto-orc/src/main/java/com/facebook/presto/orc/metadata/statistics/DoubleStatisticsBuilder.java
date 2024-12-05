@@ -38,7 +38,7 @@ public class DoubleStatisticsBuilder
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 double value;
-                if (type == RealType.REAL) {
+                if (type.equals(RealType.REAL)) {
                     value = Float.intBitsToFloat((int) type.getLong(block, position));
                 }
                 else {

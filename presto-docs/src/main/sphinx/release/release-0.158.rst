@@ -13,7 +13,7 @@ General Changes
 * Fix non-linear performance issue when parsing certain SQL expressions.
 * Fix case-sensitivity issues when operating on columns of ``ROW`` data type.
 * Fix failure when creating views for tables names that need quoting.
-* Return ``NULL`` from :func:`element_at` for out-of-range indices instead of failing.
+* Return ``NULL`` from :func:`!element_at` for out-of-range indices instead of failing.
 * Remove redundancies in query plans, which can reduce data transfers over the network and reduce CPU requirements.
 * Validate resource groups configuration file on startup to ensure that all
   selectors reference a configured resource group.

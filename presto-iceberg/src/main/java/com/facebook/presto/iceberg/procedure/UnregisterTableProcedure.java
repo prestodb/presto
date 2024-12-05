@@ -57,7 +57,7 @@ public class UnregisterTableProcedure
                 "unregister_table",
                 ImmutableList.of(
                         new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table", VARCHAR)),
+                        new Procedure.Argument("table_name", VARCHAR)),
                 UNREGISTER_TABLE.bindTo(this));
     }
 

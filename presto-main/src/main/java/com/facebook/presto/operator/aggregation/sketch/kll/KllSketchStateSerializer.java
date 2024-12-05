@@ -18,7 +18,6 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.TypeParameter;
-import io.airlift.slice.Slices;
 import org.apache.datasketches.kll.KllItemsSketch;
 import org.apache.datasketches.memory.Memory;
 
@@ -46,12 +45,7 @@ public class KllSketchStateSerializer
     @Override
     public void serialize(KllSketchAggregationState state, BlockBuilder out)
     {
-        if (state.getSketch() == null) {
-            out.appendNull();
-            return;
-        }
-
-        VARBINARY.writeSlice(out, Slices.wrappedBuffer(state.getSketch().toByteArray()));
+        KllSketchWithKAggregationFunction.output(state, out);
     }
 
     @Override

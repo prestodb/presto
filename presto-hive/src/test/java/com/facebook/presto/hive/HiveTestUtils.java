@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -79,7 +80,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
+import java.io.File;
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -94,6 +97,8 @@ import static java.util.stream.Collectors.toList;
 
 public final class HiveTestUtils
 {
+    private static final Logger log = Logger.get(HiveTestUtils.class);
+
     private HiveTestUtils()
     {
     }
@@ -310,6 +315,42 @@ public final class HiveTestUtils
             }
             return Optional.of(systemPropertyValue);
         }
+    }
+
+    public static Optional<Path> getDataDirectoryPath(Optional<String> suppliedDataDirectoryPath)
+    {
+        Optional<Path> dataDirectory = Optional.empty();
+        if (!suppliedDataDirectoryPath.isPresent()) {
+            //in case the path is not supplied as program argument, read it from env variable.
+            suppliedDataDirectoryPath = getProperty("DATA_DIR");
+        }
+        if (suppliedDataDirectoryPath.isPresent()) {
+            File dataDirectoryFile = new File(suppliedDataDirectoryPath.get());
+            if (dataDirectoryFile.exists()) {
+                if (!dataDirectoryFile.isDirectory()) {
+                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
+                    System.exit(1);
+                }
+                else if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+            else {
+                // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
+                // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
+                while (!dataDirectoryFile.exists()) {
+                    dataDirectoryFile = dataDirectoryFile.getParentFile();
+                }
+                if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                    log.error("Error: The ancestor directory " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+
+            dataDirectory = Optional.of(dataDirectoryFile.toPath());
+        }
+        return dataDirectory;
     }
 
     public static List<PropertyMetadata<?>> getAllSessionProperties(HiveClientConfig hiveClientConfig, HiveCommonClientConfig hiveCommonClientConfig)

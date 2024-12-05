@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -30,7 +29,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
@@ -50,7 +48,6 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.orderableTypeParameter;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -61,7 +58,6 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -69,8 +65,6 @@ import static java.util.stream.Collectors.joining;
 public abstract class AbstractGreatestLeast
         extends SqlScalarFunction
 {
-    private static final MethodHandle CHECK_NOT_NAN = methodHandle(AbstractGreatestLeast.class, "checkNotNaN", String.class, double.class);
-
     private final OperatorType operatorType;
 
     protected AbstractGreatestLeast(QualifiedObjectName name, OperatorType operatorType)
@@ -120,14 +114,6 @@ public abstract class AbstractGreatestLeast
                 methodHandle);
     }
 
-    @UsedByGeneratedCode
-    public static void checkNotNaN(String name, double value)
-    {
-        if (Double.isNaN(value)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid argument to %s(): NaN", name));
-        }
-    }
-
     private Class<?> generate(List<Class<?>> javaTypes, Type type, MethodHandle compareMethod)
     {
         checkCondition(javaTypes.size() <= 127, NOT_SUPPORTED, "Too many arguments for function call %s()", getSignature().getNameSuffix());
@@ -160,7 +146,6 @@ public abstract class AbstractGreatestLeast
         if (type.getTypeSignature().getBase().equals(StandardTypes.DOUBLE)) {
             for (Parameter parameter : parameters) {
                 body.append(parameter);
-                body.append(invoke(binder.bind(CHECK_NOT_NAN.bindTo(getSignature().getNameSuffix())), "checkNotNaN"));
             }
         }
 

@@ -34,89 +34,103 @@ Statement Resource
 
    **Example request**:
 
-      .. sourcecode:: http
+   .. sourcecode:: http
 
-         POST /v1/statement HTTP/1.1
-	 Host: localhost:8001
-	 X-Presto-Catalog: jmx
-	 X-Presto-Source: presto-cli
-	 X-Presto-Schema: jmx
-	 User-Agent: StatementClient/0.55-SNAPSHOT
-	 X-Presto-User: tobrie1
-	 Content-Length: 41
+      POST /v1/statement HTTP/1.1
+      Host: localhost:8001
+      X-Presto-Catalog: jmx
+      X-Presto-Source: presto-cli
+      X-Presto-Schema: jmx
+      User-Agent: StatementClient/0.55-SNAPSHOT
+      X-Presto-User: tobrie1
+      Content-Length: 41
 
-	 select name from "java.lang:type=runtime"
+      select name from "java.lang:type=runtime"  
 
    **Example response**:
 
-      .. sourcecode:: http
+   .. sourcecode:: http
 
-         HTTP/1.1 200 OK
- 	 Content-Type: application/json
-	 X-Content-Type-Options: nosniff
-	 Transfer-Encoding: chunked
+      HTTP/1.1 200 OK
+      Content-Type: application/json
+      X-Content-Type-Options: nosniff
+      Transfer-Encoding: chunked
 
-	 {
-	    "id":"20140108_110629_00011_dk5x2",
-	    "infoUri":"http://localhost:8001/v1/query/20140108_110629_00011_dk5x2",
-	    "partialCancelUri":"http://10.193.207.128:8080/v1/stage/20140108_110629_00011_dk5x2.1",
-	    "nextUri":"http://localhost:8001/v1/statement/20140108_110629_00011_dk5x2/1",
-	    "columns":
-	    [
-	       {
-	          "name":"name",
-		  "type":"varchar"
-	       }
-            ],
-	    "stats":
-	    {
-	       "state":"RUNNING",
-	       "scheduled":false,
-	       "nodes":1,
-	       "totalSplits":0,
-	       "queuedSplits":0,
-	       "runningSplits":0,
-	       "completedSplits":0,
-	       "cpuTimeMillis":0,
-	       "wallTimeMillis":0,
-	       "processedRows":0,
-	       "processedBytes":0,
-	       "rootStage":
-	       {
-	          "stageId":"0",
-	          "state":"SCHEDULED",
-	          "done":false,
-	          "nodes":1,
-	          "totalSplits":0,
-	          "queuedSplits":0,
-	          "runningSplits":0,
-	          "completedSplits":0,
-	          "cpuTimeMillis":0,
-	          "wallTimeMillis":0,
-	          "processedRows":0,
-	          "processedBytes":0,
-	          "subStages":
-		  [
-		     {
-		        "stageId":"1",
-			"state":"SCHEDULED",
-			"done":false,
-			"nodes":1,
-			"totalSplits":0,
-			"queuedSplits":0,
-			"runningSplits":0,
-			"completedSplits":0,
-			"cpuTimeMillis":0,
-			"wallTimeMillis":0,
-			"processedRows":0,
-			"processedBytes":0,
-			"subStages":[]
-		     }
-		  ]
-	       }
-	    }
-	 }
+      {
+        "id":"20140108_110629_00011_dk5x2",
+        "infoUri":"http://localhost:8001/v1/query/20140108_110629_00011_dk5x2",
+        "partialCancelUri":"http://10.193.207.128:8080/v1/stage/20140108_110629_00011_dk5x2.1",
+        "nextUri":"http://localhost:8001/v1/statement/20140108_110629_00011_dk5x2/1",
+        "columns":
+        [
+            {
+              "name":"name",
+              "type":"varchar"
+            }
+        ],
+        "stats":
+        {
+           "state":"RUNNING",
+           "scheduled":false,
+           "nodes":1,
+           "totalSplits":0,
+           "queuedSplits":0,
+           "runningSplits":0,
+           "completedSplits":0,
+           "cpuTimeMillis":0,
+           "wallTimeMillis":0,
+           "processedRows":0,
+           "processedBytes":0,
+           "rootStage":
+           {
+              "stageId":"0",
+              "state":"SCHEDULED",
+              "done":false,
+              "nodes":1,
+              "totalSplits":0,
+              "queuedSplits":0,
+              "runningSplits":0,
+              "completedSplits":0,
+              "cpuTimeMillis":0,
+              "wallTimeMillis":0,
+              "processedRows":0,
+              "processedBytes":0,
+              "subStages":
+              [
+                 {
+                    "stageId":"1",
+                    "state":"SCHEDULED",
+                    "done":false,
+                    "nodes":1,
+                    "totalSplits":0,
+                    "queuedSplits":0,
+                    "runningSplits":0,
+                    "completedSplits":0,
+                    "cpuTimeMillis":0,
+                    "wallTimeMillis":0,
+                    "processedRows":0,
+                    "processedBytes":0,
+                    "subStages":[]
+                 }
+              ]
+           }
+        }
+      }
 
+.. function:: PUT /v1/statement/{queryId}?slug={slug}
+
+   :query query: SQL Query to execute
+   :query queryId: Query identifier to associate with this query
+   :query slug: Nonce to associate with this query, that will be required for subsequent requests
+   :reqheader X-Presto-User: User to execute statement on behalf of (optional)
+   :reqheader X-Presto-Source: Source of query
+   :reqheader X-Presto-Catalog: Catalog to execute query against
+   :reqheader X-Presto-Schema: Schema to execute query against
+
+   Submits a statement to Presto for execution. This function is
+   the analogue of the POST, and behaves exactly the same. The
+   difference is that a query id and slug can be explicitly provided,
+   instead of Presto generating it.
 
 .. function:: GET /v1/statement/{queryId}/{token}
 
@@ -131,85 +145,85 @@ Statement Resource
 
    **Example request**:
 
-      .. sourcecode:: http
+   .. sourcecode:: http
 
-         GET /v1/statement/20140108_110629_00011_dk5x2/1 HTTP/1.1
-         Host: localhost:8001
-         User-Agent: StatementClient/0.55-SNAPSHOT
+      GET /v1/statement/20140108_110629_00011_dk5x2/1 HTTP/1.1
+      Host: localhost:8001
+      User-Agent: StatementClient/0.55-SNAPSHOT
 
    **Example response**:
 
-      .. sourcecode:: http
+   .. sourcecode:: http
 
-         HTTP/1.1 200 OK
-	 Content-Type: application/json
-	 X-Content-Type-Options: nosniff
-	 Vary: Accept-Encoding, User-Agent
-	 Transfer-Encoding: chunked
+      HTTP/1.1 200 OK
+      Content-Type: application/json
+      X-Content-Type-Options: nosniff
+      Vary: Accept-Encoding, User-Agent
+      Transfer-Encoding: chunked
 
-	 383
-	 {
-	    "id":"20140108_110629_00011_dk5x2",
-	    "infoUri":"http://localhost:8001/v1/query/20140108_110629_00011_dk5x2",
-	    "columns":
-	    [
-	       {
-	          "name":"name",
-		  "type":"varchar"
-	       }
-            ],
-	    "data":
-	    [
-	       ["4165@domU-12-31-39-0F-CC-72"]
-	    ],
-	    "stats":
-	    {
-	       "state":"FINISHED",
-	       "scheduled":true,
-	       "nodes":1,
-	       "totalSplits":2,
-	       "queuedSplits":0,
-	       "runningSplits":0,
-	       "completedSplits":2,
-	       "cpuTimeMillis":1,
-	       "wallTimeMillis":4,
-	       "processedRows":1,
-	       "processedBytes":27,
-	       "rootStage":
-	       {
-	          "stageId":"0",
-		  "state":"FINISHED",
-		  "done":true,
-		  "nodes":1,
-		  "totalSplits":1,
-		  "queuedSplits":0,
-		  "runningSplits":0,
-		  "completedSplits":1,
-		  "cpuTimeMillis":0,
-		  "wallTimeMillis":0,
-		  "processedRows":1,
-		  "processedBytes":32,
-		  "subStages":
-		  [
-		     {
-		        "stageId":"1",
-			"state":"FINISHED",
-			"done":true,
-			"nodes":1,
-			"totalSplits":1,
-			"queuedSplits":0,
-			"runningSplits":0,
-			"completedSplits":1,
-			"cpuTimeMillis":0,
-			"wallTimeMillis":4,
-			"processedRows":1,
-			"processedBytes":27,
-			"subStages":[]
-		     }
-		  ]
-	       }
-	    }
-	 }
+      383
+      {
+        "id":"20140108_110629_00011_dk5x2",
+        "infoUri":"http://localhost:8001/v1/query/20140108_110629_00011_dk5x2",
+        "columns":
+        [
+           {
+              "name":"name",
+              "type":"varchar"
+           }
+        ],
+        "data":
+        [
+           ["4165@domU-12-31-39-0F-CC-72"]
+        ],
+        "stats":
+        {
+           "state":"FINISHED",
+           "scheduled":true,
+           "nodes":1,
+           "totalSplits":2,
+           "queuedSplits":0,
+           "runningSplits":0,
+           "completedSplits":2,
+           "cpuTimeMillis":1,
+           "wallTimeMillis":4,
+           "processedRows":1,
+           "processedBytes":27,
+           "rootStage":
+           {
+              "stageId":"1",
+              "state":"FINISHED",
+              "done":true,
+              "nodes":1,
+              "totalSplits":1,
+              "queuedSplits":0,
+              "runningSplits":0,
+              "completedSplits":1,
+              "cpuTimeMillis":0,
+              "wallTimeMillis":0,
+              "processedRows":1,
+              "processedBytes":32,
+              "subStages":
+              [
+                  {
+                    "stageId":"1",
+                    "state":"FINISHED",
+                    "done":true,
+                    "nodes":1,
+                    "totalSplits":1,
+                    "queuedSplits":0,
+                    "runningSplits":0,
+                    "completedSplits":1,
+                    "cpuTimeMillis":0,
+                    "wallTimeMillis":4,
+                    "processedRows":1,
+                    "processedBytes":27,
+                    "subStages":[]
+                 }
+              ]
+           }
+        }
+      }
 
 .. function:: DELETE /v1/statement/{queryId}/{token}
 

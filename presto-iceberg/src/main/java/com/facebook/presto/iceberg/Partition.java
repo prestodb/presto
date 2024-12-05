@@ -130,11 +130,6 @@ public class Partition
         return nullCounts;
     }
 
-    public Map<Integer, Long> getColumnSizes()
-    {
-        return columnSizes;
-    }
-
     public Set<Integer> getCorruptedStats()
     {
         return corruptedStats;

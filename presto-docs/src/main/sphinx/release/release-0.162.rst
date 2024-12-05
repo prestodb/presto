@@ -4,7 +4,7 @@ Release 0.162
 
 .. warning::
 
-    The :func:`xxhash64` function introduced in this release will return a
+    The :func:`!xxhash64` function introduced in this release will return a
     varbinary instead of a bigint in the next release.
 
 General Changes
@@ -22,7 +22,7 @@ General Changes
 * Improve performance of certain multi-way JOINs by automatically choosing the
   best evaluation order. This feature is turned off by default and can be enabled
   via the ``reorder-joins`` config option or ``reorder_joins`` session property.
-* Add :func:`xxhash64` and :func:`to_big_endian_64` functions.
+* Add :func:`!xxhash64` and :func:`!to_big_endian_64` functions.
 * Add aggregated operator statistics to final query statistics.
 * Allow specifying column comments for :doc:`/sql/create-table`.
 

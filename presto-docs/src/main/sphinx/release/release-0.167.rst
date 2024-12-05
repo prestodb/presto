@@ -14,9 +14,9 @@ General Changes
 * Short-circuit inner and right join when right side is empty.
 * Optimize constant patterns for ``LIKE`` predicates that use an escape character.
 * Validate escape sequences in ``LIKE`` predicates per the SQL standard.
-* Reduce memory usage of :func:`min_by` and :func:`max_by`.
-* Add :func:`transform_keys`, :func:`transform_values` and :func:`zip_with` lambda functions.
-* Add :func:`levenshtein_distance` function.
+* Reduce memory usage of :func:`!min_by` and :func:`!max_by`.
+* Add :func:`!transform_keys`, :func:`!transform_values` and :func:`!zip_with` lambda functions.
+* Add :func:`!levenshtein_distance` function.
 * Add JMX stat for the elapsed time of the longest currently active split.
 * Add JMX stats for compiler caches.
 * Raise required Java version to 8u92.

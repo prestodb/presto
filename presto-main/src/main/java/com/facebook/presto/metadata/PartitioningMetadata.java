@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

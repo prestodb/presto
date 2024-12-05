@@ -15,7 +15,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 
 import java.util.Set;
 

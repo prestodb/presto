@@ -24,7 +24,9 @@ import java.util.Set;
 
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT;
+import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_OUTPUT_BUFFER_CHUNK_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MIN_OUTPUT_BUFFER_CHUNK_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -36,6 +38,8 @@ public class ColumnWriterOptions
     private final CompressionKind compressionKind;
     private final OptionalInt compressionLevel;
     private final int compressionMaxBufferSize;
+    private final int minOutputBufferChunkSize;
+    private final int maxOutputBufferChunkSize;
     private final DataSize stringStatisticsLimit;
     private final boolean integerDictionaryEncodingEnabled;
     private final boolean stringDictionarySortingEnabled;
@@ -51,6 +55,8 @@ public class ColumnWriterOptions
             CompressionKind compressionKind,
             OptionalInt compressionLevel,
             DataSize compressionMaxBufferSize,
+            DataSize minOutputBufferChunkSize,
+            DataSize maxOutputBufferChunkSize,
             DataSize stringStatisticsLimit,
             boolean integerDictionaryEncodingEnabled,
             boolean stringDictionarySortingEnabled,
@@ -68,6 +74,8 @@ public class ColumnWriterOptions
         this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
         this.compressionLevel = requireNonNull(compressionLevel, "compressionLevel is null");
         this.compressionMaxBufferSize = toIntExact(compressionMaxBufferSize.toBytes());
+        this.minOutputBufferChunkSize = toIntExact(minOutputBufferChunkSize.toBytes());
+        this.maxOutputBufferChunkSize = toIntExact(maxOutputBufferChunkSize.toBytes());
         this.stringStatisticsLimit = requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null");
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
         this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
@@ -93,6 +101,16 @@ public class ColumnWriterOptions
     public int getCompressionMaxBufferSize()
     {
         return compressionMaxBufferSize;
+    }
+
+    public int getMinOutputBufferChunkSize()
+    {
+        return minOutputBufferChunkSize;
+    }
+
+    public int getMaxOutputBufferChunkSize()
+    {
+        return maxOutputBufferChunkSize;
     }
 
     public int getStringStatisticsLimit()
@@ -162,6 +180,8 @@ public class ColumnWriterOptions
                 .setCompressionKind(getCompressionKind())
                 .setCompressionLevel(getCompressionLevel())
                 .setCompressionMaxBufferSize(new DataSize(getCompressionMaxBufferSize(), BYTE))
+                .setMinOutputBufferChunkSize(new DataSize(getMinOutputBufferChunkSize(), BYTE))
+                .setMaxOutputBufferChunkSize(new DataSize(getMaxOutputBufferChunkSize(), BYTE))
                 .setStringStatisticsLimit(new DataSize(getStringStatisticsLimit(), BYTE))
                 .setIntegerDictionaryEncodingEnabled(isIntegerDictionaryEncodingEnabled())
                 .setStringDictionarySortingEnabled(isStringDictionarySortingEnabled())
@@ -184,6 +204,8 @@ public class ColumnWriterOptions
         private CompressionKind compressionKind;
         private OptionalInt compressionLevel = OptionalInt.empty();
         private DataSize compressionMaxBufferSize = DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
+        private DataSize minOutputBufferChunkSize = DEFAULT_MIN_OUTPUT_BUFFER_CHUNK_SIZE;
+        private DataSize maxOutputBufferChunkSize = DEFAULT_MAX_OUTPUT_BUFFER_CHUNK_SIZE;
         private DataSize stringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
         private boolean integerDictionaryEncodingEnabled;
         private boolean stringDictionarySortingEnabled = true;
@@ -212,6 +234,18 @@ public class ColumnWriterOptions
         public Builder setCompressionMaxBufferSize(DataSize compressionMaxBufferSize)
         {
             this.compressionMaxBufferSize = compressionMaxBufferSize;
+            return this;
+        }
+
+        public Builder setMinOutputBufferChunkSize(DataSize minOutputBufferChunkSize)
+        {
+            this.minOutputBufferChunkSize = minOutputBufferChunkSize;
+            return this;
+        }
+
+        public Builder setMaxOutputBufferChunkSize(DataSize maxOutputBufferChunkSize)
+        {
+            this.maxOutputBufferChunkSize = maxOutputBufferChunkSize;
             return this;
         }
 
@@ -281,6 +315,8 @@ public class ColumnWriterOptions
                     compressionKind,
                     compressionLevel,
                     compressionMaxBufferSize,
+                    minOutputBufferChunkSize,
+                    maxOutputBufferChunkSize,
                     stringStatisticsLimit,
                     integerDictionaryEncodingEnabled,
                     stringDictionarySortingEnabled,

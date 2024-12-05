@@ -26,9 +26,9 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.Serialization;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.planPrinter.JsonRenderer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -197,7 +198,7 @@ public final class JsonPrestoQueryPlanFunctions
         List<JsonRenderedNode> newChildren = node.getChildren().stream().map(x -> scrubJsonPlan(x)).collect(Collectors.toList());
         String newDetails = scrubDetails(node.getDetails());
 
-        return new JsonRenderedNode(node.getSourceLocation(), "PLANID", newName, newIdentifier, newDetails, newChildren, node.getRemoteSources(), ImmutableList.of());
+        return new JsonRenderedNode(node.getSourceLocation(), "PLANID", newName, newIdentifier, newDetails, newChildren, node.getRemoteSources(), ImmutableList.of(), Optional.empty());
     }
 
     private static String scrubName(String name)

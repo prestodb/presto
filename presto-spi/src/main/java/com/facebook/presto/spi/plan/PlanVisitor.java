@@ -105,7 +105,42 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitConnectorJoinNode(ConnectorJoinNode node, C context)
+    public R visitWindow(WindowNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitJoin(JoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitSemiJoin(SemiJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitSpatialJoin(SpatialJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitMergeJoin(MergeJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitDelete(DeleteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableWriter(TableWriterNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableFinish(TableFinishNode node, C context)
     {
         return visitPlan(node, context);
     }

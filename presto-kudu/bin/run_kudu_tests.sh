@@ -43,14 +43,14 @@ fi
 
 function start_docker_container() {
   # stop already running containers
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down || true
+  docker compose -f "${DOCKER_COMPOSE_LOCATION}" down || true
 
   # start containers
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
+  docker compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
 }
 
 function cleanup_docker_container() {
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down
+  docker compose -f "${DOCKER_COMPOSE_LOCATION}" down
 }
 
 

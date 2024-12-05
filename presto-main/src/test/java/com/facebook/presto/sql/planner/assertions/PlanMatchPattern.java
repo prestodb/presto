@@ -28,16 +28,27 @@ import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.OutputNode;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.plan.WindowNode.Frame.BoundType;
+import com.facebook.presto.spi.plan.WindowNode.Frame.WindowType;
+import com.facebook.presto.spi.statistics.SourceInfo;
+import com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -49,20 +60,11 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
-import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -561,6 +563,11 @@ public final class PlanMatchPattern
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
     }
 
+    public static PlanMatchPattern filter(PlanMatchPattern source)
+    {
+        return node(FilterNode.class, source);
+    }
+
     public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, ExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
     {
         PlanMatchPattern result = node(ApplyNode.class, inputPattern, subqueryPattern)
@@ -781,6 +788,30 @@ public final class PlanMatchPattern
     public PlanMatchPattern withOutputRowCount(double expectedOutputRowCount)
     {
         matchers.add(new StatsOutputRowCountMatcher(expectedOutputRowCount));
+        return this;
+    }
+
+    public PlanMatchPattern withSourceInfo(SourceInfo sourceInfo)
+    {
+        matchers.add(new StatsSourceInfoMatcher(sourceInfo));
+        return this;
+    }
+
+    public PlanMatchPattern withConfidenceLevel(ConfidenceLevel confidenceLevel)
+    {
+        matchers.add(new StatsConfidenceLevelMatcher(confidenceLevel));
+        return this;
+    }
+
+    public PlanMatchPattern withOutputRowCount(double expectedOutputRowCount, String expectedSourceInfo)
+    {
+        matchers.add(new StatsOutputRowCountMatcher(expectedOutputRowCount, expectedSourceInfo));
+        return this;
+    }
+
+    public PlanMatchPattern withOutputRowCount(boolean exactMatch, String expectedSourceInfo)
+    {
+        matchers.add(new StatsOutputRowCountMatcher(exactMatch, expectedSourceInfo));
         return this;
     }
 

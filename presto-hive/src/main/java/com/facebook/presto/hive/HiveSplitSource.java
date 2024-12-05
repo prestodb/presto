@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -328,7 +329,7 @@ class HiveSplitSource
                     {
                         checkArgument(bucketNumber.isPresent(), "bucketNumber must be present");
                         if (!allSplitLoaded.isDone()) {
-                            return allSplitLoaded.transform(ignored -> ImmutableList.of(), executor);
+                            return FluentFuture.from(allSplitLoaded).transform(ignored -> ImmutableList.of(), executor);
                         }
                         return immediateFuture(function.apply(getSplits(bucketNumber.getAsInt(), maxSize)).getResult());
                     }

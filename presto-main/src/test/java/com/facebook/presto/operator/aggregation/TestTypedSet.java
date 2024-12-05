@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.block.BlockAssertions.createEmptyLongsBlock;
@@ -29,6 +30,7 @@ import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.operator.aggregation.TypedSet.MAX_FUNCTION_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Collections.nCopies;
@@ -129,7 +131,7 @@ public class TestTypedSet
         int initialTypedSetEntryCount = 10;
 
         BlockBuilder emptyBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
-        TypedSet typedSet = new TypedSet(BIGINT, emptyBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = new TypedSet(BIGINT, Optional.empty(), emptyBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME, Optional.of(MAX_FUNCTION_MEMORY));
         BlockBuilder externalBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -167,7 +169,7 @@ public class TestTypedSet
         // The secondBlockBuilder should already have elementCount rows.
         BlockBuilder secondBlockBuilder = pageBuilder.getBlockBuilder(0);
 
-        TypedSet typedSet = new TypedSet(BIGINT, secondBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = new TypedSet(BIGINT, Optional.empty(), secondBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME, Optional.of(MAX_FUNCTION_MEMORY));
         BlockBuilder externalBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -195,7 +197,7 @@ public class TestTypedSet
         testGetElementPositionRandomFor(set);
 
         BlockBuilder emptyBlockBuilder = VARCHAR.createBlockBuilder(null, 3);
-        TypedSet setWithPassedInBuilder = new TypedSet(VARCHAR, emptyBlockBuilder, 1, FUNCTION_NAME);
+        TypedSet setWithPassedInBuilder = new TypedSet(VARCHAR, Optional.empty(), emptyBlockBuilder, 1, FUNCTION_NAME, Optional.of(MAX_FUNCTION_MEMORY));
         testGetElementPositionRandomFor(setWithPassedInBuilder);
     }
 
@@ -249,7 +251,7 @@ public class TestTypedSet
     {
         try {
             TypedSet typedSet = new TypedSet(BIGINT, 10, FUNCTION_NAME);
-            for (int i = 0; i <= TypedSet.MAX_FUNCTION_MEMORY.toBytes() + 1; i++) {
+            for (int i = 0; i <= MAX_FUNCTION_MEMORY.toBytes() + 1; i++) {
                 Block block = createLongsBlock(nCopies(1, (long) i));
                 typedSet.add(block, 0);
             }
@@ -294,7 +296,7 @@ public class TestTypedSet
         testBigintFor(typedSet, longBlock);
 
         BlockBuilder emptyBlockBuilder = BIGINT.createBlockBuilder(null, expectedSetSize);
-        TypedSet typedSetWithPassedInBuilder = new TypedSet(BIGINT, emptyBlockBuilder, expectedSetSize, FUNCTION_NAME);
+        TypedSet typedSetWithPassedInBuilder = new TypedSet(BIGINT, Optional.empty(), emptyBlockBuilder, expectedSetSize, FUNCTION_NAME, Optional.of(MAX_FUNCTION_MEMORY));
         testBigintFor(typedSetWithPassedInBuilder, longBlock);
     }
 

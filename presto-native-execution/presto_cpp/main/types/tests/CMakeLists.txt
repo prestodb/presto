@@ -10,14 +10,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_library(presto_type_test_utils OBJECT TestUtils.cpp)
+
 add_executable(presto_velox_split_test PrestoToVeloxSplitTest.cpp)
 
 add_test(presto_velox_split_test presto_velox_split_test)
 
 target_link_libraries(
   presto_velox_split_test
-  gtest
-  gtest_main
+  GTest::gtest
+  GTest::gtest_main
   presto_operators
   presto_protocol
   velox_hive_connector
@@ -42,12 +44,13 @@ add_dependencies(presto_expressions_test presto_operators presto_protocol
 
 target_link_libraries(
   presto_expressions_test
-  gtest
-  gtest_main
+  GTest::gtest
+  GTest::gtest_main
   $<TARGET_OBJECTS:presto_protocol>
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   presto_operators
+  presto_type_test_utils
   velox_core
   velox_dwio_common_exception
   velox_encode
@@ -87,5 +90,23 @@ target_link_libraries(
   presto_types
   velox_hive_connector
   velox_tpch_connector
-  gtest
-  gtest_main)
+  GTest::gtest
+  GTest::gtest_main)
+
+add_executable(presto_function_metadata_test FunctionMetadataTest.cpp)
+
+add_test(
+  NAME presto_function_metadata_test
+  COMMAND presto_function_metadata_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_function_metadata_test
+  presto_function_metadata
+  presto_protocol
+  presto_type_test_utils
+  velox_aggregates
+  velox_functions_prestosql
+  velox_window
+  GTest::gtest
+  GTest::gtest_main)

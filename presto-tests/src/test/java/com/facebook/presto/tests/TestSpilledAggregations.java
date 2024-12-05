@@ -17,10 +17,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.AGGREGATION_SPILL_ENABLED;
-import static com.facebook.presto.SystemSessionProperties.DISTINCT_AGGREGATION_SPILL_ENABLED;
-import static com.facebook.presto.SystemSessionProperties.ORDER_BY_AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.AGGREGATION_SPILL_ENABLED;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.DISTINCT_AGGREGATION_SPILL_ENABLED;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.ORDER_BY_AGGREGATION_SPILL_ENABLED;
 
 public class TestSpilledAggregations
         extends AbstractTestAggregations

@@ -35,11 +35,6 @@ import static java.util.Objects.requireNonNull;
 public class TestingPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    public TestingPageSourceProvider()
-    {
-        System.out.println();
-    }
-
     @Override
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transactionHandle,

@@ -71,6 +71,18 @@ public abstract class AbstractTestNativeWindowQueries
             "ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING",
             "ROWS BETWEEN 4 FOLLOWING AND 1 FOLLOWING");
 
+    private static final List<String> RANGE_WINDOWS = Arrays.asList(
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 PRECEDING AND CURRENT ROW",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN CURRENT ROW AND 5 FOLLOWING",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 PRECEDING AND 5 FOLLOWING",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 10 PRECEDING AND 5 PRECEDING",
+            // All empty frames.
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 PRECEDING AND 10 PRECEDING",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 FOLLOWING AND 10 FOLLOWING",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 FOLLOWING AND 5 FOLLOWING",
+            // All empty frames.
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 10 FOLLOWING AND 5 FOLLOWING");
+
     protected List<String> getQueries(String function, FunctionType functionType)
     {
         ImmutableList.Builder<String> queries = ImmutableList.builder();
@@ -106,6 +118,13 @@ public abstract class AbstractTestNativeWindowQueries
         for (String wClause : windowClauseList) {
             queries.add(String.format("SELECT %s FROM orders", wClause));
         }
+
+        if (functionType == FunctionType.VALUE) {
+            for (String rangeClause : RANGE_WINDOWS) {
+                queries.add(String.format("SELECT %s OVER (%s) FROM orders", function, rangeClause));
+            }
+        }
+
         return queries.build();
     }
 

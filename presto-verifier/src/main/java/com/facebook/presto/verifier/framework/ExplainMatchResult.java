@@ -58,6 +58,12 @@ public class ExplainMatchResult
     }
 
     @Override
+    public boolean isMismatchPossiblyCausedByReuseOutdatedTable()
+    {
+        return false;
+    }
+
+    @Override
     public String getReport()
     {
         return matchType.name();

@@ -14,7 +14,7 @@ fully supported. For example::
 
 .. note::
 
-    :func:`approx_distinct` should be used in preference to this
+    :func:`!approx_distinct` should be used in preference to this
     whenever an approximate answer is allowable as it is substantially
     faster and does not have any limits on the number of distinct items it
     can process. ``COUNT(DISTINCT ...)`` must transfer every item over the

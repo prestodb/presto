@@ -36,7 +36,6 @@ import java.util.OptionalInt;
 import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -131,7 +130,7 @@ public class BigQuerySplitManager
             return splits;
         }
         catch (BigQueryException e) {
-            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, format("Failed to compute empty projection"), e);
+            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to compute empty projection", e);
         }
     }
 }

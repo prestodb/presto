@@ -23,6 +23,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
@@ -42,7 +43,7 @@ import static org.testng.Assert.assertThrows;
 public class TestFileBasedAccessControl
 {
     public static final ConnectorTransactionHandle TRANSACTION_HANDLE = new ConnectorTransactionHandle() {};
-    public static final AccessControlContext CONTEXT = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
+    public static final AccessControlContext CONTEXT = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty());
 
     @Test
     public void testSchemaRules()
@@ -69,8 +70,11 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("joe"), CONTEXT, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanCreateViewWithSelectFromColumns(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanDropTable(TRANSACTION_HANDLE, user("admin"), CONTEXT, new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanSetTableProperties(TRANSACTION_HANDLE, user("admin"), CONTEXT, new SchemaTableName("bobschema", "bobtable"), ImmutableMap.of());
+        accessControl.checkCanSetTableProperties(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("aliceSchema", "aliceTable"), ImmutableMap.of());
         assertDenied(() -> accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanDropTable(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("bobschema", "bobtable")));
+        assertDenied(() -> accessControl.checkCanSetTableProperties(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("bobschema", "bobtable"), ImmutableMap.of()));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("test", "test")));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("admin"), CONTEXT, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("joe"), CONTEXT, new SchemaTableName("secret", "secret"), ImmutableSet.of()));

@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.288-SNAPSHOT</version>
+        <version>0.291-SNAPSHOT</version>
     </parent>
     <artifactId>presto-iceberg</artifactId>
     <description>Presto - Iceberg Connector</description>
@@ -35,14 +35,6 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
-            <version>1.9.2</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-format-structures</artifactId>
-            <version>${dep.parquet.version}</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -51,6 +43,10 @@
             <artifactId>parquet-common</artifactId>
             <version>${dep.parquet.version}</version>
             <exclusions>
+                <exclusion>
+                    <groupId>org.apache.parquet</groupId>
+                    <artifactId>parquet-format-structures</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>org.apache.parquet</groupId>
                     <artifactId>parquet-format</artifactId>
@@ -96,7 +92,6 @@
                     <artifactId>animal-sniffer-annotations</artifactId>
                 </exclusion>
             </exclusions>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -186,6 +181,11 @@
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>stats</artifactId>
         </dependency>
 
         <dependency>
@@ -533,6 +533,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

@@ -19,15 +19,15 @@ import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
@@ -50,6 +50,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -163,7 +164,8 @@ public class TestSqlStageExecution
                 ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "column", VARCHAR)),
                 false,
                 Optional.empty(),
-                REPARTITION);
+                REPARTITION,
+                COLUMNAR);
 
         return new PlanFragment(
                 new PlanFragmentId(0),
@@ -174,7 +176,7 @@ public class TestSqlStageExecution
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputVariables()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                StatsAndCosts.empty(),
+                Optional.of(StatsAndCosts.empty()),
                 Optional.empty());
     }
 }

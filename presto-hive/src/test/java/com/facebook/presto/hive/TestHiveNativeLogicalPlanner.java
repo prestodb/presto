@@ -33,6 +33,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -74,7 +75,7 @@ public class TestHiveNativeLogicalPlanner
         for (ColumnHandle columnHandle : tableScan.getAssignments().values()) {
             assertTrue(columnHandle instanceof HiveColumnHandle);
             HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
-            assertFalse(hiveColumnHandle.getColumnType() == HiveColumnHandle.ColumnType.AGGREGATED);
+            assertNotSame(hiveColumnHandle.getColumnType(), HiveColumnHandle.ColumnType.AGGREGATED);
             assertFalse(hiveColumnHandle.getPartialAggregation().isPresent());
         }
     }

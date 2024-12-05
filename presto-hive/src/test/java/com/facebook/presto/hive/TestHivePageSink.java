@@ -17,6 +17,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -305,7 +305,7 @@ public class TestHivePageSink
                 getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
                 FUNCTION_AND_TYPE_MANAGER,
                 ROW_EXPRESSION_SERVICE);
-        return provider.createPageSource(transaction, getSession(config, new HiveCommonClientConfig()), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), NON_CACHEABLE);
+        return provider.createPageSource(transaction, getSession(config, new HiveCommonClientConfig()), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), NON_CACHEABLE, new RuntimeStats());
     }
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
@@ -333,7 +333,7 @@ public class TestHivePageSink
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastore,
-                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager())),
                 FUNCTION_AND_TYPE_MANAGER,
                 config,
                 metastoreClientConfig,

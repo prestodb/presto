@@ -72,7 +72,7 @@ public class HttpQueryStatsClient
                 return Optional.empty();
             }
             else if (response.getStatusCode() != HttpStatus.OK.code()) {
-                throw new RuntimeException("unexpected error code " + response.getStatusCode() + "; reason=" + response.getStatusMessage());
+                throw new RuntimeException("unexpected error code: " + response.getStatusCode());
             }
 
             try {

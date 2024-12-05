@@ -175,8 +175,8 @@ Operations
 
     Returns a geometry that represents the point set union of the input
     geometries. Performance of this function, in conjunction with
-    :func:`array_agg` to first aggregate the input geometries, may be better
-    than :func:`geometry_union_agg`, at the expense of higher memory
+    :func:`!array_agg` to first aggregate the input geometries, may be better
+    than :func:`!geometry_union_agg`, at the expense of higher memory
     utilization.
 
 .. function:: ST_Boundary(Geometry) -> Geometry
@@ -231,7 +231,7 @@ Operations
     Returns a geometry that represents the point set union of the input
     geometries.
 
-    See also:  :func:`geometry_union`, :func:`geometry_union_agg`
+    See also:  :func:`!geometry_union`, :func:`!geometry_union_agg`
 
 
 Accessors
@@ -329,7 +329,7 @@ Accessors
 .. function:: ST_IsSimple(Geometry) -> boolean
 
     Returns ``true`` if this Geometry has no anomalous geometric points, such as self intersection or self tangency.
-    Use :func:`geometry_invalid_reason` to determine why the geometry is not simple.
+    Use :func:`!geometry_invalid_reason` to determine why the geometry is not simple.
 
 .. function:: ST_IsRing(Geometry) -> boolean
 
@@ -338,7 +338,7 @@ Accessors
 .. function:: ST_IsValid(Geometry) -> boolean
 
     Returns ``true`` if and only if the input geometry is well formed.
-    Use :func:`geometry_invalid_reason` to determine why the geometry is not well formed.
+    Use :func:`!geometry_invalid_reason` to determine why the geometry is not well formed.
 
 .. function:: ST_Length(Geometry) -> double
 

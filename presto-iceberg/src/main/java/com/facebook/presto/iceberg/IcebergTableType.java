@@ -21,6 +21,7 @@ public enum IcebergTableType
     MANIFESTS(true),
     PARTITIONS(true),
     FILES(true),
+    REFS(true),
     PROPERTIES(true),
     CHANGELOG(true),
     EQUALITY_DELETES(true),

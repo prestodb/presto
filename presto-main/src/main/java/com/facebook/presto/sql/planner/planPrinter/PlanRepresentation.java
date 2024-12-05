@@ -28,7 +28,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-class PlanRepresentation
+public class PlanRepresentation
 {
     private final PlanNode root;
     private final Optional<Duration> totalCpuTime;

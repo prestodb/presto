@@ -16,8 +16,6 @@ package com.facebook.presto.server.security;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.airlift.http.server.CertificateAuthenticator;
-import com.facebook.airlift.http.server.JsonWebTokenAuthenticator;
-import com.facebook.airlift.http.server.JsonWebTokenConfig;
 import com.facebook.airlift.http.server.KerberosAuthenticator;
 import com.facebook.airlift.http.server.KerberosConfig;
 import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;

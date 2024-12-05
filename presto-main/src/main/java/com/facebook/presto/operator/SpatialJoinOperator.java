@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -29,8 +29,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getDone;
-import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.LEFT;
+import static com.facebook.presto.spi.plan.SpatialJoinNode.Type.INNER;
+import static com.facebook.presto.spi.plan.SpatialJoinNode.Type.LEFT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;

@@ -22,7 +22,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -50,8 +49,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 public class TestValidateAggregationsWithDefaultValues
         extends BasePlanTest
 {
-    private static final SqlParser SQL_PARSER = new SqlParser();
-
     private Metadata metadata;
     private PlanBuilder builder;
     private VariableReferenceExpression variable;
@@ -191,7 +188,7 @@ public class TestValidateAggregationsWithDefaultValues
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, SQL_PARSER, builder.getTypes(), WarningCollector.NOOP);
+            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, WarningCollector.NOOP);
             return null;
         });
     }

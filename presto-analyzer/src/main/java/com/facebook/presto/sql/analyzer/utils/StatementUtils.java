@@ -55,6 +55,7 @@ import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -142,6 +143,7 @@ public final class StatementUtils
         builder.put(DropFunction.class, QueryType.CONTROL);
         builder.put(Use.class, QueryType.CONTROL);
         builder.put(SetSession.class, QueryType.CONTROL);
+        builder.put(SetProperties.class, QueryType.DATA_DEFINITION);
         builder.put(ResetSession.class, QueryType.CONTROL);
         builder.put(StartTransaction.class, QueryType.CONTROL);
         builder.put(Commit.class, QueryType.CONTROL);

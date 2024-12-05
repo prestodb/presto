@@ -18,8 +18,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,7 +31,7 @@ public class NoDuplicatePlanNodeIdsChecker
         implements PlanChecker.Checker
 {
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode planNode, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         Map<PlanNodeId, PlanNode> planNodeIds = new HashMap<>();
         searchFrom(planNode)

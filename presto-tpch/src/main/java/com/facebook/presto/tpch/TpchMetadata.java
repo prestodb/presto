@@ -76,6 +76,7 @@ import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.tpch.util.PredicateUtils.convertToPredicate;
 import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
@@ -392,7 +393,7 @@ public class TpchMetadata
                 builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.getType()));
             }
         });
-        return builder.build();
+        return builder.setConfidenceLevel(HIGH).build();
     }
 
     private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType)

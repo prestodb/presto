@@ -18,7 +18,7 @@
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/OutputBufferManager.h"
 
 namespace facebook::presto {
@@ -133,6 +133,9 @@ class TaskManager {
   inline size_t getNumTasks() const {
     return taskMap_.rlock()->size();
   }
+
+  /// Returns the processed input data size in bytes for tasks.
+  int64_t getBytesProcessed() const;
 
   /// Stores the number of drivers in various states of execution.
   velox::exec::Task::DriverCounts getDriverCounts() const;

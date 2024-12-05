@@ -39,11 +39,11 @@ can be validated and converted to any Java type using
 General Changes
 ---------------
 
-* Allow using any type with value window functions :func:`first_value`,
-  :func:`last_value`, :func:`nth_value`, :func:`lead` and :func:`lag`.
-* Add :func:`element_at` function.
-* Add :func:`url_encode` and :func:`url_decode` functions.
-* :func:`concat` now allows arbitrary number of arguments.
+* Allow using any type with value window functions :func:`!first_value`,
+  :func:`!last_value`, :func:`!nth_value`, :func:`!lead` and :func:`!lag`.
+* Add :func:`!element_at` function.
+* Add :func:`!url_encode` and :func:`!url_decode` functions.
+* :func:`!concat` now allows arbitrary number of arguments.
 * Fix JMX connector. In the previous release it always returned zero rows.
 * Fix handling of literal ``NULL`` in ``IS DISTINCT FROM``.
 * Fix an issue that caused some specific queries to fail in planning.

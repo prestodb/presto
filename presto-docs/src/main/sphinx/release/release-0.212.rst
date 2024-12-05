@@ -5,14 +5,14 @@ Release 0.212
 General Changes
 ---------------
 
-* Fix query failures when the :func:`ST_GeomFromBinary` function is run on multiple rows.
+* Fix query failures when the :func:`!ST_GeomFromBinary` function is run on multiple rows.
 * Fix memory accounting for the build side of broadcast joins.
 * Fix occasional query failures when running ``EXPLAIN ANALYZE``.
-* Enhance :func:`ST_ConvexHull` and :func:`convex_hull_agg` functions to support geometry collections.
+* Enhance :func:`!ST_ConvexHull` and :func:`!convex_hull_agg` functions to support geometry collections.
 * Improve performance for some queries using ``DISTINCT``.
 * Improve performance for some queries that perform filtered global aggregations.
 * Remove ``round(x, d)`` and ``truncate(x, d)`` functions where ``d`` is a ``BIGINT`` (:issue:`11462`).
-* Add :func:`ST_LineString` function to form a ``LineString`` from an array of points.
+* Add :func:`!ST_LineString` function to form a ``LineString`` from an array of points.
 
 Hive Connector Changes
 ----------------------

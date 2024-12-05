@@ -277,4 +277,10 @@ public class HiveColumnHandle
     {
         return column.getHiveColumnIndex() == FILE_MODIFIED_TIME_COLUMN_INDEX;
     }
+
+    public static boolean isInfoColumnHandle(HiveColumnHandle column)
+    {
+        return isPathColumnHandle(column) || isFileSizeColumnHandle(column)
+                || isFileModifiedTimeColumnHandle(column);
+    }
 }

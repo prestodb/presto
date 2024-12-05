@@ -50,6 +50,7 @@ public class LimitStatsRule
         // LIMIT actually limits (or when there was no row count estimated for source)
         return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats)
                 .setOutputRowCount(node.getCount())
+                .setConfidence(sourceStats.confidenceLevel())
                 .build());
     }
 }

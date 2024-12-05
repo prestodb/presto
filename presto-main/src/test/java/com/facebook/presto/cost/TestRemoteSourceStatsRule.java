@@ -16,12 +16,13 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
 
@@ -37,8 +38,8 @@ public class TestRemoteSourceStatsRule
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
         StatsCalculatorTester tester = new StatsCalculatorTester(localQueryRunner);
         FragmentStatsProvider fragmentStatsProvider = localQueryRunner.getFragmentStatsProvider();
-        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
-        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(2), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
+        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, FACT, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
+        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(2), new PlanNodeStatsEstimate(NaN, 1000, FACT, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
         tester.assertStatsFor(planBuilder -> planBuilder.remoteSource(ImmutableList.of(new PlanFragmentId(1), new PlanFragmentId(2))))
                 .check(check -> check.totalSize(2000)
                         .outputRowsCountUnknown());

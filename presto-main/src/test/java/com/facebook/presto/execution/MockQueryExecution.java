@@ -217,7 +217,11 @@ public class MockQueryExecution
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneExpiredQueryInfo()
+    { }
+
+    @Override
+    public void pruneFinishedQueryInfo()
     { }
 
     @Override

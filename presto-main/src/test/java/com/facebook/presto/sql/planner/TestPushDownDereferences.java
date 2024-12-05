@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +23,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -55,6 +57,7 @@ public class TestPushDownDereferences
     {
         assertPlan("WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
                         "SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y",
+                disableRemoveCrossJoin(),
                 output(ImmutableList.of("b_x"),
                         join(INNER, ImmutableList.of(equiJoinClause("a_y", "b_y")),
                                 anyTree(
@@ -63,6 +66,11 @@ public class TestPushDownDereferences
                                 ), anyTree(
                                         project(ImmutableMap.of("b_y", expression("msg.y"), "b_x", expression("msg.x")),
                                                 values("msg"))))));
+
+        assertPlan("WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
+                        "SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y",
+                enableRemoveCrossJoin(),
+                anyTree(values("msg")));
 
         assertPlan("WITH t(msg) AS ( SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
                         "SELECT a.msg.y FROM t a JOIN t b ON a.msg.y = b.msg.y WHERE a.msg.x > bigint '5'",
@@ -94,12 +102,18 @@ public class TestPushDownDereferences
     {
         assertPlan("WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
                         "SELECT a.msg.y, b.msg.x from t a cross join t b where a.msg.x = 7 or is_finite(b.msg.y)",
+                disableRemoveCrossJoin(),
                 anyTree(
                         join(INNER, ImmutableList.of(),
                                 project(ImmutableMap.of("a_x", expression("msg.x"), "a_y", expression("msg.y")),
                                         values("msg")),
                                 project(ImmutableMap.of("b_x", expression("msg.x"), "b_y", expression("msg.y")),
                                         values("msg")))));
+
+        assertPlan("WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
+                        "SELECT a.msg.y, b.msg.x from t a cross join t b where a.msg.x = 7 or is_finite(b.msg.y)",
+                enableRemoveCrossJoin(),
+                anyTree(values("msg")));
     }
 
     @Test
@@ -132,6 +146,7 @@ public class TestPushDownDereferences
     {
         assertPlan("WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
                         "SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y limit 100",
+                disableRemoveCrossJoin(),
                 anyTree(join(INNER, ImmutableList.of(equiJoinClause("a_y", "b_y")),
                         anyTree(
                                 project(ImmutableMap.of("a_y", expression("msg.y")),
@@ -139,6 +154,11 @@ public class TestPushDownDereferences
                         ), anyTree(
                                 project(ImmutableMap.of("b_y", expression("msg.y"), "b_x", expression("msg.x")),
                                         values("msg"))))));
+
+        assertPlan("WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
+                        "SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y limit 100",
+                enableRemoveCrossJoin(),
+                anyTree(values("msg")));
 
         assertPlan("WITH t(msg) AS ( SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
                         "SELECT a.msg.y FROM t a JOIN t b ON a.msg.y = b.msg.y WHERE a.msg.x > bigint '5' limit 100",
@@ -200,5 +220,19 @@ public class TestPushDownDereferences
                                                 ), anyTree(
                                                         project(ImmutableMap.of("b_y", expression("msg.y"), "b_x", expression("msg.x")),
                                                                 values("msg"))))))));
+    }
+
+    private Session disableRemoveCrossJoin()
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "false")
+                .build();
+    }
+
+    private Session enableRemoveCrossJoin()
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "true")
+                .build();
     }
 }

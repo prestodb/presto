@@ -115,7 +115,7 @@ class TestShuffleWriter : public ShuffleWriter {
   }
 
   void noMoreData(bool success) override {
-    VELOX_CHECK(success, "Unexpected error")
+    VELOX_CHECK(success, "Unexpected error");
     // Flush in-progress buffers.
     for (auto i = 0; i < numPartitions_; ++i) {
       if (inProgressSizes_[i] > 0) {

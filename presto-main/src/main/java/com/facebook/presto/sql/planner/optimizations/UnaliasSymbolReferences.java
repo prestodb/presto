@@ -23,57 +23,57 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
+import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
@@ -95,6 +95,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateVariable;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -215,7 +216,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new ExplainAnalyzeNode(node.getSourceLocation(), node.getId(), source, canonicalize(node.getOutputVariable()), node.isVerbose());
+            return new ExplainAnalyzeNode(node.getSourceLocation(), node.getId(), source, canonicalize(node.getOutputVariable()), node.isVerbose(), node.getFormat());
         }
 
         @Override
@@ -329,10 +330,11 @@ public class UnaliasSymbolReferences
             }
 
             PartitioningScheme partitioningScheme = new PartitioningScheme(
-                    node.getPartitioningScheme().getPartitioning().translateVariable(this::canonicalize),
+                    translateVariable(node.getPartitioningScheme().getPartitioning(), this::canonicalize),
                     outputs.build(),
                     canonicalize(node.getPartitioningScheme().getHashColumn()),
                     node.getPartitioningScheme().isReplicateNullsAndAny(),
+                    node.getPartitioningScheme().getEncoding(),
                     node.getPartitioningScheme().getBucketToPartition());
 
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme().map(this::canonicalizeAndDistinct);
@@ -397,7 +399,8 @@ public class UnaliasSymbolReferences
                     canonicalizeAndDistinct(node.getOutputVariables()),
                     node.isEnsureSourceOrdering(),
                     node.getOrderingScheme().map(this::canonicalizeAndDistinct),
-                    node.getExchangeType());
+                    node.getExchangeType(),
+                    node.getEncoding());
         }
 
         @Override
@@ -445,7 +448,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
         {
-            return new DeleteNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalize(node.getRowId()), node.getOutputVariables());
+            return new DeleteNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalize(node.getRowId()), node.getOutputVariables(), node.getInputDistribution());
         }
 
         @Override
@@ -560,7 +563,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new SortNode(node.getSourceLocation(), node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()), node.isPartial());
+            return new SortNode(node.getSourceLocation(), node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()), node.isPartial(), node.getPartitionBy());
         }
 
         @Override
@@ -578,7 +581,7 @@ public class UnaliasSymbolReferences
 
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
-                        .filter(clause -> clause.getLeft().getType().equals(clause.getRight().getType()))
+                        .filter(clause -> clause.getLeft().getType().equals(clause.getRight().getType()) && clause.getLeft().getType().equalValuesAreIdentical())
                         .filter(clause -> node.getOutputVariables().contains(clause.getLeft()))
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }

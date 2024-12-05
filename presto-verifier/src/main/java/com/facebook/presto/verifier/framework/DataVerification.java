@@ -85,15 +85,17 @@ public class DataVerification
     @Override
     protected QueryObjectBundle getQueryRewrite(ClusterType clusterType)
     {
-        return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), clusterType);
+        return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), getSourceQuery().getQueryConfiguration(clusterType), clusterType,
+                getVerificationContext().getResubmissionCount() == 0);
     }
 
     @Override
     protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<QueryObjectBundle> queryBundle)
     {
         super.updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
-        queryInfo.setQuery(queryBundle.map(bundle -> formatSql(bundle.getQuery(), bundle.getRewrittenFunctionCalls())));
-        queryInfo.setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString));
+        queryInfo.setQuery(queryBundle.map(bundle -> formatSql(bundle.getQuery(), bundle.getRewrittenFunctionCalls())))
+                .setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString))
+                .setIsReuseTable(queryBundle.map(QueryObjectBundle::isReuseTable).orElse(false));
     }
 
     @Override
@@ -106,7 +108,7 @@ public class DataVerification
             ChecksumQueryContext testChecksumQueryContext)
     {
         List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
-        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns);
+        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns, test.getPartitionsPredicate());
         testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
 
         List<Column> controlColumns = null;
@@ -114,7 +116,7 @@ public class DataVerification
 
         if (isControlEnabled()) {
             controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
-            Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns);
+            Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns, control.getPartitionsPredicate());
             controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
 
             QueryResult<ChecksumResult> controlChecksum = callAndConsume(
@@ -174,7 +176,7 @@ public class DataVerification
             checkState(control.isPresent(), "control is missing");
             return failureResolverManager.resolveResultMismatch((DataMatchResult) matchResult.get(), control.get());
         }
-        if (throwable.isPresent() && controlQueryContext.getState() == QueryState.SUCCEEDED) {
+        if (throwable.isPresent() && ImmutableList.of(QueryState.SUCCEEDED, QueryState.REUSE).contains(controlQueryContext.getState())) {
             checkState(controlQueryContext.getMainQueryStats().isPresent(), "controlQueryStats is missing");
             return failureResolverManager.resolveException(controlQueryContext.getMainQueryStats().get(), throwable.get(), test);
         }

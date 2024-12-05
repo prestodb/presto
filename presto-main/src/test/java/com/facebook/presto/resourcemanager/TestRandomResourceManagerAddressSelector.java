@@ -67,6 +67,7 @@ public class TestRandomResourceManagerAddressSelector
                     "1",
                     false,
                     true,
+                    false,
                     false));
         internalNodeManager.addNode(
                 CONNECTOR_ID,
@@ -77,6 +78,7 @@ public class TestRandomResourceManagerAddressSelector
                         "1",
                         false,
                         true,
+                        false,
                         false));
         internalNodeManager.addNode(
                 CONNECTOR_ID,
@@ -87,6 +89,7 @@ public class TestRandomResourceManagerAddressSelector
                         "1",
                         false,
                         true,
+                        false,
                         false));
 
         Optional<SimpleAddressSelector.SimpleAddress> address = selector.selectAddress(Optional.empty());

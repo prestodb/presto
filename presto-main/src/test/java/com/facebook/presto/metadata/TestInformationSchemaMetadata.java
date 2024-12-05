@@ -33,7 +33,6 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
@@ -87,7 +86,7 @@ public class TestInformationSchemaMetadata
                 createSystemTablesConnectorId(connectorId),
                 testConnector));
         transactionManager = createTestTransactionManager(catalogManager);
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        metadata = createTestMetadataManager(transactionManager);
     }
 
     /**

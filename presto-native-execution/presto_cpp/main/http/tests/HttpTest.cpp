@@ -13,6 +13,9 @@
  */
 #include "presto_cpp/main/http/tests/HttpTestBase.h"
 
+using namespace facebook::presto;
+using namespace facebook::velox;
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv};
@@ -133,6 +136,39 @@ TEST_P(HttpTestSuite, basic) {
   auto socketException = dynamic_cast<folly::AsyncSocketException*>(
       tryResponse.tryGetExceptionObject());
   ASSERT_EQ(socketException->getType(), folly::AsyncSocketException::NOT_OPEN);
+}
+
+TEST_P(HttpTestSuite, clientIdleSessions) {
+  auto memoryPool =
+      memory::MemoryManager::getInstance()->addLeafPool("clientIdleSessions");
+  const bool useHttps = GetParam();
+  auto server = getServer(useHttps);
+  server->registerGet("/ping", ping);
+  HttpServerWrapper wrapper(std::move(server));
+  auto address = wrapper.start().get();
+  constexpr int kNumThreads = 3;
+  folly::IOThreadPoolExecutor threadPool(kNumThreads);
+  http::HttpClientConnectionPool connPool;
+  auto lastNumConnectionsCreated = http::HttpClient::numConnectionsCreated();
+  for (int i = 0; i < kNumThreads; ++i) {
+    auto client = std::make_shared<http::HttpClient>(
+        threadPool.getEventBase(),
+        &connPool,
+        proxygen::Endpoint(
+            address.getAddressStr(), address.getPort(), useHttps),
+        address,
+        std::chrono::seconds(1),
+        std::chrono::milliseconds(0),
+        memoryPool,
+        useHttps ? makeSslContext() : nullptr);
+    auto response = sendGet(client.get(), "/ping").get(std::chrono::seconds(3));
+    ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+  }
+  ASSERT_EQ(
+      http::HttpClient::numConnectionsCreated() - lastNumConnectionsCreated, 1);
+  connPool.destroy();
+  threadPool.join();
+  wrapper.stop();
 }
 
 TEST_P(HttpTestSuite, httpResponseAllocationFailure) {

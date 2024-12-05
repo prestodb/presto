@@ -29,12 +29,12 @@ public class IcebergExternalWorkerQueryRunner
         Logging.initialize();
 
         // Create tables before launching distributed runner.
-        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner(true);
+        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner(false);
         NativeQueryRunnerUtils.createAllIcebergTables(javaQueryRunner);
         javaQueryRunner.close();
 
         // Launch distributed runner.
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, false);
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");

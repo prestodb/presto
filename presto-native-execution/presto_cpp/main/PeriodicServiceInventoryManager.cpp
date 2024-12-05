@@ -34,15 +34,14 @@ PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
 
 void PeriodicServiceInventoryManager::start() {
   eventBaseThread_.start(id_);
-  sessionPool_ = std::make_unique<proxygen::SessionPool>(nullptr, 10);
   stopped_ = false;
   auto* eventBase = eventBaseThread_.getEventBase();
-  eventBase->runOnDestruction([this] { sessionPool_.reset(); });
   eventBase->schedule([this]() { return sendRequest(); });
 }
 
 void PeriodicServiceInventoryManager::stop() {
   stopped_ = true;
+  client_.reset();
   eventBaseThread_.stop();
 }
 
@@ -75,7 +74,11 @@ void PeriodicServiceInventoryManager::sendRequest() {
       std::swap(serviceAddress_, newAddress);
       client_ = std::make_shared<http::HttpClient>(
           eventBaseThread_.getEventBase(),
-          sessionPool_.get(),
+          nullptr,
+          proxygen::Endpoint(
+              serviceAddress_.getAddressStr(),
+              serviceAddress_.getPort(),
+              sslContext_ != nullptr),
           serviceAddress_,
           std::chrono::milliseconds(10'000),
           std::chrono::milliseconds(0),

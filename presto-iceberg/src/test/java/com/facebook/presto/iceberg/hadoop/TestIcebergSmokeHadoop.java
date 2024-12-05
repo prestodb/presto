@@ -24,7 +24,6 @@ import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import org.apache.iceberg.Table;
 import org.testng.annotations.Test;
 
@@ -33,6 +32,7 @@ import java.nio.file.Path;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
 
 @Test
@@ -47,14 +47,16 @@ public class TestIcebergSmokeHadoop
     @Override
     protected String getLocation(String schema, String table)
     {
-        File tempLocation = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDataDirectory().toFile();
+        File tempLocation = getCatalogDirectory().toFile();
         return format("%s%s/%s", tempLocation.toURI(), schema, table);
     }
 
     @Override
     protected Path getCatalogDirectory()
     {
-        return getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        Path catalogDirectory = getIcebergDataDirectoryPath(dataDirectory, HADOOP.name(), new IcebergConfig().getFileFormat(), false);
+        return catalogDirectory;
     }
 
     @Override

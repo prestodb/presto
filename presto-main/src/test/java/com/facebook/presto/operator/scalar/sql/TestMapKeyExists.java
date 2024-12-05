@@ -55,7 +55,7 @@ public class TestMapKeyExists
         assertFunction(
                 "MAP_KEY_EXISTS(MAP(ARRAY[NAN(), 123.21], ARRAY['val1', 'val2']), NAN())",
                 BOOLEAN,
-                false);
+                true);
     }
 
     @Test

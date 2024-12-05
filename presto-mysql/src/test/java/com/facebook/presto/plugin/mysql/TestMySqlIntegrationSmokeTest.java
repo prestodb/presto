@@ -299,4 +299,11 @@ public class TestMySqlIntegrationSmokeTest
             statement.execute(sql);
         }
     }
+
+    @Test
+    public void testSelectInformationSchemaColumnIsNullable()
+    {
+        assertUpdate("CREATE TABLE test_column (name VARCHAR NOT NULL, email VARCHAR)");
+        assertQuery("SELECT is_nullable FROM information_schema.columns WHERE table_name = 'test_column'", "VALUES 'NO','YES'");
+    }
 }

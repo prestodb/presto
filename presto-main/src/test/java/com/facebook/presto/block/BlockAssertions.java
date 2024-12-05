@@ -781,7 +781,7 @@ public final class BlockAssertions
         else if (type == BIGINT) {
             block = createRandomLongsBlock(positionCount, primitiveNullRate);
         }
-        else if (type == INTEGER || type == REAL) {
+        else if (type == INTEGER || type.equals(REAL)) {
             block = createRandomIntsBlock(positionCount, primitiveNullRate);
         }
         else if (type == SMALLINT) {

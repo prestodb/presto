@@ -21,8 +21,6 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.util.Failures.internalError;
-import static java.lang.Double.NaN;
-import static java.lang.Double.isNaN;
 
 public final class ArrayMinMaxUtils
 {
@@ -97,9 +95,6 @@ public final class ArrayMinMaxUtils
                 double value = elementType.getDouble(block, i);
                 if ((boolean) compareMethodHandle.invokeExact(value, selectedValue)) {
                     selectedValue = value;
-                }
-                else if (isNaN(value)) {
-                    return NaN;
                 }
             }
 

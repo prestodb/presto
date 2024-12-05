@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.288-SNAPSHOT</version>
+        <version>0.291-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-accumulo</artifactId>
@@ -238,7 +238,6 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.13.0</version>
         </dependency>
 
         <dependency>

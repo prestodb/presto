@@ -1,6 +1,6 @@
-*****
+*********
 Ecosystem
-*****
+*********
 
 .. toctree::
     :maxdepth: 1

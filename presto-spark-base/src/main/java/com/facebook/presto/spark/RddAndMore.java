@@ -15,7 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
-import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
 import org.apache.spark.Dependency;
 import org.apache.spark.ShuffleDependency;

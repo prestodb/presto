@@ -21,7 +21,6 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/base/StatsReporter.h"
 #include "velox/common/testutil/TestValue.h"
 
 using namespace facebook::velox;
@@ -75,14 +74,17 @@ PrestoExchangeSource::PrestoExchangeSource(
     memory::MemoryPool* pool,
     folly::CPUThreadPoolExecutor* driverExecutor,
     folly::EventBase* ioEventBase,
-    proxygen::SessionPool* sessionPool,
+    http::HttpClientConnectionPool* connPool,
+    const proxygen::Endpoint& endpoint,
     folly::SSLContextPtr sslContext)
     : ExchangeSource(extractTaskId(baseUri.path()), destination, queue, pool),
       basePath_(baseUri.path()),
       host_(baseUri.host()),
       port_(baseUri.port()),
       sslContext_(std::move(sslContext)),
+      enableBufferCopy_(SystemConfig::instance()->exchangeEnableBufferCopy()),
       immediateBufferTransfer_(
+          enableBufferCopy_ &&
           SystemConfig::instance()->exchangeImmediateBufferTransfer()),
       driverExecutor_(driverExecutor) {
   folly::SocketAddress address;
@@ -102,17 +104,13 @@ PrestoExchangeSource::PrestoExchangeSource(
   VELOX_CHECK_NOT_NULL(pool_);
   httpClient_ = std::make_shared<http::HttpClient>(
       ioEventBase,
-      sessionPool,
+      connPool,
+      endpoint,
       address,
       requestTimeoutMs,
       connectTimeoutMs,
       immediateBufferTransfer_ ? pool_ : nullptr,
-      sslContext_,
-      [](size_t bufferBytes) {
-        RECORD_METRIC_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
-        RECORD_HISTOGRAM_METRIC_VALUE(
-            kCounterHttpClientPrestoExchangeOnBodyBytes, bufferBytes);
-      });
+      sslContext_);
 }
 
 void PrestoExchangeSource::close() {
@@ -179,17 +177,14 @@ void PrestoExchangeSource::doRequest(
   }
 
   auto path = fmt::format("{}/{}", basePath_, sequence_);
-  VLOG(1) << "Fetching data from " << host_ << ":" << port_ << " " << path;
   auto self = getSelfPtr();
-  auto requestBuilder =
-      http::RequestBuilder().method(proxygen::HTTPMethod::GET).url(path);
-
+  proxygen::HTTPMethod method;
   if (maxBytes == 0) {
-    requestBuilder.header(protocol::PRESTO_GET_DATA_SIZE_HEADER, "true");
-    // Coordinator ignores the header and always sends back data.  There is only
-    // one coordinator to fetch data from, so a limit of 1MB is enough.
-    maxBytes = 1 << 20;
+    method = proxygen::HTTPMethod::HEAD;
+  } else {
+    method = proxygen::HTTPMethod::GET;
   }
+  auto requestBuilder = http::RequestBuilder().method(method).url(path);
 
   velox::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::doRequest", this);
@@ -269,7 +264,7 @@ void PrestoExchangeSource::processDataResponse(
   auto* headers = response->headers();
   VELOX_CHECK(
       !headers->getIsChunked(),
-      "Chunked http transferring encoding is not supported.")
+      "Chunked http transferring encoding is not supported.");
   uint64_t contentLength =
       atol(headers->getHeaders()
                .getSingleOrEmpty(proxygen::HTTP_HEADER_CONTENT_LENGTH)
@@ -305,7 +300,7 @@ void PrestoExchangeSource::processDataResponse(
   const bool empty = response->empty();
   if (!empty) {
     std::vector<std::unique_ptr<folly::IOBuf>> iobufs;
-    if (immediateBufferTransfer_) {
+    if (immediateBufferTransfer_ || !enableBufferCopy_) {
       iobufs = response->consumeBody();
     } else {
       iobufs.emplace_back(response->consumeBody(pool_.get()));
@@ -322,66 +317,64 @@ void PrestoExchangeSource::processDataResponse(
     }
     PrestoExchangeSource::updateMemoryUsage(totalBytes);
 
-    page = std::make_unique<exec::SerializedPage>(
-        std::move(singleChain), [pool = pool_](folly::IOBuf& iobuf) {
-          int64_t freedBytes{0};
-          // Free the backed memory from MemoryAllocator on page dtor
-          folly::IOBuf* start = &iobuf;
-          auto curr = start;
-          do {
-            freedBytes += curr->capacity();
-            pool->free(curr->writableData(), curr->capacity());
-            curr = curr->next();
-          } while (curr != start);
-          PrestoExchangeSource::updateMemoryUsage(-freedBytes);
-        });
+    if (enableBufferCopy_) {
+      page = std::make_unique<exec::SerializedPage>(
+          std::move(singleChain), [pool = pool_](folly::IOBuf& iobuf) {
+            int64_t freedBytes{0};
+            // Free the backed memory from MemoryAllocator on page dtor
+            folly::IOBuf* start = &iobuf;
+            auto curr = start;
+            do {
+              freedBytes += curr->capacity();
+              pool->free(curr->writableData(), curr->capacity());
+              curr = curr->next();
+            } while (curr != start);
+            PrestoExchangeSource::updateMemoryUsage(-freedBytes);
+          });
+    } else {
+      page = std::make_unique<exec::SerializedPage>(
+          std::move(singleChain), [totalBytes](folly::IOBuf& iobuf) {
+            PrestoExchangeSource::updateMemoryUsage(-totalBytes);
+          });
+    }
   }
 
   const int64_t pageSize = empty ? 0 : page->size();
-
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterPrestoExchangeSerializedPageSize, pageSize);
-
+  VeloxPromise<Response> requestPromise;
+  std::vector<ContinuePromise> queuePromises;
   {
-    VeloxPromise<Response> requestPromise;
-    std::vector<ContinuePromise> queuePromises;
-    {
-      std::lock_guard<std::mutex> l(queue_->mutex());
-      if (page) {
-        VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_
-                << ": " << pageSize << " bytes";
-        ++numPages_;
-        totalBytes_ += pageSize;
-        queue_->enqueueLocked(std::move(page), queuePromises);
-      }
-      if (complete) {
-        VLOG(1) << "Enqueuing empty page for " << basePath_ << "/" << sequence_;
-        atEnd_ = true;
-        queue_->enqueueLocked(nullptr, queuePromises);
-      }
-
-      sequence_ = ackSequence;
-      requestPending_ = false;
-      requestPromise = std::move(promise_);
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    if (page) {
+      VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_ << ": "
+              << pageSize << " bytes";
+      ++numPages_;
+      totalBytes_ += pageSize;
+      queue_->enqueueLocked(std::move(page), queuePromises);
     }
-    for (auto& promise : queuePromises) {
-      promise.setValue();
+    if (complete) {
+      VLOG(1) << "Enqueuing empty page for " << basePath_ << "/" << sequence_;
+      atEnd_ = true;
+      queue_->enqueueLocked(nullptr, queuePromises);
     }
 
-    if (requestPromise.valid() && !requestPromise.isFulfilled()) {
-      requestPromise.setValue(
-          Response{pageSize, complete, std::move(remainingBytes)});
-    } else {
-      // The source must have been closed.
-      VELOX_CHECK(closed_.load());
-    }
+    sequence_ = ackSequence;
+    requestPending_ = false;
+    requestPromise = std::move(promise_);
+  }
+  for (auto& promise : queuePromises) {
+    promise.setValue();
+  }
+
+  if (requestPromise.valid() && !requestPromise.isFulfilled()) {
+    requestPromise.setValue(
+        Response{pageSize, complete, std::move(remainingBytes)});
+  } else {
+    // The source must have been closed.
+    VELOX_CHECK(closed_.load());
   }
 
   if (complete) {
     abortResults();
-  } else if (!empty) {
-    // Acknowledge results for non-empty content.
-    acknowledgeResults(ackSequence);
   }
 }
 
@@ -415,6 +408,15 @@ void PrestoExchangeSource::processDataError(
     // The source must have been closed.
     VELOX_CHECK(closed_.load());
   }
+}
+
+void PrestoExchangeSource::pause() {
+  int64_t ackSequence;
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    ackSequence = sequence_;
+  }
+  acknowledgeResults(ackSequence);
 }
 
 void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
@@ -516,53 +518,6 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::getSelfPtr() {
   return std::dynamic_pointer_cast<PrestoExchangeSource>(shared_from_this());
 }
 
-const ConnectionPool& ConnectionPools::get(
-    const proxygen::Endpoint& endpoint,
-    folly::IOThreadPoolExecutor* ioExecutor) {
-  return *pools_.withULockPtr([&](auto ulock) -> const ConnectionPool* {
-    auto it = ulock->find(endpoint);
-    if (it != ulock->end()) {
-      return it->second.get();
-    }
-    auto wlock = ulock.moveFromUpgradeToWrite();
-    auto& pool = (*wlock)[endpoint];
-    if (!pool) {
-      pool = std::make_unique<ConnectionPool>();
-      pool->eventBase = ioExecutor->getEventBase();
-      pool->sessionPool = std::make_unique<proxygen::SessionPool>(nullptr, 10);
-      // Creation of the timer is not thread safe, so we do it here instead of
-      // in the constructor of HttpClient.
-      pool->eventBase->timer();
-    }
-    return pool.get();
-  });
-}
-
-void ConnectionPools::destroy() {
-  pools_.withWLock([](auto& pools) {
-    for (auto& [_, pool] : pools) {
-      pool->eventBase->runInEventBaseThread(
-          [sessionPool = std::move(pool->sessionPool)] {});
-    }
-    pools.clear();
-  });
-}
-
-namespace {
-
-std::pair<folly::EventBase*, proxygen::SessionPool*> getSessionPool(
-    ConnectionPools* connectionPools,
-    folly::IOThreadPoolExecutor* ioExecutor,
-    const proxygen::Endpoint& ep) {
-  if (!connectionPools) {
-    return {ioExecutor->getEventBase(), nullptr};
-  }
-  auto& connPool = connectionPools->get(ep, ioExecutor);
-  return {connPool.eventBase, connPool.sessionPool.get()};
-}
-
-} // namespace
-
 // static
 std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     const std::string& url,
@@ -571,14 +526,13 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     velox::memory::MemoryPool* memoryPool,
     folly::CPUThreadPoolExecutor* cpuExecutor,
     folly::IOThreadPoolExecutor* ioExecutor,
-    ConnectionPools* connectionPools,
+    http::HttpClientConnectionPool* connPool,
     folly::SSLContextPtr sslContext) {
   folly::Uri uri(url);
+  auto* eventBase = ioExecutor->getEventBase();
   if (uri.scheme() == "http") {
     VELOX_CHECK_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), false);
-    auto [eventBase, sessionPool] =
-        getSessionPool(connectionPools, ioExecutor, ep);
     return std::make_shared<PrestoExchangeSource>(
         uri,
         destination,
@@ -586,14 +540,13 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         memoryPool,
         cpuExecutor,
         eventBase,
-        sessionPool,
+        connPool,
+        ep,
         sslContext);
   }
   if (uri.scheme() == "https") {
     VELOX_CHECK_NOT_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), true);
-    auto [eventBase, sessionPool] =
-        getSessionPool(connectionPools, ioExecutor, ep);
     return std::make_shared<PrestoExchangeSource>(
         uri,
         destination,
@@ -601,7 +554,8 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         memoryPool,
         cpuExecutor,
         eventBase,
-        sessionPool,
+        connPool,
+        ep,
         std::move(sslContext));
   }
   return nullptr;

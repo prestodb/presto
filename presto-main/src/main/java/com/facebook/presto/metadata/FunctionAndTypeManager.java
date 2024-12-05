@@ -52,6 +52,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.gen.CacheStatsMBean;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -134,12 +135,13 @@ public class FunctionAndTypeManager
             TransactionManager transactionManager,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
+            FunctionsConfig functionsConfig,
             HandleResolver handleResolver,
             Set<Type> types)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, featuresConfig, types, this);
+        this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, functionsConfig, types, this);
         this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
@@ -152,13 +154,19 @@ public class FunctionAndTypeManager
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
-        this.typeCoercer = new TypeCoercer(featuresConfig, this);
+        this.typeCoercer = new TypeCoercer(functionsConfig, this);
         this.nativeExecution = featuresConfig.isNativeExecutionEnabled();
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
     {
-        return new FunctionAndTypeManager(createTestTransactionManager(), new BlockEncodingManager(), new FeaturesConfig(), new HandleResolver(), ImmutableSet.of());
+        return new FunctionAndTypeManager(
+                createTestTransactionManager(),
+                new BlockEncodingManager(),
+                new FeaturesConfig(),
+                new FunctionsConfig(),
+                new HandleResolver(),
+                ImmutableSet.of());
     }
 
     public FunctionAndTypeResolver getFunctionAndTypeResolver()
@@ -234,6 +242,17 @@ public class FunctionAndTypeManager
             public FunctionHandle lookupCast(String castType, Type fromType, Type toType)
             {
                 return FunctionAndTypeManager.this.lookupCast(CastType.valueOf(castType), fromType, toType);
+            }
+
+            public QualifiedObjectName qualifyObjectName(QualifiedName name)
+            {
+                if (!name.getPrefix().isPresent()) {
+                    return QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name.getSuffix());
+                }
+                if (name.getOriginalParts().size() != 3) {
+                    throw new PrestoException(FUNCTION_NOT_FOUND, format("Functions that are not temporary or builtin must be referenced by 'catalog.schema.function_name', found: %s", name));
+                }
+                return QualifiedObjectName.valueOf(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2));
             }
         };
     }
@@ -409,17 +428,6 @@ public class FunctionAndTypeManager
         }
     }
 
-    public static QualifiedObjectName qualifyObjectName(QualifiedName name)
-    {
-        if (!name.getPrefix().isPresent()) {
-            return QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name.getSuffix());
-        }
-        if (name.getOriginalParts().size() != 3) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, format("Functions that are not temporary or builtin must be referenced by 'catalog.schema.function_name', found: %s", name));
-        }
-        return QualifiedObjectName.valueOf(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2));
-    }
-
     /**
      * Resolves a function using implicit type coercions. We enforce explicit naming for dynamic function namespaces.
      * All unqualified function names will only be resolved against the built-in static function namespace. While it is
@@ -589,7 +597,7 @@ public class FunctionAndTypeManager
      */
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
-        QualifiedObjectName functionName = qualifyObjectName(QualifiedName.of(name));
+        QualifiedObjectName functionName = getFunctionAndTypeResolver().qualifyObjectName(QualifiedName.of(name));
         if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
             return lookupCachedFunction(functionName, parameterTypes);
         }

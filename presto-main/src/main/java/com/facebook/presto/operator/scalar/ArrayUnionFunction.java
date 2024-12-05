@@ -17,9 +17,14 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.OptimizedTypedSet;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 
 @ScalarFunction("array_union")
 @Description("Union elements of the two given arrays")
@@ -31,12 +36,13 @@ public final class ArrayUnionFunction
     @SqlType("array(E)")
     public static Block union(
             @TypeParameter("E") Type type,
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
-        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, leftArrayCount + rightArrayCount);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, elementIsDistinctFrom, leftArrayCount + rightArrayCount);
 
         typedSet.union(leftArray);
         typedSet.union(rightArray);

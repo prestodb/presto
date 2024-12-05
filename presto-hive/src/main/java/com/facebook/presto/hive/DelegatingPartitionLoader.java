@@ -39,7 +39,7 @@ public class DelegatingPartitionLoader
 
     public DelegatingPartitionLoader(
             Table table,
-            Optional<Domain> pathDomain,
+            Map<Integer, Domain> infoColumnConstraints,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
@@ -53,7 +53,7 @@ public class DelegatingPartitionLoader
         this.session = requireNonNull(session, "session is null");
         this.storagePartitionLoader = new StoragePartitionLoader(
                 table,
-                pathDomain,
+                infoColumnConstraints,
                 tableBucketInfo,
                 session,
                 hdfsEnvironment,
@@ -63,7 +63,7 @@ public class DelegatingPartitionLoader
                 recursiveDirWalkerEnabled,
                 schedulerUsesHostAddresses,
                 partialAggregationsPushedDown);
-        this.manifestPartitionLoader = new ManifestPartitionLoader(table, pathDomain, session, hdfsEnvironment, namenodeStats, directoryLister, recursiveDirWalkerEnabled, schedulerUsesHostAddresses);
+        this.manifestPartitionLoader = new ManifestPartitionLoader(table, infoColumnConstraints, session, hdfsEnvironment, namenodeStats, directoryLister, recursiveDirWalkerEnabled, schedulerUsesHostAddresses);
     }
 
     @Override

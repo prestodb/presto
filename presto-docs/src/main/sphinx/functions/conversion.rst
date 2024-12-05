@@ -20,7 +20,7 @@ Conversion Functions
 
 .. function:: try_cast(value AS type) -> type
 
-    Like :func:`cast`, but returns null if the cast fails.
+    Like :func:`!cast`, but returns null if the cast fails.
 
 .. note::
 

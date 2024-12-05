@@ -428,14 +428,14 @@ public class TaskManagerConfig
     }
 
     @Min(1)
-    @PowerOfTwo
     public int getWriterCount()
     {
         return writerCount;
     }
 
+    // NOTE: writer count needs to be a power of two for java query engine.
     @Config("task.writer-count")
-    @ConfigDescription("Number of writers per task")
+    @ConfigDescription("Number of writer threads per task")
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
@@ -443,14 +443,14 @@ public class TaskManagerConfig
     }
 
     @Min(1)
-    @PowerOfTwo
     public Integer getPartitionedWriterCount()
     {
         return partitionedWriterCount;
     }
 
+    // NOTE: partitioned writer count needs to be a power of two for java query engine.
     @Config("task.partitioned-writer-count")
-    @ConfigDescription("Number of writers per task for partitioned writes. If not set, the number set by task.writer-count will be used")
+    @ConfigDescription("Number of writer threads per task for partitioned writes. If not set, the number set by task.writer-count will be used")
     public TaskManagerConfig setPartitionedWriterCount(Integer partitionedWriterCount)
     {
         this.partitionedWriterCount = partitionedWriterCount;

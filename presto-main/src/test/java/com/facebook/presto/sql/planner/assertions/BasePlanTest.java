@@ -27,6 +27,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -90,7 +91,7 @@ public class BasePlanTest
         return objectMapper;
     }
 
-    private static ObjectMapper createObjectMapper()
+    protected static ObjectMapper createObjectMapper()
     {
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
@@ -111,7 +112,7 @@ public class BasePlanTest
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
+        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
@@ -310,8 +311,13 @@ public class BasePlanTest
 
     protected Plan plan(String sql, Optimizer.PlanStage stage, boolean forceSingleNode)
     {
+        return plan(queryRunner.getDefaultSession(), sql, stage, forceSingleNode);
+    }
+
+    protected Plan plan(Session session, String sql, Optimizer.PlanStage stage, boolean forceSingleNode)
+    {
         try {
-            return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
+            return queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);

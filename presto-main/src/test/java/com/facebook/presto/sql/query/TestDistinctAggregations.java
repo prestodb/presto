@@ -272,4 +272,14 @@ public class TestDistinctAggregations
                         "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)",
                 "VALUES (BIGINT '0', CAST(NULL AS BIGINT))");
     }
+
+    @Test
+    public void testUuidDistinct()
+    {
+        assertions.assertQuery(
+                "SELECT DISTINCT uuid_col " +
+                "FROM (VALUES (UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741')," +
+                "             (UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741')) AS t (uuid_col)",
+                "VALUES UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741'");
+    }
 }

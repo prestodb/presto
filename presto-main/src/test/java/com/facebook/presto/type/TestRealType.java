@@ -18,11 +18,13 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.IntArrayBlockBuilder;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.RealType.OLD_NAN_REAL;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 
 public class TestRealType
         extends AbstractTestType
@@ -70,5 +72,23 @@ public class TestRealType
         assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 1));
         assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 2));
         assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 3));
+    }
+
+    @Test
+    public void testLegacyRealHash()
+    {
+        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 4);
+        blockBuilder.writeInt(floatToIntBits(Float.parseFloat("-0")));
+        blockBuilder.writeInt(floatToIntBits(Float.parseFloat("0")));
+        assertNotEquals(OLD_NAN_REAL.hash(blockBuilder, 0), OLD_NAN_REAL.hash(blockBuilder, 1));
+    }
+
+    @Test
+    public void testRealHash()
+    {
+        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 4);
+        blockBuilder.writeInt(floatToIntBits(Float.parseFloat("-0")));
+        blockBuilder.writeInt(floatToIntBits(Float.parseFloat("0")));
+        assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 1));
     }
 }

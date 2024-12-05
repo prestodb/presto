@@ -16,8 +16,10 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 
 import javax.inject.Inject;
@@ -34,6 +36,8 @@ public class IcebergNativeMetadataFactory
     final StandardFunctionResolution functionResolution;
     final RowExpressionService rowExpressionService;
     final NodeVersion nodeVersion;
+    final FilterStatsCalculatorService filterStatsCalculatorService;
+    final StatisticsFileCache statisticsFileCache;
 
     @Inject
     public IcebergNativeMetadataFactory(
@@ -43,7 +47,9 @@ public class IcebergNativeMetadataFactory
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            StatisticsFileCache statisticsFileCache)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -53,10 +59,12 @@ public class IcebergNativeMetadataFactory
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
+        this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
     }
 
     public ConnectorMetadata create()
     {
-        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion);
+        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
     }
 }

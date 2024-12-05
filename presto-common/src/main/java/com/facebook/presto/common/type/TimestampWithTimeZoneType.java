@@ -29,6 +29,19 @@ public final class TimestampWithTimeZoneType
         super(parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
     }
 
+    /**
+     * Timestamp with time zone represents a single point in time.  Multiple timestamps with timezones may
+     * each refer to the same point in time.  For example, 9:00am in New York is the same point in time as
+     * 2:00pm in London.  While those two timestamps may be encoded differently, they each refer to the same
+     * point in time.  Therefore, it's possible encode multiple timestamps which each represent the same
+     * point in time, and hence it's not safe to use equality as a proxy for identity.
+     */
+    @Override
+    public boolean equalValuesAreIdentical()
+    {
+        return false;
+    }
+
     @Override
     public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {

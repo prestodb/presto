@@ -34,6 +34,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.hive.HiveBucketFunction.createHiveCompatibleBucketFunction;
 import static com.facebook.presto.hive.HiveBucketFunction.createPrestoNativeBucketFunction;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -54,9 +55,9 @@ public class HiveNodePartitioningProvider
         BucketFunctionType bucketFunctionType = handle.getBucketFunctionType();
         switch (bucketFunctionType) {
             case HIVE_COMPATIBLE:
-                return createHiveCompatibleBucketFunction(bucketCount, handle.getHiveTypes().get());
+                return createHiveCompatibleBucketFunction(bucketCount, handle.getHiveTypes().get(), isLegacyTimestampBucketing(session));
             case PRESTO_NATIVE:
-                return createPrestoNativeBucketFunction(bucketCount, handle.getTypes().get());
+                return createPrestoNativeBucketFunction(bucketCount, handle.getTypes().get(), isLegacyTimestampBucketing(session));
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
         }

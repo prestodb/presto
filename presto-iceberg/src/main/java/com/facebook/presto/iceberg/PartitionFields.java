@@ -18,7 +18,10 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Term;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
@@ -58,7 +61,15 @@ public final class PartitionFields
 
     public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields)
     {
-        PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
+        return parsePartitionFields(schema, fields, null);
+    }
+
+    public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields, @Nullable Integer specId)
+    {
+        PartitionSpec.Builder builder = Optional.ofNullable(specId)
+                .map(id -> PartitionSpec.builderFor(schema).withSpecId(id))
+                .orElseGet(() -> PartitionSpec.builderFor(schema));
+
         for (String field : fields) {
             parsePartitionField(builder, field);
         }

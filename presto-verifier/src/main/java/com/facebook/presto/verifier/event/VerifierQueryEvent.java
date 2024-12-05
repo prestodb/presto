@@ -39,6 +39,7 @@ public class VerifierQueryEvent
         FAILED,
         FAILED_RESOLVED,
         SKIPPED,
+        RESUBMITTED,
     }
 
     private final String suite;

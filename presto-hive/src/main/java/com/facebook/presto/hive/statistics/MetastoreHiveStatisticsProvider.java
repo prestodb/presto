@@ -81,6 +81,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.hive.metastore.PartitionStatistics.empty;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -139,7 +140,7 @@ public class MetastoreHiveStatisticsProvider
             PartitionStatistics tableStatistics = metastore.getTableStatistics(metastoreContext, table.getSchemaName(), table.getTableName());
             if (isQuickStatsEnabled(session) &&
                     (tableStatistics.equals(empty()) || tableStatistics.getColumnStatistics().isEmpty())) {
-                tableStatistics = quickStatsProvider.getQuickStats(session, metastore, table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
+                tableStatistics = quickStatsProvider.getQuickStats(session, table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
             }
             return ImmutableMap.of(UNPARTITIONED_ID.getPartitionName(), tableStatistics);
         }
@@ -155,7 +156,7 @@ public class MetastoreHiveStatisticsProvider
                     .map(Map.Entry::getKey)
                     .collect(toImmutableList());
 
-            Map<String, PartitionStatistics> partitionQuickStats = quickStatsProvider.getQuickStats(session, metastore, table, metastoreContext, partitionsWithNoStats);
+            Map<String, PartitionStatistics> partitionQuickStats = quickStatsProvider.getQuickStats(session, table, metastoreContext, partitionsWithNoStats);
 
             HashMap<String, PartitionStatistics> mergedMap = new HashMap<>(partitionStatistics);
             mergedMap.putAll(partitionQuickStats);
@@ -212,7 +213,7 @@ public class MetastoreHiveStatisticsProvider
             }
             result.setColumnStatistics(columnHandle, columnStatistics.build());
         });
-        return result.build();
+        return result.setConfidenceLevel(HIGH).build();
     }
 
     @VisibleForTesting
@@ -469,7 +470,7 @@ public class MetastoreHiveStatisticsProvider
             }
             result.setColumnStatistics(columnHandle, columnStatistics);
         }
-        return result.build();
+        return result.setConfidenceLevel(HIGH).build();
     }
 
     @VisibleForTesting

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedStatisticsCacheManager;
 import com.facebook.presto.metadata.Metadata;
@@ -37,10 +36,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.enableVerboseHistoryBasedOptimizerRuntimeStats;
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
+import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.SystemSessionProperties.logQueryPlansUsedInHistoryBasedOptimizer;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
-import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -68,9 +68,9 @@ public class CachingPlanCanonicalInfoProvider
     }
 
     @Override
-    public Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, boolean cacheOnly)
+    public Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean cacheOnly)
     {
-        CacheKey key = new CacheKey(planNode, historyBasedPlanCanonicalizationStrategyList(session).get(0));
+        CacheKey key = new CacheKey(planNode, strategy);
         return loadValue(session, key, cacheOnly).map(PlanNodeCanonicalInfo::getInputTableStatistics);
     }
 
@@ -79,7 +79,7 @@ public class CachingPlanCanonicalInfoProvider
         long startTimeInNano = System.nanoTime();
         long profileStartTime = 0;
         long timeoutInMilliseconds = getHistoryBasedOptimizerTimeoutLimit(session).toMillis();
-        boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
+        boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session) || enableVerboseHistoryBasedOptimizerRuntimeStats(session);
         Map<CacheKey, PlanNodeCanonicalInfo> cache = historyBasedStatisticsCacheManager.getCanonicalInfoCache(session.getQueryId());
         PlanNodeCanonicalInfo result = cache.get(key);
         if (result != null || cacheOnly) {

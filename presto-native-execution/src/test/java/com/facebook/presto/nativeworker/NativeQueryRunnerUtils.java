@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 
@@ -43,7 +45,6 @@ public class NativeQueryRunnerUtils
         return ImmutableMap.<String, String>builder()
                 .put("native-execution-enabled", "true")
                 .put("optimizer.optimize-hash-generation", "false")
-                .put("parse-decimal-literals-as-double", "true")
                 .put("regex-library", "RE2J")
                 .put("offset-clause-enabled", "true")
                 // By default, Presto will expand some functions into its SQL equivalent (e.g. array_duplicates()).
@@ -51,7 +52,13 @@ public class NativeQueryRunnerUtils
                 // To achieve that, we set inline-sql-functions to false.
                 .put("inline-sql-functions", "false")
                 .put("use-alternative-function-signatures", "true")
-                .put("experimental.table-writer-merge-operator-enabled", "false")
+                .build();
+    }
+
+    public static Map<String, String> getNativeSidecarProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("coordinator-sidecar-enabled", "true")
                 .build();
     }
 
@@ -62,8 +69,13 @@ public class NativeQueryRunnerUtils
      */
     public static void createAllTables(QueryRunner queryRunner)
     {
-        createLineitem(queryRunner);
-        createOrders(queryRunner);
+        createAllTables(queryRunner, true);
+    }
+
+    public static void createAllTables(QueryRunner queryRunner, boolean castDateToVarchar)
+    {
+        createLineitem(queryRunner, castDateToVarchar);
+        createOrders(queryRunner, castDateToVarchar);
         createOrdersEx(queryRunner);
         createOrdersHll(queryRunner);
         createNation(queryRunner);
@@ -73,6 +85,7 @@ public class NativeQueryRunnerUtils
         createPart(queryRunner);
         createPartSupp(queryRunner);
         createRegion(queryRunner);
+        createTableToTestHiddenColumns(queryRunner);
         createSupplier(queryRunner);
         createEmptyTable(queryRunner);
         createBucketedLineitemAndOrders(queryRunner);
@@ -85,7 +98,7 @@ public class NativeQueryRunnerUtils
      */
     public static void createAllIcebergTables(QueryRunner queryRunner)
     {
-        createLineitemForIceberg(queryRunner);
+        createLineitemStandard(queryRunner);
         createOrders(queryRunner);
         createNationWithFormat(queryRunner, ICEBERG_DEFAULT_STORAGE_FORMAT);
         createCustomer(queryRunner);
@@ -97,23 +110,35 @@ public class NativeQueryRunnerUtils
 
     public static void createLineitem(QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
-            queryRunner.execute("CREATE TABLE lineitem AS " +
-                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                    "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
-                    "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment, " +
-                    "   linestatus = 'O' as is_open, returnflag = 'R' as is_returned, " +
-                    "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
-                    "   cast(linenumber as smallint) as linenumber_as_smallint, " +
-                    "   cast(linenumber as tinyint) as linenumber_as_tinyint " +
-                    "FROM tpch.tiny.lineitem");
-        }
+        createLineitem(queryRunner, true);
     }
 
-    public static void createLineitemForIceberg(QueryRunner queryRunner)
+    public static void createLineitem(QueryRunner queryRunner, boolean castDateToVarchar)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
-            queryRunner.execute("CREATE TABLE lineitem AS " +
+        queryRunner.execute("DROP TABLE IF EXISTS lineitem");
+        String shipDate = castDateToVarchar ? "cast(shipdate as varchar) as shipdate" : "shipdate";
+        String commitDate = castDateToVarchar ? "cast(commitdate as varchar) as commitdate" : "commitdate";
+        String receiptDate = castDateToVarchar ? "cast(receiptdate as varchar) as receiptdate" : "receiptdate";
+        queryRunner.execute("CREATE TABLE lineitem AS " +
+                "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
+                "   returnflag, linestatus, " + shipDate + ", " + commitDate + ", " + receiptDate + ", " +
+                "   shipinstruct, shipmode, comment, " +
+                "   linestatus = 'O' as is_open, returnflag = 'R' as is_returned, " +
+                "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
+                "   cast(linenumber as smallint) as linenumber_as_smallint, " +
+                "   cast(linenumber as tinyint) as linenumber_as_tinyint " +
+                "FROM tpch.tiny.lineitem");
+    }
+
+    public static void createLineitemStandard(QueryRunner queryRunner)
+    {
+        createLineitemStandard(queryRunner.getDefaultSession(), queryRunner);
+    }
+
+    public static void createLineitemStandard(Session session, QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(session, "lineitem")) {
+            queryRunner.execute(session, "CREATE TABLE lineitem AS " +
                     "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
                     "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
                     "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment " +
@@ -123,12 +148,22 @@ public class NativeQueryRunnerUtils
 
     public static void createOrders(QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders")) {
-            queryRunner.execute("CREATE TABLE orders AS " +
-                    "SELECT orderkey, custkey, orderstatus, totalprice, cast(orderdate as varchar) as orderdate, " +
-                    "   orderpriority, clerk, shippriority, comment " +
-                    "FROM tpch.tiny.orders");
-        }
+        createOrders(queryRunner, true);
+    }
+
+    public static void createOrders(QueryRunner queryRunner, boolean castDateToVarchar)
+    {
+        createOrders(queryRunner.getDefaultSession(), queryRunner, castDateToVarchar);
+    }
+
+    public static void createOrders(Session session, QueryRunner queryRunner, boolean castDateToVarchar)
+    {
+        queryRunner.execute(session, "DROP TABLE IF EXISTS orders");
+        String orderDate = castDateToVarchar ? "cast(orderdate as varchar) as orderdate" : "orderdate";
+        queryRunner.execute(session, "CREATE TABLE orders AS " +
+                "SELECT orderkey, custkey, orderstatus, totalprice, " + orderDate + ", " +
+                "   orderpriority, clerk, shippriority, comment " +
+                "FROM tpch.tiny.orders");
     }
 
     public static void createOrdersEx(QueryRunner queryRunner)
@@ -166,20 +201,26 @@ public class NativeQueryRunnerUtils
 
     public static void createNationWithFormat(QueryRunner queryRunner, String storageFormat)
     {
-        if (storageFormat.equals("PARQUET") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
-            queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        createNationWithFormat(queryRunner.getDefaultSession(), queryRunner, storageFormat);
+    }
+
+    public static void createNationWithFormat(Session session, QueryRunner queryRunner, String storageFormat)
+    {
+        queryRunner.execute(session, "DROP TABLE IF EXISTS nation");
+        if (storageFormat.equals("PARQUET") && !queryRunner.tableExists(session, "nation")) {
+            queryRunner.execute(session, "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         }
 
-        if (storageFormat.equals("ORC") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
-            queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        if (storageFormat.equals("ORC") && !queryRunner.tableExists(session, "nation")) {
+            queryRunner.execute(session, "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         }
 
-        if (storageFormat.equals("JSON") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_json")) {
-            queryRunner.execute("CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
+        if (storageFormat.equals("JSON") && !queryRunner.tableExists(session, "nation_json")) {
+            queryRunner.execute(session, "CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
         }
 
-        if (storageFormat.equals("TEXTFILE") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_text")) {
-            queryRunner.execute("CREATE TABLE nation_text WITH (FORMAT = 'TEXTFILE') AS SELECT * FROM tpch.tiny.nation");
+        if (storageFormat.equals("TEXTFILE") && !queryRunner.tableExists(session, "nation_text")) {
+            queryRunner.execute(session, "CREATE TABLE nation_text WITH (FORMAT = 'TEXTFILE') AS SELECT * FROM tpch.tiny.nation");
         }
     }
 
@@ -224,8 +265,13 @@ public class NativeQueryRunnerUtils
 
     public static void createCustomer(QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "customer")) {
-            queryRunner.execute("CREATE TABLE customer AS " +
+        createCustomer(queryRunner.getDefaultSession(), queryRunner);
+    }
+
+    public static void createCustomer(Session session, QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(session, "customer")) {
+            queryRunner.execute(session, "CREATE TABLE customer AS " +
                     "SELECT custkey, name, address, nationkey, phone, acctbal, comment, mktsegment " +
                     "FROM tpch.tiny.customer");
         }
@@ -341,29 +387,64 @@ public class NativeQueryRunnerUtils
 
     public static void createPart(QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "part")) {
-            queryRunner.execute("CREATE TABLE part AS SELECT * FROM tpch.tiny.part");
+        createPart(queryRunner.getDefaultSession(), queryRunner);
+    }
+
+    public static void createPart(Session session, QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(session, "part")) {
+            queryRunner.execute(session, "CREATE TABLE part AS SELECT * FROM tpch.tiny.part");
         }
     }
 
     public static void createPartSupp(QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "partsupp")) {
-            queryRunner.execute("CREATE TABLE partsupp AS SELECT * FROM tpch.tiny.partsupp");
+        createPartSupp(queryRunner.getDefaultSession(), queryRunner);
+    }
+
+    public static void createPartSupp(Session session, QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(session, "partsupp")) {
+            queryRunner.execute(session, "CREATE TABLE partsupp AS SELECT * FROM tpch.tiny.partsupp");
         }
     }
 
     public static void createRegion(QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "region")) {
-            queryRunner.execute("CREATE TABLE region AS SELECT * FROM tpch.tiny.region");
+        createRegion(queryRunner.getDefaultSession(), queryRunner);
+    }
+
+    public static void createRegion(Session session, QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(session, "region")) {
+            queryRunner.execute(session, "CREATE TABLE region AS SELECT * FROM tpch.tiny.region");
+        }
+    }
+
+    public static void createTableToTestHiddenColumns(QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "test_hidden_columns")) {
+            queryRunner.execute("CREATE TABLE test_hidden_columns (regionkey bigint, name varchar(25), comment varchar(152))");
+
+            // Inserting two rows with 2 seconds delay to have a different modified timestamp for each file.
+            queryRunner.execute("INSERT INTO test_hidden_columns SELECT * FROM region where regionkey = 0");
+            try {
+                TimeUnit.SECONDS.sleep(2);
+            }
+            catch (InterruptedException e) { }
+            queryRunner.execute("INSERT INTO test_hidden_columns SELECT * FROM region where regionkey = 1");
         }
     }
 
     public static void createSupplier(QueryRunner queryRunner)
     {
-        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "supplier")) {
-            queryRunner.execute("CREATE TABLE supplier AS SELECT * FROM tpch.tiny.supplier");
+        createSupplier(queryRunner.getDefaultSession(), queryRunner);
+    }
+
+    public static void createSupplier(Session session, QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(session, "supplier")) {
+            queryRunner.execute(session, "CREATE TABLE supplier AS SELECT * FROM tpch.tiny.supplier");
         }
     }
 

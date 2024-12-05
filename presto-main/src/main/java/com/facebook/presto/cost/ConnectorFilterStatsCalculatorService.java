@@ -14,6 +14,8 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.presto.FullConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -32,6 +34,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.StatsUtil.toVariableStatsEstimate;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorFilterStatsCalculatorService
@@ -53,7 +56,10 @@ public class ConnectorFilterStatsCalculatorService
             Map<String, Type> columnTypes)
     {
         PlanNodeStatsEstimate tableStats = toPlanNodeStats(tableStatistics, columnNames, columnTypes);
-        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(tableStats, predicate, session);
+        // TODO: Consider re-designing the filter calculator APIs so that a proper Session instance
+        //  can be more easily populated
+        Session filterSession = ((FullConnectorSession) session).getSession();
+        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(tableStats, predicate, session, filterSession);
 
         if (filteredStats.isOutputRowCountUnknown()) {
             filteredStats = tableStats.mapOutputRowCount(sourceRowCount -> tableStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT);
@@ -75,7 +81,7 @@ public class ConnectorFilterStatsCalculatorService
             double totalSizeAfterFilter = filteredStatistics.getRowCount().getValue() / tableStatistics.getRowCount().getValue() * tableStatistics.getTotalSize().getValue();
             filteredStatsWithSize.setTotalSize(Estimate.of(totalSizeAfterFilter));
         }
-        return filteredStatsWithSize.build();
+        return filteredStatsWithSize.setConfidenceLevel(LOW).build();
     }
 
     private static PlanNodeStatsEstimate toPlanNodeStats(
@@ -107,7 +113,7 @@ public class ConnectorFilterStatsCalculatorService
         for (Map.Entry<VariableReferenceExpression, VariableStatsEstimate> entry : planNodeStats.getVariableStatistics().entrySet()) {
             builder.setColumnStatistics(columnByName.get(entry.getKey().getName()), toColumnStatistics(entry.getValue(), rowCount));
         }
-        return builder.build();
+        return builder.setConfidenceLevel(planNodeStats.confidenceLevel()).build();
     }
 
     private static ColumnStatistics toColumnStatistics(VariableStatsEstimate variableStatsEstimate, double rowCount)

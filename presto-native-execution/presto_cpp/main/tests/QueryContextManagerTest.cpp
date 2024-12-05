@@ -52,14 +52,27 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
           {"native_join_spill_enabled", "false"},
           {"native_spill_write_buffer_size", "1024"},
           {"native_debug_validate_output_from_operators", "true"},
-          {"aggregation_spill_all", "true"}}};
+          {"native_debug_disable_expression_with_peeling", "true"},
+          {"native_debug_disable_common_sub_expressions", "true"},
+          {"native_debug_disable_expression_with_memoization", "true"},
+          {"native_debug_disable_expression_with_lazy_inputs", "true"},
+          {"native_selective_nimble_reader_enabled", "true"},
+          {"aggregation_spill_all", "true"},
+          {"native_expression_max_array_size_in_reduce", "99999"},
+      }};
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
       taskId, session);
   EXPECT_EQ(queryCtx->queryConfig().maxSpillLevel(), 2);
   EXPECT_EQ(queryCtx->queryConfig().spillCompressionKind(), "NONE");
   EXPECT_FALSE(queryCtx->queryConfig().joinSpillEnabled());
   EXPECT_TRUE(queryCtx->queryConfig().validateOutputFromOperators());
+  EXPECT_TRUE(queryCtx->queryConfig().debugDisableExpressionsWithPeeling());
+  EXPECT_TRUE(queryCtx->queryConfig().debugDisableCommonSubExpressions());
+  EXPECT_TRUE(queryCtx->queryConfig().debugDisableExpressionsWithMemoization());
+  EXPECT_TRUE(queryCtx->queryConfig().debugDisableExpressionsWithLazyInputs());
+  EXPECT_TRUE(queryCtx->queryConfig().selectiveNimbleReaderEnabled());
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1024);
+  EXPECT_EQ(queryCtx->queryConfig().exprMaxArraySizeInReduce(), 99999);
 }
 
 TEST_F(QueryContextManagerTest, defaultSessionProperties) {

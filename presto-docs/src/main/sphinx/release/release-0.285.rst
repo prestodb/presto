@@ -19,12 +19,12 @@ _______________
 * Improve performance of union when subqueries are empty.
 * Improve cost based optimizer join reordering to work with non-simple equi-join predicates. :pr:`21153`
 * Improve history based optimizer performance when nulls are present in joins. :pr:`21203`
-* Add :func:`array_least_frequent` function.
+* Add :func:`!array_least_frequent` function.
 * Add support for HANA connector. :pr:`21034`
 * Add task killer which is triggered when a worker is running out of memory and the garbage collector cannot reclaim sufficient memory. Two strategies are provided: full garbage collection, and frequent full garbage collection. :pr:`21254`
 * Add support to remove redundant `cast to varchar` expressions in a join condition. This feature is configurable by the session property ``remove_redundant_cast_to_varchar_in_join`` (enabled by default). :pr:`21050`
 * Add support to use HBO for scaled writers. This feature is configurable by the session property ``enable_hbo_for_scaled_writer`` (disabled by default).
-* Add support to split aggregates into partial and final based on partial aggregation statistics. This feature is configurable by the session property ``use_partial_aggregation_history``(disabled by default). :pr:`21160`
+* Add support to split aggregates into partial and final based on partial aggregation statistics. This feature is configurable by the session property ``use_partial_aggregation_history`` (disabled by default). :pr:`21160`
 * Add optimization where values node followed by an always false filter is converted to an empty values node.
 * Add information about cost-based optimizers and the source of stats they use (CBO/HBO) in explain plans when session property ``verbose_optimizer_info_enabled=true``. :pr:`20990`
 * Upgrade Joda-Time to 2.12.5 to use 2023c tzdata. The JVM should also be updated to ensure the timezone data is consistent. :pr:`21329`

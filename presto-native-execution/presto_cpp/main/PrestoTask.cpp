@@ -40,15 +40,15 @@ namespace {
 
 protocol::TaskState toPrestoTaskState(exec::TaskState state) {
   switch (state) {
-    case exec::kRunning:
+    case exec::TaskState::kRunning:
       return protocol::TaskState::RUNNING;
-    case exec::kFinished:
+    case exec::TaskState::kFinished:
       return protocol::TaskState::FINISHED;
-    case exec::kCanceled:
+    case exec::TaskState::kCanceled:
       return protocol::TaskState::CANCELED;
-    case exec::kFailed:
+    case exec::TaskState::kFailed:
       return protocol::TaskState::FAILED;
-    case exec::kAborted:
+    case exec::TaskState::kAborted:
       [[fallthrough]];
     default:
       return protocol::TaskState::ABORTED;
@@ -342,7 +342,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
     recordProcessCpuTime();
     return info.taskStatus;
   }
-  VELOX_CHECK_NOT_NULL(task, "task is null when updating status")
+  VELOX_CHECK_NOT_NULL(task, "task is null when updating status");
 
   const auto veloxTaskStats = task->taskStats();
 
@@ -370,7 +370,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   }
 
   const auto veloxTaskMemStats = task->pool()->stats();
-  info.taskStatus.memoryReservationInBytes = veloxTaskMemStats.currentBytes;
+  info.taskStatus.memoryReservationInBytes = veloxTaskMemStats.usedBytes;
   info.taskStatus.systemMemoryReservationInBytes = 0;
   // NOTE: a presto worker may run multiple tasks from the same query.
   // 'peakNodeTotalMemoryReservationInBytes' represents peak memory usage across
@@ -547,7 +547,7 @@ void PrestoTask::updateMemoryInfoLocked(
   protocol::TaskStats& prestoTaskStats = info.stats;
 
   const auto veloxTaskMemStats = task->pool()->stats();
-  const auto currentBytes = task->pool()->usedBytes();
+  const auto currentBytes = veloxTaskMemStats.usedBytes;
   prestoTaskStats.userMemoryReservationInBytes = currentBytes;
   prestoTaskStats.systemMemoryReservationInBytes = 0;
   prestoTaskStats.peakUserMemoryInBytes = veloxTaskMemStats.peakBytes;
@@ -561,7 +561,7 @@ void PrestoTask::updateMemoryInfoLocked(
   const double sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
 
   prestoTaskStats.cumulativeUserMemory +=
-      (averageMemoryForLastPeriod * sinceLastPeriodMs) / 1000;
+      (averageMemoryForLastPeriod * sinceLastPeriodMs);
   // NOTE: velox doesn't differentiate user and system memory usages.
   prestoTaskStats.cumulativeTotalMemory = prestoTaskStats.cumulativeUserMemory;
   prestoTaskStats.peakNodeTotalMemoryInBytes =
@@ -590,9 +590,19 @@ void PrestoTask::updateExecutionInfoLocked(
   prestoTaskStats.outputPositions = 0;
   prestoTaskStats.outputDataSizeInBytes = 0;
 
+  // Presto Java reports number of drivers to number of splits in Presto UI
+  // because split and driver are 1 to 1 mapping relationship. This is not true
+  // in Prestissimo where 1 driver handles many splits. In order to quickly
+  // unblock developers from viewing the correct progress of splits in
+  // Prestissimo's coordinator UI, we put number of splits in total, queued, and
+  // finished to indicate the progress of the query. Number of running drivers
+  // are passed as it is to have a proper running drivers count in UI.
+  //
+  // TODO: We should really extend the API (protocol::TaskStats and Presto
+  // coordinator UI) to have splits information as a proper fix.
   prestoTaskStats.totalDrivers = veloxTaskStats.numTotalSplits;
   prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedSplits;
-  prestoTaskStats.runningDrivers = veloxTaskStats.numRunningSplits;
+  prestoTaskStats.runningDrivers = veloxTaskStats.numRunningDrivers;
   prestoTaskStats.completedDrivers = veloxTaskStats.numFinishedSplits;
 
   prestoTaskStats.pipelines.resize(veloxTaskStats.pipelineStats.size());
@@ -688,6 +698,11 @@ void PrestoTask::updateExecutionInfoLocked(
           protocol::DataSize(veloxOp.outputBytes, protocol::DataUnit::BYTE);
 
       setTiming(
+          veloxOp.isBlockedTiming,
+          prestoOp.isBlockedCalls,
+          prestoOp.isBlockedWall,
+          prestoOp.isBlockedCpu);
+      setTiming(
           veloxOp.addInputTiming,
           prestoOp.addInputCalls,
           prestoOp.addInputWall,
@@ -766,10 +781,12 @@ void PrestoTask::updateExecutionInfoLocked(
         addSpillingOperatorMetrics(operatorStatsCollector);
       }
 
-      auto wallNanos = veloxOp.addInputTiming.wallNanos +
-          veloxOp.getOutputTiming.wallNanos + veloxOp.finishTiming.wallNanos;
-      auto cpuNanos = veloxOp.addInputTiming.cpuNanos +
-          veloxOp.getOutputTiming.cpuNanos + veloxOp.finishTiming.cpuNanos;
+      auto wallNanos = veloxOp.isBlockedTiming.wallNanos +
+          veloxOp.addInputTiming.wallNanos + veloxOp.getOutputTiming.wallNanos +
+          veloxOp.finishTiming.wallNanos;
+      auto cpuNanos = veloxOp.isBlockedTiming.cpuNanos +
+          veloxOp.addInputTiming.cpuNanos + veloxOp.getOutputTiming.cpuNanos +
+          veloxOp.finishTiming.cpuNanos;
 
       prestoPipeline.totalScheduledTimeInNanos += wallNanos;
       prestoPipeline.totalCpuTimeInNanos += cpuNanos;

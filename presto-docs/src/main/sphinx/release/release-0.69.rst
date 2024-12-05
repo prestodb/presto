@@ -89,7 +89,7 @@ Variable Length Binary Type
 ---------------------------
 
 Presto now supports the ``varbinary`` type for variable length binary data.
-Currently, the only supported function is :func:`length`.
+Currently, the only supported function is :func:`!length`.
 The Hive connector now maps the Hive ``BINARY`` type to ``varbinary``.
 
 General Changes

@@ -327,7 +327,13 @@ public class AccessControlCheckerExecution
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneExpiredQueryInfo()
+    {
+        // no-op
+    }
+
+    @Override
+    public void pruneFinishedQueryInfo()
     {
         // no-op
     }

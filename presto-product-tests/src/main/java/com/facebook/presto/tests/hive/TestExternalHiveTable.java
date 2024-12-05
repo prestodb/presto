@@ -55,19 +55,19 @@ public class TestExternalHiveTable
 
         onHive().executeQuery("ANALYZE TABLE " + EXTERNAL_TABLE_NAME + " PARTITION (p_regionkey) COMPUTE STATISTICS");
         assertThat(query("SHOW STATS FOR " + EXTERNAL_TABLE_NAME)).containsOnly(
-                row("p_nationkey", null, null, null, null, null, null),
-                row("p_name", null, null, null, null, null, null),
-                row("p_comment", null, null, null, null, null, null),
-                row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
-                row(null, null, null, null, 5.0, null, null));
+                row("p_nationkey", null, null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null, null),
+                row("p_comment", null, null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "1", "1", null),
+                row(null, null, null, null, 5.0, null, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + EXTERNAL_TABLE_NAME + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
         assertThat(query("SHOW STATS FOR " + EXTERNAL_TABLE_NAME)).containsOnly(
-                row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 38.0, 5.0, 0.0, null, null, null),
-                row("p_comment", 499.0, 5.0, 0.0, null, null, null),
-                row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
-                row(null, null, null, null, 5.0, null, null));
+                row("p_nationkey", null, 5.0, 0.0, null, "1", "24", null),
+                row("p_name", 38.0, 5.0, 0.0, null, null, null, null),
+                row("p_comment", 499.0, 5.0, 0.0, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "1", "1", null),
+                row(null, null, null, null, 5.0, null, null, null));
     }
 
     @Test

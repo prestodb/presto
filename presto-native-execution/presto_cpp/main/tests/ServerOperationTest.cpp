@@ -14,11 +14,10 @@
 #include "presto_cpp/main/ServerOperation.h"
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoServerOperations.h"
-#include "presto_cpp/main/TaskManager.h"
-#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
@@ -27,10 +26,14 @@ using namespace facebook::velox;
 
 namespace facebook::presto {
 
-class ServerOperationTest : public testing::Test {
+class ServerOperationTest : public exec::test::OperatorTestBase {
   void SetUp() override {
     FLAGS_velox_memory_leak_check_enabled = true;
-    memory::MemoryManager::testingSetInstance({});
+    exec::test::OperatorTestBase::SetUp();
+  }
+
+  void TearDown() override {
+    exec::test::OperatorTestBase::TearDown();
   }
 };
 
@@ -137,10 +140,18 @@ TEST_F(ServerOperationTest, buildServerOp) {
 
 TEST_F(ServerOperationTest, taskEndpoint) {
   // Setup environment for TaskManager
+  if (!connector::hasConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
+  }
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector("test-hive", std::make_shared<core::MemConfig>());
+          ->newConnector(
+              "test-hive",
+              std::make_shared<config::ConfigBase>(
+                  std::unordered_map<std::string, std::string>()));
   connector::registerConnector(hiveConnector);
 
   const auto driverExecutor = std::make_shared<folly::CPUThreadPoolExecutor>(

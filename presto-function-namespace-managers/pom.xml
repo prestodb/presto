@@ -3,7 +3,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.288-SNAPSHOT</version>
+        <version>0.291-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -14,6 +14,16 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>2.8.9</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -177,7 +187,6 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

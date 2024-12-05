@@ -32,7 +32,7 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggre
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTime;
@@ -403,7 +403,7 @@ public class TestHistogram
 
     public FunctionAndTypeManager getFunctionManager(HistogramGroupImplementation groupMode)
     {
-        return MetadataManager.createTestMetadataManager(new FeaturesConfig()
+        return MetadataManager.createTestMetadataManager(new FunctionsConfig()
                 .setHistogramGroupImplementation(groupMode)).getFunctionAndTypeManager();
     }
 }

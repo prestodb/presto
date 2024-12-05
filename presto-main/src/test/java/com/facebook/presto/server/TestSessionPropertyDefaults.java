@@ -16,7 +16,6 @@ package com.facebook.presto.server;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.Identity;
@@ -28,10 +27,11 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.CTE_HASH_PARTITION_COUNT;
+import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestSessionPropertyDefaults
@@ -46,11 +46,11 @@ public class TestSessionPropertyDefaults
         SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, TEST_NODE_VERSION);
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 new SystemSessionPropertyConfiguration(
-                    ImmutableMap.<String, String>builder()
-                            .put(QUERY_MAX_MEMORY, "override")
-                            .put("system_default", "system_default")
-                            .build(),
-                    ImmutableMap.of("override", "overridden")),
+                        ImmutableMap.<String, String>builder()
+                                .put(QUERY_MAX_MEMORY, "override")
+                                .put("system_default", "system_default")
+                                .build(),
+                        ImmutableMap.of("override", "overridden")),
                 ImmutableMap.of(
                         "testCatalog",
                         ImmutableMap.<String, String>builder()
@@ -60,44 +60,40 @@ public class TestSessionPropertyDefaults
         sessionPropertyDefaults.addConfigurationManagerFactory(factory);
         sessionPropertyDefaults.setConfigurationManager(factory.getName(), ImmutableMap.of());
 
-        Session session = Session.builder(new SessionPropertyManager())
+        SessionBuilder sessionBuilder = Session.builder(createTestingSessionPropertyManager())
                 .setQueryId(new QueryId("test_query_id"))
                 .setIdentity(new Identity("testUser", Optional.empty()))
                 .setSystemProperty(QUERY_MAX_MEMORY, "1GB")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .setSystemProperty(HASH_PARTITION_COUNT, "43")
-                .setSystemProperty(CTE_HASH_PARTITION_COUNT, "100")
                 .setSystemProperty("override", "should be overridden")
-                .setCatalogSessionProperty("testCatalog", "explicit_set", "explicit_set")
-                .build();
+                .setCatalogSessionProperty("testCatalog", "explicit_set", "explicit_set");
 
-        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+        assertEquals(sessionBuilder.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
-                .put(CTE_HASH_PARTITION_COUNT, "100")
                 .put("override", "should be overridden")
                 .build());
         assertEquals(
-                session.getUnprocessedCatalogProperties(),
+                sessionBuilder.getUnprocessedCatalogProperties(),
                 ImmutableMap.of(
                         "testCatalog",
                         ImmutableMap.<String, String>builder()
                                 .put("explicit_set", "explicit_set")
                                 .build()));
 
-        session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.of(TEST_RESOURCE_GROUP_ID));
+        sessionPropertyDefaults.applyDefaultProperties(sessionBuilder, Optional.empty(), Optional.of(TEST_RESOURCE_GROUP_ID));
 
-        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+        assertEquals(sessionBuilder.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
-                .put(CTE_HASH_PARTITION_COUNT, "100")
                 .put("system_default", "system_default")
                 .put("override", "overridden")
                 .build());
         assertEquals(
-                session.getUnprocessedCatalogProperties(),
+                sessionBuilder.getUnprocessedCatalogProperties(),
                 ImmutableMap.of(
                         "testCatalog",
                         ImmutableMap.<String, String>builder()

@@ -53,7 +53,9 @@ import static com.facebook.presto.common.predicate.Range.range;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.OLD_NAN_DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.OLD_NAN_REAL;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -113,14 +115,20 @@ public class TestDynamicFilterSourceOperator
 
     private OperatorFactory createOperatorFactory(DynamicFilterSourceOperator.Channel... buildChannels)
     {
-        return createOperatorFactory(100, new DataSize(10, KILOBYTE), 1_000_000, Arrays.asList(buildChannels));
+        return createOperatorFactory(100, new DataSize(10, KILOBYTE), 1_000_000, Arrays.asList(buildChannels), true);
+    }
+
+    private OperatorFactory createOperatorFactoryWithOldNanDefinition(DynamicFilterSourceOperator.Channel... buildChannels)
+    {
+        return createOperatorFactory(100, new DataSize(10, KILOBYTE), 1_000_000, Arrays.asList(buildChannels), false);
     }
 
     private OperatorFactory createOperatorFactory(
             int maxFilterPositionsCount,
             DataSize maxFilterSize,
             int minMaxCollectionLimit,
-            Iterable<DynamicFilterSourceOperator.Channel> buildChannels)
+            Iterable<DynamicFilterSourceOperator.Channel> buildChannels,
+            boolean useNewNanDefinition)
     {
         return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                 0,
@@ -129,7 +137,8 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.copyOf(buildChannels),
                 maxFilterPositionsCount,
                 maxFilterSize,
-                minMaxCollectionLimit);
+                minMaxCollectionLimit,
+                useNewNanDefinition);
     }
 
     private void consumePredicate(TupleDomain<String> partitionPredicate)
@@ -163,7 +172,7 @@ public class TestDynamicFilterSourceOperator
         List<DynamicFilterSourceOperator.Channel> buildChannels = IntStream.range(0, types.size())
                 .mapToObj(i -> channel(i, types.get(i)))
                 .collect(toImmutableList());
-        OperatorFactory operatorFactory = createOperatorFactory(maxFilterPositionsCount, maxFilterSize, minMaxCollectionLimit, buildChannels);
+        OperatorFactory operatorFactory = createOperatorFactory(maxFilterPositionsCount, maxFilterSize, minMaxCollectionLimit, buildChannels, true);
         verifyPassthrough(createOperator(operatorFactory), types, pages);
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), expectedTupleDomains);
@@ -282,7 +291,25 @@ public class TestDynamicFilterSourceOperator
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "0", Domain.multipleValues(DOUBLE, ImmutableList.of(42.0))))));
+                        "0", Domain.multipleValues(DOUBLE, ImmutableList.of(42.0, Double.NaN))))));
+    }
+
+    @Test
+    public void testCollectWithDoubleNaNOldNanDefinition()
+    {
+        BlockBuilder input = OLD_NAN_DOUBLE.createBlockBuilder(null, 10);
+        OLD_NAN_DOUBLE.writeDouble(input, 42.0);
+        OLD_NAN_DOUBLE.writeDouble(input, Double.NaN);
+
+        OperatorFactory operatorFactory = createOperatorFactoryWithOldNanDefinition(channel(0, OLD_NAN_DOUBLE));
+        verifyPassthrough(createOperator(operatorFactory),
+                ImmutableList.of(OLD_NAN_DOUBLE),
+                new Page(input.build()));
+        operatorFactory.noMoreOperators();
+
+        assertEquals(partitions.build(), ImmutableList.of(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        "0", Domain.multipleValues(OLD_NAN_DOUBLE, ImmutableList.of(42.0))))));
     }
 
     @Test
@@ -300,7 +327,25 @@ public class TestDynamicFilterSourceOperator
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        "0", Domain.multipleValues(REAL, ImmutableList.of((long) floatToRawIntBits(42.0f)))))));
+                        "0", Domain.multipleValues(REAL, ImmutableList.of((long) floatToRawIntBits(42.0f), (long) floatToRawIntBits(Float.NaN)))))));
+    }
+
+    @Test
+    public void testCollectWithRealNaNWithOldNanDefinition()
+    {
+        BlockBuilder input = OLD_NAN_REAL.createBlockBuilder(null, 10);
+        OLD_NAN_REAL.writeLong(input, floatToRawIntBits(42.0f));
+        OLD_NAN_REAL.writeLong(input, floatToRawIntBits(Float.NaN));
+
+        OperatorFactory operatorFactory = createOperatorFactoryWithOldNanDefinition(channel(0, OLD_NAN_REAL));
+        verifyPassthrough(createOperator(operatorFactory),
+                ImmutableList.of(OLD_NAN_REAL),
+                new Page(input.build()));
+        operatorFactory.noMoreOperators();
+
+        assertEquals(partitions.build(), ImmutableList.of(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        "0", Domain.multipleValues(OLD_NAN_REAL, ImmutableList.of((long) floatToRawIntBits(42.0f)))))));
     }
 
     @Test

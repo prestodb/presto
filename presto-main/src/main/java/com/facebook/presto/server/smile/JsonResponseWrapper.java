@@ -50,12 +50,6 @@ public class JsonResponseWrapper<T>
     }
 
     @Override
-    public String getStatusMessage()
-    {
-        return jsonResponse.getStatusMessage();
-    }
-
-    @Override
     public String getHeader(String name)
     {
         return jsonResponse.getHeader(name);

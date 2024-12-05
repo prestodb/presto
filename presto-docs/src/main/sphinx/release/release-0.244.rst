@@ -20,7 +20,7 @@ Release 0.244
 General Changes
 _______________
 * Fix an issue where queries could encounter an int overflow error during spilling.
-* Fix :func:`hamming_distance` to handle code point zero correctly.
+* Fix :func:`!hamming_distance` to handle code point zero correctly.
 * Fix caching and case-sensitivity bugs with type signatures for enum types.
 * Fix a bug where queries could produce wrong results when they have multiple lambda expressions that only differ in complex type constants (:issue:15424).
 * Improve performance of cross joins.

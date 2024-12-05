@@ -99,7 +99,7 @@ public class QueryInfo
     private final List<CTEInformation> cteInformationList;
     private final Set<String> scalarFunctions;
     private final Set<String> aggregateFunctions;
-    private final Set<String> windowsFunctions;
+    private final Set<String> windowFunctions;
     // Using a list rather than map, to avoid implementing map key deserializer
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
     private Map<PlanNodeId, PlanNode> planIdNodeMap;
@@ -146,7 +146,7 @@ public class QueryInfo
             @JsonProperty("cteInformation") List<CTEInformation> cteInformationList,
             @JsonProperty("scalarFunctions") Set<String> scalarFunctions,
             @JsonProperty("aggregateFunctions") Set<String> aggregateFunctions,
-            @JsonProperty("windowsFunctions") Set<String> windowsFunctions,
+            @JsonProperty("windowFunctions") Set<String> windowFunctions,
             List<CanonicalPlanWithInfo> planCanonicalInfo,
             Map<PlanNodeId, PlanNode> planIdNodeMap,
             @JsonProperty("prestoSparkExecutionContext") Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext)
@@ -182,7 +182,7 @@ public class QueryInfo
         requireNonNull(cteInformationList, "cteInformationList is null");
         requireNonNull(scalarFunctions, "scalarFunctions is null");
         requireNonNull(aggregateFunctions, "aggregateFunctions is null");
-        requireNonNull(windowsFunctions, "windowsFunctions is null");
+        requireNonNull(windowFunctions, "windowFunctions is null");
         requireNonNull(prestoSparkExecutionContext, "prestoSparkExecutionContext is null");
 
         this.queryId = queryId;
@@ -229,7 +229,7 @@ public class QueryInfo
         this.cteInformationList = cteInformationList;
         this.scalarFunctions = scalarFunctions;
         this.aggregateFunctions = aggregateFunctions;
-        this.windowsFunctions = windowsFunctions;
+        this.windowFunctions = windowFunctions;
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
         this.planIdNodeMap = planIdNodeMap == null ? ImmutableMap.of() : ImmutableMap.copyOf(planIdNodeMap);
         this.prestoSparkExecutionContext = prestoSparkExecutionContext;
@@ -486,9 +486,9 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Set<String> getWindowsFunctions()
+    public Set<String> getWindowFunctions()
     {
-        return windowsFunctions;
+        return windowFunctions;
     }
 
     @JsonProperty

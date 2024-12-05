@@ -32,12 +32,12 @@ import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.split.PageSourceProvider;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.PageConsumerOperator;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
@@ -249,7 +249,7 @@ public class TestDriver
         final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (session, split, table, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                (session, split, table, columns, runtimeStats) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TESTING_TABLE_HANDLE,
@@ -349,7 +349,7 @@ public class TestDriver
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (session, split, table, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                (session, split, table, columns, runtimeStats) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TESTING_TABLE_HANDLE,
@@ -378,7 +378,7 @@ public class TestDriver
         // create a table scan operator that does not block, which will cause the driver loop to busy wait
         TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (session, split, table, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                (session, split, table, columns, runtimeStats) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TESTING_TABLE_HANDLE,
@@ -435,7 +435,7 @@ public class TestDriver
         final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (session, split, table, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                (session, split, table, columns, runtimeStats) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TESTING_TABLE_HANDLE,

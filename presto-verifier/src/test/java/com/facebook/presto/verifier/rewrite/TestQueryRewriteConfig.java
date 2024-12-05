@@ -30,7 +30,8 @@ public class TestQueryRewriteConfig
     {
         assertRecordedDefaults(recordDefaults(QueryRewriteConfig.class)
                 .setTablePrefix("tmp_verifier")
-                .setTableProperties(null));
+                .setTableProperties(null)
+                .setReuseTable(false));
     }
 
     @Test
@@ -39,10 +40,12 @@ public class TestQueryRewriteConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("table-prefix", "local.tmp")
                 .put("table-properties", "{\"retention\":21}")
+                .put("reuse-table", "true")
                 .build();
         QueryRewriteConfig expected = new QueryRewriteConfig()
                 .setTablePrefix("local.tmp")
-                .setTableProperties("{\"retention\":21}");
+                .setTableProperties("{\"retention\":21}")
+                .setReuseTable(true);
 
         assertFullMapping(properties, expected);
         assertEquals(expected.getTableProperties(), ImmutableMap.of("retention", 21));

@@ -30,6 +30,7 @@ import static com.facebook.presto.iceberg.IcebergTableType.HISTORY;
 import static com.facebook.presto.iceberg.IcebergTableType.MANIFESTS;
 import static com.facebook.presto.iceberg.IcebergTableType.PARTITIONS;
 import static com.facebook.presto.iceberg.IcebergTableType.PROPERTIES;
+import static com.facebook.presto.iceberg.IcebergTableType.REFS;
 import static com.facebook.presto.iceberg.IcebergTableType.SNAPSHOTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Long.parseLong;
@@ -50,7 +51,7 @@ public class IcebergTableName
 
     private final Optional<Long> changelogEndSnapshot;
 
-    private static final Set<IcebergTableType> SYSTEM_TABLES = Sets.immutableEnumSet(FILES, MANIFESTS, PARTITIONS, HISTORY, SNAPSHOTS, PROPERTIES);
+    private static final Set<IcebergTableType> SYSTEM_TABLES = Sets.immutableEnumSet(FILES, MANIFESTS, PARTITIONS, HISTORY, SNAPSHOTS, PROPERTIES, REFS);
 
     @JsonCreator
     public IcebergTableName(

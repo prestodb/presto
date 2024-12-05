@@ -331,7 +331,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 throw new IllegalStateException(
                         format("SqlInvokedFunction %s has BUILTIN implementation type but %s cannot manage BUILTIN functions", function.getSignature().getName(), this.getClass()));
             case CPP:
-                throw new IllegalStateException(format("Presto coordinator can not resolve implementation of CPP UDF functions"));
+                throw new IllegalStateException("Presto coordinator can not resolve implementation of CPP UDF functions");
             default:
                 throw new IllegalStateException(format("Unknown function implementation type: %s", implementationType));
         }

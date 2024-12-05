@@ -25,7 +25,7 @@ connection properties as appropriate for your setup:
 
 
 Connection security
-------------------
+-------------------
 
 The JDBC driver and connector automatically use Transport Layer Security (TLS) encryption and certificate validation. This requires a suitable TLS certificate configured on your SQL Server database host.
 
@@ -61,6 +61,7 @@ A connection string using a truststore would be similar to the following example
 .. code-block:: none
 
     connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=true;trustServerCertificate=false;trustStoreType=PEM;hostNameInCertificate=hostname;trustStore=path/to/truststore.pem;trustStorePassword=password
+
 Multiple SQL Server Databases or Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -75,7 +76,7 @@ if you name the property file ``sales.properties``, Presto will create a
 catalog named ``sales`` using the configured connector.
 
 General Configuration Properties
----------------------------------
+--------------------------------
 
 ================================================== ==================================================================== ===========
 Property Name                                      Description                                                          Default

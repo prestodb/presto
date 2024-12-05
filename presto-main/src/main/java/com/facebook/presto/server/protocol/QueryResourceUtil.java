@@ -16,6 +16,7 @@ package com.facebook.presto.server.protocol;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
@@ -30,13 +31,18 @@ import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import io.airlift.units.Duration;
 
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriInfo;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -49,6 +55,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -70,11 +77,15 @@ import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 
@@ -85,6 +96,7 @@ public final class QueryResourceUtil
     private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
     private static final JsonCodec<List<Object>> LIST_JSON_CODEC = listJsonCodec(Object.class);
     private static final JsonCodec<Map<Object, Object>> MAP_JSON_CODEC = mapJsonCodec(Object.class, Object.class);
+    static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
     private QueryResourceUtil() {}
 
@@ -368,5 +380,69 @@ public final class QueryResourceUtil
             return LIST_JSON_CODEC.toJson(parsedValue);
         }
         return value;
+    }
+
+    private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl)
+    {
+        URI uri = uriInfo.getRequestUriBuilder()
+                .scheme(getScheme(xForwardedProto, uriInfo))
+                .replacePath("ui/query.html")
+                .replaceQuery(queryId.toString())
+                .build();
+        return prependUri(uri, xPrestoPrefixUrl);
+    }
+
+    public static URI getQueuedUri(QueryId queryId, String slug, long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, boolean binaryResults)
+    {
+        UriBuilder uriBuilder = uriInfo.getBaseUriBuilder()
+                .scheme(getScheme(xForwardedProto, uriInfo))
+                .replacePath("/v1/statement/queued")
+                .path(queryId.toString())
+                .path(String.valueOf(token))
+                .replaceQuery("")
+                .queryParam("slug", slug);
+        if (binaryResults) {
+            uriBuilder.queryParam("binaryResults", "true");
+        }
+        URI uri = uriBuilder.build();
+        return prependUri(uri, xPrestoPrefixUrl);
+    }
+
+    public static String getScheme(String xForwardedProto, @Context UriInfo uriInfo)
+    {
+        return isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
+    }
+
+    public static QueryResults createQueuedQueryResults(
+            QueryId queryId,
+            URI nextUri,
+            Optional<QueryError> queryError,
+            UriInfo uriInfo,
+            String xForwardedProto,
+            String xPrestoPrefixUrl,
+            Duration elapsedTime,
+            Optional<Duration> queuedTime,
+            Duration waitingForPrerequisitesTime)
+    {
+        QueryState state = queryError.map(error -> FAILED).orElse(queuedTime.isPresent() ? QUEUED : WAITING_FOR_PREREQUISITES);
+        return new QueryResults(
+                queryId.toString(),
+                getQueryHtmlUri(queryId, uriInfo, xForwardedProto, xPrestoPrefixUrl),
+                null,
+                nextUri,
+                null,
+                null,
+                null,
+                StatementStats.builder()
+                        .setState(state.toString())
+                        .setWaitingForPrerequisites(state == WAITING_FOR_PREREQUISITES)
+                        .setElapsedTimeMillis(elapsedTime.toMillis())
+                        .setQueuedTimeMillis(queuedTime.orElse(NO_DURATION).toMillis())
+                        .setWaitingForPrerequisitesTimeMillis(waitingForPrerequisitesTime.toMillis())
+                        .build(),
+                queryError.orElse(null),
+                ImmutableList.of(),
+                null,
+                null);
     }
 }

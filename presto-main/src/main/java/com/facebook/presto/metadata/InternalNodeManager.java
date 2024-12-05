@@ -37,6 +37,8 @@ public interface InternalNodeManager
 
     Set<InternalNode> getCatalogServers();
 
+    Set<InternalNode> getCoordinatorSidecars();
+
     AllNodes getAllNodes();
 
     void refreshNodes();

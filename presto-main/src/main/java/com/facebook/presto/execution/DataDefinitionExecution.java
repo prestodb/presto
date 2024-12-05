@@ -162,6 +162,7 @@ public abstract class DataDefinitionExecution<T extends Statement>
     {
         return DataSize.succinctBytes(0);
     }
+
     @Override
     public long getOutputPositions()
     {
@@ -290,7 +291,13 @@ public abstract class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public void pruneInfo()
+    public void pruneExpiredQueryInfo()
+    {
+        // no-op
+    }
+
+    @Override
+    public void pruneFinishedQueryInfo()
     {
         // no-op
     }

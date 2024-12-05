@@ -12,7 +12,7 @@ General Changes
 * System memory pool is now unused by default and it will eventually be removed completely.
   All memory allocations will now be served from the general/user memory pool. The old behavior
   can be restored with the ``deprecated.legacy-system-pool-enabled`` config option.
-* Improve performance and memory usage for queries using :func:`row_number` followed by a
+* Improve performance and memory usage for queries using :func:`!row_number` followed by a
   filter on the row numbers generated.
 * Improve performance and memory usage for queries using ``ORDER BY`` followed by a ``LIMIT``.
 * Improve performance of queries that process structural types and contain joins, aggregations,

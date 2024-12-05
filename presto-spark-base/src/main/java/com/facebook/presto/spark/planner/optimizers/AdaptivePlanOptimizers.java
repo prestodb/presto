@@ -17,7 +17,6 @@ package com.facebook.presto.spark.planner.optimizers;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.OptimizerStatsRecorder;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
@@ -47,12 +46,11 @@ public class AdaptivePlanOptimizers
     public AdaptivePlanOptimizers(
             MBeanExporter exporter,
             Metadata metadata,
-            SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
         this.exporter = exporter;
-        this.adaptiveOptimizers = ImmutableList.of(new IterativeOptimizer(metadata, ruleStats, statsCalculator, costCalculator, ImmutableSet.of(new PickJoinSides(metadata, sqlParser))));
+        this.adaptiveOptimizers = ImmutableList.of(new IterativeOptimizer(metadata, ruleStats, statsCalculator, costCalculator, ImmutableSet.of(new PickJoinSides(metadata))));
     }
 
     @PostConstruct

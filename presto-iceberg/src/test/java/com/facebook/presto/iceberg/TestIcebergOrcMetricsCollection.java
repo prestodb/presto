@@ -29,8 +29,10 @@ import java.util.Map;
 import static com.facebook.presto.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.TASK_WRITER_COUNT;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.FileContent.DATA;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.TestIcebergOrcMetricsCollection.DataFileRecord.toDataFileRecord;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
@@ -58,7 +60,8 @@ public class TestIcebergOrcMetricsCollection
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path catalogDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("iceberg_data").resolve("catalog");
+        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory();
+        Path catalogDirectory = getIcebergDataDirectoryPath(dataDirectory, HIVE.name(), new IcebergConfig().getFileFormat(), false);
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
@@ -293,11 +296,6 @@ public class TestIcebergOrcMetricsCollection
             return content;
         }
 
-        public String getFilePath()
-        {
-            return filePath;
-        }
-
         public String getFileFormat()
         {
             return fileFormat;
@@ -306,16 +304,6 @@ public class TestIcebergOrcMetricsCollection
         public long getRecordCount()
         {
             return recordCount;
-        }
-
-        public long getFileSizeInBytes()
-        {
-            return fileSizeInBytes;
-        }
-
-        public Map<Integer, Long> getColumnSizes()
-        {
-            return columnSizes;
         }
 
         public Map<Integer, Long> getValueCounts()

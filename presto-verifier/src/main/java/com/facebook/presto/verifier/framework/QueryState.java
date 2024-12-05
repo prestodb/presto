@@ -16,6 +16,7 @@ package com.facebook.presto.verifier.framework;
 public enum QueryState
 {
     SUCCEEDED,
+    REUSE,
     FAILED,
     TIMED_OUT,
     FAILED_TO_SETUP,

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.checksum;
 
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
@@ -52,17 +53,17 @@ public class ChecksumValidator
         this.columnValidators = columnValidators;
     }
 
-    public Query generateChecksumQuery(QualifiedName tableName, List<Column> columns)
+    public Query generateChecksumQuery(QualifiedName tableName, List<Column> columns, Optional<Expression> partitionPredicate)
     {
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
         selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
         for (Column column : columns) {
             selectItems.addAll(columnValidators.get(column.getCategory()).get().generateChecksumColumns(column));
         }
-        return simpleQuery(new Select(false, selectItems.build()), new Table(tableName));
+        return simpleQuery(new Select(false, selectItems.build()), new Table(tableName), partitionPredicate, Optional.empty());
     }
 
-    public Query generatePartitionChecksumQuery(QualifiedName tableName, List<Column> dataColumns, List<Column> partitionColumns)
+    public Query generatePartitionChecksumQuery(QualifiedName tableName, List<Column> dataColumns, List<Column> partitionColumns, Optional<Expression> partitionPredicate)
     {
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
         selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
@@ -79,7 +80,7 @@ public class ChecksumValidator
         return simpleQuery(
                 new Select(false, selectItems.build()),
                 new Table(tableName),
-                Optional.empty(),
+                partitionPredicate,
                 Optional.of(new GroupBy(false, groupByList.build())),
                 Optional.empty(),
                 Optional.of(new OrderBy(orderByList.build())),
@@ -87,7 +88,7 @@ public class ChecksumValidator
                 Optional.empty());
     }
 
-    public Query generateBucketChecksumQuery(QualifiedName tableName, List<Column> partitionColumns, List<Column> dataColumns)
+    public Query generateBucketChecksumQuery(QualifiedName tableName, List<Column> partitionColumns, List<Column> dataColumns, Optional<Expression> partitionPredicate)
     {
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
         selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
@@ -106,7 +107,7 @@ public class ChecksumValidator
         return simpleQuery(
                 new Select(false, selectItems.build()),
                 new Table(tableName),
-                Optional.empty(),
+                partitionPredicate,
                 Optional.of(new GroupBy(false, groupByList.build())),
                 Optional.empty(),
                 Optional.of(new OrderBy(orderByList.build())),

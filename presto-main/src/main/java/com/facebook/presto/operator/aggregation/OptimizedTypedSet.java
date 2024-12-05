@@ -21,14 +21,19 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.project.SelectedPositions;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsList;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
+import static com.facebook.presto.util.Failures.internalError;
+import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
@@ -47,6 +52,7 @@ public class OptimizedTypedSet
     private static final SelectedPositions EMPTY_SELECTED_POSITIONS = positionsList(new int[0], 0, 0);
 
     private final Type elementType;
+    private final Optional<MethodHandle> elementIsDistinctFrom;
     private final int hashCapacity;
     private final int hashMask;
 
@@ -56,17 +62,18 @@ public class OptimizedTypedSet
     private long[] blockPositionByHash;  // Each 64-bit long is 32-bit index for blocks + 32-bit position within block
     private int currentBlockIndex = -1;  // The index into the blocks array and positionsForBlocks list
 
-    public OptimizedTypedSet(Type elementType, int maxPositionCount)
+    public OptimizedTypedSet(Type elementType, MethodHandle elementIsDistinctFrom, int maxPositionCount)
     {
-        this(elementType, INITIAL_BLOCK_COUNT, maxPositionCount);
+        this(elementType, Optional.of(elementIsDistinctFrom), INITIAL_BLOCK_COUNT, maxPositionCount);
     }
 
-    public OptimizedTypedSet(Type elementType, int expectedBlockCount, int maxPositionCount)
+    public OptimizedTypedSet(Type elementType, Optional<MethodHandle> elementIsDistinctFrom, int expectedBlockCount, int maxPositionCount)
     {
         checkArgument(expectedBlockCount >= 0, "expectedBlockCount must not be negative");
         checkArgument(maxPositionCount >= 0, "maxPositionCount must not be negative");
 
         this.elementType = requireNonNull(elementType, "elementType must not be null");
+        this.elementIsDistinctFrom = requireNonNull(elementIsDistinctFrom, "elementIsDistinctFrom is null");
         this.hashCapacity = arraySize(maxPositionCount, FILL_RATIO);
         this.hashMask = hashCapacity - 1;
 
@@ -293,12 +300,29 @@ public class OptimizedTypedSet
             // Already has this element
             int blockIndex = (int) ((blockPosition & 0xffff_ffff_0000_0000L) >> 32);
             int positionWithinBlock = (int) (blockPosition & 0xffff_ffff);
-            if (positionEqualsPosition(elementType, blocks[blockIndex], positionWithinBlock, block, position)) {
+            if (isContainedAt(blocks[blockIndex], positionWithinBlock, block, position)) {
                 return INVALID_POSITION;
             }
 
             hashPosition = getMaskedHash(hashPosition + 1);
         }
+    }
+
+    private boolean isContainedAt(Block firstBlock, int positionWithinFirstBlock, Block secondBlock, int positionWithinSecondBlock)
+    {
+        if (elementIsDistinctFrom.isPresent()) {
+            boolean firstValueNull = firstBlock.isNull(positionWithinFirstBlock);
+            Object firstValue = firstValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, firstBlock, positionWithinFirstBlock);
+            boolean secondValueNull = secondBlock.isNull(positionWithinSecondBlock);
+            Object secondValue = secondValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, secondBlock, positionWithinSecondBlock);
+            try {
+                return !(boolean) elementIsDistinctFrom.get().invoke(firstValue, firstValueNull, secondValue, secondValueNull);
+            }
+            catch (Throwable t) {
+                throw internalError(t);
+            }
+        }
+        return positionEqualsPosition(elementType, firstBlock, positionWithinFirstBlock, secondBlock, positionWithinSecondBlock);
     }
 
     /**
@@ -322,7 +346,7 @@ public class OptimizedTypedSet
             // Already has this element
             int blockIndex = (int) ((blockPosition & 0xffff_ffff_0000_0000L) >> 32);
             int positionWithinBlock = (int) (blockPosition & 0xffff_ffff);
-            if (positionEqualsPosition(elementType, blocks[blockIndex], positionWithinBlock, block, position)) {
+            if (isContainedAt(blocks[blockIndex], positionWithinBlock, block, position)) {
                 return false;
             }
 

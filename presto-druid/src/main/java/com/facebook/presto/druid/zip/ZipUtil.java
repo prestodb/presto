@@ -139,7 +139,7 @@ public class ZipUtil
     {
         long result = get64(source, offset);
         if (result < 0) {
-            throw new ZipException("The requested unsigned long value is too large for Java's signed"
+            throw new ZipException("The requested unsigned long value is too large for Java's signed "
                     + "values. This Zip file is unsupported");
         }
         return result;

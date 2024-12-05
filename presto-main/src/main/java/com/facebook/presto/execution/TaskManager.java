@@ -15,8 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
@@ -119,11 +119,9 @@ public interface TaskManager
     ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize);
 
     /**
-     * Gets the {@link BufferInfo} associated with the specified task and buffer id.
-     *
-     * @return absent if the buffer is not present, otherwise the buffer info
+     * Gets the {@link OutputBufferInfo} associated with the specified task.
      */
-    Optional<BufferInfo> getTaskBufferInfo(TaskId taskId, OutputBufferId bufferId);
+    OutputBufferInfo getOutputBufferInfo(TaskId taskId);
 
     /**
      * Acknowledges previously received results.

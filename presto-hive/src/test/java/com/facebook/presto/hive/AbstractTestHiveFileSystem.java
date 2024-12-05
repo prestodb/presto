@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -59,7 +60,6 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -224,7 +224,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 columnConverterProvider,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new QuickStatsProvider(metastoreClient, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(config),
                 new HiveCommonClientConfig());
 
@@ -251,7 +251,7 @@ public abstract class AbstractTestHiveFileSystem
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastoreClient,
-                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager())),
                 FUNCTION_AND_TYPE_MANAGER,
                 config,
                 metastoreClientConfig,
@@ -482,7 +482,8 @@ public abstract class AbstractTestHiveFileSystem
                     split,
                     tableHandle.getLayout().get(),
                     columnHandles,
-                    NON_CACHEABLE)) {
+                    NON_CACHEABLE,
+                    new RuntimeStats())) {
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
             }

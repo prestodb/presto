@@ -11,7 +11,7 @@ Release 0.274
 General Changes
 _______________
 * Fix broadcast join memory leak caused by exceeding local memory query failure.
-* Add :func:`laplace_cdf` and :func:`inverse_laplace_cdf` functions.
+* Add :func:`!laplace_cdf` and :func:`!inverse_laplace_cdf` functions.
 * Reduce the memory footprint and improves the performance of segmented aggregation when the data is already ordered by a subset of the group-by keys. This can be enabled with the ``segmented_aggregation_enabled`` session property or the ``optimizer.segmented-aggregation-enabled`` configuration property.
 * Add memory limit check for join spilling and fail fast if exceeding to avoid unnecessary processing.
 * Add rate limiting functionality for each query on coordinator http endpoints.

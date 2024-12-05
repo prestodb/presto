@@ -56,6 +56,12 @@ public final class FunctionResolution
         implements StandardFunctionResolution
 {
     private final FunctionAndTypeResolver functionAndTypeResolver;
+    private final List<QualifiedObjectName> windowValueFunctions = ImmutableList.of(
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "lead"),
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "lag"),
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "first_value"),
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "last_value"),
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "nth_value"));
 
     public FunctionResolution(FunctionAndTypeResolver functionAndTypeResolver)
     {
@@ -359,5 +365,16 @@ public final class FunctionResolution
     public boolean isElementAtFunction(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "element_at"));
+    }
+
+    public boolean isWindowValueFunction(FunctionHandle functionHandle)
+    {
+        return windowValueFunctions.contains(functionAndTypeResolver.getFunctionMetadata(functionHandle).getName());
+    }
+
+    @Override
+    public FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes)
+    {
+        return functionAndTypeResolver.lookupFunction(functionName, fromTypes(inputTypes));
     }
 }

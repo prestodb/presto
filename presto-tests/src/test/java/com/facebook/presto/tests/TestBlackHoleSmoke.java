@@ -89,7 +89,7 @@ public class TestBlackHoleSmoke
             fail("Expected exception to be thrown here!");
         }
         catch (RuntimeException ex) { // it has to RuntimeException as FailureInfo$FailureException is private
-            assertTrue(ex.getMessage().equals("line 1:1: Destination table 'blackhole.default.nation' already exists"));
+            assertEquals(ex.getMessage(), "line 1:1: Destination table 'blackhole.default.nation' already exists");
         }
         finally {
             assertThatQueryReturnsValue("DROP TABLE nation", true);
@@ -102,8 +102,8 @@ public class TestBlackHoleSmoke
         assertThatQueryReturnsValue("CREATE TABLE nation as SELECT * FROM tpch.tiny.nation", 25L);
 
         List<QualifiedObjectName> tableNames = listBlackHoleTables();
-        assertTrue(tableNames.size() == 1, "Expected only one table.");
-        assertTrue(tableNames.get(0).getObjectName().equals("nation"), "Expected 'nation' table.");
+        assertEquals(tableNames.size(), 1, "Expected only one table.");
+        assertEquals(tableNames.get(0).getObjectName(), "nation", "Expected 'nation' table.");
 
         assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
 
@@ -156,7 +156,7 @@ public class TestBlackHoleSmoke
             fail("Expected exception to be thrown here!");
         }
         catch (RuntimeException ex) {
-            assertTrue(ex.getMessage().equals("Schema schema1 not found"));
+            assertEquals(ex.getMessage(), "Schema schema1 not found");
         }
 
         int tablesAfterCreate = listBlackHoleTables().size();
@@ -344,7 +344,7 @@ public class TestBlackHoleSmoke
 
     private void assertThatNoBlackHoleTableIsCreated()
     {
-        assertTrue(listBlackHoleTables().size() == 0, "No blackhole tables expected");
+        assertTrue(listBlackHoleTables().isEmpty(), "No blackhole tables expected");
     }
 
     private List<QualifiedObjectName> listBlackHoleTables()
@@ -362,9 +362,9 @@ public class TestBlackHoleSmoke
         MaterializedResult rows = session == null ? queryRunner.execute(sql) : queryRunner.execute(session, sql);
         MaterializedRow materializedRow = Iterables.getOnlyElement(rows);
         int fieldCount = materializedRow.getFieldCount();
-        assertTrue(fieldCount == 1, format("Expected only one column, but got '%d'", fieldCount));
+        assertEquals(fieldCount, 1, format("Expected only one column, but got '%d'", fieldCount));
         Object value = materializedRow.getField(0);
         assertEquals(value, expected);
-        assertTrue(Iterables.getOnlyElement(rows).getFieldCount() == 1);
+        assertEquals(Iterables.getOnlyElement(rows).getFieldCount(), 1);
     }
 }

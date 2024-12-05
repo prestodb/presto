@@ -139,6 +139,13 @@ public final class TimeOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.BIGINT)
+    public static long castToBigint(@SqlType(StandardTypes.TIME) long value)
+    {
+        return value;
+    }
+
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long castToTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIME) long value)
     {

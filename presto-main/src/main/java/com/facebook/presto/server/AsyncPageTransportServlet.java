@@ -203,9 +203,11 @@ public class AsyncPageTransportServlet
                 () -> BufferResult.emptyResults(
                         taskManager.getTaskInstanceId(taskId),
                         token,
-                        taskManager.getTaskBufferInfo(taskId, bufferId)
+                        taskManager.getOutputBufferInfo(taskId).getBuffers().stream()
+                                .filter(bufferInfo -> bufferInfo.getBufferId().equals(bufferId))
                                 .map(BufferInfo::getPageBufferInfo)
                                 .map(PageBufferInfo::getBufferedBytes)
+                                .findFirst()
                                 .orElse(0L),
                         false),
                 waitTime,

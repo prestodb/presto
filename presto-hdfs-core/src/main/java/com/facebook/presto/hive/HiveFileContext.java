@@ -48,7 +48,7 @@ public class HiveFileContext
     private final long modificationTime;
     private final boolean verboseRuntimeStatsEnabled;
 
-    private final RuntimeStats stats = new RuntimeStats();
+    private final RuntimeStats stats;
 
     public HiveFileContext(
             boolean cacheable,
@@ -60,6 +60,20 @@ public class HiveFileContext
             long modificationTime,
             boolean verboseRuntimeStatsEnabled)
     {
+        this(cacheable, cacheQuota, extraFileInfo, fileSize, startOffset, length, modificationTime, verboseRuntimeStatsEnabled, new RuntimeStats());
+    }
+
+    public HiveFileContext(
+            boolean cacheable,
+            CacheQuota cacheQuota,
+            Optional<ExtraHiveFileInfo<?>> extraFileInfo,
+            OptionalLong fileSize,
+            OptionalLong startOffset,
+            OptionalLong length,
+            long modificationTime,
+            boolean verboseRuntimeStatsEnabled,
+            RuntimeStats runtimeStats)
+    {
         this.cacheable = cacheable;
         this.cacheQuota = requireNonNull(cacheQuota, "cacheQuota is null");
         this.extraFileInfo = requireNonNull(extraFileInfo, "extraFileInfo is null");
@@ -68,6 +82,7 @@ public class HiveFileContext
         this.length = requireNonNull(length, "length is null");
         this.modificationTime = modificationTime;
         this.verboseRuntimeStatsEnabled = verboseRuntimeStatsEnabled;
+        this.stats = requireNonNull(runtimeStats, "runtimeStats is null");
     }
 
     /**

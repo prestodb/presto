@@ -43,7 +43,7 @@ inline std::string createShuffleFileName(
 // reading (acts as a sync point between readers if needed). Mostly used for
 // test purposes.
 const static std::string kReadyForReadFilename = "readyForRead";
-}; // namespace
+} // namespace
 
 LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
     const std::string& rootPath,

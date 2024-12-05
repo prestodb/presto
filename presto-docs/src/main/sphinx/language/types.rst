@@ -65,11 +65,21 @@ Floating-Point
 A real is a 32-bit inexact, variable-precision implementing the
 IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
+Presto strays from the IEEE standard when handling NaNs.
+In Presto, NaN is considered larger than any other value for
+all comparison and sorting operations. Additionally, NaN=NaN will
+be true for all equality and distinctness purposes.
+
 ``DOUBLE``
 ^^^^^^^^^^
 
 A double is a 64-bit inexact, variable-precision implementing the
 IEEE Standard 754 for Binary Floating-Point Arithmetic.
+
+Presto strays from the IEEE standard when handling NaNs.
+In Presto, NaN is considered larger than any other value for
+all comparison and sorting operations. Additionally, NaN=NaN will
+be true for all equality and distinctness purposes.
 
 Fixed-Precision
 ---------------
@@ -239,7 +249,7 @@ Example: ``MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])``
 ^^^^^^^
 
 A structure made up of named fields. The fields may be of any SQL type, and are
-accessed with field reference operator ``.``
+accessed with the field reference operator ``.``
 
 Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``
 
@@ -300,14 +310,14 @@ HyperLogLog
 -----------
 
 Calculating the approximate distinct count can be done much more cheaply than an exact count using the
-`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
+`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`__ data sketch. See :doc:`/functions/hyperloglog`.
 
 .. _hyperloglog_type:
 
 ``HyperLogLog``
 ^^^^^^^^^^^^^^^
 
-A HyperLogLog sketch allows efficient computation of :func:`approx_distinct`. It starts as a
+A HyperLogLog sketch allows efficient computation of :func:`!approx_distinct`. It starts as a
 sparse representation, switching to a dense representation when it becomes more efficient.
 
 .. _p4hyperloglog_type:
@@ -363,7 +373,7 @@ SFM Sketch
 ^^^^^^^^^^^^^
 
 The Sketch-Flip-Merge (SFM) data sketch is a noisy, random distinct-counting
-sketch similar to :ref:`hyperloglog_type`. See :func:`noisy_approx_set_sfm`.
+sketch similar to :ref:`hyperloglog_type`. See :func:`!noisy_approx_set_sfm`.
 
 Quantile Digest
 ---------------
@@ -420,3 +430,21 @@ supports int, bigint, double, varchar, and boolean types. See
 ``kllsketch`` type stored by Presto can be read directly by any other
 application which utilizes the Apache DataSketches library to read KLL
 sketches.
+
+Geospatial
+----------
+
+.. _geospatial_type:
+
+``Geospatial``
+^^^^^^^^^^^^^^
+
+Geospatial types in Presto are designed to handle and analyze spatial data efficiently,
+adhering to the SQL/MM specification and the Open Geospatial Consortium standards.
+These types include ``POINT``, ``LINESTRING``, ``POLYGON``, ``MULTIPOINT``, ``MULTILINESTRING``, ``MULTIPOLYGON``,
+and ``GEOMETRYCOLLECTION``, which can be expressed in Well-Known Text (WKT) and Well-Known Binary (WKB) formats.
+The types support operations such as spatial measurements and relationship checks,
+crucial for geographic information systems (GIS) and other applications requiring spatial data manipulation.
+The geospatial types ensure data integrity and provide robust tools for complex spatial querying and analysis.
+
+See :doc:`/functions/geospatial`.

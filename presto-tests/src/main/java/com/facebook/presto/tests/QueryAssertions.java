@@ -386,6 +386,24 @@ public final class QueryAssertions
                 false);
     }
 
+    public static void copyTpchTables(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
+            Session session,
+            Iterable<TpchTable<?>> tables,
+            boolean ifNotExists)
+    {
+        copyTables(
+                queryRunner,
+                sourceCatalog,
+                sourceSchema,
+                session,
+                Iterables.transform(tables, table -> table.getTableName()),
+                ifNotExists,
+                false);
+    }
+
     public static void copyTables(
             QueryRunner queryRunner,
             String sourceCatalog,

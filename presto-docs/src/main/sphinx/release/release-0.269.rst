@@ -7,7 +7,7 @@ Release 0.269
 
 General Changes
 _______________
-* Add :func:`uuid` to return a unique identifier.
+* Add :func:`!uuid` to return a unique identifier.
 
 Presto on Spark Changes
 _______________________
@@ -15,7 +15,7 @@ _______________________
 
 Accumulo Connector Changes
 __________________________
-* Replace :func:`uuid` from being connector specific to a standard function. In the process the return type has been changed from ``VARCHAR`` to ``UUID`` and existing use cases might need to perform a cast - ``CAST(UUID() AS VARCHAR)``.
+* Replace :func:`!uuid` from being connector specific to a standard function. In the process the return type has been changed from ``VARCHAR`` to ``UUID`` and existing use cases might need to perform a cast - ``CAST(UUID() AS VARCHAR)``.
 
 Delta Lake Connector Changes
 _____________________________

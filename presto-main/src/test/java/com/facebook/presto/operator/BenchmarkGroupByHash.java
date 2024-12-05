@@ -20,7 +20,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.VarcharOperators;
@@ -79,13 +78,14 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object groupByHashPreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(data.isGroupByUsesEqual()), NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(), NOOP);
         for (Page page : data.getPages()) {
             Work<?> work = groupByHash.addPage(page);
             boolean finished;
             do {
                 finished = work.process();
-            } while (!finished);
+            }
+            while (!finished);
         }
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -122,13 +122,14 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object addPagePreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(data.isGroupByUsesEqual()), NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(), NOOP);
         for (Page page : data.getPages()) {
             Work<?> work = groupByHash.addPage(page);
             boolean finished;
             do {
                 finished = work.process();
-            } while (!finished);
+            }
+            while (!finished);
         }
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -155,7 +156,8 @@ public class BenchmarkGroupByHash
             boolean finished;
             do {
                 finished = work.process();
-            } while (!finished);
+            }
+            while (!finished);
         }
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -370,9 +372,6 @@ public class BenchmarkGroupByHash
         @Param({"true", "false"})
         private boolean hashEnabled;
 
-        @Param({"equalTo", "notDistinct"})
-        private String groupByType = "notDistinct";
-
         @Param({"VARCHAR", "BIGINT"})
         private String dataType = "VARCHAR";
 
@@ -422,24 +421,11 @@ public class BenchmarkGroupByHash
         {
             return channels;
         }
-
-        public boolean isGroupByUsesEqual()
-        {
-            if (groupByType.equals("equalTo")) {
-                return true;
-            }
-            else if (groupByType.equals("notDistinct")) {
-                return false;
-            }
-            else {
-                throw new UnsupportedOperationException("Unsupported groupByType");
-            }
-        }
     }
 
-    private static JoinCompiler getJoinCompiler(boolean groupByUsesEqual)
+    private static JoinCompiler getJoinCompiler()
     {
-        return new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig().setGroupByUsesEqualTo(groupByUsesEqual));
+        return new JoinCompiler(MetadataManager.createTestMetadataManager());
     }
 
     public static void main(String[] args)

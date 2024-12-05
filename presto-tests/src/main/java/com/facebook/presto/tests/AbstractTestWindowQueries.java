@@ -254,7 +254,6 @@ public abstract class AbstractTestWindowQueries
         assertQuery("SELECT *, 1.0 * sum(x) OVER () FROM (VALUES 1) t(x)", "SELECT 1, 1.0");
     }
 
-    @SuppressWarnings("PointlessArithmeticExpression")
     @Test
     public void testWindowFunctionsExpressions()
     {

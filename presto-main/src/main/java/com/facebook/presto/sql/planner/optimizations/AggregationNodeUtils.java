@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class AggregationNodeUtils
@@ -55,17 +56,17 @@ public class AggregationNodeUtils
                 Optional.empty());
     }
 
-    public static Set<VariableReferenceExpression> extractAggregationUniqueVariables(AggregationNode.Aggregation aggregation, TypeProvider types)
+    public static Set<VariableReferenceExpression> extractAggregationUniqueVariables(AggregationNode.Aggregation aggregation)
     {
         // types will be no longer needed once everything is RowExpression.
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
-        aggregation.getArguments().forEach(argument -> builder.addAll(extractAll(argument, types)));
-        aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAll(filter, types)));
+        aggregation.getArguments().forEach(argument -> builder.addAll(extractAll(argument)));
+        aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAll(filter)));
         aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderByVariables()));
         return builder.build();
     }
 
-    private static List<VariableReferenceExpression> extractAll(RowExpression expression, TypeProvider types)
+    private static List<VariableReferenceExpression> extractAll(RowExpression expression)
     {
         return VariablesExtractor.extractAll(expression)
                 .stream()
@@ -77,7 +78,7 @@ public class AggregationNodeUtils
         List<VariableReferenceExpression> groupbyKeys = aggregationNode.getGroupingSets().getGroupingKeys().stream().collect(Collectors.toList());
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         PlanNodeStatsEstimate estimate = statsProvider.getStats(scanNode);
-        if (!estimate.isConfident()) {
+        if (estimate.confidenceLevel() == LOW) {
             // For safety, we assume they are low card if not confident
             // TODO(kaikalur) : maybe return low card only for partition keys if/when we can detect that
             return true;

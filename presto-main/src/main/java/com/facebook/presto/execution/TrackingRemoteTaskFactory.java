@@ -49,7 +49,8 @@ public class TrackingRemoteTaskFactory
             OutputBuffers outputBuffers,
             NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            SchedulerStatsTracker schedulerStatsTracker)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
@@ -59,7 +60,8 @@ public class TrackingRemoteTaskFactory
                 outputBuffers,
                 nodeStatsTracker,
                 summarizeTaskInfo,
-                tableWriteInfo);
+                tableWriteInfo,
+                schedulerStatsTracker);
 
         task.addStateChangeListener(new UpdateQueryStats(stateMachine));
         return task;

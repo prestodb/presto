@@ -44,7 +44,7 @@ import java.util.Map;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
-import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -124,7 +124,7 @@ public class TestHiveTypeWidening
                 new Iterable[] {Collections.singletonList(getExpectedValueForType(baseType))},
                 1,
                 GZIP,
-                PARQUET_2_0);
+                PARQUET_1_0);
         logger.info("First file written");
         File secondParquetFile = new File(temporaryDirectory, randomUUID().toString());
         ParquetTester.writeParquetFileFromPresto(secondParquetFile,
@@ -133,7 +133,7 @@ public class TestHiveTypeWidening
                 new Iterable[] {Collections.singletonList(getExpectedValueForType(widenedType))},
                 1,
                 GZIP,
-                PARQUET_2_0);
+                PARQUET_1_0);
         logger.info("Second file written");
         return temporaryDirectory;
     }

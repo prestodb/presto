@@ -133,10 +133,10 @@ public class TestPrestoSparkQueryRunner
     {
         assertUpdate(
                 getSession(),
-                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_zero_file WITH (bucketed_by=array['orderkey'], bucket_count=8) AS " +
+                "CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_zero_file WITH (bucketed_by=array['orderkey'], bucket_count=8) AS " +
                         "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                         "FROM orders_bucketed " +
-                        "WHERE orderkey = 1"),
+                        "WHERE orderkey = 1",
                 1);
     }
 

@@ -14,7 +14,7 @@ General Changes
   This optimization is turned off by default. It can be configured via the
   ``optimizer.dictionary-aggregation`` config property or the
   ``dictionary_aggregation`` session property.
-* Fix race which could cause queries to fail when using :func:`concat` on
+* Fix race which could cause queries to fail when using :func:`!concat` on
   :ref:`array_type`, or when enabling ``columnar_processing_dictionary``.
 * Add sticky headers and the ability to sort the tasks table on the query page
   in the web interface.

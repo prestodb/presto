@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.288-SNAPSHOT</version>
+        <version>0.291-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-pinot-toolkit</artifactId>
@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <grpc.version>1.41.0</grpc.version>
+        <grpc.version>1.68.0</grpc.version>
     </properties>
 
     <dependencies>
@@ -314,12 +314,15 @@
                     <groupId>com.fasterxml.jackson.dataformat</groupId>
                     <artifactId>jackson-dataformat-yaml</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.webjars</groupId>
+                    <artifactId>swagger-ui</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.21.7</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>
@@ -384,7 +387,7 @@
         <dependency>
             <groupId>io.perfmark</groupId>
             <artifactId>perfmark-api</artifactId>
-            <version>0.23.0</version>
+            <version>0.27.0</version>
         </dependency>
 
         <dependency>

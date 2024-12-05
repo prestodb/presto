@@ -43,6 +43,7 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
@@ -62,6 +63,7 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -70,8 +72,8 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.annotations.VisibleForTesting;
@@ -118,6 +120,7 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.MetadataUtil.getOptionalCatalogMetadata;
 import static com.facebook.presto.metadata.MetadataUtil.getOptionalTableHandle;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
@@ -210,26 +213,36 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager(FeaturesConfig featuresConfig)
     {
-        return createTestMetadataManager(new CatalogManager(), featuresConfig);
+        return createTestMetadataManager(new CatalogManager(), featuresConfig, new FunctionsConfig());
+    }
+
+    public static MetadataManager createTestMetadataManager(FunctionsConfig functionsConfig)
+    {
+        return createTestMetadataManager(new CatalogManager(), new FeaturesConfig(), functionsConfig);
     }
 
     public static MetadataManager createTestMetadataManager(CatalogManager catalogManager)
     {
-        return createTestMetadataManager(catalogManager, new FeaturesConfig());
+        return createTestMetadataManager(catalogManager, new FeaturesConfig(), new FunctionsConfig());
     }
 
-    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig)
+    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
     {
-        return createTestMetadataManager(createTestTransactionManager(catalogManager), featuresConfig);
+        return createTestMetadataManager(createTestTransactionManager(catalogManager), featuresConfig, functionsConfig);
     }
 
-    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
+    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager)
+    {
+        return createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig());
+    }
+
+    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
-                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
-                new SessionPropertyManager(),
+                createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
@@ -451,18 +464,6 @@ public class MetadataManager
     }
 
     @Override
-    public PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
-    {
-        CatalogMetadata catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalogName)
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Catalog '%s' does not exist", catalogName)));
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        ConnectorPartitioningHandle connectorPartitioningHandle = metadata.getPartitioningHandleForCteMaterialization(session.toConnectorSession(connectorId), partitionCount, partitionTypes);
-        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
-        return new PartitioningHandle(Optional.of(connectorId), Optional.of(transaction), connectorPartitioningHandle);
-    }
-
-    @Override
     public Optional<Object> getInfo(Session session, TableHandle handle)
     {
         ConnectorId connectorId = handle.getConnectorId();
@@ -674,6 +675,14 @@ public class MetadataManager
     }
 
     @Override
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.setTableProperties(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), properties);
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
@@ -725,17 +734,6 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForInsert(Session session, TableHandle table)
-    {
-        ConnectorId connectorId = table.getConnectorId();
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
-        return metadata.getPreferredShuffleLayoutForInsert(session.toConnectorSession(connectorId), table.getConnectorHandle())
-                .map(layout -> new NewTableLayout(connectorId, catalogMetadata.getTransactionHandleFor(connectorId), layout));
-    }
-
-    @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
@@ -783,19 +781,6 @@ public class MetadataManager
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
         return metadata.getNewTableLayout(connectorSession, tableMetadata)
-                .map(layout -> new NewTableLayout(connectorId, transactionHandle, layout));
-    }
-
-    @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForNewTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
-    {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
-        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-        return metadata.getPreferredShuffleLayoutForNewTable(connectorSession, tableMetadata)
                 .map(layout -> new NewTableLayout(connectorId, transactionHandle, layout));
     }
 

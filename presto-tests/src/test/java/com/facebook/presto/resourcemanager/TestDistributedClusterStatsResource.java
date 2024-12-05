@@ -75,6 +75,7 @@ public class TestDistributedClusterStatsResource
                         "resource-manager.query-expiration-timeout", "4m",
                         "resource-manager.completed-query-expiration-timeout", "4m"),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of(
                         "query.client.timeout", "20s",
                         "resource-manager.query-heartbeat-interval", "100ms",

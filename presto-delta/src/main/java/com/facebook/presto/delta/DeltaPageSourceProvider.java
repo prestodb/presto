@@ -139,7 +139,8 @@ public class DeltaPageSourceProvider
             ConnectorSplit split,
             ConnectorTableLayoutHandle layout,
             List<ColumnHandle> columns,
-            SplitContext splitContext)
+            SplitContext splitContext,
+            RuntimeStats runtimeStats)
     {
         DeltaSplit deltaSplit = (DeltaSplit) split;
         DeltaTableLayoutHandle deltaTableLayoutHandle = (DeltaTableLayoutHandle) layout;

@@ -105,10 +105,12 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitAggregation(AggregationNode node, Void context)
         {
-            if (node.hasEmptyGroupingSet()) {
-                return Range.singleton(1L);
+            if (!node.hasNonEmptyGroupingSet()) {
+                // if there are no non-empty grouping sets, then the number of rows returned will be the number of
+                // non-empty (i.e. global) grouping sets.
+                return Range.singleton((long) node.getGlobalGroupingSets().size());
             }
-            return Range.atLeast(0L);
+            return Range.atLeast((long) node.getGlobalGroupingSets().size());
         }
 
         @Override

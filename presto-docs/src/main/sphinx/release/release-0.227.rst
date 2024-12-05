@@ -16,12 +16,12 @@ _______________
 * Improve performance of repartitioning data between stages.  The optimization can be
   enabled by the ``optimized_repartitioning`` session property or the
   ``experimental.optimized-repartitioning`` configuration property.
-* Add spatial join (broadcast and partitioned) support for :func:`ST_Equals`,
-  :func:`ST_Overlaps`, :func:`ST_Crosses`, and :func:`ST_Touches`.
+* Add spatial join (broadcast and partitioned) support for :func:`!ST_Equals`,
+  :func:`!ST_Overlaps`, :func:`!ST_Crosses`, and :func:`!ST_Touches`.
 * Add ``task_partitioned_writer_count`` session property to allow setting the number
   of concurrent writers for partitioned (bucketed) writes.
-* Add ``IPPREFIX`` type and :func:`ip_prefix` function.
-* Add :func:`differential_entropy` functions to compute differential entropy.
+* Add ``IPPREFIX`` type and :func:`!ip_prefix` function.
+* Add :func:`!differential_entropy` functions to compute differential entropy.
 * Remove syntax support for ``SET PATH`` and ``CURRENT_PATH``. The path information was
   never used by Presto.
 

@@ -66,6 +66,8 @@ statement
         ALTER (COLUMN)? column=identifier SET NOT NULL                 #alterColumnSetNotNull
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER (COLUMN)? column=identifier DROP NOT NULL                #alterColumnDropNotNull
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        SET PROPERTIES properties                                      #setTableProperties
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
@@ -236,7 +238,7 @@ queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
-      ((LIMIT limit=(INTEGER_VALUE | ALL) | (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY))?)?
+      ((LIMIT limit=(INTEGER_VALUE | ALL) | (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY)))?
     ;
 
 queryTerm

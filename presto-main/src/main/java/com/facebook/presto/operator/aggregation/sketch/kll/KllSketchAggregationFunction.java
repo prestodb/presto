@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation.sketch.kll;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
@@ -31,36 +32,37 @@ public class KllSketchAggregationFunction
      * here.
      */
     private static final int DEFAULT_K = 200;
+
     private KllSketchAggregationFunction()
     {
     }
 
     @InputFunction
     @TypeParameter("T")
-    public static void input(@AggregationState KllSketchAggregationState state, @SqlType("T") long value)
+    public static void input(@TypeParameter("T") Type type, @AggregationState KllSketchAggregationState state, @SqlType("T") long value)
     {
-        KllSketchWithKAggregationFunction.input(state, value, DEFAULT_K);
+        KllSketchWithKAggregationFunction.input(type, state, value, DEFAULT_K);
     }
 
     @InputFunction
     @TypeParameter("T")
-    public static void input(@AggregationState KllSketchAggregationState state, @SqlType("T") double value)
+    public static void input(@TypeParameter("T") Type type, @AggregationState KllSketchAggregationState state, @SqlType("T") double value)
     {
-        KllSketchWithKAggregationFunction.input(state, value, DEFAULT_K);
+        KllSketchWithKAggregationFunction.input(type, state, value, DEFAULT_K);
     }
 
     @InputFunction
     @TypeParameter("T")
-    public static void input(@AggregationState KllSketchAggregationState state, @SqlType("T") Slice value)
+    public static void input(@TypeParameter("T") Type type, @AggregationState KllSketchAggregationState state, @SqlType("T") Slice value)
     {
-        KllSketchWithKAggregationFunction.input(state, value, DEFAULT_K);
+        KllSketchWithKAggregationFunction.input(type, state, value, DEFAULT_K);
     }
 
     @InputFunction
     @TypeParameter("T")
-    public static void input(@AggregationState KllSketchAggregationState state, @SqlType("T") boolean value)
+    public static void input(@TypeParameter("T") Type type, @AggregationState KllSketchAggregationState state, @SqlType("T") boolean value)
     {
-        KllSketchWithKAggregationFunction.input(state, value, DEFAULT_K);
+        KllSketchWithKAggregationFunction.input(type, state, value, DEFAULT_K);
     }
 
     @CombineFunction

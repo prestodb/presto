@@ -32,8 +32,8 @@ Property Name                                Description
 ``hbo.redis-provider.cluster-mode-enabled``  Boolean property whether cluster mode is enabled
 ============================================ =====================================================================
 
-Coordinator Configuration for Historical Based Optimization:
-------------------------
+Coordinator Configuration for Historical Based Optimization
+-----------------------------------------------------------
 
 These properties must be configured on the Presto coordinator in ``etc/config.properties`` for tracking and using historical statistics in planning:
 
@@ -54,8 +54,8 @@ Credentials
 The plugin requires the Redis Server URI property ``hbo.redis-provider.server_uri`` to access Redis.
 Based on your custom Redis deployment, you may need to add additional credentials.
 
-Local Test setup
-------------------------
+Local Test Setup
+----------------
 
 1. Set up a local Redis cluster following the Redis documentation to `Create a Redis Cluster <https://redis.io/docs/management/scaling/#create-a-redis-cluster>`_.
 
@@ -74,7 +74,7 @@ Local Test setup
        hbo.redis-provider.server_uri=redis://localhost:7001/
 
 Production Setup
-------------------------
+----------------
 
 You can place the plugin JARs in the production's ``plugins`` directory.
 

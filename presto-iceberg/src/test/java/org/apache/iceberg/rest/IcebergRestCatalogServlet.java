@@ -14,6 +14,9 @@
 package org.apache.iceberg.rest;
 
 import com.facebook.airlift.log.Logger;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.iceberg.exceptions.RESTException;
@@ -94,6 +97,14 @@ public class IcebergRestCatalogServlet
         response.setStatus(HttpServletResponse.SC_OK);
         responseHeaders.forEach(response::setHeader);
 
+        String token = context.headers.get("Authorization");
+        if (token != null && isRestUserSessionToken(token) && !isAuthorizedRestUserSessionToken(token)) {
+            context.errorResponse = ErrorResponse.builder()
+                    .responseCode(HttpServletResponse.SC_FORBIDDEN)
+                    .withMessage("User not authorized")
+                    .build();
+        }
+
         if (context.error().isPresent()) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             RESTObjectMapper.mapper().writeValue(response.getWriter(), context.error().get());
@@ -143,6 +154,33 @@ public class IcebergRestCatalogServlet
                 throw new UncheckedIOException(e);
             }
         };
+    }
+
+    protected Claims getTokenClaims(String token)
+    {
+        token = token.replaceAll("Bearer token-exchange-token:sub=", "");
+        return Jwts.parserBuilder().build().parseClaimsJwt(token).getBody();
+    }
+
+    protected boolean isRestUserSessionToken(String token)
+    {
+        try {
+            getTokenClaims(token);
+        }
+        catch (MalformedJwtException mje) {
+            // Not a json web token
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean isAuthorizedRestUserSessionToken(String jwt)
+    {
+        Claims jwtClaims = getTokenClaims(jwt);
+        return jwtClaims.getSubject().equals("user") &&
+                jwtClaims.getIssuer().equals("testversion") &&
+                jwtClaims.get("user").equals("user") &&
+                jwtClaims.get("source").equals("test");
     }
 
     public static class ServletRequestContext

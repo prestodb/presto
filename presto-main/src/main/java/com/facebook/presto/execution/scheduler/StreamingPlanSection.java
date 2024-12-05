@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ImmutableList;
 

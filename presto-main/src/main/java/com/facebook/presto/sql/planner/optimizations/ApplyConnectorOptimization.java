@@ -14,33 +14,35 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.expressions.LogicalRowExpressions;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
-import com.facebook.presto.spi.plan.ConnectorJoinNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +57,9 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 
+import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.getOptimizerNameForLog;
+import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.trackOptimizerRuntime;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -78,7 +83,12 @@ public class ApplyConnectorOptimization
             MarkDistinctNode.class,
             UnionNode.class,
             IntersectNode.class,
-            ExceptNode.class);
+            ExceptNode.class,
+            SemiJoinNode.class,
+            JoinNode.class,
+            TableWriterNode.class,
+            TableFinishNode.class,
+            DeleteNode.class);
 
     // for a leaf node that does not belong to any connector (e.g., ValuesNode)
     private static final ConnectorId EMPTY_CONNECTOR_ID = new ConnectorId("$internal$" + ApplyConnectorOptimization.class + "_CONNECTOR");
@@ -99,6 +109,7 @@ public class ApplyConnectorOptimization
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
+        boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers = connectorOptimizersSupplier.get();
         if (connectorOptimizers.isEmpty()) {
             return PlanOptimizerResult.optimizerResult(plan, false);
@@ -143,7 +154,11 @@ public class ApplyConnectorOptimization
 
                 // the returned node is still a max closure (only if there is no new connector added, which does happen but ignored here)
                 for (ConnectorPlanOptimizer optimizer : optimizers) {
+                    long start = System.nanoTime();
                     newNode = optimizer.optimize(newNode, session.toConnectorSession(connectorId), variableAllocator, idAllocator);
+                    if (enableVerboseRuntimeStats || trackOptimizerRuntime(session, optimizer)) {
+                        session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", getOptimizerNameForLog(optimizer)), NANO, System.nanoTime() - start);
+                    }
                 }
 
                 if (node != newNode) {
@@ -152,8 +167,6 @@ public class ApplyConnectorOptimization
                             containsAll(ImmutableSet.copyOf(newNode.getOutputVariables()), node.getOutputVariables()),
                             "the connector optimizer from %s returns a node that does not cover all output before optimization",
                             connectorId);
-
-                    newNode = SimplePlanRewriter.rewriteWith(new ConnectorToInternalJoinRewriter(), newNode);
 
                     updates.put(node, newNode);
                 }
@@ -300,27 +313,5 @@ public class ApplyConnectorOptimization
             }
         }
         return true;
-    }
-
-    private static class ConnectorToInternalJoinRewriter
-            extends SimplePlanRewriter<Void>
-    {
-        @Override
-        public PlanNode visitConnectorJoinNode(ConnectorJoinNode node, RewriteContext<Void> context)
-        {
-            return new JoinNode(node.getSourceLocation(),
-                    node.getId(),
-                    node.getStatsEquivalentPlanNode(),
-                    node.getType(),
-                    context.rewrite(node.getSources().get(0)),
-                    context.rewrite(node.getSources().get(1)),
-                    ImmutableList.copyOf(node.getCriteria()),
-                    node.getOutputVariables(),
-                    node.getFilters().isEmpty() ? Optional.empty() : Optional.of(LogicalRowExpressions.and(node.getFilters())),
-                    Optional.empty(),
-                    Optional.empty(),
-                    node.getDistributionType(),
-                    ImmutableMap.of());
-        }
     }
 }

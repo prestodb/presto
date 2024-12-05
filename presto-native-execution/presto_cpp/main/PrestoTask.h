@@ -16,7 +16,7 @@
 #include <memory>
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox {
@@ -98,13 +98,15 @@ struct PrestoTask {
   /// Time point (in ms) when the last message (any) came for this task.
   // TODO (spershin): Deprecate it, use only the 'lastCoordinatorHeartbeatMs'.
   uint64_t lastHeartbeatMs{0};
+
   /// Time point (in ms) when the last message came for this task from the
   /// Coordinator. Used to determine if the Task has been abandoned.
   uint64_t lastCoordinatorHeartbeatMs{0};
-  /// Time point (in ms) when the time we updated Task stats.
-  uint64_t lastTaskStatsUpdateMs = {0};
 
-  uint64_t lastMemoryReservation = {0};
+  /// Time point (in ms) when the time we updated Task stats.
+  uint64_t lastTaskStatsUpdateMs{0};
+
+  uint64_t lastMemoryReservation{0};
   uint64_t createTimeMs{0};
   uint64_t firstSplitStartTimeMs{0};
   uint64_t lastEndTimeMs{0};

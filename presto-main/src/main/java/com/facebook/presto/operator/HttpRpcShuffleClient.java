@@ -165,9 +165,8 @@ public final class HttpRpcShuffleClient
                     }
                     throw new PageTransportErrorException(
                             HostAddress.fromUri(request.getUri()),
-                            format("Expected response code to be 200, but was %s %s:%n%s",
+                            format("Expected response code to be 200, but was %s:%n%s",
                                     response.getStatusCode(),
-                                    response.getStatusMessage(),
                                     body.toString()));
                 }
 

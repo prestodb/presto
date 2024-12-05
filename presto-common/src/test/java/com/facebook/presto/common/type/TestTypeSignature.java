@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.ParameterKind.LONG;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -313,6 +314,17 @@ public class TestTypeSignature
         assertFalse(parseTypeSignature("map(decimal(2, 1),decimal(3, 1))").isCalculated());
         assertTrue(parseTypeSignature("row(a decimal(p1,s1),b decimal(p2,s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
         assertFalse(parseTypeSignature("row(a decimal(2,1),b decimal(3,2))").isCalculated());
+    }
+
+    @Test
+    public void testParseTypeSignatureWithNumericParameters()
+    {
+        TypeSignature typeSignature = parseTypeSignature("DECIMAL(1, 0)");
+        assertEquals(typeSignature.getParameters().size(), 2);
+        assertEquals(typeSignature.getParameters().get(0).getLongLiteral(), 1L);
+        assertEquals(typeSignature.getParameters().get(0).getKind(), LONG);
+        assertEquals(typeSignature.getParameters().get(1).getLongLiteral(), 0L);
+        assertEquals(typeSignature.getParameters().get(1).getKind(), LONG);
     }
 
     @Test

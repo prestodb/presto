@@ -1,4 +1,3 @@
-version: '2'
 services:
   kudu1:
     hostname: kudu1

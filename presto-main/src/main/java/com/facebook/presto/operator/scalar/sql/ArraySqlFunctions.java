@@ -24,24 +24,6 @@ public class ArraySqlFunctions
 {
     private ArraySqlFunctions() {}
 
-    @SqlInvokedScalarFunction(value = "array_sum", deterministic = true, calledOnNullInput = false)
-    @Description("Returns the sum of all array elements, or 0 if the array is empty. Ignores null elements.")
-    @SqlParameter(name = "input", type = "array<bigint>")
-    @SqlType("bigint")
-    public static String arraySumBigint()
-    {
-        return "RETURN reduce(input, BIGINT '0', (s, x) -> s + coalesce(x, BIGINT '0'), s -> s)";
-    }
-
-    @SqlInvokedScalarFunction(value = "array_sum", deterministic = true, calledOnNullInput = false)
-    @Description("Returns the sum of all array elements, or 0 if the array is empty. Ignores null elements.")
-    @SqlParameter(name = "input", type = "array<double>")
-    @SqlType("double")
-    public static String arraySumDouble()
-    {
-        return "RETURN reduce(input, DOUBLE '0', (s, x) -> s + coalesce(x, DOUBLE '0'), s -> s)";
-    }
-
     @SqlInvokedScalarFunction(value = "array_average", deterministic = true, calledOnNullInput = false)
     @Description("Returns the average of all array elements, or null if the array is empty. Ignores null elements.")
     @SqlParameter(name = "input", type = "array<double>")
@@ -53,6 +35,24 @@ public class ArraySqlFunctions
                 "(double '0.0', 0), " +
                 "(s, x) -> IF(x IS NOT NULL, (s[1] + x, s[2] + 1), s), " +
                 "s -> if(s[2] = 0, cast(null as double), s[1] / cast(s[2] as double)))";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_split_into_chunks", deterministic = true, calledOnNullInput = false)
+    @Description("Returns an array of arrays splitting input array into chunks of given length. " +
+            "If array is not evenly divisible it will split into as many possible chunks and " +
+            "return the left over elements for the last array. Returns null for null inputs, but not elements.")
+    @TypeParameter("T")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "sz", type = "int")})
+    @SqlType("array(array(T))")
+    public static String arraySplitIntoChunks()
+    {
+        return "RETURN IF(sz <= 0, " +
+                "fail('Invalid slice size: ' || cast(sz as varchar) || '. Size must be greater than zero.'), " +
+                "IF(cardinality(input) / sz > 10000, " +
+                "fail('Cannot split array of size: ' || cast(cardinality(input) as varchar) || ' into more than 10000 parts.'), " +
+                "transform(" +
+                "sequence(1, cardinality(input), sz), " +
+                "x -> slice(input, x, sz))))";
     }
 
     @SqlInvokedScalarFunction(value = "array_frequency", deterministic = true, calledOnNullInput = false)
@@ -69,7 +69,7 @@ public class ArraySqlFunctions
                 "m -> m)";
     }
 
-    @SqlInvokedScalarFunction(value = "array_duplicates", alias = {"array_dupes"}, deterministic = true, calledOnNullInput = false)
+    @SqlInvokedScalarFunction(value = "array_duplicates", deterministic = true, calledOnNullInput = false)
     @Description("Returns set of elements that have duplicates")
     @SqlParameter(name = "input", type = "array(T)")
     @TypeParameter("T")
@@ -81,7 +81,7 @@ public class ArraySqlFunctions
                 "map_keys(map_filter(array_frequency(input), (k, v) -> v > 1)))";
     }
 
-    @SqlInvokedScalarFunction(value = "array_has_duplicates", alias = {"array_has_dupes"}, deterministic = true, calledOnNullInput = false)
+    @SqlInvokedScalarFunction(value = "array_has_duplicates", deterministic = true, calledOnNullInput = false)
     @Description("Returns whether array has any duplicate element")
     @TypeParameter("T")
     @SqlParameter(name = "input", type = "array(T)")

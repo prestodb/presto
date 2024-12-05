@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.WARN_ON_COMMON_NAN_PATTERNS;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
@@ -40,6 +41,9 @@ import static org.testng.Assert.assertTrue;
 public class TestWarnings
 {
     private static final int STAGE_COUNT_WARNING_THRESHOLD = 20;
+    private static final Session ALL_WARININGS_SESSION = Session.builder(TEST_SESSION)
+            .setSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, "true")
+            .build();
     private QueryRunner queryRunner;
 
     @BeforeClass
@@ -199,6 +203,80 @@ public class TestWarnings
         assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
 
         query = "select CAST(MAP(ARRAY[7.2,5.2,3.3,1.1], ARRAY[8,6,4,2]) AS JSON)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+    }
+
+    /**
+     * The below tests check warnings for nan on DOUBLE/REAL types. Because we usually don't know whether any input values are nan or will produce nan,
+     * the warnings only check that the type of the input can be affected by nans.
+     */
+    @Test
+    public void testDoubleDivisionNanWarning()
+    {
+        String query = "SELECT x /y FROM (VALUES (DOUBLE '1.0', DOUBLE '2.0')) t(x, y)";
+        assertWarnings(queryRunner, ALL_WARININGS_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
+    }
+
+    @Test
+    public void testRealDivisionNanWarning()
+    {
+        String query = "SELECT x/y FROM (VALUES (REAL '1.0' , REAL '2.0')) t(x,y)";
+        assertWarnings(queryRunner, ALL_WARININGS_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
+    }
+
+    @Test
+    public void testConstantDivisionProducesNoWarnings()
+    {
+        String query = "SELECT DOUBLE '1.0' / DOUBLE '2.0'";
+        assertWarnings(queryRunner, ALL_WARININGS_SESSION, query, ImmutableSet.of());
+    }
+
+    @Test
+    public void testIntegerDivisionProducesNoWarnings()
+    {
+        String query = "SELECT 4 / 2";
+        assertWarnings(queryRunner, ALL_WARININGS_SESSION, query, ImmutableSet.of());
+    }
+
+    @Test
+    public void testNoWarningsForDivisionWhenDisabled()
+    {
+        String query = "SELECT DOUBLE '1.0' / DOUBLE '2.0'";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+    }
+
+    @Test
+    public void testOtherArithmeticOperationsProducesNoWarnings()
+    {
+        String query = "SELECT DOUBLE '1.0' * DOUBLE '2.0'";
+        assertWarnings(queryRunner, ALL_WARININGS_SESSION, query, ImmutableSet.of());
+    }
+
+    @Test
+    public void testDoubleComparisonNaNWarning()
+    {
+        String query = "SELECT DOUBLE '1.0' > DOUBLE '2.0'";
+        assertWarnings(queryRunner, ALL_WARININGS_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
+    }
+
+    @Test
+    public void testRealComparisonNaNWarning()
+    {
+        String query = "SELECT REAL '1.0' > REAL '2.0'";
+        assertWarnings(queryRunner, ALL_WARININGS_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
+    }
+
+    @Test
+    public void testIntegerComparisonProducesNoWarnings()
+    {
+        String query = "SELECT 1 > 2";
+        assertWarnings(queryRunner, ALL_WARININGS_SESSION, query, ImmutableSet.of());
+    }
+
+    @Test
+    public void testNoWarningsForComparisonWhenDisabled()
+    {
+        String query = "SELECT DOUBLE '1.0' > DOUBLE '2.0'";
         assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
     }
 

@@ -174,6 +174,14 @@ public class TestPrestoDatabaseMetaData
         }
     }
 
+    @Test
+    public void testGetUrl()
+            throws Exception
+    {
+        DatabaseMetaData metaData = connection.getMetaData();
+        assertEquals(metaData.getURL(), "jdbc:presto://" + server.getAddress());
+    }
+
     private static void assertColumnSpec(ResultSet rs, int dataType, Long precision, Long numPrecRadix, String typeName)
             throws SQLException
     {

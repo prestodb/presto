@@ -97,6 +97,12 @@ public class DataMatchResult
         return matchType == ROW_COUNT_MISMATCH || matchType == COLUMN_MISMATCH;
     }
 
+    @Override
+    public boolean isMismatchPossiblyCausedByReuseOutdatedTable()
+    {
+        return matchType == SCHEMA_MISMATCH || matchType == ROW_COUNT_MISMATCH || matchType == COLUMN_MISMATCH;
+    }
+
     public MatchType getMatchType()
     {
         return matchType;

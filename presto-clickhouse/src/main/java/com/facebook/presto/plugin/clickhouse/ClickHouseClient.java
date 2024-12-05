@@ -854,10 +854,10 @@ public class ClickHouseClient
         if (type == BIGINT) {
             return "Int64";
         }
-        if (type == REAL) {
+        if (type.equals(REAL)) {
             return "Float32";
         }
-        if (type == DOUBLE) {
+        if (type.equals(DOUBLE)) {
             return "Float64";
         }
         if (type instanceof DecimalType) {

@@ -14,8 +14,6 @@
 package com.facebook.presto.parquet;
 
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -26,8 +24,9 @@ import org.apache.parquet.io.InvalidRecordException;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.PrimitiveColumnIO;
-import org.apache.parquet.schema.DecimalMetadata;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 
 import java.util.Arrays;
@@ -37,11 +36,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.joining;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.uuidType;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
+import static org.apache.parquet.schema.OriginalType.TIME_MICROS;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 public final class ParquetTypeUtils
@@ -229,19 +231,6 @@ public final class ParquetTypeUtils
         return null;
     }
 
-    public static Optional<Type> createDecimalType(RichColumnDescriptor descriptor)
-    {
-        if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
-            return Optional.empty();
-        }
-        return Optional.of(createDecimalType(descriptor.getPrimitiveType().getDecimalMetadata()));
-    }
-
-    private static Type createDecimalType(DecimalMetadata decimalMetadata)
-    {
-        return DecimalType.createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale());
-    }
-
     /**
      * For optional fields:
      * definitionLevel == maxDefinitionLevel     => Value is defined
@@ -253,20 +242,33 @@ public final class ParquetTypeUtils
         return !required && (definitionLevel == maxDefinitionLevel - 1);
     }
 
-    // copied from presto-hive DecimalUtils
     public static long getShortDecimalValue(byte[] bytes)
     {
+        return getShortDecimalValue(bytes, 0, bytes.length);
+    }
+
+    public static long getShortDecimalValue(byte[] bytes, int startOffset, int length)
+    {
         long value = 0;
-        if ((bytes[0] & 0x80) != 0) {
-            for (int i = 0; i < 8 - bytes.length; ++i) {
-                value |= 0xFFL << (8 * (7 - i));
-            }
+        switch (length) {
+            case 8:
+                value |= bytes[startOffset + 7] & 0xFFL;
+            case 7:
+                value |= (bytes[startOffset + 6] & 0xFFL) << 8;
+            case 6:
+                value |= (bytes[startOffset + 5] & 0xFFL) << 16;
+            case 5:
+                value |= (bytes[startOffset + 4] & 0xFFL) << 24;
+            case 4:
+                value |= (bytes[startOffset + 3] & 0xFFL) << 32;
+            case 3:
+                value |= (bytes[startOffset + 2] & 0xFFL) << 40;
+            case 2:
+                value |= (bytes[startOffset + 1] & 0xFFL) << 48;
+            case 1:
+                value |= (bytes[startOffset] & 0xFFL) << 56;
         }
-
-        for (int i = 0; i < bytes.length; i++) {
-            value |= ((long) bytes[bytes.length - i - 1] & 0xFFL) << (8 * i);
-        }
-
+        value = value >> ((8 - length) * 8);
         return value;
     }
 
@@ -334,5 +336,31 @@ public final class ParquetTypeUtils
     public static boolean isTimeStampMicrosType(ColumnDescriptor descriptor)
     {
         return TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
+    }
+
+    public static boolean isTimeMicrosType(ColumnDescriptor descriptor)
+    {
+        return TIME_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
+    }
+
+    public static boolean isShortDecimalType(ColumnDescriptor descriptor)
+    {
+        LogicalTypeAnnotation logicalTypeAnnotation = descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+        if (!(logicalTypeAnnotation instanceof DecimalLogicalTypeAnnotation)) {
+            return false;
+        }
+
+        DecimalLogicalTypeAnnotation decimalLogicalTypeAnnotation = (DecimalLogicalTypeAnnotation) logicalTypeAnnotation;
+        return decimalLogicalTypeAnnotation.getPrecision() <= MAX_SHORT_PRECISION;
+    }
+
+    public static boolean isUuidType(ColumnDescriptor columnDescriptor)
+    {
+        return uuidType().equals(columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation());
+    }
+
+    public static boolean isDecimalType(ColumnDescriptor columnDescriptor)
+    {
+        return columnDescriptor.getPrimitiveType().getOriginalType() == DECIMAL;
     }
 }

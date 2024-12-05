@@ -34,11 +34,11 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.version.EmbedVersion;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.jheaps.annotations.VisibleForTesting;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -139,42 +139,42 @@ public class SqlQueryManager
             try {
                 enforceMemoryLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing memory limits");
             }
 
             try {
                 enforceCpuLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing query CPU time limits");
             }
 
             try {
                 enforceScanLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing query scan bytes limits");
             }
 
             try {
                 enforceOutputPositionsLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing query output rows limits");
             }
 
             try {
                 enforceWrittenIntermediateBytesLimit();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing written intermediate limits");
             }
 
             try {
                 enforceOutputSizeLimits();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error enforcing query output size limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
@@ -185,7 +185,7 @@ public class SqlQueryManager
             try {
                 checkForMemoryLeaks();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error checking memory leaks");
             }
         }, 1, 1, TimeUnit.MINUTES);

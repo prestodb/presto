@@ -45,7 +45,7 @@ public class TableConstraintsHolder
     public static void validateTableConstraints(Collection<TableConstraint<String>> constraints)
     {
         constraints.forEach(constraint -> {
-            if (!(constraint instanceof PrimaryKeyConstraint || constraint instanceof UniqueConstraint || constraint instanceof NotNullConstraint)) {
+            if (!(constraint instanceof UniqueConstraint || constraint instanceof NotNullConstraint)) {
                 throw new PrestoException(NOT_SUPPORTED,
                         format("Constraint %s of unknown type (%s) is not supported", constraint.getName().orElse(""), constraint.getClass().getName()));
             }

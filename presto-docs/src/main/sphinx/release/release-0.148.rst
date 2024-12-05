@@ -23,10 +23,10 @@ General Changes
 * Add ``colocated-joins-enabled`` to enable colocated joins by default for
   connectors that expose node-partitioned data.
 * Add support for colocated unions.
-* Reduce initial memory usage of :func:`array_agg` function.
+* Reduce initial memory usage of :func:`!array_agg` function.
 * Improve planning of co-partitioned ``JOIN`` and ``UNION``.
 * Improve planning of aggregations over partitioned data.
-* Improve the performance of the :func:`array_sort` function.
+* Improve the performance of the :func:`!array_sort` function.
 * Improve outer join predicate push down.
 * Increase default value for ``query.initial-hash-partitions`` to ``100``.
 * Change default value of ``query.max-memory-per-node`` to ``10%`` of the Java heap.
@@ -62,10 +62,10 @@ This release fixes several problems with large and negative intervals.
 Functions and Language Features
 -------------------------------
 
-* Add :func:`element_at` function for map type.
-* Add :func:`split_to_map` function.
-* Add :func:`zip` function.
-* Add :func:`map_union` aggregation function.
+* Add :func:`!element_at` function for map type.
+* Add :func:`!split_to_map` function.
+* Add :func:`!zip` function.
+* Add :func:`!map_union` aggregation function.
 * Add ``ROW`` syntax for constructing row types.
 * Add support for ``REVOKE`` permission syntax.
 * Add support for ``SMALLINT`` and ``TINYINT`` types.

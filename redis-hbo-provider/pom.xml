@@ -5,13 +5,13 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.288-SNAPSHOT</version>
+        <version>0.291-SNAPSHOT</version>
     </parent>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <lettuce.version>6.2.4.RELEASE</lettuce.version>
-        <netty.version>4.1.91.Final</netty.version>
+        <netty.version>4.1.115.Final</netty.version>
     </properties>
 
     <artifactId>redis-hbo-provider</artifactId>

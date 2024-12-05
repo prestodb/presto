@@ -47,6 +47,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.INSERT_EXISTING_PAR
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -155,13 +156,15 @@ public class HiveClientConfig
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
     private boolean shouldCreateEmptyBucketFilesForTemporaryTable;
+
+    private int cteVirtualBucketCount = 128;
     private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
     private boolean parquetPushdownFilterEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
     private Duration fileStatusCacheExpireAfterWrite = new Duration(0, TimeUnit.SECONDS);
-    private long fileStatusCacheMaxSize;
+    private DataSize fileStatusCacheMaxRetainedSize = new DataSize(0, KILOBYTE);
     private List<String> fileStatusCacheTables = ImmutableList.of();
 
     private DataSize pageFileStripeMaxSize = new DataSize(24, MEGABYTE);
@@ -203,6 +206,8 @@ public class HiveClientConfig
 
     private boolean partitionFilteringFromMetastoreEnabled = true;
 
+    private boolean skipEmptyFiles;
+
     private boolean parallelParsingOfPartitionValuesEnabled;
     private int maxParallelParsingConcurrency = 100;
     private boolean quickStatsEnabled;
@@ -217,6 +222,7 @@ public class HiveClientConfig
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
     private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
+    private boolean legacyTimestampBucketing;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -852,15 +858,15 @@ public class HiveClientConfig
         return this;
     }
 
-    public long getFileStatusCacheMaxSize()
+    public DataSize getFileStatusCacheMaxRetainedSize()
     {
-        return fileStatusCacheMaxSize;
+        return fileStatusCacheMaxRetainedSize;
     }
 
-    @Config("hive.file-status-cache-size")
-    public HiveClientConfig setFileStatusCacheMaxSize(long fileStatusCacheMaxSize)
+    @Config("hive.file-status-cache.max-retained-size")
+    public HiveClientConfig setFileStatusCacheMaxRetainedSize(DataSize fileStatusCacheMaxRetainedSize)
     {
-        this.fileStatusCacheMaxSize = fileStatusCacheMaxSize;
+        this.fileStatusCacheMaxRetainedSize = fileStatusCacheMaxRetainedSize;
         return this;
     }
 
@@ -1332,6 +1338,20 @@ public class HiveClientConfig
     public boolean isParquetPushdownFilterEnabled()
     {
         return parquetPushdownFilterEnabled;
+    }
+
+    @Config("hive.cte-virtual-bucket-count")
+    @ConfigDescription("Number of buckets allocated per materialized CTE. (Recommended value: 4 - 10x times the size of the cluster)")
+    public HiveClientConfig setCteVirtualBucketCount(int cteVirtualBucketCount)
+    {
+        this.cteVirtualBucketCount = cteVirtualBucketCount;
+        return this;
+    }
+
+    @NotNull
+    public int getCteVirtualBucketCount()
+    {
+        return cteVirtualBucketCount;
     }
 
     @Config("hive.parquet.pushdown-filter-enabled")
@@ -1814,6 +1834,32 @@ public class HiveClientConfig
     public HiveClientConfig setAffinitySchedulingFileSectionSize(DataSize affinitySchedulingFileSectionSize)
     {
         this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
+        return this;
+    }
+
+    @Config("hive.skip-empty-files")
+    @ConfigDescription("Enables skip of empty files avoiding output error")
+    public HiveClientConfig setSkipEmptyFilesEnabled(boolean skipEmptyFiles)
+    {
+        this.skipEmptyFiles = skipEmptyFiles;
+        return this;
+    }
+
+    public boolean isSkipEmptyFilesEnabled()
+    {
+        return this.skipEmptyFiles;
+    }
+
+    public boolean isLegacyTimestampBucketing()
+    {
+        return legacyTimestampBucketing;
+    }
+
+    @Config("hive.legacy-timestamp-bucketing")
+    @ConfigDescription("Use legacy timestamp bucketing algorithm (which is not Hive compatible) for table bucketed by timestamp type.")
+    public HiveClientConfig setLegacyTimestampBucketing(boolean legacyTimestampBucketing)
+    {
+        this.legacyTimestampBucketing = legacyTimestampBucketing;
         return this;
     }
 }

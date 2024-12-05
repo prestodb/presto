@@ -63,6 +63,8 @@ public class OperatorContext
     private final DriverContext driverContext;
     private final Executor executor;
 
+    private final OperationTiming isBlockedTiming = new OperationTiming();
+
     private final CounterStat rawInputDataSize = new CounterStat();
     private final CounterStat rawInputPositions = new CounterStat();
 
@@ -535,6 +537,11 @@ public class OperatorContext
                 operatorType,
 
                 1,
+
+                isBlockedTiming.getCalls(),
+                succinctNanos(isBlockedTiming.getWallNanos()),
+                succinctNanos(isBlockedTiming.getCpuNanos()),
+                succinctBytes(isBlockedTiming.getAllocationBytes()),
 
                 addInputTiming.getCalls(),
                 succinctNanos(addInputTiming.getWallNanos()),

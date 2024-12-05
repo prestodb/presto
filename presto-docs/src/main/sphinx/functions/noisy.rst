@@ -11,8 +11,8 @@ Overview
 --------
 
 Noisy aggregate functions are functions that provide random, noisy
-approximations of common aggregations like :func:`sum`, :func:`count`, and
-:func:`approx_distinct` as well as sketches like :func:`approx_set`. By
+approximations of common aggregations like :func:`!sum`, :func:`!count`, and
+:func:`!approx_distinct` as well as sketches like :func:`!approx_set`. By
 injecting random noise into results, noisy aggregation functions make it more
 difficult to determine or confirm the exact data that was aggregated.
 
@@ -40,10 +40,10 @@ Counts, Sums, and Averages
 
     .. note::
 
-        Unlike :func:`count`, this function returns ``NULL`` when the (true) count of ``col`` is 0.
+        Unlike :func:`!count`, this function returns ``NULL`` when the (true) count of ``col`` is 0.
 
     Distinct counting can be performed using ``noisy_count_gaussian(DISTINCT col, ...)``, or with
-    :func:`noisy_approx_distinct_sfm`. Generally speaking, :func:`noisy_count_gaussian`
+    :func:`!noisy_approx_distinct_sfm`. Generally speaking, :func:`!noisy_count_gaussian`
     returns more accurate results but at a larger computational cost.
 
 .. function:: noisy_count_if_gaussian(col, noise_scale[, random_seed]) -> bigint
@@ -60,7 +60,7 @@ Counts, Sums, and Averages
 
     .. note::
 
-        Unlike :func:`count_if`, this function returns ``NULL`` when the (true) count is 0.
+        Unlike :func:`!count_if`, this function returns ``NULL`` when the (true) count is 0.
 
 .. function:: noisy_sum_gaussian(col, noise_scale, lower, upper[, random_seed]) -> double
 
@@ -108,7 +108,7 @@ is supported via the Sketch-Flip-Merge (SFM) data sketch [Hehir2023]_.
 .. function:: noisy_approx_set_sfm(col, epsilon[, buckets[, precision]]) -> SfmSketch
 
     Returns an SFM sketch of the input values in ``col``. This is analogous to the
-    :func:`approx_set` function, which returns a (deterministic) HyperLogLog sketch.
+    :func:`!approx_set` function, which returns a (deterministic) HyperLogLog sketch.
 
     - ``col`` supports many types, similar to ``HyperLogLog``.
     - ``epsilon`` (double) is a positive number that controls the level of noise in
@@ -120,14 +120,14 @@ is supported via the Sketch-Flip-Merge (SFM) data sketch [Hehir2023]_.
 
     .. note::
 
-        Unlike :func:`approx_set`, this function returns ``NULL`` when ``col`` is empty.
-        If this behavior is undesirable, use :func:`coalesce` with :func:`noisy_empty_approx_set_sfm`.
+        Unlike :func:`!approx_set`, this function returns ``NULL`` when ``col`` is empty.
+        If this behavior is undesirable, use :func:`!coalesce` with :func:`!noisy_empty_approx_set_sfm`.
 
 .. function:: noisy_approx_set_sfm_from_index_and_zeros(col_index, col_zeros, epsilon, buckets[, precision]) -> SfmSketch
 
     Returns an SFM sketch of the input values in ``col_index`` and ``col_zeros``.
 
-    This is similar to :func:`noisy_approx_set_sfm` except that function calculates a ``Murmur3Hash128.hash64()`` of ``col``,
+    This is similar to :func:`!noisy_approx_set_sfm` except that function calculates a ``Murmur3Hash128.hash64()`` of ``col``,
     and calculates the SFM PCSA bucket index and number of trailing zeros as described in
     [FlajoletMartin1985]_. In this function, the caller must explicitly calculate the hash bucket index
     and zeros themselves and pass them as arguments ``col_index`` and ``col_zeros``.
@@ -143,23 +143,23 @@ is supported via the Sketch-Flip-Merge (SFM) data sketch [Hehir2023]_.
 
     .. note::
 
-        Like  :func:`noisy_approx_set_sfm`, this function returns ``NULL`` when ``col_index``
+        Like  :func:`!noisy_approx_set_sfm`, this function returns ``NULL`` when ``col_index``
         or ``col_zeros`` is ``NULL``.
-        If this behavior is undesirable, use :func:`coalesce` with :func:`noisy_empty_approx_set_sfm`.
+        If this behavior is undesirable, use :func:`!coalesce` with :func:`!noisy_empty_approx_set_sfm`.
 
 .. function:: noisy_approx_distinct_sfm(col, epsilon[, buckets[, precision]]) -> bigint
 
     Equivalent to ``cardinality(noisy_approx_set_sfm(col, epsilon, buckets, precision))``,
     this returns the approximate cardinality (distinct count) of the column ``col``.
-    This is analogous to the (deterministic) :func:`approx_distinct` function.
+    This is analogous to the (deterministic) :func:`!approx_distinct` function.
 
     .. note::
 
-        Unlike :func:`approx_distinct`, this function returns ``NULL`` when ``col`` is empty.
+        Unlike :func:`!approx_distinct`, this function returns ``NULL`` when ``col`` is empty.
 
 .. function:: noisy_empty_approx_set_sfm(epsilon[, buckets[, precision]]) -> SfmSketch
 
-    Returns an SFM sketch with no items in it. This is analogous to the :func:`empty_approx_set`
+    Returns an SFM sketch with no items in it. This is analogous to the :func:`!empty_approx_set`
     function, which returns an empty (deterministic) HyperLogLog sketch.
 
     - ``epsilon`` (double) is a positive number that controls the level of noise in the sketch,
@@ -183,7 +183,7 @@ is supported via the Sketch-Flip-Merge (SFM) data sketch [Hehir2023]_.
 .. function:: merge_sfm(ARRAY[SfmSketch, ...]) -> SfmSketch
 
     A scalar function that returns a merged ``SfmSketch`` of the set union of an array
-    of ``SfmSketch`` objects, similar to :func:`merge_hll`. ::
+    of ``SfmSketch`` objects, similar to :func:`!merge_hll`. ::
 
         SELECT cardinality(merge_sfm(ARRAY[
             noisy_approx_set_sfm(col_1, 5.0),

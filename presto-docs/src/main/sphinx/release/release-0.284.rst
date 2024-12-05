@@ -10,21 +10,21 @@ _______________
 * Fix correctness bug in the optimizer when ``randomize_outer_join_null_key`` is enabled.
 * Fix bug in array ``CONTAINS`` expression rewrite rule.
 * Fix bugs parsing lambda expressions.  The bugs may cause compile exception with message "Can not compile special form: WHEN" and lead to runtime exception of array out of bound access.
-* Fix :func:`min` and :func:`max` to verify second argument is unique.
+* Fix :func:`!min` and :func:`!max` to verify second argument is unique.
 * Fix access control checks for ``IS NULL`` and ``IS NOT NULL``.
 * Improve cache efficiency of history-based optimizer.
 * Improve cost-based optimizer to work with complex equi-join predicates.
 * Improve performance of outer join when nulls are present. It can be enabled by setting ``randomize_outer_join_null_key_strategy`` to be ``cost_based``. The trigger condition can be set by session properties ``randomize_outer_join_null_key_null_count_threshold`` and ``randomize_outer_join_null_key_null_ratio_threshold``.
 * Add field names when casting row to JSON.
-* Add :func:`array_top_n` to return an array of top ``N`` elements of a given array.
-* Add :func:`bitwise_xor_agg` function.
-* Add :func:`NOISY_COUNT_GAUSSIAN`.
-* Add :func:`NOISY_SUM_GAUSSIAN`.
-* Add :func:`NOISY_AVG_GAUSSIAN`.
+* Add :func:`!array_top_n` to return an array of top ``N`` elements of a given array.
+* Add :func:`!bitwise_xor_agg` function.
+* Add :func:`!NOISY_COUNT_GAUSSIAN`.
+* Add :func:`!NOISY_SUM_GAUSSIAN`.
+* Add :func:`!NOISY_AVG_GAUSSIAN`.
 * Add session property ``restrict_history_based_optimization_to_complex_query``. When set to ``TRUE``, only queries with join or aggregation will try to use HBO. The default value is ``TRUE``.
 * Add session property ``pull_expression_from_lambda_enabled`` to optimize lambda functions which have expressions not referring to arguments of the lambda function.  The default state is enabled using the value ``TRUE``.
 * Add ``rewrite_constant_array_contains_to_in_expression`` session property to improve the performance of ``CONTAINS`` expressions.  The default state is enabled using the value ``TRUE``.
-* Add function :func:`trail`.
+* Add function :func:`!trail`.
 * Add session property ``optimizers_to_enable_verbose_runtime_stats`` to enable runtime tracking for a set of optimizers.
 * Add support for ``EXPLAIN (TYPE VALIDATE)`` of ``EXPLAIN`` queries. Previously such queries would fail with an error.
 * Improve performance of cluster statistics reporting in the Presto coordinator by adding the configuration property ``cluster-stats-cache-expiration-duration``. The property is ``0`` (disabled) by default.
@@ -34,12 +34,12 @@ _______________
 * Add ``noisy_count_if_gaussian(condition, noiseScale[, randomSeed])`` aggregation which calculates the number of ``TRUE`` input values, and then adds random Gaussian noise with 0 mean and standard deviation of ``noise_scale`` to the true count. Optional ``randomSeed`` is used to get a fixed value of noise, often for reproducibility purposes. If ``randomSeed`` is omitted, ``SecureRandom`` is used. If ``randomSeed`` is provided, ``Random`` is used.
 
 Hive Connector Changes
-____________
+______________________
 * Fix directory listing over directories with content-type ``application/octet-stream`` (:issue:`20310`).
 * Add DWRF filetype to min, max filtering for special column types such as tinyint, varbinary and timestamp.
 
 Iceberg Connector Changes
-_______________
+_________________________
 * Add Iceberg table location property in ``SHOW CREATE TABLE``.
 * Add validation for copy-on-write mode for Iceberg tables. This can be disabled with the ``merge_on_read_enabled`` session property or the ``iceberg.enable-merge-on-read-mode`` configuration property.
 * Add support for ``TRUNCATE TABLE <table>``.

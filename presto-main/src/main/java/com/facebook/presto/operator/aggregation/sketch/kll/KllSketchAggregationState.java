@@ -14,6 +14,8 @@
 package com.facebook.presto.operator.aggregation.sketch.kll;
 
 import com.facebook.presto.common.array.ObjectBigArray;
+import com.facebook.presto.common.type.AbstractVarcharType;
+import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchStateFactory;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
@@ -34,10 +36,25 @@ import javax.annotation.Nullable;
 
 import java.util.Comparator;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.util.Objects.requireNonNull;
 
 @AccumulatorStateMetadata(stateFactoryClass = KllSketchStateFactory.class, stateSerializerClass = KllSketchStateSerializer.class)
@@ -67,15 +84,26 @@ public interface KllSketchAggregationState
 
     <T> void setSketch(KllItemsSketch<T> sketch);
 
+    void setConversion(Function<Object, Object> conversion);
+
+    <T> void update(T item);
+
     class SketchParameters<T>
     {
         private final Comparator<T> comparator;
         private final ArrayOfItemsSerDe<T> serde;
+        private final Function<Object, Object> conversion;
 
-        public SketchParameters(Comparator<T> comparator, ArrayOfItemsSerDe<T> serde)
+        public SketchParameters(Comparator<T> comparator, ArrayOfItemsSerDe<T> serde, Function<Object, Object> conversion)
         {
             this.comparator = comparator;
             this.serde = serde;
+            this.conversion = conversion;
+        }
+
+        public SketchParameters(Comparator<T> comparator, ArrayOfItemsSerDe<T> serde)
+        {
+            this(comparator, serde, Function.identity());
         }
 
         public Comparator<T> getComparator()
@@ -87,6 +115,11 @@ public interface KllSketchAggregationState
         {
             return serde;
         }
+
+        public Function<Object, Object> getConversion()
+        {
+            return conversion;
+        }
     }
 
     class Single
@@ -96,6 +129,7 @@ public interface KllSketchAggregationState
         @Nullable
         private KllItemsSketch sketch;
         private final Type type;
+        private Function<Object, Object> conversion = Function.identity();
 
         public Single(Type type)
         {
@@ -113,6 +147,18 @@ public interface KllSketchAggregationState
         public <T> void setSketch(KllItemsSketch<T> sketch)
         {
             this.sketch = sketch;
+        }
+
+        @Override
+        public void setConversion(Function<Object, Object> conversion)
+        {
+            this.conversion = conversion;
+        }
+
+        @Override
+        public <T> void update(T item)
+        {
+            sketch.update(conversion.apply(item));
         }
 
         @Override
@@ -149,6 +195,7 @@ public interface KllSketchAggregationState
         private long accumulatedSizeInBytes;
 
         private final Type type;
+        private Function<Object, Object> conversion = Function.identity();
 
         public Grouped(Type type)
         {
@@ -180,6 +227,18 @@ public interface KllSketchAggregationState
         }
 
         @Override
+        public void setConversion(Function<Object, Object> conversion)
+        {
+            this.conversion = conversion;
+        }
+
+        @Override
+        public <T> void update(T item)
+        {
+            getSketch().update(conversion.apply(item));
+        }
+
+        @Override
         public long getEstimatedSize()
         {
             return sketches.sizeOf() + INSTANCE_SIZE + accumulatedSizeInBytes;
@@ -208,20 +267,39 @@ public interface KllSketchAggregationState
 
     static SketchParameters<?> getSketchParameters(Type type)
     {
-        if (type.getJavaType().equals(double.class)) {
+        if (!type.isOrderable() || !type.isComparable()) {
+            throw new PrestoException(INVALID_ARGUMENTS, type + " does not support comparisons or ordering");
+        }
+
+        if (type.equals(REAL)) {
+            return new SketchParameters<>(Double::compareTo, new ArrayOfDoublesSerDe(),
+                    (Object intValue) -> (double) Float.intBitsToFloat(((Long) intValue).intValue()));
+        }
+        else if (type.equals(DOUBLE)) {
             return new SketchParameters<>(Double::compareTo, new ArrayOfDoublesSerDe());
         }
-        else if (type.getJavaType().equals(long.class)) {
-            return new SketchParameters<>(Long::compareTo, new ArrayOfLongsSerDe());
-        }
-        else if (type.getJavaType().equals(Slice.class)) {
-            return new SketchParameters<>(String::compareTo, new ArrayOfStringsSerDe());
-        }
-        else if (type.getJavaType().equals(boolean.class)) {
+        else if (type.equals(BOOLEAN)) {
             return new SketchParameters<>(Boolean::compareTo, new ArrayOfBooleansSerDe());
         }
+        else if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {
+            return new SketchParameters<>(Long::compareTo, new ArrayOfLongsSerDe(), (Object packed) -> unpackMillisUtc((Long) packed));
+        }
+        else if (type.equals(TINYINT) ||
+                type.equals(SMALLINT) ||
+                type.equals(INTEGER) ||
+                type.equals(BIGINT) ||
+                type instanceof BigintEnumType ||
+                type.equals(TIME) ||
+                type.equals(TIMESTAMP) ||
+                type.equals(DATE) ||
+                type.equals(INTERVAL_YEAR_MONTH)) {
+            return new SketchParameters<>(Long::compareTo, new ArrayOfLongsSerDe());
+        }
+        else if (type instanceof AbstractVarcharType) {
+            return new SketchParameters<>(String::compareTo, new ArrayOfStringsSerDe(), (Object slice) -> ((Slice) slice).toStringUtf8());
+        }
         else {
-            throw new PrestoException(INVALID_ARGUMENTS, "failed to deserialize KLL Sketch. No suitable type found for " + type);
+            throw new PrestoException(INVALID_ARGUMENTS, "Unsupported type for KLL sketch: " + type);
         }
     }
 }

@@ -215,7 +215,7 @@ public class AddIntermediateAggregations
             if (!(aggregation.getArguments().size() == 1 && !aggregation.getOrderBy().isPresent() && !aggregation.getFilter().isPresent())) {
                 return ImmutableMap.of();
             }
-            VariableReferenceExpression input = getOnlyElement(extractAggregationUniqueVariables(entry.getValue(), types));
+            VariableReferenceExpression input = getOnlyElement(extractAggregationUniqueVariables(entry.getValue()));
             // Return type of intermediate aggregation is the same as the input type.
             RowExpression argumentExpr = aggregation.getCall().getArguments().get(0);
             Type returnType = argumentExpr.getType();

@@ -23,6 +23,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.parquet.column.ColumnWriteStore;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.apache.parquet.hadoop.ParquetRecordWriter;
@@ -30,6 +31,7 @@ import org.apache.parquet.hadoop.ParquetRecordWriter;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
@@ -39,12 +41,18 @@ public final class ParquetRecordWriterUtil
     private static final Field REAL_WRITER_FIELD;
     private static final Field INTERNAL_WRITER_FIELD;
     private static final Field FILE_WRITER_FIELD;
+    // The columnStore field exists in the InternalParquetRecordWriter class
+    // which is declared as package-private. This means that we can't access it
+    // statically like the other Fields.
+    // Initialize this reference once at least one writer has been created
+    private static final AtomicReference<Field> COLUMN_WRITE_STORE_FIELD;
 
     static {
         try {
             REAL_WRITER_FIELD = ParquetRecordWriterWrapper.class.getDeclaredField("realWriter");
             INTERNAL_WRITER_FIELD = ParquetRecordWriter.class.getDeclaredField("internalWriter");
             FILE_WRITER_FIELD = INTERNAL_WRITER_FIELD.getType().getDeclaredField("parquetFileWriter");
+            COLUMN_WRITE_STORE_FIELD = new AtomicReference<>(null);
 
             REAL_WRITER_FIELD.setAccessible(true);
             INTERNAL_WRITER_FIELD.setAccessible(true);
@@ -68,7 +76,12 @@ public final class ParquetRecordWriterUtil
 
         Object realWriter = REAL_WRITER_FIELD.get(recordWriter);
         Object internalWriter = INTERNAL_WRITER_FIELD.get(realWriter);
+        COLUMN_WRITE_STORE_FIELD.compareAndSet(null, internalWriter.getClass().getDeclaredField("columnStore"));
+        if (COLUMN_WRITE_STORE_FIELD.get() != null && !COLUMN_WRITE_STORE_FIELD.get().isAccessible()) {
+            COLUMN_WRITE_STORE_FIELD.get().setAccessible(true);
+        }
         ParquetFileWriter fileWriter = (ParquetFileWriter) FILE_WRITER_FIELD.get(internalWriter);
+        ColumnWriteStore columnWriteStore = (ColumnWriteStore) COLUMN_WRITE_STORE_FIELD.get().get(internalWriter);
 
         return new ExtendedRecordWriter()
         {
@@ -77,7 +90,7 @@ public final class ParquetRecordWriterUtil
             @Override
             public long getWrittenBytes()
             {
-                return length;
+                return length + columnWriteStore.getBufferedSize();
             }
 
             @Override

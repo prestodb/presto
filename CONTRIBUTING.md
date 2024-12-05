@@ -1,128 +1,40 @@
 # Contributing to Presto
 
-Thanks for your interest in Presto.  Our goal is to build a fast, scalable and reliable distributed SQL query engine for running low latency interactive and batch analytic queries against data sources of all sizes ranging from gigabytes to petabytes.
+Thanks for your interest in Presto. Our goal is to build a fast, scalable, and reliable distributed SQL query engine for running low latency interactive and batch analytic queries against data sources of all sizes ranging from gigabytes to petabytes.
 
-## Requirements
+# What Would You Like to Do?
 
-* Mac OS X or Linux
-* Java 8 Update 151 or higher (8u151+), 64-bit. Both Oracle JDK and OpenJDK are supported.
-* Maven 3.6.1+ (for building)
-* Python 2.4+ (for running with the launcher script)
+| Area             | Information                                                                                                                                                                                                                                                                                                                                    |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Getting Started  | 1. [Build Presto](README.md#user-content-building-presto) <br/>2. Look for [good first issue](https://github.com/prestodb/presto/labels/good%20first%20issue) tickets. <br/> 3. Reference [project boards](https://github.com/prestodb/presto/projects?query=is%3Aopen) for open work.                                                         |
+| Report Bug       | To report a bug, visit Presto's [open issues](https://github.com/prestodb/presto/issues).                                                                                                                                                                                                                                                      |
+| Contributions    | Please read the [contributions](#contributions) section to learn about how you can contribute to Presto, including the submission process, minimum expectations, and guidelines for designing your code.  Ready to open a pull request? Be sure to review the [Pull Request guidelines](#pullrequests).                                        |
+| Contributor License Agreement ("CLA") | First-time contributors must sign a CLA. For more information see [Contributor License Agreement ("CLA")](#cla).                                                                                                                                                                                                                               |
+| Supporting Users | Reply to questions on the [Slack channel](https://join.slack.com/t/prestodb/shared_invite/enQtNTQ3NjU2MTYyNDA2LTYyOTg3MzUyMWE1YTI3Njc5YjgxZjNiYTgxODAzYjI5YWMwYWE0MTZjYWFhNGMwNjczYjI3N2JhM2ExMGJlMWM), check Presto's [open issues](https://github.com/prestodb/presto/issues) for user questions, or help with [code reviews](#codereviews). 
+| Need help?       | For community support, [ask for help in Slack](https://join.slack.com/t/prestodb/shared_invite/enQtNTQ3NjU2MTYyNDA2LTYyOTg3MzUyMWE1YTI3Njc5YjgxZjNiYTgxODAzYjI5YWMwYWE0MTZjYWFhNGMwNjczYjI3N2JhM2ExMGJlMWM).                                                                                                                                   |
+
+## <a id="requirements">Requirements</a>
+
+## Presto Community
+
+The Presto community values:
+
+* Politeness and professionalism in all public forums such as GitHub, Slack, and mailing lists.
+* Helping those who come to the project with questions, issues, or code.
+* Collaboration and teamwork.
+
+We strive to be a welcoming and inclusive community. We believe that a diverse community is a stronger community, and we welcome all who wish to contribute to the project.
+
+## Mission and Architecture
+
+See [PrestoDB: Mission and Architecture](https://github.com/prestodb/presto/blob/master/ARCHITECTURE.md).
 
 ## Getting Started
 
-Presto's [open issues are here](https://github.com/prestodb/presto/issues). Tag issues that would make a good first pull request for new contributors with [good first issue](https://github.com/prestodb/presto/labels/good%20first%20issue) tag. An easy way to start helping the project is to *file an issue*. Issues can include bugs, new features, or documentation that looks outdated. For community support, [ask for help in Slack](https://join.slack.com/t/prestodb/shared_invite/enQtNTQ3NjU2MTYyNDA2LTYyOTg3MzUyMWE1YTI3Njc5YjgxZjNiYTgxODAzYjI5YWMwYWE0MTZjYWFhNGMwNjczYjI3N2JhM2ExMGJlMWM).
+Read Presto's [open issues](https://github.com/prestodb/presto/issues). Tag issues that would make a good first pull request for new contributors with a [good first issue](https://github.com/prestodb/presto/labels/good%20first%20issue) tag. An easy way to start helping the project is to [open an issue](https://github.com/prestodb/presto/issues/new/choose). Issues can include bugs, new features, or outdated documentation. 
+For community support, [ask for help in Slack](https://join.slack.com/t/prestodb/shared_invite/enQtNTQ3NjU2MTYyNDA2LTYyOTg3MzUyMWE1YTI3Njc5YjgxZjNiYTgxODAzYjI5YWMwYWE0MTZjYWFhNGMwNjczYjI3N2JhM2ExMGJlMWM).
 
-<details> <!-- from: https://github.com/prestodb/presto/blob/master/README.md -->
-  <summary><h2>Building Presto</h2></summary>
-
-### Overview (Java)
-
-Presto is a standard Maven project. Simply run the following command from the project root directory:
-
-    ./mvnw clean install
-
-On the first build, Maven will download all the dependencies from the internet and cache them in the local repository (`~/.m2/repository`), which can take a considerable amount of time. Subsequent builds will be faster.
-
-Presto has a comprehensive set of unit tests that can take several minutes to run. You can disable the tests when building:
-
-    ./mvnw clean install -DskipTests
-
-After building Presto for the first time, you can load the project into your IDE and run the server. We recommend using [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven project, you can import it into your IDE using the root `pom.xml` file. In IntelliJ, choose Open Project from the Quick Start box or choose Open from the File menu and select the root `pom.xml` file.
-
-After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
-
-* Open the File menu and select Project Structure
-* In the SDKs section, ensure that a 1.8 JDK is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 8.0 as Presto makes use of several Java 8 language features
-
-Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
-
-* Main Class: `com.facebook.presto.server.PrestoServer`
-* VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
-* Working directory: `$MODULE_WORKING_DIR$` or `$MODULE_DIR$`(Depends your version of IntelliJ)
-* Use classpath of module: `presto-main`
-
-The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
-
-Additionally, the Hive plugin must be configured with location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
-
-    -Dhive.metastore.uri=thrift://localhost:9083
-
-### Using SOCKS for Hive or HDFS
-
-If your Hive metastore or HDFS cluster is not directly accessible to your local machine, you can use SSH port forwarding to access it. Setup a dynamic SOCKS proxy with SSH listening on local port 1080:
-
-    ssh -v -N -D 1080 server
-
-Then add the following to the list of VM options:
-
-    -Dhive.metastore.thrift.client.socks-proxy=localhost:1080
-
-### Running the CLI
-
-Start the CLI to connect to the server and run SQL queries:
-
-    presto-cli/target/presto-cli-*-executable.jar
-
-Run a query to see the nodes in the cluster:
-
-    SELECT * FROM system.runtime.nodes;
-
-In the sample configuration, the Hive connector is mounted in the `hive` catalog, so you can run the following queries to show the tables in the Hive database `default`:
-
-    SHOW TABLES FROM hive.default;
-
-### Building the Documentation
-
-To build the Presto docs, see the [docs README](presto-docs/README.md).
-
-### Building the Presto Console
-
-The Presto Console is composed of several React components and is written in JSX and ES6. This
-source code is stored in the `presto-ui/` module. The compilation process generates
-browser-compatible javascript which is added as JAR resources during the maven build. When the
-resource JAR is included on the classpath of Presto coordinator, it will be able to serve the
-resources.
-
-None of the Java code relies on the Presto UI project being compiled, so it is possible to exclude
-this UI when building Presto. It can be excluded by disabling the `ui` maven profile with `-P \!ui`:
-
-    ./mvnw clean install -P \!ui
-
-You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to build the UI. When using  Maven to build
-the project, Node and yarn are installed in the `presto-ui/target` folder. Add the node and yarn
-executables to the `PATH` environment variable.
-
-To update Presto Console after making changes, run:
-
-    yarn --cwd presto-ui/src install
-
-If no JavaScript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
-
-    yarn --cwd presto-ui/src run package
-
-To simplify iteration, you can also run in `watch` mode, which automatically re-compiles when
-changes to source files are detected:
-
-    yarn --cwd presto-ui/src run watch
-
-To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project
-resources will be hot-reloaded and changes are reflected on browser refresh.
-
-## Presto native and Velox
-
-[Presto native](https://github.com/prestodb/presto/tree/master/presto-native-execution) is a C++ rewrite of Presto worker. [Presto native](https://github.com/prestodb/presto/tree/master/presto-native-execution) uses [Velox](https://github.com/facebookincubator/velox) as its primary engine to run presto workloads.
-
-[Velox](https://github.com/facebookincubator/velox) is a C++ database library which provides reusable, extensible, and high-performance data processing components.
-
-Check out [building instructions](https://github.com/prestodb/presto/tree/master/presto-native-execution#building) to get started.
-
-
-<hr>
-</details>
-
-## Contributions
+## <a id=contributions>Contributions</a>
 
 Presto welcomes contributions from everyone.
 
@@ -137,6 +49,7 @@ Contributions should have an associated GitHub issue.
 * Large changes should have an [RFC](https://github.com/prestodb/rfcs). The [RFC](https://github.com/prestodb/rfcs) should be reviewed before patches are submitted.
 * Medium size changes should have an issue. Work from RFCs can be broken down into smaller issues, and those smaller issues should link to the RFC.
 * Smaller changes, such as minor bug fixes and code formatting, may not need an issue and can submit a PR without one.
+* New SQL functions should follow the [Presto function guidelines](https://github.com/prestodb/presto/blob/master/FUNCTIONS.md). 
 
 ## Minimum Expectations for Contributing to Presto
 To commit code, you should:
@@ -168,7 +81,8 @@ To commit code, you should:
         1. Not introducing expensive calls in a performance sensitive area
     1. User friendliness
         1. Config options have names and descriptions that can be understood by someone configuring Presto
-        1. All new language features, new functions, and major features have documentation added
+        1. All new language features, new functions, session and config properties, and major features have documentation added
+        1. When adding a new method to [Plugin.java](https://github.com/prestodb/presto/blob/master/presto-spi/src/main/java/com/facebook/presto/spi/Plugin.java), include documentation for the new method in the [Presto Developer Guide](https://prestodb.io/docs/current/develop.html). 
         1. Release notes following the [Release Note Guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines) are added for user visible changes
 * For large features, discuss your design with relevant code owners before you start implementing it.
 
@@ -235,25 +149,25 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
         }
       ```
 
-* **Ordering of class members and methods**
-    * Class members are in front of methods.
-    * Group and order the class members and methods in the order of their access levels in descending order:
+* **Ordering of class members**
+    * Fields are in front of methods.
+    * Group and order the fields and methods in the order of their access levels in descending order:
         1. public
         1. protected
         1. package private
         1. private
-    * Group and order the class members in descending order:
+    * Group and order the fields in descending order:
         1. static final
         1. final
         1. normal
     * Order the methods with the same access level in the order they’re called.
 * **Encourage proper encapsulation**
-    * Do not use public class members. Use lower access levels as much as possible. Exceptions may apply for performance critical paths, in that case discuss your design first with relevant code owners.
-    * Make a function access level as low as possible
-    * If a public class is only used by one caller and the usage is local, consider making it a nested class.
+    * Do not use public class fields for non-constants. Use less visible access levels as much as possible. Exceptions may apply for performance critical paths. In that case, discuss your design first with relevant code owners.
+    * Make a method access level as low as possible
+    * If a class is only used by one caller and the usage is local, consider making it a nested class.
 * **Immutable and thread safe classes**
-    * Whenever possible, class fields should be final
-    * When it's not possible, ensure that accesses to the non-final fields are thread safe by whatever methods are appropriate for the circumstance (Concurrent collections, synchronized access, etc.) if they are in a code path that is multi-threaded
+    * Whenever possible, class fields should be final.
+    * When it's not possible, ensure that accesses to the non-final fields are thread safe by whatever methods are appropriate for the circumstance (concurrent collections, synchronized access, etc.) if they are in a code path that is multi-threaded.
 
 * **Static imports**
   For example, in your code, do not use something like
@@ -353,9 +267,9 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
           }
       ```
 
-    * Recommend to add the “/** */” style comments to important or difficult public methods, with explanation of the parameters and returns.
+    * Add the “/** */” style comments to important or difficult public methods, with explanation of the parameters and returns.
     * Within the method body, use “//” style comments on separate lines for difficult parts.
-    * Use “//” style comments for class members if it can help understanding the code. Can be on the same line or separate lines in front.
+    * Use “//” style comments for class fields if it helps to clarify the code. Can be on the same line or separate lines in front.
 * **Code succinctness**
     * Inline function calls when appropriate. For example, if a function is only called once, we don’t need to create a variable for it.
     * Use reference operator in lambda expressions where possible. For example, instead of doing this:
@@ -446,11 +360,62 @@ Details for each point and good commit message examples can be found on https://
 
 ## Committers
 
-Presto committers are defined as [code owners](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) and documented in the project's [`CODEOWNERS`](CODEOWNERS) file.  Each line in the `CODEOWNERS` file defines a module or submodule that the committer has the rights to approve.  New modules and submodules for CODEOWNERS may be added as needed.
+Presto has two levels of committers: module committers and project committers.  Presto committers are defined as [code owners](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) and documented in the project's [`CODEOWNERS`](CODEOWNERS) file, and are either directly referenced in the file, or through a Github team. Each line in the `CODEOWNERS` file defines a module or submodule that the committer or team has the rights to approve.  New modules and submodules for [`CODEOWNERS`](CODEOWNERS)  may be added as needed.
 
-New committers are approved by majority vote of the TSC ([see TSC charter](https://github.com/prestodb/tsc/blob/master/CHARTER.md)).  To become a committer, reach out to an [existing TSC member](https://github.com/prestodb/tsc#members) and ask for their feedback on your eligibility (see: [How to become a Presto Committer?](https://github.com/prestodb/presto/wiki/How-to-become-a-Presto-committer%3F)).  Note: to expedite the process, consider creating a document that outlines your Github stats, such as the number of reviews, lines of code added, number of PRs, and outlines particularly outstanding code and review contributions.  If the TSC member believes you are eligible, they will submit your nomination to a vote by the TSC, typically in the form of a PR that adds your handle to the `CODEOWNERS` file.  The process is complete once the PR is merged.
+### Baseline expectations from committers
 
-## Pull Requests
+Both module and project committers must demonstrate technical mastery of at least their core areas. They must also show evidence that they are aligned with the project’s community and growth, including the goals outlined in [PrestoDB: Mission and Architecture](ARCHITECTURE.md), and demonstrate kindness and professionalism, help others in the project, and work collaboratively as a team.
+
+### Module committers
+#### What is a module committer?
+
+A module committer is a committer who has an entry associated with a module or folder in the project’s [`CODEOWNERS`](CODEOWNERS)  file.
+
+See [`CODEOWNERS`](CODEOWNERS) for modules, connectors, and libraries that lack active module committership. If you have interest in contributing to one of these, work toward becoming a committer for that area.
+
+#### Expectations of a module committer
+
+Module committers have demonstrated mastery in one particular area of the project.  Some examples include:
+
+* A connector or plugin;
+* A part of the Presto codebase, such as the optimizer;
+* An external component, such as the Java client, or UI.
+
+In addition to technical mastery, they have demonstrated the values of the project through code reviews, design reviews, or responses to questions.  Examples should include many of the following:
+
+* The applicant is known to frequently review pull requests corresponding to the module they are applying for.
+* The applicant helps to maintain the module they are applying for when appropriate, such as fixing test cases, adding documentation, fixing bugs, and mentoring others.
+* The applicant is known to answer questions on Slack periodically.
+* The applicant has provided high quality feedback on Github issues and RFCs.
+
+### Project committers
+
+#### What is a project committer?
+
+A project committer is a committer who has access to approve code across the whole project by membership in the [committers](https://github.com/orgs/prestodb/teams/committers) Github team.
+
+#### Expectations of a project committer
+
+In addition to demonstrating mastery of at least one area of the codebase by becoming a module committer, they have also demonstrated the following:
+
+* They have contributed at least one non-trivial change to the project outside of their core area;
+* They exercise great judgment (including deferring to others when appropriate);
+* They have experience with reviewing code and making code changes outside of their core area of expertise;
+* They set a high bar for their own contributions and those of others during code reviews, including avoiding hacks and temporary workarounds;
+* They go above and beyond a module committer in helping maintain the project by regularly reviewing code outside of their area of expertise, or helping users of the project in public channels such as Slack, GitHub, or helping review designs outside of their area of expertise such as providing guidance on Github Issues or RFCs.
+
+Examples should include many of the following:
+
+* The applicant is known to frequently review pull requests outside of the module they maintain.
+* The applicant helps to maintain the project, such as by fixing test cases, adding documentation, fixing bugs, and mentoring others.
+* The applicant is known to answer questions on Slack periodically.
+* The applicant has provided high quality feedback on Github issues and RFCs outside of the module they maintain.
+
+### Voting for committers
+
+New project and module committers are approved by majority vote of the TSC ([see TSC charter](https://github.com/prestodb/tsc/blob/master/CHARTER.md)).  To become a committer, reach out to an [existing TSC member](https://github.com/prestodb/tsc#members), or send an email to operations@prestodb.io, and ask for feedback on your eligibility.  Note: to expedite the process, consider creating a document that outlines your Github stats, such as the number of reviews, lines of code added, number of PRs, and outlines particularly outstanding code and review contributions.  If a TSC member believes you are eligible, they will submit your nomination to a vote by the TSC.  If you receive a majority approval from the vote in the TSC then a pull request will be raised that adds your Github handle to the  [`CODEOWNERS`](CODEOWNERS) file.  The process is complete once the PR is merged.
+
+## <a id="pullrequests">Pull Requests</a>
 * #### PR size and structure
     * A PR can consist of multiple small commits, preferably not more than 20.
     * The total number of lines modified in a single PR shall not exceed 5000. An exception to this rule is for changes that include checked in code generated files (such as [presto_protocol.cpp](https://github.com/prestodb/presto/blob/master/presto-native-execution/presto_cpp/presto_protocol/presto_protocol.cpp)).
@@ -514,7 +479,14 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
     * Instead, review the related code, then draft initial documentation as a separate commit
 * Submit without test cases or clear justification for lack thereof
 
-## Code Reviews
+### Comments in Pull Requests
+Comments should help move the PR toward completion. 
+
+Presto PRs - especially those written by people new to open source or new to Presto - can have a surprisingly high number of comments. This is a general tendency of open source projects and is because members of the Presto community want to help you succeed with your PR and also maintain the quality, and follow the existing standards of, the Presto project.
+
+Do not take the presence of many comments as a sign that the PR, or the work in it, is bad. 
+
+## <a id="codereviews">Code Reviews</a>
 #### What to do
 * Provide explicit feedback on what is needed or what would be better
 * Review code with the objective of helping someone land their changes
@@ -525,10 +497,6 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
 
 Please refer to our [Code of Conduct](https://github.com/prestodb/tsc/blob/master/CODE_OF_CONDUCT.md).
 
-## Contributor License Agreement ("CLA")
+## <a id="cla">Contributor License Agreement ("CLA")</a>
 
 To accept your pull request, you must submit a CLA. You only need to do this once, so if you've done this for one repository in the [prestodb](https://github.com/prestodb) organization, you're good to go. When you submit a pull request for the first time, the communitybridge-easycla bot notifies you if you haven't signed, and provides you with a link. If you are contributing on behalf of a company, you might want to let the person who manages your corporate CLA whitelist know they will be receiving a request from you.
-
-## License
-
-By contributing to Presto, you agree that your contributions will be licensed under the [Apache License Version 2.0 (APLv2)](LICENSE).

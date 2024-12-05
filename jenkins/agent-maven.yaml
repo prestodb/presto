@@ -16,10 +16,10 @@ spec:
         value: "-Xmx8000m -Xms8000m"
       resources:
         requests:
-          memory: "10Gi"
+          memory: "16Gi"
           cpu: "4000m"
         limits:
-          memory: "10Gi"
+          memory: "16Gi"
           cpu: "4000m"
       tty: true
       command:

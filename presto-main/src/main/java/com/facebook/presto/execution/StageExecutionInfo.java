@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.RuntimeMetricName.DRIVER_COUNT_PER_TASK;
-import static com.facebook.presto.common.RuntimeMetricName.GET_SPLITS_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_BLOCKED_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_ELAPSED_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_QUEUED_TIME_NANOS;
@@ -66,6 +65,7 @@ public class StageExecutionInfo
             List<TaskInfo> taskInfos,
             DateTime schedulingComplete,
             DistributionSnapshot getSplitDistribution,
+            RuntimeStats stageRuntimeStats,
             DataSize peakUserMemoryReservation,
             DataSize peakNodeTotalMemoryReservation,
             int finishedLifespans,
@@ -116,7 +116,7 @@ public class StageExecutionInfo
 
         Map<String, OperatorStats> operatorToStats = new HashMap<>();
         RuntimeStats mergedRuntimeStats = new RuntimeStats();
-        mergedRuntimeStats.addMetricValueIgnoreZero(GET_SPLITS_TIME_NANOS, NANO, (long) getSplitDistribution.getTotal());
+        mergedRuntimeStats.mergeWith(stageRuntimeStats);
 
         List<TaskStats> allTaskStats = new ArrayList<>();
 

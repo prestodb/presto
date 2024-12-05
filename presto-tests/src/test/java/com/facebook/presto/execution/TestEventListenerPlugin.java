@@ -19,6 +19,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.collect.ImmutableList;
 
@@ -28,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TestEventListenerPlugin
 {
-    static class TestingEventListenerPlugin
+    public static class TestingEventListenerPlugin
             implements Plugin
     {
         private final EventsBuilder eventsBuilder;
@@ -45,7 +46,7 @@ public class TestEventListenerPlugin
         }
     }
 
-    private static class TestingEventListenerFactory
+    public static class TestingEventListenerFactory
             implements EventListenerFactory
     {
         private final EventsBuilder eventsBuilder;
@@ -68,7 +69,7 @@ public class TestEventListenerPlugin
         }
     }
 
-    private static class TestingEventListener
+    public static class TestingEventListener
             implements EventListener
     {
         private final EventsBuilder eventsBuilder;
@@ -94,6 +95,12 @@ public class TestEventListenerPlugin
         public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
         {
             eventsBuilder.addSplitCompleted(splitCompletedEvent);
+        }
+
+        @Override
+        public void publishQueryProgress(QueryProgressEvent queryProgressEvent)
+        {
+            eventsBuilder.addQueryProgress(queryProgressEvent);
         }
     }
 }

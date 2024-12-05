@@ -32,6 +32,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.evaluateConstantRowExpression;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -60,7 +61,7 @@ public class ValuesStatsRule
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         statsBuilder.setOutputRowCount(node.getRows().size())
-                .setConfident(true);
+                .setConfidence(FACT);
 
         for (int variableId = 0; variableId < node.getOutputVariables().size(); ++variableId) {
             VariableReferenceExpression variable = node.getOutputVariables().get(variableId);
