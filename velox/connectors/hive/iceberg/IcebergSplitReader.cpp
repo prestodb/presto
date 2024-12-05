@@ -55,14 +55,14 @@ IcebergSplitReader::IcebergSplitReader(
 void IcebergSplitReader::prepareSplit(
     std::shared_ptr<common::MetadataFilter> metadataFilter,
     dwio::common::RuntimeStatistics& runtimeStats) {
-  createReader(std::move(metadataFilter));
+  auto rowType = createReader();
 
   if (checkIfSplitIsEmpty(runtimeStats)) {
     VELOX_CHECK(emptySplit_);
     return;
   }
 
-  createRowReader();
+  createRowReader(std::move(metadataFilter), std::move(rowType));
 
   std::shared_ptr<const HiveIcebergSplit> icebergSplit =
       std::dynamic_pointer_cast<const HiveIcebergSplit>(hiveSplit_);

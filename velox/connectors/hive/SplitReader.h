@@ -113,7 +113,12 @@ class SplitReader {
 
   /// Create the dwio::common::Reader object baseReader_, which will be used to
   /// read the data file's metadata and schema
-  void createReader(std::shared_ptr<common::MetadataFilter> metadataFilter);
+  RowTypePtr createReader();
+
+  // Check if the filters pass on the column statistics.  When delta update is
+  // present, the corresonding filter should be disabled before calling this
+  // function.
+  bool filterOnStats(dwio::common::RuntimeStatistics& runtimeStats) const;
 
   /// Check if the hiveSplit_ is empty. The split is considered empty when
   ///   1) The data file is missing but the user chooses to ignore it
@@ -125,19 +130,23 @@ class SplitReader {
 
   /// Create the dwio::common::RowReader object baseRowReader_, which owns the
   /// ColumnReaders that will be used to read the data
-  void createRowReader();
+  void createRowReader(
+      std::shared_ptr<common::MetadataFilter> metadataFilter,
+      RowTypePtr rowType);
 
+ private:
   /// Different table formats may have different meatadata columns.
   /// This function will be used to update the scanSpec for these columns.
-  virtual std::vector<TypePtr> adaptColumns(
+  std::vector<TypePtr> adaptColumns(
       const RowTypePtr& fileType,
-      const std::shared_ptr<const velox::RowType>& tableSchema);
+      const std::shared_ptr<const velox::RowType>& tableSchema) const;
 
   void setPartitionValue(
       common::ScanSpec* spec,
       const std::string& partitionKey,
       const std::optional<std::string>& value) const;
 
+ protected:
   std::shared_ptr<const HiveConnectorSplit> hiveSplit_;
   const std::shared_ptr<const HiveTableHandle> hiveTableHandle_;
   const std::unordered_map<
