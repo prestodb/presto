@@ -139,13 +139,11 @@ RowContainer::RowContainer(
     bool isJoinBuild,
     bool hasProbedFlag,
     bool hasNormalizedKeys,
-    bool collectColumnStats,
     memory::MemoryPool* pool)
     : keyTypes_(keyTypes),
       nullableKeys_(nullableKeys),
       isJoinBuild_(isJoinBuild),
       hasNormalizedKeys_(hasNormalizedKeys),
-      collectColumnStats_(collectColumnStats),
       stringAllocator_(std::make_unique<HashStringAllocator>(pool)),
       accumulators_(accumulators),
       rows_(pool) {
@@ -285,9 +283,7 @@ RowContainer::RowContainer(
       ++nullOffsetsPos;
     }
   }
-  if (collectColumnStats_) {
-    rowColumnsStats_.resize(types_.size());
-  }
+  rowColumnsStats_.resize(types_.size());
 }
 
 RowContainer::~RowContainer() {
@@ -471,7 +467,7 @@ void RowContainer::freeRowsExtraMemory(
 }
 
 void RowContainer::invalidateColumnStats() {
-  if (!collectColumnStats_ || rowColumnsStats_.empty()) {
+  if (rowColumnsStats_.empty()) {
     return;
   }
   rowColumnsStats_.clear();
@@ -498,7 +494,6 @@ RowColumn::Stats RowColumn::Stats::merge(
 
 std::optional<RowColumn::Stats> RowContainer::columnStats(
     int32_t columnIndex) const {
-  VELOX_CHECK(collectColumnStats_);
   if (rowColumnsStats_.empty()) {
     return std::nullopt;
   }
@@ -510,8 +505,8 @@ void RowContainer::updateColumnStats(
     vector_size_t rowIndex,
     char* row,
     int32_t columnIndex) {
-  if (!collectColumnStats_ || rowColumnsStats_.empty()) {
-    // Column stats not enabled, or has been invalidated.
+  if (rowColumnsStats_.empty()) {
+    // Column stats have been invalidated.
     return;
   }
 

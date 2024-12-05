@@ -273,7 +273,6 @@ class RowContainer {
             false, // isJoinBuild
             false, // hasProbedFlag
             false, // hasNormalizedKey
-            false, // collectColumnStats
             pool) {}
 
   ~RowContainer();
@@ -305,7 +304,6 @@ class RowContainer {
       bool isJoinBuild,
       bool hasProbedFlag,
       bool hasNormalizedKey,
-      bool collectColumnStats,
       memory::MemoryPool* pool);
 
   /// Allocates a new row and initializes possible aggregates to null.
@@ -1480,7 +1478,6 @@ class RowContainer {
   const bool isJoinBuild_;
   // True if normalized keys are enabled in initial state.
   const bool hasNormalizedKeys_;
-  const bool collectColumnStats_;
 
   const std::unique_ptr<HashStringAllocator> stringAllocator_;
 
@@ -1511,8 +1508,7 @@ class RowContainer {
   // Corresponds pairwise to 'types_'.
   std::vector<RowColumn> rowColumns_;
   // Optional aggregated column stats(e.g. min/max size) for non-aggregate
-  // fields. Index aligns with 'rowColumns_'. Column stats will only be enabled
-  // if 'collectColumnStats_' is true.
+  // fields. Index aligns with 'rowColumns_'.
   std::vector<RowColumn::Stats> rowColumnsStats_;
   // Bit offset of the probed flag for a full or right outer join  payload. 0 if
   // not applicable.

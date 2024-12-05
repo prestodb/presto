@@ -73,7 +73,6 @@ HashTable<ignoreNullKeys>::HashTable(
       isJoinBuild,
       hasProbedFlag,
       hashMode_ != HashMode::kHash,
-      isJoinBuild,
       pool);
   nextOffset_ = rows_->nextOffset();
 }

@@ -41,8 +41,7 @@ class RowContainerTestHelper {
     std::vector<RowColumn::Stats> columnsStats;
     columnsStats.reserve(rowContainer_->rowColumnsStats_.size());
     columnsStats.resize(rowContainer_->rowColumnsStats_.size());
-    const bool isColumnStatsValid = rowContainer_->collectColumnStats_ &&
-        !rowContainer_->rowColumnsStats_.empty();
+    const bool isColumnStatsValid = !rowContainer_->rowColumnsStats_.empty();
     for (;;) {
       int64_t numRows = rowContainer_->listRows(&iter, kBatch, rows.data());
       if (!numRows) {
@@ -1417,7 +1416,6 @@ TEST_F(RowContainerTest, alignment) {
       false,
       true,
       true,
-      true,
       pool_.get());
   constexpr int kNumRows = 100;
   char* rows[kNumRows];
@@ -1585,7 +1583,6 @@ TEST_F(RowContainerTest, probedFlag) {
       true, // isJoinBuild
       true, // hasProbedFlag
       false, // hasNormalizedKey
-      true, // collectColumnStats
       pool_.get());
 
   auto input = makeRowVector({

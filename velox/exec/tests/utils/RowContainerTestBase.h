@@ -86,7 +86,6 @@ class RowContainerTestBase : public testing::Test,
         isJoinBuild,
         true,
         true,
-        true,
         pool_.get());
     VELOX_CHECK(container->testingMutable());
     return container;
