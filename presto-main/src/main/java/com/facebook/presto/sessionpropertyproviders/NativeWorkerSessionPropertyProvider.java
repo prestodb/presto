@@ -67,6 +67,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_SPILL_PREFIXSORT_ENABLED = "native_spill_prefixsort_enabled";
     public static final String NATIVE_PREFIXSORT_NORMALIZED_KEY_MAX_BYTES = "native_prefixsort_normalized_key_max_bytes";
     public static final String NATIVE_PREFIXSORT_MIN_ROWS = "native_prefixsort_min_rows";
+    public static final String NATIVE_OP_TRACE_DIR_CREATE_CONFIG = "native_op_trace_directory_create_config";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -132,7 +133,7 @@ public class NativeWorkerSessionPropertyProvider
                 longProperty(
                         NATIVE_WRITER_FLUSH_THRESHOLD_BYTES,
                         "Native Execution only. Minimum memory footprint size required to reclaim memory from a file " +
-                        "writer by flushing its buffered data to disk.",
+                                "writer by flushing its buffered data to disk.",
                         96L << 20,
                         false),
                 booleanProperty(
@@ -234,6 +235,10 @@ public class NativeWorkerSessionPropertyProvider
                         !nativeExecution),
                 stringProperty(NATIVE_QUERY_TRACE_SHARD_ID,
                         "The shard id of the traced task.",
+                        "",
+                        !nativeExecution),
+                stringProperty(NATIVE_OP_TRACE_DIR_CREATE_CONFIG,
+                        "Config used to create operator trace directory. This config is provided to underlying file system and the config is free form. The form should be defined by the underlying file system.",
                         "",
                         !nativeExecution),
                 longProperty(NATIVE_MAX_OUTPUT_BUFFER_SIZE,
