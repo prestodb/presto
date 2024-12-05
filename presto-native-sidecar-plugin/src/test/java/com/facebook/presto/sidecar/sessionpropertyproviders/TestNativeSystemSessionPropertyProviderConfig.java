@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.sidecar.sessionpropertyproviders;
 
-import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderConfig;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;

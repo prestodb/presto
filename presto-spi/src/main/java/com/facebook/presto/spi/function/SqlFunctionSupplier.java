@@ -13,17 +13,7 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.common.type.Type;
-
-import java.util.List;
-
-public interface FunctionMetadataManager
+public interface SqlFunctionSupplier
 {
-    FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
-
-    /**
-     * Extends the ability to retrieve specializedFunctionKeys using existing code from BuiltInTypeAndFunctionNamespaceManager.
-     */
-    SqlFunctionSupplier getSpecializedFunctionKey(Signature signature);
-    List<Type> getTypes();
+    SqlFunction getFunction();
 }

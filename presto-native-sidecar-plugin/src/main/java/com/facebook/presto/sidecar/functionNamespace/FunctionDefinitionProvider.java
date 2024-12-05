@@ -11,19 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.function;
 
-import com.facebook.presto.common.type.Type;
+package com.facebook.presto.sidecar.functionNamespace;
 
-import java.util.List;
+import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
+import com.facebook.presto.spi.NodeManager;
 
-public interface FunctionMetadataManager
+public interface FunctionDefinitionProvider
 {
-    FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
-
-    /**
-     * Extends the ability to retrieve specializedFunctionKeys using existing code from BuiltInTypeAndFunctionNamespaceManager.
-     */
-    SqlFunctionSupplier getSpecializedFunctionKey(Signature signature);
-    List<Type> getTypes();
+    UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager);
 }
