@@ -493,13 +493,12 @@ public class PrestoNativeQueryRunnerUtils
                         Files.createDirectories(dir);
                         Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
                         log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
-                        int port = 1234 + workerIndex;
 
-                        // Write config file
+                        // Write config file - use an ephemeral port for the worker.
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
                                 "system-memory-gb=4%n" +
-                                "http-server.http.port=%d", discoveryUri, port);
+                                "http-server.http.port=0%n", discoveryUri);
 
                         if (isCoordinatorSidecarEnabled) {
                             configProperties = format("%s%n" +
