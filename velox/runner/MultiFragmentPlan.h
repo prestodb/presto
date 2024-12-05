@@ -64,12 +64,12 @@ class MultiFragmentPlan {
     /// Query id used as a prefix for tasks ids.
     std::string queryId;
 
-    // Maximum Number of independent Tasks for one stage of execution. If 1,
-    // there are no exchanges.
+    /// Maximum Number of independent Tasks for one stage of execution. If 1,
+    /// there are no exchanges.
     int32_t numWorkers;
 
-    // Number of threads in a fragment in a worker. If 1, there are no local
-    // exchanges.
+    /// Number of threads in a fragment in a worker. If 1, there are no local
+    /// exchanges.
     int32_t numDrivers;
   };
 
@@ -87,6 +87,9 @@ class MultiFragmentPlan {
   /// @param detailed If true, includes details of each plan node. Otherwise,
   /// only node types are included.
   std::string toString(bool detailed = true) const;
+
+  /// Prints the summary of the plan using PlanNode::toSummaryString() API.
+  std::string toSummaryString(core::PlanSummaryOptions options = {}) const;
 
  private:
   const std::vector<ExecutableFragment> fragments_;

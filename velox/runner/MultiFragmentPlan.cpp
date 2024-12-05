@@ -18,19 +18,24 @@
 
 namespace facebook::velox::runner {
 
-std::string MultiFragmentPlan::toString(bool detailed) const {
+namespace {
+
+std::string toFragmentsString(
+    const std::vector<ExecutableFragment>& fragments,
+    const std::function<std::string(const core::PlanNode&)>& planNodeToString) {
   std::stringstream out;
-  for (auto i = 0; i < fragments_.size(); ++i) {
+  for (auto i = 0; i < fragments.size(); ++i) {
+    const auto& fragment = fragments[i];
     out << fmt::format(
-        "Fragment {}: {} numWorkers={}:\n",
-        i,
-        fragments_[i].taskPrefix,
-        fragments_[i].width);
-    out << fragments_[i].fragment.planNode->toString(detailed, true)
+               "Fragment {}: {} numWorkers={}:",
+               i,
+               fragment.taskPrefix,
+               fragment.width)
         << std::endl;
-    if (!fragments_[i].inputStages.empty()) {
+    out << planNodeToString(*fragment.fragment.planNode) << std::endl;
+    if (!fragment.inputStages.empty()) {
       out << "Inputs: ";
-      for (auto& input : fragments_[i].inputStages) {
+      for (auto& input : fragment.inputStages) {
         out << fmt::format(
             " {} <- {} ", input.consumerNodeId, input.producerTaskPrefix);
       }
@@ -38,6 +43,21 @@ std::string MultiFragmentPlan::toString(bool detailed) const {
     }
   }
   return out.str();
+}
+
+} // namespace
+
+std::string MultiFragmentPlan::toString(bool detailed) const {
+  return toFragmentsString(fragments_, [&](const auto& planNode) {
+    return planNode.toString(detailed, true);
+  });
+}
+
+std::string MultiFragmentPlan::toSummaryString(
+    core::PlanSummaryOptions options) const {
+  return toFragmentsString(fragments_, [&](const auto& planNode) {
+    return planNode.toSummaryString(options);
+  });
 }
 
 } // namespace facebook::velox::runner
