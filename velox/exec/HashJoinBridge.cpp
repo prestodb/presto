@@ -256,7 +256,7 @@ void HashJoinBridge::appendSpilledHashTablePartitionsLocked(
   }
   auto spillPartitionIdSet = toSpillPartitionIdSet(spillPartitionSet);
   if (restoringSpillPartitionId_.has_value()) {
-    for ([[maybe_unused]] const auto& id : spillPartitionIdSet) {
+    for (const auto& id : spillPartitionIdSet) {
       VELOX_DCHECK_LT(
           restoringSpillPartitionId_->partitionBitOffset(),
           id.partitionBitOffset());

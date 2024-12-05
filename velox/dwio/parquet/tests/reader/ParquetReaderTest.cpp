@@ -1365,6 +1365,7 @@ TEST_F(ParquetReaderTest, arrayOfMapOfIntKeyArrayValue) {
   facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
   auto reader = createReader(sample, readerOptions);
   EXPECT_EQ(reader->rowType()->toString(), expectedVeloxType);
+  auto numRows = reader->numberOfRows();
   auto type = reader->typeWithId();
   RowReaderOptions rowReaderOpts;
   auto rowType = ROW({"test"}, {ARRAY(MAP(VARCHAR(), ARRAY(INTEGER())))});
@@ -1398,6 +1399,7 @@ TEST_F(ParquetReaderTest, arrayOfMapOfIntKeyStructValue) {
   facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
   auto reader = createReader(sample, readerOptions);
   EXPECT_EQ(reader->rowType()->toString(), expectedVeloxType);
+  auto numRows = reader->numberOfRows();
   auto type = reader->typeWithId();
   RowReaderOptions rowReaderOpts;
   auto rowType = reader->rowType();
@@ -1431,6 +1433,7 @@ TEST_F(ParquetReaderTest, struct_of_array_of_array) {
       getExampleFilePath("struct_of_array_of_array.parquet"));
   facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
   auto reader = createReader(sample, readerOptions);
+  auto numRows = reader->numberOfRows();
   auto type = reader->typeWithId();
   EXPECT_EQ(type->size(), 1ULL);
   EXPECT_EQ(reader->rowType()->toString(), expectedVeloxType);
@@ -1504,6 +1507,7 @@ TEST_F(ParquetReaderTest, testLzoDataPage) {
   rowReaderOpts.setScanSpec(makeScanSpec(outputRowType));
   auto rowReader = reader->createRowReader(rowReaderOpts);
 
+  uint64_t total = 0;
   VectorPtr result = BaseVector::create(outputRowType, 0, &*leafPool_);
   rowReader->next(23'547ULL, result);
   EXPECT_EQ(23'547ULL, result->size());

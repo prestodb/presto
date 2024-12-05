@@ -96,6 +96,7 @@ void SplitStaging::transfer(
   hostBuffer_ = getTransferArena().allocate<char>(fill_);
   auto transferBuffer = hostBuffer_->as<char>();
   int firstToCopy = 0;
+  int32_t numCopies = staging_.size();
   int64_t copySize = 0;
   auto targetCopySize = FLAGS_staging_bytes_per_thread;
   int32_t numThreads = 0;

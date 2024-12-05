@@ -542,6 +542,7 @@ void naiveDecodeBitsLE(
     }
     return;
   }
+  auto lastSafe = bufferEnd - sizeof(uint64_t);
   int32_t numSafeRows = numRows;
   bool anyUnsafe = false;
   if (bufferEnd) {

@@ -113,6 +113,7 @@ class IPAddressCastOperator : public exec::CastOperator {
       BaseVector& result) {
     auto* flatResult = result.as<FlatVector<int128_t>>();
     const auto* ipAddressStrings = input.as<SimpleVector<StringView>>();
+    int128_t intAddr;
 
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       const auto ipAddressString = ipAddressStrings->valueAt(row);

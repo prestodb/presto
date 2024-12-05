@@ -35,6 +35,7 @@ TEST(ScratchTest, basic) {
   {
     ScratchPtr<int32_t> ints(scratch);
     ScratchPtr<int64_t> longs(scratch);
+    auto tempLongs = longs.get(2000);
     auto tempInts = ints.get(1000);
     std::fill(tempInts, tempInts + 1000, -1);
     std::fill(tempInts, tempInts + 2000, -1);

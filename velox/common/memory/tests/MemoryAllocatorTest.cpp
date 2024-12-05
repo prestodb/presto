@@ -637,6 +637,7 @@ TEST_P(MemoryAllocatorTest, allocationClass2) {
 
 TEST_P(MemoryAllocatorTest, stats) {
   const std::vector<MachinePageCount>& sizes = instance_->sizeClasses();
+  MachinePageCount capacity = kCapacityPages;
   for (auto i = 0; i < sizes.size(); ++i) {
     std::unique_ptr<Allocation> allocation = std::make_unique<Allocation>();
     auto size = sizes[i];
@@ -962,6 +963,7 @@ TEST_P(MemoryAllocatorTest, allocContiguous) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(fmt::format("{} useMmap{}", testData.debugString(), useMmap_));
     setupAllocator();
+    const MachinePageCount nonContiguousPages = 100;
     Allocation allocation;
     if (testData.nonContiguousPages != 0) {
       instance_->allocateNonContiguous(testData.nonContiguousPages, allocation);
@@ -1063,6 +1065,7 @@ TEST_P(MemoryAllocatorTest, allocContiguousFail) {
     SCOPED_TRACE(
         fmt::format("{} useMmap {}", testData.debugString(), useMmap_));
     setupAllocator();
+    const MachinePageCount nonContiguousPages = 100;
     Allocation allocation;
     if (testData.nonContiguousPages != 0) {
       instance_->allocateNonContiguous(testData.nonContiguousPages, allocation);
@@ -1373,6 +1376,7 @@ TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
     // Allocation from classes and ContiguousAllocation outside size
     // classes.
     constexpr int32_t kNumDoubles = 256 * 1024;
+    size_t capacity = 0;
     for (auto i = 0; i < kNumDoubles; i++) {
       data.push_back(i);
     }

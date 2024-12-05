@@ -43,7 +43,7 @@ TEST(Decryption, NoKeyProvider) {
   auto type = parser.parse("struct<a:int>");
   proto::Footer footer;
   ProtoUtils::writeType(*type, footer);
-  footer.mutable_encryption();
+  auto enc = footer.mutable_encryption();
   TestDecrypterFactory factory;
   ASSERT_THROW(
       DecryptionHandler::create(footer, &factory), exception::LoggedException);

@@ -329,6 +329,7 @@ class OutputBufferManagerTest : public testing::Test {
         return;
       }
       const int64_t maxBytes = folly::Random().oneIn(4, rng) ? 32'000'000 : 1;
+      int64_t receivedSequence;
       bool atEnd{false};
       folly::EventCount dataWait;
       auto dataWaitKey = dataWait.prepareWait();
