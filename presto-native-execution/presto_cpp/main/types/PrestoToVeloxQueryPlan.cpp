@@ -842,27 +842,7 @@ void VeloxQueryPlanConverterBase::toAggregations(
         auto sqlFunction =
             std::dynamic_pointer_cast<protocol::SqlFunctionHandle>(
                 prestoAggregation.functionHandle)) {
-      const auto& functionId = sqlFunction->functionId;
-
-      // functionId format is function-name;arg-type1;arg-type2;...
-      // For example: foo;INTEGER;VARCHAR.
-      auto start = functionId.find(";");
-      if (start != std::string::npos) {
-        for (;;) {
-          auto pos = functionId.find(";", start + 1);
-          if (pos == std::string::npos) {
-            auto argumentType = functionId.substr(start + 1);
-            aggregate.rawInputTypes.push_back(
-                stringToType(argumentType, typeParser_));
-            break;
-          }
-
-          auto argumentType = functionId.substr(start + 1, pos - start - 1);
-          aggregate.rawInputTypes.push_back(
-              stringToType(argumentType, typeParser_));
-          pos = start + 1;
-        }
-      }
+      parseSqlFunctionHandle(sqlFunction, aggregate.rawInputTypes, typeParser_);
     } else {
       VELOX_USER_FAIL(
           "Unsupported aggregate function handle: {}",
@@ -2109,5 +2089,31 @@ void registerPrestoPlanNodeSerDe() {
       "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
   registry.Register(
       "BroadcastWriteNode", presto::operators::BroadcastWriteNode::create);
+}
+
+void parseSqlFunctionHandle(
+    const std::shared_ptr<protocol::SqlFunctionHandle>& sqlFunction,
+    std::vector<velox::TypePtr>& rawInputTypes,
+    TypeParser& typeParser) {
+  const auto& functionId = sqlFunction->functionId;
+  // functionId format is function-name;arg-type1;arg-type2;...
+  // For example: foo;INTEGER;VARCHAR.
+  auto start = functionId.find(";");
+  if (start != std::string::npos) {
+    for (;;) {
+      auto pos = functionId.find(";", start + 1);
+      if (pos == std::string::npos) {
+        auto argumentType = functionId.substr(start + 1);
+        if (!argumentType.empty()) {
+          rawInputTypes.push_back(stringToType(argumentType, typeParser));
+        }
+        break;
+      }
+      auto argumentType = functionId.substr(start + 1, pos - start - 1);
+      VELOX_CHECK(!argumentType.empty());
+      rawInputTypes.push_back(stringToType(argumentType, typeParser));
+      start = pos;
+    }
+  }
 }
 } // namespace facebook::presto
