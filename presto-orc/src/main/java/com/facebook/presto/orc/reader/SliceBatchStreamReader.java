@@ -55,13 +55,13 @@ public class SliceBatchStreamReader
     private final SliceDictionaryBatchStreamReader dictionaryReader;
     private BatchStreamReader currentReader;
 
-    public SliceBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcAggregatedMemoryContext systemMemoryContext)
+    public SliceBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcAggregatedMemoryContext systemMemoryContext, long maxSliceSize)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.directReader = new SliceDirectBatchStreamReader(streamDescriptor, getMaxCodePointCount(type), isCharType(type));
+        this.directReader = new SliceDirectBatchStreamReader(streamDescriptor, getMaxCodePointCount(type), isCharType(type), maxSliceSize);
         this.dictionaryReader = new SliceDictionaryBatchStreamReader(streamDescriptor, getMaxCodePointCount(type), isCharType(type), systemMemoryContext.newOrcLocalMemoryContext(SliceBatchStreamReader.class.getSimpleName()));
     }
 
