@@ -41,8 +41,8 @@ public class IcebergPrestoModelConverters
     public static Namespace toIcebergNamespace(Optional<String> prestoSchemaName, boolean nestedNamespaceEnabled)
     {
         if (prestoSchemaName.isPresent()) {
-            checkNestedNamespaceSupport(prestoSchemaName.get(), nestedNamespaceEnabled);
-            return Namespace.of(NAMESPACE_SPLITTER.splitToList(prestoSchemaName.get()).toArray(new String[0]));
+            checkNestedNamespaceSupport(prestoSchemaName.orElseThrow(), nestedNamespaceEnabled);
+            return Namespace.of(NAMESPACE_SPLITTER.splitToList(prestoSchemaName.orElseThrow()).toArray(new String[0]));
         }
         return Namespace.empty();
     }

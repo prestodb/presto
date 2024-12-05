@@ -125,7 +125,7 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testShowCreateTable()
     {
-        String schemaName = getSession().getSchema().get();
+        String schemaName = getSession().getSchema().orElseThrow();
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo(format("CREATE TABLE iceberg.%s.orders (\n" +
                         "   \"orderkey\" bigint,\n" +
@@ -603,7 +603,7 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testTableComments()
     {
         Session session = getSession();
-        String schemaName = session.getSchema().get();
+        String schemaName = session.getSchema().orElseThrow();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE iceberg.%s.test_table_comments (\n" +
@@ -653,11 +653,11 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0",
                 "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT)), (123, CAST(321 AS BIGINT))");
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('%s', 'test_rollback', %s)", session.getSchema().get(), afterFirstInsertId));
+        assertUpdate(format("CALL system.rollback_to_snapshot('%s', 'test_rollback', %s)", session.getSchema().orElseThrow(), afterFirstInsertId));
         assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0",
                 "VALUES (123, CAST(987 AS BIGINT)), (123, CAST(321 AS BIGINT))");
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('%s', 'test_rollback', %s)", session.getSchema().get(), afterCreateTableId));
+        assertUpdate(format("CALL system.rollback_to_snapshot('%s', 'test_rollback', %s)", session.getSchema().orElseThrow(), afterCreateTableId));
         assertEquals((long) computeActual(session, "SELECT COUNT(*) FROM test_rollback").getOnlyValue(), 1);
 
         dropTable(session, "test_rollback");
@@ -710,7 +710,7 @@ public abstract class IcebergDistributedSmokeTestBase
     private void testCreateTableLike()
     {
         Session session = getSession();
-        String schemaName = session.getSchema().get();
+        String schemaName = session.getSchema().orElseThrow();
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
@@ -1171,7 +1171,7 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testMergeOnReadEnabled()
     {
-        String schemaName = getSession().getSchema().get();
+        String schemaName = getSession().getSchema().orElseThrow();
         String tableName = "test_merge_on_read_enabled";
         try {
             Session session = getSession();
@@ -1196,7 +1196,7 @@ public abstract class IcebergDistributedSmokeTestBase
                     .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "false")
                     .build();
 
-            createTableWithMergeOnRead(session, session.getSchema().get(), tableName);
+            createTableWithMergeOnRead(session, session.getSchema().orElseThrow(), tableName);
             assertQueryFails(session, "INSERT INTO " + tableName + " VALUES (1, 1)", errorMessage);
             assertQueryFails(session, "INSERT INTO " + tableName + " VALUES (2, 2)", errorMessage);
             assertQueryFails(session, "SELECT * FROM " + tableName, errorMessage);
@@ -1854,6 +1854,6 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         assertQuerySucceeds("ALTER TABLE IF EXISTS non_existent_test_table1 SET PROPERTIES (commit_retries = 6)");
         assertQueryFails("ALTER TABLE non_existent_test_table2 SET PROPERTIES (commit_retries = 6)",
-                format("Table does not exist: iceberg.%s.non_existent_test_table2", getSession().getSchema().get()));
+                format("Table does not exist: iceberg.%s.non_existent_test_table2", getSession().getSchema().orElseThrow()));
     }
 }

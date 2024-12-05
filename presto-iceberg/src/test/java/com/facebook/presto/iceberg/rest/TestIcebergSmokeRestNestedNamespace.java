@@ -49,7 +49,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
@@ -160,7 +160,7 @@ public class TestIcebergSmokeRestNestedNamespace
     @Override // override due to double quotes around nested namespace
     public void testShowCreateTable()
     {
-        String schemaName = getSession().getSchema().get();
+        String schemaName = getSession().getSchema().orElseThrow();
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo(format("CREATE TABLE iceberg.\"%s\".orders (\n" +
                         "   \"orderkey\" bigint,\n" +
@@ -189,7 +189,7 @@ public class TestIcebergSmokeRestNestedNamespace
     public void testTableComments()
     {
         Session session = getSession();
-        String schemaName = session.getSchema().get();
+        String schemaName = session.getSchema().orElseThrow();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE iceberg.\"%s\".test_table_comments (\n" +
@@ -220,7 +220,7 @@ public class TestIcebergSmokeRestNestedNamespace
         String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
 
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
-        assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(resultOfCreate.getOnlyColumnAsSet().stream().collect(onlyElement()), createTableSql);
 
         dropTable(session, "test_table_comments");
     }
@@ -257,14 +257,14 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   metrics_max_inferred_column = 100,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "test_create_partitioned_table_as_" + fileFormatString,
                 fileFormat,
-                getLocation(getSession().getSchema().get(), "test_create_partitioned_table_as_" + fileFormatString));
+                getLocation(getSession().getSchema().orElseThrow(), "test_create_partitioned_table_as_" + fileFormatString));
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_partitioned_table_as_" + fileFormatString);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), createTableSql);
 
         assertQuery(session, "SELECT * from test_create_partitioned_table_as_" + fileFormatString,
                 "SELECT orderkey, shippriority, orderstatus FROM orders");
@@ -317,15 +317,15 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "test_create_table_with_format_version_" + formatVersion,
                 defaultDeleteMode,
                 formatVersion,
-                getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion));
+                getLocation(getSession().getSchema().orElseThrow(), "test_create_table_with_format_version_" + formatVersion));
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_table_with_format_version_" + formatVersion);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(actualResult.getOnlyColumnAsSet().stream().collect(onlyElement()), createTableSql);
 
         dropTable(session, "test_create_table_with_format_version_" + formatVersion);
     }
@@ -334,7 +334,7 @@ public class TestIcebergSmokeRestNestedNamespace
     public void testView()
     {
         Session session = getSession();
-        String schemaName = getSession().getSchema().get();
+        String schemaName = getSession().getSchema().orElseThrow();
 
         assertUpdate(session, "CREATE VIEW view_orders AS SELECT * from orders");
         assertQuery(session, "SELECT * FROM view_orders", "SELECT * from orders");
