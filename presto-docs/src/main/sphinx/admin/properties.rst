@@ -70,6 +70,18 @@ When enabled, the logical plan will begin to be built and validated before
 queueing and allocation of cluster resources so that any errors or
 incompatibilities in the query plan will fail quickly and inform the user.
 
+``single-node-execution-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+This property ensures that queries scheduled in this cluster use only a single
+node for execution, which may improve performance for small queries which can
+be executed within a single node.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`single_node_execution_enabled\`\``.
+
 .. _tuning-memory:
 
 Memory Management Properties

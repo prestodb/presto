@@ -145,6 +145,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPre
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
+import com.facebook.presto.sql.planner.optimizations.AddExchangesForSingleNodeExecution;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
@@ -848,6 +849,7 @@ public class PlanOptimizers
             builder.add(new CteProjectionAndPredicatePushDown(metadata)); // must run before PhysicalCteOptimizer
             builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchangesForSingleNodeExecution(metadata)));
         }
 
         //noinspection UnusedAssignment

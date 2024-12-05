@@ -79,6 +79,7 @@ import static com.facebook.presto.spi.NodePoolType.LEAF;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -326,7 +327,58 @@ public class SectionExecutionFactory
             return scheduler;
         }
         else {
-            if (!splitSources.isEmpty()) {
+            if (!splitSources.isEmpty() && (plan.getFragment().getPartitioning().equals(SINGLE_DISTRIBUTION))) {
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, null, nodePredicate);
+                List<InternalNode> nodes = nodeSelector.selectRandomNodes(1);
+                BucketNodeMap bucketNodeMap = new BucketNodeMap((split) -> 0) {
+                    @Override
+                    public int getBucketCount()
+                    {
+                        return 1;
+                    }
+                    @Override
+                    public Optional<InternalNode> getAssignedNode(int bucketedId)
+                    {
+                        return Optional.of(nodes.get(0));
+                    }
+                    @Override
+                    public boolean isBucketCacheable(int bucketedId)
+                    {
+                        return false;
+                    }
+                    @Override
+                    public void assignOrUpdateBucketToNode(int bucketedId, InternalNode node, boolean cacheable)
+                    {
+                    }
+                    @Override
+                    public boolean isDynamic()
+                    {
+                        return true;
+                    }
+                    @Override
+                    public boolean hasInitialMap()
+                    {
+                        return false;
+                    }
+                    @Override
+                    public Optional<List<InternalNode>> getBucketToNode()
+                    {
+                        return Optional.of(nodes);
+                    }
+                };
+                return new FixedSourcePartitionedScheduler(
+                        stageExecution,
+                        splitSources,
+                        plan.getFragment().getStageExecutionDescriptor(),
+                        plan.getFragment().getTableScanSchedulingOrder(),
+                        nodes,
+                        bucketNodeMap,
+                        splitBatchSize,
+                        getConcurrentLifespansPerNode(session),
+                        nodeSelector,
+                        ImmutableList.of(NOT_PARTITIONED));
+            }
+            else if (!splitSources.isEmpty()) {
                 // contains local source
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getTableScanSchedulingOrder();
                 ConnectorId connectorId = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
