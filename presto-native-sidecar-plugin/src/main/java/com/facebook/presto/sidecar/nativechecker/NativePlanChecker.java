@@ -35,8 +35,8 @@ import java.io.IOException;
 
 import static com.facebook.presto.sidecar.nativechecker.NativePlanCheckerErrorCode.NATIVEPLANCHECKER_CONNECTION_ERROR;
 import static com.facebook.presto.sidecar.nativechecker.NativePlanCheckerErrorCode.NATIVEPLANCHECKER_UNKNOWN_CONVERSION_FAILURE;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * Uses the native sidecar to check verify a plan can be run on a native worker.
@@ -91,7 +91,7 @@ public final class NativePlanChecker
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 PlanConversionFailureInfo failure = processResponseFailure(response);
-                String message = String.format("Error from native plan checker: %s", firstNonNull(failure.getMessage(), "Internal error"));
+                String message = String.format("Error from native plan checker: %s", requireNonNullElse(failure.getMessage(), "Internal error"));
                 throw new PrestoException(failure::getErrorCode, message, failure.toException());
             }
         }
