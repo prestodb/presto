@@ -183,12 +183,12 @@ public class TestValidateAggregationsWithDefaultValues
         validatePlan(root, true);
     }
 
-    private void validatePlan(PlanNode root, boolean forceSingleNode)
+    private void validatePlan(PlanNode root, boolean noExchange)
     {
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, WarningCollector.NOOP);
+            new ValidateAggregationsWithDefaultValues(noExchange).validate(root, session, metadata, WarningCollector.NOOP);
             return null;
         });
     }

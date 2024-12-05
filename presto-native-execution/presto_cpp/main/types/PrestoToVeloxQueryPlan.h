@@ -271,4 +271,9 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
 };
 
 void registerPrestoPlanNodeSerDe();
+
+void parseSqlFunctionHandle(
+    const std::shared_ptr<protocol::SqlFunctionHandle>& sqlFunction,
+    std::vector<velox::TypePtr>& rawInputTypes,
+    TypeParser& typeParser);
 } // namespace facebook::presto

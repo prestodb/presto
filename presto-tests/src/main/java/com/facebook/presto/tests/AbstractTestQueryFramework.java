@@ -551,13 +551,13 @@ public abstract class AbstractTestQueryFramework
     {
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = createFeaturesConfig();
-        boolean forceSingleNode = queryRunner.getNodeCount() == 1;
+        boolean noExchange = queryRunner.getNodeCount() == 1;
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 sqlParser,
-                forceSingleNode,
+                noExchange,
                 new MBeanExporter(new TestingMBeanServer()),
                 queryRunner.getSplitManager(),
                 queryRunner.getPlanOptimizerManager(),

@@ -254,7 +254,7 @@ public class PlanOptimizers
     public PlanOptimizers(
             Metadata metadata,
             SqlParser sqlParser,
-            boolean forceSingleNode,
+            boolean noExchange,
             MBeanExporter exporter,
             SplitManager splitManager,
             ConnectorPlanOptimizerManager planOptimizerManager,
@@ -813,7 +813,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.of(new ScaledWriterRule())));
 
-        if (!forceSingleNode) {
+        if (!noExchange) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
             builder.add(new IterativeOptimizer(
                     metadata,

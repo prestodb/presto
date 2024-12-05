@@ -110,3 +110,20 @@ target_link_libraries(
   velox_window
   GTest::gtest
   GTest::gtest_main)
+
+add_executable(presto_to_velox_query_plan_test PrestoToVeloxQueryPlanTest.cpp)
+
+add_test(
+  NAME presto_to_velox_query_plan_test
+  COMMAND presto_to_velox_query_plan_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_to_velox_query_plan_test
+  presto_operators
+  presto_protocol
+  presto_type_converter
+  presto_types
+  velox_exec_test_lib
+  GTest::gtest
+  GTest::gtest_main)
