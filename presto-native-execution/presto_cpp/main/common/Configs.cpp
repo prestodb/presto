@@ -340,6 +340,10 @@ std::string SystemConfig::remoteFunctionServerSerde() const {
   return optionalProperty(kRemoteFunctionServerSerde).value();
 }
 
+std::string SystemConfig::remoteFunctionRestUrl() const {
+  return optionalProperty(kRemoteFunctionServerRestURL).value();
+}
+
 int32_t SystemConfig::maxDriversPerTask() const {
   return optionalProperty<int32_t>(kMaxDriversPerTask).value();
 }
