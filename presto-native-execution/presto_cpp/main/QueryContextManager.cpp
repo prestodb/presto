@@ -222,9 +222,9 @@ QueryContextManager::toVeloxConfigs(
   for (const auto& it : session.systemProperties) {
     if (it.first == SessionProperties::kQueryTraceFragmentId) {
       traceFragmentId = it.second;
-    }else if(it.first == SessionProperties::kQueryTraceShardId) {
+    } else if (it.first == SessionProperties::kQueryTraceShardId) {
       traceShardId = it.second;
-    }else {
+    } else {
       configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
       sessionProperties_.updateVeloxConfig(it.first, it.second);
     }
@@ -241,7 +241,9 @@ QueryContextManager::toVeloxConfigs(
   // Construct query tracing regex and pass to Velox config.
   // It replaces the given native_query_trace_task_reg_exp if also set.
   // It's OK to just pass in this property even if tracing is not enabled
-  configs.emplace(velox::core::QueryConfig::kQueryTraceTaskRegExp, ".*\\."+traceFragmentId+"\\..*\\."+traceShardId+"\\..*");
+  configs.emplace(
+      velox::core::QueryConfig::kQueryTraceTaskRegExp,
+      ".*\\." + traceFragmentId + "\\..*\\." + traceShardId + "\\..*");
 
   updateFromSystemConfigs(configs);
   return configs;
