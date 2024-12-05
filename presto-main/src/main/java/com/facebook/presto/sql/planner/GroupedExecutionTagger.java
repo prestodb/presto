@@ -82,7 +82,7 @@ class GroupedExecutionTagger
         GroupedExecutionTagger.GroupedExecutionProperties right = node.getRight().accept(this, null);
 
         if (!node.getDistributionType().isPresent() || !groupedExecutionEnabled) {
-            // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
+            // This is possible when the optimizers is invoked with `noExchange` set to true.
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }
 

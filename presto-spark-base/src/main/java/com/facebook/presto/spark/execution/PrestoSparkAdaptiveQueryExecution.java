@@ -226,7 +226,7 @@ public class PrestoSparkAdaptiveQueryExecution
 
     private IterativePlanFragmenter createIterativePlanFragmenter(PlanCheckerProviderManager planCheckerProviderManager)
     {
-        boolean forceSingleNode = false;
+        boolean noExchange = false;
         Function<PlanFragmentId, Boolean> isFragmentFinished = this.executedFragments::contains;
 
         // TODO Create the IterativePlanFragmenter by injection (it has to become stateless first--check PR 18811).
@@ -234,13 +234,13 @@ public class PrestoSparkAdaptiveQueryExecution
                 this.planAndMore.getPlan(),
                 isFragmentFinished,
                 this.metadata,
-                new PlanChecker(this.featuresConfig, forceSingleNode, planCheckerProviderManager),
+                new PlanChecker(this.featuresConfig, noExchange, planCheckerProviderManager),
                 this.idAllocator,
                 new PrestoSparkNodePartitioningManager(this.partitioningProviderManager),
                 this.queryManagerConfig,
                 this.session,
                 this.warningCollector,
-                forceSingleNode);
+                noExchange);
     }
 
     @Override
