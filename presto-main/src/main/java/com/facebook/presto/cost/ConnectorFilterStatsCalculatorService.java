@@ -141,6 +141,11 @@ public class ConnectorFilterStatsCalculatorService
         if (!Double.isNaN(variableStatsEstimate.getLowValue()) && !Double.isNaN(variableStatsEstimate.getHighValue())) {
             builder.setRange(new DoubleRange(variableStatsEstimate.getLowValue(), variableStatsEstimate.getHighValue()));
         }
+
+        if (variableStatsEstimate.getHistogram().isPresent()) {
+            builder.setHistogram(variableStatsEstimate.getHistogram());
+        }
+
         return builder.build();
     }
 }

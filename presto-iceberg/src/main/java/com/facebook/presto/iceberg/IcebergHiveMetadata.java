@@ -478,10 +478,23 @@ public class IcebergHiveMetadata
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        org.apache.iceberg.Table table = getIcebergTable(session, tableMetadata.getTable());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(session, tableMetadata.getTable());
+        Set<ColumnStatisticMetadata> hiveColumnStatistics = getHiveSupportedColumnStatistics(session, icebergTable, tableMetadata);
+        Set<ColumnStatisticMetadata> supportedStatistics = ImmutableSet.<ColumnStatisticMetadata>builder()
+                .addAll(hiveColumnStatistics)
+                // iceberg table-supported statistics
+                .addAll(super.getStatisticsCollectionMetadata(session, tableMetadata).getColumnStatistics())
+                .build();
+        Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);
+        return new TableStatisticsMetadata(supportedStatistics, tableStatistics, emptyList());
+    }
+
+    private Set<ColumnStatisticMetadata> getHiveSupportedColumnStatistics(ConnectorSession session, org.apache.iceberg.Table table, ConnectorTableMetadata tableMetadata)
+    {
         MetricsConfig metricsConfig = MetricsConfig.forTable(table);
-        Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden() && metricsConfig.columnMode(column.getName()) != None.get())
+        return tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .filter(column -> metricsConfig.columnMode(column.getName()) != None.get())
                 .flatMap(meta -> {
                     try {
                         return metastore.getSupportedColumnStatistics(getMetastoreContext(session), meta.getType())
@@ -494,9 +507,6 @@ public class IcebergHiveMetadata
                     }
                 })
                 .collect(toImmutableSet());
-
-        Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);
-        return new TableStatisticsMetadata(columnStatistics, tableStatistics, emptyList());
     }
 
     @Override
@@ -525,11 +535,31 @@ public class IcebergHiveMetadata
         Map<List<String>, ComputedStatistics> computedStatisticsMap = createComputedStatisticsToPartitionMap(computedStatistics, partitionColumnNames, columnTypes);
 
         // commit analyze to unpartitioned table
-        PartitionStatistics tableStatistics = createPartitionStatistics(session, columnTypes, computedStatisticsMap.get(ImmutableList.<String>of()), timeZone);
+        ConnectorTableMetadata metadata = getTableMetadata(session, tableHandle);
+        org.apache.iceberg.Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        Set<ColumnStatisticMetadata> hiveSupportedStatistics = getHiveSupportedColumnStatistics(session, icebergTable, metadata);
+        PartitionStatistics tableStatistics = createPartitionStatistics(
+                session,
+                columnTypes,
+                computedStatisticsMap.get(ImmutableList.<String>of()),
+                hiveSupportedStatistics,
+                timeZone);
         metastore.updateTableStatistics(metastoreContext,
                 table.getDatabaseName(),
                 table.getTableName(),
                 oldStats -> updatePartitionStatistics(oldStats, tableStatistics));
+
+        Set<ColumnStatisticMetadata> icebergSupportedStatistics = super.getStatisticsCollectionMetadata(session, metadata).getColumnStatistics();
+        Collection<ComputedStatistics> icebergComputedStatistics = computedStatistics.stream().map(stat -> {
+            ComputedStatistics.Builder builder = ComputedStatistics.builder(stat.getGroupingColumns(), stat.getGroupingValues());
+            stat.getTableStatistics()
+                    .forEach(builder::addTableStatistic);
+            stat.getColumnStatistics().entrySet().stream()
+                    .filter(entry -> icebergSupportedStatistics.contains(entry.getKey()))
+                    .forEach(entry -> builder.addColumnStatistic(entry.getKey(), entry.getValue()));
+            return builder.build();
+        }).collect(toImmutableList());
+        super.finishStatisticsCollection(session, tableHandle, icebergComputedStatistics);
     }
 
     @Override

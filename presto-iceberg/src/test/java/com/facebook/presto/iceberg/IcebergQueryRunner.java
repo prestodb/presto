@@ -215,7 +215,7 @@ public final class IcebergQueryRunner
             queryRunner.createCatalog("jmx", "jmx");
         }
 
-        if (catalogType == HIVE.name()) {
+        if (catalogType.equals(HIVE.name())) {
             ExtendedHiveMetastore metastore = getFileHiveMetastore(icebergDataDirectory);
             if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
                 queryRunner.execute("CREATE SCHEMA tpch");
