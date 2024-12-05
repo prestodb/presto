@@ -16,11 +16,12 @@
 #pragma once
 
 #include "velox/type/Type.h"
-#include "velox/type/Variant.h"
 
 namespace facebook::velox::core {
 
 class ITypedExpr;
+class ITypedExprVisitor;
+class ITypedExprVisitorContext;
 
 using TypedExprPtr = std::shared_ptr<const ITypedExpr>;
 
@@ -50,6 +51,12 @@ class ITypedExpr : public ISerializable {
   /// Used to bind inputs to lambda functions.
   virtual TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, TypedExprPtr>& mapping) const = 0;
+
+  /// Part of the visitor pattern. Calls visitor.vist(*this, context) with the
+  /// "right" type of the first argument.
+  virtual void accept(
+      const ITypedExprVisitor& visitor,
+      ITypedExprVisitorContext& context) const = 0;
 
   virtual std::string toString() const = 0;
 

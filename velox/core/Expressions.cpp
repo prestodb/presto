@@ -67,6 +67,12 @@ void ITypedExpr::registerSerDe() {
   registry.Register("LambdaTypedExpr", core::LambdaTypedExpr::create);
 }
 
+void InputTypedExpr::accept(
+    const ITypedExprVisitor& visitor,
+    ITypedExprVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 folly::dynamic InputTypedExpr::serialize() const {
   return ITypedExpr::serializeBase("InputTypedExpr");
 }
@@ -76,6 +82,12 @@ TypedExprPtr InputTypedExpr::create(const folly::dynamic& obj, void* context) {
   auto type = core::deserializeType(obj, context);
 
   return std::make_shared<InputTypedExpr>(std::move(type));
+}
+
+void ConstantTypedExpr::accept(
+    const ITypedExprVisitor& visitor,
+    ITypedExprVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 folly::dynamic ConstantTypedExpr::serialize() const {
@@ -113,6 +125,12 @@ TypedExprPtr ConstantTypedExpr::create(
   return std::make_shared<ConstantTypedExpr>(restoreVector(dataStream, pool));
 }
 
+void CallTypedExpr::accept(
+    const ITypedExprVisitor& visitor,
+    ITypedExprVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 folly::dynamic CallTypedExpr::serialize() const {
   auto obj = ITypedExpr::serializeBase("CallTypedExpr");
   obj["functionName"] = name_;
@@ -126,6 +144,12 @@ TypedExprPtr CallTypedExpr::create(const folly::dynamic& obj, void* context) {
 
   return std::make_shared<CallTypedExpr>(
       std::move(type), std::move(inputs), obj["functionName"].asString());
+}
+
+void FieldAccessTypedExpr::accept(
+    const ITypedExprVisitor& visitor,
+    ITypedExprVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 folly::dynamic FieldAccessTypedExpr::serialize() const {
@@ -152,6 +176,12 @@ TypedExprPtr FieldAccessTypedExpr::create(
   }
 }
 
+void DereferenceTypedExpr::accept(
+    const ITypedExprVisitor& visitor,
+    ITypedExprVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 folly::dynamic DereferenceTypedExpr::serialize() const {
   auto obj = ITypedExpr::serializeBase("DereferenceTypedExpr");
   obj["fieldIndex"] = index_;
@@ -172,6 +202,12 @@ TypedExprPtr DereferenceTypedExpr::create(
       std::move(type), std::move(inputs[0]), index);
 }
 
+void ConcatTypedExpr::accept(
+    const ITypedExprVisitor& visitor,
+    ITypedExprVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 folly::dynamic ConcatTypedExpr::serialize() const {
   return ITypedExpr::serializeBase("ConcatTypedExpr");
 }
@@ -183,6 +219,12 @@ TypedExprPtr ConcatTypedExpr::create(const folly::dynamic& obj, void* context) {
 
   return std::make_shared<ConcatTypedExpr>(
       type->asRow().names(), std::move(inputs));
+}
+
+void LambdaTypedExpr::accept(
+    const ITypedExprVisitor& visitor,
+    ITypedExprVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 folly::dynamic LambdaTypedExpr::serialize() const {
@@ -199,6 +241,12 @@ TypedExprPtr LambdaTypedExpr::create(const folly::dynamic& obj, void* context) {
 
   return std::make_shared<LambdaTypedExpr>(
       asRowType(signature), std::move(body));
+}
+
+void CastTypedExpr::accept(
+    const ITypedExprVisitor& visitor,
+    ITypedExprVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 folly::dynamic CastTypedExpr::serialize() const {

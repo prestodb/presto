@@ -730,6 +730,253 @@ void ProjectNode::addDetails(std::stringstream& stream) const {
   }
 }
 
+namespace {
+
+class SummarizeExprVisitor : public ITypedExprVisitor {
+ public:
+  class Context : public ITypedExprVisitorContext {
+   public:
+    std::unordered_map<std::string, int64_t>& functionCounts() {
+      return functionCounts_;
+    }
+
+    std::unordered_map<std::string, int64_t>& expressionCounts() {
+      return expressionCounts_;
+    }
+
+    std::unordered_map<velox::TypePtr, int64_t>& constantCounts() {
+      return constantCounts_;
+    }
+
+   private:
+    std::unordered_map<std::string, int64_t> functionCounts_;
+    std::unordered_map<std::string, int64_t> expressionCounts_;
+    std::unordered_map<velox::TypePtr, int64_t> constantCounts_;
+  };
+
+  void visit(const CallTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    const auto& name = expr.name();
+
+    auto& myCtx = static_cast<Context&>(ctx);
+    myCtx.expressionCounts()["call"]++;
+
+    auto& counts = myCtx.functionCounts();
+    counts[name]++;
+
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const CastTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    auto& myCtx = static_cast<Context&>(ctx);
+    myCtx.expressionCounts()["cast"]++;
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const ConcatTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    auto& myCtx = static_cast<Context&>(ctx);
+    myCtx.expressionCounts()["concat"]++;
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const ConstantTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    auto& myCtx = static_cast<Context&>(ctx);
+    myCtx.expressionCounts()["constant"]++;
+    myCtx.constantCounts()[expr.type()]++;
+
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const DereferenceTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    auto& myCtx = static_cast<Context&>(ctx);
+    myCtx.expressionCounts()["dereference"]++;
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const FieldAccessTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    auto& myCtx = static_cast<Context&>(ctx);
+    myCtx.expressionCounts()["field"]++;
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const InputTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const LambdaTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    auto& myCtx = static_cast<Context&>(ctx);
+    myCtx.expressionCounts()["lambda"]++;
+    expr.body()->accept(*this, ctx);
+  }
+};
+
+void appendCounts(
+    const std::unordered_map<std::string, int64_t>& counts,
+    std::stringstream& stream) {
+  // Sort map entries by key.
+  std::vector<std::string> sortedKeys;
+  sortedKeys.reserve(counts.size());
+  for (const auto& [name, _] : counts) {
+    sortedKeys.push_back(name);
+  }
+  std::sort(sortedKeys.begin(), sortedKeys.end());
+
+  bool first = true;
+  for (const auto& key : sortedKeys) {
+    if (first) {
+      first = false;
+    } else {
+      stream << ", ";
+    }
+    stream << key << ": " << counts.at(key);
+  }
+}
+
+std::string summarizeOneType(
+    const velox::TypePtr& type,
+    const PlanSummaryOptions& options) {
+  std::ostringstream out;
+  out << type->kindName();
+
+  const auto cnt = std::min<size_t>(options.maxChildTypes, type->size());
+  if (cnt > 0) {
+    out << "(";
+    for (auto i = 0; i < cnt; ++i) {
+      if (i > 0) {
+        out << ", ";
+      }
+      out << type->childAt(i)->kindName();
+    }
+
+    if (cnt < type->size()) {
+      out << ", ...";
+    }
+    out << ")";
+  }
+
+  return out.str();
+}
+
+std::string truncate(const std::string& str, size_t maxLen = 50) {
+  if (str.size() > maxLen) {
+    return str.substr(0, maxLen) + "...";
+  }
+  return str;
+}
+
+void appendProjections(
+    const std::string& indentation,
+    const ProjectNode& op,
+    const std::vector<size_t>& projections,
+    size_t cnt,
+    std::stringstream& stream) {
+  if (cnt == 0) {
+    return;
+  }
+
+  for (auto i = 0; i < cnt; ++i) {
+    const auto index = projections[i];
+    const auto& expr = op.projections()[index];
+    stream << indentation << op.outputType()->nameOf(index) << ": "
+           << truncate(expr->toString()) << std::endl;
+  }
+
+  if (cnt < projections.size()) {
+    stream << indentation << "... " << (projections.size() - cnt) << " more"
+           << std::endl;
+  }
+}
+
+void appendExprSummary(
+    const std::string& indentation,
+    const PlanSummaryOptions& options,
+    SummarizeExprVisitor::Context& exprCtx,
+    std::stringstream& stream) {
+  stream << indentation << "expressions: ";
+  appendCounts(exprCtx.expressionCounts(), stream);
+  stream << std::endl;
+
+  if (!exprCtx.functionCounts().empty()) {
+    stream << indentation << "functions: ";
+    appendCounts(exprCtx.functionCounts(), stream);
+    stream << std::endl;
+  }
+
+  if (!exprCtx.constantCounts().empty()) {
+    stream << indentation << "constants: ";
+    std::unordered_map<std::string, int64_t> counts;
+    for (const auto& [type, count] : exprCtx.constantCounts()) {
+      counts[summarizeOneType(type, options)] += count;
+    }
+    appendCounts(counts, stream);
+    stream << std::endl;
+  }
+}
+
+} // namespace
+
+void ProjectNode::addSummaryDetails(
+    const std::string& indentation,
+    const PlanSummaryOptions& options,
+    std::stringstream& stream) const {
+  SummarizeExprVisitor::Context exprCtx;
+  SummarizeExprVisitor visitor;
+  for (const auto& projection : projections_) {
+    projection->accept(visitor, exprCtx);
+  }
+
+  appendExprSummary(indentation, options, exprCtx, stream);
+
+  // Collect non-identity projections.
+  const size_t numFields = outputType()->size();
+
+  std::vector<size_t> projections;
+  projections.reserve(numFields);
+
+  std::vector<size_t> dereferences;
+  dereferences.reserve(numFields);
+
+  for (auto i = 0; i < numFields; ++i) {
+    const auto& expr = projections_[i];
+    if (auto* dereference =
+            dynamic_cast<const DereferenceTypedExpr*>(expr.get())) {
+      dereferences.push_back(i);
+    } else {
+      auto fae = dynamic_cast<const FieldAccessTypedExpr*>(expr.get());
+      if (fae == nullptr) {
+        projections.push_back(i);
+      } else if (!fae->isInputColumn()) {
+        dereferences.push_back(i);
+      }
+    }
+  }
+
+  // projections: 4 out of 10
+  stream << indentation << "projections: " << projections.size() << " out of "
+         << numFields << std::endl;
+  {
+    const auto cnt =
+        std::min(options.project.maxProjections, projections.size());
+    appendProjections(indentation + "   ", *this, projections, cnt, stream);
+  }
+
+  // dereferences: 2 out of 10
+  stream << indentation << "dereferences: " << dereferences.size() << " out of "
+         << numFields << std::endl;
+  {
+    const auto cnt =
+        std::min(options.project.maxDereferences, dereferences.size());
+    appendProjections(indentation + "   ", *this, dereferences, cnt, stream);
+  }
+}
+
 folly::dynamic ProjectNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["names"] = ISerializable::serialize(names_);
@@ -2409,6 +2656,64 @@ void PlanNode::toString(
 }
 
 namespace {
+
+std::string summarizeOutputType(
+    const velox::RowTypePtr& type,
+    const PlanSummaryOptions& options) {
+  std::ostringstream out;
+  out << type->size() << " fields";
+
+  // Include names and types for the first few fields.
+  const auto cnt = std::min<size_t>(options.maxOutputFileds, type->size());
+  if (cnt > 0) {
+    out << ": ";
+    for (auto i = 0; i < cnt; ++i) {
+      if (i > 0) {
+        out << ", ";
+      }
+      out << type->nameOf(i) << " "
+          << summarizeOneType(type->childAt(i), options);
+    }
+
+    if (cnt < type->size()) {
+      out << ", ...";
+
+      // TODO Include counts of fields by type kind.
+    }
+  }
+
+  return out.str();
+}
+
+} // namespace
+
+void PlanNode::toSummaryString(
+    const PlanSummaryOptions& options,
+    std::stringstream& stream,
+    size_t indentationSize) const {
+  const std::string indentation(indentationSize, ' ');
+
+  stream << indentation << "-- " << name() << "[" << id()
+         << "]: " << summarizeOutputType(outputType(), options) << std::endl;
+
+  addSummaryDetails(indentation + "      ", options, stream);
+
+  for (auto& source : sources()) {
+    source->toSummaryString(options, stream, indentationSize + 2);
+  }
+}
+
+void PlanNode::addSummaryDetails(
+    const std::string& indentation,
+    const PlanSummaryOptions& options,
+    std::stringstream& stream) const {
+  std::stringstream out;
+  addDetails(out);
+
+  stream << indentation << truncate(out.str()) << std::endl;
+}
+
+namespace {
 void collectLeafPlanNodeIds(
     const core::PlanNode& planNode,
     std::unordered_set<core::PlanNodeId>& leafIds) {
@@ -2491,6 +2796,20 @@ std::string TraceScanNode::traceDir() const {
 
 void TraceScanNode::addDetails(std::stringstream& stream) const {
   stream << "Trace dir: " << traceDir_;
+}
+
+void FilterNode::addSummaryDetails(
+    const std::string& indentation,
+    const PlanSummaryOptions& options,
+    std::stringstream& stream) const {
+  SummarizeExprVisitor::Context exprCtx;
+  SummarizeExprVisitor visitor;
+  filter_->accept(visitor, exprCtx);
+
+  appendExprSummary(indentation, options, exprCtx, stream);
+
+  stream << indentation << "filter: " << truncate(filter_->toString())
+         << std::endl;
 }
 
 folly::dynamic FilterNode::serialize() const {

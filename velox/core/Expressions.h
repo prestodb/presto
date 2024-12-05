@@ -46,6 +46,10 @@ class InputTypedExpr : public ITypedExpr {
     return std::make_shared<InputTypedExpr>(type());
   }
 
+  void accept(
+      const ITypedExprVisitor& visitor,
+      ITypedExprVisitorContext& context) const override;
+
   folly::dynamic serialize() const override;
 
   static TypedExprPtr create(const folly::dynamic& obj, void* context);
@@ -122,6 +126,10 @@ class ConstantTypedExpr : public ITypedExpr {
       return std::make_shared<ConstantTypedExpr>(type(), value_);
     }
   }
+
+  void accept(
+      const ITypedExprVisitor& visitor,
+      ITypedExprVisitorContext& context) const override;
 
   bool equals(const ITypedExpr& other) const {
     const auto* casted = dynamic_cast<const ConstantTypedExpr*>(&other);
@@ -235,6 +243,10 @@ class CallTypedExpr : public ITypedExpr {
     return bits::hashMix(kBaseHash, std::hash<std::string>()(name_));
   }
 
+  void accept(
+      const ITypedExprVisitor& visitor,
+      ITypedExprVisitorContext& context) const override;
+
   bool operator==(const ITypedExpr& other) const override {
     const auto* casted = dynamic_cast<const CallTypedExpr*>(&other);
     if (!casted) {
@@ -324,11 +336,9 @@ class FieldAccessTypedExpr : public ITypedExpr {
     ss << std::quoted(name(), '"', '"');
     if (inputs().empty()) {
       return fmt::format("{}", ss.str());
-      ;
     }
 
     return fmt::format("{}[{}]", inputs()[0]->toString(), ss.str());
-    ;
   }
 
   size_t localHash() const override {
@@ -336,6 +346,10 @@ class FieldAccessTypedExpr : public ITypedExpr {
         std::hash<const char*>()("FieldAccessTypedExpr");
     return bits::hashMix(kBaseHash, std::hash<std::string>()(name_));
   }
+
+  void accept(
+      const ITypedExprVisitor& visitor,
+      ITypedExprVisitorContext& context) const override;
 
   bool operator==(const ITypedExpr& other) const final {
     const auto* casted = dynamic_cast<const FieldAccessTypedExpr*>(&other);
@@ -414,6 +428,10 @@ class DereferenceTypedExpr : public ITypedExpr {
     return bits::hashMix(kBaseHash, index_);
   }
 
+  void accept(
+      const ITypedExprVisitor& visitor,
+      ITypedExprVisitorContext& context) const override;
+
   bool operator==(const ITypedExpr& other) const final {
     const auto* casted = dynamic_cast<const DereferenceTypedExpr*>(&other);
     if (!casted) {
@@ -477,6 +495,10 @@ class ConcatTypedExpr : public ITypedExpr {
     static const size_t kBaseHash = std::hash<const char*>()("ConcatTypedExpr");
     return kBaseHash;
   }
+
+  void accept(
+      const ITypedExprVisitor& visitor,
+      ITypedExprVisitorContext& context) const override;
 
   bool operator==(const ITypedExpr& other) const override {
     const auto* casted = dynamic_cast<const ConcatTypedExpr*>(&other);
@@ -557,6 +579,10 @@ class LambdaTypedExpr : public ITypedExpr {
     return bits::hashMix(kBaseHash, body_->hash());
   }
 
+  void accept(
+      const ITypedExprVisitor& visitor,
+      ITypedExprVisitorContext& context) const override;
+
   bool operator==(const ITypedExpr& other) const override {
     const auto* casted = dynamic_cast<const LambdaTypedExpr*>(&other);
     if (!casted) {
@@ -624,6 +650,10 @@ class CastTypedExpr : public ITypedExpr {
     return bits::hashMix(kBaseHash, std::hash<bool>()(nullOnFailure_));
   }
 
+  void accept(
+      const ITypedExprVisitor& visitor,
+      ITypedExprVisitorContext& context) const override;
+
   bool operator==(const ITypedExpr& other) const override {
     const auto* otherCast = dynamic_cast<const CastTypedExpr*>(&other);
     if (!otherCast) {
@@ -688,4 +718,95 @@ class TypedExprs {
     return std::dynamic_pointer_cast<const LambdaTypedExpr>(expr);
   }
 };
+
+class ITypedExprVisitorContext {
+ public:
+  virtual ~ITypedExprVisitorContext() = default;
+};
+
+class ITypedExprVisitor {
+ public:
+  virtual ~ITypedExprVisitor() = default;
+
+  virtual void visit(const CallTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const CastTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const ConcatTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(
+      const ConstantTypedExpr& expr,
+      ITypedExprVisitorContext& ctx) const = 0;
+
+  virtual void visit(
+      const DereferenceTypedExpr& expr,
+      ITypedExprVisitorContext& ctx) const = 0;
+
+  virtual void visit(
+      const FieldAccessTypedExpr& expr,
+      ITypedExprVisitorContext& ctx) const = 0;
+
+  virtual void visit(const InputTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const LambdaTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const = 0;
+
+ protected:
+  void visitInputs(const ITypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const {
+    for (auto& child : expr.inputs()) {
+      child->accept(*this, ctx);
+    }
+  }
+};
+
+/// An implementation of ITypedExprVisitor that can be used to build a visitor
+/// that handles only specific types of expressions.
+class DefaultTypedExprVisitor : public ITypedExprVisitor {
+ public:
+  void visit(const CallTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const CastTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const ConcatTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const ConstantTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const DereferenceTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const FieldAccessTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const InputTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    visitInputs(expr, ctx);
+  }
+
+  void visit(const LambdaTypedExpr& expr, ITypedExprVisitorContext& ctx)
+      const override {
+    visitInputs(expr, ctx);
+  }
+};
+
 } // namespace facebook::velox::core
