@@ -64,19 +64,19 @@ public class PlanFragmenter
         this.singleNodePlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), true, planCheckerProviderManager);
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean noExchange, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         VariableAllocator variableAllocator = new VariableAllocator(plan.getTypes().allVariables());
-        return createSubPlans(session, plan, forceSingleNode, idAllocator, variableAllocator, warningCollector);
+        return createSubPlans(session, plan, noExchange, idAllocator, variableAllocator, warningCollector);
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, WarningCollector warningCollector)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean noExchange, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, WarningCollector warningCollector)
     {
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
                 plan.getStatsAndCosts(),
-                forceSingleNode ? singleNodePlanChecker : distributedPlanChecker,
+                noExchange ? singleNodePlanChecker : distributedPlanChecker,
                 warningCollector,
                 idAllocator,
                 variableAllocator,
@@ -85,13 +85,13 @@ public class PlanFragmenter
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
                 Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
                 plan.getRoot().getOutputVariables()));
-        if (forceSingleNode || isForceSingleNodeOutput(session)) {
+        if (noExchange || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
-        return finalizeSubPlan(subPlan, config, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector, subPlan.getFragment().getPartitioning());
+        return finalizeSubPlan(subPlan, config, metadata, nodePartitioningManager, session, noExchange, warningCollector, subPlan.getFragment().getPartitioning());
     }
 
     private static class Fragmenter

@@ -42,7 +42,7 @@ public final class PlanChecker
         this(featuresConfig, false, planCheckerProviderManager);
     }
 
-    public PlanChecker(FeaturesConfig featuresConfig, boolean forceSingleNode, PlanCheckerProviderManager planCheckerProviderManager)
+    public PlanChecker(FeaturesConfig featuresConfig, boolean noExchange, PlanCheckerProviderManager planCheckerProviderManager)
     {
         this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
         ImmutableListMultimap.Builder<Stage, Checker> builder = ImmutableListMultimap.builder();
@@ -69,7 +69,7 @@ public final class PlanChecker
                         new TypeValidator(),
                         new VerifyOnlyOneOutputNode(),
                         new VerifyNoFilteredAggregations(),
-                        new ValidateAggregationsWithDefaultValues(forceSingleNode),
+                        new ValidateAggregationsWithDefaultValues(noExchange),
                         new ValidateStreamingAggregations(),
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),

@@ -79,7 +79,7 @@ public class PlanFragmenterUtils
      * @param metadata
      * @param nodePartitioningManager
      * @param session
-     * @param forceSingleNode
+     * @param noExchange
      * @param warningCollector
      * @return the final SubPlan for execution
      */
@@ -89,12 +89,12 @@ public class PlanFragmenterUtils
             Metadata metadata,
             NodePartitioningManager nodePartitioningManager,
             Session session,
-            boolean forceSingleNode,
+            boolean noExchange,
             WarningCollector warningCollector,
             PartitioningHandle partitioningHandle)
     {
         subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan, partitioningHandle);
-        if (!forceSingleNode) {
+        if (!noExchange) {
             // grouped execution is not supported for SINGLE_DISTRIBUTION
             subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager);
         }

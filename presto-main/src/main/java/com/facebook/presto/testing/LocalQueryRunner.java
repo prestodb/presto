@@ -1062,12 +1062,12 @@ public class LocalQueryRunner
         return UNGROUPED_SCHEDULING;
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean noExchange)
     {
         return planFragmenter.createSubPlans(
                 session,
                 plan,
-                forceSingleNode,
+                noExchange,
                 new PlanNodeIdAllocator()
                 {
                     @Override
@@ -1090,13 +1090,13 @@ public class LocalQueryRunner
         return createPlan(session, sql, stage, true, warningCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, Optimizer.PlanStage stage, boolean forceSingleNode, WarningCollector warningCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql, Optimizer.PlanStage stage, boolean noExchange, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
         BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
-        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, warningCollector);
+        return createPlan(session, sql, getPlanOptimizers(noExchange), stage, warningCollector);
     }
 
     public void setAdditionalOptimizer(List<PlanOptimizer> additionalOptimizer)
@@ -1104,7 +1104,7 @@ public class LocalQueryRunner
         this.additionalOptimizer = additionalOptimizer;
     }
 
-    public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
+    public List<PlanOptimizer> getPlanOptimizers(boolean noExchange)
     {
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
@@ -1116,7 +1116,7 @@ public class LocalQueryRunner
         planOptimizers.addAll(new PlanOptimizers(
                 metadata,
                 sqlParser,
-                forceSingleNode,
+                noExchange,
                 new MBeanExporter(new TestingMBeanServer()),
                 splitManager,
                 planOptimizerManager,
