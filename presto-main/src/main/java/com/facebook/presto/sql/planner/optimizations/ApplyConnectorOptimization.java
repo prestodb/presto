@@ -57,11 +57,13 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isIncludeValuesNodeInConnectorOptimizer;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.getOptimizerNameForLog;
 import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.trackOptimizerRuntime;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class ApplyConnectorOptimization
@@ -144,9 +146,9 @@ public class ApplyConnectorOptimization
                 //    * The subtree with root `node` is a closure.
                 //    * `node` has no parent, or the subtree with root as `node`'s parent is not a closure.
                 ConnectorPlanNodeContext context = contextMap.get(node);
-                if (!context.isClosure(connectorId) ||
+                if (!context.isClosure(connectorId, session) ||
                         !context.getParent().isPresent() ||
-                        contextMap.get(context.getParent().get()).isClosure(connectorId)) {
+                        contextMap.get(context.getParent().get()).isClosure(connectorId, session)) {
                     continue;
                 }
 
@@ -293,10 +295,12 @@ public class ApplyConnectorOptimization
             return reachablePlanNodeTypes;
         }
 
-        boolean isClosure(ConnectorId connectorId)
+        boolean isClosure(ConnectorId connectorId, Session session)
         {
             // check if all children can reach the only connector
-            if (reachableConnectors.size() != 1 || !reachableConnectors.contains(connectorId)) {
+            boolean includeValuesNode = isIncludeValuesNodeInConnectorOptimizer(session);
+            Set<ConnectorId> connectorIds = includeValuesNode ? reachableConnectors.stream().filter(x -> !x.equals(EMPTY_CONNECTOR_ID)).collect(toImmutableSet()) : reachableConnectors;
+            if (connectorIds.size() != 1 || !connectorIds.contains(connectorId)) {
                 return false;
             }
 

@@ -283,6 +283,7 @@ public class FeaturesConfig
     private boolean useHistograms;
 
     private boolean isInlineProjectionsOnValuesEnabled;
+    private boolean includeValuesNodeInConnectorOptimizer = true;
 
     private boolean eagerPlanValidationEnabled;
     private int eagerPlanValidationThreadPoolSize = 20;
@@ -2807,6 +2808,19 @@ public class FeaturesConfig
     public FeaturesConfig setInlineProjectionsOnValues(boolean isInlineProjectionsOnValuesEnabled)
     {
         this.isInlineProjectionsOnValuesEnabled = isInlineProjectionsOnValuesEnabled;
+        return this;
+    }
+
+    public boolean isIncludeValuesNodeInConnectorOptimizer()
+    {
+        return includeValuesNodeInConnectorOptimizer;
+    }
+
+    @Config("optimizer.include-values-node-in-connector-optimizer")
+    @ConfigDescription("Include values node in connector optimizer")
+    public FeaturesConfig setIncludeValuesNodeInConnectorOptimizer(boolean includeValuesNodeInConnectorOptimizer)
+    {
+        this.includeValuesNodeInConnectorOptimizer = includeValuesNodeInConnectorOptimizer;
         return this;
     }
 
