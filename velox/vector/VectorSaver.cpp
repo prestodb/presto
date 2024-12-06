@@ -36,7 +36,7 @@ enum class Encoding : int8_t {
 
 template <typename T>
 void write(const T& value, std::ostream& out) {
-  out.write((char*)&value, sizeof(T));
+  out.write(reinterpret_cast<const char*>(&value), sizeof(T));
 }
 
 template <>
@@ -53,7 +53,7 @@ void write<std::string>(const std::string& value, std::ostream& out) {
 template <typename T>
 T read(std::istream& in) {
   T value;
-  in.read((char*)&value, sizeof(T));
+  in.read(reinterpret_cast<char*>(&value), sizeof(T));
   return value;
 }
 
@@ -78,16 +78,16 @@ void writeEncoding(VectorEncoding::Simple encoding, std::ostream& out) {
     case VectorEncoding::Simple::ROW:
     case VectorEncoding::Simple::ARRAY:
     case VectorEncoding::Simple::MAP:
-      write<int32_t>((int8_t)Encoding::kFlat, out);
+      write<int32_t>(static_cast<int8_t>(Encoding::kFlat), out);
       return;
     case VectorEncoding::Simple::CONSTANT:
-      write<int32_t>((int8_t)Encoding::kConstant, out);
+      write<int32_t>(static_cast<int8_t>(Encoding::kConstant), out);
       return;
     case VectorEncoding::Simple::DICTIONARY:
-      write<int32_t>((int8_t)Encoding::kDictionary, out);
+      write<int32_t>(static_cast<int8_t>(Encoding::kDictionary), out);
       return;
     case VectorEncoding::Simple::LAZY:
-      write<int32_t>((int8_t)Encoding::kLazy, out);
+      write<int32_t>(static_cast<int8_t>(Encoding::kLazy), out);
       return;
     default:
       VELOX_UNSUPPORTED("Unsupported encoding: {}", mapSimpleToName(encoding));
@@ -275,7 +275,7 @@ void writeScalarConstant(const BaseVector& vector, std::ostream& out) {
   using T = typename TypeTraits<kind>::NativeType;
 
   auto value = vector.as<ConstantVector<T>>()->valueAt(0);
-  out.write((const char*)&value, sizeof(T));
+  out.write(reinterpret_cast<const char*>(&value), sizeof(T));
 
   if constexpr (std::is_same_v<T, StringView>) {
     if (!value.isInline()) {

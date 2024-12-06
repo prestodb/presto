@@ -67,7 +67,9 @@ int main() {
   }
 
   std::cout << "Probability of constant encoding = "
-            << (double)numConst / ((double)numConst + (double)numDict) << "\n";
+            << static_cast<double>(numConst) /
+          (static_cast<double>(numConst) + static_cast<double>(numDict))
+            << "\n";
 
   return 0;
 }

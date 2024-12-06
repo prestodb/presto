@@ -323,7 +323,9 @@ RowVectorPtr IOBufToRowVector(
 
   for (const auto& range : ioBuf) {
     ranges.emplace_back(ByteRange{
-        const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
+        const_cast<uint8_t*>(range.data()),
+        static_cast<int32_t>(range.size()),
+        0});
   }
 
   auto byteStream = std::make_unique<BufferInputStream>(std::move(ranges));
