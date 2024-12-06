@@ -940,4 +940,12 @@ TEST_F(VectorFuzzerTest, randOrderableType) {
     ASSERT_TRUE(fuzzer.randOrderableType()->isOrderable());
   }
 }
+
+TEST_F(VectorFuzzerTest, randMapType) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+  for (int i = 0; i < 100; ++i) {
+    ASSERT_TRUE(fuzzer.randMapType()->isMap());
+  }
+}
 } // namespace

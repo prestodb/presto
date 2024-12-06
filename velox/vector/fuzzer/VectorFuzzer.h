@@ -197,6 +197,11 @@ class VectorFuzzer {
   VectorPtr fuzzFlatNotNull(const TypePtr& type);
   VectorPtr fuzzFlatNotNull(const TypePtr& type, vector_size_t size);
 
+  /// Returns a map vector with randomized values and nulls. Returns a vector
+  /// containing `opts_.vectorSize` or `size` elements.
+  VectorPtr
+  fuzzMap(const TypePtr& keyType, const TypePtr& valueType, vector_size_t size);
+
   /// Returns a random constant vector (which could be a null constant). Returns
   /// a vector with size set to `opts_.vectorSize` or 'size'.
   VectorPtr fuzzConstant(const TypePtr& type);
@@ -279,6 +284,13 @@ class VectorFuzzer {
   RowTypePtr randRowType(
       const std::vector<TypePtr>& scalarTypes,
       int maxDepth = 5);
+
+  /// Generates a random map type where keys cannot be nested. maxDepth limits
+  /// the maximum level of nesting for values.
+  TypePtr randMapType(int maxDepth = 5);
+
+  /// Returns a random integer between min and max inclusive
+  size_t randInRange(size_t min, size_t max);
 
   /// Generates short decimal TypePtr with random precision and scale.
   inline TypePtr randShortDecimalType() {
@@ -397,6 +409,13 @@ class VectorFuzzer {
 TypePtr randType(FuzzerGenerator& rng, int maxDepth = 5);
 
 TypePtr randType(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth = 5);
+
+/// Generates a random map type given a vector of scalarTypes as keys. maxDepth
+/// limits the maximum level of nesting for values.
+TypePtr randMapType(
     FuzzerGenerator& rng,
     const std::vector<TypePtr>& scalarTypes,
     int maxDepth = 5);
