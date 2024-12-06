@@ -61,7 +61,7 @@ add_test(
   COMMAND velox_dwio_parquet_reader_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(
-  velox_dwio_parquet_reader_test velox_dwio_native_parquet_common
+  velox_dwio_parquet_reader_test velox_dwio_parquet_common
   velox_dwio_parquet_reader_benchmark_lib velox_link_libs)
 
 add_executable(velox_dwio_parquet_structure_decoder_test

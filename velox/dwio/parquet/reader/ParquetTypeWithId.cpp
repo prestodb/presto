@@ -32,7 +32,6 @@ bool containsList(const ParquetTypeWithId& type) {
   return false;
 }
 } // namespace
-using arrow::LevelInfo;
 
 std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>>
 ParquetTypeWithId::moveChildren() && {

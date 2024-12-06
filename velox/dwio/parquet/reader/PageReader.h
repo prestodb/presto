@@ -88,7 +88,7 @@ class PageReader {
   /// filled.
   int32_t getLengthsAndNulls(
       LevelMode mode,
-      const arrow::LevelInfo& info,
+      const LevelInfo& info,
       int32_t begin,
       int32_t end,
       int32_t maxItems,
@@ -487,7 +487,7 @@ class PageReader {
   dwio::common::BitConcatenation nullConcatenation_;
 
   // LevelInfo for reading nulls for the leaf column 'this' represents.
-  arrow::LevelInfo leafInfo_;
+  LevelInfo leafInfo_;
 
   // Base values of dictionary when reading a string dictionary.
   VectorPtr dictionaryValues_;

@@ -23,8 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include "velox/dwio/parquet/common/LevelConversion.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
-#include "velox/dwio/parquet/writer/arrow/LevelConversion.h"
 #include "velox/dwio/parquet/writer/arrow/Metadata.h"
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
 #include "velox/dwio/parquet/writer/arrow/Schema.h"

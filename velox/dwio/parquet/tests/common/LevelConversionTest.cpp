@@ -16,10 +16,10 @@
 
 // Adapted from Apache Arrow.
 
-#include "velox/dwio/parquet/writer/arrow/LevelConversion.h"
+#include "velox/dwio/parquet/common/LevelConversion.h"
 
-#include "velox/dwio/parquet/writer/arrow/LevelComparison.h"
-#include "velox/dwio/parquet/writer/arrow/tests/TestUtil.h"
+#include "velox/common/base/Exceptions.h"
+#include "velox/dwio/parquet/common/LevelComparison.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -27,78 +27,77 @@
 #include <string>
 #include <vector>
 
-#include "arrow/testing/gtest_compat.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/ubsan.h"
 
-namespace facebook::velox::parquet::arrow {
-namespace internal {
+namespace facebook::velox::parquet {
+namespace {
 
 using ::arrow::internal::Bitmap;
 using ::testing::ElementsAreArray;
 
-std::string BitmapToString(const uint8_t* bitmap, int64_t bit_count) {
-  return ::arrow::internal::Bitmap(bitmap, /*offset*/ 0, /*length=*/bit_count)
+std::string BitmapToString(const uint8_t* bitmap, int64_t bitCount) {
+  return ::arrow::internal::Bitmap(bitmap, /*offset*/ 0, /*length=*/bitCount)
       .ToString();
 }
 
 std::string BitmapToString(
     const std::vector<uint8_t>& bitmap,
-    int64_t bit_count) {
-  return BitmapToString(bitmap.data(), bit_count);
+    int64_t bitCount) {
+  return BitmapToString(bitmap.data(), bitCount);
 }
 
 TEST(TestColumnReader, DefLevelsToBitmap) {
   // Bugs in this function were exposed in ARROW-3930
-  std::vector<int16_t> def_levels = {3, 3, 3, 2, 3, 3, 3, 3, 3};
+  std::vector<int16_t> defLevels = {3, 3, 3, 2, 3, 3, 3, 3, 3};
 
-  std::vector<uint8_t> valid_bits(2, 0);
+  std::vector<uint8_t> validBits(2, 0);
 
-  LevelInfo level_info;
-  level_info.def_level = 3;
-  level_info.rep_level = 1;
+  LevelInfo levelInfo;
+  levelInfo.defLevel = 3;
+  levelInfo.repLevel = 1;
 
   ValidityBitmapInputOutput io;
-  io.values_read_upper_bound = def_levels.size();
-  io.values_read = -1;
-  io.valid_bits = valid_bits.data();
+  io.valuesReadUpperBound = defLevels.size();
+  io.valuesRead = -1;
+  io.validBits = validBits.data();
 
-  DefLevelsToBitmap(def_levels.data(), 9, level_info, &io);
-  ASSERT_EQ(9, io.values_read);
-  ASSERT_EQ(1, io.null_count);
+  DefLevelsToBitmap(defLevels.data(), 9, levelInfo, &io);
+  ASSERT_EQ(9, io.valuesRead);
+  ASSERT_EQ(1, io.nullCount);
 
-  // Call again with 0 definition levels, make sure that valid_bits is
+  // Call again with 0 definition levels, make sure that validBits is
   // unmodified
-  const uint8_t current_byte = valid_bits[1];
-  io.null_count = 0;
-  DefLevelsToBitmap(def_levels.data(), 0, level_info, &io);
+  const uint8_t current_byte = validBits[1];
+  io.nullCount = 0;
+  DefLevelsToBitmap(defLevels.data(), 0, levelInfo, &io);
 
-  ASSERT_EQ(0, io.values_read);
-  ASSERT_EQ(0, io.null_count);
-  ASSERT_EQ(current_byte, valid_bits[1]);
+  ASSERT_EQ(0, io.valuesRead);
+  ASSERT_EQ(0, io.nullCount);
+  ASSERT_EQ(current_byte, validBits[1]);
 }
 
 TEST(TestColumnReader, DefLevelsToBitmapPowerOfTwo) {
   // PARQUET-1623: Invalid memory access when decoding a valid bits vector that
   // has a length equal to a power of two and also using a non-zero
-  // valid_bits_offset.  This should not fail when run with ASAN or valgrind.
-  std::vector<int16_t> def_levels = {3, 3, 3, 2, 3, 3, 3, 3};
-  std::vector<uint8_t> valid_bits(1, 0);
+  // validBitsOffset.  This should not fail when run with ASAN or valgrind.
+  std::vector<int16_t> defLevels = {3, 3, 3, 2, 3, 3, 3, 3};
+  std::vector<uint8_t> validBits(1, 0);
 
-  LevelInfo level_info;
-  level_info.rep_level = 1;
-  level_info.def_level = 3;
+  LevelInfo levelInfo;
+  levelInfo.repLevel = 1;
+  levelInfo.defLevel = 3;
 
   ValidityBitmapInputOutput io;
-  io.values_read_upper_bound = def_levels.size();
-  io.values_read = -1;
-  io.valid_bits = valid_bits.data();
+  io.valuesReadUpperBound = defLevels.size();
+  io.valuesRead = -1;
+  io.validBits = validBits.data();
 
   // Read the latter half of the validity bitmap
-  DefLevelsToBitmap(def_levels.data() + 4, 4, level_info, &io);
-  ASSERT_EQ(4, io.values_read);
-  ASSERT_EQ(0, io.null_count);
+  DefLevelsToBitmap(defLevels.data() + 4, 4, levelInfo, &io);
+  ASSERT_EQ(4, io.valuesRead);
+  ASSERT_EQ(0, io.nullCount);
 }
 
 #if defined(ARROW_LITTLE_ENDIAN)
@@ -126,33 +125,33 @@ TEST(DefLevelsToBitmap, WithRepetitionLevelFiltersOutEmptyListValues) {
   std::vector<uint8_t> validity_bitmap(/*count*/ 8, 0);
 
   ValidityBitmapInputOutput io;
-  io.values_read_upper_bound = 64;
-  io.values_read = 1;
-  io.null_count = 5;
-  io.valid_bits = validity_bitmap.data();
-  io.valid_bits_offset = 1;
+  io.valuesReadUpperBound = 64;
+  io.valuesRead = 1;
+  io.nullCount = 5;
+  io.validBits = validity_bitmap.data();
+  io.validBitsOffset = 1;
 
-  LevelInfo level_info;
-  level_info.repeated_ancestor_def_level = 1;
-  level_info.def_level = 2;
-  level_info.rep_level = 1;
+  LevelInfo levelInfo;
+  levelInfo.repeatedAncestorDefLevel = 1;
+  levelInfo.defLevel = 2;
+  levelInfo.repLevel = 1;
   // All zeros should be ignored, ones should be unset in the bitmp and 2 should
   // be set.
-  std::vector<int16_t> def_levels = {0, 0, 0, 2, 2, 1, 0, 2};
-  DefLevelsToBitmap(def_levels.data(), def_levels.size(), level_info, &io);
+  std::vector<int16_t> defLevels = {0, 0, 0, 2, 2, 1, 0, 2};
+  DefLevelsToBitmap(defLevels.data(), defLevels.size(), levelInfo, &io);
 
-  EXPECT_EQ(BitmapToString(validity_bitmap, /*bit_count=*/8), "01101000");
+  EXPECT_EQ(BitmapToString(validity_bitmap, /*bitCount=*/8), "01101000");
   for (size_t x = 1; x < validity_bitmap.size(); x++) {
     EXPECT_EQ(validity_bitmap[x], 0) << "index: " << x;
   }
-  EXPECT_EQ(io.null_count, /*5 + 1 =*/6);
-  EXPECT_EQ(io.values_read, 4); // value should get overwritten.
+  EXPECT_EQ(io.nullCount, /*5 + 1 =*/6);
+  EXPECT_EQ(io.valuesRead, 4); // value should get overwritten.
 }
 
 struct MultiLevelTestData {
  public:
-  std::vector<int16_t> def_levels;
-  std::vector<int16_t> rep_levels;
+  std::vector<int16_t> defLevels;
+  std::vector<int16_t> repLevels;
 };
 
 MultiLevelTestData TriplyNestedList() {
@@ -162,7 +161,7 @@ MultiLevelTestData TriplyNestedList() {
   // null,
   // []
   return MultiLevelTestData{
-      /*def_levels=*/std::vector<int16_t>{
+      /*defLevels=*/std::vector<int16_t>{
           2,
           7,
           6,
@@ -177,7 +176,7 @@ MultiLevelTestData TriplyNestedList() {
           7, // second row
           0, // third row
           1},
-      /*rep_levels=*/
+      /*repLevels=*/
       std::vector<int16_t>{
           0,
           1,
@@ -199,24 +198,24 @@ template <typename ConverterType>
 class NestedListTest : public testing::Test {
  public:
   void InitForLength(int length) {
-    this->validity_bits_.clear();
-    this->validity_bits_.insert(this->validity_bits_.end(), length, 0);
-    validity_io_.valid_bits = validity_bits_.data();
-    validity_io_.values_read_upper_bound = length;
+    this->validityBits_.clear();
+    this->validityBits_.insert(this->validityBits_.end(), length, 0);
+    validityIo_.validBits = validityBits_.data();
+    validityIo_.valuesReadUpperBound = length;
     offsets_.clear();
     offsets_.insert(offsets_.end(), length + 1, 0);
   }
 
   typename ConverterType::OffsetsType* Run(
-      const MultiLevelTestData& test_data,
-      LevelInfo level_info) {
+      const MultiLevelTestData& testData,
+      LevelInfo levelInfo) {
     return this->converter_.ComputeListInfo(
-        test_data, level_info, &validity_io_, offsets_.data());
+        testData, levelInfo, &validityIo_, offsets_.data());
   }
 
   ConverterType converter_;
-  ValidityBitmapInputOutput validity_io_;
-  std::vector<uint8_t> validity_bits_;
+  ValidityBitmapInputOutput validityIo_;
+  std::vector<uint8_t> validityBits_;
   std::vector<typename ConverterType::OffsetsType> offsets_;
 };
 
@@ -224,18 +223,18 @@ template <typename IndexType>
 struct RepDefLevelConverter {
   using OffsetsType = IndexType;
   OffsetsType* ComputeListInfo(
-      const MultiLevelTestData& test_data,
-      LevelInfo level_info,
+      const MultiLevelTestData& testData,
+      LevelInfo levelInfo,
       ValidityBitmapInputOutput* output,
       IndexType* offsets) {
     DefRepLevelsToList(
-        test_data.def_levels.data(),
-        test_data.rep_levels.data(),
-        test_data.def_levels.size(),
-        level_info,
+        testData.defLevels.data(),
+        testData.repLevels.data(),
+        testData.defLevels.size(),
+        levelInfo,
         output,
         offsets);
-    return offsets + output->values_read;
+    return offsets + output->valuesRead;
   }
 };
 
@@ -250,21 +249,20 @@ TYPED_TEST(NestedListTest, OuterMostTest) {
   // null,
   // []
   // -> 4 outer most lists (len(3), len(4), null, len(0))
-  LevelInfo level_info;
-  level_info.rep_level = 1;
-  level_info.def_level = 2;
+  LevelInfo levelInfo;
+  levelInfo.repLevel = 1;
+  levelInfo.defLevel = 2;
 
   this->InitForLength(4);
   typename TypeParam::OffsetsType* next_position =
-      this->Run(TriplyNestedList(), level_info);
+      this->Run(TriplyNestedList(), levelInfo);
 
   EXPECT_EQ(next_position, this->offsets_.data() + 4);
   EXPECT_THAT(this->offsets_, testing::ElementsAre(0, 3, 7, 7, 7));
 
-  EXPECT_EQ(this->validity_io_.values_read, 4);
-  EXPECT_EQ(this->validity_io_.null_count, 1);
-  EXPECT_EQ(
-      BitmapToString(this->validity_io_.valid_bits, /*length=*/4), "1101");
+  EXPECT_EQ(this->validityIo_.valuesRead, 4);
+  EXPECT_EQ(this->validityIo_.nullCount, 1);
+  EXPECT_EQ(BitmapToString(this->validityIo_.validBits, /*length=*/4), "1101");
 }
 
 TYPED_TEST(NestedListTest, MiddleListTest) {
@@ -276,22 +274,22 @@ TYPED_TEST(NestedListTest, MiddleListTest) {
   //                  len(1), len(2), null, len(1),
   //                  N/A,
   //                  N/A
-  LevelInfo level_info;
-  level_info.rep_level = 2;
-  level_info.def_level = 4;
-  level_info.repeated_ancestor_def_level = 2;
+  LevelInfo levelInfo;
+  levelInfo.repLevel = 2;
+  levelInfo.defLevel = 4;
+  levelInfo.repeatedAncestorDefLevel = 2;
 
   this->InitForLength(7);
   typename TypeParam::OffsetsType* next_position =
-      this->Run(TriplyNestedList(), level_info);
+      this->Run(TriplyNestedList(), levelInfo);
 
   EXPECT_EQ(next_position, this->offsets_.data() + 7);
   EXPECT_THAT(this->offsets_, testing::ElementsAre(0, 0, 2, 2, 3, 5, 5, 6));
 
-  EXPECT_EQ(this->validity_io_.values_read, 7);
-  EXPECT_EQ(this->validity_io_.null_count, 2);
+  EXPECT_EQ(this->validityIo_.valuesRead, 7);
+  EXPECT_EQ(this->validityIo_.nullCount, 2);
   EXPECT_EQ(
-      BitmapToString(this->validity_io_.valid_bits, /*length=*/7), "0111101");
+      BitmapToString(this->validityIo_.validBits, /*length=*/7), "0111101");
 }
 
 TYPED_TEST(NestedListTest, InnerMostListTest) {
@@ -303,39 +301,39 @@ TYPED_TEST(NestedListTest, InnerMostListTest) {
   //                        len(0), [len(0), len(2)], N/A, len(1),
   //                        N/A,
   //                        N/A
-  LevelInfo level_info;
-  level_info.rep_level = 3;
-  level_info.def_level = 6;
-  level_info.repeated_ancestor_def_level = 4;
+  LevelInfo levelInfo;
+  levelInfo.repLevel = 3;
+  levelInfo.defLevel = 6;
+  levelInfo.repeatedAncestorDefLevel = 4;
 
   this->InitForLength(6);
   typename TypeParam::OffsetsType* next_position =
-      this->Run(TriplyNestedList(), level_info);
+      this->Run(TriplyNestedList(), levelInfo);
 
   EXPECT_EQ(next_position, this->offsets_.data() + 6);
   EXPECT_THAT(this->offsets_, testing::ElementsAre(0, 3, 3, 3, 3, 5, 6));
 
-  EXPECT_EQ(this->validity_io_.values_read, 6);
-  EXPECT_EQ(this->validity_io_.null_count, 0);
+  EXPECT_EQ(this->validityIo_.valuesRead, 6);
+  EXPECT_EQ(this->validityIo_.nullCount, 0);
   EXPECT_EQ(
-      BitmapToString(this->validity_io_.valid_bits, /*length=*/6), "111111");
+      BitmapToString(this->validityIo_.validBits, /*length=*/6), "111111");
 }
 
 TYPED_TEST(NestedListTest, SimpleLongList) {
-  LevelInfo level_info;
-  level_info.rep_level = 1;
-  level_info.def_level = 2;
-  level_info.repeated_ancestor_def_level = 0;
+  LevelInfo levelInfo;
+  levelInfo.repLevel = 1;
+  levelInfo.defLevel = 2;
+  levelInfo.repeatedAncestorDefLevel = 0;
 
-  MultiLevelTestData test_data;
+  MultiLevelTestData testData;
   // No empty lists.
-  test_data.def_levels = std::vector<int16_t>(65 * 9, 2);
+  testData.defLevels = std::vector<int16_t>(65 * 9, 2);
   for (int x = 0; x < 65; x++) {
-    test_data.rep_levels.push_back(0);
-    test_data.rep_levels.insert(
-        test_data.rep_levels.end(),
+    testData.repLevels.push_back(0);
+    testData.repLevels.insert(
+        testData.repLevels.end(),
         8,
-        /*rep_level=*/1);
+        /*repLevel=*/1);
   }
 
   std::vector<typename TypeParam::OffsetsType> expected_offsets(66, 0);
@@ -344,15 +342,15 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
   }
   this->InitForLength(65);
   typename TypeParam::OffsetsType* next_position =
-      this->Run(test_data, level_info);
+      this->Run(testData, levelInfo);
 
   EXPECT_EQ(next_position, this->offsets_.data() + 65);
   EXPECT_THAT(this->offsets_, testing::ElementsAreArray(expected_offsets));
 
-  EXPECT_EQ(this->validity_io_.values_read, 65);
-  EXPECT_EQ(this->validity_io_.null_count, 0);
+  EXPECT_EQ(this->validityIo_.valuesRead, 65);
+  EXPECT_EQ(this->validityIo_.nullCount, 0);
   EXPECT_EQ(
-      BitmapToString(this->validity_io_.valid_bits, /*length=*/65),
+      BitmapToString(this->validityIo_.validBits, /*length=*/65),
       "11111111 "
       "11111111 "
       "11111111 "
@@ -365,14 +363,14 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
 }
 
 TYPED_TEST(NestedListTest, TestOverflow) {
-  LevelInfo level_info;
-  level_info.rep_level = 1;
-  level_info.def_level = 2;
-  level_info.repeated_ancestor_def_level = 0;
+  LevelInfo levelInfo;
+  levelInfo.repLevel = 1;
+  levelInfo.defLevel = 2;
+  levelInfo.repeatedAncestorDefLevel = 0;
 
-  MultiLevelTestData test_data;
-  test_data.def_levels = std::vector<int16_t>{2};
-  test_data.rep_levels = std::vector<int16_t>{0};
+  MultiLevelTestData testData;
+  testData.defLevels = std::vector<int16_t>{2};
+  testData.repLevels = std::vector<int16_t>{0};
 
   this->InitForLength(2);
   // Offsets is populated as the cumulative sum of all elements,
@@ -382,18 +380,18 @@ TYPED_TEST(NestedListTest, TestOverflow) {
       std::numeric_limits<typename TypeParam::OffsetsType>::max();
   this->offsets_[1] =
       std::numeric_limits<typename TypeParam::OffsetsType>::max();
-  ASSERT_THROW(this->Run(test_data, level_info), ParquetException);
+  ASSERT_THROW(this->Run(testData, levelInfo), VeloxException);
 
-  ASSERT_THROW(this->Run(test_data, level_info), ParquetException);
+  ASSERT_THROW(this->Run(testData, levelInfo), VeloxException);
 
   // Same thing should happen if the list already existed.
-  test_data.rep_levels = std::vector<int16_t>{1};
-  ASSERT_THROW(this->Run(test_data, level_info), ParquetException);
+  testData.repLevels = std::vector<int16_t>{1};
+  ASSERT_THROW(this->Run(testData, levelInfo), VeloxException);
 
   // Should be OK because it shouldn't increment.
-  test_data.def_levels = std::vector<int16_t>{0};
-  test_data.rep_levels = std::vector<int16_t>{0};
-  this->Run(test_data, level_info);
+  testData.defLevels = std::vector<int16_t>{0};
+  testData.repLevels = std::vector<int16_t>{0};
+  this->Run(testData, levelInfo);
 }
 
 TEST(TestOnlyExtractBitsSoftware, BasicTest) {
@@ -409,5 +407,5 @@ TEST(TestOnlyExtractBitsSoftware, BasicTest) {
   check(0xFECBDA9876543210ULL, 0xF00FF00FF00FF00FULL, 0xFBD87430ULL);
 }
 
-} // namespace internal
-} // namespace facebook::velox::parquet::arrow
+} // namespace
+} // namespace facebook::velox::parquet

@@ -17,7 +17,7 @@
 #pragma once
 
 #include "velox/dwio/common/SelectiveStructColumnReader.h"
-#include "velox/dwio/parquet/writer/arrow/LevelConversion.h"
+#include "velox/dwio/parquet/common/LevelConversion.h"
 
 namespace facebook::velox::dwio::common {
 class BufferedInput;
@@ -92,7 +92,7 @@ class StructColumnReader : public dwio::common::SelectiveStructColumnReader {
 
   // The level information for extracting nulls for 'this' from the
   // repdefs in a leaf PageReader.
-  arrow::LevelInfo levelInfo_;
+  LevelInfo levelInfo_;
 };
 
 } // namespace facebook::velox::parquet

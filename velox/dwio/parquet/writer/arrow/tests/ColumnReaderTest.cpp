@@ -819,8 +819,8 @@ namespace {
 
 LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
   LevelInfo level_info;
-  level_info.def_level = descr->max_definition_level();
-  level_info.rep_level = descr->max_repetition_level();
+  level_info.defLevel = descr->max_definition_level();
+  level_info.repLevel = descr->max_repetition_level();
 
   int16_t min_spaced_def_level = descr->max_definition_level();
   const schema::Node* node = descr->schema_node().get();
@@ -830,7 +830,7 @@ LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
     }
     node = node->parent();
   }
-  level_info.repeated_ancestor_def_level = min_spaced_def_level;
+  level_info.repeatedAncestorDefLevel = min_spaced_def_level;
   return level_info;
 }
 
@@ -1863,8 +1863,8 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
     levels_per_page_ = levels_per_page;
     FLBA_type_length_ = FLBA_type_length;
     LevelInfo level_info;
-    level_info.def_level = 1;
-    level_info.rep_level = 0;
+    level_info.defLevel = 1;
+    level_info.repLevel = 0;
     NodePtr type = schema::PrimitiveNode::Make(
         "b",
         Repetition::OPTIONAL,
@@ -1872,7 +1872,7 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
         ConvertedType::NONE,
         FLBA_type_length_);
     descr_ = std::make_unique<ColumnDescriptor>(
-        type, level_info.def_level, level_info.rep_level);
+        type, level_info.defLevel, level_info.repLevel);
     MakePages<FLBAType>(
         descr_.get(),
         num_pages,
@@ -1975,11 +1975,11 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
   void MakeRecordReader(int levels_per_page, int num_pages) {
     levels_per_page_ = levels_per_page;
     LevelInfo level_info;
-    level_info.def_level = 1;
-    level_info.rep_level = 0;
+    level_info.defLevel = 1;
+    level_info.repLevel = 0;
     NodePtr type = schema::ByteArray("b", Repetition::OPTIONAL);
     descr_ = std::make_unique<ColumnDescriptor>(
-        type, level_info.def_level, level_info.rep_level);
+        type, level_info.defLevel, level_info.repLevel);
     MakePages<ByteArrayType>(
         descr_.get(),
         num_pages,
@@ -2134,21 +2134,20 @@ TEST_P(RecordReaderStressTest, StressTest) {
   // Define these boolean variables for improving readability below.
   bool repeated = false, required = false;
   if (GetParam() == Repetition::REQUIRED) {
-    level_info.def_level = 0;
-    level_info.rep_level = 0;
+    level_info.defLevel = 0;
+    level_info.repLevel = 0;
     required = true;
   } else if (GetParam() == Repetition::OPTIONAL) {
-    level_info.def_level = 1;
-    level_info.rep_level = 0;
+    level_info.defLevel = 1;
+    level_info.repLevel = 0;
   } else {
-    level_info.def_level = 1;
-    level_info.rep_level = 1;
+    level_info.defLevel = 1;
+    level_info.repLevel = 1;
     repeated = true;
   }
 
   NodePtr type = schema::Int32("b", GetParam());
-  const ColumnDescriptor descr(
-      type, level_info.def_level, level_info.rep_level);
+  const ColumnDescriptor descr(type, level_info.defLevel, level_info.repLevel);
 
   auto seed1 = static_cast<uint32_t>(time(0));
   std::default_random_engine gen(seed1);
@@ -2234,7 +2233,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
       }
 
       bool has_value = required ||
-          (!required && def_levels[levels_index] == level_info.def_level);
+          (!required && def_levels[levels_index] == level_info.defLevel);
 
       // If we are not skipping, we need to update the expected values and
       // rep/defs. If we are skipping, we just keep going.

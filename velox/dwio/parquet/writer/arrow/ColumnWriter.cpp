@@ -41,12 +41,12 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/type_traits.h"
 
+#include "velox/dwio/parquet/common/LevelConversion.h"
 #include "velox/dwio/parquet/writer/arrow/ColumnPage.h"
 #include "velox/dwio/parquet/writer/arrow/Encoding.h"
 #include "velox/dwio/parquet/writer/arrow/Encryption.h"
 #include "velox/dwio/parquet/writer/arrow/EncryptionInternal.h"
 #include "velox/dwio/parquet/writer/arrow/FileEncryptorInternal.h"
-#include "velox/dwio/parquet/writer/arrow/LevelConversion.h"
 #include "velox/dwio/parquet/writer/arrow/Metadata.h"
 #include "velox/dwio/parquet/writer/arrow/PageIndex.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
@@ -167,8 +167,8 @@ struct ValueBufferSlicer {
 
 LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
   LevelInfo level_info;
-  level_info.def_level = descr->max_definition_level();
-  level_info.rep_level = descr->max_repetition_level();
+  level_info.defLevel = descr->max_definition_level();
+  level_info.repLevel = descr->max_repetition_level();
 
   int16_t min_spaced_def_level = descr->max_definition_level();
   const schema::Node* node = descr->schema_node().get();
@@ -178,7 +178,7 @@ LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
     }
     node = node->parent();
   }
-  level_info.repeated_ancestor_def_level = min_spaced_def_level;
+  level_info.repeatedAncestorDefLevel = min_spaced_def_level;
   return level_info;
 }
 
@@ -1615,8 +1615,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     // Leaf nulls are canonical when there is only a single null element after a
     // list and it is at the leaf.
     bool single_nullable_element =
-        (level_info_.def_level ==
-         level_info_.repeated_ancestor_def_level + 1) &&
+        (level_info_.defLevel == level_info_.repeatedAncestorDefLevel + 1) &&
         leaf_field_nullable;
     bool maybe_parent_nulls =
         level_info_.HasNullableValues() && !single_nullable_element;
@@ -1813,7 +1812,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       int64_t* out_spaced_values_to_write,
       int64_t* null_count) {
     if (bits_buffer_ == nullptr) {
-      if (level_info_.def_level == 0) {
+      if (level_info_.defLevel == 0) {
         // In this case def levels should be null and we only
         // need to output counts which will always be equal to
         // the batch size passed in (max def_level == 0 indicates
@@ -1824,10 +1823,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         *null_count = 0;
       } else {
         for (int x = 0; x < batch_size; x++) {
-          *out_values_to_write +=
-              def_levels[x] == level_info_.def_level ? 1 : 0;
+          *out_values_to_write += def_levels[x] == level_info_.defLevel ? 1 : 0;
           *out_spaced_values_to_write +=
-              def_levels[x] >= level_info_.repeated_ancestor_def_level ? 1 : 0;
+              def_levels[x] >= level_info_.repeatedAncestorDefLevel ? 1 : 0;
         }
         *null_count = batch_size - *out_values_to_write;
       }
@@ -1842,12 +1840,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       bits_buffer_->ZeroPadding();
     }
     ValidityBitmapInputOutput io;
-    io.valid_bits = bits_buffer_->mutable_data();
-    io.values_read_upper_bound = batch_size;
+    io.validBits = bits_buffer_->mutable_data();
+    io.valuesReadUpperBound = batch_size;
     DefLevelsToBitmap(def_levels, batch_size, level_info_, &io);
-    *out_values_to_write = io.values_read - io.null_count;
-    *out_spaced_values_to_write = io.values_read;
-    *null_count = io.null_count;
+    *out_values_to_write = io.valuesRead - io.nullCount;
+    *out_spaced_values_to_write = io.valuesRead;
+    *null_count = io.nullCount;
   }
 
   Result<std::shared_ptr<Array>> MaybeReplaceValidity(

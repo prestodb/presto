@@ -16,19 +16,22 @@
 
 // Adapted from Apache Arrow.
 
-#define PARQUET_IMPL_NAMESPACE avx2
-#include "velox/dwio/parquet/writer/arrow/LevelComparisonInc.h"
-#undef PARQUET_IMPL_NAMESPACE
+#pragma once
 
-namespace facebook::velox::parquet::arrow::internal {
+#include <cstdint>
 
+namespace facebook::velox::parquet {
+
+/// Builds a  bitmap where each set bit indicates the corresponding level is
+/// greater than rhs.
 uint64_t
-GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs) {
-  return avx2::GreaterThanBitmapImpl(levels, num_levels, rhs);
-}
+GreaterThanBitmap(const int16_t* levels, int64_t numLevels, int16_t rhs);
 
-MinMax FindMinMaxAvx2(const int16_t* levels, int64_t num_levels) {
-  return avx2::FindMinMaxImpl(levels, num_levels);
-}
+struct MinMax {
+  int16_t min;
+  int16_t max;
+};
 
-} // namespace facebook::velox::parquet::arrow::internal
+MinMax FindMinMax(const int16_t* levels, int64_t numLevels);
+
+} // namespace facebook::velox::parquet

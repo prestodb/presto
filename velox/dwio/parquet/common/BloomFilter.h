@@ -22,7 +22,6 @@
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/OutputStream.h"
 #include "velox/dwio/parquet/common/Hasher.h"
-#include "velox/dwio/parquet/thrift/ParquetThriftTypes.h"
 
 #include <cmath>
 #include <cstdint>

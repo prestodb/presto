@@ -174,7 +174,7 @@ void StructColumnReader::seekToEndOfPresetNulls() {
 }
 
 void StructColumnReader::setNullsFromRepDefs(PageReader& pageReader) {
-  if (levelInfo_.def_level == 0) {
+  if (levelInfo_.defLevel == 0) {
     return;
   }
   auto repDefRange = pageReader.repDefRange();

@@ -18,6 +18,7 @@
 
 #include "velox/dwio/parquet/common/BloomFilter.h"
 #include "velox/dwio/parquet/common/XxHasher.h"
+#include "velox/dwio/parquet/thrift/ParquetThriftTypes.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
 
 #include <thrift/protocol/TCompactProtocol.h>

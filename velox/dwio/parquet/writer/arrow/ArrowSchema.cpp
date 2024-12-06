@@ -64,6 +64,18 @@ using ParquetType = Type;
 
 namespace {
 
+/// Increments levels according to the cardinality of node.
+void IncrementLevels(LevelInfo& current_levels, const schema::Node& node) {
+  if (node.is_repeated()) {
+    current_levels.IncrementRepeated();
+    return;
+  }
+  if (node.is_optional()) {
+    current_levels.IncrementOptional();
+    return;
+  }
+}
+
 /// Like std::string_view::ends_with in C++20
 inline bool EndsWith(std::string_view s, std::string_view suffix) {
   return s.length() >= suffix.length() &&
@@ -717,7 +729,7 @@ Status MapToSchemaField(
     return ListToSchemaField(group, current_levels, ctx, parent, out);
   }
 
-  current_levels.Increment(group);
+  IncrementLevels(current_levels, group);
   int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
 
   out->children.resize(1);
@@ -760,7 +772,7 @@ Status MapToSchemaField(
   out->level_info = current_levels;
   // At this point current levels contains the def level for this list,
   // we need to reset to the prior parent.
-  out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
+  out->level_info.repeatedAncestorDefLevel = repeated_ancestor_def_level;
   return Status::OK();
 }
 
@@ -776,7 +788,7 @@ Status ListToSchemaField(
   if (group.is_repeated()) {
     return Status::Invalid("LIST-annotated groups must not be repeated.");
   }
-  current_levels.Increment(group);
+  IncrementLevels(current_levels, group);
 
   out->children.resize(group.field_count());
   SchemaField* child_field = &out->children[0];
@@ -854,7 +866,7 @@ Status ListToSchemaField(
   out->level_info = current_levels;
   // At this point current levels contains the def level for this list,
   // we need to reset to the prior parent.
-  out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
+  out->level_info.repeatedAncestorDefLevel = repeated_ancestor_def_level;
   return Status::OK();
 }
 
@@ -892,10 +904,10 @@ Status GroupToSchemaField(
     out->level_info = current_levels;
     // At this point current_levels contains this list as the def level, we need
     // to use the previous ancestor of this list.
-    out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
+    out->level_info.repeatedAncestorDefLevel = repeated_ancestor_def_level;
     return Status::OK();
   } else {
-    current_levels.Increment(node);
+    IncrementLevels(current_levels, node);
     return GroupToStruct(node, current_levels, ctx, parent, out);
   }
 }
@@ -953,10 +965,10 @@ Status NodeToSchemaField(
       out->level_info = current_levels;
       // At this point current_levels has consider this list the ancestor so
       // restore the actual ancestor.
-      out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
+      out->level_info.repeatedAncestorDefLevel = repeated_ancestor_def_level;
       return Status::OK();
     } else {
-      current_levels.Increment(node);
+      IncrementLevels(current_levels, node);
       // A normal (required/optional) primitive node
       return PopulateLeaf(
           column_index,

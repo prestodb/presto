@@ -19,7 +19,7 @@
 #include "XxHasher.h"
 
 #define XXH_INLINE_ALL
-#include <external/xxhash/xxhash.h>
+#include <xxhash.h>
 
 namespace facebook::velox::parquet {
 

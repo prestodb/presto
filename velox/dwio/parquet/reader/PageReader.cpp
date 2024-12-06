@@ -19,7 +19,9 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/common/ColumnVisitors.h"
+#include "velox/dwio/parquet/common/LevelConversion.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
+
 #include "velox/vector/FlatVector.h"
 
 #include <thrift/protocol/TCompactProtocol.h> // @manual
@@ -593,19 +595,19 @@ void PageReader::decodeRepDefs(int32_t numTopLevelRows) {
 
 int32_t PageReader::getLengthsAndNulls(
     LevelMode mode,
-    const arrow::LevelInfo& info,
+    const LevelInfo& info,
     int32_t begin,
     int32_t end,
     int32_t maxItems,
     int32_t* lengths,
     uint64_t* nulls,
     int32_t nullsStartIndex) const {
-  arrow::ValidityBitmapInputOutput bits;
-  bits.values_read_upper_bound = maxItems;
-  bits.values_read = 0;
-  bits.null_count = 0;
-  bits.valid_bits = reinterpret_cast<uint8_t*>(nulls);
-  bits.valid_bits_offset = nullsStartIndex;
+  ValidityBitmapInputOutput bits;
+  bits.valuesReadUpperBound = maxItems;
+  bits.valuesRead = 0;
+  bits.nullCount = 0;
+  bits.validBits = reinterpret_cast<uint8_t*>(nulls);
+  bits.validBitsOffset = nullsStartIndex;
 
   switch (mode) {
     case LevelMode::kNulls:
@@ -613,7 +615,7 @@ int32_t PageReader::getLengthsAndNulls(
           definitionLevels_.data() + begin, end - begin, info, &bits);
       break;
     case LevelMode::kList: {
-      arrow::DefRepLevelsToList(
+      DefRepLevelsToList(
           definitionLevels_.data() + begin,
           repetitionLevels_.data() + begin,
           end - begin,
@@ -621,7 +623,7 @@ int32_t PageReader::getLengthsAndNulls(
           &bits,
           lengths);
       // Convert offsets to lengths.
-      for (auto i = 0; i < bits.values_read; ++i) {
+      for (auto i = 0; i < bits.valuesRead; ++i) {
         lengths[i] = lengths[i + 1] - lengths[i];
       }
       break;
@@ -636,7 +638,7 @@ int32_t PageReader::getLengthsAndNulls(
       break;
     }
   }
-  return bits.values_read;
+  return bits.valuesRead;
 }
 
 void PageReader::makeDecoder() {

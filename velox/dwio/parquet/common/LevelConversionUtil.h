@@ -18,25 +18,17 @@
 
 #pragma once
 
-#include "velox/dwio/parquet/writer/arrow/LevelConversion.h"
-
 #include <algorithm>
 #include <cstdint>
 #include <limits>
 
-#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/simd.h"
-#include "velox/dwio/parquet/writer/arrow/Exception.h"
-#include "velox/dwio/parquet/writer/arrow/LevelComparison.h"
 
-#ifndef PARQUET_IMPL_NAMESPACE
-#error "PARQUET_IMPL_NAMESPACE must be defined"
-#endif
+#include "velox/common/base/Exceptions.h"
+#include "velox/dwio/parquet/common/LevelComparison.h"
 
-namespace facebook::velox::parquet::arrow::internal::PARQUET_IMPL_NAMESPACE {
+namespace facebook::velox::parquet {
 
 // clang-format off
 /* Python code to generate lookup table:
@@ -48,13 +40,13 @@ print('constexpr uint8_t kPextTable[1 << kLookupBits][1 << kLookupBits] = {')
 print(' ', end = '')
 for mask in range(1 << kLookupBits):
     for data in range(1 << kLookupBits):
-        bit_value = 0
-        bit_len = 0
+        bitValue = 0
+        bitLen = 0
         for i in range(kLookupBits):
             if mask & (1 << i):
-                bit_value |= (((data >> i) & 1) << bit_len)
-                bit_len += 1
-        out = '0x{:02X},'.format(bit_value)
+                bitValue |= (((data >> i) & 1) << bitLen)
+                bitLen += 1
+        out = '0x{:02X},'.format(bitValue)
         count += 1
         if count % (1 << kLookupBits) == 1:
             print(' {')
@@ -235,140 +227,102 @@ constexpr uint8_t kPextTable[1 << kLookupBits][1 << kLookupBits] = {
     },
 };
 
-inline uint64_t ExtractBitsSoftware(uint64_t bitmap, uint64_t select_bitmap) {
+inline uint64_t ExtractBitsSoftware(uint64_t bitmap, uint64_t selectBitmap) {
   // A software emulation of _pext_u64
 
   // These checks should be inline and are likely to be common cases.
-  if (select_bitmap == ~uint64_t{0}) {
+  if (selectBitmap == ~uint64_t{0}) {
     return bitmap;
-  } else if (select_bitmap == 0) {
+  } else if (selectBitmap == 0) {
     return 0;
   }
 
   // Fallback to lookup table method
-  uint64_t bit_value = 0;
-  int bit_len = 0;
+  uint64_t bitValue = 0;
+  int bitLen = 0;
   constexpr uint8_t kLookupMask = (1U << kLookupBits) - 1;
-  while (select_bitmap != 0) {
-    const auto mask_len = ARROW_POPCOUNT32(select_bitmap & kLookupMask);
+  while (selectBitmap != 0) {
+    const auto mask_len = ARROW_POPCOUNT32(selectBitmap & kLookupMask);
     const uint64_t value =
-        kPextTable[select_bitmap & kLookupMask][bitmap & kLookupMask];
-    bit_value |= (value << bit_len);
-    bit_len += mask_len;
+        kPextTable[selectBitmap & kLookupMask][bitmap & kLookupMask];
+    bitValue |= (value << bitLen);
+    bitLen += mask_len;
     bitmap >>= kLookupBits;
-    select_bitmap >>= kLookupBits;
+    selectBitmap >>= kLookupBits;
   }
-  return bit_value;
+  return bitValue;
 }
 
-#ifdef ARROW_HAVE_BMI2
-
-// Use _pext_u64 on 64-bit builds, _pext_u32 on 32-bit builds,
-#if UINTPTR_MAX == 0xFFFFFFFF
-
-using extract_bitmap_t = uint32_t;
-inline extract_bitmap_t ExtractBits(
-    extract_bitmap_t bitmap,
-    extract_bitmap_t select_bitmap) {
-  return _pext_u32(bitmap, select_bitmap);
+using extractBitmapT = uint64_t;
+inline extractBitmapT ExtractBits(
+    extractBitmapT bitmap,
+    extractBitmapT selectBitmap) {
+  return ExtractBitsSoftware(bitmap, selectBitmap);
 }
 
-#else
+static constexpr int64_t kExtractBitsSize = 8 * sizeof(extractBitmapT);
 
-using extract_bitmap_t = uint64_t;
-inline extract_bitmap_t ExtractBits(
-    extract_bitmap_t bitmap,
-    extract_bitmap_t select_bitmap) {
-  return _pext_u64(bitmap, select_bitmap);
-}
-
-#endif
-
-#else // !defined(ARROW_HAVE_BMI2)
-
-// Use 64-bit pext emulation when BMI2 isn't available.
-using extract_bitmap_t = uint64_t;
-inline extract_bitmap_t ExtractBits(
-    extract_bitmap_t bitmap,
-    extract_bitmap_t select_bitmap) {
-  return ExtractBitsSoftware(bitmap, select_bitmap);
-}
-
-#endif
-
-static constexpr int64_t kExtractBitsSize = 8 * sizeof(extract_bitmap_t);
-
-template <bool has_repeated_parent>
+template <bool hasRepeatedParent>
 int64_t DefLevelsBatchToBitmap(
-    const int16_t* def_levels,
-    const int64_t batch_size,
-    int64_t upper_bound_remaining,
-    LevelInfo level_info,
+    const int16_t* defLevels,
+    const int64_t batchSize,
+    int64_t upperBoundRemaining,
+    LevelInfo levelInfo,
     ::arrow::internal::FirstTimeBitmapWriter* writer) {
-  DCHECK_LE(batch_size, kExtractBitsSize);
+  DCHECK_LE(batchSize, kExtractBitsSize);
 
-  // Greater than level_info.def_level - 1 implies >= the def_level
-  auto defined_bitmap =
-      static_cast<extract_bitmap_t>(internal::GreaterThanBitmap(
-          def_levels, batch_size, level_info.def_level - 1));
+  // Greater than levelInfo.defLevel - 1 implies >= the defLevel
+  auto definedBitmap = static_cast<extractBitmapT>(
+      GreaterThanBitmap(defLevels, batchSize, levelInfo.defLevel - 1));
 
-  if (has_repeated_parent) {
-    // Greater than level_info.repeated_ancestor_def_level - 1 implies >= the
-    // repeated_ancestor_def_level
-    auto present_bitmap =
-        static_cast<extract_bitmap_t>(internal::GreaterThanBitmap(
-            def_levels,
-            batch_size,
-            level_info.repeated_ancestor_def_level - 1));
-    auto selected_bits = ExtractBits(defined_bitmap, present_bitmap);
-    int64_t selected_count = ::arrow::bit_util::PopCount(present_bitmap);
-    if (ARROW_PREDICT_FALSE(selected_count > upper_bound_remaining)) {
-      throw ParquetException("Values read exceeded upper bound");
+  if (hasRepeatedParent) {
+    // Greater than levelInfo.repeatedAncestorDefLevel - 1 implies >= the
+    // repeatedAncestorDefLevel
+    auto presentBitmap = static_cast<extractBitmapT>(GreaterThanBitmap(
+        defLevels, batchSize, levelInfo.repeatedAncestorDefLevel - 1));
+    auto selectedBits = ExtractBits(definedBitmap, presentBitmap);
+    int64_t selectedCount = ::arrow::bit_util::PopCount(presentBitmap);
+    if (FOLLY_UNLIKELY(selectedCount > upperBoundRemaining)) {
+      VELOX_FAIL("Values read exceeded upper bound");
     }
-    writer->AppendWord(selected_bits, selected_count);
-    return ::arrow::bit_util::PopCount(selected_bits);
+    writer->AppendWord(selectedBits, selectedCount);
+    return ::arrow::bit_util::PopCount(selectedBits);
   } else {
-    if (ARROW_PREDICT_FALSE(batch_size > upper_bound_remaining)) {
-      std::stringstream ss;
-      ss << "Values read exceeded upper bound";
-      throw ParquetException(ss.str());
+    if (FOLLY_UNLIKELY(batchSize > upperBoundRemaining)) {
+      VELOX_FAIL("Values read exceeded upper bound");
     }
 
-    writer->AppendWord(defined_bitmap, batch_size);
-    return ::arrow::bit_util::PopCount(defined_bitmap);
+    writer->AppendWord(definedBitmap, batchSize);
+    return ::arrow::bit_util::PopCount(definedBitmap);
   }
 }
 
-template <bool has_repeated_parent>
+template <bool hasRepeatedParent>
 void DefLevelsToBitmapSimd(
-    const int16_t* def_levels,
-    int64_t num_def_levels,
-    LevelInfo level_info,
+    const int16_t* defLevels,
+    int64_t numDefLevels,
+    LevelInfo levelInfo,
     ValidityBitmapInputOutput* output) {
   ::arrow::internal::FirstTimeBitmapWriter writer(
-      output->valid_bits,
-      /*start_offset=*/output->valid_bits_offset,
-      /*length=*/output->values_read_upper_bound);
-  int64_t set_count = 0;
-  output->values_read = 0;
-  int64_t values_read_remaining = output->values_read_upper_bound;
-  while (num_def_levels > kExtractBitsSize) {
-    set_count += DefLevelsBatchToBitmap<has_repeated_parent>(
-        def_levels,
-        kExtractBitsSize,
-        values_read_remaining,
-        level_info,
-        &writer);
-    def_levels += kExtractBitsSize;
-    num_def_levels -= kExtractBitsSize;
-    values_read_remaining = output->values_read_upper_bound - writer.position();
+      output->validBits,
+      /*start_offset=*/output->validBitsOffset,
+      /*length=*/output->valuesReadUpperBound);
+  int64_t setCount = 0;
+  output->valuesRead = 0;
+  int64_t valuesReadRemaining = output->valuesReadUpperBound;
+  while (numDefLevels > kExtractBitsSize) {
+    setCount += DefLevelsBatchToBitmap<hasRepeatedParent>(
+        defLevels, kExtractBitsSize, valuesReadRemaining, levelInfo, &writer);
+    defLevels += kExtractBitsSize;
+    numDefLevels -= kExtractBitsSize;
+    valuesReadRemaining = output->valuesReadUpperBound - writer.position();
   }
-  set_count += DefLevelsBatchToBitmap<has_repeated_parent>(
-      def_levels, num_def_levels, values_read_remaining, level_info, &writer);
+  setCount += DefLevelsBatchToBitmap<hasRepeatedParent>(
+      defLevels, numDefLevels, valuesReadRemaining, levelInfo, &writer);
 
-  output->values_read = writer.position();
-  output->null_count += output->values_read - set_count;
+  output->valuesRead = writer.position();
+  output->nullCount += output->valuesRead - setCount;
   writer.Finish();
 }
 
-} // namespace facebook::velox::parquet::arrow::internal::PARQUET_IMPL_NAMESPACE
+} // namespace facebook::velox::parquet

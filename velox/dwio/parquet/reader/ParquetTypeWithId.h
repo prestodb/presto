@@ -17,8 +17,8 @@
 #pragma once
 
 #include "velox/dwio/common/TypeWithId.h"
+#include "velox/dwio/parquet/common/LevelConversion.h"
 #include "velox/dwio/parquet/thrift/ParquetThriftTypes.h"
-#include "velox/dwio/parquet/writer/arrow/LevelConversion.h"
 
 namespace facebook::velox::parquet {
 
@@ -76,7 +76,7 @@ class ParquetTypeWithId : public dwio::common::TypeWithId {
   }
 
   /// Fills 'info' and returns the mode for interpreting levels.
-  LevelMode makeLevelInfo(arrow::LevelInfo& info) const;
+  LevelMode makeLevelInfo(LevelInfo& info) const;
 
   std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>> moveChildren() &&;
 

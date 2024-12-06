@@ -42,12 +42,12 @@
 #include "arrow/util/crc32.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "velox/dwio/parquet/common/LevelComparison.h"
+#include "velox/dwio/parquet/common/LevelConversion.h"
 #include "velox/dwio/parquet/writer/arrow/ColumnPage.h"
 #include "velox/dwio/parquet/writer/arrow/Encoding.h"
 #include "velox/dwio/parquet/writer/arrow/EncryptionInternal.h"
 #include "velox/dwio/parquet/writer/arrow/FileDecryptorInternal.h"
-#include "velox/dwio/parquet/writer/arrow/LevelComparison.h"
-#include "velox/dwio/parquet/writer/arrow/LevelConversion.h"
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
 #include "velox/dwio/parquet/writer/arrow/Statistics.h"
 #include "velox/dwio/parquet/writer/arrow/ThriftInternal.h"
@@ -193,7 +193,7 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
     num_decoded = bit_packed_decoder_->GetBatch(bit_width_, levels, num_values);
   }
   if (num_decoded > 0) {
-    internal::MinMax min_max = internal::FindMinMax(levels, num_decoded);
+    MinMax min_max = FindMinMax(levels, num_decoded);
     if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level_)) {
       std::stringstream ss;
       ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
@@ -1363,19 +1363,19 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
       *values_read = total_values;
     } else {
       LevelInfo info;
-      info.repeated_ancestor_def_level = this->max_def_level_ - 1;
-      info.def_level = this->max_def_level_;
-      info.rep_level = this->max_rep_level_;
+      info.repeatedAncestorDefLevel = this->max_def_level_ - 1;
+      info.defLevel = this->max_def_level_;
+      info.repLevel = this->max_rep_level_;
       ValidityBitmapInputOutput validity_io;
-      validity_io.values_read_upper_bound = num_def_levels;
-      validity_io.valid_bits = valid_bits;
-      validity_io.valid_bits_offset = valid_bits_offset;
-      validity_io.null_count = null_count;
-      validity_io.values_read = *values_read;
+      validity_io.valuesReadUpperBound = num_def_levels;
+      validity_io.validBits = valid_bits;
+      validity_io.validBitsOffset = valid_bits_offset;
+      validity_io.nullCount = null_count;
+      validity_io.valuesRead = *values_read;
 
       DefLevelsToBitmap(def_levels, num_def_levels, info, &validity_io);
-      null_count = validity_io.null_count;
-      *values_read = validity_io.values_read;
+      null_count = validity_io.nullCount;
+      *values_read = validity_io.valuesRead;
 
       total_values = this->ReadValuesSpaced(
           *values_read,
@@ -1674,15 +1674,15 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         ::arrow::bit_util::BytesForBits(skipped_records),
         /*shrink_to_fit=*/true));
     ValidityBitmapInputOutput validity_io;
-    validity_io.values_read_upper_bound = skipped_records;
-    validity_io.valid_bits = valid_bits->mutable_data();
-    validity_io.valid_bits_offset = 0;
+    validity_io.valuesReadUpperBound = skipped_records;
+    validity_io.validBits = valid_bits->mutable_data();
+    validity_io.validBitsOffset = 0;
     DefLevelsToBitmap(
         def_levels() + start_levels_position,
         skipped_records,
         this->leaf_info_,
         &validity_io);
-    int64_t values_to_read = validity_io.values_read - validity_io.null_count;
+    int64_t values_to_read = validity_io.valuesRead - validity_io.nullCount;
 
     // Now that we have figured out number of values to read, we do not need
     // these levels anymore. We will remove these values from the buffer.
@@ -2138,21 +2138,20 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // read.
     ARROW_DCHECK_GE(levels_position_, start_levels_position);
     ValidityBitmapInputOutput validity_io;
-    validity_io.values_read_upper_bound =
-        levels_position_ - start_levels_position;
-    validity_io.valid_bits = valid_bits_->mutable_data();
-    validity_io.valid_bits_offset = values_written_;
+    validity_io.valuesReadUpperBound = levels_position_ - start_levels_position;
+    validity_io.validBits = valid_bits_->mutable_data();
+    validity_io.validBitsOffset = values_written_;
 
     DefLevelsToBitmap(
         def_levels() + start_levels_position,
         levels_position_ - start_levels_position,
         leaf_info_,
         &validity_io);
-    *values_to_read = validity_io.values_read - validity_io.null_count;
-    *null_count = validity_io.null_count;
+    *values_to_read = validity_io.valuesRead - validity_io.nullCount;
+    *null_count = validity_io.nullCount;
     ARROW_DCHECK_GE(*values_to_read, 0);
     ARROW_DCHECK_GE(*null_count, 0);
-    ReadValuesSpaced(validity_io.values_read, *null_count);
+    ReadValuesSpaced(validity_io.valuesRead, *null_count);
   }
 
   // Return number of logical records read.
@@ -2217,7 +2216,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     const T* vals = reinterpret_cast<const T*>(this->values());
 
-    if (leaf_info_.def_level > 0) {
+    if (leaf_info_.defLevel > 0) {
       std::cout << "def levels: ";
       for (int64_t i = 0; i < total_levels_read; ++i) {
         std::cout << def_levels[i] << " ";
@@ -2225,7 +2224,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       std::cout << std::endl;
     }
 
-    if (leaf_info_.rep_level > 0) {
+    if (leaf_info_.repLevel > 0) {
       std::cout << "rep levels: ";
       for (int64_t i = 0; i < total_levels_read; ++i) {
         std::cout << rep_levels[i] << " ";

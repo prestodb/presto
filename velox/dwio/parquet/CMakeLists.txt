@@ -13,9 +13,9 @@
 # limitations under the License.
 
 if(VELOX_ENABLE_PARQUET)
-  add_subdirectory(thrift)
   add_subdirectory(common)
   add_subdirectory(reader)
+  add_subdirectory(thrift)
   add_subdirectory(writer)
 
   if(${VELOX_BUILD_TESTING})
