@@ -233,10 +233,6 @@ if(${VELOX_FORCE_COLORED_OUTPUT})
   endif()
 endif()
 
-# At the moment we prefer static linking but by default cmake looks for shared
-# libs first. This will still fallback to shared libs when static ones are not
-# found
-list(INSERT CMAKE_FIND_LIBRARY_SUFFIXES 0 a)
 if(VELOX_ENABLE_S3)
   # Set AWS_ROOT_DIR if you have a custom install location of AWS SDK CPP.
   if(AWSSDK_ROOT_DIR)
@@ -293,7 +289,8 @@ endif()
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_CXX_EXTENSIONS ON) # Big Int is an extension
 
 execute_process(
   COMMAND
@@ -373,7 +370,6 @@ if(${VELOX_ENABLE_GPU})
   if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_options("$<$<COMPILE_LANGUAGE:CUDA>:-G>")
   endif()
-  include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
   find_package(CUDAToolkit REQUIRED)
 endif()
 
@@ -424,11 +420,10 @@ set(BOOST_INCLUDE_LIBRARIES
 velox_set_source(Boost)
 velox_resolve_dependency(Boost 1.77.0 COMPONENTS ${BOOST_INCLUDE_LIBRARIES})
 
-# Range-v3 will be enable when the codegen code actually lands keeping it here
-# for reference. find_package(range-v3)
-
 velox_set_source(gflags)
+
 velox_resolve_dependency(gflags COMPONENTS ${VELOX_GFLAGS_TYPE})
+
 if(NOT TARGET gflags::gflags)
   # This is a bit convoluted, but we want to be able to use gflags::gflags as a
   # target even when velox is built as a subproject which uses
@@ -494,8 +489,6 @@ endif()
 velox_set_source(simdjson)
 velox_resolve_dependency(simdjson 3.9.3)
 
-# Locate or build folly.
-add_compile_definitions(FOLLY_HAVE_INT128_T=1)
 velox_set_source(folly)
 velox_resolve_dependency(folly)
 
@@ -521,12 +514,6 @@ if(VELOX_ENABLE_REMOTE_FUNCTIONS)
   find_package(FBThrift CONFIG REQUIRED)
 endif()
 
-if(DEFINED FOLLY_BENCHMARK_STATIC_LIB)
-  set(FOLLY_BENCHMARK ${FOLLY_BENCHMARK_STATIC_LIB})
-else()
-  set(FOLLY_BENCHMARK Folly::follybenchmark)
-endif()
-
 if(VELOX_ENABLE_GCS)
   velox_set_source(google_cloud_cpp_storage)
   velox_resolve_dependency(google_cloud_cpp_storage CONFIG 2.22.0 REQUIRED)
@@ -535,7 +522,6 @@ endif()
 
 # GCC needs to link a library to enable std::filesystem.
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  set(FILESYSTEM "stdc++fs")
 
   # Ensure we have gcc at least 9+.
   if(CMAKE_CXX_COMPILER_VERSION LESS 9.0)
@@ -545,8 +531,6 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
 
   # Find Threads library
   find_package(Threads REQUIRED)
-else()
-  set(FILESYSTEM "")
 endif()
 
 if(VELOX_BUILD_TESTING AND NOT VELOX_ENABLE_DUCKDB)
@@ -595,7 +579,6 @@ find_package(double-conversion 3.1.5 REQUIRED)
 include_directories(SYSTEM velox)
 include_directories(SYSTEM velox/external)
 
-# these were previously vendored in third-party/
 if(NOT VELOX_DISABLE_GOOGLETEST)
   velox_set_source(GTest)
   velox_resolve_dependency(GTest)

@@ -44,6 +44,7 @@ FetchContent_MakeAvailable(folly)
 
 # Folly::folly is not valid for FC but we want to match FindFolly
 add_library(Folly::folly ALIAS folly)
+add_library(Folly::follybenchmark ALIAS follybenchmark)
 
 # The folly target does not contain any include directories, they are propagated
 # from folly_base. This marks them as system headers which should suppress
@@ -60,7 +61,3 @@ set_target_properties(
 if(${gflags_SOURCE} STREQUAL "BUNDLED")
   add_dependencies(folly glog gflags_static fmt::fmt)
 endif()
-
-set(FOLLY_BENCHMARK_STATIC_LIB
-    ${folly_BINARY_DIR}/folly/libfollybenchmark${CMAKE_STATIC_LIBRARY_SUFFIX}
-    PARENT_SCOPE)

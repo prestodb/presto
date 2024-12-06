@@ -35,5 +35,4 @@ target_link_libraries(
   Folly::folly
   gflags::gflags
   glog::glog
-  fmt::fmt
-  ${FILESYSTEM})
+  fmt::fmt)

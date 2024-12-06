@@ -23,7 +23,7 @@ set(velox_benchmark_deps
     velox_benchmark_builder
     velox_vector_test_lib
     Folly::folly
-    ${FOLLY_BENCHMARK}
+    Folly::follybenchmark
     ${DOUBLE_CONVERSION}
     gflags::gflags
     glog::glog)

@@ -20,8 +20,6 @@ target_link_libraries(
   velox_local_runner_test
   velox_exec_runner_test_util
   velox_exec_test_lib
-  velox_dwio_common
-  velox_dwio_dwrf_proto
   velox_parse_parser
   velox_parse_expression
   GTest::gtest)

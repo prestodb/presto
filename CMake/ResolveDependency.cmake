@@ -64,6 +64,9 @@ endmacro()
 # is not found the build will fail and will not fall back to download and build
 # from source.
 macro(velox_resolve_dependency dependency_name)
+  # INDENT is always visible, CONTEXT has to be turned on.
+  list(APPEND CMAKE_MESSAGE_INDENT "[${dependency_name}] ")
+
   set(find_package_args ${dependency_name} ${ARGN})
   list(REMOVE_ITEM find_package_args REQUIRED QUIET)
   if(${dependency_name}_SOURCE STREQUAL "AUTO")
@@ -84,6 +87,8 @@ macro(velox_resolve_dependency dependency_name)
       FATAL_ERROR
         "Invalid source for ${dependency_name}: ${${dependency_name}_SOURCE}")
   endif()
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
 endmacro()
 
 # By using a macro we don't need to propagate the value into the parent scope.

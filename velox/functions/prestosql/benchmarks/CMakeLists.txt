@@ -18,7 +18,7 @@ set(BENCHMARK_DEPENDENCIES_NO_FUNC
     velox_exec_test_lib
     gflags::gflags
     Folly::folly
-    ${FOLLY_BENCHMARK}
+    Folly::follybenchmark
     velox_benchmark_builder)
 
 set(BENCHMARK_DEPENDENCIES

@@ -82,8 +82,8 @@ if(${VELOX_ENABLE_BENCHMARKS})
     GTest::gtest
     GTest::gtest_main
     GTest::gmock
-    ${FOLLY_BENCHMARK}
     Folly::folly
+    Folly::follybenchmark
     gflags::gflags
     glog::glog
     fmt::fmt

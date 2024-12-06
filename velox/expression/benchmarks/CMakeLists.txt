@@ -18,7 +18,7 @@ set(BENCHMARK_DEPENDENCIES
     velox_exec_test_lib
     gflags::gflags
     Folly::folly
-    ${FOLLY_BENCHMARK})
+    Folly::follybenchmark)
 
 add_executable(velox_benchmark_call_null_free_no_nulls
                CallNullFreeBenchmark.cpp)

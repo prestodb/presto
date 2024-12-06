@@ -30,5 +30,5 @@ target_link_libraries(
   velox_hive_partition_function
   velox_memory
   Folly::folly
-  ${FOLLY_BENCHMARK}
+  Folly::follybenchmark
   fmt::fmt)

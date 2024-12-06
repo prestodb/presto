@@ -21,4 +21,4 @@ target_link_libraries(
   velox_vector_test_lib
   velox_vector_fuzzer
   Folly::folly
-  ${FOLLY_BENCHMARK})
+  Folly::follybenchmark)

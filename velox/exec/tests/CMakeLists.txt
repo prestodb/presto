@@ -160,8 +160,7 @@ target_link_libraries(
   Folly::folly
   gflags::gflags
   glog::glog
-  fmt::fmt
-  ${FILESYSTEM})
+  fmt::fmt)
 
 target_link_libraries(
   velox_exec_infra_test
@@ -198,8 +197,7 @@ target_link_libraries(
   Folly::folly
   gflags::gflags
   glog::glog
-  fmt::fmt
-  ${FILESYSTEM})
+  fmt::fmt)
 
 add_executable(velox_in_10_min_demo VeloxIn10MinDemo.cpp)
 
