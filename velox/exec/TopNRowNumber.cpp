@@ -175,6 +175,16 @@ TopNRowNumber::TopNRowNumber(
   }
 }
 
+void TopNRowNumber::prepareInput(RowVectorPtr& input) {
+  // Potential large memory usage site that might trigger arbitration. Make it
+  // reclaimable because at this point it does not break the operator's state
+  // atomicity.
+  ReclaimableSectionGuard guard(this);
+  for (auto i = 0; i < inputChannels_.size(); ++i) {
+    decodedVectors_[i].decode(*input->childAt(inputChannels_[i]));
+  }
+}
+
 void TopNRowNumber::addInput(RowVectorPtr input) {
   if (abandonedPartial_) {
     input_ = std::move(input);
@@ -183,9 +193,7 @@ void TopNRowNumber::addInput(RowVectorPtr input) {
 
   const auto numInput = input->size();
 
-  for (auto i = 0; i < inputChannels_.size(); ++i) {
-    decodedVectors_[i].decode(*input->childAt(inputChannels_[i]));
-  }
+  prepareInput(input);
 
   if (table_) {
     ensureInputFits(input);

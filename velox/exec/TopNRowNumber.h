@@ -92,6 +92,9 @@ class TopNRowNumber : public Operator {
     return *reinterpret_cast<TopRows*>(group + partitionOffset_);
   }
 
+  // Decodes and potentially loads input if lazy vector.
+  void prepareInput(RowVectorPtr& input);
+
   // Adds input row to a partition or discards the row.
   void processInputRow(vector_size_t index, TopRows& partition);
 

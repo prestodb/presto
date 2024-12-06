@@ -488,7 +488,7 @@ class Operator : public BaseRuntimeStatWriter {
   /// should be called after this.
   virtual void close();
 
-  // Returns true if 'this' never has more output rows than input rows.
+  /// Returns true if 'this' never has more output rows than input rows.
   virtual bool isFilter() const {
     return false;
   }
@@ -832,7 +832,7 @@ std::vector<column_index_t> calculateOutputChannels(
     const RowTypePtr& targetInputType,
     const RowTypePtr& targetOutputType);
 
-// A first operator in a Driver, e.g. table scan or exchange client.
+/// A first operator in a Driver, e.g. table scan or exchange client.
 class SourceOperator : public Operator {
  public:
   SourceOperator(
