@@ -1543,7 +1543,9 @@ DEBUG_ONLY_TEST_F(TaskPauseTest, resumeFuture) {
   observeThread.join();
 
   ASSERT_EQ(task_->numTotalDrivers(), 1);
-  ASSERT_EQ(task_->numFinishedDrivers(), 1);
+  while (task_->numFinishedDrivers() != 1) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
+  }
   ASSERT_EQ(task_->numRunningDrivers(), 0);
 }
 
