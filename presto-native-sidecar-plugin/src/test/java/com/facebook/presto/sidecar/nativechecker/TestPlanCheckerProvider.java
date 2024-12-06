@@ -15,11 +15,6 @@ package com.facebook.presto.sidecar.nativechecker;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.ErrorCode;
-import com.facebook.presto.sidecar.nativechecker.NativePlanChecker;
-import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerConfig;
-import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerProvider;
-import com.facebook.presto.sidecar.nativechecker.PlanConversionFailureInfo;
-import com.facebook.presto.sidecar.nativechecker.PlanConversionResponse;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
