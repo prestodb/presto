@@ -23,7 +23,6 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.LongSerializer;
-import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.common.utils.Time;
 
 import java.io.Closeable;
@@ -96,7 +95,7 @@ public class EmbeddedKafka
                 .build();
 
         KafkaConfig config = new KafkaConfig(toProperties(properties));
-        Time time = new SystemTime();
+        Time time = Time.SYSTEM;
         this.kafka = new KafkaServer(config, time, scala.Option.empty(), false);
         Properties adminProps = new Properties();
         adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, getConnectString());
