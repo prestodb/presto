@@ -64,6 +64,11 @@ public class NewTableLayout
         return layout.getPartitionColumns();
     }
 
+    public PartitionedTableWritePolicy getWriterPolicy()
+    {
+        return layout.getWriterPolicy();
+    }
+
     @Override
     public boolean equals(Object o)
     {
