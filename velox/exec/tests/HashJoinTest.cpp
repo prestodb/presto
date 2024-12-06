@@ -5305,6 +5305,51 @@ TEST_F(HashJoinTest, dynamicFiltersPushDownThroughAgg) {
       .run();
 }
 
+TEST_F(HashJoinTest, noDynamicFiltersPushDownThroughRightJoin) {
+  std::vector<RowVectorPtr> innerBuild = {makeRowVector(
+      {"a"},
+      {
+          makeFlatVector<int64_t>(5, [](auto i) { return 2 * i; }),
+      })};
+  std::vector<RowVectorPtr> rightBuild = {makeRowVector(
+      {"b"},
+      {
+          makeFlatVector<int64_t>(5, [](auto i) { return 1 + 2 * i; }),
+      })};
+  std::vector<RowVectorPtr> rightProbe = {makeRowVector(
+      {"aa", "bb"},
+      {
+          makeFlatVector<int64_t>(10, folly::identity),
+          makeFlatVector<int64_t>(10, folly::identity),
+      })};
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), rightProbe);
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId scanNodeId;
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(asRowType(rightProbe[0]->type()))
+          .capturePlanNodeId(scanNodeId)
+          .hashJoin(
+              {"bb"},
+              {"b"},
+              PlanBuilder(planNodeIdGenerator).values(rightBuild).planNode(),
+              "",
+              {"aa", "b"},
+              core::JoinType::kRight)
+          .hashJoin(
+              {"aa"},
+              {"a"},
+              PlanBuilder(planNodeIdGenerator).values(innerBuild).planNode(),
+              "",
+              {"aa"})
+          .planNode();
+  AssertQueryBuilder(plan)
+      .split(scanNodeId, Split(makeHiveConnectorSplit(file->getPath())))
+      .assertResults(
+          BaseVector::create<RowVector>(innerBuild[0]->type(), 0, pool_.get()));
+}
+
 // Verify the size of the join output vectors when projecting build-side
 // variable-width column.
 TEST_F(HashJoinTest, memoryUsage) {

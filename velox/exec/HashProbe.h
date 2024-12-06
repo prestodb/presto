@@ -129,7 +129,7 @@ class HashProbe : public Operator {
   // number mappings or input vectors. In this way input vectors do
   // not have to be copied and will be singly referenced by their
   // producer.
-  void clearIdentityProjectedOutput();
+  void clearProjectedOutput();
 
   // Populate output columns with matching build-side rows
   // for the right semi join and non-matching build-side rows
@@ -422,7 +422,7 @@ class HashProbe : public Operator {
   RowTypePtr filterInputType_;
 
   // The input channels that are projected to the output.
-  std::unordered_set<column_index_t> projectedInputColumns_;
+  folly::F14FastMap<column_index_t, column_index_t> projectedInputColumns_;
 
   // Maps input channels to channels in 'filterInputType_'.
   std::vector<IdentityProjection> filterInputProjections_;
