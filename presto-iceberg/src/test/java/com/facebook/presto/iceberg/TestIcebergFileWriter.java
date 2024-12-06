@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -178,9 +179,16 @@ public class TestIcebergFileWriter
             throw new UnsupportedOperationException();
         }
 
-        private List<Type> getTypes()
+        @Override
+        public List<Type> getTypes()
         {
             return ImmutableList.of(BooleanType.BOOLEAN, INTEGER, BIGINT, DoubleType.DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, HYPER_LOG_LOG);
+        }
+
+        @Override
+        public List<ParametricType> getParametricTypes()
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

@@ -24,6 +24,7 @@ import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.DistinctTypeInfo;
+import com.facebook.presto.common.type.ExactTypeSignature;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -50,6 +51,9 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.type.TypeManagerContext;
+import com.facebook.presto.spi.type.TypeManagerFactory;
+import com.facebook.presto.spi.type.TypesProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
@@ -122,8 +126,10 @@ public class FunctionAndTypeManager
     private final BuiltInTypeAndFunctionNamespaceManager builtInTypeAndFunctionNamespaceManager;
     private final FunctionInvokerProvider functionInvokerProvider;
     private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
+    private final Map<String, TypeManagerFactory> typeManagerFactories = new ConcurrentHashMap<>();
     private final HandleResolver handleResolver;
     private final Map<String, FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManagers = new ConcurrentHashMap<>();
+    private final Map<String, TypesProvider> typeManagers = new ConcurrentHashMap<>();
     private final FunctionSignatureMatcher functionSignatureMatcher;
     private final TypeCoercer typeCoercer;
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
@@ -221,6 +227,24 @@ public class FunctionAndTypeManager
             }
 
             @Override
+            public Type instantiateParametricType(ExactTypeSignature exactSignature)
+            {
+                return FunctionAndTypeManager.this.instantiateParametricType(exactSignature);
+            }
+
+            @Override
+            public List<Type> getTypes()
+            {
+                return FunctionAndTypeManager.this.getTypes();
+            }
+
+            @Override
+            public List<ParametricType> getParametricTypes()
+            {
+                return FunctionAndTypeManager.this.getParametricTypes();
+            }
+
+            @Override
             public Collection<SqlFunction> listBuiltInFunctions()
             {
                 return FunctionAndTypeManager.this.listBuiltInFunctions();
@@ -302,6 +326,17 @@ public class FunctionAndTypeManager
     }
 
     @Override
+    public Type instantiateParametricType(ExactTypeSignature exactSignature)
+    {
+        // This method is only used by nativeTypeManager, so check if typeManagers is empty first
+        checkState(!typeManagers.isEmpty());
+        return builtInTypeAndFunctionNamespaceManager.instantiateParametricType(
+                exactSignature,
+                this,
+                getServingTypesProvider().getParametricTypes());
+    }
+
+    @Override
     public Type getType(TypeSignature signature)
     {
         if (signature.getTypeSignatureBase().hasStandardType()) {
@@ -309,7 +344,7 @@ public class FunctionAndTypeManager
             if (signature.isDistinctType()) {
                 return getDistinctType(signature.getParameters().get(0).getDistinctTypeInfo());
             }
-            Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
+            Optional<Type> type = getServingTypesProvider().getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
                 if (signature.getTypeSignatureBase().hasTypeName()) {
                     return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type.get());
@@ -344,6 +379,32 @@ public class FunctionAndTypeManager
             throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
         }
         handleResolver.addFunctionNamespace(factory.getName(), factory.getHandleResolver());
+    }
+
+    public void loadTypeManager(String typeManagerName)
+    {
+        requireNonNull(typeManagerName, "typeManagerName is null");
+        TypeManagerFactory factory = typeManagerFactories.get(typeManagerName);
+        checkState(factory != null, "No factory for type manager %s", typeManagerName);
+        TypesProvider typeManager = factory.create(new TypeManagerContext(this));
+
+        if (typeManagers.putIfAbsent(typeManagerName, typeManager) != null) {
+            throw new IllegalArgumentException(format("Type manager [%s] is already registered", typeManager));
+        }
+    }
+
+    public void loadTypeManagers()
+    {
+        for (String typeManagerName : typeManagerFactories.keySet()) {
+            loadTypeManager(typeManagerName);
+        }
+    }
+
+    public void addTypeManagerFactory(TypeManagerFactory factory)
+    {
+        if (typeManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("Type manager '%s' is already registered", factory.getName()));
+        }
     }
 
     public void registerBuiltInFunctions(List<? extends SqlFunction> functions)
@@ -486,9 +547,9 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getTypes();
     }
 
-    public Collection<ParametricType> getParametricTypes()
+    public List<ParametricType> getParametricTypes()
     {
-        return ImmutableList.copyOf(builtInTypeAndFunctionNamespaceManager.getParametricTypes());
+        return ImmutableList.copyOf(builtInTypeAndFunctionNamespaceManager.getParametricTypes().values());
     }
 
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
@@ -724,6 +785,20 @@ public class FunctionAndTypeManager
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(TypeSignatureBase typeSignatureBase)
     {
         return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().getCatalogName()));
+    }
+
+    private TypesProvider getServingTypesProvider()
+    {
+        TypesProvider typesProvider = builtInTypeAndFunctionNamespaceManager;
+        for (Map.Entry<String, TypeManagerFactory> entry : typeManagerFactories.entrySet()) {
+            TypeManagerFactory typeManagerFactory = entry.getValue();
+            // Get the type manager name from the factory
+            String name = typeManagerFactory.getName();
+
+            // Check if the type manager exists in typeManagers else use builtInTypeAndFunctionNamespaceManager
+            typesProvider = typeManagers.getOrDefault(name, typesProvider);
+        }
+        return typesProvider;
     }
 
     private static class FunctionResolutionCacheKey
