@@ -18,6 +18,10 @@
 
 #include "velox/dwio/common/SelectiveColumnReader.h"
 
+namespace facebook::nimble {
+class DeduplicatedReadHelper;
+}
+
 namespace facebook::velox::dwio::common {
 
 // Abstract superclass for list and map readers. Encapsulates common
@@ -80,6 +84,8 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   // corresponding to the last non-null parent.
   int64_t childTargetReadOffset_ = 0;
   std::vector<SelectiveColumnReader*> children_;
+
+  friend class facebook::nimble::DeduplicatedReadHelper;
 };
 
 class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
