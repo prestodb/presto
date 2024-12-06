@@ -839,31 +839,6 @@ void appendCounts(
   }
 }
 
-std::string summarizeOneType(
-    const velox::TypePtr& type,
-    const PlanSummaryOptions& options) {
-  std::ostringstream out;
-  out << type->kindName();
-
-  const auto cnt = std::min<size_t>(options.maxChildTypes, type->size());
-  if (cnt > 0) {
-    out << "(";
-    for (auto i = 0; i < cnt; ++i) {
-      if (i > 0) {
-        out << ", ";
-      }
-      out << type->childAt(i)->kindName();
-    }
-
-    if (cnt < type->size()) {
-      out << ", ...";
-    }
-    out << ")";
-  }
-
-  return out.str();
-}
-
 std::string truncate(const std::string& str, size_t maxLen = 50) {
   if (str.size() > maxLen) {
     return str.substr(0, maxLen) + "...";
@@ -913,7 +888,8 @@ void appendExprSummary(
     stream << indentation << "constants: ";
     std::unordered_map<std::string, int64_t> counts;
     for (const auto& [type, count] : exprCtx.constantCounts()) {
-      counts[summarizeOneType(type, options)] += count;
+      counts[type->toSummaryString(
+          {.maxChildren = (uint32_t)options.maxChildTypes})] += count;
     }
     appendCounts(counts, stream);
     stream << std::endl;
@@ -2672,7 +2648,8 @@ std::string summarizeOutputType(
         out << ", ";
       }
       out << type->nameOf(i) << " "
-          << summarizeOneType(type->childAt(i), options);
+          << type->childAt(i)->toSummaryString(
+                 {.maxChildren = (uint32_t)options.maxChildTypes});
     }
 
     if (cnt < type->size()) {

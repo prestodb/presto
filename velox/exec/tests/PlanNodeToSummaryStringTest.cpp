@@ -127,7 +127,7 @@ TEST_F(PlanNodeToSummaryStringTest, expressions) {
       "      constants: BIGINT: 2, DOUBLE: 1, VARCHAR: 1\n"
       "      projections: 4 out of 7\n"
       "      dereferences: 1 out of 7\n"
-      "  -- TableScan[0]: 4 fields: a INTEGER, b ARRAY, c MAP, d ROW\n"
+      "  -- TableScan[0]: 4 fields: a INTEGER, b ARRAY, c MAP, d ROW(3)\n"
       "        table: hive_table\n",
       plan->toSummaryString());
 
@@ -143,7 +143,7 @@ TEST_F(PlanNodeToSummaryStringTest, expressions) {
       "         ... 1 more\n"
       "      dereferences: 1 out of 7\n"
       "         y: ROW[\"d\"][y]\n"
-      "  -- TableScan[0]: 4 fields: a INTEGER, b ARRAY, c MAP, d ROW\n"
+      "  -- TableScan[0]: 4 fields: a INTEGER, b ARRAY, c MAP, d ROW(3)\n"
       "        table: hive_table\n",
       plan->toSummaryString(
           {.project = {.maxProjections = 3, .maxDereferences = 2}}));

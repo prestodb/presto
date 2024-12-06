@@ -1042,3 +1042,40 @@ TEST(TypeTest, providesCustomComparison) {
   // types, so attempting to instantiate one should fail.
   EXPECT_THROW(test::VARCHAR_TYPE_WITH_CUSTOM_COMPARISON(), VeloxRuntimeError);
 }
+
+TEST(TypeTest, toSummaryString) {
+  EXPECT_EQ("BOOLEAN", BOOLEAN()->toSummaryString());
+  EXPECT_EQ("BIGINT", BIGINT()->toSummaryString());
+  EXPECT_EQ("VARCHAR", VARCHAR()->toSummaryString());
+  EXPECT_EQ("OPAQUE", OPAQUE<int>()->toSummaryString());
+
+  const auto arrayType = ARRAY(INTEGER());
+  EXPECT_EQ("ARRAY", arrayType->toSummaryString());
+  EXPECT_EQ("ARRAY(INTEGER)", arrayType->toSummaryString({.maxChildren = 2}));
+  EXPECT_EQ(
+      "ARRAY(ARRAY)", ARRAY(arrayType)->toSummaryString({.maxChildren = 2}));
+
+  const auto mapType = MAP(INTEGER(), VARCHAR());
+  EXPECT_EQ("MAP", mapType->toSummaryString());
+  EXPECT_EQ(
+      "MAP(INTEGER, VARCHAR)", mapType->toSummaryString({.maxChildren = 2}));
+  EXPECT_EQ(
+      "MAP(INTEGER, MAP)",
+      MAP(INTEGER(), mapType)->toSummaryString({.maxChildren = 2}));
+
+  const auto rowType = ROW({
+      BOOLEAN(),
+      INTEGER(),
+      VARCHAR(),
+      arrayType,
+      mapType,
+      ROW({INTEGER(), VARCHAR()}),
+  });
+  EXPECT_EQ("ROW(6)", rowType->toSummaryString());
+  EXPECT_EQ(
+      "ROW(BOOLEAN, INTEGER, ...4 more)",
+      rowType->toSummaryString({.maxChildren = 2}));
+  EXPECT_EQ(
+      "ROW(BOOLEAN, INTEGER, VARCHAR, ARRAY, MAP, ROW)",
+      rowType->toSummaryString({.maxChildren = 10}));
+}

@@ -871,6 +871,33 @@ bool Type::containsUnknown() const {
   return false;
 }
 
+std::string Type::toSummaryString(TypeSummaryOptions options) const {
+  std::ostringstream out;
+  out << kindName();
+
+  const auto cnt = std::min(options.maxChildren, size());
+  if (cnt > 0) {
+    out << "(";
+    for (auto i = 0; i < cnt; ++i) {
+      if (i > 0) {
+        out << ", ";
+      }
+      out << childAt(i)->kindName();
+    }
+
+    if (cnt < size()) {
+      out << ", ..." << (size() - cnt) << " more";
+    }
+    out << ")";
+  } else {
+    if (kind_ == TypeKind::ROW) {
+      out << "(" << size() << ")";
+    }
+  }
+
+  return out.str();
+}
+
 namespace {
 
 std::unordered_map<std::string, std::unique_ptr<const CustomTypeFactories>>&
