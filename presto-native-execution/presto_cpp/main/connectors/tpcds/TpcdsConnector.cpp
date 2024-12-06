@@ -138,7 +138,8 @@ std::unique_ptr<velox::connector::ConnectorSplit>
 TpcdsPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* const connectorSplit) const {
-  auto tpcdsSplit = dynamic_cast<const protocol::tpcds::TpcdsSplit*>(connectorSplit);
+  auto tpcdsSplit =
+      dynamic_cast<const protocol::tpcds::TpcdsSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
       tpcdsSplit, "Unexpected split type {}", connectorSplit->_type);
   return std::make_unique<presto::connector::tpcds::TpcdsConnectorSplit>(
@@ -149,7 +150,8 @@ std::unique_ptr<velox::connector::ColumnHandle>
 TpcdsPrestoToVeloxConnector::toVeloxColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) const {
-  auto tpcdsColumn = dynamic_cast<const protocol::tpcds::TpcdsColumnHandle*>(column);
+  auto tpcdsColumn =
+      dynamic_cast<const protocol::tpcds::TpcdsColumnHandle*>(column);
   VELOX_CHECK_NOT_NULL(
       tpcdsColumn, "Unexpected column handle type {}", column->_type);
   return std::make_unique<presto::connector::tpcds::TpcdsColumnHandle>(

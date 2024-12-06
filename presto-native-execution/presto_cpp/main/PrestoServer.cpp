@@ -1139,11 +1139,14 @@ void PrestoServer::registerConnectorFactories() {
     velox::connector::registerConnectorFactory(
         std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
   }
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
   if (!velox::connector::hasConnectorFactory(
-          presto::connector::tpcds::TpcdsConnectorFactory::kTpcdsConnectorName)) {
+          presto::connector::tpcds::TpcdsConnectorFactory::
+              kTpcdsConnectorName)) {
     velox::connector::registerConnectorFactory(
         std::make_shared<presto::connector::tpcds::TpcdsConnectorFactory>());
   }
+#endif
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(

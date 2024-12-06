@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# if(PRESTO_ENABLE_TPCDS_CONNECTOR)
-add_subdirectory(tpcds)
-# endif()
+if(PRESTO_ENABLE_TPCDS_CONNECTOR)
+  add_subdirectory(tpcds)
+endif()

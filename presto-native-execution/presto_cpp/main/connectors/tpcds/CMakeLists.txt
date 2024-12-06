@@ -41,6 +41,21 @@ endif()
 # Add subdirectories
 add_subdirectory(${CMAKE_SOURCE_DIR}/presto_cpp/external/dsdgen/dsdgen-c build)
 
+# Generate tpcds_idx.hpp
+set(INPUT_FILE tpcds.idx)
+set(OUTPUT_FILE tpcds_idx.hpp)
+set(WORKING_DIR ${CMAKE_SOURCE_DIR}/presto_cpp/external/dsdgen/include/)
+
+add_custom_command(
+  OUTPUT ${WORKING_DIR}/${OUTPUT_FILE}
+  COMMAND xxd -i ${INPUT_FILE} > ${OUTPUT_FILE}
+  DEPENDS ${WORKING_DIR}/${INPUT_FILE}
+  COMMENT "Generating ${OUTPUT_FILE} from ${INPUT_FILE}"
+  WORKING_DIRECTORY ${WORKING_DIR})
+
+add_custom_target(generate_tpcds_idx ALL DEPENDS ${WORKING_DIR}/${OUTPUT_FILE})
+add_dependencies(dsdgen_c generate_tpcds_idx)
+
 add_library(append_info OBJECT utils/append_info-c.cpp)
 target_link_libraries(append_info velox_vector_test_lib Folly::folly xsimd)
 target_link_libraries(dsdgen_c append_info)

@@ -119,7 +119,8 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
   }
 
   if (type == "tpcds") {
-    std::shared_ptr<TpcdsColumnHandle> k = std::make_shared<TpcdsColumnHandle>();
+    std::shared_ptr<TpcdsColumnHandle> k =
+        std::make_shared<TpcdsColumnHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ColumnHandle>(k);
     return;

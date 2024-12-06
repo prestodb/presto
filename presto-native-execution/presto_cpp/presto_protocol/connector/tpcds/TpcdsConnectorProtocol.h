@@ -30,4 +30,4 @@ using TpcdsConnectorProtocol = ConnectorProtocolTemplate<
     TpcdsTransactionHandle,
     NotImplemented>;
 
-} // namespace facebook::presto::protocol::tpch
+} // namespace facebook::presto::protocol::tpcds
