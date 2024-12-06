@@ -244,6 +244,7 @@ public class TestFeaturesConfig
                 .setRemoveCrossJoinWithSingleConstantRow(true)
                 .setUseHistograms(false)
                 .setInlineProjectionsOnValues(false)
+                .setIncludeValuesNodeInConnectorOptimizer(true)
                 .setEagerPlanValidationEnabled(false)
                 .setEagerPlanValidationThreadPoolSize(20)
                 .setPrestoSparkExecutionEnvironment(false));
@@ -439,6 +440,7 @@ public class TestFeaturesConfig
                 .put("optimizer.remove-cross-join-with-single-constant-row", "false")
                 .put("optimizer.use-histograms", "true")
                 .put("optimizer.inline-projections-on-values", "true")
+                .put("optimizer.include-values-node-in-connector-optimizer", "false")
                 .put("eager-plan-validation-enabled", "true")
                 .put("eager-plan-validation-thread-pool-size", "2")
                 .put("presto-spark-execution-environment", "true")
@@ -632,6 +634,7 @@ public class TestFeaturesConfig
                 .setRemoveCrossJoinWithSingleConstantRow(false)
                 .setUseHistograms(true)
                 .setInlineProjectionsOnValues(true)
+                .setIncludeValuesNodeInConnectorOptimizer(false)
                 .setEagerPlanValidationEnabled(true)
                 .setEagerPlanValidationThreadPoolSize(2)
                 .setPrestoSparkExecutionEnvironment(true);
