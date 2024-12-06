@@ -16,7 +16,9 @@
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "aggregateMetadata": {
@@ -34,7 +36,9 @@
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "aggregateMetadata": {
@@ -52,7 +56,9 @@
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "aggregateMetadata": {
@@ -70,7 +76,9 @@
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "aggregateMetadata": {
@@ -88,7 +96,9 @@
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "aggregateMetadata": {
@@ -106,79 +116,9 @@
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
-    },
-    {
-      "aggregateMetadata": {
-        "intermediateType": "row(bigint,double,double)",
-        "isOrderSensitive": true
-      },
-      "docString": "presto.default.variance",
-      "functionKind": "WINDOW",
-      "outputType": "double",
-      "paramTypes": [
-        "integer"
-      ],
-      "routineCharacteristics": {
-        "determinism": "DETERMINISTIC",
-        "language": "CPP",
-        "nullCallClause": "CALLED_ON_NULL_INPUT"
-      },
-      "schema": "default"
-    },
-    {
-      "aggregateMetadata": {
-        "intermediateType": "row(bigint,double,double)",
-        "isOrderSensitive": true
-      },
-      "docString": "presto.default.variance",
-      "functionKind": "WINDOW",
-      "outputType": "double",
-      "paramTypes": [
-        "bigint"
-      ],
-      "routineCharacteristics": {
-        "determinism": "DETERMINISTIC",
-        "language": "CPP",
-        "nullCallClause": "CALLED_ON_NULL_INPUT"
-      },
-      "schema": "default"
-    },
-    {
-      "aggregateMetadata": {
-        "intermediateType": "row(bigint,double,double)",
-        "isOrderSensitive": true
-      },
-      "docString": "presto.default.variance",
-      "functionKind": "WINDOW",
-      "outputType": "double",
-      "paramTypes": [
-        "real"
-      ],
-      "routineCharacteristics": {
-        "determinism": "DETERMINISTIC",
-        "language": "CPP",
-        "nullCallClause": "CALLED_ON_NULL_INPUT"
-      },
-      "schema": "default"
-    },
-    {
-      "aggregateMetadata": {
-        "intermediateType": "row(bigint,double,double)",
-        "isOrderSensitive": true
-      },
-      "docString": "presto.default.variance",
-      "functionKind": "WINDOW",
-      "outputType": "double",
-      "paramTypes": [
-        "double"
-      ],
-      "routineCharacteristics": {
-        "determinism": "DETERMINISTIC",
-        "language": "CPP",
-        "nullCallClause": "CALLED_ON_NULL_INPUT"
-      },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     }
   ]
 }
