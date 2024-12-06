@@ -493,7 +493,10 @@ std::shared_ptr<protocol::CallExpression> isFunctionCall(
 /// CallExpression. Returns nullptr if input expression is something else.
 std::shared_ptr<protocol::CallExpression> isNot(
     const std::shared_ptr<protocol::RowExpression>& expression) {
-  static const std::string_view kNot = "presto.default.not";
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  static const std::string kNot =
+      formatDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "not");
   return isFunctionCall(expression, kNot);
 }
 
@@ -1514,11 +1517,13 @@ namespace {
 core::WindowNode::Function makeRowNumberFunction(
     const protocol::VariableReferenceExpression& rowNumberVariable,
     const TypeParser& typeParser) {
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
   core::WindowNode::Function function;
   function.functionCall = std::make_shared<core::CallTypedExpr>(
       stringToType(rowNumberVariable.type, typeParser),
       std::vector<core::TypedExprPtr>{},
-      "presto.default.row_number");
+      formatDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "row_number"));
 
   function.frame.type = core::WindowNode::WindowType::kRows;
   function.frame.startType = core::WindowNode::BoundType::kUnboundedPreceding;
