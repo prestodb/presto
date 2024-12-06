@@ -686,9 +686,6 @@
                                     <ignoredDependency>io.grpc:::</ignoredDependency>
                                     <ignoredDependency>commons-codec:commons-codec::</ignoredDependency>
                                 </ignoredDependencies>
-                                <ignoredUnusedDeclaredDependencies>
-                                    <ignoredUnusedDeclaredDependency> org.apache.lucene:lucene-core:jar:8.10.0</ignoredUnusedDeclaredDependency>
-                                </ignoredUnusedDeclaredDependencies>
                             </configuration>
                         </execution>
                     </executions>
