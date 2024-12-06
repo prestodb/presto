@@ -198,6 +198,21 @@ struct Timestamp {
     }
   }
 
+  Timestamp toPrecision(const TimestampPrecision& precision) const {
+    uint64_t nanos = nanos_;
+    switch (precision) {
+      case TimestampPrecision::kMilliseconds:
+        nanos = nanos / 1'000'000 * 1'000'000;
+        break;
+      case TimestampPrecision::kMicroseconds:
+        nanos = nanos / 1'000 * 1'000;
+        break;
+      case TimestampPrecision::kNanoseconds:
+        break;
+    }
+    return Timestamp(seconds_, nanos);
+  }
+
   /// Exports the current timestamp as a std::chrono::time_point of millisecond
   /// precision. Note that the conversion may overflow since the internal
   /// `seconds_` value will need to be multiplied by 1000.

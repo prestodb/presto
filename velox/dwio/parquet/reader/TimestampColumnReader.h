@@ -22,6 +22,13 @@
 namespace facebook::velox::parquet {
 namespace {
 
+Timestamp toInt96Timestamp(const int128_t& value) {
+  // Convert int128_t to Int96 Timestamp by extracting days and nanos.
+  const int32_t days = static_cast<int32_t>(value >> 64);
+  const uint64_t nanos = value & ((((1ULL << 63) - 1ULL) << 1) + 1);
+  return Timestamp::fromDaysAndNanos(days, nanos);
+}
+
 // Range filter for Parquet Int96 Timestamp.
 class ParquetInt96TimestampRange final : public common::TimestampRange {
  public:
@@ -34,12 +41,8 @@ class ParquetInt96TimestampRange final : public common::TimestampRange {
       bool nullAllowed)
       : TimestampRange(lower, upper, nullAllowed) {}
 
-  // Int96 is read as int128_t value and converted to Timestamp by extracting
-  // days and nanos.
   bool testInt128(const int128_t& value) const final {
-    const int32_t days = static_cast<int32_t>(value >> 64);
-    const uint64_t nanos = value & ((((1ULL << 63) - 1ULL) << 1) + 1);
-    const auto ts = Timestamp::fromDaysAndNanos(days, nanos);
+    const auto ts = toInt96Timestamp(value);
     return ts >= this->lower() && ts <= this->upper();
   }
 };
@@ -75,24 +78,8 @@ class TimestampColumnReader : public IntegerColumnReader {
         continue;
       }
 
-      // Convert int128_t to Timestamp by extracting days and nanos.
       const int128_t encoded = reinterpret_cast<int128_t&>(rawValues[i]);
-      const int32_t days = static_cast<int32_t>(encoded >> 64);
-      uint64_t nanos = encoded & ((((1ULL << 63) - 1ULL) << 1) + 1);
-      const auto timestamp = Timestamp::fromDaysAndNanos(days, nanos);
-
-      nanos = timestamp.getNanos();
-      switch (timestampPrecision_) {
-        case TimestampPrecision::kMilliseconds:
-          nanos = nanos / 1'000'000 * 1'000'000;
-          break;
-        case TimestampPrecision::kMicroseconds:
-          nanos = nanos / 1'000 * 1'000;
-          break;
-        case TimestampPrecision::kNanoseconds:
-          break;
-      }
-      rawValues[i] = Timestamp(timestamp.getSeconds(), nanos);
+      rawValues[i] = toInt96Timestamp(encoded).toPrecision(timestampPrecision_);
     }
   }
 
@@ -126,7 +113,6 @@ class TimestampColumnReader : public IntegerColumnReader {
                   rows,
                   extractValues));
     }
-    return;
   }
 
   void read(
@@ -143,7 +129,7 @@ class TimestampColumnReader : public IntegerColumnReader {
  private:
   // The requested precision can be specified from HiveConfig to read timestamp
   // from Parquet.
-  TimestampPrecision timestampPrecision_;
+  const TimestampPrecision timestampPrecision_;
 };
 
 } // namespace facebook::velox::parquet
