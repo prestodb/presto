@@ -792,8 +792,7 @@ std::unique_ptr<velox::cache::SsdCache> PrestoServer::setupSsdCache() {
 
   constexpr int32_t kNumSsdShards = 16;
   cacheExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-     kNumSsdShards,
-     std::make_shared<folly::NamedThreadFactory>("SsdCache"));
+      kNumSsdShards, std::make_shared<folly::NamedThreadFactory>("SsdCache"));
   velox::cache::SsdCache::Config cacheConfig(
       systemConfig->asyncCacheSsdPath(),
       systemConfig->asyncCacheSsdGb() << 30,
