@@ -302,6 +302,10 @@ class E2EFilterTestBase : public testing::Test {
       const std::vector<RowVectorPtr>& batches,
       const std::vector<std::string>& filterable);
 
+  void setReadSize(uint64_t readSize) {
+    readSize_ = readSize;
+  }
+
  private:
   void testReadWithFilterLazy(
       const std::shared_ptr<common::ScanSpec>& spec,
@@ -355,7 +359,7 @@ class E2EFilterTestBase : public testing::Test {
 
   int32_t nextReadBatchSize() {
     if (nextReadSizeIndex_ >= readSizes_.size()) {
-      return 1000;
+      return readSize_;
     }
     return readSizes_[nextReadSizeIndex_++];
   }
@@ -380,6 +384,7 @@ class E2EFilterTestBase : public testing::Test {
   int32_t batchSize_ = kBatchSize;
   bool testRowGroupSkip_ = true;
   uint32_t seed_ = 1;
+  uint64_t readSize_ = 1000;
 };
 
 } // namespace facebook::velox::dwio::common

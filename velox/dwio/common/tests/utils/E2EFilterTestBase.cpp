@@ -112,7 +112,7 @@ void E2EFilterTestBase::readWithoutFilter(
     bool hasData;
     {
       MicrosecondTimer timer(&time);
-      auto rowsScanned = rowReader->next(1000, resultBatch);
+      auto rowsScanned = rowReader->next(readSize_, resultBatch);
       VLOG(1) << "rowsScanned=" << rowsScanned;
       hasData = rowsScanned > 0;
     }
@@ -541,7 +541,7 @@ void E2EFilterTestBase::testMetadataFilterImpl(
       }
     }
   };
-  while (rowReader->next(1000, result)) {
+  while (rowReader->next(readSize_, result)) {
     for (int i = 0; i < result->size(); ++i) {
       auto totalIndex = nextExpectedIndex();
       ASSERT_GE(totalIndex, 0);
