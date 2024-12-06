@@ -60,7 +60,7 @@ std::string mapScalarFunction(const std::string& name) {
       {"presto.default.$operator$modulus",
        formatDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "mod")},
       {"presto.default.$operator$multiply",
-       formatDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "muliply")},
+       formatDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "multiply")},
       {"presto.default.$operator$negation",
        formatDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "negate")},
       {"presto.default.$operator$not_equal",

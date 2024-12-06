@@ -48,7 +48,7 @@ public class TypeVariableConstraint
         this.name = name;
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
-        this.variadicBound = variadicBound;
+        this.variadicBound = (Objects.equals(variadicBound, "")) ? null : variadicBound;
         this.nonDecimalNumericRequired = nonDecimalNumericRequired;
     }
 
