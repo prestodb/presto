@@ -297,35 +297,6 @@ void PrestoServer::run() {
       address_);
 
   initializeCoordinatorDiscoverer();
-  if (coordinatorDiscoverer_ != nullptr) {
-    announcer_ = std::make_unique<Announcer>(
-        address_,
-        httpsPort.has_value(),
-        httpsPort.has_value() ? httpsPort.value() : httpPort,
-        coordinatorDiscoverer_,
-        nodeVersion_,
-        environment_,
-        nodeId_,
-        nodeLocation_,
-        systemConfig->prestoNativeSidecar(),
-        catalogNames,
-        systemConfig->announcementMaxFrequencyMs(),
-        sslContext_);
-    updateAnnouncerDetails();
-    announcer_->start();
-
-    uint64_t heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
-    if (heartbeatFrequencyMs > 0) {
-      heartbeatManager_ = std::make_unique<PeriodicHeartbeatManager>(
-          address_,
-          httpsPort.has_value() ? httpsPort.value() : httpPort,
-          coordinatorDiscoverer_,
-          sslContext_,
-          [server = this]() { return server->fetchNodeStatus(); },
-          heartbeatFrequencyMs);
-      heartbeatManager_->start();
-    }
-  }
 
   const bool reusePort = SystemConfig::instance()->httpServerReusePort();
   auto httpConfig =
@@ -490,14 +461,6 @@ void PrestoServer::run() {
     registerSidecarEndpoints();
   }
 
-  std::string taskUri;
-  if (httpsPort.has_value()) {
-    taskUri = fmt::format(kTaskUriFormat, kHttps, address_, httpsPort.value());
-  } else {
-    taskUri = fmt::format(kTaskUriFormat, kHttp, address_, httpPort);
-  }
-
-  taskManager_->setBaseUri(taskUri);
   taskManager_->setNodeId(nodeId_);
   taskManager_->setOldTaskCleanUpMs(systemConfig->oldTaskCleanUpMs());
 
@@ -587,9 +550,81 @@ void PrestoServer::run() {
 
   addMemoryCheckerPeriodicTask();
 
+  auto setTaskUriCb = [&](bool useHttps, int port) {
+    std::string taskUri;
+    if (useHttps) {
+      taskUri = fmt::format(kTaskUriFormat, kHttps, address_, port);
+    } else {
+      taskUri = fmt::format(kTaskUriFormat, kHttp, address_, port);
+    }
+    taskManager_->setBaseUri(taskUri);
+  };
+
+  auto startAnnouncerAndHeartbeatManagerCb = [&](bool useHttps, int port) {
+    if (coordinatorDiscoverer_ != nullptr) {
+      announcer_ = std::make_unique<Announcer>(
+          address_,
+          useHttps,
+          port,
+          coordinatorDiscoverer_,
+          nodeVersion_,
+          environment_,
+          nodeId_,
+          nodeLocation_,
+          systemConfig->prestoNativeSidecar(),
+          catalogNames,
+          systemConfig->announcementMaxFrequencyMs(),
+          sslContext_);
+      updateAnnouncerDetails();
+      announcer_->start();
+
+      uint64_t heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
+      if (heartbeatFrequencyMs > 0) {
+        heartbeatManager_ = std::make_unique<PeriodicHeartbeatManager>(
+            address_,
+            port,
+            coordinatorDiscoverer_,
+            sslContext_,
+            [server = this]() { return server->fetchNodeStatus(); },
+            heartbeatFrequencyMs);
+        heartbeatManager_->start();
+      }
+    }
+  };
+
   // Start everything. After the return from the following call we are shutting
   // down.
-  httpServer_->start(getHttpServerFilters());
+  httpServer_->start(getHttpServerFilters(), [&](proxygen::HTTPServer* server) {
+    const auto addresses = server->addresses();
+    for (auto address : addresses) {
+      PRESTO_STARTUP_LOG(INFO) << fmt::format(
+          "Server listening at {}:{} - https {}",
+          address.address.getIPAddress().str(),
+          address.address.getPort(),
+          address.sslConfigs.size() != 0);
+      // We could be bound to both http and https ports.
+      // If set, we must use the https port and skip http.
+      if (httpsPort.has_value() && address.sslConfigs.size() == 0) {
+        continue;
+      }
+      startAnnouncerAndHeartbeatManagerCb(
+          httpsPort.has_value(), address.address.getPort());
+      setTaskUriCb(httpsPort.has_value(), address.address.getPort());
+      break;
+    }
+
+    if (coordinatorDiscoverer_ != nullptr) {
+      VELOX_CHECK_NOT_NULL(
+          announcer_,
+          "The announcer is expected to have been created but wasn't.");
+      const auto heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
+      if (heartbeatFrequencyMs > 0) {
+        VELOX_CHECK_NOT_NULL(
+            heartbeatManager_,
+            "The heartbeat manager is expected to have been created but wasn't.");
+      }
+    }
+  });
 
   if (announcer_ != nullptr) {
     PRESTO_SHUTDOWN_LOG(INFO) << "Stopping announcer";
