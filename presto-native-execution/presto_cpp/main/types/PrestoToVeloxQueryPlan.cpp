@@ -355,6 +355,7 @@ std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     return std::make_shared<core::LocalPartitionNode>(
         node->id,
         type,
+        false,
         std::make_shared<HashPartitionFunctionSpec>(outputType, keyChannels),
         std::move(sourceNodes));
   }
@@ -363,6 +364,7 @@ std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     return std::make_shared<core::LocalPartitionNode>(
         node->id,
         type,
+        false,
         std::make_shared<RoundRobinPartitionFunctionSpec>(),
         std::move(sourceNodes));
   }
@@ -455,7 +457,11 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     return core::LocalPartitionNode::gather(node->id, std::move(sourceNodes));
   }
   return std::make_shared<core::LocalPartitionNode>(
-      node->id, type, std::shared_ptr(std::move(spec)), std::move(sourceNodes));
+      node->id,
+      type,
+      false,
+      std::shared_ptr(std::move(spec)),
+      std::move(sourceNodes));
 }
 
 namespace {
