@@ -217,8 +217,8 @@ QueryContextManager::toVeloxConfigs(
   // Use base velox query config as the starting point and add Presto session
   // properties on top of it.
   auto configs = BaseVeloxQueryConfig::instance()->values();
-  std::string traceFragmentId = ".*";
-  std::string traceShardId = ".*";
+  std::optional<std::string> traceFragmentId;
+  std::optional<std::string> traceShardId;
   for (const auto& it : session.systemProperties) {
     if (it.first == SessionProperties::kQueryTraceFragmentId) {
       traceFragmentId = it.second;
@@ -240,10 +240,12 @@ QueryContextManager::toVeloxConfigs(
 
   // Construct query tracing regex and pass to Velox config.
   // It replaces the given native_query_trace_task_reg_exp if also set.
-  // It's OK to just pass in this property even if tracing is not enabled
-  configs.emplace(
-      velox::core::QueryConfig::kQueryTraceTaskRegExp,
-      ".*\\." + traceFragmentId + "\\..*\\." + traceShardId + "\\..*");
+  if (traceFragmentId.has_value() || traceShardId.has_value()) {
+    configs.emplace(
+        velox::core::QueryConfig::kQueryTraceTaskRegExp,
+        ".*\\." + traceFragmentId.value_or(".*") + "\\..*\\." +
+            traceShardId.value_or(".*") + "\\..*");
+  }
 
   updateFromSystemConfigs(configs);
   return configs;
