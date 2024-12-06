@@ -178,83 +178,6 @@ getSignaturesForCast() {
   return signatures;
 }
 
-static const std::unordered_map<
-    std::string,
-    std::vector<facebook::velox::exec::FunctionSignaturePtr>>
-    kSpecialForms = {
-        {"and",
-         std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-             // Signature: and (condition,...) -> output:
-             // boolean, boolean,.. -> boolean
-             facebook::velox::exec::FunctionSignatureBuilder()
-                 .argumentType("boolean")
-                 .variableArity("boolean")
-                 .returnType("boolean")
-                 .build()}},
-        {"or",
-         std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-             // Signature: or (condition,...) -> output:
-             // boolean, boolean,.. -> boolean
-             facebook::velox::exec::FunctionSignatureBuilder()
-                 .argumentType("boolean")
-                 .variableArity("boolean")
-                 .returnType("boolean")
-                 .build()}},
-        {"coalesce",
-         std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-             // Signature: coalesce (input,...) -> output:
-             // T, T,.. -> T
-             facebook::velox::exec::FunctionSignatureBuilder()
-                 .typeVariable("T")
-                 .argumentType("T")
-                 .variableArity("T")
-                 .returnType("T")
-                 .build()}},
-        {
-            "if",
-            std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-                // Signature: if (condition, then) -> output:
-                // boolean, T -> T
-                facebook::velox::exec::FunctionSignatureBuilder()
-                    .typeVariable("T")
-                    .argumentType("boolean")
-                    .argumentType("T")
-                    .returnType("T")
-                    .build(),
-                // Signature: if (condition, then, else) -> output:
-                // boolean, T, T -> T
-                facebook::velox::exec::FunctionSignatureBuilder()
-                    .typeVariable("T")
-                    .argumentType("boolean")
-                    .argumentType("T")
-                    .argumentType("T")
-                    .returnType("T")
-                    .build()},
-        },
-        {
-            "switch",
-            std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-                // Signature: Switch (condition, then) -> output:
-                // boolean, T -> T
-                // This is only used to bind to a randomly selected type for the
-                // output, then while generating arguments, an override is used
-                // to generate inputs that can create variation of multiple
-                // cases and may or may not include a final else clause.
-                facebook::velox::exec::FunctionSignatureBuilder()
-                    .typeVariable("T")
-                    .argumentType("boolean")
-                    .argumentType("T")
-                    .returnType("T")
-                    .build()},
-        },
-        {
-            "cast",
-            /// TODO: Add supported Cast signatures to CastTypedExpr and expose
-            /// them to fuzzer instead of hard-coding signatures here.
-            getSignaturesForCast(),
-        },
-};
-
 static std::unordered_set<std::string> splitNames(const std::string& names) {
   // Parse, lower case and trim it.
   std::vector<folly::StringPiece> nameList;
@@ -358,6 +281,86 @@ static void filterSignatures(
 static void appendSpecialForms(
     facebook::velox::FunctionSignatureMap& signatureMap,
     const std::string& specialForms) {
+  static const std::unordered_map<
+      std::string,
+      std::vector<facebook::velox::exec::FunctionSignaturePtr>>
+      kSpecialForms = {
+          {"and",
+           std::vector<facebook::velox::exec::FunctionSignaturePtr>{
+               // Signature: and (condition,...) -> output:
+               // boolean, boolean,.. -> boolean
+               facebook::velox::exec::FunctionSignatureBuilder()
+                   .argumentType("boolean")
+                   .variableArity("boolean")
+                   .returnType("boolean")
+                   .build()}},
+          {"or",
+           std::vector<facebook::velox::exec::FunctionSignaturePtr>{
+               // Signature: or (condition,...) -> output:
+               // boolean, boolean,.. -> boolean
+               facebook::velox::exec::FunctionSignatureBuilder()
+                   .argumentType("boolean")
+                   .variableArity("boolean")
+                   .returnType("boolean")
+                   .build()}},
+          {"coalesce",
+           std::vector<facebook::velox::exec::FunctionSignaturePtr>{
+               // Signature: coalesce (input,...) -> output:
+               // T, T,.. -> T
+               facebook::velox::exec::FunctionSignatureBuilder()
+                   .typeVariable("T")
+                   .argumentType("T")
+                   .variableArity("T")
+                   .returnType("T")
+                   .build()}},
+          {
+              "if",
+              std::vector<facebook::velox::exec::FunctionSignaturePtr>{
+                  // Signature: if (condition, then) -> output:
+                  // boolean, T -> T
+                  facebook::velox::exec::FunctionSignatureBuilder()
+                      .typeVariable("T")
+                      .argumentType("boolean")
+                      .argumentType("T")
+                      .returnType("T")
+                      .build(),
+                  // Signature: if (condition, then, else) -> output:
+                  // boolean, T, T -> T
+                  facebook::velox::exec::FunctionSignatureBuilder()
+                      .typeVariable("T")
+                      .argumentType("boolean")
+                      .argumentType("T")
+                      .argumentType("T")
+                      .returnType("T")
+                      .build()},
+          },
+          {
+              "switch",
+              std::vector<facebook::velox::exec::FunctionSignaturePtr>{
+                  // Signature: Switch (condition, then) -> output:
+                  // boolean, T -> T
+                  // This is only used to bind to a randomly selected type for
+                  // the
+                  // output, then while generating arguments, an override is
+                  // used
+                  // to generate inputs that can create variation of multiple
+                  // cases and may or may not include a final else clause.
+                  facebook::velox::exec::FunctionSignatureBuilder()
+                      .typeVariable("T")
+                      .argumentType("boolean")
+                      .argumentType("T")
+                      .returnType("T")
+                      .build()},
+          },
+          {
+              "cast",
+              /// TODO: Add supported Cast signatures to CastTypedExpr and
+              /// expose
+              /// them to fuzzer instead of hard-coding signatures here.
+              getSignaturesForCast(),
+          },
+      };
+
   auto specialFormNames = splitNames(specialForms);
   for (const auto& [name, signatures] : kSpecialForms) {
     if (specialFormNames.count(name) == 0) {
